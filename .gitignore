@@ -16,6 +16,7 @@ out/
 # Next.js (apps/web)
 .next/
 next-env.d.ts
+.vercel/
 
 # Env & secrets
 .env
@@ -38,9 +39,15 @@ blob-report/
 # Generated screenshot bundles (CLI export output)
 export/
 
-# Editor / tooling
+# Lint / tool caches
+.eslintcache
+.cache/
+
+# Certs / keys
+*.pem
+
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea/
 *.swp
-.cache/
