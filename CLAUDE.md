@@ -1,5 +1,7 @@
 # CLAUDE.md
 
-Instructions for Claude Code in this repo live in `AGENTS.md`. They are imported below.
+Instructions for Claude Code in this repo. The project contract lives in `AGENTS.md` and the
+general collaboration rules in `RULES.md`. Both are imported below.
 
 @AGENTS.md
+@RULES.md
