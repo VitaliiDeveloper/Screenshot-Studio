@@ -81,6 +81,26 @@ polish (README GIF, `CONTRIBUTING.md`, example projects).
 
 ---
 
+## 3a. Phase 1 execution slices
+
+Phase 1 (the web editor) is 6–7 subsystems — too large for one spec. It is sliced by **risk**,
+not by UI panel, and each slice is its own spec → plan → implementation cycle. Order is fixed;
+a later slice may not start before the one it depends on lands.
+
+| Slice | Delivers | Risk it retires |
+|-------|----------|-----------------|
+| **1 — Interactive canvas + render-reuse** | Konva editor stage (pan/zoom, select/move/resize/rotate, inline text edit) over a Zustand+Immer patch store; save/load via a disk-backed API route; export still passes parity. Only `text` + `shape` (schema unchanged). | **Highest.** Proves the interactive editor shares the *single* render path instead of forking a second react-konva tree — the Phase 0 parity thesis applied to an interactive surface. |
+| **2 — Schema widening** | `screenshot` + `device-frame` element types: Zod contract, `v1→v2` migration, asset loading, iPhone bezel mockup. | Touches the validator (escalation-sensitive per RULES.md); adds asset-loading + bezel fidelity as new parity surfaces. |
+| **3 — Left panel** | Screens section (dnd-kit reorder = export order) + Layers section (z-order, lock, hide, rename). No grouping. | Medium — multi-screen state, reorder as the shared UI/CLI ordering source. |
+| **4 — Inspector + toolbar** | Full per-type inspector, no-selection artboard/background editor, toolbar element tools (insert-on-click) + zoom controls. | Low — sits on the store and mapper the earlier slices established. |
+
+**The single source of truth for element rendering is `core/engine`'s `elementToNodeConfig`**
+(introduced in Slice 1): a pure `element → Konva props` map consumed by both the static
+`renderScreen` (export) and the interactive editor stage. Deferred to their own later phases,
+not slices: snapping/guides, undo/redo *UI*, grouping, themes, templates, locales/RTL.
+
+---
+
 ## 4. Technical risks
 
 1. **Render/export parity (highest).** UI (browser Konva) vs CLI (headless) must produce the
