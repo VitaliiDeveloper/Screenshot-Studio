@@ -1,0 +1,19 @@
+{
+  "$comment": "Store export sizes as DATA, not hardcode (docs/architecture.md §4). Apple values are accepted sizes Apple publishes; Google values are recommended presets within Google's allowed ranges. store-specs.json is the runtime source of truth for export dimensions. Phase 0 ships the apple/iphone lead size the sample fixture targets; the rest are seeded for Phase 2.",
+  "apple": {
+    "iphone": [
+      { "id": "6.9", "label": "6.9\" iPhone (lead)", "width": 1320, "height": 2868, "orientation": "portrait" },
+      { "id": "6.5", "label": "6.5\" iPhone", "width": 1284, "height": 2778, "orientation": "portrait" },
+      { "id": "6.3", "label": "6.3\" iPhone", "width": 1206, "height": 2622, "orientation": "portrait" },
+      { "id": "6.1", "label": "6.1\" iPhone", "width": 1125, "height": 2436, "orientation": "portrait" }
+    ],
+    "ipad": [
+      { "id": "13", "label": "iPad 13\"", "width": 2064, "height": 2752, "orientation": "portrait" }
+    ]
+  },
+  "android": {
+    "phone": [
+      { "id": "phone-portrait", "label": "Phone portrait", "width": 1080, "height": 1920, "orientation": "portrait" }
+    ]
+  }
+}
