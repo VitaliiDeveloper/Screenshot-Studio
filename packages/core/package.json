@@ -1,0 +1,26 @@
+{
+  "name": "@screenshot-studio/core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./model": "./src/model/index.ts",
+    "./engine": "./src/engine/index.ts",
+    "./export": "./src/export/index.ts",
+    "./fonts": "./src/fonts/index.ts",
+    "./storage": "./src/storage/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "konva": "^9.3.16",
+    "pngjs": "^7.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "playwright": "^1.49.1"
+  }
+}
