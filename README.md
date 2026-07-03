@@ -15,8 +15,56 @@ reproducible, automatable in CI, and give an AI agent a clean contract to work a
 
 ## Status
 
-Planning. The first milestone is a Phase 0 spike proving that one JSON renders to a
-pixel-correct PNG from both the web UI and the CLI. See [docs/roadmap.md](docs/roadmap.md).
+**Phase 0 (render/export parity spike) — done.** One project JSON renders to a pixel-correct
+PNG from the same web renderer used by both the browser and the CLI, verified on the hardest
+case (an embedded custom font). The canvas editor is Phase 1 and not built yet — see
+[docs/roadmap.md](docs/roadmap.md).
+
+## Requirements
+
+- **Node.js 20+** and **pnpm**.
+- A one-time Playwright browser download (the CLI renders through a headless browser):
+
+```bash
+pnpm exec playwright install chromium chromium-headless-shell
+```
+
+Both browser builds are needed: the parity check compares a headed (`chromium`) render against
+a headless (`chromium-headless-shell`) one.
+
+## Install
+
+```bash
+git clone <repo> && cd AppReviewPlatform
+pnpm install
+pnpm exec playwright install chromium chromium-headless-shell
+```
+
+## Usage (Phase 0 CLI)
+
+```bash
+# Scaffold a project (writes app-store-screenshots.json + standard directories)
+pnpm screenshots init --dir ./my-app-screenshots
+
+# Export a screen to an exact store size (PNG, 24-bit RGB, no alpha)
+pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json
+```
+
+`export` flags: `--screen <id>` (defaults to the first screen), `--size <id>` (defaults to
+`6.9`, from [store-specs.json](store-specs.json)), `--out <dir>` (defaults to `<project>/export`).
+
+The `dev` command (the canvas editor) arrives in Phase 1.
+
+## Development
+
+```bash
+pnpm test        # unit tests (schema, store-specs, export helpers)
+pnpm test:e2e    # Phase 0 parity gate: headed-vs-headless render + font fidelity
+pnpm typecheck   # all packages
+```
+
+`pnpm test:e2e` starts the `apps/web` render host and drives Chromium, so it requires the
+Playwright browsers from **Requirements** above.
 
 ## License
 
