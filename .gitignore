@@ -43,6 +43,12 @@ export/
 .eslintcache
 .cache/
 
+# Agent planning artifacts (local, not the curated docs/ contract)
+docs/superpowers/
+
+# E2E scratch (parity harness temp renders)
+e2e/.tmp/
+
 # Certs / keys
 *.pem
 
