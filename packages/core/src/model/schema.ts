@@ -59,7 +59,19 @@ export const ShapeElement = z
   .strict();
 export type ShapeElement = z.infer<typeof ShapeElement>;
 
-export const Element = z.discriminatedUnion("type", [TextElement, ShapeElement]);
+export const ScreenshotElement = z
+  .object({
+    type: z.literal("screenshot"),
+    ...elementBase,
+    /** Document-relative path to the image, served by the web-host asset route. */
+    assetUrl: z.string().min(1),
+    fit: z.enum(["cover", "contain"]).default("cover"),
+    cornerRadius: z.number().min(0).default(0),
+  })
+  .strict();
+export type ScreenshotElement = z.infer<typeof ScreenshotElement>;
+
+export const Element = z.discriminatedUnion("type", [TextElement, ShapeElement, ScreenshotElement]);
 export type Element = z.infer<typeof Element>;
 
 export const SolidBackground = z

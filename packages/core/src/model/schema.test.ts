@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseProject, ProjectValidationError, getScreen, SCHEMA_VERSION } from "./index.js";
+import { parseProject, ProjectValidationError, getScreen, SCHEMA_VERSION, Element } from "./index.js";
 
 function validProject() {
   return {
@@ -84,5 +84,34 @@ describe("getScreen", () => {
   it("throws for an unknown screen id", () => {
     const project = parseProject(validProject());
     expect(() => getScreen(project, "nope")).toThrow(/not found/);
+  });
+});
+
+describe("ScreenshotElement", () => {
+  const base = {
+    id: "s1", type: "screenshot", x: 0, y: 0, width: 100, height: 200,
+    assetUrl: "assets/shot.png",
+  };
+
+  it("parses a valid screenshot with defaults", () => {
+    const parsed = Element.parse(base);
+    expect(parsed).toMatchObject({ type: "screenshot", fit: "cover", cornerRadius: 0 });
+  });
+
+  it("accepts fit contain and a corner radius", () => {
+    expect(Element.parse({ ...base, fit: "contain", cornerRadius: 24 }))
+      .toMatchObject({ fit: "contain", cornerRadius: 24 });
+  });
+
+  it("rejects an unknown fit", () => {
+    expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
+  });
+
+  it("rejects an empty assetUrl", () => {
+    expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
+  });
+
+  it("rejects an unknown key (strict)", () => {
+    expect(() => Element.parse({ ...base, bogus: 1 })).toThrow();
   });
 });
