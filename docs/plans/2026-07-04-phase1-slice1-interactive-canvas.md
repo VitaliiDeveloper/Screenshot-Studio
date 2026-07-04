@@ -354,6 +354,32 @@ export const editorStore = createStore<EditorState>((set) => ({
 Run: `pnpm test -- editor-store`
 Expected: PASS (3 tests).
 
+**If it fails to resolve `@screenshot-studio/core/model`:** this is the first *unit* test to import
+`core` by package specifier (existing unit tests use relative imports; only the e2e config uses the
+specifier). Add an alias to `vitest.config.ts` so Vitest resolves the exports map to the `.ts`
+source, then re-run:
+
+```ts
+import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@screenshot-studio/core": fileURLToPath(new URL("./packages/core/src", import.meta.url)),
+    },
+  },
+  test: {
+    environment: "node",
+    include: ["packages/**/*.test.ts", "apps/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "e2e/**"],
+  },
+});
+```
+
+(The alias maps the specifier root to `packages/core/src`; the exports subpaths like `/model`
+resolve under it. Only add this if Step 6 actually fails to resolve — don't add config you don't need.)
+
 - [ ] **Step 7: Commit**
 
 ```bash
@@ -933,31 +959,36 @@ afterAll(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function headlineX(): number {
+interface Geom { id: string; x: number; y: number; width: number; height: number }
+
+function headline(): Geom {
   const p = JSON.parse(readFileSync(projectFile, "utf8"));
-  return p.screens[0].elements.find((e: { id: string }) => e.id === "headline").x;
+  return p.screens[0].elements.find((e: Geom) => e.id === "headline");
 }
 
 describe("editor round-trip", () => {
   it("dragging an element persists its new position to disk", async () => {
-    const startX = headlineX();
-    const page = await browser.newPage();
-    await page.goto(`${server.url}/editor`, { waitUntil: "networkidle" });
-    await page.waitForSelector("canvas");
-
-    // Drag the headline: click to select, then drag by a fixed offset on the canvas.
+    const start = headline();
+    // Viewport must fit the 660×1434 artboard (stage renders 1:1, no zoom this slice), else the
+    // element sits below the fold and the mouse can't hit it.
+    const page = await browser.newPage({ viewport: { width: 800, height: 1600 } });
+    // Match the project's proven readiness pattern (render-driver.ts): "load", not "networkidle"
+    // — next dev's HMR channel keeps the network busy and makes "networkidle" flaky.
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     const canvas = await page.waitForSelector("canvas");
     const box = (await canvas.boundingBox())!;
-    // The headline sits in the lower half of the artboard; click there, then drag right+down.
-    const px = box.x + box.width * 0.5;
-    const py = box.y + box.height * 0.6;
-    await page.mouse.move(px, py);
+
+    // Coords are computed, not guessed: the stage is 1:1, so the headline's centre on screen is
+    // the canvas origin plus its document x/y/width/height.
+    const cx = box.x + start.x + start.width / 2;
+    const cy = box.y + start.y + start.height / 2;
+    await page.mouse.move(cx, cy);
     await page.mouse.down();
-    await page.mouse.move(px + 40, py + 30, { steps: 5 });
+    await page.mouse.move(cx + 40, cy + 30, { steps: 5 });
     await page.mouse.up();
 
     // Wait for the PUT to land, then assert the on-disk x changed.
-    await expect.poll(() => headlineX(), { timeout: 10_000 }).not.toBe(startX);
+    await expect.poll(() => headline().x, { timeout: 10_000 }).not.toBe(start.x);
     await page.close();
   });
 });
@@ -966,7 +997,7 @@ describe("editor round-trip", () => {
 - [ ] **Step 2: Run the e2e test**
 
 Run: `pnpm test:e2e -- editor`
-Expected: PASS. If the drag doesn't hit the headline (position depends on artboard layout), adjust the `0.5`/`0.6` fractions so the click lands on the headline text, and re-run.
+Expected: PASS. Coordinates are computed from the fixture geometry against a 1:1 stage, so no fraction-tuning is needed; if it misses, verify the artboard is not being scaled by CSS (it must render at its native `width`/`height`).
 
 - [ ] **Step 3: Run the full e2e suite (parity must still pass alongside the new test)**
 
@@ -994,7 +1025,10 @@ git commit -m "test: add editor load-drag-save round-trip e2e"
 - §7 tests: parity regression → T1 S8; mapper unit → T1; store unit → T2; e2e round-trip → T6.
 - §8 DoD → satisfied across T1–T6.
 
-**Note on pan/zoom:** The spec calls for a pan/zoom canvas. This plan ships scroll/overflow to view the full artboard (Task 4) and defers Konva stage zoom/drag-pan gestures to keep the slice focused on the render-reuse thesis; select/transform interaction is the load-bearing proof. If stage-level zoom is wanted inside this slice, add a follow-up task binding `stage.scale`/`stage.position` to wheel + space-drag — it does not change any interface above. Flagged for the reviewer rather than silently dropped.
+**Note on pan/zoom:** Reconciled in the spec — §2 now scopes Slice 1 to a scrollable 1:1 canvas and
+lists stage-level pan/zoom gestures (wheel-zoom, space-drag pan) as an explicit follow-up. Both docs
+now agree; the plan ships scroll/overflow (Task 4). Binding `stage.scale`/`stage.position` to wheel +
+space-drag later does not change any interface defined above.
 
 **Placeholder scan:** none — every code step has complete code; every run step has an exact command and expected result.
 

@@ -30,7 +30,10 @@ element-rendering source of truth, and the Phase 0 parity gate still passes unch
 
 **In (only what proves the thesis):**
 
-- An infinite pan/zoom canvas showing one **active screen** (the project's first screen).
+- A scrollable canvas showing one **active screen** (the project's first screen) at 1:1.
+  **Stage-level pan/zoom gestures (wheel-zoom, space-drag pan) are deferred** — they do not serve
+  the render-reuse thesis and add interaction surface that competes with the transform proof.
+  Scroll/overflow is enough to view the full artboard in this slice.
 - Selection → Konva `Transformer` with move / resize / rotate. **Single-select** only.
 - Inline `text` editing on double-click.
 - Only the element types already in the schema: `text` and `shape`. **The Zod schema is not
@@ -47,6 +50,8 @@ element-rendering source of truth, and the Phase 0 parity gate still passes unch
 - Left panel (Screens + Layers) — Slice 3.
 - Full per-type inspector, no-selection background editor, toolbar element tools — Slice 4.
 - `screenshot` / `device-frame` types and the `v1→v2` schema migration — Slice 2.
+- Stage-level pan/zoom gestures (wheel-zoom, space-drag pan) — a focused follow-up; the view is
+  scrollable in this slice.
 - Marquee multi-select, snapping / smart guides, element grouping — later phases.
 - Undo/redo **UI**, themes, templates, locales / RTL — later phases.
 
