@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
-import { Stage, Layer, Text, Rect, Transformer } from "react-konva";
+import { Stage, Layer, Text, Rect, Image as KonvaImage, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import { getScreen } from "@screenshot-studio/core/model";
 import { elementToNodeConfig } from "@screenshot-studio/core/engine";
+import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { saveProject } from "../lib/save-project";
 
@@ -15,7 +16,7 @@ import { saveProject } from "../lib/save-project";
  * are layered on here only — they never touch the shared map, so export output is unaffected.
  * Each committed change flows through the store (Immer patch) and is persisted via saveProject.
  */
-export function EditorStage() {
+export function EditorStage({ images }: { images: ImageCache }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedId = useStore(editorStore, (s) => s.selectedId);
@@ -80,7 +81,7 @@ export function EditorStage() {
           )}
           {screen.elements.map((element) => {
             if (!element.visible) return null;
-            const { konva, config } = elementToNodeConfig(element);
+            const { konva, config } = elementToNodeConfig(element, images);
             const interaction = {
               draggable: !element.locked,
               ref: (n: Konva.Node | null) => {
@@ -92,16 +93,20 @@ export function EditorStage() {
               onDragEnd: onDragEnd(element.id),
               onTransformEnd: onTransformEnd(element.id),
             };
-            return konva === "Text" ? (
-              <Text
-                key={element.id}
-                {...config}
-                {...interaction}
-                onDblClick={() => setEditing({ id: element.id, value: (config as Konva.TextConfig).text ?? "" })}
-              />
-            ) : (
-              <Rect key={element.id} {...config} {...interaction} />
-            );
+            if (konva === "Text") {
+              return (
+                <Text
+                  key={element.id}
+                  {...config}
+                  {...interaction}
+                  onDblClick={() => setEditing({ id: element.id, value: (config as Konva.TextConfig).text ?? "" })}
+                />
+              );
+            }
+            if (konva === "Image") {
+              return <KonvaImage key={element.id} {...config} {...interaction} />;
+            }
+            return <Rect key={element.id} {...config} {...interaction} />;
           })}
           <Transformer ref={trRef} rotateEnabled />
         </Layer>

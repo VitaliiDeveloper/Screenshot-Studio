@@ -1,5 +1,6 @@
 import Konva from "konva";
 import type { Project, Screen, Element } from "../model/schema.js";
+import type { ImageCache } from "./node-config.js";
 import { getScreen } from "../model/index.js";
 import { elementToNodeConfig } from "./node-config.js";
 
@@ -16,6 +17,7 @@ export function renderScreen(
   container: HTMLDivElement,
   project: Project,
   screenId: string,
+  images: ImageCache,
 ): Konva.Stage {
   const screen = getScreen(project, screenId);
   const { width, height } = screen.artboard;
@@ -27,7 +29,7 @@ export function renderScreen(
   drawBackground(layer, screen);
   for (const element of screen.elements) {
     if (!element.visible) continue;
-    drawElement(layer, element);
+    drawElement(layer, element, images);
   }
 
   layer.draw();
@@ -41,7 +43,9 @@ function drawBackground(layer: Konva.Layer, screen: Screen): void {
   }
 }
 
-function drawElement(layer: Konva.Layer, element: Element): void {
-  const { konva, config } = elementToNodeConfig(element);
-  layer.add(konva === "Text" ? new Konva.Text(config) : new Konva.Rect(config));
+function drawElement(layer: Konva.Layer, element: Element, images: ImageCache): void {
+  const { konva, config } = elementToNodeConfig(element, images);
+  if (konva === "Text") layer.add(new Konva.Text(config));
+  else if (konva === "Image") layer.add(new Konva.Image(config));
+  else layer.add(new Konva.Rect(config));
 }

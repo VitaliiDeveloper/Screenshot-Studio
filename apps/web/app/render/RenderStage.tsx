@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { Project } from "@screenshot-studio/core/model";
 
 /**
- * Client stage: registers embedded fonts, renders one screen via `core/engine.renderScreen`,
- * then exposes an export hook and a readiness flag on `window`. Konva is imported dynamically
- * inside the effect so it never loads during SSR (it needs a real DOM).
+ * Client stage: registers embedded fonts, preloads screenshot images, renders one screen via
+ * `core/engine.renderScreen`, then exposes an export hook and a readiness flag on `window`. Konva
+ * is imported dynamically inside the effect so it never loads during SSR (it needs a real DOM).
  *
- * Readiness contract (spec §5, §6): `window.__stageReady` is set to `true` ONLY after the
- * embedded fonts have resolved and the stage has drawn — never before — so a screenshot can
- * never capture a frame that fell back to a system font (the #1 parity failure mode).
+ * Readiness contract (spec §5, §6): `window.__stageReady` is set to `true` ONLY after the embedded
+ * fonts AND the screenshot images have resolved and the stage has drawn — never before — so a
+ * screenshot can never capture a frame that fell back to a system font or a half-loaded image.
  */
 
 declare global {
@@ -22,7 +22,15 @@ declare global {
   }
 }
 
-export function RenderStage({ project, screenId }: { project: Project; screenId: string }) {
+export function RenderStage({
+  project,
+  screenId,
+  projectPath,
+}: {
+  project: Project;
+  screenId: string;
+  projectPath: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,16 +42,23 @@ export function RenderStage({ project, screenId }: { project: Project; screenId:
       const container = containerRef.current;
       if (!container) return;
       try {
-        const [{ renderScreen }, { registerProjectFonts }] = await Promise.all([
+        const [{ renderScreen }, { registerProjectFonts }, { loadProjectImages }] = await Promise.all([
           import("@screenshot-studio/core/engine"),
           import("@screenshot-studio/core/fonts"),
+          import("@screenshot-studio/core/assets"),
         ]);
 
-        // Fonts first — the render must paint with the embedded font, not a fallback.
-        await registerProjectFonts(project.fonts);
+        // Fonts AND images must resolve before the first paint (spec §3): a screenshot must never
+        // be captured half-loaded, just like the font must never fall back.
+        const resolveAsset = (assetUrl: string) =>
+          `/api/asset?project=${encodeURIComponent(projectPath)}&path=${encodeURIComponent(assetUrl)}`;
+        const [, images] = await Promise.all([
+          registerProjectFonts(project.fonts),
+          loadProjectImages(project, resolveAsset),
+        ]);
         if (cancelled) return;
 
-        stage = renderScreen(container, project, screenId);
+        stage = renderScreen(container, project, screenId, images);
 
         window.__exportPng = (pixelRatio: number) =>
           stage!.toDataURL({ pixelRatio, mimeType: "image/png" });
@@ -61,7 +76,7 @@ export function RenderStage({ project, screenId }: { project: Project; screenId:
       delete window.__stageReady;
       delete window.__exportPng;
     };
-  }, [project, screenId]);
+  }, [project, screenId, projectPath]);
 
   if (error) return <main data-render-error="render-failed">{error}</main>;
   return <div ref={containerRef} data-render-stage />;

@@ -41,5 +41,5 @@ export default async function RenderPage({
   }
 
   const targetScreen = screenId ?? project.screens[0]!.id;
-  return <RenderStage project={project} screenId={targetScreen} />;
+  return <RenderStage project={project} screenId={targetScreen} projectPath={resolve(projectPath)} />;
 }
