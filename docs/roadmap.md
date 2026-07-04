@@ -89,10 +89,11 @@ a later slice may not start before the one it depends on lands.
 
 | Slice | Delivers | Risk it retires |
 |-------|----------|-----------------|
-| **1 — Interactive canvas + render-reuse** | Konva editor stage (pan/zoom, select/move/resize/rotate, inline text edit) over a Zustand+Immer patch store; save/load via a disk-backed API route; export still passes parity. Only `text` + `shape` (schema unchanged). | **Highest.** Proves the interactive editor shares the *single* render path instead of forking a second react-konva tree — the Phase 0 parity thesis applied to an interactive surface. |
-| **2 — Schema widening** | `screenshot` + `device-frame` element types: Zod contract, `v1→v2` migration, asset loading, iPhone bezel mockup. | Touches the validator (escalation-sensitive per RULES.md); adds asset-loading + bezel fidelity as new parity surfaces. |
-| **3 — Left panel** | Screens section (dnd-kit reorder = export order) + Layers section (z-order, lock, hide, rename). No grouping. | Medium — multi-screen state, reorder as the shared UI/CLI ordering source. |
-| **4 — Inspector + toolbar** | Full per-type inspector, no-selection artboard/background editor, toolbar element tools (insert-on-click) + zoom controls. | Low — sits on the store and mapper the earlier slices established. |
+| **1 — Interactive canvas + render-reuse** ✅ | Konva editor stage (select/move/resize/rotate, inline text edit) over a Zustand+Immer patch store; save/load via a disk-backed API route; export still passes parity. Only `text` + `shape` (schema unchanged). | **Highest.** Proves the interactive editor shares the *single* render path instead of forking a second react-konva tree — the Phase 0 parity thesis applied to an interactive surface. |
+| **2 — `screenshot` + asset-loading parity** | `screenshot` element type (additive union member, `assetUrl`/`fit`/`cornerRadius`); a `core` image preloader awaited before the render-ready gate; a web-host asset route feeding the same URL to `/editor` and `/render`. Schema stays v1 (additive — no migration). | Adds **asset-loading parity**: every image must decode before `__stageReady` or CLI export screenshots a missing-image frame — the direct analog of the Phase 0 font-load race. |
+| **3 — `device-frame`** | `device-frame` element type: bundled iPhone bezel asset, screen-slot compositing/clipping over a `screenshot`. Depends on Slice 2. | Bezel fidelity + slot alignment as a new parity surface; separable from asset-loading. |
+| **4 — Left panel** | Screens section (dnd-kit reorder = export order) + Layers section (z-order, lock, hide, rename). No grouping. | Medium — multi-screen state, reorder as the shared UI/CLI ordering source. |
+| **5 — Inspector + toolbar** | Full per-type inspector, no-selection artboard/background editor, toolbar element tools (insert-on-click) + zoom controls. | Low — sits on the store and mapper the earlier slices established. |
 
 **The single source of truth for element rendering is `core/engine`'s `elementToNodeConfig`**
 (introduced in Slice 1): a pure `element → Konva props` map consumed by both the static
