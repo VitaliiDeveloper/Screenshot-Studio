@@ -1,0 +1,30 @@
+{
+  "meta": { "name": "Slice 2 Screenshot", "schemaVersion": 1 },
+  "platforms": ["apple"],
+  "locales": ["en"],
+  "fonts": [],
+  "screens": [
+    {
+      "id": "shot",
+      "name": "Shot",
+      "platform": "apple",
+      "device": "iphone",
+      "locale": "en",
+      "artboard": { "width": 660, "height": 1434 },
+      "background": { "type": "solid", "color": "#101010" },
+      "elements": [
+        {
+          "id": "hero-shot",
+          "type": "screenshot",
+          "x": 80,
+          "y": 300,
+          "width": 500,
+          "height": 800,
+          "assetUrl": "assets/shot.png",
+          "fit": "cover",
+          "cornerRadius": 48
+        }
+      ]
+    }
+  ]
+}
