@@ -19,6 +19,8 @@ const EditorStage = dynamic(
 export default function EditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<ImageCache | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const clamp = (z: number) => Math.min(4, Math.max(0.25, Number(z.toFixed(2))));
 
   useEffect(() => {
     (async () => {
@@ -46,9 +48,14 @@ export default function EditorPage() {
     <main className="flex h-screen w-full">
       <LeftPanel />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Toolbar zoom={1} onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />
+        <Toolbar
+          zoom={zoom}
+          onZoomIn={() => setZoom((z) => clamp(z + 0.25))}
+          onZoomOut={() => setZoom((z) => clamp(z - 0.25))}
+          onZoomReset={() => setZoom(1)}
+        />
         <div className="flex-1 overflow-auto bg-neutral-100 p-8">
-          <EditorStage images={images} />
+          <EditorStage images={images} zoom={zoom} />
         </div>
       </div>
       <Inspector />

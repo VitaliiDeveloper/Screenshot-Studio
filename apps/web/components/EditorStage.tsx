@@ -16,7 +16,7 @@ import { saveProject } from "../lib/save-project";
  * are layered on here only — they never touch the shared map, so export output is unaffected.
  * Each committed change flows through the store (Immer patch) and is persisted via saveProject.
  */
-export function EditorStage({ images }: { images: ImageCache }) {
+export function EditorStage({ images, zoom = 1 }: { images: ImageCache; zoom?: number }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedId = useStore(editorStore, (s) => s.selectedId);
@@ -65,10 +65,12 @@ export function EditorStage({ images }: { images: ImageCache }) {
   };
 
   return (
-    <div style={{ position: "relative", width, height }}>
+    <div style={{ position: "relative", width: width * zoom, height: height * zoom }}>
       <Stage
-        width={width}
-        height={height}
+        width={width * zoom}
+        height={height * zoom}
+        scaleX={zoom}
+        scaleY={zoom}
         className="bg-neutral-200"
         onMouseDown={(e) => {
           // Click on empty stage clears the selection.
