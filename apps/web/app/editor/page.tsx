@@ -7,6 +7,7 @@ import { registerProjectFonts } from "@screenshot-studio/core/fonts";
 import { loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore } from "../../lib/editor-store";
 import { LeftPanel } from "../../components/LeftPanel";
+import { Inspector } from "../../components/Inspector";
 
 // react-konva needs the DOM; load the stage client-only (no SSR).
 const EditorStage = dynamic(
@@ -46,6 +47,7 @@ export default function EditorPage() {
       <div className="flex-1 overflow-auto bg-neutral-100 p-8">
         <EditorStage images={images} />
       </div>
+      <Inspector />
     </main>
   );
 }
