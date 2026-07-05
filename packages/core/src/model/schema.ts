@@ -30,6 +30,8 @@ const elementBase = {
   opacity: unitInterval.default(1),
   locked: z.boolean().default(false),
   visible: z.boolean().default(true),
+  /** Layers-panel display label (slice 4). Metadata only — never rendered/exported. */
+  name: z.string().optional(),
 };
 
 export const TextElement = z

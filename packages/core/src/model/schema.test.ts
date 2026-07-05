@@ -75,6 +75,22 @@ describe("parseProject", () => {
   });
 });
 
+describe("element name (slice 4)", () => {
+  it("accepts an element with an optional name", () => {
+    const p = validProject();
+    (p.screens[0]!.elements[0] as Record<string, unknown>).name = "Big headline";
+    expect(() => parseProject(p)).not.toThrow();
+    expect(parseProject(p).screens[0]!.elements[0]!.name).toBe("Big headline");
+  });
+
+  it("still accepts an element with no name (v1 stays valid)", () => {
+    const p = validProject();
+    delete (p.screens[0]!.elements[0] as Record<string, unknown>).name;
+    expect(() => parseProject(p)).not.toThrow();
+    expect(parseProject(p).screens[0]!.elements[0]!.name).toBeUndefined();
+  });
+});
+
 describe("getScreen", () => {
   it("returns a screen by id", () => {
     const project = parseProject(validProject());
