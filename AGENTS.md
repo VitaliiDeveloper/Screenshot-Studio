@@ -4,9 +4,11 @@ Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this r
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
 
-> **Status: planning.** The code is not built yet; the contracts below are the target.
-> Read `docs/` for the full rationale before generating anything. When in doubt, follow
-> `docs/architecture.md` (the technical contract) — it wins over this summary.
+> **Status: Phase 0 + Phase 1 implemented and verified; Phase 2 (verified export) is next.**
+> The render/export core and the web editor are built and tested; some CLI commands in the
+> table below are still planned (marked ◻). Read `docs/` for the full rationale before
+> generating anything. When in doubt, follow `docs/architecture.md` (the technical contract) —
+> it wins over this summary.
 
 ## What this project is
 
