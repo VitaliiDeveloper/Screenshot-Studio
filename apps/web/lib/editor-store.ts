@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
-import type { Project, TextElement } from "@screenshot-studio/core/model";
+import type { Project, Screen, TextElement } from "@screenshot-studio/core/model";
 
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
@@ -19,6 +19,26 @@ export interface EditorState {
   load: (project: Project) => void;
   select: (id: string | null) => void;
   patchElement: (id: string, patch: ElementPatch) => void;
+  selectScreen: (id: string) => void;
+  reorderScreens: (from: number, to: number) => void;
+  addScreen: () => void;
+  removeScreen: (id: string) => void;
+}
+
+/** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
+function moveInPlace<T>(arr: T[], from: number, to: number): void {
+  if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return;
+  const [item] = arr.splice(from, 1);
+  arr.splice(to, 0, item as T);
+}
+
+/** Deep-clone a screen with a fresh screen id and fresh element ids (used by addScreen). */
+function cloneScreen(src: Screen): Screen {
+  const copy = structuredClone(src) as Screen;
+  copy.id = crypto.randomUUID();
+  copy.name = `${src.name} copy`;
+  copy.elements = copy.elements.map((el) => ({ ...el, id: crypto.randomUUID() }));
+  return copy;
 }
 
 export const editorStore = createStore<EditorState>((set) => ({
@@ -38,5 +58,42 @@ export const editorStore = createStore<EditorState>((set) => ({
         }
       });
       return { project };
+    }),
+  selectScreen: (id) => set({ activeScreenId: id, selectedId: null }),
+  reorderScreens: (from, to) =>
+    set((state) => {
+      if (!state.project) return state;
+      const project = produce(state.project, (draft) => {
+        moveInPlace(draft.screens, from, to);
+      });
+      return { project };
+    }),
+  addScreen: () =>
+    set((state) => {
+      if (!state.project) return state;
+      const active =
+        state.project.screens.find((s) => s.id === state.activeScreenId) ??
+        state.project.screens[0];
+      if (!active) return state;
+      const copy = cloneScreen(active);
+      const project = produce(state.project, (draft) => {
+        draft.screens.push(copy);
+      });
+      return { project, activeScreenId: copy.id, selectedId: null };
+    }),
+  removeScreen: (id) =>
+    set((state) => {
+      if (!state.project || state.project.screens.length <= 1) return state;
+      const idx = state.project.screens.findIndex((s) => s.id === id);
+      if (idx === -1) return state;
+      const project = produce(state.project, (draft) => {
+        draft.screens.splice(idx, 1);
+      });
+      const wasActive = state.activeScreenId === id;
+      const activeScreenId = wasActive
+        ? project.screens[Math.min(idx, project.screens.length - 1)]!.id
+        : state.activeScreenId;
+      const selectedId = wasActive ? null : state.selectedId;
+      return { project, activeScreenId, selectedId };
     }),
 }));
