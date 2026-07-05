@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Node.js ≥ 20**; package manager is **pnpm 9** (`packageManager: pnpm@9.15.9`).
+- **Node.js ≥ 20**; package manager is **pnpm 11** (`packageManager: pnpm@11.10.0`).
 - **Render/export parity is rule #1.** There must be exactly one element-rendering source of truth (`elementToNodeConfig`) and one export path (`/render` → `renderScreen`). Never add a second react-konva tree for export.
 - **The Zod schema is not modified in this slice.** Only existing element types `text` and `shape` are used. Schema widening is Slice 2.
 - **`core` stays framework-agnostic** — it may depend on Konva + Zod, never on React/Next. The editor store and API route live in `apps/web`, not `core`.
