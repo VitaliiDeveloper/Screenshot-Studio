@@ -172,3 +172,27 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
   });
 });
+
+describe("editorStore screen editors (slice 5)", () => {
+  beforeEach(() => {
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.getState().load(project());
+  });
+
+  it("patchBackground sets the active screen's solid colour", () => {
+    editorStore.getState().patchBackground({ color: "#ABCDEF" });
+    const bg = editorStore.getState().project!.screens[0]!.background;
+    expect(bg).toMatchObject({ type: "solid", color: "#ABCDEF" });
+  });
+
+  it("patchArtboard sets the active screen's dimensions", () => {
+    editorStore.getState().patchArtboard({ width: 720, height: 1560 });
+    expect(editorStore.getState().project!.screens[0]!.artboard)
+      .toMatchObject({ width: 720, height: 1560 });
+  });
+
+  it("patchArtboard only touches the active screen", () => {
+    editorStore.getState().patchArtboard({ width: 720 });
+    expect(editorStore.getState().project!.screens[1]!.artboard.width).toBe(660);
+  });
+});

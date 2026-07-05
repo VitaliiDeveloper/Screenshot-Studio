@@ -41,6 +41,8 @@ export interface EditorState {
   reorderElements: (from: number, to: number) => void;
   removeElement: (id: string) => void;
   addElement: (element: Element) => void;
+  patchBackground: (patch: { color: string }) => void;
+  patchArtboard: (patch: { width?: number; height?: number }) => void;
 }
 
 /** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
@@ -141,5 +143,23 @@ export const editorStore = createStore<EditorState>((set) => ({
         if (screen) screen.elements.push(element);
       });
       return { project, selectedId: element.id };
+    }),
+  patchBackground: (patch) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const project = produce(state.project, (draft) => {
+        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
+        if (screen && screen.background.type === "solid") Object.assign(screen.background, patch);
+      });
+      return { project };
+    }),
+  patchArtboard: (patch) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const project = produce(state.project, (draft) => {
+        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
+        if (screen) Object.assign(screen.artboard, patch);
+      });
+      return { project };
     }),
 }));
