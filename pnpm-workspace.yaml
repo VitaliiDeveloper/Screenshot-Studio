@@ -1,3 +1,9 @@
 packages:
   - "packages/*"
   - "apps/*"
+# pnpm 10.26+/11 blocks package build scripts by default (ERR_PNPM_IGNORED_BUILDS). The headless
+# renderer the e2e/parity suite drives needs these two native builds, so allow them explicitly.
+# (This replaces the old package.json `pnpm.onlyBuiltDependencies`, which pnpm 11 no longer reads.)
+allowBuilds:
+  esbuild: true
+  sharp: true

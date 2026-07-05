@@ -63,17 +63,21 @@ MVP elements: `text`, `screenshot`, `device-frame`, `shape`. Artboards are **iso
 
 ## CLI (`screenshots ...`) — the primary interface
 
-| Command | Action |
-|---------|--------|
-| `init` | Scaffold the project and standard directories |
-| `dev` | Run the canvas editor (dev server) |
-| `screen add / list / rm / reorder` | Manage screens |
-| `font add <file>` | Register a custom font |
-| `theme set <id>` | Apply a theme to all screens |
-| `import <dir>` | Ingest raw captures by directory convention |
-| `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button) |
+Status: ✅ shipped · ◻ planned (target surface, not yet implemented — do not assume it exists).
 
-Export sizes live in `store-specs.json` (data, not hardcode), with Vitest dimension tests.
+| Command | Action | Status |
+|---------|--------|--------|
+| `init` | Scaffold the project and standard directories | ✅ |
+| `export [--screen --size]` | Export one screen to an exact store size (PNG, no alpha) | ✅ |
+| `dev` | Run the canvas editor (dev server) | ◻ |
+| `screen add / list / rm / reorder` | Manage screens | ◻ |
+| `font add <file>` | Register a custom font | ◻ |
+| `theme set <id>` | Apply a theme to all screens | ◻ |
+| `import <dir>` | Ingest raw captures by directory convention | ◻ |
+| `export [--platform --device --locale]` | Exact PNG **bundles** by platform/device/locale (Phase 2) | ◻ |
+
+Today `export` writes a single screen (`--screen`, `--size`); the multi-target bundle form is
+Phase 2. Export sizes live in `store-specs.json` (data, not hardcode), with Vitest dimension tests.
 Strip the alpha channel on export — stores require no transparency. See architecture §4.
 
 ## Design guardrails (always apply when generating slides/copy)

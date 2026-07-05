@@ -64,6 +64,19 @@ snapping, and grouping deferred.
 `store-specs.json` as the source of truth, alpha removal, dimension tests, zip bundles by
 platform/device/locale. Export is now "rock-solid."
 
+Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness review):
+- **Schema must widen beyond apple/iphone/solid.** The Zod schema is still single-platform
+  literals; verified Apple **+ Google** bundles need the platform/device union expanded first
+  (store-specs already seeds android/ipad sizes the schema currently rejects).
+- **Editable artboard needs store-target validation.** Slice 5 made artboard `width/height`
+  freely editable, but `exportPixelRatio` throws when the artboard aspect ratio ≠ the target's.
+  Validate/snap artboards against store sizes at edit time, not only at export time.
+- **Bulk export must reuse the server + browser + context.** Today `export` starts a web server
+  and `render-driver` launches a fresh Chromium per call; N screens × M sizes × L locales would
+  cold-start per PNG. Reuse one server and one browser context across the bundle.
+- **Drop the hardcoded `startWebServer` port.** Default `3100` will collide once bundle/parallel
+  export runs more than one server; pick a free port (or share one server) before parallelizing.
+
 **Phase 3 — Themes / templates / fonts UI.**
 Theme tokens, template library, full font-management UI (upload, preview, system/Google).
 
@@ -90,9 +103,9 @@ a later slice may not start before the one it depends on lands.
 | Slice | Delivers | Risk it retires |
 |-------|----------|-----------------|
 | **1 — Interactive canvas + render-reuse** ✅ | Konva editor stage (select/move/resize/rotate, inline text edit) over a Zustand+Immer patch store; save/load via a disk-backed API route; export still passes parity. Only `text` + `shape` (schema unchanged). | **Highest.** Proves the interactive editor shares the *single* render path instead of forking a second react-konva tree — the Phase 0 parity thesis applied to an interactive surface. |
-| **2 — `screenshot` + asset-loading parity** | `screenshot` element type (additive union member, `assetUrl`/`fit`/`cornerRadius`); a `core` image preloader awaited before the render-ready gate; a web-host asset route feeding the same URL to `/editor` and `/render`. Schema stays v1 (additive — no migration). | Adds **asset-loading parity**: every image must decode before `__stageReady` or CLI export screenshots a missing-image frame — the direct analog of the Phase 0 font-load race. |
-| **3 — `device-frame`** | `device-frame` element type: bundled iPhone bezel asset, screen-slot compositing/clipping over a `screenshot`. Depends on Slice 2. | Bezel fidelity + slot alignment as a new parity surface; separable from asset-loading. |
-| **4 — Left panel** | Screens section (dnd-kit reorder = export order) + Layers section (z-order, lock, hide, rename). No grouping. | Medium — multi-screen state, reorder as the shared UI/CLI ordering source. |
+| **2 — `screenshot` + asset-loading parity** ✅ | `screenshot` element type (additive union member, `assetUrl`/`fit`/`cornerRadius`); a `core` image preloader awaited before the render-ready gate; a web-host asset route feeding the same URL to `/editor` and `/render`. Schema stays v1 (additive — no migration). | Adds **asset-loading parity**: every image must decode before `__stageReady` or CLI export screenshots a missing-image frame — the direct analog of the Phase 0 font-load race. |
+| **3 — `device-frame`** ✅ | `device-frame` element type: bundled iPhone bezel asset, screen-slot compositing/clipping over a `screenshot`. Depends on Slice 2. | Bezel fidelity + slot alignment as a new parity surface; separable from asset-loading. |
+| **4 — Left panel** ✅ | Screens section (dnd-kit reorder = export order) + Layers section (z-order, lock, hide, rename). No grouping. | Medium — multi-screen state, reorder as the shared UI/CLI ordering source. |
 | **5 — Inspector + toolbar** ✅ | Full per-type inspector, no-selection artboard/background editor, toolbar element tools (insert-on-click for `text`/`shape`) + zoom controls. | Low — sits on the store and mapper the earlier slices established. |
 
 **The single source of truth for element rendering is `core/engine`'s `elementToNodeConfig`**

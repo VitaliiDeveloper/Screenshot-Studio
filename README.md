@@ -38,15 +38,27 @@ layout — see [AGENTS.md § Repo conventions](AGENTS.md#repo-conventions-the-ap
 PNG from the same web renderer used by both the browser and the CLI, verified on the hardest
 case (an embedded custom font).
 
-**Phase 1 (web editor) — in progress.** The interactive `/editor` canvas is up: `text`,
-`shape`, `screenshot`, and `device-frame` elements over a shared render path, with select /
-move / resize / rotate, inline text edit, and a screens + layers left panel (reorder, lock,
-hide, rename). Still ahead in Phase 1: the per-type inspector and toolbar. Verified multi-size
-export bundles are Phase 2 — see [docs/roadmap.md](docs/roadmap.md).
+**Phase 1 (web editor) — done.** The interactive `/editor` canvas covers `text`, `shape`,
+`screenshot`, and `device-frame` elements over a shared render path, with select / move /
+resize / rotate, inline text edit, a screens + layers left panel (reorder, lock, hide, rename),
+a per-type inspector (plus a no-selection artboard/background editor), and a toolbar
+(insert-on-click for `text`/`shape`, zoom). Verified multi-size export bundles are Phase 2 —
+see [docs/roadmap.md](docs/roadmap.md).
 
 ## Requirements
 
-- **Node.js 20+** and **pnpm**.
+- **Node.js 20+** and **pnpm 11** (pinned in `package.json` via `packageManager`). The simplest
+  way to get the exact version on a fresh clone is Corepack:
+
+  ```bash
+  corepack enable   # then `pnpm …` in this repo resolves to the pinned pnpm 11.10.0
+  ```
+
+  pnpm 10/11 blocks package build scripts by default (`ERR_PNPM_IGNORED_BUILDS`), which would
+  leave the headless renderer the e2e/parity suite drives without its native deps. The repo
+  allowlists exactly the two builds that matter — `esbuild` and `sharp` — via `allowBuilds` in
+  [`pnpm-workspace.yaml`](pnpm-workspace.yaml), so `pnpm install` builds them automatically with
+  no manual `pnpm approve-builds` step.
 - A one-time Playwright browser download (the CLI renders through a headless browser):
 
 ```bash
@@ -79,7 +91,7 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 `export` flags: `--screen <id>` (defaults to the first screen), `--size <id>` (defaults to
 `6.9`, from [store-specs.json](store-specs.json)), `--out <dir>` (defaults to `<project>/export`).
 
-### Editor (Phase 1, in progress)
+### Editor
 
 There's no `screenshots dev` wrapper yet — run the web host directly against a project's JSON:
 
