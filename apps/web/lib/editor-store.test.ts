@@ -144,3 +144,31 @@ describe("editorStore elements (slice 4)", () => {
     expect(el).toMatchObject({ locked: true, visible: false, name: "Big" });
   });
 });
+
+describe("editorStore addElement + wide patch (slice 5)", () => {
+  beforeEach(() => {
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.getState().load(project());
+  });
+
+  it("addElement appends to the active screen and selects it", () => {
+    const el = {
+      id: "new-shape", type: "shape", x: 0, y: 0, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      kind: "rect", fill: "#00FF00", radius: 0,
+    } as const;
+    editorStore.getState().addElement(el);
+    const screen = editorStore.getState().project!.screens[0]!;
+    expect(screen.elements.map((e) => e.id)).toContain("new-shape");
+    expect(editorStore.getState().selectedId).toBe("new-shape");
+  });
+
+  it("patchElement can set type-specific fields", () => {
+    editorStore.getState().patchElement("headline", {
+      color: "#123456", size: 99, align: "center", opacity: 0.5,
+    });
+    const el = editorStore.getState().project!.screens[0]!.elements
+      .find((e) => e.id === "headline")! as { color: string; size: number; align: string; opacity: number };
+    expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
+  });
+});

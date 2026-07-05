@@ -1,6 +1,14 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
-import type { Project, Screen, TextElement } from "@screenshot-studio/core/model";
+import type {
+  Project,
+  Screen,
+  Element,
+  TextElement,
+  ShapeElement,
+  ScreenshotElement,
+  DeviceFrameElement,
+} from "@screenshot-studio/core/model";
 
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
@@ -11,9 +19,13 @@ import type { Project, Screen, TextElement } from "@screenshot-studio/core/model
 export type ElementPatch = Partial<
   Pick<
     TextElement,
-    "x" | "y" | "width" | "height" | "rotation" | "content" | "locked" | "visible" | "name"
+    | "x" | "y" | "width" | "height" | "rotation" | "opacity" | "locked" | "visible" | "name"
+    | "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
   >
->;
+> &
+  Partial<Pick<ShapeElement, "fill" | "radius">> &
+  Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">> &
+  Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
 
 export interface EditorState {
   project: Project | null;
@@ -28,6 +40,7 @@ export interface EditorState {
   removeScreen: (id: string) => void;
   reorderElements: (from: number, to: number) => void;
   removeElement: (id: string) => void;
+  addElement: (element: Element) => void;
 }
 
 /** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
@@ -119,5 +132,14 @@ export const editorStore = createStore<EditorState>((set) => ({
       });
       const selectedId = state.selectedId === id ? null : state.selectedId;
       return { project, selectedId };
+    }),
+  addElement: (element) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const project = produce(state.project, (draft) => {
+        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
+        if (screen) screen.elements.push(element);
+      });
+      return { project, selectedId: element.id };
     }),
 }));
