@@ -60,3 +60,5 @@ fixtures/slice-2-screenshot/_missing.json
 !.vscode/extensions.json
 .idea/
 *.swp
+
+fixtures/slice-3-device-frame/_missing.json
