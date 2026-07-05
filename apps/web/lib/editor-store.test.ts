@@ -85,8 +85,9 @@ describe("editorStore screens (slice 4)", () => {
     expect(screens).toHaveLength(before + 1);
     const added = screens[screens.length - 1]!;
     expect(added.id).not.toBe("hero");
-    expect(added.elements[0]!.id).not.toBe("headline"); // element id regenerated
-    expect(added.elements[0]!.content).toBe("Hello");    // content copied
+    const addedEl = added.elements[0]!;
+    expect(addedEl.id).not.toBe("headline"); // element id regenerated
+    expect(addedEl.type === "text" && addedEl.content).toBe("Hello"); // content copied
     expect(editorStore.getState().activeScreenId).toBe(added.id);
   });
 

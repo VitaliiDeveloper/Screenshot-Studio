@@ -6,6 +6,7 @@ import { parseProject } from "@screenshot-studio/core/model";
 import { registerProjectFonts } from "@screenshot-studio/core/fonts";
 import { loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore } from "../../lib/editor-store";
+import { LeftPanel } from "../../components/LeftPanel";
 
 // react-konva needs the DOM; load the stage client-only (no SSR).
 const EditorStage = dynamic(
@@ -40,8 +41,11 @@ export default function EditorPage() {
   if (error) return <main className="p-6 text-red-600 whitespace-pre-wrap">{error}</main>;
   if (!images) return <main className="p-6 text-neutral-500">Loading…</main>;
   return (
-    <main className="min-h-screen w-full overflow-auto bg-neutral-100 p-8">
-      <EditorStage images={images} />
+    <main className="flex h-screen w-full">
+      <LeftPanel />
+      <div className="flex-1 overflow-auto bg-neutral-100 p-8">
+        <EditorStage images={images} />
+      </div>
     </main>
   );
 }
