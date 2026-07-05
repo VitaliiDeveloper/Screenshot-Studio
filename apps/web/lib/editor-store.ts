@@ -9,7 +9,10 @@ import type { Project, Screen, TextElement } from "@screenshot-studio/core/model
  * The store is the only writer of project state; the canvas dispatches actions, never mutates.
  */
 export type ElementPatch = Partial<
-  Pick<TextElement, "x" | "y" | "width" | "height" | "rotation" | "content">
+  Pick<
+    TextElement,
+    "x" | "y" | "width" | "height" | "rotation" | "content" | "locked" | "visible" | "name"
+  >
 >;
 
 export interface EditorState {
@@ -23,6 +26,8 @@ export interface EditorState {
   reorderScreens: (from: number, to: number) => void;
   addScreen: () => void;
   removeScreen: (id: string) => void;
+  reorderElements: (from: number, to: number) => void;
+  removeElement: (id: string) => void;
 }
 
 /** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
@@ -95,5 +100,24 @@ export const editorStore = createStore<EditorState>((set) => ({
         : state.activeScreenId;
       const selectedId = wasActive ? null : state.selectedId;
       return { project, activeScreenId, selectedId };
+    }),
+  reorderElements: (from, to) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const project = produce(state.project, (draft) => {
+        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
+        if (screen) moveInPlace(screen.elements, from, to);
+      });
+      return { project };
+    }),
+  removeElement: (id) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const project = produce(state.project, (draft) => {
+        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
+        if (screen) screen.elements = screen.elements.filter((e) => e.id !== id);
+      });
+      const selectedId = state.selectedId === id ? null : state.selectedId;
+      return { project, selectedId };
     }),
 }));

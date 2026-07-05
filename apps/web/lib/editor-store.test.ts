@@ -103,3 +103,43 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().project!.screens.map((s) => s.id)).toEqual(["hero"]);
   });
 });
+
+describe("editorStore elements (slice 4)", () => {
+  beforeEach(() => {
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.getState().load(project());
+    // give the active screen a second element so reorder is observable
+    editorStore.setState((s) => {
+      const p = structuredClone(s.project!);
+      p.screens[0]!.elements.push({
+        id: "accent", type: "shape", x: 0, y: 0, width: 100, height: 100,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        kind: "rect", fill: "#FF0000", radius: 0,
+      } as never);
+      return { project: p };
+    });
+  });
+
+  it("reorderElements changes z-order (array order)", () => {
+    expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
+      .toEqual(["headline", "accent"]);
+    editorStore.getState().reorderElements(0, 1);
+    expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
+      .toEqual(["accent", "headline"]);
+  });
+
+  it("removeElement drops the element and clears matching selection", () => {
+    editorStore.getState().select("accent");
+    editorStore.getState().removeElement("accent");
+    expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
+      .toEqual(["headline"]);
+    expect(editorStore.getState().selectedId).toBeNull();
+  });
+
+  it("patchElement can set locked, visible and name", () => {
+    editorStore.getState().patchElement("headline", { locked: true, visible: false, name: "Big" });
+    const el = editorStore.getState().project!.screens[0]!.elements
+      .find((e) => e.id === "headline")!;
+    expect(el).toMatchObject({ locked: true, visible: false, name: "Big" });
+  });
+});
