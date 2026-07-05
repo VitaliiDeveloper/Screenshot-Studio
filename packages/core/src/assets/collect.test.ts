@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { collectScreenshotUrls } from "./index.js";
-import type { Project } from "../model/schema.js";
+import { collectImageUrls } from "./index.js";
+import type { Project, Element } from "../model/schema.js";
 
-function project(urls: string[]): Project {
+function project(elements: Element[]): Project {
   return {
     meta: { name: "T", schemaVersion: 1 },
     platforms: ["apple"], locales: ["en"], fonts: [],
@@ -10,21 +10,35 @@ function project(urls: string[]): Project {
       id: "s", name: "S", platform: "apple", device: "iphone", locale: "en",
       artboard: { width: 660, height: 1434 },
       background: { type: "solid", color: "#000000" },
-      elements: urls.map((assetUrl, i) => ({
-        id: `img${i}`, type: "screenshot", x: 0, y: 0, width: 10, height: 10,
-        rotation: 0, opacity: 1, locked: false, visible: true,
-        assetUrl, fit: "cover", cornerRadius: 0,
-      })),
+      elements,
     }],
   };
 }
 
-describe("collectScreenshotUrls", () => {
+const shot = (id: string, assetUrl: string): Element => ({
+  id, type: "screenshot", x: 0, y: 0, width: 10, height: 10,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  assetUrl, fit: "cover", cornerRadius: 0,
+});
+
+const framed = (id: string, assetUrl: string): Element => ({
+  id, type: "device-frame", x: 0, y: 0, width: 10, height: 20,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  deviceType: "iphone", assetUrl, fit: "cover",
+});
+
+describe("collectImageUrls", () => {
   it("returns every screenshot url, de-duplicated", () => {
-    expect(collectScreenshotUrls(project(["a.png", "b.png", "a.png"])).sort()).toEqual(["a.png", "b.png"]);
+    expect(collectImageUrls(project([shot("a", "a.png"), shot("b", "b.png"), shot("c", "a.png")])).sort())
+      .toEqual(["a.png", "b.png"]);
   });
 
-  it("returns empty when there are no screenshots", () => {
-    expect(collectScreenshotUrls(project([]))).toEqual([]);
+  it("includes device-frame content urls and dedups across element types", () => {
+    expect(collectImageUrls(project([shot("a", "a.png"), framed("f", "b.png"), framed("g", "a.png")])).sort())
+      .toEqual(["a.png", "b.png"]);
+  });
+
+  it("returns empty when there are no image-bearing elements", () => {
+    expect(collectImageUrls(project([]))).toEqual([]);
   });
 });

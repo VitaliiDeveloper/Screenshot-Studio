@@ -13,12 +13,12 @@ import type { ImageCache } from "../engine/node-config.js";
  */
 export type { ImageCache } from "../engine/node-config.js";
 
-/** Every distinct screenshot assetUrl in the project. Pure. */
-export function collectScreenshotUrls(project: Project): string[] {
+/** Every distinct content assetUrl (screenshot + device-frame) in the project. Pure. */
+export function collectImageUrls(project: Project): string[] {
   const urls = new Set<string>();
   for (const screen of project.screens) {
     for (const el of screen.elements) {
-      if (el.type === "screenshot") urls.add(el.assetUrl);
+      if (el.type === "screenshot" || el.type === "device-frame") urls.add(el.assetUrl);
     }
   }
   return [...urls];
@@ -42,7 +42,7 @@ export async function loadProjectImages(
 ): Promise<ImageCache> {
   const cache: ImageCache = new Map();
   await Promise.all(
-    collectScreenshotUrls(project).map(async (assetUrl) => {
+    collectImageUrls(project).map(async (assetUrl) => {
       const img = await loadOne(resolve(assetUrl));
       if (img) {
         try {
