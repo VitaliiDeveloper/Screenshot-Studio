@@ -71,7 +71,24 @@ export const ScreenshotElement = z
   .strict();
 export type ScreenshotElement = z.infer<typeof ScreenshotElement>;
 
-export const Element = z.discriminatedUnion("type", [TextElement, ShapeElement, ScreenshotElement]);
+export const DeviceFrameElement = z
+  .object({
+    type: z.literal("device-frame"),
+    ...elementBase,
+    deviceType: z.literal("iphone"),
+    /** Document-relative path to the screenshot placed in the frame's screen slot. */
+    assetUrl: z.string().min(1),
+    fit: z.enum(["cover", "contain"]).default("cover"),
+  })
+  .strict();
+export type DeviceFrameElement = z.infer<typeof DeviceFrameElement>;
+
+export const Element = z.discriminatedUnion("type", [
+  TextElement,
+  ShapeElement,
+  ScreenshotElement,
+  DeviceFrameElement,
+]);
 export type Element = z.infer<typeof Element>;
 
 export const SolidBackground = z

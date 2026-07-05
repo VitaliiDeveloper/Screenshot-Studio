@@ -115,3 +115,35 @@ describe("ScreenshotElement", () => {
     expect(() => Element.parse({ ...base, bogus: 1 })).toThrow();
   });
 });
+
+describe("DeviceFrameElement", () => {
+  const base = {
+    id: "df1", type: "device-frame", x: 0, y: 0, width: 500, height: 1000,
+    deviceType: "iphone", assetUrl: "assets/shot.png",
+  };
+
+  it("parses a valid device-frame with defaults", () => {
+    const parsed = Element.parse(base);
+    expect(parsed).toMatchObject({ type: "device-frame", deviceType: "iphone", fit: "cover" });
+  });
+
+  it("accepts fit contain", () => {
+    expect(Element.parse({ ...base, fit: "contain" })).toMatchObject({ fit: "contain" });
+  });
+
+  it("rejects an unknown deviceType", () => {
+    expect(() => Element.parse({ ...base, deviceType: "android" })).toThrow();
+  });
+
+  it("rejects an unknown fit", () => {
+    expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
+  });
+
+  it("rejects an empty assetUrl", () => {
+    expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
+  });
+
+  it("rejects an unknown key (strict)", () => {
+    expect(() => Element.parse({ ...base, bogus: 1 })).toThrow();
+  });
+});

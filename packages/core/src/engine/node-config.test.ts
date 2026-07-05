@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { elementToNodeConfig, type ImageCache } from "./node-config.js";
-import type { TextElement, ShapeElement, ScreenshotElement } from "../model/schema.js";
+import type { TextElement, ShapeElement, ScreenshotElement, DeviceFrameElement } from "../model/schema.js";
 
 const baseText: TextElement = {
   id: "t1", type: "text", x: 10, y: 20, width: 300, height: 100,
@@ -70,5 +70,44 @@ describe("elementToNodeConfig — screenshot", () => {
     const result = elementToNodeConfig(shot, new Map());
     expect(result.konva).toBe("Rect");
     expect(result.config).toMatchObject({ id: "p1", width: 200, height: 100, cornerRadius: 12 });
+  });
+});
+
+const frame: DeviceFrameElement = {
+  id: "df1", type: "device-frame", x: 100, y: 50, width: 1000, height: 1000,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  deviceType: "iphone", assetUrl: "hero.png", fit: "cover",
+};
+
+// A 400×400 stub — only width/height are read by the mapper.
+const frameStub = { width: 400, height: 400 } as unknown as HTMLImageElement;
+const frameCache: ImageCache = new Map([["hero.png", frameStub]]);
+
+describe("elementToNodeConfig — device-frame", () => {
+  it("maps to a Group carrying the element box, positioned by x/y", () => {
+    const result = elementToNodeConfig(frame, frameCache);
+    expect(result.konva).toBe("Group");
+    expect(result.config).toMatchObject({ id: "df1", x: 100, y: 50, width: 1000, height: 1000 });
+  });
+
+  it("composits body, slot background, clipped content image, and notch (box-local)", () => {
+    const result = elementToNodeConfig(frame, frameCache);
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Image", "Rect"]);
+
+    // Frame body: full box, rounded silhouette.
+    expect(result.children[0]!.config).toMatchObject({ x: 0, y: 0, width: 1000, height: 1000, cornerRadius: 140 });
+    // Slot background: inset 3.5% x / 2.8% y, slot-rounded, opaque black.
+    expect(result.children[1]!.config).toMatchObject({ x: 35, y: 28, width: 930, height: 944, cornerRadius: 93, fill: "#000000" });
+    // Content image: fills the slot (cover), same slot rounding, the decoded image.
+    expect(result.children[2]!.config).toMatchObject({ x: 35, y: 28, width: 930, height: 944, cornerRadius: 93, image: frameStub });
+    // Notch: centred pill near the top.
+    expect(result.children[3]!.config).toMatchObject({ x: 340, y: 22, width: 320, height: 18 });
+  });
+
+  it("drops the content image when the asset is missing (frame + slot bg + notch remain)", () => {
+    const result = elementToNodeConfig(frame, new Map());
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Rect"]);
   });
 });

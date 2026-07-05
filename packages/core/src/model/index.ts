@@ -2,6 +2,7 @@ import { Project, type Project as ProjectType } from "./schema.js";
 import { migrateToCurrent } from "./migrate.js";
 
 export * from "./schema.js";
+export * from "./device-frames.js";
 export { migrateToCurrent } from "./migrate.js";
 
 /** Raised when a project fails schema validation. Carries the human-readable validator report. */
