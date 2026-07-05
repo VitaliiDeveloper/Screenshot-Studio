@@ -8,6 +8,7 @@ import { loadProjectImages, type ImageCache } from "@screenshot-studio/core/asse
 import { editorStore } from "../../lib/editor-store";
 import { LeftPanel } from "../../components/LeftPanel";
 import { Inspector } from "../../components/Inspector";
+import { Toolbar } from "../../components/Toolbar";
 
 // react-konva needs the DOM; load the stage client-only (no SSR).
 const EditorStage = dynamic(
@@ -44,8 +45,11 @@ export default function EditorPage() {
   return (
     <main className="flex h-screen w-full">
       <LeftPanel />
-      <div className="flex-1 overflow-auto bg-neutral-100 p-8">
-        <EditorStage images={images} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Toolbar zoom={1} onZoomIn={() => {}} onZoomOut={() => {}} onZoomReset={() => {}} />
+        <div className="flex-1 overflow-auto bg-neutral-100 p-8">
+          <EditorStage images={images} />
+        </div>
       </div>
       <Inspector />
     </main>
