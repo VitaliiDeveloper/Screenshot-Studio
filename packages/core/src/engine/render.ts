@@ -1,6 +1,6 @@
 import Konva from "konva";
 import type { Project, Screen, Element } from "../model/schema.js";
-import type { ImageCache } from "./node-config.js";
+import type { ImageCache, NodeConfig } from "./node-config.js";
 import { getScreen } from "../model/index.js";
 import { elementToNodeConfig } from "./node-config.js";
 
@@ -44,8 +44,17 @@ function drawBackground(layer: Konva.Layer, screen: Screen): void {
 }
 
 function drawElement(layer: Konva.Layer, element: Element, images: ImageCache): void {
-  const { konva, config } = elementToNodeConfig(element, images);
-  if (konva === "Text") layer.add(new Konva.Text(config));
-  else if (konva === "Image") layer.add(new Konva.Image(config));
-  else layer.add(new Konva.Rect(config));
+  layer.add(buildNode(elementToNodeConfig(element, images)) as Konva.Group | Konva.Shape);
+}
+
+/** Realise a NodeConfig as Konva nodes, recursing into the device-frame Group's children. */
+function buildNode(nc: NodeConfig): Konva.Node {
+  if (nc.konva === "Text") return new Konva.Text(nc.config);
+  if (nc.konva === "Image") return new Konva.Image(nc.config);
+  if (nc.konva === "Group") {
+    const group = new Konva.Group(nc.config);
+    for (const child of nc.children) group.add(buildNode(child) as Konva.Group | Konva.Shape);
+    return group;
+  }
+  return new Konva.Rect(nc.config);
 }

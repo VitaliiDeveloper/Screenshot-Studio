@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Konva from "konva";
-import { Stage, Layer, Text, Rect, Image as KonvaImage, Transformer } from "react-konva";
+import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import { getScreen } from "@screenshot-studio/core/model";
 import { elementToNodeConfig } from "@screenshot-studio/core/engine";
@@ -81,7 +81,7 @@ export function EditorStage({ images }: { images: ImageCache }) {
           )}
           {screen.elements.map((element) => {
             if (!element.visible) return null;
-            const { konva, config } = elementToNodeConfig(element, images);
+            const nc = elementToNodeConfig(element, images);
             const interaction = {
               draggable: !element.locked,
               ref: (n: Konva.Node | null) => {
@@ -93,20 +93,33 @@ export function EditorStage({ images }: { images: ImageCache }) {
               onDragEnd: onDragEnd(element.id),
               onTransformEnd: onTransformEnd(element.id),
             };
-            if (konva === "Text") {
+            if (nc.konva === "Text") {
               return (
                 <Text
                   key={element.id}
-                  {...config}
+                  {...nc.config}
                   {...interaction}
-                  onDblClick={() => setEditing({ id: element.id, value: (config as Konva.TextConfig).text ?? "" })}
+                  onDblClick={() => setEditing({ id: element.id, value: (nc.config as Konva.TextConfig).text ?? "" })}
                 />
               );
             }
-            if (konva === "Image") {
-              return <KonvaImage key={element.id} {...config} {...interaction} />;
+            if (nc.konva === "Image") {
+              return <KonvaImage key={element.id} {...nc.config} {...interaction} />;
             }
-            return <Rect key={element.id} {...config} {...interaction} />;
+            if (nc.konva === "Group") {
+              return (
+                <Group key={element.id} {...nc.config} {...interaction}>
+                  {nc.children.map((child, i) =>
+                    child.konva === "Image" ? (
+                      <KonvaImage key={i} {...child.config} listening={false} />
+                    ) : (
+                      <Rect key={i} {...child.config} listening={false} />
+                    ),
+                  )}
+                </Group>
+              );
+            }
+            return <Rect key={element.id} {...nc.config} {...interaction} />;
           })}
           <Transformer ref={trRef} rotateEnabled />
         </Layer>
