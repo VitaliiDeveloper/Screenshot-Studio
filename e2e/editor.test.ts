@@ -45,9 +45,10 @@ function headline(): Geom {
 describe("editor round-trip", () => {
   it("dragging an element persists its new position to disk", async () => {
     const start = headline();
-    // Viewport must fit the 660×1434 artboard (stage renders 1:1, no zoom this slice), else the
-    // element sits below the fold and the mouse can't hit it.
-    const page = await browser.newPage({ viewport: { width: 800, height: 1600 } });
+    // Viewport must fit the 660×1434 artboard between the two 256px side panels (LeftPanel +
+    // Inspector, slice 5) at zoom=1, else the element sits under a panel / below the fold and the
+    // mouse can't hit it.
+    const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
     // Match the project's proven readiness pattern (render-driver.ts): "load", not "networkidle"
     // — next dev's HMR channel keeps the network busy and makes "networkidle" flaky.
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
