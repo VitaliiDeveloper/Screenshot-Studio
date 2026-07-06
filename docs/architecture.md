@@ -4,7 +4,7 @@ How the system is built and the contracts everything agrees on: tech stack, core
 split, render/export parity, data model & schema, store export spec, fonts, the management
 interface (CLI + conventions + `AGENTS.md`), and design guardrails.
 
-Version 0.4, 24 June 2026.
+Version 0.5, 6 July 2026.
 
 ---
 
@@ -42,12 +42,13 @@ screenshot-studio/
 │   │   ├── export/      # render to exact sizes, zip bundle
 │   │   ├── fonts/       # font load/registration + embedding
 │   │   └── storage/     # StorageAdapter interface + local implementation
-│   ├── ui/              # reusable React editor components
+│   ├── ui/              # RESERVED (not yet created): reusable React editor components —
+│   │                    #   editor components live in apps/web until a second consumer exists
 │   └── cli/             # CLI: init, dev, screen, font, theme, import, export
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
 ├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
-└── skill/               # OPTIONAL: thin installer for distribution outside the repo
+└── skill/               # RESERVED (not yet created): thin installer for use outside the repo
 ```
 
 CLI and `AGENTS.md` are the primary management interface (for humans and agents). `cli`
@@ -139,6 +140,13 @@ added once export is rock-solid.
 Design at each platform's largest size, export by scaling down. UI export uses
 `Stage.toDataURL` with the right `pixelRatio`; CLI export uses the same `core` through the
 Phase 0 renderer. Bundles are zips organized by `platform / device / resolution / locale`.
+
+**"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
+sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one
+artboard cannot be scaled to all of them without distortion — `exportPixelRatio` rejects
+aspect-ratio mismatches by design. Bundles therefore target **one lead size per device**
+(Apple down-scales the lead size to smaller slots itself); the other accepted sizes remain
+available as explicit opt-in targets. See roadmap.md §3 (Phase 2 carry-ins).
 
 **Store sizes are data, not hardcode.** They live in **`store-specs.json`** with Vitest tests
 asserting export output dimensions. Apple and Google change these over time, and Google in

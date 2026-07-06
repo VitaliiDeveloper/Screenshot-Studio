@@ -44,24 +44,35 @@ my-app-screenshots/
 
 ## Project JSON schema (validated by Zod — never write an invalid one)
 
+The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
+an unknown key or out-of-range value fails loudly. It is deliberately **narrower** than the
+target sketch below — when writing or editing project JSON, write against the enforced v1,
+never the target.
+
+**Current v1 (enforced today):**
+
 ```
 Project
-├── meta: { name, appIcon, schemaVersion }
-├── platforms: ["apple", "android"]
-├── locales: ["en", "de", "ar"]            # ar → RTL
-├── themes: Theme[]                        # tokens: colors, fonts, spacing
-├── fonts: FontAsset[]                     # system / google / uploaded(base64)
+├── meta: { name, appIcon?, schemaVersion: 1 }
+├── platforms: ["apple"]                   # apple only — android widens in Phase 2
+├── locales: ["en", …]                     # free-form strings
+├── fonts: FontAsset[]                     # uploaded (base64) only
 └── screens: Screen[]
-    ├── id, name, platform, device, locale
+    ├── id, name, platform: "apple", device: "iphone", locale
     ├── artboard: { width, height }
-    ├── background: solid | gradient | image
+    ├── background: solid only
     └── elements: Element[]                # z-order = array order
 ```
 
-Element base: `id, type, x, y, width, height, rotation, opacity, locked, visible`.
-Types: `text`, `screenshot`, `device-frame`, `shape`, `icon`, `badge`, `image`.
-MVP elements: `text`, `screenshot`, `device-frame`, `shape`. Artboards are **isolated**
-(no connected canvas in the MVP). Schema is versioned; pure `v1→v2→…` migrations run on load.
+Element base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?`.
+Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphone).
+There is **no `themes` key yet** (Phase 3) — the strict validator rejects it.
+
+**Target (later phases):** platforms `["apple", "android"]`; `themes: Theme[]` (tokens:
+colors, fonts, spacing); background `solid | gradient | image`; fonts system / google /
+uploaded; extra element types `icon`, `badge`, `image`; locales with RTL (`ar`). Artboards
+are **isolated** (no connected canvas in the MVP). Schema is versioned; pure `v1→v2→…`
+migrations run on load — though enum widenings are additive and need no migration.
 
 ## CLI (`screenshots ...`) — the primary interface
 
@@ -71,12 +82,12 @@ Status: ✅ shipped · ◻ planned (target surface, not yet implemented — do n
 |---------|--------|--------|
 | `init` | Scaffold the project and standard directories | ✅ |
 | `export [--screen --size]` | Export one screen to an exact store size (PNG, no alpha) | ✅ |
-| `dev` | Run the canvas editor (dev server) | ◻ |
-| `screen add / list / rm / reorder` | Manage screens | ◻ |
-| `font add <file>` | Register a custom font | ◻ |
-| `theme set <id>` | Apply a theme to all screens | ◻ |
-| `import <dir>` | Ingest raw captures by directory convention | ◻ |
-| `export [--platform --device --locale]` | Exact PNG **bundles** by platform/device/locale (Phase 2) | ◻ |
+| `dev` | Run the canvas editor (dev server) | ◻ Phase 2 |
+| `screen add / list / rm / reorder` | Manage screens | ◻ Phase 2 |
+| `import <dir>` | Ingest raw captures by directory convention | ◻ Phase 2 |
+| `export [--platform --device --locale]` | Exact PNG **bundles** by platform/device/locale | ◻ Phase 2 |
+| `font add <file>` | Register a custom font | ◻ Phase 3 |
+| `theme set <id>` | Apply a theme to all screens | ◻ Phase 3 |
 
 Today `export` writes a single screen (`--screen`, `--size`); the multi-target bundle form is
 Phase 2. Export sizes live in `store-specs.json` (data, not hardcode), with Vitest dimension tests.

@@ -1,7 +1,7 @@
 # Roadmap & Execution Plan
 
 Scope, sequencing, and risks. This is the part that changes often.
-Version 0.4, 24 June 2026.
+Version 0.5, 6 July 2026.
 
 The guiding principle: ship a **thin vertical slice** first, and prove the riskiest thesis
 before building on top of it. Everything visually impressive (connected canvas, AI, themes,
@@ -62,15 +62,31 @@ snapping, and grouping deferred.
 
 **Phase 2 — Verified export.**
 `store-specs.json` as the source of truth, alpha removal, dimension tests, zip bundles by
-platform/device/locale. Export is now "rock-solid."
+platform/device/locale. Export is now "rock-solid." Also completes the export-adjacent CLI
+surface: `dev` (run the editor), `import` (ingest raw captures by directory convention), and
+`screen add / list / rm / reorder` — the commands the bundle workflow needs to be dogfoodable
+end to end.
 
 Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness review):
 - **Schema must widen beyond apple/iphone/solid.** The Zod schema is still single-platform
   literals; verified Apple **+ Google** bundles need the platform/device union expanded first
-  (store-specs already seeds android/ipad sizes the schema currently rejects).
+  (store-specs already seeds android/ipad sizes the schema currently rejects). Note: widening
+  `z.literal` → `z.enum` is **additive** — existing v1 documents stay valid, so this does *not*
+  require the first migration (correcting the Slice 2/3 spec assumption that it would). Reserve
+  migrations for genuine structural changes (e.g. `mode: isolated | connected`).
+- **Bundle strategy: one lead size per device (the "scale down" premise doesn't hold within
+  Apple).** Apple's accepted iPhone sizes have *slightly different aspect ratios*
+  (1320×2868 ≈ 0.4603 vs 1284×2778 ≈ 0.4622 …), so a single artboard cannot export to all of
+  them — `exportPixelRatio` correctly throws. Since Apple down-scales the lead size to smaller
+  slots itself, the Phase 2 bundle targets **the lead size per device** (6.9″ iPhone, 13″ iPad,
+  the Google presets); other accepted sizes stay in `store-specs.json` as opt-in explicit
+  targets, never implicit bundle members.
 - **Editable artboard needs store-target validation.** Slice 5 made artboard `width/height`
   freely editable, but `exportPixelRatio` throws when the artboard aspect ratio ≠ the target's.
   Validate/snap artboards against store sizes at edit time, not only at export time.
+- **UI export button.** The editor still has no export control — export is CLI-only today,
+  while the parity exit criterion and `editor.md` §4/§6 are phrased around a UI export button.
+  It lands in Phase 2 on the same bundle path as the CLI (one export path, not two).
 - **Bulk export must reuse the server + browser + context.** Today `export` starts a web server
   and `render-driver` launches a fresh Chromium per call; N screens × M sizes × L locales would
   cold-start per PNG. Reuse one server and one browser context across the bundle.
@@ -79,6 +95,7 @@ Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness r
 
 **Phase 3 — Themes / templates / fonts UI.**
 Theme tokens, template library, full font-management UI (upload, preview, system/Google).
+CLI `font add <file>` and `theme set <id>` land here, alongside their UI.
 
 **Phase 4 — Locales & RTL.**
 Multi-locale sets, RTL-native layouts.
@@ -90,7 +107,7 @@ model or a local utility.
 
 **Phase 6 — Connected canvas + polish.**
 Cross-screen elements with precise export crops, the optional skill installer, and community
-polish (README GIF, `CONTRIBUTING.md`, example projects).
+polish (README GIF, `CONTRIBUTING.md`, example projects, SPDX headers on source files).
 
 ---
 
