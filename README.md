@@ -7,6 +7,25 @@ export to exact store sizes — driven by the same `core` from both a web UI and
 The project state lives in a single git-trackable JSON file, so decks are versionable,
 reproducible, automatable in CI, and give an AI agent a clean contract to work against.
 
+## Quick start
+
+```bash
+git clone <repo> && cd AppReviewPlatform
+corepack enable      # resolves the pinned pnpm 11 on a fresh machine
+pnpm install
+pnpm dev             # editor → http://localhost:3000/editor (opens the bundled sample project)
+```
+
+To edit your own project instead of the bundled sample, point `PROJECT_PATH` at its JSON —
+relative paths resolve from the directory you run the command in:
+
+```bash
+PROJECT_PATH=./my-app-screenshots/app-store-screenshots.json pnpm dev
+```
+
+Exporting store-ready PNGs (and the e2e suite) additionally needs a one-time Playwright
+browser download — see **Requirements** below.
+
 ## Documentation
 
 - [docs/vision.md](docs/vision.md) — strategy, positioning, license, distribution _(changes rarely)_
@@ -68,14 +87,6 @@ pnpm exec playwright install chromium chromium-headless-shell
 Both browser builds are needed: the parity check compares a headed (`chromium`) render against
 a headless (`chromium-headless-shell`) one.
 
-## Install
-
-```bash
-git clone <repo> && cd AppReviewPlatform
-pnpm install
-pnpm exec playwright install chromium chromium-headless-shell
-```
-
 ## Usage
 
 ### CLI (`init` / `export`)
@@ -93,15 +104,13 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 
 ### Editor
 
-There's no `screenshots dev` wrapper yet — run the web host directly against a project's JSON:
+`pnpm dev` (see **Quick start**) runs the web host; open http://localhost:3000/editor.
+There's no `screenshots dev` CLI wrapper yet (planned for Phase 2).
 
-```bash
-PROJECT_PATH=./fixtures/phase-0-sample/app-store-screenshots.json pnpm --filter @screenshot-studio/web dev
-```
-
-Open http://localhost:3000/editor. Without `PROJECT_PATH` it defaults to that same fixture —
-set it explicitly (or point it at your own project) so autosave doesn't edit the committed
-sample.
+Without `PROJECT_PATH` the editor opens the committed sample
+(`fixtures/phase-0-sample/app-store-screenshots.json`) — fine for a first look, but the
+editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before real edits,
+or `git checkout` the fixture afterwards.
 
 ## Development
 
