@@ -9,6 +9,7 @@
   },
   "packageManager": "pnpm@11.10.0",
   "scripts": {
+    "dev": "pnpm --filter @screenshot-studio/web dev",
     "screenshots": "tsx packages/cli/src/index.ts",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
