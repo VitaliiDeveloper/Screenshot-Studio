@@ -63,7 +63,7 @@ IndexedDB, etc.):
 ```ts
 interface StorageAdapter {
   load(projectId: string): Promise<Project>
-  save(project: Project): Promise<void>
+  save(project: Project, projectId: string): Promise<void>
   putAsset(bytes: Uint8Array): Promise<{ url: string; hash: string }>
 }
 ```

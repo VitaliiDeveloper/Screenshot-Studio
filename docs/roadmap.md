@@ -109,6 +109,13 @@ model or a local utility.
 Cross-screen elements with precise export crops, the optional skill installer, and community
 polish (README GIF, `CONTRIBUTING.md`, example projects, SPDX headers on source files).
 
+Distribution decisions parked for this phase (fine for the dogfood era, blocking for `npx`):
+- **Package the CLI.** Today `pnpm screenshots` runs TypeScript via `tsx` inside the repo —
+  there is no built/published binary. Zero-config use outside the repo needs a real build.
+- **CLI weight.** The export path requires the full `apps/web` Next host (the §2 parity
+  decision's accepted cost). Decide how distribution ships it: repo clone stays the primary
+  channel, or the package bundles a prebuilt web host.
+
 ---
 
 ## 3a. Phase 1 execution slices

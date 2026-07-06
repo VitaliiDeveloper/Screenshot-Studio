@@ -16,6 +16,13 @@ import type {
  * the day-0 requirement (roadmap.md §1) that lets undo/redo be added later without a rewrite.
  * The store is the only writer of project state; the canvas dispatches actions, never mutates.
  */
+/**
+ * Deliberately loose: the union of every editable field across the four element types, so
+ * TypeScript will accept e.g. `fill` on a text element. The store's `patchElement` is a blind
+ * assign-by-id and does NOT guard field/type validity — callers (the inspector, the canvas)
+ * must narrow on `element.type` before dispatching. The backstop is the strict Zod validator:
+ * an invalid project is rejected at save, never written (Slice 5 spec, ratified trade-off).
+ */
 export type ElementPatch = Partial<
   Pick<
     TextElement,
