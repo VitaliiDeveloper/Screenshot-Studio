@@ -47,4 +47,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      # The parity tests render a *headed* Chromium (headless-vs-headed pixel diff), which
+      # needs a display; Linux runners have none, so wrap the suite in a virtual framebuffer.
+      - run: xvfb-run -a pnpm test:e2e
