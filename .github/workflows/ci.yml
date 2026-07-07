@@ -46,6 +46,10 @@ jobs:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # GitHub runners preconfigure a packages.microsoft.com apt repo that intermittently
+      # serves a bad InRelease; --with-deps runs `apt-get update`, which fails hard on it.
+      # Drop any apt source referencing that host (leaves the Ubuntu mirror untouched).
+      - run: sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ | sudo xargs -0 -r rm -f
       - run: pnpm exec playwright install --with-deps chromium
       # The parity tests render a *headed* Chromium (headless-vs-headed pixel diff), which
       # needs a display; Linux runners have none, so wrap the suite in a virtual framebuffer.
