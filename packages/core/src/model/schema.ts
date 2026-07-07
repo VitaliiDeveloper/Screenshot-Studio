@@ -128,6 +128,9 @@ export const SCREEN_DEVICES_BY_PLATFORM = {
 } as const;
 export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;
 
+/** Non-empty tuple of platform keys, for z.enum. Safe cast: the constant always has keys. */
+const PLATFORM_VALUES = Object.keys(SCREEN_DEVICES_BY_PLATFORM) as [Platform, ...Platform[]];
+
 /** Fields every screen shares, regardless of platform (mirrors the elementBase pattern). */
 const screenBase = {
   id: z.string().min(1),
@@ -169,10 +172,41 @@ export const Project = z
         schemaVersion: z.literal(SCHEMA_VERSION),
       })
       .strict(),
-    platforms: z.array(z.literal("apple")).min(1),
+    platforms: z.array(z.enum(PLATFORM_VALUES)).min(1),
     locales: z.array(z.string().min(1)).min(1),
     fonts: z.array(FontAsset).default([]),
     screens: z.array(Screen).min(1),
   })
-  .strict();
+  .strict()
+  // `platforms` is a derived manifest: no duplicates, and its set equals the set of platforms
+  // the screens actually use (not a declared superset). See the Slice 1 spec.
+  .superRefine((proj, ctx) => {
+    if (new Set(proj.platforms).size !== proj.platforms.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "platforms must not contain duplicates",
+        path: ["platforms"],
+      });
+    }
+    const declared = new Set(proj.platforms);
+    const used = new Set(proj.screens.map((s) => s.platform));
+    for (const p of declared) {
+      if (!used.has(p)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `platform "${p}" is declared but no screen uses it`,
+          path: ["platforms"],
+        });
+      }
+    }
+    proj.screens.forEach((s, i) => {
+      if (!declared.has(s.platform)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `screen platform "${s.platform}" is not listed in platforms`,
+          path: ["screens", i, "platform"],
+        });
+      }
+    });
+  });
 export type Project = z.infer<typeof Project>;

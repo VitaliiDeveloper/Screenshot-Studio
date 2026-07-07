@@ -202,3 +202,36 @@ describe("Screen platform/device union", () => {
     expect(Screen.safeParse({ ...baseScreen, platform: "android", device: "iphone" }).success).toBe(false);
   });
 });
+
+describe("Project.platforms manifest", () => {
+  function androidProject() {
+    const p = validProject();
+    p.platforms = ["android"];
+    p.screens[0]!.platform = "android";
+    p.screens[0]!.device = "phone";
+    p.screens[0]!.artboard = { width: 1080, height: 1920 };
+    return p;
+  }
+
+  it("accepts an android/phone project", () => {
+    expect(() => parseProject(androidProject())).not.toThrow();
+  });
+
+  it("rejects a duplicate platform", () => {
+    const bad = validProject();
+    bad.platforms = ["apple", "apple"];
+    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+
+  it("rejects a declared platform with no screen", () => {
+    const bad = validProject();
+    bad.platforms = ["apple", "android"]; // only an apple screen exists
+    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+
+  it("rejects a screen whose platform is not declared", () => {
+    const bad = androidProject();
+    bad.platforms = ["apple"]; // screen is android
+    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+});
