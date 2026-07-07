@@ -117,20 +117,47 @@ export const FontAsset = z
   .strict();
 export type FontAsset = z.infer<typeof FontAsset>;
 
-export const Screen = z
+/**
+ * Source of truth for which devices each platform allows. The schema enums below are built
+ * from this, and the store-specs lockstep test compares it against store-specs.json — so the
+ * pair is declared in exactly one place. Widen HERE and in store-specs.json in the same change.
+ */
+export const SCREEN_DEVICES_BY_PLATFORM = {
+  apple: ["iphone", "ipad"],
+  android: ["phone"],
+} as const;
+export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;
+
+/** Fields every screen shares, regardless of platform (mirrors the elementBase pattern). */
+const screenBase = {
+  id: z.string().min(1),
+  name: z.string().min(1),
+  locale: z.string().min(1),
+  artboard: z
+    .object({ width: z.number().int().positive(), height: z.number().int().positive() })
+    .strict(),
+  background: Background,
+  elements: z.array(Element),
+};
+
+const AppleScreen = z
   .object({
-    id: z.string().min(1),
-    name: z.string().min(1),
     platform: z.literal("apple"),
-    device: z.literal("iphone"),
-    locale: z.string().min(1),
-    artboard: z
-      .object({ width: z.number().int().positive(), height: z.number().int().positive() })
-      .strict(),
-    background: Background,
-    elements: z.array(Element),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.apple),
+    ...screenBase,
   })
   .strict();
+
+const AndroidScreen = z
+  .object({
+    platform: z.literal("android"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.android),
+    ...screenBase,
+  })
+  .strict();
+
+/** `device` is constrained by `platform`; an invalid pair (apple+phone) fails validation. */
+export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen]);
 export type Screen = z.infer<typeof Screen>;
 
 export const Project = z

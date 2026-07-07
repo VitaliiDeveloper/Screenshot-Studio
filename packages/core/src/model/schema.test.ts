@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseProject, ProjectValidationError, getScreen, SCHEMA_VERSION, Element } from "./index.js";
+import { parseProject, ProjectValidationError, getScreen, SCHEMA_VERSION, Element, Screen } from "./index.js";
 
 function validProject() {
   return {
@@ -161,5 +161,44 @@ describe("DeviceFrameElement", () => {
 
   it("rejects an unknown key (strict)", () => {
     expect(() => Element.parse({ ...base, bogus: 1 })).toThrow();
+  });
+});
+
+describe("Screen platform/device union", () => {
+  const baseScreen = {
+    id: "s1",
+    name: "S",
+    locale: "en",
+    artboard: { width: 1320, height: 2868 },
+    background: { type: "solid", color: "#000000" },
+    elements: [],
+  };
+
+  it("accepts apple/ipad", () => {
+    const r = Screen.safeParse({
+      ...baseScreen,
+      platform: "apple",
+      device: "ipad",
+      artboard: { width: 2064, height: 2752 },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts android/phone", () => {
+    const r = Screen.safeParse({
+      ...baseScreen,
+      platform: "android",
+      device: "phone",
+      artboard: { width: 1080, height: 1920 },
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects apple/phone", () => {
+    expect(Screen.safeParse({ ...baseScreen, platform: "apple", device: "phone" }).success).toBe(false);
+  });
+
+  it("rejects android/iphone", () => {
+    expect(Screen.safeParse({ ...baseScreen, platform: "android", device: "iphone" }).success).toBe(false);
   });
 });
