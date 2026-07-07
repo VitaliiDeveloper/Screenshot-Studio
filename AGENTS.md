@@ -54,11 +54,11 @@ never the target.
 ```
 Project
 ├── meta: { name, appIcon?, schemaVersion: 1 }
-├── platforms: ["apple"]                   # apple only — android widens in Phase 2
+├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
 ├── locales: ["en", …]                     # free-form strings
 ├── fonts: FontAsset[]                     # uploaded (base64) only
 └── screens: Screen[]
-    ├── id, name, platform: "apple", device: "iphone", locale
+    ├── id, name, platform, device, locale  # apple→{iphone,ipad}, android→{phone}
     ├── artboard: { width, height }
     ├── background: solid only
     └── elements: Element[]                # z-order = array order
