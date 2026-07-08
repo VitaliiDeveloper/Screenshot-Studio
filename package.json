@@ -24,6 +24,7 @@
     "@types/pixelmatch": "^5.2.6",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jszip": "^3.10.1",
     "pixelmatch": "^6.0.0",
     "playwright": "^1.49.1",
     "pngjs": "^7.0.0",

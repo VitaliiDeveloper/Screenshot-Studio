@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import JSZip from "jszip";
 import {
   parseProjectJson,
   getScreen,
@@ -11,8 +13,9 @@ import {
   stripAlpha,
   assertDimensions,
   type StoreSize,
+  type BundleEntry,
 } from "@screenshot-studio/core/export";
-import { renderScreenToPng } from "./render-driver.js";
+import { renderScreenToPng, type RenderBrowserSession } from "./render-driver.js";
 
 /**
  * Export orchestration (Node side). Renders a screen through the served web renderer, then does
@@ -55,4 +58,70 @@ export async function resolveTarget(
 ): Promise<StoreSize> {
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   return findStoreSize(specs, platform, device, sizeId);
+}
+
+export interface RenderedBundleEntry {
+  entry: BundleEntry;
+  png: Buffer;
+}
+
+export async function writeBundleOutputs({
+  outDir,
+  entries,
+}: {
+  outDir: string;
+  entries: RenderedBundleEntry[];
+}): Promise<string> {
+  const zip = new JSZip();
+
+  for (const { entry, png } of entries) {
+    const outFile = join(outDir, entry.relativePath);
+    await mkdir(dirname(outFile), { recursive: true });
+    await writeFile(outFile, png);
+    zip.file(entry.relativePath, png);
+  }
+
+  const zipPath = join(outDir, "app-store-screenshots-bundle.zip");
+  await mkdir(outDir, { recursive: true });
+  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  return zipPath;
+}
+
+export async function exportBundle({
+  baseUrl,
+  projectPath,
+  outDir,
+  entries,
+  renderSession,
+}: {
+  baseUrl: string;
+  projectPath: string;
+  outDir: string;
+  entries: BundleEntry[];
+  renderSession: Pick<RenderBrowserSession, "renderScreenToPng">;
+}): Promise<string> {
+  const rendered: RenderedBundleEntry[] = [];
+
+  for (const entry of entries) {
+    try {
+      const pixelRatio = exportPixelRatio(entry.screen.artboard, {
+        width: entry.target.width,
+        height: entry.target.height,
+      });
+      const raw = await renderSession.renderScreenToPng({
+        baseUrl,
+        projectPath,
+        screenId: entry.screen.id,
+        pixelRatio,
+      });
+      const flattened = stripAlpha(raw);
+      assertDimensions(flattened, { width: entry.target.width, height: entry.target.height });
+      rendered.push({ entry, png: flattened });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to export screen "${entry.screen.id}" target "${entry.target.id}": ${message}`);
+    }
+  }
+
+  return writeBundleOutputs({ outDir, entries: rendered });
 }
