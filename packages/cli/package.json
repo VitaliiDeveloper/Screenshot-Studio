@@ -8,6 +8,7 @@
     "screenshots": "./src/index.ts"
   },
   "exports": {
+    "./export": "./src/export.ts",
     "./render-driver": "./src/render-driver.ts",
     "./server": "./src/server.ts"
   },

@@ -16,6 +16,9 @@
     "paths": {
       "@screenshot-studio/core/*": [
         "../../packages/core/src/*/index.ts"
+      ],
+      "@screenshot-studio/cli/*": [
+        "../../packages/cli/src/*.ts"
       ]
     },
     "allowJs": true,
