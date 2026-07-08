@@ -2,19 +2,16 @@ import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import JSZip from "jszip";
-import { PNG } from "pngjs";
 import { describe, expect, it, vi } from "vitest";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { inspectPng } from "@screenshot-studio/core/export";
 import { exportBundle, writeBundleOutputs } from "./export.js";
 
 function pngBytes(): Buffer {
-  const png = new PNG({ width: 1, height: 1 });
-  png.data[0] = 10;
-  png.data[1] = 20;
-  png.data[2] = 30;
-  png.data[3] = 128;
-  return PNG.sync.write(png);
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWPgEpFrAAABJQC9HDa67AAAAABJRU5ErkJggg==",
+    "base64",
+  );
 }
 
 const entries = [
@@ -55,7 +52,7 @@ describe("writeBundleOutputs", () => {
 describe("exportBundle", () => {
   it("renders entries through one session and writes store-ready outputs", async () => {
     const outDir = await mkdtemp(join(tmpdir(), "bundle-export-"));
-    const renderScreenToPng = vi.fn(async () => pngBytes());
+    const renderScreenToPng = vi.fn(async (_opts: { screenId: string }) => pngBytes());
     const zipPath = await exportBundle({
       baseUrl: "http://localhost:4000",
       projectPath: "fixtures/project.json",
@@ -65,7 +62,7 @@ describe("exportBundle", () => {
     });
 
     expect(renderScreenToPng).toHaveBeenCalledTimes(2);
-    expect(renderScreenToPng.mock.calls.map((c) => c[0].screenId)).toEqual(["s1", "s2"]);
+    expect(renderScreenToPng.mock.calls.map(([opts]) => opts.screenId)).toEqual(["s1", "s2"]);
     await expect(stat(zipPath)).resolves.toBeTruthy();
     const written = await readFile(join(outDir, entries[0]!.relativePath));
     expect(inspectPng(written).hasAlpha).toBe(false);

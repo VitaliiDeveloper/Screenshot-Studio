@@ -28,7 +28,7 @@ describe("resolveServerPort", () => {
 describe("createServerController", () => {
   it("spawns Next on the resolved port and returns a localhost URL", async () => {
     const child = new FakeChild();
-    const spawn = vi.fn(() => child as never);
+    const spawn = vi.fn((_cmd: string, _args: string[]) => child as never);
     const waitForHttp = vi.fn(async () => undefined);
     const server = await createServerController({
       port: 4567,
@@ -37,7 +37,8 @@ describe("createServerController", () => {
       timeoutMs: 100,
     });
 
-    expect(spawn.mock.calls[0]![1]).toContain("4567");
+    const spawnArgs = spawn.mock.calls[0]?.[1];
+    expect(spawnArgs).toContain("4567");
     expect(waitForHttp).toHaveBeenCalledWith("http://localhost:4567", 100);
     expect(server.url).toBe("http://localhost:4567");
     await server.stop();

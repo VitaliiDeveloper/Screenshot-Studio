@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { resolveExportMode } from "./index.js";
+
+describe("resolveExportMode", () => {
+  it("keeps explicit single-screen export", () => {
+    expect(resolveExportMode({ screen: "hero", size: "6.9" })).toEqual({
+      kind: "single",
+      screenId: "hero",
+      sizeId: "6.9",
+    });
+  });
+
+  it("defaults to bundle mode when no screen or size is supplied", () => {
+    expect(resolveExportMode({})).toEqual({ kind: "bundle", filters: {} });
+  });
+
+  it("uses bundle filters when no screen is supplied", () => {
+    expect(resolveExportMode({ platform: "apple", device: "ipad", locale: "en" })).toEqual({
+      kind: "bundle",
+      filters: { platform: "apple", device: "ipad", locale: "en" },
+    });
+  });
+
+  it("rejects size without screen", () => {
+    expect(() => resolveExportMode({ size: "6.9" })).toThrow(/--size requires --screen/);
+  });
+
+  it("rejects screen mixed with bundle filters", () => {
+    expect(() => resolveExportMode({ screen: "hero", platform: "apple" })).toThrow(/cannot be combined/);
+  });
+});

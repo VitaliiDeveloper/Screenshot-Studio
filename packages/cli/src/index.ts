@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { runInit } from "./init.js";
 import { startWebServer } from "./server.js";
-import { exportScreenToPng, resolveTarget } from "./export.js";
+import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
+import { createRenderBrowserSession } from "./render-driver.js";
+import { buildBundleEntries, parseStoreSpecs, type BundleFilters } from "@screenshot-studio/core/export";
 import { getScreen, parseProjectJson } from "@screenshot-studio/core/model";
-import { readFile } from "node:fs/promises";
 
 /**
  * `screenshots` CLI — the Phase 0 surface is `init` and `export` only (docs/roadmap.md Phase 0).
@@ -35,6 +36,31 @@ function parseFlags(argv: string[]): Record<string, string> {
   return flags;
 }
 
+export type ExportMode =
+  | { kind: "single"; screenId: string; sizeId: string }
+  | { kind: "bundle"; filters: BundleFilters };
+
+export function resolveExportMode(flags: Record<string, string>): ExportMode {
+  const hasBundleFilter = Boolean(flags.platform || flags.device || flags.locale);
+  if (flags.screen && hasBundleFilter) {
+    throw new Error("--screen cannot be combined with --platform, --device, or --locale");
+  }
+  if (flags.size && !flags.screen) {
+    throw new Error("--size requires --screen; bundle exports use each device's lead size");
+  }
+  if (flags.screen) {
+    return { kind: "single", screenId: flags.screen, sizeId: flags.size ?? "6.9" };
+  }
+  return {
+    kind: "bundle",
+    filters: {
+      platform: flags.platform as BundleFilters["platform"],
+      device: flags.device as BundleFilters["device"],
+      locale: flags.locale,
+    },
+  };
+}
+
 async function cmdInit(flags: Record<string, string>): Promise<void> {
   const cwd = flags.dir ? resolve(flags.dir) : process.cwd();
   await runInit(cwd, flags.name);
@@ -44,32 +70,54 @@ async function cmdInit(flags: Record<string, string>): Promise<void> {
 async function cmdExport(flags: Record<string, string>): Promise<void> {
   const projectPath = resolve(flags.project ?? "app-store-screenshots.json");
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : DEFAULT_STORE_SPECS;
+  const outDir = flags.out ? resolve(flags.out) : join(dirname(projectPath), "export");
+  const mode = resolveExportMode(flags);
 
   const project = parseProjectJson(await readFile(projectPath, "utf8"));
-  const screenId = flags.screen ?? project.screens[0]!.id;
-  const screen = getScreen(project, screenId);
 
-  const target = await resolveTarget(
-    storeSpecsPath,
-    screen.platform,
-    screen.device,
-    flags.size ?? "6.9",
-  );
+  if (mode.kind === "single") {
+    const screen = getScreen(project, mode.screenId);
+    const target = await resolveTarget(
+      storeSpecsPath,
+      screen.platform,
+      screen.device,
+      mode.sizeId,
+    );
 
+    const server = await startWebServer();
+    try {
+      const png = await exportScreenToPng({
+        baseUrl: server.url,
+        projectPath,
+        screenId: mode.screenId,
+        target,
+      });
+      await mkdir(outDir, { recursive: true });
+      const outFile = join(outDir, `${screen.platform}-${screen.device}-${target.id}-${screen.locale}.png`);
+      await writeFile(outFile, png);
+      console.log(`Exported ${outFile} (${target.width}x${target.height})`);
+    } finally {
+      await server.stop();
+    }
+    return;
+  }
+
+  const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
+  const entries = buildBundleEntries(project, specs, mode.filters);
   const server = await startWebServer();
+  const session = await createRenderBrowserSession();
   try {
-    const png = await exportScreenToPng({
+    const zipPath = await exportBundle({
       baseUrl: server.url,
       projectPath,
-      screenId,
-      target,
+      outDir,
+      entries,
+      renderSession: session,
     });
-    const outDir = flags.out ? resolve(flags.out) : join(dirname(projectPath), "export");
-    await mkdir(outDir, { recursive: true });
-    const outFile = join(outDir, `${screen.platform}-${screen.device}-${target.id}-${screen.locale}.png`);
-    await writeFile(outFile, png);
-    console.log(`Exported ${outFile} (${target.width}×${target.height})`);
+    console.log(`Exported ${entries.length} screenshots to ${outDir}`);
+    console.log(`Wrote bundle ${zipPath}`);
   } finally {
+    await session.close();
     await server.stop();
   }
 }
@@ -90,7 +138,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

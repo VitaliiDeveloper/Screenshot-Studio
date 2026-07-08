@@ -14,7 +14,7 @@ export interface RunningServer {
   stop: () => Promise<void>;
 }
 
-type SpawnFn = typeof nodeSpawn;
+type SpawnFn = (command: string, args: string[], options: Parameters<typeof nodeSpawn>[2]) => ChildProcess;
 type WaitForHttpFn = (url: string, timeoutMs: number) => Promise<void>;
 
 const webDir = resolve(fileURLToPath(new URL("../../../apps/web", import.meta.url)));
