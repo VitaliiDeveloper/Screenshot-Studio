@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { resolveExportMode } from "./index.js";
+import { positionalArgs, resolveExportMode } from "./index.js";
+
+describe("positionalArgs", () => {
+  it("keeps subcommands and skips flag values", () => {
+    expect(positionalArgs(["screen", "add", "--platform", "apple", "--locale", "en"])).toEqual([
+      "screen",
+      "add",
+    ]);
+  });
+});
 
 describe("resolveExportMode", () => {
   it("keeps explicit single-screen export", () => {

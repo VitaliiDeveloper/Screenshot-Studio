@@ -8,6 +8,8 @@ import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { buildBundleEntries, parseStoreSpecs, type BundleFilters } from "@screenshot-studio/core/export";
 import { getScreen, parseProjectJson } from "@screenshot-studio/core/model";
+import { resolveProjectPath } from "./project-io.js";
+import { runScreenCommand } from "./screen-commands.js";
 
 /**
  * `screenshots` CLI — the Phase 0 surface is `init` and `export` only (docs/roadmap.md Phase 0).
@@ -34,6 +36,20 @@ function parseFlags(argv: string[]): Record<string, string> {
     }
   }
   return flags;
+}
+
+export function positionalArgs(argv: string[]): string[] {
+  const args: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg.startsWith("--")) {
+      const next = argv[i + 1];
+      if (next && !next.startsWith("--")) i++;
+    } else {
+      args.push(arg);
+    }
+  }
+  return args;
 }
 
 export type ExportMode =
@@ -122,9 +138,17 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
   }
 }
 
+async function cmdScreen(args: string[], flags: Record<string, string>): Promise<void> {
+  const projectPath = resolveProjectPath(flags);
+  const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : DEFAULT_STORE_SPECS;
+  const output = await runScreenCommand(projectPath, storeSpecsPath, args, flags);
+  if (output) console.log(output);
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
+  const args = positionalArgs(rest);
   switch (command) {
     case "init":
       await cmdInit(flags);
@@ -132,8 +156,11 @@ async function main(): Promise<void> {
     case "export":
       await cmdExport(flags);
       break;
+    case "screen":
+      await cmdScreen(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen> [flags]`);
       process.exit(1);
   }
 }
