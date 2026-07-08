@@ -29,13 +29,9 @@ interface ExportRequest {
 
 export async function POST(req: Request): Promise<Response> {
   const projectPath = resolveProjectPath();
-  let filters: BundleFilters;
-  try {
-    const body = (await req.json().catch(() => ({}))) as ExportRequest;
-    filters = { platform: body.platform, device: body.device, locale: body.locale };
-  } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 400 });
-  }
+  // Missing/invalid JSON coalesces to an empty body → an unfiltered ("all") export.
+  const body = (await req.json().catch(() => ({}))) as ExportRequest;
+  const filters: BundleFilters = { platform: body.platform, device: body.device, locale: body.locale };
 
   // Load + validate + build + artboard-check BEFORE launching a browser (fail fast → 422).
   let entries;
@@ -50,8 +46,11 @@ export async function POST(req: Request): Promise<Response> {
 
   const outDir = join(dirname(projectPath), "export");
   const baseUrl = new URL(req.url).origin;
-  const session = await createRenderBrowserSession();
+  // Launch inside the try so a chromium-launch failure returns the same structured 500 as a
+  // render failure; `session?.close()` in finally tolerates a launch that never resolved.
+  let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
   try {
+    session = await createRenderBrowserSession();
     const zipPath = await exportBundle({ baseUrl, projectPath, outDir, entries, renderSession: session });
     const zip = await readFile(zipPath);
     return new Response(new Uint8Array(zip), {
@@ -65,6 +64,6 @@ export async function POST(req: Request): Promise<Response> {
   } catch (err) {
     return Response.json({ error: (err as Error).message }, { status: 500 });
   } finally {
-    await session.close();
+    await session?.close();
   }
 }

@@ -48,8 +48,11 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
       const a = document.createElement("a");
       a.href = url;
       a.download = "app-store-screenshots-bundle.zip";
+      // Append before click and defer the revoke so the browser doesn't abort a large download.
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
       setDoneDir(res.headers.get("x-export-dir"));
     } catch (err) {
       setError((err as Error).message);
