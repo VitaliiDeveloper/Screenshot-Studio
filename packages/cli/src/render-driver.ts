@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { chromium, type Browser, type BrowserContext } from "playwright";
 import { resolve } from "node:path";
 import { base64PngToBuffer } from "@screenshot-studio/core/export";
 
@@ -37,28 +37,60 @@ export interface RenderOptions {
   timeoutMs?: number;
 }
 
+export interface RenderBrowserSession {
+  renderScreenToPng: (opts: RenderOptions) => Promise<Buffer>;
+  close: () => Promise<void>;
+}
+
+interface BrowserSessionOptions {
+  headless?: boolean;
+  launch?: typeof chromium.launch;
+}
+
+export async function createRenderBrowserSession({
+  headless = true,
+  launch = chromium.launch,
+}: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
+  const browser: Browser = await launch.call(chromium, { headless });
+  const context: BrowserContext = await browser.newContext();
+
+  return {
+    async renderScreenToPng(opts) {
+      const { baseUrl, projectPath, screenId, pixelRatio, timeoutMs = 30_000 } = opts;
+      const abs = resolve(projectPath);
+      const url = `${baseUrl}/render?project=${encodeURIComponent(abs)}&screen=${encodeURIComponent(screenId)}`;
+
+      const page = await context.newPage();
+      try {
+        await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
+
+        // Resolve as soon as the stage is ready OR a render error is surfaced, so a bad project
+        // fails fast with its validator message instead of timing out opaquely.
+        await page.waitForFunction(() => window.__stageReady === true || window.__renderError, null, {
+          timeout: timeoutMs,
+        });
+
+        const renderError = await page.evaluate(() => window.__renderError);
+        if (renderError) throw new Error(`Render failed for screen "${screenId}": ${renderError}`);
+
+        const dataUrl = await page.evaluate((ratio) => window.__exportPng!(ratio), pixelRatio);
+        return base64PngToBuffer(dataUrl);
+      } finally {
+        await page.close();
+      }
+    },
+    async close() {
+      await context.close();
+      await browser.close();
+    },
+  };
+}
+
 export async function renderScreenToPng(opts: RenderOptions): Promise<Buffer> {
-  const { baseUrl, projectPath, screenId, pixelRatio, headless = true, timeoutMs = 30_000 } = opts;
-  const abs = resolve(projectPath);
-  const url = `${baseUrl}/render?project=${encodeURIComponent(abs)}&screen=${encodeURIComponent(screenId)}`;
-
-  const browser = await chromium.launch({ headless });
+  const session = await createRenderBrowserSession({ headless: opts.headless ?? true });
   try {
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
-
-    // Resolve as soon as the stage is ready OR a render error is surfaced, so a bad project
-    // fails fast with its validator message instead of timing out opaquely.
-    await page.waitForFunction(() => window.__stageReady === true || window.__renderError, null, {
-      timeout: timeoutMs,
-    });
-
-    const renderError = await page.evaluate(() => window.__renderError);
-    if (renderError) throw new Error(`Render failed in browser: ${renderError}`);
-
-    const dataUrl = await page.evaluate((ratio) => window.__exportPng!(ratio), pixelRatio);
-    return base64PngToBuffer(dataUrl);
+    return await session.renderScreenToPng(opts);
   } finally {
-    await browser.close();
+    await session.close();
   }
 }
