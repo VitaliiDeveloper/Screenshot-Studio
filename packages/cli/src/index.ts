@@ -10,6 +10,7 @@ import { buildBundleEntries, parseStoreSpecs, type BundleFilters } from "@screen
 import { getScreen, parseProjectJson } from "@screenshot-studio/core/model";
 import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
+import { importCaptures } from "./import-command.js";
 
 /**
  * `screenshots` CLI — the Phase 0 surface is `init` and `export` only (docs/roadmap.md Phase 0).
@@ -64,6 +65,17 @@ export function resolveDevOptions(flags: Record<string, string>): DevOptions {
     if (!Number.isInteger(port) || port <= 0) throw new Error("--port must be a positive integer");
   }
   return { projectPath: resolveProjectPath(flags), port };
+}
+
+export interface ImportOptions {
+  projectPath: string;
+  inputDir: string;
+}
+
+export function resolveImportOptions(args: string[], flags: Record<string, string>): ImportOptions {
+  const [inputDir] = args;
+  if (!inputDir) throw new Error("Usage: screenshots import <dir>");
+  return { projectPath: resolveProjectPath(flags), inputDir: resolve(inputDir) };
 }
 
 export type ExportMode =
@@ -174,6 +186,13 @@ async function cmdDev(flags: Record<string, string>): Promise<void> {
   });
 }
 
+async function cmdImport(args: string[], flags: Record<string, string>): Promise<void> {
+  const options = resolveImportOptions(args, flags);
+  const result = await importCaptures(options);
+  for (const warning of result.warnings) console.warn(warning);
+  console.log(`Imported ${result.imported} screenshots`);
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -191,8 +210,11 @@ async function main(): Promise<void> {
     case "dev":
       await cmdDev(flags);
       break;
+    case "import":
+      await cmdImport(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import> [flags]`);
       process.exit(1);
   }
 }

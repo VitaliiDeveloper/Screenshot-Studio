@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { positionalArgs, resolveDevOptions, resolveExportMode } from "./index.js";
+import { positionalArgs, resolveDevOptions, resolveExportMode, resolveImportOptions } from "./index.js";
 
 describe("positionalArgs", () => {
   it("keeps subcommands and skips flag values", () => {
@@ -19,6 +19,16 @@ describe("resolveDevOptions", () => {
 
   it("rejects a non-numeric port", () => {
     expect(() => resolveDevOptions({ port: "abc" })).toThrow(/--port/);
+  });
+});
+
+describe("resolveImportOptions", () => {
+  it("requires an input directory", () => {
+    expect(() => resolveImportOptions([], {})).toThrow(/import <dir>/);
+  });
+
+  it("resolves input and project paths", () => {
+    expect(resolveImportOptions(["captures"], { project: "./deck.json" }).inputDir).toMatch(/captures$/);
   });
 });
 
