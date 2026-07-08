@@ -85,6 +85,7 @@ export function validateBundleArtboards(entries: BundleEntry[]): void {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
         `Screen "${entry.screen.name}" (${entry.screen.id}) cannot scale to target "${entry.target.id}": ${message}`,
+        { cause: err },
       );
     }
   }
