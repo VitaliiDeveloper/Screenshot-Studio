@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { parseProject } from "@screenshot-studio/core/model";
 import { registerProjectFonts } from "@screenshot-studio/core/fonts";
 import { loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore } from "../../lib/editor-store";
 import { LeftPanel } from "../../components/LeftPanel";
 import { Inspector } from "../../components/Inspector";
@@ -19,6 +20,7 @@ const EditorStage = dynamic(
 export default function EditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<ImageCache | null>(null);
+  const [specs, setSpecs] = useState<StoreSpecs | null>(null);
   const [zoom, setZoom] = useState(1);
   const clamp = (z: number) => Math.min(4, Math.max(0.25, Number(z.toFixed(2))));
 
@@ -36,6 +38,8 @@ export default function EditorPage() {
         ]);
         editorStore.getState().load(project);
         setImages(cache);
+        const specsRes = await fetch("/api/store-specs");
+        if (specsRes.ok) setSpecs(await specsRes.json());
       } catch (err) {
         setError((err as Error).message);
       }
@@ -58,7 +62,7 @@ export default function EditorPage() {
           <EditorStage images={images} zoom={zoom} />
         </div>
       </div>
-      <Inspector />
+      <Inspector specs={specs} />
     </main>
   );
 }

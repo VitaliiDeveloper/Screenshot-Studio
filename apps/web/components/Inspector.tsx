@@ -2,9 +2,11 @@
 
 import { useStore } from "zustand";
 import { getScreen } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { scheduleSave } from "../lib/debounced-save";
 import { NumberField, ColorField, TextField, SelectField } from "./inspector-fields";
+import { ArtboardTargets } from "./ArtboardTargets";
 
 /**
  * The right-hand inspector. When an element is selected it shows a Transform section plus a
@@ -38,7 +40,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function Inspector() {
+export function Inspector({ specs }: { specs: StoreSpecs | null }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedId = useStore(editorStore, (s) => s.selectedId);
@@ -105,6 +107,15 @@ export function Inspector() {
             <NumberField label="Width" value={screen.artboard.width} onChange={(width) => editArtboard({ width })} />
             <NumberField label="Height" value={screen.artboard.height} onChange={(height) => editArtboard({ height })} />
           </Section>
+          {specs && (
+            <Section title="Store targets">
+              <ArtboardTargets
+                screen={screen}
+                specs={specs}
+                onSetExact={(width, height) => editArtboard({ width, height })}
+              />
+            </Section>
+          )}
           {screen.background.type === "solid" && (
             <Section title="Background">
               <ColorField label="Color" value={screen.background.color} onChange={editBackground} />
