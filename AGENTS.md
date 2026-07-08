@@ -83,9 +83,9 @@ Status: ✅ shipped · ◻ planned (target surface, not yet implemented — do n
 | `init` | Scaffold the project and standard directories | ✅ |
 | `export [--screen --size]` | Export one screen to an exact store size (PNG, no alpha) | ✅ |
 | `export [--platform --device --locale]` | Export lead-size PNG **bundles** + zip by platform/device/locale | ✅ |
-| `dev` | Run the canvas editor (dev server) | ◻ Phase 2 |
-| `screen add / list / rm / reorder` | Manage screens | ◻ Phase 2 |
-| `import <dir>` | Ingest raw captures by directory convention | ◻ Phase 2 |
+| `dev` | Run the canvas editor (dev server) | ✅ |
+| `screen add / list / rm / reorder` | Manage screens | ✅ |
+| `import <dir>` | Ingest raw captures by directory convention | ✅ |
 | `font add <file>` | Register a custom font | ◻ Phase 3 |
 | `theme set <id>` | Apply a theme to all screens | ◻ Phase 3 |
 
@@ -95,6 +95,12 @@ lead-size bundle for every matching screen, grouped by `platform/device/locale`,
 Bundle export uses one render host and one browser context for the run. Export sizes live in
 `store-specs.json` (data, not hardcode), with dimension tests. Strip the alpha channel on export —
 stores require no transparency. See architecture §4.
+
+`screen list` prints screens in bundle/export order. `screen add` requires `--platform`, `--device`,
+and `--locale`; `--id`, `--name`, and `--size` are optional. `screen rm <id>` refuses to remove the
+last screen. `screen reorder <id> --to <position>` uses 1-based positions. `import <dir>` expects the
+documented `apple/{iphone,ipad}/{locale}/NN.png` and `android/phone/{locale}/NN.png` capture layout,
+copies PNGs into `assets/imports/...`, and appends screenshot-backed screens.
 
 ## Design guardrails (always apply when generating slides/copy)
 

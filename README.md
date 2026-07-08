@@ -89,7 +89,7 @@ a headless (`chromium-headless-shell`) one.
 
 ## Usage
 
-### CLI (`init` / `export`)
+### CLI (`init` / `export` / project management)
 
 ```bash
 # Scaffold a project (writes app-store-screenshots.json + standard directories)
@@ -103,6 +103,14 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 
 # Export one screen to an explicit store size
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --screen hero --size 6.9
+
+# Manage screens in export order
+pnpm screenshots screen list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots screen add --project ./my-app-screenshots/app-store-screenshots.json --platform apple --device iphone --locale en --name "Hero"
+pnpm screenshots screen reorder hero --to 1 --project ./my-app-screenshots/app-store-screenshots.json
+
+# Import PNG captures from screenshots/apple/{iphone,ipad}/{locale}/NN.png or screenshots/android/phone/{locale}/NN.png
+pnpm screenshots import ./my-app-screenshots/screenshots --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
 Bundle `export` flags: optional `--platform <apple|android>`, `--device <iphone|ipad|phone>`,
@@ -113,10 +121,15 @@ lead size per device from [store-specs.json](store-specs.json) and writes
 Single-screen `export` flags: `--screen <id>`, optional `--size <id>` (defaults to `6.9`), and
 `--out <dir>`.
 
+Screen commands mutate the same strict JSON source of truth. `screen list` prints current bundle
+order, `screen rm <id>` refuses to remove the last screen, and `screen reorder <id> --to <position>`
+uses 1-based positions.
+
 ### Editor
 
 `pnpm dev` (see **Quick start**) runs the web host; open http://localhost:3000/editor.
-There's no `screenshots dev` CLI wrapper yet (planned for Phase 2).
+`pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json` runs the same
+editor through the CLI and prints the selected local URL.
 
 Without `PROJECT_PATH` the editor opens the committed sample
 (`fixtures/phase-0-sample/app-store-screenshots.json`) — fine for a first look, but the

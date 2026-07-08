@@ -73,7 +73,7 @@ export async function createServerController({
     env: {
       ...process.env,
       NODE_ENV: "development",
-      ...(projectPath ? { SCREENSHOT_STUDIO_PROJECT: projectPath } : {}),
+      ...(projectPath ? { PROJECT_PATH: projectPath } : {}),
     },
   });
 

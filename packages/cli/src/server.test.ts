@@ -57,7 +57,7 @@ describe("createServerController", () => {
     });
 
     const spawnOptions = spawn.mock.calls[0]?.[2] as { env?: Record<string, string> };
-    expect(spawnOptions.env?.SCREENSHOT_STUDIO_PROJECT).toBe("/tmp/app-store-screenshots.json");
+    expect(spawnOptions.env?.PROJECT_PATH).toBe("/tmp/app-store-screenshots.json");
   });
 
   it("kills the child when readiness fails", async () => {

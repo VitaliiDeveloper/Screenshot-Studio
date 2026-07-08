@@ -77,7 +77,7 @@ remaining dogfood CLI commands, so every later surface reuses the same verified 
 | **1 — Schema widening** ✅ | `Screen.platform` / `Screen.device` widen from literals to the platform-keyed union `apple → iphone/ipad`, `android → phone`; `Project.platforms` becomes a derived manifest; schema and `store-specs.json` stay in lockstep. | Unblocks Apple + Google bundle targets without a migration. |
 | **2 — Bundle export orchestration** ✅ | Reuse one web server and one browser/context per export run, choose a free render-host port, export lead-size bundles grouped by `platform/device/locale`, zip the result, and add dimension/no-alpha tests. | Removes per-PNG cold starts and fixed-port collisions while proving the CLI can produce store-ready bundles. |
 | **3 — Artboard target validation + UI export** ✅ | Validate/snap editable artboards to store targets and add the editor export button/dialog on top of the same bundle export path. | Prevents late `exportPixelRatio` failures and closes the UI/CLI parity exit criterion without introducing a second renderer. |
-| **4 — Dogfood CLI management** | `screenshots dev`, `import`, and `screen add/list/rm/reorder`. | Makes the end-to-end project workflow manageable from the CLI after export is already trustworthy. |
+| **4 — Dogfood CLI management** ✅ | `screenshots dev`, `import`, and `screen add/list/rm/reorder`. | Makes the end-to-end project workflow manageable from the CLI after export is already trustworthy. |
 
 Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness review):
 - **Schema must widen beyond apple/iphone/solid — resolved in Slice 1.** The Zod schema now

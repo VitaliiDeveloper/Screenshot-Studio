@@ -39,7 +39,7 @@ backstop.
 
 Runs the existing Next editor through `startWebServer`.
 
-- `--project <path>` sets `SCREENSHOT_STUDIO_PROJECT`.
+- `--project <path>` sets the web app's `PROJECT_PATH` environment variable.
 - `--port <number>` optionally requests a port; omitted means choose a free localhost port.
 - The command prints the editor URL and stays alive until interrupted.
 
