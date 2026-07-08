@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { positionalArgs, resolveExportMode } from "./index.js";
+import { positionalArgs, resolveDevOptions, resolveExportMode } from "./index.js";
 
 describe("positionalArgs", () => {
   it("keeps subcommands and skips flag values", () => {
@@ -7,6 +7,18 @@ describe("positionalArgs", () => {
       "screen",
       "add",
     ]);
+  });
+});
+
+describe("resolveDevOptions", () => {
+  it("resolves project path and numeric port", () => {
+    expect(resolveDevOptions({ project: "./deck.json", port: "3456" })).toMatchObject({
+      port: 3456,
+    });
+  });
+
+  it("rejects a non-numeric port", () => {
+    expect(() => resolveDevOptions({ port: "abc" })).toThrow(/--port/);
   });
 });
 

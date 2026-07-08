@@ -45,6 +45,21 @@ describe("createServerController", () => {
     expect(child.kill).toHaveBeenCalledWith("SIGTERM");
   });
 
+  it("passes the project path to the web app when supplied", async () => {
+    const child = new FakeChild();
+    const spawn = vi.fn((_cmd: string, _args: string[], _options: unknown) => child as never);
+    await createServerController({
+      port: 4569,
+      projectPath: "/tmp/app-store-screenshots.json",
+      spawn,
+      waitForHttp: vi.fn(async () => undefined),
+      timeoutMs: 100,
+    });
+
+    const spawnOptions = spawn.mock.calls[0]?.[2] as { env?: Record<string, string> };
+    expect(spawnOptions.env?.SCREENSHOT_STUDIO_PROJECT).toBe("/tmp/app-store-screenshots.json");
+  });
+
   it("kills the child when readiness fails", async () => {
     const child = new FakeChild();
     await expect(

@@ -53,6 +53,7 @@ export async function resolveServerPort(port?: number): Promise<number> {
 
 export interface ServerControllerOptions {
   port?: number;
+  projectPath?: string;
   timeoutMs?: number;
   spawn?: SpawnFn;
   waitForHttp?: WaitForHttpFn;
@@ -60,6 +61,7 @@ export interface ServerControllerOptions {
 
 export async function createServerController({
   port,
+  projectPath,
   timeoutMs = 120_000,
   spawn = nodeSpawn,
   waitForHttp: wait = waitForHttp,
@@ -68,7 +70,11 @@ export async function createServerController({
   const child: ChildProcess = spawn("pnpm", ["exec", "next", "dev", "--port", String(selectedPort)], {
     cwd: webDir,
     stdio: "ignore",
-    env: { ...process.env, NODE_ENV: "development" },
+    env: {
+      ...process.env,
+      NODE_ENV: "development",
+      ...(projectPath ? { SCREENSHOT_STUDIO_PROJECT: projectPath } : {}),
+    },
   });
 
   const url = `http://localhost:${selectedPort}`;
@@ -91,7 +97,7 @@ export async function createServerController({
 
 export async function startWebServer(
   port?: number,
-  options: { timeoutMs?: number } = {},
+  options: { projectPath?: string; timeoutMs?: number } = {},
 ): Promise<RunningServer> {
-  return createServerController({ port, timeoutMs: options.timeoutMs });
+  return createServerController({ port, projectPath: options.projectPath, timeoutMs: options.timeoutMs });
 }

@@ -52,6 +52,20 @@ export function positionalArgs(argv: string[]): string[] {
   return args;
 }
 
+export interface DevOptions {
+  projectPath: string;
+  port?: number;
+}
+
+export function resolveDevOptions(flags: Record<string, string>): DevOptions {
+  let port: number | undefined;
+  if (flags.port) {
+    port = Number(flags.port);
+    if (!Number.isInteger(port) || port <= 0) throw new Error("--port must be a positive integer");
+  }
+  return { projectPath: resolveProjectPath(flags), port };
+}
+
 export type ExportMode =
   | { kind: "single"; screenId: string; sizeId: string }
   | { kind: "bundle"; filters: BundleFilters };
@@ -145,6 +159,21 @@ async function cmdScreen(args: string[], flags: Record<string, string>): Promise
   if (output) console.log(output);
 }
 
+async function cmdDev(flags: Record<string, string>): Promise<void> {
+  const options = resolveDevOptions(flags);
+  const server = await startWebServer(options.port, { projectPath: options.projectPath });
+  console.log(`Editor running at ${server.url}/editor`);
+
+  await new Promise<void>((resolveShutdown) => {
+    const shutdown = async () => {
+      await server.stop();
+      resolveShutdown();
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+  });
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -159,8 +188,11 @@ async function main(): Promise<void> {
     case "screen":
       await cmdScreen(args, flags);
       break;
+    case "dev":
+      await cmdDev(flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev> [flags]`);
       process.exit(1);
   }
 }
