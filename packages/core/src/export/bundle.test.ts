@@ -6,6 +6,7 @@ import {
   bundleRelativePath,
   leadStoreSizeId,
   selectBundleScreens,
+  validateBundleArtboards,
 } from "./bundle.js";
 
 const specs = parseStoreSpecs({
@@ -103,5 +104,19 @@ describe("buildBundleEntries", () => {
     expect(() => buildBundleEntries(project(), broken, { platform: "apple", device: "iphone" })).toThrow(
       /Unknown size/,
     );
+  });
+});
+
+describe("validateBundleArtboards", () => {
+  it("passes when every entry's artboard scales to its lead target", () => {
+    const entries = buildBundleEntries(project(), specs, { platform: "apple" });
+    expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
+  it("throws naming the screen and target when an artboard cannot scale", () => {
+    const bad = project();
+    bad.screens[0]!.artboard = { width: 1320, height: 2000 }; // wrong aspect for 6.9
+    const entries = buildBundleEntries(bad, specs, { platform: "apple", device: "iphone" });
+    expect(() => validateBundleArtboards(entries)).toThrow(/Hero Phone.*hero.*6\.9/);
   });
 });

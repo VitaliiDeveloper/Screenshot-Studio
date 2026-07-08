@@ -1,5 +1,6 @@
 import type { Project, Screen } from "../model/index.js";
 import { findStoreSize, type StoreSize, type StoreSpecs } from "./specs.js";
+import { exportPixelRatio } from "./pixel-ratio.js";
 
 export interface BundleFilters {
   platform?: Screen["platform"];
@@ -68,4 +69,23 @@ export function buildBundleEntries(
     const target = findStoreSize(specs, screen.platform, screen.device, sizeId);
     return { screen, target, relativePath: bundleRelativePath(screen, target, index) };
   });
+}
+
+/**
+ * Fail before rendering if any bundle entry's artboard cannot scale to its lead target
+ * (spec Slice 3). Mirrors the `exportPixelRatio` gate the render loop applies per entry, but
+ * up front, so the UI/CLI reject an invalid bundle with a screen-identifying message instead of
+ * failing mid-render.
+ */
+export function validateBundleArtboards(entries: BundleEntry[]): void {
+  for (const entry of entries) {
+    try {
+      exportPixelRatio(entry.screen.artboard, { width: entry.target.width, height: entry.target.height });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `Screen "${entry.screen.name}" (${entry.screen.id}) cannot scale to target "${entry.target.id}": ${message}`,
+      );
+    }
+  }
 }
