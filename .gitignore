@@ -36,10 +36,11 @@ test-results/
 blob-report/
 .playwright/
 
-# Generated screenshot bundles (CLI export output). The unanchored pattern also matches the
-# core source module of the same name, so re-include that explicitly.
+# Generated screenshot bundles (CLI export output). The unanchored pattern also matches
+# source directories of the same name, so re-include those explicitly.
 export/
 !packages/core/src/export/
+!apps/web/app/api/export/
 
 # Lint / tool caches
 .eslintcache
