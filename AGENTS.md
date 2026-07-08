@@ -6,9 +6,9 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 
 > **Status: Phase 0 + Phase 1 implemented and verified; Phase 2 (verified export) is next.**
 > The render/export core and the web editor are built and tested; some CLI commands in the
-> table below are still planned (marked ◻). Read `docs/` for the full rationale before
-> generating anything. When in doubt, follow `docs/architecture.md` (the technical contract) —
-> it wins over this summary.
+> table below are still planned (marked ◻). Read only the docs directly relevant to the
+> active task; do not scan all of `docs/` by default. When in doubt, follow
+> `docs/architecture.md` (the technical contract) — it wins over this summary.
 
 ## What this project is
 
@@ -104,6 +104,30 @@ stores require no transparency. See architecture §4.
 - Adjacent slides vary layout and device placement.
 - Cross-screen (connected) elements never split required text or critical UI.
 - Every exported crop works as a standalone screenshot.
+
+## Token/context discipline for agents
+
+This repo has detailed docs and long-running phase work. Keep context narrow:
+
+- For implementation, start from `AGENTS.md`, then open only the relevant sections of
+  `docs/architecture.md`, `docs/roadmap.md`, and the active slice spec/plan if one exists.
+  Do not read every file under `docs/` unless the task explicitly requires a full audit.
+- For each new slice, prefer a short handoff into a fresh thread/session instead of carrying
+  the full planning and implementation history forward. A handoff should name the goal, the
+  branch/base, the files or directories to inspect, the contracts that must hold, and the
+  verification commands.
+- Use sub-agents only for independent work streams, and give each sub-agent a scoped handoff
+  with the minimum relevant files. Do not pass the entire roadmap, all specs, or raw prior
+  thread history to every sub-agent.
+- Avoid broad searches over generated logs, session transcripts, lockfiles, build artifacts,
+  and `node_modules`. In particular, do not grep raw `.codex/sessions/*.jsonl` unless the
+  task is explicitly a Codex usage audit.
+- When auditing Codex usage, extract only `token_count`, `task_complete`, or similarly narrow
+  fields with a structured or line-limited command. Never print full `session_meta`,
+  `base_instructions`, or large embedded tool outputs.
+- Prefer command patterns that discover first and open second: `rg --files`, `wc`, targeted
+  `rg`, and narrow `sed -n` ranges. Avoid repo-wide `cat`, broad recursive text searches, and
+  commands that can emit large single-line JSON blobs.
 
 ---
 
