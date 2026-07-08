@@ -119,7 +119,9 @@ export async function exportBundle({
       rendered.push({ entry, png: flattened });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to export screen "${entry.screen.id}" target "${entry.target.id}": ${message}`);
+      throw new Error(`Failed to export screen "${entry.screen.id}" target "${entry.target.id}": ${message}`, {
+        cause: err,
+      });
     }
   }
 
