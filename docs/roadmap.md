@@ -67,13 +67,24 @@ surface: `dev` (run the editor), `import` (ingest raw captures by directory conv
 `screen add / list / rm / reorder` — the commands the bundle workflow needs to be dogfoodable
 end to end.
 
+## 3b. Phase 2 execution slices
+
+Phase 2 is split by export risk. The bundle path lands before UI affordances and before the
+remaining dogfood CLI commands, so every later surface reuses the same verified orchestration.
+
+| Slice | Delivers | Risk it retires |
+|-------|----------|-----------------|
+| **1 — Schema widening** ✅ | `Screen.platform` / `Screen.device` widen from literals to the platform-keyed union `apple → iphone/ipad`, `android → phone`; `Project.platforms` becomes a derived manifest; schema and `store-specs.json` stay in lockstep. | Unblocks Apple + Google bundle targets without a migration. |
+| **2 — Bundle export orchestration** ✅ | Reuse one web server and one browser/context per export run, choose a free render-host port, export lead-size bundles grouped by `platform/device/locale`, zip the result, and add dimension/no-alpha tests. | Removes per-PNG cold starts and fixed-port collisions while proving the CLI can produce store-ready bundles. |
+| **3 — Artboard target validation + UI export** | Validate/snap editable artboards to store targets and add the editor export button/dialog on top of the same bundle export path. | Prevents late `exportPixelRatio` failures and closes the UI/CLI parity exit criterion without introducing a second renderer. |
+| **4 — Dogfood CLI management** | `screenshots dev`, `import`, and `screen add/list/rm/reorder`. | Makes the end-to-end project workflow manageable from the CLI after export is already trustworthy. |
+
 Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness review):
-- **Schema must widen beyond apple/iphone/solid.** The Zod schema is still single-platform
-  literals; verified Apple **+ Google** bundles need the platform/device union expanded first
-  (store-specs already seeds android/ipad sizes the schema currently rejects). Note: widening
-  `z.literal` → `z.enum` is **additive** — existing v1 documents stay valid, so this does *not*
-  require the first migration (correcting the Slice 2/3 spec assumption that it would). Reserve
-  migrations for genuine structural changes (e.g. `mode: isolated | connected`).
+- **Schema must widen beyond apple/iphone/solid — resolved in Slice 1.** The Zod schema now
+  supports the Phase 2 target set (`apple/iphone`, `apple/ipad`, `android/phone`) and the schema
+  device set is pinned to `store-specs.json`. This was additive (`z.literal` → `z.enum`), so
+  existing v1 documents stayed valid and no migration was required. Reserve migrations for
+  genuine structural changes (e.g. `mode: isolated | connected`).
 - **Bundle strategy: one lead size per device (the "scale down" premise doesn't hold within
   Apple).** Apple's accepted iPhone sizes have *slightly different aspect ratios*
   (1320×2868 ≈ 0.4603 vs 1284×2778 ≈ 0.4622 …), so a single artboard cannot export to all of

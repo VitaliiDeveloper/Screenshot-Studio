@@ -82,16 +82,19 @@ Status: ✅ shipped · ◻ planned (target surface, not yet implemented — do n
 |---------|--------|--------|
 | `init` | Scaffold the project and standard directories | ✅ |
 | `export [--screen --size]` | Export one screen to an exact store size (PNG, no alpha) | ✅ |
+| `export [--platform --device --locale]` | Export lead-size PNG **bundles** + zip by platform/device/locale | ✅ |
 | `dev` | Run the canvas editor (dev server) | ◻ Phase 2 |
 | `screen add / list / rm / reorder` | Manage screens | ◻ Phase 2 |
 | `import <dir>` | Ingest raw captures by directory convention | ◻ Phase 2 |
-| `export [--platform --device --locale]` | Exact PNG **bundles** by platform/device/locale | ◻ Phase 2 |
 | `font add <file>` | Register a custom font | ◻ Phase 3 |
 | `theme set <id>` | Apply a theme to all screens | ◻ Phase 3 |
 
-Today `export` writes a single screen (`--screen`, `--size`); the multi-target bundle form is
-Phase 2. Export sizes live in `store-specs.json` (data, not hardcode), with Vitest dimension tests.
-Strip the alpha channel on export — stores require no transparency. See architecture §4.
+`export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
+lead-size bundle for every matching screen, grouped by `platform/device/locale`, plus
+`app-store-screenshots-bundle.zip`; filters are optional (`--platform`, `--device`, `--locale`).
+Bundle export uses one render host and one browser context for the run. Export sizes live in
+`store-specs.json` (data, not hardcode), with dimension tests. Strip the alpha channel on export —
+stores require no transparency. See architecture §4.
 
 ## Design guardrails (always apply when generating slides/copy)
 

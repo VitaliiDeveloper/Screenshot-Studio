@@ -61,8 +61,8 @@ case (an embedded custom font).
 `screenshot`, and `device-frame` elements over a shared render path, with select / move /
 resize / rotate, inline text edit, a screens + layers left panel (reorder, lock, hide, rename),
 a per-type inspector (plus a no-selection artboard/background editor), and a toolbar
-(insert-on-click for `text`/`shape`, zoom). Verified multi-size export bundles are Phase 2 —
-see [docs/roadmap.md](docs/roadmap.md).
+(insert-on-click for `text`/`shape`, zoom). Phase 2 Slice 2 adds verified lead-size CLI export
+bundles; UI export remains a later Phase 2 slice — see [docs/roadmap.md](docs/roadmap.md).
 
 ## Requirements
 
@@ -95,12 +95,23 @@ a headless (`chromium-headless-shell`) one.
 # Scaffold a project (writes app-store-screenshots.json + standard directories)
 pnpm screenshots init --dir ./my-app-screenshots
 
-# Export a screen to an exact store size (PNG, 24-bit RGB, no alpha)
+# Export every screen to its lead store target (PNGs + zip, no alpha)
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json
+
+# Export a filtered lead-size bundle
+pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --platform apple --locale en
+
+# Export one screen to an explicit store size
+pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --screen hero --size 6.9
 ```
 
-`export` flags: `--screen <id>` (defaults to the first screen), `--size <id>` (defaults to
-`6.9`, from [store-specs.json](store-specs.json)), `--out <dir>` (defaults to `<project>/export`).
+Bundle `export` flags: optional `--platform <apple|android>`, `--device <iphone|ipad|phone>`,
+`--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode uses the
+lead size per device from [store-specs.json](store-specs.json) and writes
+`app-store-screenshots-bundle.zip`.
+
+Single-screen `export` flags: `--screen <id>`, optional `--size <id>` (defaults to `6.9`), and
+`--out <dir>`.
 
 ### Editor
 
