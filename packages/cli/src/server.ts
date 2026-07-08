@@ -1,4 +1,5 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
+import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
@@ -12,6 +13,9 @@ export interface RunningServer {
   url: string;
   stop: () => Promise<void>;
 }
+
+type SpawnFn = typeof nodeSpawn;
+type WaitForHttpFn = (url: string, timeoutMs: number) => Promise<void>;
 
 const webDir = resolve(fileURLToPath(new URL("../../../apps/web", import.meta.url)));
 
@@ -29,19 +33,47 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   throw new Error(`Web server did not become ready within ${timeoutMs}ms`);
 }
 
-export async function startWebServer(
-  port = 3100,
-  { timeoutMs = 120_000 }: { timeoutMs?: number } = {},
-): Promise<RunningServer> {
-  const child: ChildProcess = spawn("pnpm", ["exec", "next", "dev", "--port", String(port)], {
+export async function resolveServerPort(port?: number): Promise<number> {
+  if (port) return port;
+
+  return new Promise<number>((resolvePort, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("Could not allocate a free render host port")));
+        return;
+      }
+      const selected = address.port;
+      server.close(() => resolvePort(selected));
+    });
+  });
+}
+
+export interface ServerControllerOptions {
+  port?: number;
+  timeoutMs?: number;
+  spawn?: SpawnFn;
+  waitForHttp?: WaitForHttpFn;
+}
+
+export async function createServerController({
+  port,
+  timeoutMs = 120_000,
+  spawn = nodeSpawn,
+  waitForHttp: wait = waitForHttp,
+}: ServerControllerOptions = {}): Promise<RunningServer> {
+  const selectedPort = await resolveServerPort(port);
+  const child: ChildProcess = spawn("pnpm", ["exec", "next", "dev", "--port", String(selectedPort)], {
     cwd: webDir,
     stdio: "ignore",
     env: { ...process.env, NODE_ENV: "development" },
   });
 
-  const url = `http://localhost:${port}`;
+  const url = `http://localhost:${selectedPort}`;
   try {
-    await waitForHttp(url, timeoutMs);
+    await wait(url, timeoutMs);
   } catch (err) {
     child.kill("SIGTERM");
     throw err;
@@ -55,4 +87,11 @@ export async function startWebServer(
     });
 
   return { url, stop };
+}
+
+export async function startWebServer(
+  port?: number,
+  options: { timeoutMs?: number } = {},
+): Promise<RunningServer> {
+  return createServerController({ port, timeoutMs: options.timeoutMs });
 }
