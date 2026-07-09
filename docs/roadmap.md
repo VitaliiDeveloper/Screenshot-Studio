@@ -169,10 +169,11 @@ Decisions taken up front (they set the slice boundaries above):
   deck "self-contained", but the project already is not: screenshots live in `screenshots/` and
   resolve by path through `apps/web/app/api/asset/route.ts`, and `AGENTS.md` already documents
   `assets/fonts/`. One font weight costs ~422 KB of base64 — `fixtures/phase-0-sample` is 440 KB,
-  of which 439 KB is one Pacifico blob. Fonts adopt the model images already use. Amends §5.
+  of which 439 KB is one Pacifico blob. Fonts adopt the model images already use. **Slice 1
+  amends §5**; until it lands, §5 still describes base64.
 - **System fonts are rejected, not deferred.** A system font is not embedded, so the same JSON
   renders different pixels in headless Chromium in CI than on the author's Mac. That breaks the
-  §1 parity rule by construction. `architecture.md` §5 lists `system` as a source; it is cut.
+  §1 parity rule by construction. `architecture.md` §5 lists `system` as a source; Slice 1 cuts it.
 - **Google fonts materialize at `add`-time.** `font add --google` fetches the bytes once, writes
   them to `assets/fonts/`, and records `source: "google"` as provenance. Render and export stay
   offline and deterministic, and `source` never becomes a branch in the renderer. Requesting
@@ -186,8 +187,8 @@ Decisions taken up front (they set the slice boundaries above):
   role is never touched by a theme — that is how a unique element opts out. Because `role`
   persists, re-running `theme set` with another theme still works: baking does not mean one-shot.
   This contradicts `architecture.md` §3 ("unknown theme ids fall back to defaults", which implies
-  reference resolution at render time); §3 is amended. `role?` is additive and optional, so
-  `schemaVersion` stays `1`.
+  reference resolution at render time); **Slice 4 amends §3**. `role?` is additive and optional,
+  so `schemaVersion` stays `1`.
 - **Theme and template definitions live in `themes/*.json` and `templates/*.json`,** not in
   `Project`. They are inputs to a transformation, not something the renderer reads — so they do
   not belong in the render contract. `screenshots init` already scaffolds both directories.

@@ -28,7 +28,9 @@ management UI (Slice 3), themes (Slices 4–5), templates (Slice 6).
    Slice 3 must be designed against the final shape.
 3. **System fonts are rejected.** A system font is by definition not embedded, so a project
    rendered on another machine (or in headless Chromium in CI) produces different pixels. This
-   contradicts `architecture.md` §5, which lists `system` as a source; §5 is amended.
+   contradicts `architecture.md` §5, which lists `system` as a source and mandates base64.
+   **Amending §5 is part of this slice** (see the change list below) — until it lands, the
+   contract doc still describes the old model.
 4. **`schemaVersion` stays `1`; no migration is written.** The only documents in existence with
    `data:` are this repo's fixtures, and exactly one carries a font. This is a deliberate
    pre-1.0 call, not an oversight.
@@ -67,8 +69,13 @@ export async function registerFont(asset: FontAsset, resolve: ResolveFontUrl): P
 export async function registerProjectFonts(fonts: FontAsset[], resolve: ResolveFontUrl): Promise<void>;
 ```
 
-`registerFont` fetches the resolved URL, `await`s an `ArrayBuffer`, and builds the `FontFace`
-from it. `base64ToArrayBuffer` is deleted.
+`registerFont` fetches the resolved URL, **checks `response.ok`**, `await`s an `ArrayBuffer`,
+and builds the `FontFace` from it. `base64ToArrayBuffer` is deleted.
+
+The `response.ok` check is load-bearing and easy to omit: `fetch` does **not** reject on 404 —
+it resolves with `ok: false` and an HTML error body. Without the check, those bytes reach
+`new FontFace(...)`, and the whole guarantee below degrades to "hopefully FontFace rejects on
+garbage." Fail explicitly instead.
 
 **A failed font must throw. This is the one place fonts and images deliberately disagree.**
 `loadProjectImages` swallows a failed asset — the cache omits it, the map draws a placeholder,
@@ -88,6 +95,18 @@ therefore rejects, and the render host lets it propagate rather than gating on i
 - `app/render/RenderStage.tsx` and `app/editor/page.tsx`: pass the `resolveAsset` they already
   hold to `registerProjectFonts`. The `Promise.all([...])` before `window.__stageReady = true`
   keeps its current shape; only the font call gains an argument.
+
+## Contract doc (`docs/architecture.md`)
+
+Not optional, and not a follow-up: `AGENTS.md` names `architecture.md` the technical contract
+that **wins** over every other summary. This slice makes §5 false, so this slice fixes §5, in
+the same change:
+
+- §5 drops `system` from the source list and states why (parity, not preference).
+- §5 replaces "stored as base64 in the project so the deck is self-contained" with the file +
+  asset-route model, noting that screenshots already work this way.
+- §3's `themes: Theme[]` line is **left alone** — it is amended by Slice 4, which is what makes
+  it false. Do not touch it here.
 
 ## Fixtures
 
@@ -113,10 +132,17 @@ not a new test:
    fallback and requires a **large** diff. If `path`-based loading silently fails, Chromium
    substitutes a fallback, that diff collapses toward zero, and the test fails. It is the exact
    regression guard for this change and it already exists.
-3. A `registerProjectFonts` unit test asserting it **rejects** on a fetch failure rather than
-   resolving — guarding the asymmetry with `loadProjectImages` above.
+3. A `registerProjectFonts` unit test asserting it **rejects on a 404** — not on some generic
+   "fetch failure". 404 is the case the guarantee actually hinges on, because `fetch` resolves
+   it happily; a test that only mocks a network throw would pass against an implementation
+   missing the `response.ok` check, which is the bug worth catching.
 4. `pnpm --filter @screenshot-studio/cli test` — CLI export still writes correct dimensions and
    no alpha for the rewritten fixture.
+
+**Known gap, accepted for this slice:** `e2e/parity.test.ts` drives only `/render`. The matching
+change in `app/editor/page.tsx` is therefore *not* covered — a broken font load there would be an
+editor-only visual regression that item 2 would not catch. Check the editor by eye once (the
+Pacifico headline in the fixture is unmistakable) rather than building an editor font e2e test.
 
 Not run: the web app's own build is unaffected beyond two call sites; the full suite is not
 warranted (RULES: scope verification to changed behavior). Export parity *is* the shared
