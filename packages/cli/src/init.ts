@@ -31,28 +31,9 @@ function starterProject(name: string): Project {
         locale: "en",
         artboard: { width: 660, height: 1434 },
         background: { type: "solid", color: "#0B1020" },
-        elements: [
-          {
-            id: "headline",
-            type: "text",
-            x: 60,
-            y: 360,
-            width: 540,
-            height: 200,
-            rotation: 0,
-            opacity: 1,
-            locked: false,
-            visible: true,
-            content: "Your headline",
-            fontFamily: "sans-serif",
-            size: 96,
-            weight: 700,
-            lineHeight: 1.15,
-            letterSpacing: 0,
-            align: "center",
-            color: "#FFFFFF",
-          },
-        ],
+        // A blank starter is exportable everywhere. Adding a system-font headline here would
+        // immediately violate the file-backed font parity contract.
+        elements: [],
       },
     ],
   };

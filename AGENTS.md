@@ -4,9 +4,9 @@ Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this r
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
 
-> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 is next.**
+> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–2 are implemented and verified; Slice 3 is next.**
 > The render/export core, web editor, verified export flow, and dogfood CLI management commands
-> are built and tested; later theme/font commands remain planned (marked ◻). Read only the docs directly relevant to the
+> are built and tested; font ingest is built, while font-management UI and theme commands remain planned (marked ◻). Read only the docs directly relevant to the
 > active task; do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
@@ -56,7 +56,7 @@ Project
 ├── meta: { name, appIcon?, schemaVersion: 1 }
 ├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
 ├── locales: ["en", …]                     # free-form strings
-├── fonts: FontAsset[]                     # uploaded (base64) only
+├── fonts: FontAsset[]                     # uploaded / Google file assets under assets/fonts/
 └── screens: Screen[]
     ├── id, name, platform, device, locale  # apple→{iphone,ipad}, android→{phone}
     ├── artboard: { width, height }
@@ -69,8 +69,8 @@ Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphon
 There is **no `themes` key yet** (Phase 3) — the strict validator rejects it.
 
 **Target (later phases):** platforms `["apple", "android"]`; `themes: Theme[]` (tokens:
-colors, fonts, spacing); background `solid | gradient | image`; fonts system / google /
-uploaded; extra element types `icon`, `badge`, `image`; locales with RTL (`ar`). Artboards
+colors, fonts, spacing); background `solid | gradient | image`; additional font-management UI;
+extra element types `icon`, `badge`, `image`; locales with RTL (`ar`). Artboards
 are **isolated** (no connected canvas in the MVP). Schema is versioned; pure `v1→v2→…`
 migrations run on load — though enum widenings are additive and need no migration.
 
@@ -86,7 +86,7 @@ Status: ✅ shipped · ◻ planned (target surface, not yet implemented — do n
 | `dev` | Run the canvas editor (dev server) | ✅ |
 | `screen add / list / rm / reorder` | Manage screens | ✅ |
 | `import <dir>` | Ingest raw captures by directory convention | ✅ |
-| `font add <file>` | Register a custom font | ◻ Phase 3 |
+| `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Register and manage deterministic font assets | ✅ |
 | `theme set <id>` | Apply a theme to all screens | ◻ Phase 3 |
 
 `export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
@@ -101,6 +101,12 @@ and `--locale`; `--id`, `--name`, and `--size` are optional. `screen rm <id>` re
 last screen. `screen reorder <id> --to <position>` uses 1-based positions. `import <dir>` expects the
 documented `apple/{iphone,ipad}/{locale}/NN.png` and `android/phone/{locale}/NN.png` capture layout,
 copies PNGs into `assets/imports/...`, and appends screenshot-backed screens.
+
+`font add <file>` requires `--family` and accepts `.ttf`, `.otf`, `.woff`, or `.woff2`; `--weight`
+defaults to `400`. `font add --google <family>` downloads one exact-weight file at add-time, so
+render/export make no network request. `font rm <family>` removes the selected identity (and its
+unshared managed file). Export refuses text whose `(fontFamily, weight)` has no `FontAsset`, rather
+than accepting a machine-dependent system fallback.
 
 ## Design guardrails (always apply when generating slides/copy)
 

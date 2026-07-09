@@ -7,10 +7,11 @@ import { startWebServer } from "./server.js";
 import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { buildBundleEntries, parseStoreSpecs, type BundleFilters } from "@screenshot-studio/core/export";
-import { getScreen, parseProjectJson } from "@screenshot-studio/core/model";
+import { findUnresolvedFonts, getScreen, parseProjectJson, type Project } from "@screenshot-studio/core/model";
 import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { importCaptures } from "./import-command.js";
+import { runFontCommand } from "./font-commands.js";
 
 /**
  * `screenshots` CLI — the Phase 0 surface is `init` and `export` only (docs/roadmap.md Phase 0).
@@ -103,6 +104,15 @@ export function resolveExportMode(flags: Record<string, string>): ExportMode {
   };
 }
 
+/** Reject nondeterministic system-font fallbacks before a render host or browser is created. */
+export function assertProjectFontsResolved(project: Project): void {
+  const unresolved = findUnresolvedFonts(project);
+  if (unresolved.length > 0) {
+    const identities = unresolved.map((font) => `"${font.family}" ${font.weight}`).join(", ");
+    throw new Error(`Cannot export: unresolved project fonts: ${identities}. Add each font with screenshots font add.`);
+  }
+}
+
 async function cmdInit(flags: Record<string, string>): Promise<void> {
   const cwd = flags.dir ? resolve(flags.dir) : process.cwd();
   await runInit(cwd, flags.name);
@@ -116,6 +126,7 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
   const mode = resolveExportMode(flags);
 
   const project = parseProjectJson(await readFile(projectPath, "utf8"));
+  assertProjectFontsResolved(project);
 
   if (mode.kind === "single") {
     const screen = getScreen(project, mode.screenId);
@@ -193,6 +204,11 @@ async function cmdImport(args: string[], flags: Record<string, string>): Promise
   console.log(`Imported ${result.imported} screenshots`);
 }
 
+async function cmdFont(args: string[], flags: Record<string, string>): Promise<void> {
+  const output = await runFontCommand(resolveProjectPath(flags), args, flags);
+  if (output) console.log(output);
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -213,8 +229,11 @@ async function main(): Promise<void> {
     case "import":
       await cmdImport(args, flags);
       break;
+    case "font":
+      await cmdFont(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font> [flags]`);
       process.exit(1);
   }
 }

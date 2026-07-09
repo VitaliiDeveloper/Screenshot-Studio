@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { positionalArgs, resolveDevOptions, resolveExportMode, resolveImportOptions } from "./index.js";
+import { assertProjectFontsResolved, positionalArgs, resolveDevOptions, resolveExportMode, resolveImportOptions } from "./index.js";
 
 describe("positionalArgs", () => {
   it("keeps subcommands and skips flag values", () => {
@@ -58,5 +58,14 @@ describe("resolveExportMode", () => {
 
   it("rejects screen mixed with bundle filters", () => {
     expect(() => resolveExportMode({ screen: "hero", platform: "apple" })).toThrow(/cannot be combined/);
+  });
+});
+
+describe("assertProjectFontsResolved", () => {
+  it("blocks export before rendering when text resolves to a system fallback", () => {
+    expect(() => assertProjectFontsResolved({
+      meta: { name: "T", schemaVersion: 1 }, platforms: ["apple"], locales: ["en"], fonts: [],
+      screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "title", type: "text", x: 0, y: 0, width: 100, height: 100, content: "Title", fontFamily: "sans-serif", size: 24, color: "#FFFFFF" }] }],
+    })).toThrow(/unresolved project fonts.*sans-serif/);
   });
 });

@@ -35,6 +35,30 @@ export function uniqueId(base: string, screens: readonly { id: string }[]): stri
   }
 }
 
+export interface FontIdentity {
+  family: string;
+  weight: number;
+}
+
+/** Text font identities that have no file-backed project font. Pure: filesystem loading stays in hosts. */
+export function findUnresolvedFonts(project: ProjectModel): FontIdentity[] {
+  const registered = new Set(project.fonts.map((font) => `${font.family}\0${font.weight}`));
+  const unresolved: FontIdentity[] = [];
+  const seen = new Set<string>();
+
+  for (const screen of project.screens) {
+    for (const element of screen.elements) {
+      if (element.type !== "text") continue;
+      const key = `${element.fontFamily}\0${element.weight}`;
+      if (!registered.has(key) && !seen.has(key)) {
+        unresolved.push({ family: element.fontFamily, weight: element.weight });
+        seen.add(key);
+      }
+    }
+  }
+  return unresolved;
+}
+
 /**
  * Re-derive `platforms` and `locales` from screens and re-validate.
  * Call after any mutation that adds/removes screens or changes platform/locale.

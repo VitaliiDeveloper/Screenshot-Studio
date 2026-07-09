@@ -3,6 +3,7 @@ import type { Project } from "./schema.js";
 import {
   addScreenToProject,
   cloneScreenWithFreshIds,
+  findUnresolvedFonts,
   parseScreenPlacement,
   recomputeManifests,
   removeScreenFromProject,
@@ -133,5 +134,26 @@ describe("project-ops", () => {
     expect(copy.id).not.toBe(src.id);
     expect(copy.elements[0]!.id).not.toBe("headline");
     expect(copy.name).toBe("Hero copy");
+  });
+
+  it("finds each text font identity absent from project assets once", () => {
+    const project = sampleProject();
+    project.screens[0]!.elements = [
+      {
+        id: "title", type: "text", x: 0, y: 0, width: 100, height: 100,
+        content: "Title", fontFamily: "Inter", weight: 700, size: 24, color: "#FFFFFF",
+      },
+      {
+        id: "body", type: "text", x: 0, y: 100, width: 100, height: 100,
+        content: "Body", fontFamily: "Inter", weight: 400, size: 24, color: "#FFFFFF",
+      },
+      {
+        id: "title-again", type: "text", x: 0, y: 200, width: 100, height: 100,
+        content: "Again", fontFamily: "Inter", weight: 700, size: 24, color: "#FFFFFF",
+      },
+    ];
+    project.fonts = [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-400.ttf", weight: 400 }];
+
+    expect(findUnresolvedFonts(project)).toEqual([{ family: "Inter", weight: 700 }]);
   });
 });

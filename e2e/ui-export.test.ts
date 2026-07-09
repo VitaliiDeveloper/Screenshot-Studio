@@ -14,6 +14,7 @@ const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 
 afterEach(() => {
   delete process.env.PROJECT_PATH;
+  delete process.env.STORE_SPECS_PATH;
 });
 
 describe("Phase 2 Slice 3 UI export", () => {
@@ -24,6 +25,7 @@ describe("Phase 2 Slice 3 UI export", () => {
     await cp(fixtureDir, workspace, { recursive: true });
     const projectPath = join(workspace, "app-store-screenshots.json");
     process.env.PROJECT_PATH = projectPath;
+    process.env.STORE_SPECS_PATH = storeSpecsPath;
 
     const project = parseProjectJson(await readFile(projectPath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
@@ -36,6 +38,7 @@ describe("Phase 2 Slice 3 UI export", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({}),
       });
+      if (res.status !== 200) throw new Error(`UI export failed (${res.status}): ${await res.text()}`);
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toBe("application/zip");
 

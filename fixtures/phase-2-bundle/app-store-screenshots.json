@@ -12,20 +12,7 @@
       "locale": "en",
       "artboard": { "width": 1320, "height": 2868 },
       "background": { "type": "solid", "color": "#111111" },
-      "elements": [
-        {
-          "id": "headline",
-          "type": "text",
-          "x": 120,
-          "y": 180,
-          "width": 1080,
-          "height": 180,
-          "content": "iPhone",
-          "fontFamily": "sans-serif",
-          "size": 96,
-          "color": "#FFFFFF"
-        }
-      ]
+      "elements": []
     },
     {
       "id": "ipad-hero",

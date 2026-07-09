@@ -234,7 +234,7 @@ my-app-screenshots/
 | `init` | Scaffold the project and standard directories |
 | `dev` | Run the canvas editor (dev server) |
 | `screen add / list / rm / reorder` | Manage screens |
-| `font add <file>` | Register a custom font |
+| `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
 | `theme set <id>` | Apply a theme to all screens |
 | `import <dir>` | Ingest raw captures by directory convention |
 | `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |

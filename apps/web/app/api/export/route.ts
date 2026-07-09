@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { parseProjectJson } from "@screenshot-studio/core/model";
+import { findUnresolvedFonts, parseProjectJson } from "@screenshot-studio/core/model";
 import {
   buildBundleEntries,
   parseStoreSpecs,
@@ -37,6 +37,10 @@ export async function POST(req: Request): Promise<Response> {
   let entries;
   try {
     const project = parseProjectJson(await readFile(projectPath, "utf8"));
+    const unresolved = findUnresolvedFonts(project);
+    if (unresolved.length > 0) {
+      throw new Error(`Cannot export: unresolved project fonts: ${unresolved.map((font) => `"${font.family}" ${font.weight}`).join(", ")}. Add each font with screenshots font add.`);
+    }
     const specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
     entries = buildBundleEntries(project, specs, filters);
     validateBundleArtboards(entries);
