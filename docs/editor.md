@@ -3,9 +3,10 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.2, 6 July 2026.
+Version 0.3, 10 July 2026.
 
-> **Status: Phase 1 is implemented** (slices 1–5, see `roadmap.md` §3a and `docs/specs/`).
+> **Status: Phase 1 and the Phase 3 font/theme/template editor surfaces are implemented**
+> (see `roadmap.md` §3a/§3c and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
 > and a slice spec disagree, the slice spec — being the ratified decision — wins for what
@@ -17,7 +18,7 @@ Version 0.2, 6 July 2026.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Toolbar: element tools · zoom · export        │
+│ Toolbar: tools · fonts · themes · templates    │
 ├──────┬────────────────────────────┬───────────┤
 │ Left │                            │ Inspector │
 │ ──── │      Canvas (active        │  (right)  │
@@ -39,7 +40,7 @@ holds properties of the current selection, the **left panel** holds structure (s
 - *(as built)* The canvas shows **one active screen** in a scrollable region with zoom
   controls (in / out / reset). The original "infinite pan/zoom canvas with artboards placed
   freely in 2D" plus wheel-zoom / space-drag pan gestures were **deferred in Slice 1** and are
-  not scheduled — re-open them deliberately (likely alongside Phase 3 polish) rather than
+  not scheduled — re-open them deliberately in a future polish slice rather than
   assuming they exist.
 - **Isolated-artboard invariant.** Each artboard clips its own elements (Konva clip); export is
   per-artboard. No element crosses an artboard boundary. Connected canvas is deferred (§8, Phase 6);
@@ -51,9 +52,9 @@ holds properties of the current selection, the **left panel** holds structure (s
 - **Active screen.** Exactly one artboard is the *active screen* at a time — the one last focused
   on the canvas or in the Screens list. It drives the Layers section (§3), the insert target for
   new elements (§4), and the no-selection inspector (§5).
-- Placing two device mockups on one artboard (a 2-device slide) is possible in the MVP by adding
-  two `device-frame` / `screenshot` elements manually. One-click layout *presets* for this are a
-  Phase 3 templates feature (§8), not an MVP control.
+- Placing two device mockups on one artboard (a 2-device slide) is possible manually or through
+  an exact project-local template. Templates create screens; they do not add responsive layout
+  behavior to the canvas.
 
 ---
 
@@ -80,6 +81,8 @@ picking a screen and arranging its layers).
 - Zoom controls *(as built)*: zoom in / out / reset-to-100%; "fit" is not implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
   CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*
+- Fonts, Themes, and Templates open their management/picker dialogs. Theme and template files are
+  server-side project inputs; the browser receives validated definitions and durable projects.
 - The toolbar does **not** edit background; background is an artboard property and lives in the
   inspector (§5).
 
@@ -91,7 +94,7 @@ Always shows the shared element base when an element is selected: `x, y, width, 
 opacity, locked, visible`. Type-specific fields below it:
 
 Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
-the schema gains them (mostly Phase 3+). Everything else is as built (Slice 5).
+the schema gains them (future phases). Everything else is as built.
 
 - **No selection** → active **artboard** properties: artboard size with store-target status and
   exact-size presets *(as built)* and background: `solid` today;
@@ -121,6 +124,10 @@ the schema gains them (mostly Phase 3+). Everything else is as built (Slice 5).
 - **Font management** opens from the toolbar: upload or materialize a Google Font, preview/list
   registered identities, apply one to the selected text element, or remove it. CLI and UI reuse
   the same add-time Node service; render/export never fetch fonts from the network.
+- **Theme management** assigns roles in text/shape inspectors and applies strict `themes/*.json`
+  through a serialized server mutation. Only literal project fields reach rendering.
+- **Template library** lists strict `templates/*.json`, creates a fresh-id screen using the active
+  locale, persists it, and selects it. Templates never enter the render contract.
 
 ---
 
@@ -141,9 +148,6 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
 - **Undo/redo UI.** The store uses immutable state/patches (Zustand + Immer) from day 0, so the
   architecture is in place — but the undo *buttons* ship later.
 - **Element grouping.** Pulls in a selection model, nested transforms, and z-order edge cases.
-- **Layout presets / templates** (1-/2-/3-device base layouts as one click) — **Phase 3**. The
-  manual capability exists in the MVP (§2); only the preset convenience is deferred. The `templates/`
-  convention directory and schema leave room.
 - **Locales / RTL** — Phase 4. Font management shipped in Phase 3 Slice 3; baked theme CLI/UI
   shipped in Slices 4–5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the

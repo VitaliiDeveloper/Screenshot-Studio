@@ -11,6 +11,7 @@
     "./export": "./src/export.ts",
     "./font-service": "./src/font-service.ts",
     "./theme-service": "./src/theme-service.ts",
+    "./template-service": "./src/template-service.ts",
     "./render-driver": "./src/render-driver.ts",
     "./server": "./src/server.ts"
   },

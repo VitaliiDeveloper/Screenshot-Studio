@@ -18,7 +18,10 @@ let projectFile: string;
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "font-management-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
-  writeFileSync(projectFile, readFileSync(sample, "utf8"));
+  const project = JSON.parse(readFileSync(sample, "utf8"));
+  const headline = project.screens[0].elements.find((element: { id: string }) => element.id === "headline");
+  headline.name = "Font headline";
+  writeFileSync(projectFile, JSON.stringify(project));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
   server = await startWebServer(3132);
@@ -42,7 +45,7 @@ describe("font management UI", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
-    await page.getByRole("button", { name: "Text", exact: true }).click();
+    await page.getByRole("button", { name: "Font headline", exact: true }).click();
     await page.getByRole("button", { name: "Fonts", exact: true }).click();
     await page.getByLabel("Font file").setInputFiles(resolve(sampleAssets, "fonts/Pacifico-Regular.ttf"));
     await page.getByLabel("Upload font family").fill("Pacifico Alt");
@@ -87,7 +90,7 @@ describe("font management UI", () => {
     await page.getByRole("button", { name: "Close font manager", exact: true }).click();
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
-    await page.getByRole("button", { name: "Text", exact: true }).click();
+    await page.getByRole("button", { name: "Font headline", exact: true }).click();
     expect(await page.getByLabel("Font").inputValue()).toBe(JSON.stringify(["Pacifico Alt", 700]));
 
     await page.close();

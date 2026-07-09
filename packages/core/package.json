@@ -10,6 +10,7 @@
     "./export": "./src/export/index.ts",
     "./fonts": "./src/fonts/index.ts",
     "./themes": "./src/themes/index.ts",
+    "./templates": "./src/templates/index.ts",
     "./assets": "./src/assets/index.ts",
     "./storage": "./src/storage/index.ts"
   },

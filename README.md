@@ -68,9 +68,9 @@ path, produce exact lead-size bundles with no alpha channel, and write zip outpu
 ships `dev`, `import`, and `screen add/list/rm/reorder` for dogfooding end-to-end project
 workflows. See [docs/roadmap.md](docs/roadmap.md).
 
-**Phase 3 (fonts, themes, templates) — in progress.** File-backed custom/Google font ingest and
+**Phase 3 (fonts, themes, templates) — done.** File-backed custom/Google font ingest and
 editor management are shipped. The strict baked theme model, `theme set` CLI, editor role picker,
-and Themes dialog are shipped; templates are the remaining slice.
+Themes dialog, and project-local template library are shipped. Phase 4 (locales and RTL) is next.
 
 ## Requirements
 
@@ -147,6 +147,10 @@ Without `PROJECT_PATH` the editor opens the committed sample
 (`fixtures/phase-0-sample/app-store-screenshots.json`) — fine for a first look, but the
 editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before real edits,
 or `git checkout` the fixture afterwards.
+
+The toolbar manages file-backed fonts, applies `themes/*.json`, and creates screens from strict
+`templates/*.json`. Template screens inherit the active screen's locale and use the template's
+explicit platform, device, artboard, background, and element layout.
 
 ## Development
 

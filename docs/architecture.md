@@ -129,6 +129,11 @@ optional role (`heading | body | accent | surface`) and preserves that role for 
 Elements without a role opt out. Theme files never enter `Project`, and the renderer never
 resolves tokens or ids; unknown/invalid theme data fails before a project is written.
 
+**Templates are screen inputs, not render state.** Strict definitions live in `templates/*.json`
+and contain an exact platform/device/artboard plus ordinary background and element literals.
+Instantiation injects the chosen locale, creates fresh screen/element ids, recomputes manifests,
+and writes an ordinary `Project`; render and export never read template files.
+
 **Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
 optional fields such as `role` keep the current version; structural changes require a migration.
 

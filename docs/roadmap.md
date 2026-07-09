@@ -1,7 +1,7 @@
 # Roadmap & Execution Plan
 
 Scope, sequencing, and risks. This is the part that changes often.
-Version 0.5, 6 July 2026.
+Version 0.6, 10 July 2026.
 
 The guiding principle: ship a **thin vertical slice** first, and prove the riskiest thesis
 before building on top of it. Everything visually impressive (connected canvas, AI, themes,
@@ -101,7 +101,7 @@ Carry-ins resolved during Phase 2 (surfaced during the Phase 0/1 readiness revie
 - **Drop the hardcoded `startWebServer` port — resolved in Slice 2.** The CLI render host chooses
   a free localhost port unless a caller supplies one.
 
-**Phase 3 — Themes / templates / fonts UI.**
+**Phase 3 — Themes / templates / fonts UI — complete.**
 Theme tokens, template library, font-management UI (upload, preview, Google). CLI
 `font add <file>` and `theme set <id>` land here; font ingest precedes its UI in Slices 2–3. **System fonts are cut**
 — see §3c. Sliced in §3c.
@@ -161,7 +161,7 @@ drives it — the ordering Phase 2 used (bundle orchestration before the export 
 | **3 — Font management UI** ✅ | Upload / list / preview / apply; Google add-time materialization; font picker in the text inspector. | Low — sits on the schema and core that Slices 1–2 proved. |
 | **4 — Theme model + `theme set`** ✅ | `themes/*.json` with its own Zod schema; pure `applyTheme(project, theme) → Project`; element `role?` field; CLI `theme set <id>`. | The token-resolution model. Baking keeps `elementToNodeConfig` untouched. |
 | **5 — Theme UI** ✅ | Theme picker, role dropdown in the inspector, apply through the existing serialized project persistence boundary. | Low. |
-| **6 — Template library** ◻ | `templates/*.json`; create a screen from a template. Same file-in-a-directory pattern as themes. | Lowest; deliberately last. |
+| **6 — Template library** ✅ | Strict `templates/*.json`; create and select a fresh-id screen through the shared project persistence path. | Lowest; deliberately last. |
 
 Decisions taken up front (they set the slice boundaries above):
 
