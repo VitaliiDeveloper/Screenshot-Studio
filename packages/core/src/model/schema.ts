@@ -12,11 +12,14 @@ import { fontIdentityKey } from "./font-identity.js";
 
 export const SCHEMA_VERSION = 1;
 
-const hexColor = z
+export const HexColor = z
   .string()
   .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, "expected a hex color like #RRGGBB");
 
 const unitInterval = z.number().min(0).max(1);
+
+export const ThemeRole = z.enum(["heading", "body", "accent", "surface"]);
+export type ThemeRole = z.infer<typeof ThemeRole>;
 
 /** Fields every element shares (docs/architecture.md §3). z-order is array order in `elements`. */
 const elementBase = {
@@ -31,6 +34,8 @@ const elementBase = {
   visible: z.boolean().default(true),
   /** Layers-panel display label (slice 4). Metadata only — never rendered/exported. */
   name: z.string().optional(),
+  /** Optional baked-theme role. The renderer continues to consume literal element fields. */
+  role: ThemeRole.optional(),
 };
 
 export const TextElement = z
@@ -44,7 +49,7 @@ export const TextElement = z
     lineHeight: z.number().positive().default(1.2),
     letterSpacing: z.number().default(0),
     align: z.enum(["left", "center", "right"]).default("left"),
-    color: hexColor,
+    color: HexColor,
   })
   .strict();
 export type TextElement = z.infer<typeof TextElement>;
@@ -54,7 +59,7 @@ export const ShapeElement = z
     type: z.literal("shape"),
     ...elementBase,
     kind: z.literal("rect"),
-    fill: hexColor,
+    fill: HexColor,
     radius: z.number().min(0).default(0),
   })
   .strict();
@@ -95,7 +100,7 @@ export type Element = z.infer<typeof Element>;
 export const SolidBackground = z
   .object({
     type: z.literal("solid"),
-    color: hexColor,
+    color: HexColor,
   })
   .strict();
 export type SolidBackground = z.infer<typeof SolidBackground>;

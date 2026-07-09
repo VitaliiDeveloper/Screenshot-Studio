@@ -4,9 +4,10 @@ Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this r
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
 
-> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–3 are implemented and verified; Slice 4 is next.**
+> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–4 are implemented and verified; Slice 5 is next.**
 > The render/export core, web editor, verified export flow, and dogfood CLI management commands
-> are built and tested; font ingest and management UI are built, while theme commands remain planned (marked ◻). Read only the docs directly relevant to the
+> are built and tested; font management and the baked theme model/CLI are built, while theme UI
+> and templates remain planned (marked ◻). Read only the docs directly relevant to the
 > active task; do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
@@ -64,12 +65,12 @@ Project
     └── elements: Element[]                # z-order = array order
 ```
 
-Element base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?`.
+Element base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?, role?`.
 Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphone).
-There is **no `themes` key yet** (Phase 3) — the strict validator rejects it.
+There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
+into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 
-**Target (later phases):** platforms `["apple", "android"]`; `themes: Theme[]` (tokens:
-colors, fonts, spacing); background `solid | gradient | image`;
+**Target (later phases):** background `solid | gradient | image`;
 extra element types `icon`, `badge`, `image`; locales with RTL (`ar`). Artboards
 are **isolated** (no connected canvas in the MVP). Schema is versioned; pure `v1→v2→…`
 migrations run on load — though enum widenings are additive and need no migration.
@@ -87,7 +88,7 @@ Status: ✅ shipped · ◻ planned (target surface, not yet implemented — do n
 | `screen add / list / rm / reorder` | Manage screens | ✅ |
 | `import <dir>` | Ingest raw captures by directory convention | ✅ |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Register and manage deterministic font assets | ✅ |
-| `theme set <id>` | Apply a theme to all screens | ◻ Phase 3 |
+| `theme set <id>` | Apply `themes/<id>.json` to all role-tagged elements | ✅ |
 
 `export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
 lead-size bundle for every matching screen, grouped by `platform/device/locale`, plus
@@ -107,6 +108,10 @@ defaults to `400`. `font add --google <family>` downloads one exact-weight file 
 render/export make no network request. `font rm <family>` removes the selected identity (and its
 unshared managed file). Export refuses text whose `(fontFamily, weight)` has no `FontAsset`, rather
 than accepting a machine-dependent system fallback.
+
+`theme set <id>` loads the strict definition from `themes/<id>.json`. Role-tagged text and shape
+elements receive baked color/font literals; elements without `role` opt out. Theme font identities
+must already exist in `fonts`, so applying a theme cannot introduce a system-font fallback.
 
 ## Design guardrails (always apply when generating slides/copy)
 

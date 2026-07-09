@@ -9,6 +9,7 @@
     "./engine": "./src/engine/index.ts",
     "./export": "./src/export/index.ts",
     "./fonts": "./src/fonts/index.ts",
+    "./themes": "./src/themes/index.ts",
     "./assets": "./src/assets/index.ts",
     "./storage": "./src/storage/index.ts"
   },

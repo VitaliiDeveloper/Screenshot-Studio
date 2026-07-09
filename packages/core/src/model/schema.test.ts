@@ -124,6 +124,20 @@ describe("element name (slice 4)", () => {
   });
 });
 
+describe("element theme role", () => {
+  it("accepts a known optional role", () => {
+    const p = validProject();
+    (p.screens[0]!.elements[0] as Record<string, unknown>).role = "heading";
+    expect(parseProject(p).screens[0]!.elements[0]!.role).toBe("heading");
+  });
+
+  it("rejects an unknown role", () => {
+    const p = validProject();
+    (p.screens[0]!.elements[0] as Record<string, unknown>).role = "hero";
+    expect(() => parseProject(p)).toThrow(ProjectValidationError);
+  });
+});
+
 describe("getScreen", () => {
   it("returns a screen by id", () => {
     const project = parseProject(validProject());

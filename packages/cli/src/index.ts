@@ -12,6 +12,7 @@ import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { importCaptures } from "./import-command.js";
 import { runFontCommand } from "./font-commands.js";
+import { runThemeCommand } from "./theme-commands.js";
 
 /**
  * `screenshots` CLI — the Phase 0 surface is `init` and `export` only (docs/roadmap.md Phase 0).
@@ -200,6 +201,10 @@ async function cmdFont(args: string[], flags: Record<string, string>): Promise<v
   if (output) console.log(output);
 }
 
+async function cmdTheme(args: string[], flags: Record<string, string>): Promise<void> {
+  console.log(await runThemeCommand(resolveProjectPath(flags), args));
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -223,8 +228,11 @@ async function main(): Promise<void> {
     case "font":
       await cmdFont(args, flags);
       break;
+    case "theme":
+      await cmdTheme(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme> [flags]`);
       process.exit(1);
   }
 }

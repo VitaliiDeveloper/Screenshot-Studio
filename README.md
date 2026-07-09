@@ -36,9 +36,9 @@ browser download — see **Requirements** below.
 
 Monorepo (pnpm workspaces):
 
-- `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts,
+- `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
   asset loading, storage. The single source of truth for rendering (architecture.md §2).
-- `packages/cli` — the `screenshots` command (`init`, `export` today; a `dev` wrapper is still to come).
+- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme management).
 - `apps/web` — the Next.js host: `/editor` (interactive canvas + left panel), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
@@ -67,6 +67,10 @@ a per-type inspector (plus a no-selection artboard/background editor), and a too
 path, produce exact lead-size bundles with no alpha channel, and write zip output. The CLI also
 ships `dev`, `import`, and `screen add/list/rm/reorder` for dogfooding end-to-end project
 workflows. See [docs/roadmap.md](docs/roadmap.md).
+
+**Phase 3 (fonts, themes, templates) — in progress.** File-backed custom/Google font ingest and
+editor management are shipped. The strict baked theme model and `theme set` CLI are shipped;
+theme UI and templates are the remaining slices.
 
 ## Requirements
 
@@ -115,6 +119,10 @@ pnpm screenshots screen reorder hero --to 1 --project ./my-app-screenshots/app-s
 
 # Import PNG captures from screenshots/apple/{iphone,ipad}/{locale}/NN.png or screenshots/android/phone/{locale}/NN.png
 pnpm screenshots import ./my-app-screenshots/screenshots --project ./my-app-screenshots/app-store-screenshots.json
+
+# Manage deterministic font files and bake a theme into role-tagged elements
+pnpm screenshots font add ./Inter.ttf --family Inter --weight 700 --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots theme set midnight --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
 Bundle `export` flags: optional `--platform <apple|android>`, `--device <iphone|ipad|phone>`,

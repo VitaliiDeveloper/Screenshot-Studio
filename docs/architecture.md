@@ -104,7 +104,6 @@ Project
 ├── meta: { name, appIcon, schemaVersion }
 ├── platforms: ["apple", "android"]
 ├── locales: ["en", "de", "ar"]            # ar → RTL
-├── themes: Theme[]                        # tokens: colors, fonts, spacing
 ├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
 └── screens: Screen[]
     ├── id, name, platform, device, locale
@@ -114,7 +113,7 @@ Project
 ```
 
 **Element types** — a shared base (`id, type, x, y, width, height, rotation, opacity,
-locked, visible`) plus type-specific fields:
+locked, visible, role?`) plus type-specific fields:
 
 - `text` — content, fontFamily, size, weight, lineHeight, letterSpacing, align, color, shadow
 - `screenshot` — assetUrl, fit (cover/contain), crop, cornerRadius
@@ -124,8 +123,14 @@ locked, visible`) plus type-specific fields:
 - `badge` — rating, "As seen on", store badges
 - `image` — arbitrary decorative image
 
-**Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Unknown
-theme/device ids fall back to defaults.
+**Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
+`applyTheme(project, theme)` rewrites the existing literal text/shape fields selected by an
+optional role (`heading | body | accent | surface`) and preserves that role for later re-apply.
+Elements without a role opt out. Theme files never enter `Project`, and the renderer never
+resolves tokens or ids; unknown/invalid theme data fails before a project is written.
+
+**Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
+optional fields such as `role` keep the current version; structural changes require a migration.
 
 **Connected canvas — deferred (Phase 6).** Letting an element cross artboard boundaries and
 exporting each screen as a precise crop is a nice differentiator, but it multiplies
