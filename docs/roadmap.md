@@ -106,6 +106,10 @@ Theme tokens, template library, font-management UI (upload, preview, Google). CL
 `font add <file>` and `theme set <id>` land here; font ingest precedes its UI in Slices 2–3. **System fonts are cut**
 — see §3c. Sliced in §3c.
 
+**Phase 3.5 — Editor UI polish — complete.**
+One visual workbench system across toolbar, panels, inspector, resource dialogs, and empty states.
+This is deliberately presentation-only: schema, renderer, storage, APIs, and workflows stay unchanged.
+
 **Phase 4 — Locales & RTL.**
 Multi-locale sets, RTL-native layouts.
 

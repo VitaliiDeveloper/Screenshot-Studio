@@ -34,10 +34,10 @@ function editBackground(color: string) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2 border-b border-neutral-200 p-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">{title}</h3>
+    <section className="flex flex-col gap-2.5 border-b border-slate-200 px-4 py-4">
+      <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{title}</h3>
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -46,12 +46,12 @@ export function Inspector({ specs }: { specs: StoreSpecs | null }) {
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedId = useStore(editorStore, (s) => s.selectedId);
 
-  if (!project || !activeScreenId) return <aside className="w-64 shrink-0 border-l border-neutral-200 bg-white" />;
+  if (!project || !activeScreenId) return <aside className="w-72 shrink-0 border-l border-slate-200 bg-white" />;
   const screen = getScreen(project, activeScreenId);
   const element = selectedId ? screen.elements.find((e) => e.id === selectedId) : undefined;
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col overflow-y-auto border-l border-neutral-200 bg-white">
+    <aside className="flex h-screen w-72 shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-[-1px_0_0_rgba(15,23,42,0.02)]">
       {element ? (
         <>
           <Section title="Transform">
@@ -102,8 +102,8 @@ export function Inspector({ specs }: { specs: StoreSpecs | null }) {
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
               <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-neutral-500">Device</span>
-                <span className="text-neutral-400">{element.deviceType}</span>
+                <span className="text-slate-500">Device</span>
+                <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">{element.deviceType}</span>
               </div>
             </Section>
           )}

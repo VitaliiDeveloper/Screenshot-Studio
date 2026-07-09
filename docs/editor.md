@@ -3,9 +3,9 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.3, 10 July 2026.
+Version 0.4, 10 July 2026.
 
-> **Status: Phase 1 and the Phase 3 font/theme/template editor surfaces are implemented**
+> **Status: Phase 1, the Phase 3 font/theme/template editor surfaces, and the Phase 3.5 visual polish are implemented**
 > (see `roadmap.md` §3a/§3c and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -28,8 +28,9 @@ Version 0.3, 10 July 2026.
 └──────┴────────────────────────────┴───────────┘
 ```
 
-Panels use plain Tailwind so far *(as built — shadcn/ui + Radix deferred until the first
-dialog/select-heavy surface needs them)*. The canvas is Konva/react-konva.
+Panels and dialogs use plain Tailwind plus shared local workbench primitives *(as built — a
+package-level design system remains YAGNI until a second UI consumer exists)*. Icons use Lucide;
+the canvas remains Konva/react-konva.
 Region responsibilities are kept distinct: the **toolbar** holds actions/tools, the **inspector**
 holds properties of the current selection, the **left panel** holds structure (screens + layers).
 

@@ -72,6 +72,10 @@ workflows. See [docs/roadmap.md](docs/roadmap.md).
 editor management are shipped. The strict baked theme model, `theme set` CLI, editor role picker,
 Themes dialog, and project-local template library are shipped. Phase 4 (locales and RTL) is next.
 
+**Phase 3.5 (editor UI polish) — done.** The editor now uses a consistent creative-workbench shell:
+grouped actions, clearer panels and inspector fields, one dialog system, real icons, actionable
+resource empty states, and visible keyboard focus. No schema, renderer, or persistence behavior changed.
+
 ## Requirements
 
 - **Node.js 20+** and **pnpm 11** (pinned in `package.json` via `packageManager`). The simplest

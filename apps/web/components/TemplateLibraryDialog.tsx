@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
+import { LayoutTemplate } from "lucide-react";
 import { getScreen, parseProject } from "@screenshot-studio/core/model";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
+import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
   const body = await response.json().catch(() => ({}));
@@ -62,57 +64,47 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       setCreating(null);
     }
   };
-  const buttonClass = "rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:opacity-50";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={close}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Template library"
-        className="flex max-h-[85vh] w-[560px] flex-col gap-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">Templates</h2>
-            <p className="text-xs text-neutral-500">
-              Create a screen in locale {activeScreen?.locale ?? "—"} from a project template.
-            </p>
-          </div>
-          <button aria-label="Close template library" className={buttonClass} onClick={close}>Close</button>
-        </div>
+    <DialogShell
+      title="Templates"
+      description={`Create a screen in locale ${activeScreen?.locale ?? "—"} from a project template.`}
+      ariaLabel="Template library"
+      closeLabel="Close template library"
+      onClose={close}
+      widthClass="max-w-2xl"
+    >
+      {error ? <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p> : null}
+      {loading ? <p className="text-xs text-slate-500">Loading templates…</p> : null}
+      {!loading && templates.length === 0 ? (
+        <EmptyResourceState
+          icon={LayoutTemplate}
+          title="No templates yet"
+          description="Add an exact screen layout to the project, then reopen this library to create a screen."
+          path="templates/<id>.json"
+        />
+      ) : null}
 
-        {error ? <p role="alert" className="whitespace-pre-wrap text-xs text-red-600">{error}</p> : null}
-        {loading ? <p className="text-xs text-neutral-500">Loading templates…</p> : null}
-        {!loading && templates.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-4 text-center text-xs text-neutral-500">
-            No templates found in the project templates directory.
-          </p>
-        ) : null}
-
-        <div className="flex flex-col gap-3">
-          {templates.map((template) => (
-            <section key={template.id} data-testid={`template-row-${template.id}`} className="rounded border border-neutral-200 p-3">
+      <div className="flex flex-col gap-3">
+        {templates.map((template) => (
+          <section key={template.id} data-testid={`template-row-${template.id}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-sm font-semibold">{template.name}</h3>
-                    <span className="text-xs text-neutral-400">{template.id}</span>
+                    <h3 className="text-sm font-semibold text-slate-900">{template.name}</h3>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{template.id}</span>
                   </div>
-                  {template.description ? <p className="mt-1 text-xs text-neutral-500">{template.description}</p> : null}
-                  <p className="mt-2 text-xs text-neutral-500">
+                  {template.description ? <p className="mt-1 text-xs leading-5 text-slate-500">{template.description}</p> : null}
+                  <p className="mt-2 text-xs font-medium text-slate-500">
                     {template.platform} / {template.device} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
                   </p>
                 </div>
-                <button className={buttonClass} disabled={!activeScreen || creating !== null} onClick={() => create(template.id)}>
+                <button className={editorUi.buttonPrimary} disabled={!activeScreen || creating !== null} onClick={() => create(template.id)}>
                   {creating === template.id ? "Creating…" : "Create screen"}
                 </button>
               </div>
-            </section>
-          ))}
-        </div>
+          </section>
+        ))}
       </div>
-    </div>
+    </DialogShell>
   );
 }

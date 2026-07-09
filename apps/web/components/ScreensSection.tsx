@@ -1,6 +1,7 @@
 "use client";
 
 import { useStore } from "zustand";
+import { Plus, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -11,6 +12,7 @@ import {
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
+import { editorUi } from "./editor-ui";
 
 /** Screens list: select active, dnd reorder (= project.screens order), duplicate-add, delete. */
 export function ScreensSection() {
@@ -37,24 +39,24 @@ export function ScreensSection() {
   };
 
   return (
-    <section className="border-b border-neutral-200">
-      <header className="flex items-center justify-between px-3 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Screens</h2>
+    <section className="border-b border-slate-200 pb-2">
+      <header className="flex items-center justify-between px-4 py-3">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Screens</h2>
         <button
           onClick={() => mutateAndSave(() => editorStore.getState().addScreen())}
-          className="rounded px-2 py-0.5 text-sm text-blue-600 hover:bg-blue-50"
+          className={`${editorUi.buttonGhost} text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
         >
-          + Add
+          <Plus size={14} strokeWidth={2} /> Add
         </button>
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           {screens.map((s) => (
-            <SortableRow key={s.id} id={s.id}>
+            <SortableRow key={s.id} id={s.id} className={s.id === activeScreenId ? "bg-blue-50 ring-1 ring-blue-100" : undefined}>
               <button
                 onClick={() => editorStore.getState().selectScreen(s.id)}
-                className={`flex-1 truncate text-left text-sm ${
-                  s.id === activeScreenId ? "font-semibold text-blue-700" : "text-neutral-700"
+                className={`min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
+                  s.id === activeScreenId ? "font-semibold text-blue-700" : "font-medium text-slate-700"
                 }`}
               >
                 {s.name} <span className="text-neutral-400">· {s.device}</span>
@@ -63,9 +65,9 @@ export function ScreensSection() {
                 onClick={() => onDelete(s.id, s.name)}
                 disabled={screens.length <= 1}
                 aria-label={`Delete ${s.name}`}
-                className="text-neutral-400 hover:text-red-600 disabled:opacity-30"
+                className={`${editorUi.iconButton} hover:bg-red-50 hover:text-red-600`}
               >
-                ✕
+                <Trash2 size={14} strokeWidth={1.8} />
               </button>
             </SortableRow>
           ))}

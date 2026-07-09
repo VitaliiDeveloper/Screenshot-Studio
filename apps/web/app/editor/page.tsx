@@ -58,7 +58,7 @@ export default function EditorPage() {
           onZoomOut={() => setZoom((z) => clamp(z - 0.25))}
           onZoomReset={() => setZoom(1)}
         />
-        <div className="flex-1 overflow-auto bg-neutral-100 p-8">
+        <div className="flex-1 overflow-auto bg-slate-100/80 p-8">
           <EditorStage images={images} zoom={zoom} />
         </div>
       </div>

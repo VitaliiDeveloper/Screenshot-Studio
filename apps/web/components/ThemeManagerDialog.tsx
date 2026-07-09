@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Palette } from "lucide-react";
 import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
 import type { Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
+import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
   const body = await response.json().catch(() => ({}));
@@ -58,65 +60,57 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
       setApplying(null);
     }
   };
-  const buttonClass = "rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:opacity-50";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={close}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Theme picker"
-        className="flex max-h-[85vh] w-[560px] flex-col gap-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">Themes</h2>
-            <p className="text-xs text-neutral-500">Bake role colors and fonts into every screen.</p>
-          </div>
-          <button aria-label="Close theme picker" className={buttonClass} onClick={close}>Close</button>
-        </div>
+    <DialogShell
+      title="Themes"
+      description="Bake role colours and registered fonts into every screen."
+      ariaLabel="Theme picker"
+      closeLabel="Close theme picker"
+      onClose={close}
+      widthClass="max-w-2xl"
+    >
+      {error ? <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p> : null}
+      {loading ? <p className="text-xs text-slate-500">Loading themes…</p> : null}
+      {!loading && themes.length === 0 ? (
+        <EmptyResourceState
+          icon={Palette}
+          title="No themes yet"
+          description="Add a strict theme definition to the project, then reopen this picker to apply it."
+          path="themes/<id>.json"
+        />
+      ) : null}
 
-        {error ? <p role="alert" className="whitespace-pre-wrap text-xs text-red-600">{error}</p> : null}
-        {loading ? <p className="text-xs text-neutral-500">Loading themes…</p> : null}
-        {!loading && themes.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-4 text-center text-xs text-neutral-500">
-            No themes found in the project themes directory.
-          </p>
-        ) : null}
-
-        <div className="flex flex-col gap-3">
-          {themes.map((theme) => (
-            <section key={theme.id} data-testid={`theme-row-${theme.id}`} className="rounded border border-neutral-200 p-3">
+      <div className="flex flex-col gap-3">
+        {themes.map((theme) => (
+          <section key={theme.id} data-testid={`theme-row-${theme.id}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-sm font-semibold">{theme.name}</h3>
-                    <span className="text-xs text-neutral-400">{theme.id}</span>
+                    <h3 className="text-sm font-semibold text-slate-900">{theme.name}</h3>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{theme.id}</span>
                   </div>
                   <div className="mt-2 grid grid-cols-4 gap-2">
                     {THEME_ROLES.map((role) => (
-                      <div key={role} className="text-[10px] text-neutral-500">
-                        <span className="mb-1 block h-5 rounded border border-black/10" style={{ backgroundColor: theme.colors[role] }} />
+                      <div key={role} className="text-[10px] font-medium text-slate-500">
+                        <span className="mb-1 block h-6 rounded-lg border border-black/10 shadow-inner" style={{ backgroundColor: theme.colors[role] }} />
                         {role}
                       </div>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-neutral-500">
+                  <p className="mt-3 text-xs text-slate-500">
                     {THEME_ROLES.flatMap((role) => {
                       const font = theme.fonts[role];
                       return font ? [`${role}: ${font.family} ${font.weight}`] : [];
                     }).join(" · ") || "Keeps current fonts"}
                   </p>
                 </div>
-                <button className={buttonClass} disabled={applying !== null} onClick={() => apply(theme.id)}>
+                <button className={editorUi.buttonPrimary} disabled={applying !== null} onClick={() => apply(theme.id)}>
                   {applying === theme.id ? "Applying…" : "Apply"}
                 </button>
               </div>
-            </section>
-          ))}
-        </div>
+          </section>
+        ))}
       </div>
-    </div>
+    </DialogShell>
   );
 }

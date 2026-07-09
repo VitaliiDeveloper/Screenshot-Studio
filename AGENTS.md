@@ -4,10 +4,11 @@ Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this r
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
 
-> **Status: Phase 0, Phase 1, Phase 2, and all six Phase 3 slices are implemented and verified; Phase 4 is next.**
+> **Status: Phase 0, Phase 1, Phase 2, all six Phase 3 slices, and the Phase 3.5 editor UI polish are implemented and verified; Phase 4 is next.**
 > The render/export core, web editor, verified export flow, and dogfood CLI management commands
 > are built and tested; font management, baked theme CLI/UI, and the project-local template
-> library are built. Read only the docs directly relevant to the
+> library are built. The editor shell now uses one shared workbench visual system without changing
+> its render/persistence contracts. Read only the docs directly relevant to the
 > active task; do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 

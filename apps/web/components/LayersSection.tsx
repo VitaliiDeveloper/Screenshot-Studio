@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "zustand";
+import { Eye, EyeOff, Lock, LockOpen, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -14,6 +15,7 @@ import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "../lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
+import { editorUi } from "./editor-ui";
 
 /** Layers list for the active screen. Rendered reversed: top row = front-most = last in array. */
 export function LayersSection() {
@@ -43,14 +45,14 @@ export function LayersSection() {
     mutateAndSave(() => editorStore.getState().patchElement(id, p));
 
   return (
-    <section>
-      <header className="px-3 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Layers</h2>
+    <section className="pb-3">
+      <header className="px-4 py-3">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Layers</h2>
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>
           {rows.map((el) => (
-            <SortableRow key={el.id} id={el.id}>
+            <SortableRow key={el.id} id={el.id} className={el.id === selectedId ? "bg-blue-50 ring-1 ring-blue-100" : undefined}>
               {renaming?.id === el.id ? (
                 <input
                   autoFocus
@@ -61,15 +63,15 @@ export function LayersSection() {
                     if (ev.key === "Enter") { patch(el.id, { name: renaming.value }); setRenaming(null); }
                     if (ev.key === "Escape") setRenaming(null);
                   }}
-                  className="flex-1 border border-blue-500 px-1 text-sm"
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2 text-xs outline-none ring-2 ring-blue-500/15"
                 />
               ) : (
                 <button
                   onClick={() => editorStore.getState().select(el.id)}
                   onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
-                  className={`flex-1 truncate text-left text-sm ${
+                  className={`min-w-0 flex-1 truncate rounded-md px-1.5 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
                     el.id === selectedId ? "font-semibold text-blue-700" : "text-neutral-700"
-                  } ${el.visible ? "" : "text-neutral-400 line-through"}`}
+                  } ${el.visible ? "" : "text-slate-400 line-through"}`}
                 >
                   {elementLabel(el)}
                 </button>
@@ -77,23 +79,23 @@ export function LayersSection() {
               <button
                 onClick={() => patch(el.id, { visible: !el.visible })}
                 aria-label={el.visible ? "Hide layer" : "Show layer"}
-                className="text-neutral-400 hover:text-neutral-700"
+                className={editorUi.iconButton}
               >
-                {el.visible ? "👁" : "🚫"}
+                {el.visible ? <Eye size={14} strokeWidth={1.8} /> : <EyeOff size={14} strokeWidth={1.8} />}
               </button>
               <button
                 onClick={() => patch(el.id, { locked: !el.locked })}
                 aria-label={el.locked ? "Unlock layer" : "Lock layer"}
-                className="text-neutral-400 hover:text-neutral-700"
+                className={editorUi.iconButton}
               >
-                {el.locked ? "🔒" : "🔓"}
+                {el.locked ? <Lock size={14} strokeWidth={1.8} /> : <LockOpen size={14} strokeWidth={1.8} />}
               </button>
               <button
                 onClick={() => mutateAndSave(() => editorStore.getState().removeElement(el.id))}
                 aria-label="Delete layer"
-                className="text-neutral-400 hover:text-red-600"
+                className={`${editorUi.iconButton} hover:bg-red-50 hover:text-red-600`}
               >
-                ✕
+                <Trash2 size={14} strokeWidth={1.8} />
               </button>
             </SortableRow>
           ))}

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useStore } from "zustand";
+import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
+import { DialogShell, editorUi } from "./editor-ui";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
@@ -62,51 +64,53 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   };
 
-  const sel = "rounded border border-neutral-300 px-1 py-0.5 text-xs";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
-      <div className="flex w-80 flex-col gap-3 rounded-lg bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-sm font-semibold">Export bundle</h2>
-
-        <label className="flex items-center justify-between text-xs">
-          <span className="text-neutral-500">Platform</span>
-          <select className={sel} value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
+    <DialogShell
+      title="Export bundle"
+      description="Render store-ready PNGs and one zip through the shared export path."
+      onClose={onClose}
+      widthClass="max-w-md"
+    >
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center justify-between gap-4 text-xs">
+          <span className="font-medium text-slate-600">Platform</span>
+          <select className={`${editorUi.field} w-40`} value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
             <option value="all">all</option><option value="apple">apple</option><option value="android">android</option>
           </select>
         </label>
 
-        <label className="flex items-center justify-between text-xs">
-          <span className="text-neutral-500">Device</span>
-          <select className={sel} value={device} onChange={(e) => setDevice(e.target.value as Device)}>
+        <label className="flex items-center justify-between gap-4 text-xs">
+          <span className="font-medium text-slate-600">Device</span>
+          <select className={`${editorUi.field} w-40`} value={device} onChange={(e) => setDevice(e.target.value as Device)}>
             <option value="all">all</option><option value="iphone">iphone</option><option value="ipad">ipad</option><option value="phone">phone</option>
           </select>
         </label>
 
-        <label className="flex items-center justify-between text-xs">
-          <span className="text-neutral-500">Locale</span>
-          <select className={sel} value={locale} onChange={(e) => setLocale(e.target.value)}>
+        <label className="flex items-center justify-between gap-4 text-xs">
+          <span className="font-medium text-slate-600">Locale</span>
+          <select className={`${editorUi.field} w-40`} value={locale} onChange={(e) => setLocale(e.target.value)}>
             <option value="all">all</option>
             {project.locales.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
         </label>
 
-        {error && <p className="whitespace-pre-wrap text-xs text-red-600">{error}</p>}
-        {doneDir && <p className="text-xs text-emerald-600">Wrote bundle to {doneDir}</p>}
+        {error && <p className="whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
+        {doneDir && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">Wrote bundle to {doneDir}</p>}
 
-        <div className="flex justify-end gap-2">
-          <button className="rounded border border-neutral-300 px-3 py-1 text-xs hover:bg-neutral-100" onClick={onClose} disabled={pending}>
+        <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <button className={editorUi.buttonSecondary} onClick={onClose} disabled={pending}>
             Close
           </button>
           <button
-            className="rounded bg-neutral-900 px-3 py-1 text-xs text-white hover:bg-neutral-700 disabled:opacity-50"
+            className={editorUi.buttonPrimary}
             onClick={runExport}
             disabled={pending}
           >
+            <Download size={14} strokeWidth={2} />
             {pending ? "Exporting…" : "Export"}
           </button>
         </div>
       </div>
-    </div>
+    </DialogShell>
   );
 }

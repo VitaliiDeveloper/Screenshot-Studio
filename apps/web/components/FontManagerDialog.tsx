@@ -2,11 +2,13 @@
 
 import { useRef, useState } from "react";
 import { useStore } from "zustand";
+import { CloudDownload, Type, Upload } from "lucide-react";
 import { fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
 import { registerFont } from "@screenshot-studio/core/fonts";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
 import { mutateAndSave } from "../lib/mutate-and-save";
+import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
 type PendingAction = "upload" | "google" | "remove" | null;
 
@@ -45,8 +47,6 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     ? getScreen(project, activeScreenId).elements.find((element) => element.id === selectedId)
     : undefined;
   const selectedText = selected?.type === "text" ? selected : undefined;
-  const fieldClass = "rounded border border-neutral-300 px-2 py-1 text-xs";
-  const secondaryButton = "rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 disabled:opacity-50";
   const close = () => {
     setError(null);
     onClose();
@@ -150,82 +150,90 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={close}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Font manager"
-        className="flex max-h-[85vh] w-[620px] flex-col gap-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">Fonts</h2>
-            <p className="text-xs text-neutral-500">File-backed fonts used by editor and export.</p>
-          </div>
-          <button aria-label="Close font manager" className={secondaryButton} onClick={close}>Close</button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <section className="flex flex-col gap-2 rounded border border-neutral-200 p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Upload</h3>
-            <input
-              aria-label="Font file"
-              ref={uploadInput}
-              type="file"
-              accept=".ttf,.otf,.woff,.woff2"
-              onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-              className="text-xs"
-            />
-            <input aria-label="Upload font family" placeholder="Family" value={uploadFamily} onChange={(event) => setUploadFamily(event.target.value)} className={fieldClass} />
-            <input aria-label="Upload font weight" type="number" min={100} max={900} step={100} value={uploadWeight} onChange={(event) => setUploadWeight(Number(event.target.value))} className={fieldClass} />
-            <button className={secondaryButton} disabled={pending !== null || !uploadFile || !uploadFamily.trim()} onClick={addUpload}>
+    <DialogShell
+      title="Fonts"
+      description="File-backed font identities used by the editor and deterministic export."
+      ariaLabel="Font manager"
+      closeLabel="Close font manager"
+      onClose={close}
+      widthClass="max-w-3xl"
+    >
+        <div className="grid grid-cols-2 gap-4">
+          <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="flex items-center gap-2">
+              <Upload size={15} className="text-slate-500" strokeWidth={1.8} />
+              <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Upload file</h3>
+            </div>
+            <label className="block">
+              <input
+                aria-label="Font file"
+                ref={uploadInput}
+                type="file"
+                accept=".ttf,.otf,.woff,.woff2"
+                onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+                className="sr-only"
+              />
+              <span className={`${editorUi.buttonSecondary} w-full justify-start overflow-hidden`}>
+                <Upload size={14} strokeWidth={1.8} />
+                <span className="truncate">{uploadFile?.name ?? "Choose .ttf, .otf, .woff or .woff2"}</span>
+              </span>
+            </label>
+            <input aria-label="Upload font family" placeholder="Family" value={uploadFamily} onChange={(event) => setUploadFamily(event.target.value)} className={editorUi.field} />
+            <input aria-label="Upload font weight" type="number" min={100} max={900} step={100} value={uploadWeight} onChange={(event) => setUploadWeight(Number(event.target.value))} className={editorUi.field} />
+            <button className={editorUi.buttonPrimary} disabled={pending !== null || !uploadFile || !uploadFamily.trim()} onClick={addUpload}>
               {pending === "upload" ? "Adding…" : "Add uploaded font"}
             </button>
           </section>
 
-          <section className="flex flex-col gap-2 rounded border border-neutral-200 p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Google Fonts</h3>
-            <p className="text-xs text-neutral-500">Downloaded once and stored in the project.</p>
-            <input aria-label="Google font family" placeholder="Family, e.g. Inter" value={googleFamily} onChange={(event) => setGoogleFamily(event.target.value)} className={fieldClass} />
-            <input aria-label="Google font weight" type="number" min={100} max={900} step={100} value={googleWeight} onChange={(event) => setGoogleWeight(Number(event.target.value))} className={fieldClass} />
-            <button className={secondaryButton} disabled={pending !== null || !googleFamily.trim()} onClick={addGoogle}>
+          <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="flex items-center gap-2">
+              <CloudDownload size={15} className="text-slate-500" strokeWidth={1.8} />
+              <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Google Fonts</h3>
+            </div>
+            <p className="text-xs leading-5 text-slate-500">Downloaded once and stored in the project. Rendering stays offline.</p>
+            <input aria-label="Google font family" placeholder="Family, e.g. Inter" value={googleFamily} onChange={(event) => setGoogleFamily(event.target.value)} className={editorUi.field} />
+            <input aria-label="Google font weight" type="number" min={100} max={900} step={100} value={googleWeight} onChange={(event) => setGoogleWeight(Number(event.target.value))} className={editorUi.field} />
+            <button className={editorUi.buttonPrimary} disabled={pending !== null || !googleFamily.trim()} onClick={addGoogle}>
               {pending === "google" ? "Adding…" : "Add Google font"}
             </button>
           </section>
         </div>
 
-        {error && <p role="alert" className="whitespace-pre-wrap text-xs text-red-600">{error}</p>}
+        {error && <p role="alert" className="mt-4 whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
 
-        <section className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Registered</h3>
-            <span className="text-xs text-neutral-400">{project.fonts.length} identities</span>
+        <section className="mt-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Registered</h3>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{project.fonts.length} identities</span>
           </div>
           {project.fonts.length === 0 ? (
-            <p className="rounded border border-dashed border-neutral-300 p-4 text-center text-xs text-neutral-500">No fonts registered.</p>
+            <EmptyResourceState
+              icon={Type}
+              title="No fonts registered"
+              description="Upload a local font or materialize one Google Font identity to start adding text."
+              path="assets/fonts/"
+            />
           ) : project.fonts.map((font) => {
             const usage = fontUsage(project, font);
             return (
-              <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className="flex items-center gap-3 rounded border border-neutral-200 p-3">
+              <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-xs">
-                    <strong>{font.family}</strong>
-                    <span>{font.weight}</span>
-                    <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-neutral-500">{font.source}</span>
-                    {usage > 0 && <span className="text-neutral-400">used {usage}×</span>}
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <strong className="text-slate-900">{font.family}</strong>
+                    <span className="font-medium tabular-nums">{font.weight}</span>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{font.source}</span>
+                    {usage > 0 && <span className="text-slate-400">used {usage}×</span>}
                   </div>
-                  <p data-testid={`font-preview-${font.family}-${font.weight}`} style={{ fontFamily: `"${font.family}"`, fontWeight: font.weight }} className="mt-1 truncate text-xl">
+                  <p data-testid={`font-preview-${font.family}-${font.weight}`} style={{ fontFamily: `"${font.family}"`, fontWeight: font.weight }} className="mt-2 truncate text-xl text-slate-900">
                     The quick brown fox 0123
                   </p>
                 </div>
-                <button className={secondaryButton} disabled={!selectedText || pending !== null} onClick={() => apply(font)}>Apply</button>
-                <button className={`${secondaryButton} text-red-600`} disabled={pending !== null} onClick={() => remove(font)}>Remove</button>
+                <button className={editorUi.buttonSecondary} disabled={!selectedText || pending !== null} onClick={() => apply(font)}>Apply</button>
+                <button className={editorUi.buttonDanger} disabled={pending !== null} onClick={() => remove(font)}>Remove</button>
               </div>
             );
           })}
         </section>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
