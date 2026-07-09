@@ -8,6 +8,7 @@ import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { ExportDialog } from "./ExportDialog";
 import { FontManagerDialog } from "./FontManagerDialog";
+import { ThemeManagerDialog } from "./ThemeManagerDialog";
 
 /**
  * Editor toolbar: insert-on-click element tools (text + shape only — asset-bearing types are
@@ -23,6 +24,7 @@ export function Toolbar({
 
   const [exportOpen, setExportOpen] = useState(false);
   const [fontsOpen, setFontsOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
   const defaultFont = useStore(editorStore, (state) => state.project?.fonts[0]);
 
   const insertText = () => {
@@ -40,8 +42,10 @@ export function Toolbar({
       <button className={btn} onClick={insertText} title={defaultFont ? undefined : "Register a font before adding text"}>+ Text</button>
       <button className={btn} onClick={() => insert(createShapeElement())}>+ Shape</button>
       <button className={btn} onClick={() => setFontsOpen(true)}>Fonts</button>
+      <button className={btn} onClick={() => setThemesOpen(true)}>Themes</button>
       <button className={btn} onClick={() => setExportOpen(true)}>Export</button>
       <FontManagerDialog open={fontsOpen} onClose={() => setFontsOpen(false)} />
+      {themesOpen ? <ThemeManagerDialog onClose={() => setThemesOpen(false)} /> : null}
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
       <div className="ml-auto flex items-center gap-1">
         <button className={btn} aria-label="Zoom out" onClick={onZoomOut}>−</button>

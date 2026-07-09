@@ -4,10 +4,10 @@ Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this r
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
 
-> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–4 are implemented and verified; Slice 5 is next.**
+> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–5 are implemented and verified; Slice 6 is next.**
 > The render/export core, web editor, verified export flow, and dogfood CLI management commands
-> are built and tested; font management and the baked theme model/CLI are built, while theme UI
-> and templates remain planned (marked ◻). Read only the docs directly relevant to the
+> are built and tested; font management and baked theme CLI/UI are built, while templates remain
+> planned (marked ◻). Read only the docs directly relevant to the
 > active task; do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
@@ -112,6 +112,8 @@ than accepting a machine-dependent system fallback.
 `theme set <id>` loads the strict definition from `themes/<id>.json`. Role-tagged text and shape
 elements receive baked color/font literals; elements without `role` opt out. Theme font identities
 must already exist in `fonts`, so applying a theme cannot introduce a system-font fallback.
+The editor's Themes dialog lists and applies the same files; text/shape inspectors assign or clear
+the persisted role.
 
 ## Design guardrails (always apply when generating slides/copy)
 

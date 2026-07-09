@@ -10,6 +10,7 @@ import {
   type ScreenshotElement,
   type DeviceFrameElement,
   type FontAsset,
+  type ThemeRole,
 } from "@screenshot-studio/core/model";
 
 /**
@@ -22,7 +23,7 @@ import {
 /** Geometry / layer metadata shared by every element type. */
 export type CommonElementPatch = Partial<
   Pick<Element, "x" | "y" | "width" | "height" | "rotation" | "opacity" | "locked" | "visible" | "name">
->;
+> & { role?: ThemeRole | null };
 
 type TextFields = Partial<
   Pick<
@@ -55,6 +56,10 @@ function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
   if (patch.locked !== undefined) el.locked = patch.locked;
   if (patch.visible !== undefined) el.visible = patch.visible;
   if (patch.name !== undefined) el.name = patch.name;
+  if (patch.role !== undefined) {
+    if (patch.role === null) delete el.role;
+    else el.role = patch.role;
+  }
 }
 
 /** Apply only fields legal for this element's type (no blind Object.assign). */
@@ -104,6 +109,7 @@ export interface EditorState {
   patchBackground: (patch: { color: string }) => void;
   patchArtboard: (patch: { width?: number; height?: number }) => void;
   replaceFonts: (fonts: FontAsset[]) => void;
+  replaceProject: (project: Project) => void;
 }
 
 /** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
@@ -218,5 +224,16 @@ export const editorStore = createStore<EditorState>((set) => ({
     set((state) => {
       if (!state.project) return state;
       return { project: { ...state.project, fonts } };
+    }),
+  replaceProject: (project) =>
+    set((state) => {
+      const activeScreenId = project.screens.some((screen) => screen.id === state.activeScreenId)
+        ? state.activeScreenId
+        : project.screens[0]?.id ?? null;
+      const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
+      const selectedId = activeScreen?.elements.some((element) => element.id === state.selectedId)
+        ? state.selectedId
+        : null;
+      return { project, activeScreenId, selectedId };
     }),
 }));

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   HexColor,
   Project,
-  ThemeRole,
+  THEME_ROLES,
   type Project as ProjectModel,
   type ThemeRole as ThemeRoleModel,
 } from "../model/schema.js";
@@ -69,7 +69,7 @@ function assertThemeFontsRegistered(project: ProjectModel, theme: Theme): void {
       if (element.type === "text" && element.role) usedTextRoles.add(element.role);
     }
   }
-  for (const role of ThemeRole.options) {
+  for (const role of THEME_ROLES) {
     const font = theme.fonts[role];
     if (font && usedTextRoles.has(role) && !registered.has(fontIdentityKey(font))) {
       throw new Error(

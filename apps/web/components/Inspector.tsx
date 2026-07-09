@@ -5,7 +5,14 @@ import { getScreen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { mutateAndScheduleSave } from "../lib/mutate-and-save";
-import { NumberField, ColorField, TextField, SelectField, FontIdentityField } from "./inspector-fields";
+import {
+  NumberField,
+  ColorField,
+  TextField,
+  SelectField,
+  FontIdentityField,
+  ThemeRoleField,
+} from "./inspector-fields";
 import { ArtboardTargets } from "./ArtboardTargets";
 
 /**
@@ -58,6 +65,7 @@ export function Inspector({ specs }: { specs: StoreSpecs | null }) {
 
           {element.type === "text" && (
             <Section title="Text">
+              <ThemeRoleField value={element.role} onChange={(role) => patch(element.id, { role })} />
               <TextField label="Content" value={element.content} multiline onChange={(content) => patch(element.id, { content })} />
               <FontIdentityField
                 fonts={project.fonts}
@@ -75,6 +83,7 @@ export function Inspector({ specs }: { specs: StoreSpecs | null }) {
 
           {element.type === "shape" && (
             <Section title="Shape">
+              <ThemeRoleField value={element.role} onChange={(role) => patch(element.id, { role })} />
               <ColorField label="Fill" value={element.fill} onChange={(fill) => patch(element.id, { fill })} />
               <NumberField label="Radius" value={element.radius} onChange={(radius) => patch(element.id, { radius })} />
             </Section>

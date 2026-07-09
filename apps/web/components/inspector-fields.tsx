@@ -1,6 +1,11 @@
 "use client";
 
-import { fontIdentityKey, type FontAsset } from "@screenshot-studio/core/model";
+import {
+  fontIdentityKey,
+  THEME_ROLES,
+  type FontAsset,
+  type ThemeRole,
+} from "@screenshot-studio/core/model";
 
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 
@@ -109,6 +114,29 @@ export function FontIdentityField({
             {font.family} · {font.weight}
           </option>
         ))}
+      </select>
+    </label>
+  );
+}
+
+export function ThemeRoleField({
+  value,
+  onChange,
+}: {
+  value: ThemeRole | undefined;
+  onChange: (role: ThemeRole | null) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 text-xs">
+      <span className="text-neutral-500">Theme role</span>
+      <select
+        aria-label="Theme role"
+        value={value ?? ""}
+        onChange={(event) => onChange((event.target.value || null) as ThemeRole | null)}
+        className="w-24 rounded border border-neutral-300 px-1 py-0.5"
+      >
+        <option value="">none</option>
+        {THEME_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
       </select>
     </label>
   );

@@ -18,7 +18,8 @@ export const HexColor = z
 
 const unitInterval = z.number().min(0).max(1);
 
-export const ThemeRole = z.enum(["heading", "body", "accent", "surface"]);
+export const THEME_ROLES = ["heading", "body", "accent", "surface"] as const;
+export const ThemeRole = z.enum(THEME_ROLES);
 export type ThemeRole = z.infer<typeof ThemeRole>;
 
 /** Fields every element shares (docs/architecture.md §3). z-order is array order in `elements`. */

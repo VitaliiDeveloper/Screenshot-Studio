@@ -96,13 +96,15 @@ the schema gains them (mostly Phase 3+). Everything else is as built (Slice 5).
 - **No selection** → active **artboard** properties: artboard size with store-target status and
   exact-size presets *(as built)* and background: `solid` today;
   `gradient | image` *(target)*. Background editing lives here, not in the toolbar.
-- **`text`** → content, registered font identity picker (`fontFamily` + `weight`), size,
+- **`text`** → theme role (`none | heading | body | accent | surface`), content,
+  registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;
   shadow *(target)*.
 - **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; crop *(target)*.
 - **`device-frame`** → assetUrl, fit; deviceType (read-only, `iphone` only today); frame color,
   authorable screen slot *(target)*.
-- **`shape`** → kind (`rect` today; ellipse/blob *(target)*), fill (solid; gradient *(target)*),
+- **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect` today;
+  ellipse/blob *(target)*), fill (solid; gradient *(target)*),
   radius; stroke *(target)*.
 
 ---
@@ -142,7 +144,8 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
 - **Layout presets / templates** (1-/2-/3-device base layouts as one click) — **Phase 3**. The
   manual capability exists in the MVP (§2); only the preset convenience is deferred. The `templates/`
   convention directory and schema leave room.
-- **Themes UI, locales / RTL** — Phases 3–4. Font management shipped in Phase 3 Slice 3.
+- **Locales / RTL** — Phase 4. Font management shipped in Phase 3 Slice 3; baked theme CLI/UI
+  shipped in Slices 4–5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the
   project's primary scope-creep risk and directly compounds the render/export parity risk that
   Phase 0 must retire first. Not before Phase 0 passes.

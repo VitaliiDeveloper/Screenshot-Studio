@@ -69,8 +69,8 @@ ships `dev`, `import`, and `screen add/list/rm/reorder` for dogfooding end-to-en
 workflows. See [docs/roadmap.md](docs/roadmap.md).
 
 **Phase 3 (fonts, themes, templates) — in progress.** File-backed custom/Google font ingest and
-editor management are shipped. The strict baked theme model and `theme set` CLI are shipped;
-theme UI and templates are the remaining slices.
+editor management are shipped. The strict baked theme model, `theme set` CLI, editor role picker,
+and Themes dialog are shipped; templates are the remaining slice.
 
 ## Requirements
 

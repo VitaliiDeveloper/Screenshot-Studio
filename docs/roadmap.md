@@ -160,7 +160,7 @@ drives it — the ordering Phase 2 used (bundle orchestration before the export 
 | **2 — Font ingest CLI** ✅ | `font add <file>`, `font add --google <family>`, `font list`, `font rm`; `findUnresolvedFonts` guards the no-system-fonts rule at CLI and UI export. | Network enters the toolchain. Confines it to `add`-time, never render/export. |
 | **3 — Font management UI** ✅ | Upload / list / preview / apply; Google add-time materialization; font picker in the text inspector. | Low — sits on the schema and core that Slices 1–2 proved. |
 | **4 — Theme model + `theme set`** ✅ | `themes/*.json` with its own Zod schema; pure `applyTheme(project, theme) → Project`; element `role?` field; CLI `theme set <id>`. | The token-resolution model. Baking keeps `elementToNodeConfig` untouched. |
-| **5 — Theme UI** ◻ | Theme picker, role dropdown in the inspector, apply through the existing project route. | Low. |
+| **5 — Theme UI** ✅ | Theme picker, role dropdown in the inspector, apply through the existing serialized project persistence boundary. | Low. |
 | **6 — Template library** ◻ | `templates/*.json`; create a screen from a template. Same file-in-a-directory pattern as themes. | Lowest; deliberately last. |
 
 Decisions taken up front (they set the slice boundaries above):

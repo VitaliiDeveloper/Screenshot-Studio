@@ -197,6 +197,23 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     expect(el).toMatchObject({ type: "text", color: "#abcdef" });
     expect(el).not.toHaveProperty("fill");
   });
+
+  it("sets and clears an optional theme role", () => {
+    editorStore.getState().patchElement("headline", { role: "heading" });
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ role: "heading" });
+    editorStore.getState().patchElement("headline", { role: null });
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).not.toHaveProperty("role");
+  });
+
+  it("replaces a durable project while preserving valid active and selected ids", () => {
+    editorStore.getState().select("headline");
+    const next = structuredClone(editorStore.getState().project!);
+    const headline = next.screens[0]!.elements[0]!;
+    if (headline.type === "text") headline.color = "#123456";
+    editorStore.getState().replaceProject(next);
+    expect(editorStore.getState()).toMatchObject({ activeScreenId: "hero", selectedId: "headline" });
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ color: "#123456" });
+  });
 });
 
 describe("editorStore screen editors (slice 5)", () => {
