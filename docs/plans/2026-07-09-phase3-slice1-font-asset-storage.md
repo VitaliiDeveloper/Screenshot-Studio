@@ -276,19 +276,19 @@ Expected: PASS.
 
 - [ ] **Step 2: Run core tests**
 
-Run: `rtk pnpm --filter @screenshot-studio/core test`
+Run: `rtk pnpm test:core`
 
-Expected: If the package has no `test` script, use `rtk pnpm exec vitest run packages/core/src` and note the package-script gap in the completion summary.
+Expected: PASS.
 
 - [ ] **Step 3: Run CLI tests**
 
-Run: `rtk pnpm --filter @screenshot-studio/cli test`
+Run: `rtk pnpm test:cli`
 
 Expected: PASS.
 
 - [ ] **Step 4: Run parity e2e**
 
-Run: `rtk pnpm test:e2e`
+Run: `rtk pnpm exec vitest run --config vitest.e2e.config.ts e2e/parity.test.ts`
 
 Expected: PASS, especially `e2e/parity.test.ts` proving the Pacifico render still differs from fallback.
 

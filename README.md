@@ -159,12 +159,20 @@ explicit platform, device, artboard, background, and element layout.
 ## Development
 
 ```bash
-pnpm test        # unit tests (schema, store-specs, export helpers)
-pnpm test:e2e    # Phase 0 parity gate: headed-vs-headless render + font fidelity
-pnpm typecheck   # all packages
+pnpm test              # full unit suite
+pnpm test:core         # core unit tests only
+pnpm test:cli          # CLI unit tests only
+pnpm test:web          # web unit tests only
+pnpm test:e2e:parity   # render/font/device parity
+pnpm test:e2e:export   # CLI + UI export paths
+pnpm test:e2e:editor   # editor workflows
+pnpm test:e2e          # full browser gate (phase/PR/release closure)
+pnpm typecheck         # all packages
 ```
 
-`pnpm test:e2e` starts the `apps/web` render host and drives Chromium, so it requires the
+The targeted scripts are the normal implementation-loop checks; exact Vitest file paths are
+preferred for a narrower change. `pnpm test:e2e` starts multiple `apps/web` render hosts and
+drives Chromium, so reserve it for shared-contract or closure verification. It requires the
 Playwright browsers from **Requirements** above.
 
 ## License

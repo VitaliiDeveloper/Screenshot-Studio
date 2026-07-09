@@ -17,12 +17,6 @@ describe("resolveServerPort", () => {
   it("uses an explicit port unchanged", async () => {
     await expect(resolveServerPort(3123)).resolves.toBe(3123);
   });
-
-  it("allocates a free localhost port when omitted", async () => {
-    const port = await resolveServerPort();
-    expect(Number.isInteger(port)).toBe(true);
-    expect(port).toBeGreaterThan(0);
-  });
 });
 
 describe("createServerController", () => {

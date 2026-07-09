@@ -139,7 +139,7 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - For each new slice, prefer a short handoff into a fresh thread/session instead of carrying
   the full planning and implementation history forward. A handoff should name the goal, the
   branch/base, the files or directories to inspect, the contracts that must hold, and the
-  verification commands.
+  targeted verification commands. Reserve the full gate for the conditions in `RULES.md`.
 - Use sub-agents only for independent work streams, and give each sub-agent a scoped handoff
   with the minimum relevant files. Do not pass the entire roadmap, all specs, or raw prior
   thread history to every sub-agent.
@@ -152,6 +152,12 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - Prefer command patterns that discover first and open second: `rg --files`, `wc`, targeted
   `rg`, and narrow `sed -n` ranges. Avoid repo-wide `cat`, broad recursive text searches, and
   commands that can emit large single-line JSON blobs.
+- Batch independent unit, lint, and package-typecheck commands into one tool turn when possible.
+  When a long-running test yields a process/session id, wait with one appropriately long poll
+  instead of repeatedly waking the model for short status checks.
+- Use the root targeted scripts (`test:core`, `test:cli`, `test:web`, `test:e2e:parity`,
+  `test:e2e:export`, `test:e2e:editor`) or explicit Vitest file paths during implementation.
+  `pnpm test:e2e` is the full browser gate, not the default slice check.
 
 ---
 

@@ -124,9 +124,10 @@ The other three fixtures have `fonts: []` and are untouched.
 The point of this slice is that **nothing visible changes**, so the check is the parity suite,
 not a new test:
 
-1. `pnpm --filter @screenshot-studio/core test` — schema tests: `path` accepted, `data`
+1. `pnpm test:core` — schema tests: `path` accepted, `data`
    rejected (strict), `source: "google"` accepted, duplicate `(family, weight)` rejected.
-2. **`pnpm test:e2e` (`e2e/parity.test.ts`, on `fixtures/phase-0-sample`) must pass unchanged.**
+2. **`pnpm exec vitest run --config vitest.e2e.config.ts e2e/parity.test.ts`
+   (on `fixtures/phase-0-sample`) must pass unchanged.**
    This slice needs no new parity test: that file already asserts *"proves the embedded font is
    live: render differs from a fallback render"* — it renders the fixture against a deliberate
    fallback and requires a **large** diff. If `path`-based loading silently fails, Chromium
@@ -136,7 +137,7 @@ not a new test:
    "fetch failure". 404 is the case the guarantee actually hinges on, because `fetch` resolves
    it happily; a test that only mocks a network throw would pass against an implementation
    missing the `response.ok` check, which is the bug worth catching.
-4. `pnpm --filter @screenshot-studio/cli test` — CLI export still writes correct dimensions and
+4. `pnpm test:cli` — CLI export still writes correct dimensions and
    no alpha for the rewritten fixture.
 
 **Known gap, accepted for this slice:** `e2e/parity.test.ts` drives only `/render`. The matching

@@ -1,8 +1,9 @@
 import { defineConfig } from "vitest/config";
 
 /**
- * The parity spike harness runs a real Next.js server + Chromium, so it is separated from the
- * fast unit suite (`vitest.config.ts`). This is the Phase 0 gate (docs/roadmap.md §4).
+ * Browser tests run real Next.js servers + Chromium, so they stay separate from the fast unit
+ * suite (`vitest.config.ts`). Targeted groups cover parity, export, and editor workflows; the
+ * unfiltered config is the full phase/PR/release gate.
  */
 export default defineConfig({
   test: {

@@ -83,10 +83,18 @@ throughput; keep ephemeral measurements in a doc or the PR.
 
 - Don't claim success without verification; use the lightest relevant check that gives
   meaningful confidence.
-- Scope verification to the changed behavior — run only the Vitest tests / build steps covering
-  the affected package or risk area. Don't run the full suite by default; reserve that for
-  broad-impact changes, shared contracts (the Zod schema, `store-specs.json`, export parity),
-  build-sensitive config, or when asked.
+- During implementation, run only the exact Vitest files and package typechecks covering the
+  changed behavior. At slice completion, run the affected package suite plus any directly
+  relevant e2e group or file.
+- Run the full `test` + `lint` + `typecheck` + `test:e2e` gate once at phase/PR/release closure,
+  or earlier for broad-impact changes, shared contracts (the Zod schema, `store-specs.json`,
+  export parity), build-sensitive config, or when asked. Don't repeat the same full gate after
+  a docs-only follow-up; a green immediate CI run may serve as the closure gate when appropriate.
+- Slice specs and plans must name the exact relevant tests. Requiring a full suite needs an
+  explicit shared-contract or closure reason, not generic "existing tests stay green" wording.
+- Never treat a missing package script as a successful check. Use the root targeted scripts
+  (`test:core`, `test:cli`, `test:web`, `test:e2e:*`) or invoke Vitest with explicit file paths.
+  Add each new e2e file to exactly one targeted e2e group in the root `package.json`.
 - For bug fixes and behavior changes with a practical test seam, add or run targeted regression
   tests without waiting to be asked. Export/parity changes always get a dimension/visual-diff check.
 - For small or docs-only changes it's fine to skip runtime tests — state that verification was

@@ -36,7 +36,7 @@ jobs:
       - run: pnpm test
 
   e2e:
-    # The render/export parity gate (docs/roadmap.md §4): a real Next server + Chromium.
+    # Full browser gate: render/export parity and editor workflows with real Next servers + Chromium.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
