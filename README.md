@@ -61,8 +61,12 @@ case (an embedded custom font).
 `screenshot`, and `device-frame` elements over a shared render path, with select / move /
 resize / rotate, inline text edit, a screens + layers left panel (reorder, lock, hide, rename),
 a per-type inspector (plus a no-selection artboard/background editor), and a toolbar
-(insert-on-click for `text`/`shape`, zoom). Phase 2 Slice 2 adds verified lead-size CLI export
-bundles; UI export remains a later Phase 2 slice — see [docs/roadmap.md](docs/roadmap.md).
+(insert-on-click for `text`/`shape`, zoom).
+
+**Phase 2 (verified export) — done.** CLI and UI export both use the same headless `/render`
+path, produce exact lead-size bundles with no alpha channel, and write zip output. The CLI also
+ships `dev`, `import`, and `screen add/list/rm/reorder` for dogfooding end-to-end project
+workflows. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Requirements
 

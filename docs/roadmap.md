@@ -69,8 +69,8 @@ end to end.
 
 ## 3b. Phase 2 execution slices
 
-Phase 2 is split by export risk. The bundle path lands before UI affordances and before the
-remaining dogfood CLI commands, so every later surface reuses the same verified orchestration.
+Phase 2 was split by export risk. The bundle path landed before UI affordances and before the
+dogfood CLI commands, so the later surfaces reuse the same verified orchestration.
 
 | Slice | Delivers | Risk it retires |
 |-------|----------|-----------------|
@@ -79,7 +79,7 @@ remaining dogfood CLI commands, so every later surface reuses the same verified 
 | **3 — Artboard target validation + UI export** ✅ | Validate/snap editable artboards to store targets and add the editor export button/dialog on top of the same bundle export path. | Prevents late `exportPixelRatio` failures and closes the UI/CLI parity exit criterion without introducing a second renderer. |
 | **4 — Dogfood CLI management** ✅ | `screenshots dev`, `import`, and `screen add/list/rm/reorder`. | Makes the end-to-end project workflow manageable from the CLI after export is already trustworthy. |
 
-Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness review):
+Carry-ins resolved during Phase 2 (surfaced during the Phase 0/1 readiness review):
 - **Schema must widen beyond apple/iphone/solid — resolved in Slice 1.** The Zod schema now
   supports the Phase 2 target set (`apple/iphone`, `apple/ipad`, `android/phone`) and the schema
   device set is pinned to `store-specs.json`. This was additive (`z.literal` → `z.enum`), so
@@ -92,17 +92,14 @@ Carry-ins to resolve as Phase 2 opens (surfaced during the Phase 0/1 readiness r
   slots itself, the Phase 2 bundle targets **the lead size per device** (6.9″ iPhone, 13″ iPad,
   the Google presets); other accepted sizes stay in `store-specs.json` as opt-in explicit
   targets, never implicit bundle members.
-- **Editable artboard needs store-target validation.** Slice 5 made artboard `width/height`
-  freely editable, but `exportPixelRatio` throws when the artboard aspect ratio ≠ the target's.
-  Validate/snap artboards against store sizes at edit time, not only at export time.
-- **UI export button.** The editor still has no export control — export is CLI-only today,
-  while the parity exit criterion and `editor.md` §4/§6 are phrased around a UI export button.
-  It lands in Phase 2 on the same bundle path as the CLI (one export path, not two).
-- **Bulk export must reuse the server + browser + context.** Today `export` starts a web server
-  and `render-driver` launches a fresh Chromium per call; N screens × M sizes × L locales would
-  cold-start per PNG. Reuse one server and one browser context across the bundle.
-- **Drop the hardcoded `startWebServer` port.** Default `3100` will collide once bundle/parallel
-  export runs more than one server; pick a free port (or share one server) before parallelizing.
+- **Editable artboard needs store-target validation — resolved in Slice 3.** The inspector now
+  shows exact/proportional/invalid target status and offers explicit exact-size presets.
+- **UI export button — resolved in Slice 3.** The editor exports through `POST /api/export`, which
+  reuses the same headless `/render` path and bundle writer as the CLI.
+- **Bulk export must reuse the server + browser + context — resolved in Slice 2.** Bundle export
+  builds all matching entries and renders them through one web host and one browser context.
+- **Drop the hardcoded `startWebServer` port — resolved in Slice 2.** The CLI render host chooses
+  a free localhost port unless a caller supplies one.
 
 **Phase 3 — Themes / templates / fonts UI.**
 Theme tokens, template library, full font-management UI (upload, preview, system/Google).

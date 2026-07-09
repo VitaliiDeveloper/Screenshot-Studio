@@ -79,8 +79,7 @@ picking a screen and arranging its layers).
   Asset picker + insert for those types is deferred.
 - Zoom controls *(as built)*: zoom in / out / reset-to-100%; "fit" is not implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
-  CLI `export`** — one export path, not two. *(not built yet — lands in Phase 2 on the CLI
-  bundle path; today export is CLI-only. See roadmap.md §3 carry-ins.)*
+  CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*
 - The toolbar does **not** edit background; background is an artboard property and lives in the
   inspector (§5).
 
@@ -94,8 +93,8 @@ opacity, locked, visible`. Type-specific fields below it:
 Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
 the schema gains them (mostly Phase 3+). Everything else is as built (Slice 5).
 
-- **No selection** → active **artboard** properties: artboard size *(as built: editable —
-  store-target validation is a Phase 2 carry-in)* and background: `solid` today;
+- **No selection** → active **artboard** properties: artboard size with store-target status and
+  exact-size presets *(as built)* and background: `solid` today;
   `gradient | image` *(target)*. Background editing lives here, not in the toolbar.
 - **`text`** → content, fontFamily, size, weight, lineHeight, letterSpacing, align, color;
   shadow *(target)*.
