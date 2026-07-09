@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useStore } from "zustand";
 import { editorStore } from "../lib/editor-store";
-import { saveProject } from "../lib/save-project";
+import { withFlushedProject } from "../lib/debounced-save";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
@@ -29,31 +29,32 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     setError(null);
     setDoneDir(null);
     try {
-      await saveProject(project); // await, not the debounced saver, so disk == what the user sees
-      const res = await fetch("/api/export", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          platform: platform === "all" ? undefined : platform,
-          device: device === "all" ? undefined : device,
-          locale: locale === "all" ? undefined : locale,
-        }),
+      await withFlushedProject(async () => {
+        const res = await fetch("/api/export", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            platform: platform === "all" ? undefined : platform,
+            device: device === "all" ? undefined : device,
+            locale: locale === "all" ? undefined : locale,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? `Export failed (${res.status})`);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "app-store-screenshots-bundle.zip";
+        // Append before click and defer the revoke so the browser doesn't abort a large download.
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+        setDoneDir(res.headers.get("x-export-dir"));
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Export failed (${res.status})`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "app-store-screenshots-bundle.zip";
-      // Append before click and defer the revoke so the browser doesn't abort a large download.
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
-      setDoneDir(res.headers.get("x-export-dir"));
     } catch (err) {
       setError((err as Error).message);
     } finally {

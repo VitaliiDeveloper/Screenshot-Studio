@@ -4,6 +4,7 @@ import type {
   ShapeElement,
   TextElement,
 } from "./schema.js";
+import type { FontIdentity } from "./font-identity.js";
 
 /** Optional top-left origin for a newly inserted element (defaults to a fixed offset). */
 export interface ElementOrigin {
@@ -36,14 +37,18 @@ function elementBase(origin: SizedOrigin, defaults: { width: number; height: num
  * default is set explicitly. Lives in `core`, not the toolbar/CLI, so all insert paths share
  * the exact same defaults (DRY).
  */
-export function createTextElement(origin: ElementOrigin = {}): TextElement {
+export interface CreateTextElementInput extends ElementOrigin {
+  font: FontIdentity;
+}
+
+export function createTextElement(input: CreateTextElementInput): TextElement {
   return {
-    ...elementBase(origin, { width: 400, height: 120 }),
+    ...elementBase(input, { width: 400, height: 120 }),
     type: "text",
     content: "Text",
-    fontFamily: "sans-serif",
+    fontFamily: input.font.family,
     size: 64,
-    weight: 400,
+    weight: input.font.weight,
     lineHeight: 1.2,
     letterSpacing: 0,
     align: "left",

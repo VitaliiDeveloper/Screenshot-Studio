@@ -172,6 +172,21 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
   });
 
+  it("applies a font family and weight in one project patch", () => {
+    editorStore.getState().patchElement("headline", { fontFamily: "Inter", weight: 700 });
+    const element = editorStore.getState().project!.screens[0]!.elements[0]!;
+    expect(element).toMatchObject({ fontFamily: "Inter", weight: 700 });
+  });
+
+  it("replaces font assets without resetting selection", () => {
+    editorStore.getState().select("headline");
+    editorStore.getState().replaceFonts([
+      { family: "Inter", weight: 400, source: "uploaded", path: "assets/fonts/inter-400.ttf" },
+    ]);
+    expect(editorStore.getState().project!.fonts).toHaveLength(1);
+    expect(editorStore.getState().selectedId).toBe("headline");
+  });
+
   it("patchElement ignores fields that do not belong to the element type", () => {
     editorStore.getState().patchElement("headline", {
       color: "#abcdef",

@@ -195,6 +195,8 @@ project-relative files under `assets/fonts/` (`.ttf/.otf/.woff/.woff2`) and are 
 the same local `/api/asset` route as screenshots. `FontAsset.source` records provenance
 (`google` or `uploaded`); render/export code loads bytes through an injected `path -> URL`
 resolver and the browser `FontFace` API. `opentype.js` is reserved for previews and metrics.
+CLI commands and the local editor's `/api/fonts` route share one Node ingest service. Google
+requests happen server-side only when a font is added; canvas render and export remain offline.
 
 **System fonts are intentionally rejected.** They are not embedded in the project, vary by
 machine and OS, and therefore break render/export parity by construction.

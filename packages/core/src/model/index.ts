@@ -3,6 +3,7 @@ import { migrateToCurrent } from "./migrate.js";
 
 export * from "./schema.js";
 export * from "./device-frames.js";
+export * from "./font-identity.js";
 export * from "./factories.js";
 export * from "./project-ops.js";
 export * from "./assert-never.js";

@@ -9,10 +9,11 @@ import { Element } from "./schema.js";
 
 describe("element factories (slice 5)", () => {
   it("createTextElement returns a schema-valid text element", () => {
-    const el = createTextElement();
+    const el = createTextElement({ font: { family: "Inter", weight: 700 } });
     expect(() => Element.parse(el)).not.toThrow();
     expect(el.type).toBe("text");
     expect(el.id).toMatch(/[0-9a-f-]{36}/);
+    expect(el).toMatchObject({ fontFamily: "Inter", weight: 700 });
   });
 
   it("createShapeElement returns a schema-valid shape element", () => {
@@ -41,7 +42,8 @@ describe("element factories (slice 5)", () => {
   });
 
   it("gives each element a fresh id", () => {
-    expect(createTextElement().id).not.toBe(createTextElement().id);
+    const input = { font: { family: "Inter", weight: 400 } };
+    expect(createTextElement(input).id).not.toBe(createTextElement(input).id);
   });
 
   it("honours a supplied origin", () => {

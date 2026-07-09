@@ -23,12 +23,14 @@ this slice and would add an unreliable second source of truth.
 Files are written as `assets/fonts/<slug-family>-<weight>.<original-extension>`. Supported
 extensions are `.ttf`, `.otf`, `.woff`, and `.woff2`. `rm` removes the project entry and,
 only when no remaining entry references it, its file under `assets/fonts/`; paths elsewhere
-are never deleted.
+are never deleted. Managed files are created exclusively: an existing path or slug collision is
+rejected and never overwritten.
 
-For `--google`, the CLI requests the documented CSS2 URL for one family and exact weight,
-with no browser `User-Agent`, extracts the returned font URL, downloads its bytes, and records
-`source: "google"`. No URL or network dependency is persisted in the project. A CSS response
-without exactly one usable font URL is rejected rather than selecting an arbitrary subset.
+For `--google`, the CLI requests the documented CSS2 URL for one family and exact weight with an
+explicit non-browser `User-Agent`, extracts the returned font URL, requires an HTTPS
+`fonts.gstatic.com` asset, downloads its bytes, and records `source: "google"`. No URL or network
+dependency is persisted in the project. A CSS response without exactly one usable font URL is
+rejected rather than selecting an arbitrary subset.
 
 ## Export guard
 

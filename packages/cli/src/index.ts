@@ -7,7 +7,7 @@ import { startWebServer } from "./server.js";
 import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { buildBundleEntries, parseStoreSpecs, type BundleFilters } from "@screenshot-studio/core/export";
-import { findUnresolvedFonts, getScreen, parseProjectJson, type Project } from "@screenshot-studio/core/model";
+import { assertProjectFontsResolved, getScreen, parseProjectJson } from "@screenshot-studio/core/model";
 import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { importCaptures } from "./import-command.js";
@@ -102,15 +102,6 @@ export function resolveExportMode(flags: Record<string, string>): ExportMode {
       locale: flags.locale,
     },
   };
-}
-
-/** Reject nondeterministic system-font fallbacks before a render host or browser is created. */
-export function assertProjectFontsResolved(project: Project): void {
-  const unresolved = findUnresolvedFonts(project);
-  if (unresolved.length > 0) {
-    const identities = unresolved.map((font) => `"${font.family}" ${font.weight}`).join(", ");
-    throw new Error(`Cannot export: unresolved project fonts: ${identities}. Add each font with screenshots font add.`);
-  }
 }
 
 async function cmdInit(flags: Record<string, string>): Promise<void> {

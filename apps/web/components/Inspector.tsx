@@ -5,7 +5,7 @@ import { getScreen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { mutateAndScheduleSave } from "../lib/mutate-and-save";
-import { NumberField, ColorField, TextField, SelectField } from "./inspector-fields";
+import { NumberField, ColorField, TextField, SelectField, FontIdentityField } from "./inspector-fields";
 import { ArtboardTargets } from "./ArtboardTargets";
 
 /**
@@ -59,9 +59,13 @@ export function Inspector({ specs }: { specs: StoreSpecs | null }) {
           {element.type === "text" && (
             <Section title="Text">
               <TextField label="Content" value={element.content} multiline onChange={(content) => patch(element.id, { content })} />
-              <TextField label="Font" value={element.fontFamily} onChange={(fontFamily) => patch(element.id, { fontFamily })} />
+              <FontIdentityField
+                fonts={project.fonts}
+                family={element.fontFamily}
+                weight={element.weight}
+                onChange={({ family, weight }) => patch(element.id, { fontFamily: family, weight })}
+              />
               <NumberField label="Size" value={element.size} onChange={(size) => patch(element.id, { size })} />
-              <NumberField label="Weight" value={element.weight} step={100} onChange={(weight) => patch(element.id, { weight })} />
               <NumberField label="Line height" value={element.lineHeight} step={0.1} onChange={(lineHeight) => patch(element.id, { lineHeight })} />
               <NumberField label="Letter spacing" value={element.letterSpacing} onChange={(letterSpacing) => patch(element.id, { letterSpacing })} />
               <SelectField label="Align" value={element.align} options={["left", "center", "right"] as const} onChange={(align) => patch(element.id, { align })} />

@@ -9,6 +9,7 @@
   },
   "exports": {
     "./export": "./src/export.ts",
+    "./font-service": "./src/font-service.ts",
     "./render-driver": "./src/render-driver.ts",
     "./server": "./src/server.ts"
   },

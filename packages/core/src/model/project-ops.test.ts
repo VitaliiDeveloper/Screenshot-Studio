@@ -4,6 +4,8 @@ import {
   addScreenToProject,
   cloneScreenWithFreshIds,
   findUnresolvedFonts,
+  assertProjectFontsResolved,
+  formatUnresolvedFontsError,
   parseScreenPlacement,
   recomputeManifests,
   removeScreenFromProject,
@@ -142,18 +144,27 @@ describe("project-ops", () => {
       {
         id: "title", type: "text", x: 0, y: 0, width: 100, height: 100,
         content: "Title", fontFamily: "Inter", weight: 700, size: 24, color: "#FFFFFF",
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        lineHeight: 1.2, letterSpacing: 0, align: "left",
       },
       {
         id: "body", type: "text", x: 0, y: 100, width: 100, height: 100,
         content: "Body", fontFamily: "Inter", weight: 400, size: 24, color: "#FFFFFF",
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        lineHeight: 1.2, letterSpacing: 0, align: "left",
       },
       {
         id: "title-again", type: "text", x: 0, y: 200, width: 100, height: 100,
         content: "Again", fontFamily: "Inter", weight: 700, size: 24, color: "#FFFFFF",
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        lineHeight: 1.2, letterSpacing: 0, align: "left",
       },
     ];
     project.fonts = [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-400.ttf", weight: 400 }];
 
     expect(findUnresolvedFonts(project)).toEqual([{ family: "Inter", weight: 700 }]);
+    expect(formatUnresolvedFontsError([{ family: "Inter", weight: 700 }]))
+      .toContain("Fonts dialog or with screenshots font add");
+    expect(() => assertProjectFontsResolved(project)).toThrow(/"Inter" 700/);
   });
 });

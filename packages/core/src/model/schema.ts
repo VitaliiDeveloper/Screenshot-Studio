@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fontIdentityKey } from "./font-identity.js";
 
 /**
  * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md §3:
@@ -209,7 +210,7 @@ export const Project = z
 
     const fontIdentityIndexes = new Map<string, number>();
     proj.fonts.forEach((font, i) => {
-      const key = `${font.family}\0${font.weight}`;
+      const key = fontIdentityKey(font);
       const existingIndex = fontIdentityIndexes.get(key);
       if (existingIndex !== undefined) {
         ctx.addIssue({

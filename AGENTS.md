@@ -4,9 +4,9 @@ Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this r
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
 
-> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–2 are implemented and verified; Slice 3 is next.**
+> **Status: Phase 0, Phase 1, and Phase 2 implemented and verified; Phase 3 Slices 1–3 are implemented and verified; Slice 4 is next.**
 > The render/export core, web editor, verified export flow, and dogfood CLI management commands
-> are built and tested; font ingest is built, while font-management UI and theme commands remain planned (marked ◻). Read only the docs directly relevant to the
+> are built and tested; font ingest and management UI are built, while theme commands remain planned (marked ◻). Read only the docs directly relevant to the
 > active task; do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
@@ -69,7 +69,7 @@ Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphon
 There is **no `themes` key yet** (Phase 3) — the strict validator rejects it.
 
 **Target (later phases):** platforms `["apple", "android"]`; `themes: Theme[]` (tokens:
-colors, fonts, spacing); background `solid | gradient | image`; additional font-management UI;
+colors, fonts, spacing); background `solid | gradient | image`;
 extra element types `icon`, `badge`, `image`; locales with RTL (`ar`). Artboards
 are **isolated** (no connected canvas in the MVP). Schema is versioned; pure `v1→v2→…`
 migrations run on load — though enum widenings are additive and need no migration.

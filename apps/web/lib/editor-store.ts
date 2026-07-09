@@ -9,6 +9,7 @@ import {
   type ShapeElement,
   type ScreenshotElement,
   type DeviceFrameElement,
+  type FontAsset,
 } from "@screenshot-studio/core/model";
 
 /**
@@ -102,6 +103,7 @@ export interface EditorState {
   addElement: (element: Element) => void;
   patchBackground: (patch: { color: string }) => void;
   patchArtboard: (patch: { width?: number; height?: number }) => void;
+  replaceFonts: (fonts: FontAsset[]) => void;
 }
 
 /** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
@@ -211,5 +213,10 @@ export const editorStore = createStore<EditorState>((set) => ({
         if (screen) Object.assign(screen.artboard, patch);
       });
       return { project };
+    }),
+  replaceFonts: (fonts) =>
+    set((state) => {
+      if (!state.project) return state;
+      return { project: { ...state.project, fonts } };
     }),
 }));

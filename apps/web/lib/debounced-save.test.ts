@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createDebouncedSaver } from "./debounced-save.js";
+import { createDebouncedSaver, createProjectSaveCoordinator } from "./debounced-save.js";
 import type { Project } from "@screenshot-studio/core/model";
 
 const fakeProject = { meta: { name: "X" } } as unknown as Project;
@@ -27,5 +27,60 @@ describe("createDebouncedSaver", () => {
     debounced(fakeProject);
     vi.advanceTimersByTime(300);
     expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels a queued stale snapshot", () => {
+    const save = vi.fn();
+    const debounced = createDebouncedSaver(save, 300);
+    debounced(fakeProject);
+    debounced.cancel();
+    vi.advanceTimersByTime(300);
+    expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("createProjectSaveCoordinator", () => {
+  it("waits for an in-flight save and then persists the latest snapshot", async () => {
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const first = { meta: { name: "first" } } as unknown as Project;
+    const latest = { meta: { name: "latest" } } as unknown as Project;
+    let current = first;
+    const saved: Project[] = [];
+    const save = vi.fn(async (project: Project) => {
+      saved.push(project);
+      if (project === first) await firstGate;
+    });
+    const coordinator = createProjectSaveCoordinator(save, () => current);
+
+    const inFlight = coordinator.saveLatest();
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    current = latest;
+    const queued = coordinator.saveLatest();
+    releaseFirst();
+    await Promise.all([inFlight, queued]);
+
+    expect(saved).toEqual([first, latest]);
+  });
+
+  it("keeps later saves behind an exclusive mutation and reads state after synchronization", async () => {
+    const before = { meta: { name: "before" } } as unknown as Project;
+    const durable = { meta: { name: "durable" } } as unknown as Project;
+    let current = before;
+    const events: string[] = [];
+    const coordinator = createProjectSaveCoordinator(async (project) => {
+      events.push(`save:${project.meta.name}`);
+    }, () => current);
+
+    const mutation = coordinator.runExclusive(async () => {
+      events.push("mutation:start");
+      await Promise.resolve();
+      current = durable;
+      events.push("mutation:end");
+    });
+    const laterSave = coordinator.saveLatest();
+    await Promise.all([mutation, laterSave]);
+
+    expect(events).toEqual(["mutation:start", "mutation:end", "save:durable"]);
   });
 });

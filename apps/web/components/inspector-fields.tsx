@@ -1,5 +1,7 @@
 "use client";
 
+import { fontIdentityKey, type FontAsset } from "@screenshot-studio/core/model";
+
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 
 export function NumberField({
@@ -73,6 +75,39 @@ export function SelectField<T extends string>({
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function FontIdentityField({
+  fonts, family, weight, onChange,
+}: {
+  fonts: FontAsset[];
+  family: string;
+  weight: number;
+  onChange: (identity: { family: string; weight: number }) => void;
+}) {
+  const current = fontIdentityKey({ family, weight });
+  const resolved = fonts.some((font) => font.family === family && font.weight === weight);
+  return (
+    <label className="flex flex-col gap-1 text-xs">
+      <span className="text-neutral-500">Font</span>
+      <select
+        aria-label="Font"
+        value={current}
+        onChange={(event) => {
+          const [nextFamily, nextWeight] = JSON.parse(event.target.value) as [string, number];
+          onChange({ family: nextFamily, weight: nextWeight });
+        }}
+        className="w-full rounded border border-neutral-300 px-1 py-0.5"
+      >
+        {!resolved && <option value={current}>Missing: {family} · {weight}</option>}
+        {fonts.map((font) => (
+          <option key={fontIdentityKey(font)} value={fontIdentityKey(font)}>
+            {font.family} · {font.weight}
+          </option>
         ))}
       </select>
     </label>
