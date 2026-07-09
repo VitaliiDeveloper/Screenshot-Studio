@@ -4,7 +4,7 @@ import { useStore } from "zustand";
 import { getScreen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
-import { scheduleSave } from "../lib/debounced-save";
+import { mutateAndScheduleSave } from "../lib/mutate-and-save";
 import { NumberField, ColorField, TextField, SelectField } from "./inspector-fields";
 import { ArtboardTargets } from "./ArtboardTargets";
 
@@ -14,21 +14,15 @@ import { ArtboardTargets } from "./ArtboardTargets";
  * Every edit patches the store (live canvas) then schedules a debounced save (spec §3, §4).
  */
 function patch(id: string, p: ElementPatch) {
-  editorStore.getState().patchElement(id, p);
-  const next = editorStore.getState().project;
-  if (next) scheduleSave(next);
+  mutateAndScheduleSave(() => editorStore.getState().patchElement(id, p));
 }
 
 function editArtboard(patch: { width?: number; height?: number }) {
-  editorStore.getState().patchArtboard(patch);
-  const next = editorStore.getState().project;
-  if (next) scheduleSave(next);
+  mutateAndScheduleSave(() => editorStore.getState().patchArtboard(patch));
 }
 
 function editBackground(color: string) {
-  editorStore.getState().patchBackground({ color });
-  const next = editorStore.getState().project;
-  if (next) scheduleSave(next);
+  mutateAndScheduleSave(() => editorStore.getState().patchBackground({ color }));
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

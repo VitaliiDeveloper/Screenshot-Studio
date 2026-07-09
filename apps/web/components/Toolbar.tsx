@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Element } from "@screenshot-studio/core/model";
 import { createTextElement, createShapeElement } from "@screenshot-studio/core/model";
 import { editorStore } from "../lib/editor-store";
-import { saveProject } from "../lib/save-project";
+import { mutateAndSave } from "../lib/mutate-and-save";
 import { ExportDialog } from "./ExportDialog";
 
 /**
@@ -16,9 +16,7 @@ export function Toolbar({
   zoom, onZoomIn, onZoomOut, onZoomReset,
 }: { zoom: number; onZoomIn: () => void; onZoomOut: () => void; onZoomReset: () => void }) {
   const insert = (element: Element) => {
-    editorStore.getState().addElement(element);
-    const next = editorStore.getState().project;
-    if (next) void saveProject(next);
+    mutateAndSave(() => editorStore.getState().addElement(element));
   };
 
   const [exportOpen, setExportOpen] = useState(false);

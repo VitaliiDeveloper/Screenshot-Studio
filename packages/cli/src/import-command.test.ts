@@ -58,6 +58,7 @@ describe("importCaptures", () => {
       artboard: { width: pngInfo.width, height: pngInfo.height },
       elements: [
         {
+          id: "apple-iphone-en-01-screenshot",
           type: "screenshot",
           x: 0,
           y: 0,
@@ -68,5 +69,32 @@ describe("importCaptures", () => {
         },
       ],
     });
+  });
+
+  it("uses a collision-resolved screen id for the screenshot element id", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "screenshot-studio-import-collide-"));
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const inputDir = join(dir, "screenshots");
+    const existing = sampleProject();
+    existing.screens.push({
+      id: "apple-iphone-en-01",
+      name: "Existing",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      artboard: { width: 1320, height: 2868 },
+      background: { type: "solid", color: "#101827" },
+      elements: [],
+    });
+    await writeFile(projectPath, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+    await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
+    const png = await readFile(new URL("../../../fixtures/slice-2-screenshot/assets/shot.png", import.meta.url));
+    await writeFile(join(inputDir, "apple", "iphone", "en", "01.png"), png);
+
+    await importCaptures({ projectPath, inputDir });
+
+    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    const imported = written.screens.find((screen) => screen.id === "apple-iphone-en-01-2");
+    expect(imported?.elements[0]?.id).toBe("apple-iphone-en-01-2-screenshot");
   });
 });

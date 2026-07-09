@@ -1,5 +1,6 @@
 import type Konva from "konva";
 import type { Element } from "../model/schema.js";
+import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 
 /**
@@ -78,134 +79,147 @@ export function elementToNodeConfig(element: Element, images?: ImageCache): Node
     opacity: element.opacity,
   };
 
-  if (element.type === "text") {
-    return {
-      konva: "Text",
-      config: {
-        ...common,
-        width: element.width,
-        height: element.height,
-        text: element.content,
-        fontFamily: element.fontFamily,
-        // Konva folds fontStyle into the canvas font shorthand; a numeric weight string
-        // ("600 96px Family") is valid CSS, so this maps custom weights directly.
-        fontSize: element.size,
-        fontStyle: String(element.weight),
-        lineHeight: element.lineHeight,
-        letterSpacing: element.letterSpacing,
-        align: element.align,
-        fill: element.color,
-      },
-    };
-  }
+  switch (element.type) {
+    case "text":
+      return {
+        konva: "Text",
+        config: {
+          ...common,
+          width: element.width,
+          height: element.height,
+          text: element.content,
+          fontFamily: element.fontFamily,
+          // Konva folds fontStyle into the canvas font shorthand; a numeric weight string
+          // ("600 96px Family") is valid CSS, so this maps custom weights directly.
+          fontSize: element.size,
+          fontStyle: String(element.weight),
+          lineHeight: element.lineHeight,
+          letterSpacing: element.letterSpacing,
+          align: element.align,
+          fill: element.color,
+        },
+      };
 
-  if (element.type === "shape") {
-    return {
-      konva: "Rect",
-      config: {
-        ...common,
-        width: element.width,
-        height: element.height,
-        fill: element.fill,
-        cornerRadius: element.radius,
-      },
-    };
-  }
-
-  if (element.type === "screenshot") {
-    const image = images?.get(element.assetUrl);
-    if (!image) {
-      // Missing/failed asset → a visible placeholder, never a crash or hang (editor.md §7).
+    case "shape":
       return {
         konva: "Rect",
         config: {
           ...common,
           width: element.width,
           height: element.height,
-          fill: "#CCCCCC",
+          fill: element.fill,
+          cornerRadius: element.radius,
+        },
+      };
+
+    case "screenshot": {
+      const image = images?.get(element.assetUrl);
+      if (!image) {
+        // Missing/failed asset → a visible placeholder, never a crash or hang (editor.md §7).
+        return {
+          konva: "Rect",
+          config: {
+            ...common,
+            width: element.width,
+            height: element.height,
+            fill: "#CCCCCC",
+            cornerRadius: element.cornerRadius,
+          },
+        };
+      }
+      const fit = computeImageFit(image, { width: element.width, height: element.height }, element.fit);
+      return {
+        konva: "Image",
+        config: {
+          ...common,
+          x: element.x + fit.x,
+          y: element.y + fit.y,
+          width: fit.width,
+          height: fit.height,
+          image,
           cornerRadius: element.cornerRadius,
+          cropX: fit.cropX,
+          cropY: fit.cropY,
+          cropWidth: fit.cropWidth,
+          cropHeight: fit.cropHeight,
         },
       };
     }
-    const fit = computeImageFit(image, { width: element.width, height: element.height }, element.fit);
-    return {
-      konva: "Image",
-      config: {
-        ...common,
-        x: element.x + fit.x,
-        y: element.y + fit.y,
-        width: fit.width,
-        height: fit.height,
-        image,
-        cornerRadius: element.cornerRadius,
-        cropX: fit.cropX,
-        cropY: fit.cropY,
-        cropWidth: fit.cropWidth,
-        cropHeight: fit.cropHeight,
-      },
-    };
+
+    case "device-frame": {
+      // Group of native shapes + content image in BOX-LOCAL coords; body and slot share one spec.
+      const spec = DEVICE_FRAME_SPECS[element.deviceType];
+      const W = element.width;
+      const H = element.height;
+      const slotX = spec.slotInset.left * W;
+      const slotY = spec.slotInset.top * H;
+      const slotW = W - (spec.slotInset.left + spec.slotInset.right) * W;
+      const slotH = H - (spec.slotInset.top + spec.slotInset.bottom) * H;
+      const slotRadius = spec.slotCornerRadius * slotW;
+
+      const children: NodeConfig[] = [
+        {
+          konva: "Rect",
+          config: {
+            x: 0,
+            y: 0,
+            width: W,
+            height: H,
+            fill: spec.bezelColor,
+            cornerRadius: spec.frameCornerRadius * W,
+          },
+        },
+        {
+          konva: "Rect",
+          config: {
+            x: slotX,
+            y: slotY,
+            width: slotW,
+            height: slotH,
+            fill: "#000000",
+            cornerRadius: slotRadius,
+          },
+        },
+      ];
+
+      const image = images?.get(element.assetUrl);
+      if (image) {
+        const fit = computeImageFit(image, { width: slotW, height: slotH }, element.fit);
+        children.push({
+          konva: "Image",
+          config: {
+            x: slotX + fit.x,
+            y: slotY + fit.y,
+            width: fit.width,
+            height: fit.height,
+            image,
+            cornerRadius: slotRadius,
+            cropX: fit.cropX,
+            cropY: fit.cropY,
+            cropWidth: fit.cropWidth,
+            cropHeight: fit.cropHeight,
+          },
+        });
+      }
+
+      const notchW = spec.notch.widthFrac * W;
+      const notchH = spec.notch.heightFrac * H;
+      children.push({
+        konva: "Rect",
+        config: {
+          x: (W - notchW) / 2,
+          y: spec.notch.topFrac * H,
+          width: notchW,
+          height: notchH,
+          fill: spec.bezelColor,
+          cornerRadius: notchH / 2,
+        },
+      });
+
+      return { konva: "Group", config: { ...common, width: W, height: H }, children };
+    }
+
+    default:
+      return assertNever(element);
   }
-
-  // device-frame → a Group of native shapes + the content image, all in BOX-LOCAL coords; the Group
-  // carries element.x/y/rotation/opacity and the box size so the Transformer measures/resizes it as
-  // one unit. Body and slot come from one spec → they cannot misalign.
-  const spec = DEVICE_FRAME_SPECS[element.deviceType];
-  const W = element.width;
-  const H = element.height;
-  const slotX = spec.slotInset.left * W;
-  const slotY = spec.slotInset.top * H;
-  const slotW = W - (spec.slotInset.left + spec.slotInset.right) * W;
-  const slotH = H - (spec.slotInset.top + spec.slotInset.bottom) * H;
-  const slotRadius = spec.slotCornerRadius * slotW;
-
-  const children: NodeConfig[] = [
-    // 1. Frame body — the outer silhouette AND the full-box child the Transformer measures.
-    {
-      konva: "Rect",
-      config: { x: 0, y: 0, width: W, height: H, fill: spec.bezelColor, cornerRadius: spec.frameCornerRadius * W },
-    },
-    // 2. Slot background — letterbox for `contain`, slot-shaped placeholder for a missing asset.
-    {
-      konva: "Rect",
-      config: { x: slotX, y: slotY, width: slotW, height: slotH, fill: "#000000", cornerRadius: slotRadius },
-    },
-  ];
-
-  // 3. Content image, clipped to the slot (only if it decoded).
-  const image = images?.get(element.assetUrl);
-  if (image) {
-    const fit = computeImageFit(image, { width: slotW, height: slotH }, element.fit);
-    children.push({
-      konva: "Image",
-      config: {
-        x: slotX + fit.x,
-        y: slotY + fit.y,
-        width: fit.width,
-        height: fit.height,
-        image,
-        cornerRadius: slotRadius,
-        cropX: fit.cropX,
-        cropY: fit.cropY,
-        cropWidth: fit.cropWidth,
-        cropHeight: fit.cropHeight,
-      },
-    });
-  }
-
-  // 4. Notch (top pill), drawn on top of the content.
-  const notchW = spec.notch.widthFrac * W;
-  const notchH = spec.notch.heightFrac * H;
-  children.push({
-    konva: "Rect",
-    config: {
-      x: (W - notchW) / 2,
-      y: spec.notch.topFrac * H,
-      width: notchW,
-      height: notchH,
-      fill: spec.bezelColor,
-      cornerRadius: notchH / 2,
-    },
-  });
-
-  return { konva: "Group", config: { ...common, width: W, height: H }, children };
 }

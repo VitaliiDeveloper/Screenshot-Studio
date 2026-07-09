@@ -1,13 +1,14 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
-import type {
-  Project,
-  Screen,
-  Element,
-  TextElement,
-  ShapeElement,
-  ScreenshotElement,
-  DeviceFrameElement,
+import {
+  cloneScreenWithFreshIds,
+  recomputeManifests,
+  type Project,
+  type Element,
+  type TextElement,
+  type ShapeElement,
+  type ScreenshotElement,
+  type DeviceFrameElement,
 } from "@screenshot-studio/core/model";
 
 /**
@@ -16,23 +17,74 @@ import type {
  * the day-0 requirement (roadmap.md §1) that lets undo/redo be added later without a rewrite.
  * The store is the only writer of project state; the canvas dispatches actions, never mutates.
  */
-/**
- * Deliberately loose: the union of every editable field across the four element types, so
- * TypeScript will accept e.g. `fill` on a text element. The store's `patchElement` is a blind
- * assign-by-id and does NOT guard field/type validity — callers (the inspector, the canvas)
- * must narrow on `element.type` before dispatching. The backstop is the strict Zod validator:
- * an invalid project is rejected at save, never written (Slice 5 spec, ratified trade-off).
- */
-export type ElementPatch = Partial<
+
+/** Geometry / layer metadata shared by every element type. */
+export type CommonElementPatch = Partial<
+  Pick<Element, "x" | "y" | "width" | "height" | "rotation" | "opacity" | "locked" | "visible" | "name">
+>;
+
+type TextFields = Partial<
   Pick<
     TextElement,
-    | "x" | "y" | "width" | "height" | "rotation" | "opacity" | "locked" | "visible" | "name"
-    | "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
+    "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
   >
-> &
-  Partial<Pick<ShapeElement, "fill" | "radius">> &
-  Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">> &
-  Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
+>;
+type ShapeFields = Partial<Pick<ShapeElement, "fill" | "radius">>;
+type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
+type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
+
+/**
+ * Call-site convenience: common fields plus optional type-specific fields.
+ * Runtime apply only writes keys valid for the live element's `type` — a `fill` on a text
+ * element is ignored, never Object.assigned onto the wrong shape.
+ */
+export type ElementPatch = CommonElementPatch &
+  TextFields &
+  ShapeFields &
+  ScreenshotFields &
+  DeviceFrameFields;
+
+function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
+  if (patch.x !== undefined) el.x = patch.x;
+  if (patch.y !== undefined) el.y = patch.y;
+  if (patch.width !== undefined) el.width = patch.width;
+  if (patch.height !== undefined) el.height = patch.height;
+  if (patch.rotation !== undefined) el.rotation = patch.rotation;
+  if (patch.opacity !== undefined) el.opacity = patch.opacity;
+  if (patch.locked !== undefined) el.locked = patch.locked;
+  if (patch.visible !== undefined) el.visible = patch.visible;
+  if (patch.name !== undefined) el.name = patch.name;
+}
+
+/** Apply only fields legal for this element's type (no blind Object.assign). */
+export function applyElementPatch(el: Element, patch: ElementPatch): void {
+  applyCommonPatch(el, patch);
+  switch (el.type) {
+    case "text":
+      if (patch.content !== undefined) el.content = patch.content;
+      if (patch.fontFamily !== undefined) el.fontFamily = patch.fontFamily;
+      if (patch.size !== undefined) el.size = patch.size;
+      if (patch.weight !== undefined) el.weight = patch.weight;
+      if (patch.lineHeight !== undefined) el.lineHeight = patch.lineHeight;
+      if (patch.letterSpacing !== undefined) el.letterSpacing = patch.letterSpacing;
+      if (patch.align !== undefined) el.align = patch.align;
+      if (patch.color !== undefined) el.color = patch.color;
+      break;
+    case "shape":
+      if (patch.fill !== undefined) el.fill = patch.fill;
+      if (patch.radius !== undefined) el.radius = patch.radius;
+      break;
+    case "screenshot":
+      if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
+      if (patch.fit !== undefined) el.fit = patch.fit;
+      if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      break;
+    case "device-frame":
+      if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
+      if (patch.fit !== undefined) el.fit = patch.fit;
+      break;
+  }
+}
 
 export interface EditorState {
   project: Project | null;
@@ -59,15 +111,6 @@ function moveInPlace<T>(arr: T[], from: number, to: number): void {
   arr.splice(to, 0, item as T);
 }
 
-/** Deep-clone a screen with a fresh screen id and fresh element ids (used by addScreen). */
-function cloneScreen(src: Screen): Screen {
-  const copy = structuredClone(src) as Screen;
-  copy.id = crypto.randomUUID();
-  copy.name = `${src.name} copy`;
-  copy.elements = copy.elements.map((el) => ({ ...el, id: crypto.randomUUID() }));
-  return copy;
-}
-
 export const editorStore = createStore<EditorState>((set) => ({
   project: null,
   activeScreenId: null,
@@ -81,7 +124,7 @@ export const editorStore = createStore<EditorState>((set) => ({
       const project = produce(state.project, (draft) => {
         for (const screen of draft.screens) {
           const el = screen.elements.find((e) => e.id === id);
-          if (el) Object.assign(el, patch);
+          if (el) applyElementPatch(el, patch);
         }
       });
       return { project };
@@ -102,9 +145,10 @@ export const editorStore = createStore<EditorState>((set) => ({
         state.project.screens.find((s) => s.id === state.activeScreenId) ??
         state.project.screens[0];
       if (!active) return state;
-      const copy = cloneScreen(active);
-      const project = produce(state.project, (draft) => {
-        draft.screens.push(copy);
+      const copy = cloneScreenWithFreshIds(active);
+      const project = recomputeManifests({
+        ...state.project,
+        screens: [...state.project.screens, copy],
       });
       return { project, activeScreenId: copy.id, selectedId: null };
     }),
@@ -113,9 +157,8 @@ export const editorStore = createStore<EditorState>((set) => ({
       if (!state.project || state.project.screens.length <= 1) return state;
       const idx = state.project.screens.findIndex((s) => s.id === id);
       if (idx === -1) return state;
-      const project = produce(state.project, (draft) => {
-        draft.screens.splice(idx, 1);
-      });
+      const screens = state.project.screens.filter((s) => s.id !== id);
+      const project = recomputeManifests({ ...state.project, screens });
       const wasActive = state.activeScreenId === id;
       const activeScreenId = wasActive
         ? project.screens[Math.min(idx, project.screens.length - 1)]!.id

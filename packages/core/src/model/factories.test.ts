@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createTextElement, createShapeElement } from "./factories.js";
+import {
+  createTextElement,
+  createShapeElement,
+  createScreenshotElement,
+  createDeviceFrameElement,
+} from "./factories.js";
 import { Element } from "./schema.js";
 
 describe("element factories (slice 5)", () => {
@@ -15,6 +20,24 @@ describe("element factories (slice 5)", () => {
     expect(() => Element.parse(el)).not.toThrow();
     expect(el.type).toBe("shape");
     expect(el.kind).toBe("rect");
+  });
+
+  it("createScreenshotElement returns a schema-valid screenshot element", () => {
+    const el = createScreenshotElement({
+      assetUrl: "assets/shot.png",
+      width: 1320,
+      height: 2868,
+      x: 0,
+      y: 0,
+    });
+    expect(() => Element.parse(el)).not.toThrow();
+    expect(el).toMatchObject({ type: "screenshot", assetUrl: "assets/shot.png", fit: "cover" });
+  });
+
+  it("createDeviceFrameElement returns a schema-valid device-frame element", () => {
+    const el = createDeviceFrameElement({ assetUrl: "assets/shot.png" });
+    expect(() => Element.parse(el)).not.toThrow();
+    expect(el).toMatchObject({ type: "device-frame", deviceType: "iphone" });
   });
 
   it("gives each element a fresh id", () => {

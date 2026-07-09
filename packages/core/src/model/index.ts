@@ -4,6 +4,8 @@ import { migrateToCurrent } from "./migrate.js";
 export * from "./schema.js";
 export * from "./device-frames.js";
 export * from "./factories.js";
+export * from "./project-ops.js";
+export * from "./assert-never.js";
 export { migrateToCurrent } from "./migrate.js";
 
 /** Raised when a project fails schema validation. Carries the human-readable validator report. */

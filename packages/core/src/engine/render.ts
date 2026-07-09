@@ -1,5 +1,6 @@
 import Konva from "konva";
 import type { Project, Screen, Element } from "../model/schema.js";
+import { assertNever } from "../model/assert-never.js";
 import type { ImageCache, NodeConfig } from "./node-config.js";
 import { getScreen } from "../model/index.js";
 import { elementToNodeConfig } from "./node-config.js";
@@ -49,12 +50,19 @@ function drawElement(layer: Konva.Layer, element: Element, images: ImageCache): 
 
 /** Realise a NodeConfig as Konva nodes, recursing into the device-frame Group's children. */
 function buildNode(nc: NodeConfig): Konva.Node {
-  if (nc.konva === "Text") return new Konva.Text(nc.config);
-  if (nc.konva === "Image") return new Konva.Image(nc.config);
-  if (nc.konva === "Group") {
-    const group = new Konva.Group(nc.config);
-    for (const child of nc.children) group.add(buildNode(child) as Konva.Group | Konva.Shape);
-    return group;
+  switch (nc.konva) {
+    case "Text":
+      return new Konva.Text(nc.config);
+    case "Image":
+      return new Konva.Image(nc.config);
+    case "Rect":
+      return new Konva.Rect(nc.config);
+    case "Group": {
+      const group = new Konva.Group(nc.config);
+      for (const child of nc.children) group.add(buildNode(child) as Konva.Group | Konva.Shape);
+      return group;
+    }
+    default:
+      return assertNever(nc);
   }
-  return new Konva.Rect(nc.config);
 }

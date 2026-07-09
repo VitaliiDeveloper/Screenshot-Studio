@@ -1,5 +1,13 @@
 import { readFile } from "node:fs/promises";
-import { Project, type Project as ProjectModel, type Screen } from "@screenshot-studio/core/model";
+import {
+  addScreenToProject as addScreenToProjectCore,
+  parseScreenPlacement,
+  removeScreenFromProject,
+  reorderScreenInProject,
+  type CreateScreenInput,
+  type Project as ProjectModel,
+  type Screen,
+} from "@screenshot-studio/core/model";
 import {
   findStoreSize,
   leadStoreSizeId,
@@ -34,18 +42,25 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
   switch (subcommand) {
     case "list":
       return { kind: "list" };
-    case "add":
+    case "add": {
+      const platform = requireFlag(flags, "platform");
+      const device = requireFlag(flags, "device");
+      const placement = parseScreenPlacement(platform, device);
+      if (!placement) {
+        throw new Error(`Unsupported platform/device pair: ${platform}/${device}`);
+      }
       return {
         kind: "add",
         options: {
           id: flags.id,
           name: flags.name,
-          platform: requireFlag(flags, "platform") as Screen["platform"],
-          device: requireFlag(flags, "device") as Screen["device"],
+          platform: placement.platform,
+          device: placement.device,
           locale: requireFlag(flags, "locale"),
           sizeId: flags.size,
         },
       };
+    }
     case "rm":
       if (!id) throw new Error("Usage: screenshots screen rm <id>");
       return { kind: "rm", id };
@@ -60,38 +75,6 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
   }
 }
 
-function titleFromId(id: string): string {
-  return id
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
-}
-
-function slugify(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "screen"
-  );
-}
-
-function uniqueId(base: string, screens: Screen[]): string {
-  const used = new Set(screens.map((screen) => screen.id));
-  if (!used.has(base)) return base;
-  for (let i = 2; ; i++) {
-    const candidate = `${base}-${i}`;
-    if (!used.has(candidate)) return candidate;
-  }
-}
-
-function recomputeManifests(project: ProjectModel): ProjectModel {
-  const platforms = Array.from(new Set(project.screens.map((screen) => screen.platform)));
-  const locales = Array.from(new Set(project.screens.map((screen) => screen.locale)));
-  return Project.parse({ ...project, platforms, locales });
-}
-
 export function formatScreenList(project: ProjectModel): string {
   return project.screens
     .map(
@@ -101,52 +84,33 @@ export function formatScreenList(project: ProjectModel): string {
     .join("\n");
 }
 
+/** Resolve lead (or explicit) store size into artboard dims, then append via core. */
 export function addScreenToProject(
   project: ProjectModel,
   specs: StoreSpecs,
   options: AddScreenOptions,
 ): ProjectModel {
-  const baseId = slugify(options.id ?? options.name ?? `${options.platform}-${options.device}-${options.locale}`);
-  const id = uniqueId(baseId, project.screens);
-  const name = options.name ?? titleFromId(id);
+  const placement = parseScreenPlacement(options.platform, options.device);
+  if (!placement) {
+    throw new Error(`Unsupported platform/device pair: ${options.platform}/${options.device}`);
+  }
   const target = findStoreSize(
     specs,
-    options.platform,
-    options.device,
-    options.sizeId ?? leadStoreSizeId(options.platform, options.device),
+    placement.platform,
+    placement.device,
+    options.sizeId ?? leadStoreSizeId(placement.platform, placement.device),
   );
-  const screen = {
-    id,
-    name,
-    platform: options.platform,
-    device: options.device,
+  const input: CreateScreenInput = {
+    ...placement,
+    id: options.id,
+    name: options.name,
     locale: options.locale,
     artboard: { width: target.width, height: target.height },
-    background: { type: "solid", color: "#101827" },
-    elements: [],
   };
-  return recomputeManifests({ ...project, screens: [...project.screens, screen] } as ProjectModel);
+  return addScreenToProjectCore(project, input);
 }
 
-export function removeScreenFromProject(project: ProjectModel, id: string): ProjectModel {
-  const index = project.screens.findIndex((screen) => screen.id === id);
-  if (index === -1) throw new Error(`Unknown screen "${id}"`);
-  if (project.screens.length === 1) throw new Error("Cannot remove the last screen");
-  const screens = project.screens.filter((screen) => screen.id !== id);
-  return recomputeManifests({ ...project, screens } as ProjectModel);
-}
-
-export function reorderScreenInProject(project: ProjectModel, id: string, position: number): ProjectModel {
-  const from = project.screens.findIndex((screen) => screen.id === id);
-  if (from === -1) throw new Error(`Unknown screen "${id}"`);
-  if (!Number.isInteger(position) || position < 1 || position > project.screens.length) {
-    throw new Error(`Position must be between 1 and ${project.screens.length}`);
-  }
-  const screens = [...project.screens];
-  const [screen] = screens.splice(from, 1);
-  screens.splice(position - 1, 0, screen!);
-  return Project.parse({ ...project, screens });
-}
+export { removeScreenFromProject, reorderScreenInProject };
 
 export async function runScreenCommand(
   projectPath: string,

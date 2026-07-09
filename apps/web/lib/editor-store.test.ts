@@ -171,6 +171,17 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       .find((e) => e.id === "headline")! as { color: string; size: number; align: string; opacity: number };
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
   });
+
+  it("patchElement ignores fields that do not belong to the element type", () => {
+    editorStore.getState().patchElement("headline", {
+      color: "#abcdef",
+      fill: "#ff0000", // shape-only — must not land on text
+    });
+    const el = editorStore.getState().project!.screens[0]!.elements
+      .find((e) => e.id === "headline")!;
+    expect(el).toMatchObject({ type: "text", color: "#abcdef" });
+    expect(el).not.toHaveProperty("fill");
+  });
 });
 
 describe("editorStore screen editors (slice 5)", () => {
