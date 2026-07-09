@@ -37,7 +37,7 @@ rewrite. We ship without the undo *buttons*, but not without the architecture fo
   transforms, serialization, and z-order edge cases, so it stays out of the thin slice).
 - **Export (Phase 2).** Verified store bundles from `store-specs.json`, alpha-channel removal,
   Vitest dimension tests, zip by platform/device/locale.
-- **Fonts & themes (Phase 3).** System + Google + custom upload UI; theme tokens applied across
+- **Fonts & themes (Phase 3).** Google + custom upload UI; theme tokens applied across
   all screens; a template library of reusable layouts. (Minimal font *embedding* ships earlier
   with export — see architecture.md §5.)
 - **Locales & RTL (Phase 4).** Per-language screenshot sets; mirrored layout/alignment for
@@ -156,7 +156,7 @@ drives it — the ordering Phase 2 used (bundle orchestration before the export 
 
 | Slice | Delivers | Risk it retires |
 |-------|----------|-----------------|
-| **1 — Font assets become files** ◻ | `FontAsset.data` (base64) → `FontAsset.path`; fonts served by the existing asset route; `source` widens to `uploaded \| google`; `registerProjectFonts` takes an injected resolver. | The storage model changing under features that already shipped. Touches the parity gate, so it goes first and alone. |
+| **1 — Font assets become files** ✅ | `FontAsset.data` (base64) → `FontAsset.path`; fonts served by the existing asset route; `source` widens to `uploaded \| google`; `registerProjectFonts` takes an injected resolver. | The storage model changing under features that already shipped. Touches the parity gate, so it goes first and alone. |
 | **2 — Font ingest CLI** ◻ | `font add <file>`, `font add --google <family>`, `font list`, `font rm`; `findUnresolvedFonts` guards the no-system-fonts rule at export. | Network enters the toolchain. Confines it to `add`-time, never render/export. |
 | **3 — Font management UI** ◻ | Upload / list / preview / apply; font picker in the text inspector. | Low — sits on the schema and core that Slices 1–2 proved. |
 | **4 — Theme model + `theme set`** ◻ | `themes/*.json` with its own Zod schema; pure `applyTheme(project, theme) → Project`; element `role?` field; CLI `theme set <id>`. | The token-resolution model. Baking keeps `elementToNodeConfig` untouched. |
@@ -170,7 +170,7 @@ Decisions taken up front (they set the slice boundaries above):
   resolve by path through `apps/web/app/api/asset/route.ts`, and `AGENTS.md` already documents
   `assets/fonts/`. One font weight costs ~422 KB of base64 — `fixtures/phase-0-sample` is 440 KB,
   of which 439 KB is one Pacifico blob. Fonts adopt the model images already use. **Slice 1
-  amends §5**; until it lands, §5 still describes base64.
+  amended §5** to describe file-backed fonts.
 - **System fonts are rejected, not deferred.** A system font is not embedded, so the same JSON
   renders different pixels in headless Chromium in CI than on the author's Mac. That breaks the
   §1 parity rule by construction. `architecture.md` §5 lists `system` as a source; Slice 1 cuts it.

@@ -35,6 +35,10 @@ function validProject() {
   };
 }
 
+function setRawFonts(project: ReturnType<typeof validProject>, fonts: unknown[]) {
+  (project as { fonts: unknown[] }).fonts = fonts;
+}
+
 describe("parseProject", () => {
   it("accepts a valid project and applies element defaults", () => {
     const project = parseProject(validProject());
@@ -72,6 +76,35 @@ describe("parseProject", () => {
     const bad = validProject();
     bad.screens = [];
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+});
+
+describe("FontAsset", () => {
+  it("accepts a file-backed uploaded font", () => {
+    const p = validProject();
+    setRawFonts(p, [{ family: "Pacifico", source: "uploaded", path: "assets/fonts/Pacifico-Regular.ttf", weight: 400 }]);
+    expect(() => parseProject(p)).not.toThrow();
+  });
+
+  it("accepts google as file provenance", () => {
+    const p = validProject();
+    setRawFonts(p, [{ family: "Inter", source: "google", path: "assets/fonts/inter-400.ttf", weight: 400 }]);
+    expect(() => parseProject(p)).not.toThrow();
+  });
+
+  it("rejects legacy base64 font data", () => {
+    const p = validProject();
+    setRawFonts(p, [{ family: "Pacifico", source: "uploaded", data: "AAAA", weight: 400 }]);
+    expect(() => parseProject(p)).toThrow(ProjectValidationError);
+  });
+
+  it("rejects duplicate font family and weight", () => {
+    const p = validProject();
+    setRawFonts(p, [
+      { family: "Inter", source: "uploaded", path: "assets/fonts/inter-a.ttf", weight: 400 },
+      { family: "Inter", source: "google", path: "assets/fonts/inter-b.ttf", weight: 400 },
+    ]);
+    expect(() => parseProject(p)).toThrow(ProjectValidationError);
   });
 });
 

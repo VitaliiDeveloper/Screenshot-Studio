@@ -13,6 +13,10 @@ beforeEach(() => {
   writeFileSync(projectFile, "{}");
   mkdirSync(join(dir, "assets"), { recursive: true });
   writeFileSync(join(dir, "assets", "shot.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  mkdirSync(join(dir, "assets", "fonts"), { recursive: true });
+  for (const ext of ["ttf", "otf", "woff", "woff2"]) {
+    writeFileSync(join(dir, "assets", "fonts", `demo.${ext}`), Buffer.from([0x00, 0x01]));
+  }
   process.env.PROJECT_PATH = projectFile;
 });
 
@@ -43,5 +47,12 @@ describe("GET /api/asset", () => {
 
   it("404s a nonexistent file", async () => {
     expect((await GET(req("path=assets/nope.png"))).status).toBe(404);
+  });
+
+  it("serves font files with font content types", async () => {
+    expect((await GET(req("path=assets/fonts/demo.ttf"))).headers.get("content-type")).toContain("font/ttf");
+    expect((await GET(req("path=assets/fonts/demo.otf"))).headers.get("content-type")).toContain("font/otf");
+    expect((await GET(req("path=assets/fonts/demo.woff"))).headers.get("content-type")).toContain("font/woff");
+    expect((await GET(req("path=assets/fonts/demo.woff2"))).headers.get("content-type")).toContain("font/woff2");
   });
 });

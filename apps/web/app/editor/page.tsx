@@ -33,7 +33,7 @@ export default function EditorPage() {
         const project = parseProject(body);
         const resolveAsset = (assetUrl: string) => `/api/asset?path=${encodeURIComponent(assetUrl)}`;
         const [, cache] = await Promise.all([
-          registerProjectFonts(project.fonts), // fonts + images before first paint (parity)
+          registerProjectFonts(project.fonts, resolveAsset), // fonts + images before first paint (parity)
           loadProjectImages(project, resolveAsset),
         ]);
         editorStore.getState().load(project);

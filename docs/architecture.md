@@ -19,7 +19,7 @@ Version 0.5, 6 July 2026.
 | State | Zustand (+ Immer) | Light editor store; immutable patches enable undo/redo later |
 | Export (UI) | `Stage.toDataURL({ pixelRatio })` + JSZip | Exact-size PNGs, zip bundle |
 | Export (CLI / headless) | **Playwright** (recommended) renders the same web stage | Pixel parity with the UI by construction — see §2 |
-| Fonts | FontFace API + opentype.js | System, Google, custom upload |
+| Fonts | FontFace API + opentype.js | File-backed Google/custom upload |
 | Screen reorder | dnd-kit | Reordering screens in the sidebar |
 | Schema & validation | **Zod** | Versioning, migrations, a strict validator (the AI contract) |
 | Specs & tests | **`store-specs.json` + Vitest** | Store sizes as data, not hardcode; export dimension tests |
@@ -105,7 +105,7 @@ Project
 ├── platforms: ["apple", "android"]
 ├── locales: ["en", "de", "ar"]            # ar → RTL
 ├── themes: Theme[]                        # tokens: colors, fonts, spacing
-├── fonts: FontAsset[]                     # system / google / uploaded(base64)
+├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
 └── screens: Screen[]
     ├── id, name, platform, device, locale
     ├── artboard: { width, height }        # slide size
@@ -190,10 +190,14 @@ Sources: [Apple — Screenshot specifications](https://developer.apple.com/help/
 
 ## 5. Fonts (technical)
 
-Three optional sources: **system**, a **bundled set of Google Fonts**, and **custom upload**
-(`.ttf/.otf/.woff2` via the FontFace API; stored as base64 in the project so the deck is
-self-contained and fonts are guaranteed to embed on export). `opentype.js` for previews and
-metrics.
+Two optional file-backed sources: **Google Fonts** and **custom upload**. Both materialize as
+project-relative files under `assets/fonts/` (`.ttf/.otf/.woff/.woff2`) and are served through
+the same local `/api/asset` route as screenshots. `FontAsset.source` records provenance
+(`google` or `uploaded`); render/export code loads bytes through an injected `path -> URL`
+resolver and the browser `FontFace` API. `opentype.js` is reserved for previews and metrics.
+
+**System fonts are intentionally rejected.** They are not embedded in the project, vary by
+machine and OS, and therefore break render/export parity by construction.
 
 **Fonts are tied to the parity risk.** Text is where renderers diverge most, so minimal font
 embedding and loading ship *with the export spike* (Phase 0–2), even though the font-management

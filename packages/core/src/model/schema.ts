@@ -105,13 +105,13 @@ export type SolidBackground = z.infer<typeof SolidBackground>;
 export const Background = z.discriminatedUnion("type", [SolidBackground]);
 export type Background = z.infer<typeof Background>;
 
-/** Custom font embedded as base64 so the deck is self-contained (docs/architecture.md §5). */
+/** Project-relative font file served through the same asset route as screenshots. */
 export const FontAsset = z
   .object({
     family: z.string().min(1),
-    source: z.literal("uploaded"),
-    /** Base64 of the .woff2/.ttf/.otf bytes (no data-URL prefix). */
-    data: z.string().min(1),
+    source: z.enum(["uploaded", "google"]),
+    /** Project-relative path to the font file, e.g. assets/fonts/inter-400.ttf. */
+    path: z.string().min(1),
     weight: z.number().int().min(100).max(900).default(400),
   })
   .strict();
@@ -206,6 +206,21 @@ export const Project = z
           message: `screen platform "${s.platform}" is not listed in platforms`,
           path: ["screens", i, "platform"],
         });
+      }
+    });
+
+    const fontIdentityIndexes = new Map<string, number>();
+    proj.fonts.forEach((font, i) => {
+      const key = `${font.family}\0${font.weight}`;
+      const existingIndex = fontIdentityIndexes.get(key);
+      if (existingIndex !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate font family and weight: "${font.family}" ${font.weight}`,
+          path: ["fonts", i],
+        });
+      } else {
+        fontIdentityIndexes.set(key, i);
       }
     });
   });

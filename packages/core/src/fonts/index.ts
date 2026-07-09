@@ -1,31 +1,30 @@
 import type { FontAsset } from "../model/schema.js";
 
 /**
- * Browser-side font registration. Runs before any render so the embedded custom font is the
+ * Browser-side font registration. Runs before any render so the project font is the
  * one that actually paints — the font-load race is the concrete failure mode behind the #1
  * parity risk (docs/architecture.md §5). Callers MUST await this and `whenFontsReady()` before
  * screenshotting; otherwise the first frame can render with a system fallback.
  */
 
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
+export type ResolveFontUrl = (path: string) => string;
 
-/** Register one embedded font with the document and wait for it to load. */
-export async function registerFont(asset: FontAsset): Promise<void> {
-  const face = new FontFace(asset.family, base64ToArrayBuffer(asset.data), {
+/** Register one project font with the document and wait for it to load. */
+export async function registerFont(asset: FontAsset, resolve: ResolveFontUrl): Promise<void> {
+  const response = await fetch(resolve(asset.path));
+  if (!response.ok) {
+    throw new Error(`Failed to load font "${asset.family}" from ${asset.path}: HTTP ${response.status}`);
+  }
+  const face = new FontFace(asset.family, await response.arrayBuffer(), {
     weight: String(asset.weight),
   });
   await face.load();
   document.fonts.add(face);
 }
 
-/** Register every embedded font in a project, then wait for the font set to settle. */
-export async function registerProjectFonts(fonts: FontAsset[]): Promise<void> {
-  await Promise.all(fonts.map(registerFont));
+/** Register every project font, then wait for the font set to settle. */
+export async function registerProjectFonts(fonts: FontAsset[], resolve: ResolveFontUrl): Promise<void> {
+  await Promise.all(fonts.map((font) => registerFont(font, resolve)));
   await document.fonts.ready;
 }
 

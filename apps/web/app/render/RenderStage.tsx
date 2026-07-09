@@ -53,7 +53,7 @@ export function RenderStage({
         const resolveAsset = (assetUrl: string) =>
           `/api/asset?project=${encodeURIComponent(projectPath)}&path=${encodeURIComponent(assetUrl)}`;
         const [, images] = await Promise.all([
-          registerProjectFonts(project.fonts),
+          registerProjectFonts(project.fonts, resolveAsset),
           loadProjectImages(project, resolveAsset),
         ]);
         if (cancelled) return;

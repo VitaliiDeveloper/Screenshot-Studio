@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { chromium, type Browser } from "playwright";
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +14,7 @@ import { startWebServer, type RunningServer } from "../packages/cli/src/server.j
  */
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sample = resolve(repoRoot, "fixtures/phase-0-sample/app-store-screenshots.json");
+const sampleAssets = resolve(repoRoot, "fixtures/phase-0-sample/assets");
 
 let server: RunningServer;
 let browser: Browser;
@@ -24,6 +25,7 @@ beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "left-panel-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
+  cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
   server = await startWebServer(3125);
   browser = await chromium.launch();
