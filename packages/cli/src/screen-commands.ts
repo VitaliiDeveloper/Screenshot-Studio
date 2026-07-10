@@ -5,6 +5,7 @@ import {
   removeScreenFromProject,
   reorderScreenInProject,
   type CreateScreenInput,
+  type LayoutDirection,
   type Project as ProjectModel,
   type Screen,
 } from "@screenshot-studio/core/model";
@@ -15,6 +16,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import { parseLayoutDirection } from "./direction.js";
 
 export interface AddScreenOptions {
   id?: string;
@@ -22,6 +24,7 @@ export interface AddScreenOptions {
   platform: Screen["platform"];
   device: Screen["device"];
   locale: string;
+  direction?: LayoutDirection;
   sizeId?: string;
 }
 
@@ -57,6 +60,9 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
           platform: placement.platform,
           device: placement.device,
           locale: requireFlag(flags, "locale"),
+          ...(flags.direction
+            ? { direction: parseLayoutDirection(flags.direction, "--direction") }
+            : {}),
           sizeId: flags.size,
         },
       };
@@ -105,6 +111,7 @@ export function addScreenToProject(
     id: options.id,
     name: options.name,
     locale: options.locale,
+    direction: options.direction,
     artboard: { width: target.width, height: target.height },
   };
   return addScreenToProjectCore(project, input);

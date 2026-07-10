@@ -44,7 +44,7 @@ screenshot-studio/
 │   │   └── storage/     # StorageAdapter interface + local implementation
 │   ├── ui/              # RESERVED (not yet created): reusable React editor components —
 │   │                    #   editor components live in apps/web until a second consumer exists
-│   └── cli/             # CLI: init, dev, screen, font, theme, import, export
+│   └── cli/             # CLI: init, dev, screen, locale, font, theme, import, export
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
 ├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
@@ -261,6 +261,7 @@ my-app-screenshots/
 | `screen add / list / rm / reorder` | Manage screens |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
 | `theme set <id>` | Apply a theme to all screens |
+| `locale list / add / direction / rm` | Manage complete locale sets and baked LTR/RTL placement |
 | `import <dir>` | Ingest raw captures by directory convention |
 | `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
 

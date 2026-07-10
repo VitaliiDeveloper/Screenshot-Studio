@@ -77,8 +77,22 @@ describe("project-ops", () => {
       platform: "apple",
       device: "ipad",
       locale: "uk",
+      direction: "ltr",
       artboard: { width: 2048, height: 2732 },
     });
+  });
+
+  it("addScreenToProject preserves an explicit RTL direction", () => {
+    const project = addScreenToProject(sampleProject(), {
+      name: "Arabic Hero",
+      platform: "apple",
+      device: "iphone",
+      locale: "ar",
+      direction: "rtl",
+      artboard: { width: 1320, height: 2868 },
+    });
+
+    expect(project.screens.at(-1)).toMatchObject({ locale: "ar", direction: "rtl" });
   });
 
   it("addScreenToProject inherits an existing locale direction and defaults a new locale to ltr", () => {

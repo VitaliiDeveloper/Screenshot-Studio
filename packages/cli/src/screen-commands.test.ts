@@ -69,6 +69,15 @@ describe("screen commands", () => {
       kind: "add",
       options: { platform: "apple", device: "iphone", locale: "en" },
     });
+    expect(resolveScreenAction(["add"], {
+      platform: "apple",
+      device: "iphone",
+      locale: "ar",
+      direction: "rtl",
+    })).toEqual({
+      kind: "add",
+      options: { platform: "apple", device: "iphone", locale: "ar", direction: "rtl" },
+    });
   });
 
   it("rejects malformed screen subcommands", () => {
@@ -76,6 +85,9 @@ describe("screen commands", () => {
     expect(() => resolveScreenAction(["rm"], {})).toThrow(/screen rm <id>/);
     expect(() => resolveScreenAction(["reorder", "hero"], {})).toThrow(/--to/);
     expect(() => resolveScreenAction(["add"], { platform: "apple", device: "iphone" })).toThrow(/--locale/);
+    expect(() => resolveScreenAction(["add"], {
+      platform: "apple", device: "iphone", locale: "ar", direction: "auto",
+    })).toThrow(/ltr or rtl/);
   });
 
   it("formats screens in export order", () => {
@@ -117,6 +129,18 @@ describe("screen commands", () => {
 
     expect(project.platforms).toEqual(["apple", "android"]);
     expect(project.screens.at(-1)?.id).toBe("hero-2");
+  });
+
+  it("passes an explicit direction when a lower-level screen starts a locale", () => {
+    const project = addScreenToProject(sampleProject(), specs, {
+      name: "Arabic Hero",
+      platform: "apple",
+      device: "iphone",
+      locale: "ar",
+      direction: "rtl",
+    });
+
+    expect(project.screens.at(-1)).toMatchObject({ locale: "ar", direction: "rtl" });
   });
 
   it("removes a screen and refuses to remove the last one", () => {

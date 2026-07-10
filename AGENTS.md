@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 4 Slice 2; Slice 3 is next.**
+> **Status: implementation and verification are complete through Phase 4 Slice 3; Slice 4 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > Focus/Overview editor workspace are built. Read only docs directly relevant to the active task;
 > do not scan all of `docs/` by default. When in doubt, follow
@@ -94,6 +94,7 @@ Status: ✅ shipped.
 | `import <dir>` | Ingest raw captures by directory convention | ✅ |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Register and manage deterministic font assets | ✅ |
 | `theme set <id>` | Apply `themes/<id>.json` to all role-tagged elements | ✅ |
+| `locale list / add / direction / rm` | Manage complete locale sets and baked layout direction | ✅ |
 
 `export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
 lead-size bundle for every matching screen, grouped by `platform/device/locale`, plus
@@ -107,6 +108,12 @@ and `--locale`; `--id`, `--name`, and `--size` are optional. `screen rm <id>` re
 last screen. `screen reorder <id> --to <position>` uses 1-based positions. `import <dir>` expects the
 documented `apple/{iphone,ipad}/{locale}/NN.png` and `android/phone/{locale}/NN.png` capture layout,
 copies PNGs into `assets/imports/...`, and appends screenshot-backed screens.
+
+`locale add <target> --from <source>` clones the complete source set with fresh screen/element ids;
+`--direction rtl` bakes mirrored horizontal placement and physical text alignment.
+`locale direction <locale> --to <ltr|rtl>` is repeat-safe; `locale rm <locale>` refuses to remove
+the last locale. `locale list` prints direction plus screen count. `screen add --direction` is optional;
+without it, an existing locale's direction is inherited and a new locale defaults to LTR.
 
 `font add <file>` requires `--family` and accepts `.ttf`, `.otf`, `.woff`, or `.woff2`; `--weight`
 defaults to `400`. `font add --google <family>` downloads one exact-weight file at add-time, so

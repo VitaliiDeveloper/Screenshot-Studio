@@ -82,8 +82,8 @@ creation catalog, pointer-centred wheel/pinch zoom, Hand/Space pan, Fit, `Dots |
 responsive inspector/canvas layout. Closure QA also hardens live viewport changes, locked elements,
 inline text editing, contain-image transforms, schema-bounded Inspector input, save errors, and
 keyboard behavior. The bundled sample is a realistic three-screen launch deck.
-Phase 4 is in progress: the locale-set core and explicit RTL render/parity contract are complete;
-the locale CLI is next.
+Phase 4 is in progress: locale-set core, explicit RTL render/parity, and the locale CLI are complete;
+the editor locale workspace is next.
 
 ## Requirements
 
@@ -131,6 +131,11 @@ pnpm screenshots screen list --project ./my-app-screenshots/app-store-screenshot
 pnpm screenshots screen add --project ./my-app-screenshots/app-store-screenshots.json --platform apple --device iphone --locale en --name "Hero"
 pnpm screenshots screen reorder hero --to 1 --project ./my-app-screenshots/app-store-screenshots.json
 
+# Clone and manage complete locale sets; RTL conversion is baked into project geometry
+pnpm screenshots locale add ar --from en --direction rtl --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots locale list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots locale direction ar --to ltr --project ./my-app-screenshots/app-store-screenshots.json
+
 # Import PNG captures from screenshots/apple/{iphone,ipad}/{locale}/NN.png or screenshots/android/phone/{locale}/NN.png
 pnpm screenshots import ./my-app-screenshots/screenshots --project ./my-app-screenshots/app-store-screenshots.json
 
@@ -150,6 +155,10 @@ Single-screen `export` flags: `--screen <id>`, optional `--size <id>` (defaults 
 Screen commands mutate the same strict JSON source of truth. `screen list` prints current bundle
 order, `screen rm <id>` refuses to remove the last screen, and `screen reorder <id> --to <position>`
 uses 1-based positions.
+
+Locale commands delegate to the same core transformations as the editor. `locale add` clones a
+source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
+stored direction changes, and `locale rm` protects the last locale.
 
 ### Editor
 

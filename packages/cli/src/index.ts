@@ -13,9 +13,10 @@ import { runScreenCommand } from "./screen-commands.js";
 import { importCaptures } from "./import-command.js";
 import { runFontCommand } from "./font-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
+import { runLocaleCommand } from "./locale-commands.js";
 
 /**
- * `screenshots` CLI — project setup, export, and the shipped screen/font/theme management surface.
+ * `screenshots` CLI — project setup, export, and the shipped screen/locale/font/theme management surface.
  * `export` delegates all pixel rendering to the served web renderer (decision A), so its output
  * stays identical to UI export by construction.
  */
@@ -205,6 +206,10 @@ async function cmdTheme(args: string[], flags: Record<string, string>): Promise<
   console.log(await runThemeCommand(resolveProjectPath(flags), args));
 }
 
+async function cmdLocale(args: string[], flags: Record<string, string>): Promise<void> {
+  console.log(await runLocaleCommand(resolveProjectPath(flags), args, flags));
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -231,8 +236,11 @@ async function main(): Promise<void> {
     case "theme":
       await cmdTheme(args, flags);
       break;
+    case "locale":
+      await cmdLocale(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale> [flags]`);
       process.exit(1);
   }
 }
