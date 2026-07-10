@@ -1,15 +1,17 @@
+@RULES.md
+
 # AGENTS.md — Screenshot Studio
 
 Instructions for any CLI agent (Claude Code, Cursor, etc.) working inside this repo.
 This file is the management interface: the conventions, schema, CLI, and guardrails an
 agent needs to generate copy, lay out slides, and translate locales — no skill required.
+Before starting any task, read and apply the repository-wide workflow rules in
+[`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: Phase 0, Phase 1, Phase 2, all six Phase 3 slices, and the Phase 3.5 editor UI polish are implemented and verified; Phase 4 is next.**
-> The render/export core, web editor, verified export flow, and dogfood CLI management commands
-> are built and tested; font management, baked theme CLI/UI, and the project-local template
-> library are built. The editor shell now uses one shared workbench visual system without changing
-> its render/persistence contracts. Read only the docs directly relevant to the
-> active task; do not scan all of `docs/` by default. When in doubt, follow
+> **Status: implementation and verification are complete through Phase 3.6; Phase 4 is next.**
+> The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
+> Focus/Overview editor workspace are built. Read only docs directly relevant to the active task;
+> do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
 ## What this project is
@@ -19,10 +21,11 @@ A Konva canvas with screens, elements, fonts, and themes, exporting pixel-correc
 exact store sizes — driven by the same `core` from both a web UI and a CLI. The source of
 truth is a single git-trackable JSON file (`app-store-screenshots.json`).
 
-- Stack: Next.js + React + TypeScript, Konva/react-konva, Tailwind + shadcn/ui, Zustand +
-  Immer, Zod (schema + validation), Playwright (headless export), Vitest. Node.js 20+.
-- Monorepo: `packages/core` (model · engine · export · fonts · storage), `packages/ui`,
-  `packages/cli`, `apps/web`.
+- Stack: Next.js + React + TypeScript, Konva/react-konva, Tailwind + shared local workbench
+  primitives, Lucide, Zustand + Immer, Zod (schema + validation), Playwright (headless export),
+  Vitest. Node.js 22.13+.
+- Monorepo: `packages/core` (model · engine · export · fonts · themes · templates · assets ·
+  storage), `packages/cli`, and `apps/web`.
 - **Render/export parity is the #1 rule:** one JSON must render identically in UI and CLI.
   The CLI delegates pixel rendering to the web renderer in a headless browser — never add a
   second rendering path. See `docs/architecture.md` §2.
@@ -37,8 +40,8 @@ my-app-screenshots/
 ├── AGENTS.md / CLAUDE.md          # this file
 ├── screenshots/                   # source captures
 │   ├── apple/{iphone,ipad}/{locale}/NN.png
-│   └── android/{phone,tablet-7,tablet-10,feature-graphic}/{locale}/NN.png
-├── assets/                        # fonts (.ttf/.otf/.woff2), icons, decor
+│   └── android/phone/{locale}/NN.png
+├── assets/                        # fonts (.ttf/.otf/.woff/.woff2), icons, decor
 ├── themes/                        # theme tokens
 ├── templates/                     # reusable layouts
 └── export/                        # CLI writes finished bundles here (gitignored)
@@ -47,9 +50,8 @@ my-app-screenshots/
 ## Project JSON schema (validated by Zod — never write an invalid one)
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
-an unknown key or out-of-range value fails loudly. It is deliberately **narrower** than the
-target sketch below — when writing or editing project JSON, write against the enforced v1,
-never the target.
+an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
+against the enforced v1 only; future schema ideas are not valid project fields.
 
 **Current v1 (enforced today):**
 
@@ -71,10 +73,8 @@ Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphon
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 
-**Target (later phases):** background `solid | gradient | image`;
-extra element types `icon`, `badge`, `image`; locales with RTL (`ar`). Artboards
-are **isolated** (no connected canvas in the MVP). Schema is versioned; pure `v1→v2→…`
-migrations run on load — though enum widenings are additive and need no migration.
+Future schema work is roadmap-governed. Do not add new background/element types, RTL fields, or
+connected-canvas state until the enforced schema and architecture explicitly widen.
 
 ## CLI (`screenshots ...`) — the primary interface
 
@@ -158,11 +158,5 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - Use the root targeted scripts (`test:core`, `test:cli`, `test:web`, `test:e2e:parity`,
   `test:e2e:export`, `test:e2e:editor`) or explicit Vitest file paths during implementation.
   `pnpm test:e2e` is the full browser gate, not the default slice check.
-
----
-
-# Collaboration rules
-
-General engineering and workflow rules (KISS/SOLID/DRY/YAGNI, commit & PR conventions, branch
-naming, verification, escalation) live in **[RULES.md](RULES.md)**. Read it before committing
-or opening a PR.
+- Verification scope is defined by the behavioral-risk matrix in `RULES.md`. For a localized
+  UI edit, do not default to the full editor E2E group.

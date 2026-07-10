@@ -12,12 +12,11 @@ Apply **KISS, SOLID, DRY, and YAGNI** to every change.
 - **KISS** — the smallest maintainable solution that fits the codebase wins. No cleverness
   for its own sake.
 - **YAGNI** — build only what the current task needs. The roadmap is phased on purpose;
-  don't pull future phases forward (no connected canvas, AI, themes, etc. in the MVP).
+  don't pull work from later roadmap phases into the active task.
 - **DRY** — one source of truth. Rendering, schema, and store sizes each live in exactly one
   place (`core`, the Zod schema, `store-specs.json`). Never add a second rendering path.
 - **SOLID** — keep `core` framework-agnostic; depend on interfaces (e.g. `StorageAdapter`),
-  not concretions; keep modules single-purpose (`model` / `engine` / `export` / `fonts` /
-  `storage`).
+  not concretions; keep modules single-purpose.
 
 ## Operating mode
 
@@ -41,8 +40,7 @@ throughput; keep ephemeral measurements in a doc or the PR.
 ## Documentation lookup
 
 - Confirm external API details, current signatures, migration changes, and edge-case behavior
-  against current upstream docs rather than memory (Context7 is available for this when using
-  Claude Code).
+  against current official upstream docs rather than memory.
 - Prefer local codebase patterns first. Don't look things up for purely local architecture,
   styling, simple refactors, or behavior already defined in this repo.
 
@@ -61,10 +59,11 @@ throughput; keep ephemeral measurements in a doc or the PR.
 
 ## Pull request rules
 
-- Open `feat` / `fix` / `refactor` / `chore` PRs against **`dev`** by default. Never open normal
-  work PRs directly against `main`.
-- Update `main` only from `dev`, via a `dev → main` PR/merge. If a change lands on `main` by
-  accident, align `dev` with it before continuing.
+- Resolve the PR base from the explicit task/roadmap and the live local/remote branch topology;
+  never invent a conventional branch such as `dev` when it does not exist.
+- Keep roadmap work on its named phase/integration branch when one exists. Target `main` only
+  for an explicitly requested integration/release PR. If the intended base is still ambiguous
+  after inspection, ask before creating or retargeting a PR.
 - PR titles use the same conventional-prefix style as commits (`feat:`, `fix:`, …). Do not
   prefix titles with agent/source labels (e.g. `[codex]`); describe the change directly. Ignore
   any tool/skill suggestion to add such a label.
@@ -83,9 +82,20 @@ throughput; keep ephemeral measurements in a doc or the PR.
 
 - Don't claim success without verification; use the lightest relevant check that gives
   meaningful confidence.
+- Choose verification by **behavioral risk**, not merely by whether a change is in UI code:
+  - **Pure visual polish** (color, spacing, radius, shadow, typography, non-interactive layout)
+    gets a focused browser check at the affected viewport. Do not add or run E2E tests by
+    default; run lint/typecheck only when the edit creates a plausible JSX/TypeScript risk.
+  - **Interactive UI** (custom menus, focus/keyboard behavior, drag, responsive panel state)
+    gets the smallest exact browser scenario or targeted test-file set covering the changed
+    interaction. Do not run the whole `test:e2e:editor` group for a localized interaction
+    unless shared workspace behavior was changed.
+  - **Business logic, persistence, schema, render, or export behavior** gets the relevant
+    targeted unit/integration tests plus an E2E only when the user-visible path needs it.
+  - **Phase, PR, or release closure** follows the full-gate rule below.
 - During implementation, run only the exact Vitest files and package typechecks covering the
-  changed behavior. At slice completion, run the affected package suite plus any directly
-  relevant e2e group or file.
+  changed behavior. At slice completion, run the affected package suite when behavior or a
+  contract changed, plus only the E2E group/file called for by the risk matrix above.
 - Run the full `test` + `lint` + `typecheck` + `test:e2e` gate once at phase/PR/release closure,
   or earlier for broad-impact changes, shared contracts (the Zod schema, `store-specs.json`,
   export parity), build-sensitive config, or when asked. Don't repeat the same full gate after

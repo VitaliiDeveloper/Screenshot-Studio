@@ -4,7 +4,7 @@ How the system is built and the contracts everything agrees on: tech stack, core
 split, render/export parity, data model & schema, store export spec, fonts, the management
 interface (CLI + conventions + `AGENTS.md`), and design guardrails.
 
-Version 0.5, 6 July 2026.
+Version 0.6, 10 July 2026.
 
 ---
 
@@ -15,16 +15,16 @@ Version 0.5, 6 July 2026.
 | Render engine | **Konva.js / react-konva** | Object model, layers, transforms, pixel-correct export via `pixelRatio` |
 | UI framework | Next.js (App Router) + React + TypeScript | Dev server, routing, easy self-host |
 | Styling | Tailwind CSS | Speed, consistency |
-| Components | shadcn/ui + Radix | Inspector, dialogs, selects, tooltips |
+| Components | Shared local workbench primitives + Lucide | Inspector, dialogs, selects, menus, tooltips |
 | State | Zustand (+ Immer) | Light editor store; immutable patches enable undo/redo later |
 | Export (UI) | `Stage.toDataURL({ pixelRatio })` + JSZip | Exact-size PNGs, zip bundle |
 | Export (CLI / headless) | **Playwright** (recommended) renders the same web stage | Pixel parity with the UI by construction — see §2 |
-| Fonts | FontFace API + opentype.js | File-backed Google/custom upload |
+| Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
 | Screen reorder | dnd-kit | Reordering screens in the sidebar |
 | Schema & validation | **Zod** | Versioning, migrations, a strict validator (the AI contract) |
 | Specs & tests | **`store-specs.json` + Vitest** | Store sizes as data, not hardcode; export dimension tests |
 
-**Requirements:** Node.js 20+, one of bun / pnpm / npm.
+**Requirements:** Node.js 22.13+ and pnpm 11.10.0 (through Corepack).
 
 ---
 
@@ -230,9 +230,9 @@ my-app-screenshots/
 ├── AGENTS.md / CLAUDE.md          # instructions for the CLI agent
 ├── screenshots/                   # source captures
 │   ├── apple/{iphone,ipad}/{locale}/NN.png
-│   └── android/{phone,tablet-7,tablet-10,feature-graphic}/{locale}/NN.png
+│   └── android/phone/{locale}/NN.png
 ├── assets/                        # fonts, icons, decor
-│   ├── fonts/                     # uploaded .ttf/.otf/.woff2
+│   ├── fonts/                     # uploaded .ttf/.otf/.woff/.woff2
 │   └── icons/
 ├── themes/                        # theme tokens
 ├── templates/                     # reusable layouts

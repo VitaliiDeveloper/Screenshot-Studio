@@ -39,7 +39,7 @@ Monorepo (pnpm workspaces):
 - `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
   asset loading, storage. The single source of truth for rendering (architecture.md §2).
 - `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme management).
-- `apps/web` — the Next.js host: `/editor` (interactive canvas + left panel), `/render`
+- `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
 - `fixtures/` — sample projects used by tests and local dev (e.g. `phase-0-sample`).
@@ -70,15 +70,24 @@ workflows. See [docs/roadmap.md](docs/roadmap.md).
 
 **Phase 3 (fonts, themes, templates) — done.** File-backed custom/Google font ingest and
 editor management are shipped. The strict baked theme model, `theme set` CLI, editor role picker,
-Themes dialog, and project-local template library are shipped. Phase 4 (locales and RTL) is next.
+Themes dialog, and project-local template library are shipped.
 
 **Phase 3.5 (editor UI polish) — done.** The editor now uses a consistent creative-workbench shell:
 grouped actions, clearer panels and inspector fields, one dialog system, real icons, actionable
 resource empty states, and visible keyboard focus. No schema, renderer, or persistence behavior changed.
 
+**Phase 3.6 (editor workspace foundation) — done.** The editor now has Focus and isolated-artboard
+Overview modes, a compact tool rail with collapsible Structure/Resources/Add shelves, a searchable
+creation catalog, pointer-centred wheel/pinch zoom, Hand/Space pan, Fit, `Dots | Grid | None`, and a
+responsive inspector/canvas layout. Closure QA also hardens live viewport changes, locked elements,
+inline text editing, contain-image transforms, schema-bounded Inspector input, save errors, and
+keyboard behavior. The bundled sample is a realistic three-screen launch deck.
+Phase 4 (locales and RTL) is next.
+
 ## Requirements
 
-- **Node.js 20+** and **pnpm 11** (pinned in `package.json` via `packageManager`). The simplest
+- **Node.js 22.13+** and **pnpm 11** (pinned in `package.json` via `engines` and
+  `packageManager`). The simplest
   way to get the exact version on a fresh clone is Corepack:
 
   ```bash
@@ -152,9 +161,10 @@ Without `PROJECT_PATH` the editor opens the committed sample
 editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before real edits,
 or `git checkout` the fixture afterwards.
 
-The toolbar manages file-backed fonts, applies `themes/*.json`, and creates screens from strict
-`templates/*.json`. Template screens inherit the active screen's locale and use the template's
-explicit platform, device, artboard, background, and element layout.
+The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
+strict `templates/*.json`. The Add shelf searches the current catalog and inserts valid text/shape
+elements. Template screens inherit the active screen's locale and use the template's explicit
+platform, device, artboard, background, and element layout.
 
 ## Development
 

@@ -3,9 +3,9 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.4, 10 July 2026.
+Version 0.5, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template editor surfaces, and the Phase 3.5 visual polish are implemented**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5 visual polish, and the Phase 3.6 workspace foundation are implemented**
 > (see `roadmap.md` §3a/§3c and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -14,42 +14,52 @@ Version 0.4, 10 July 2026.
 
 ---
 
-## 1. Layout — four regions
+## 1. Layout — workbench regions
 
 ```
-┌──────────────────────────────────────────────┐
-│ Toolbar: tools · fonts · themes · templates    │
-├──────┬────────────────────────────┬───────────┤
-│ Left │                            │ Inspector │
-│ ──── │      Canvas (active        │  (right)  │
-│Screens│   screen · scroll/zoom)    │ per-type  │
-│ ──── │                            │   props   │
-│Layers│                            │           │
-└──────┴────────────────────────────┴───────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ Top bar: project · Focus/Overview · Inspect · Export           │
+├────┬──────────────┬────────────────────────────┬──────────────┤
+│Tool│ Context shelf│ Canvas viewport            │ Inspector    │
+│rail│ (collapsible)│ artboards · pattern        │ (collapsible)│
+│    │ Structure /  │ pan · zoom · Fit           │ per-type     │
+│    │ Resources /  │                            │ properties   │
+│    │ Add          │                            │              │
+└────┴──────────────┴────────────────────────────┴──────────────┘
 ```
 
 Panels and dialogs use plain Tailwind plus shared local workbench primitives *(as built — a
 package-level design system remains YAGNI until a second UI consumer exists)*. Icons use Lucide;
 the canvas remains Konva/react-konva.
-Region responsibilities are kept distinct: the **toolbar** holds actions/tools, the **inspector**
-holds properties of the current selection, the **left panel** holds structure (screens + layers).
+Region responsibilities are kept distinct: the **top bar** holds project/view/export actions, the
+**tool rail** chooses interaction/context, the **context shelf** holds structure/resources/add,
+the **inspector** holds properties, and the **canvas** owns its viewport controls.
+
+At wide desktop widths the shelf and inspector occupy columns. At compact widths the shelf becomes
+an overlay; the inspector can be closed and defaults closed below 768px. Zoom controls are positioned
+inside the remaining canvas viewport, so they never slide behind the inspector.
 
 ---
 
 ## 2. Canvas
 
-- *(as built)* The canvas shows **one active screen** in a scrollable region with zoom
-  controls (in / out / reset). The original "infinite pan/zoom canvas with artboards placed
-  freely in 2D" plus wheel-zoom / space-drag pan gestures were **deferred in Slice 1** and are
-  not scheduled — re-open them deliberately in a future polish slice rather than
-  assuming they exist.
+- *(as built in Phase 3.6)* `Focus` shows one active screen; `Overview` lays every screen
+  left-to-right in export order on one shared scroll/zoom viewport. Overview is presentation only:
+  each screen remains an isolated artboard and exactly one screen is active/editable.
+- Zoom supports controls, reset-to-100%, and Fit over `25%…400%`. `Ctrl`/`Cmd` + wheel and Mac
+  trackpad pinch zoom around the pointer. Hand mode or holding Space enables drag-pan; ordinary
+  two-axis wheel/trackpad scrolling remains native.
+- Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
+  never appears in project JSON or exported pixels.
 - **Isolated-artboard invariant.** Each artboard clips its own elements (Konva clip); export is
-  per-artboard. No element crosses an artboard boundary. Connected canvas is deferred (§8, Phase 6);
-  the schema reserves `mode: "isolated" | "connected"` so it can be added later without a rewrite.
+  per-artboard. No element crosses an artboard boundary. Connected canvas is deferred (§8, Phase 6)
+  and is not represented in the enforced v1 schema.
 - **Selection & transform.** Click selects an element; a Konva `Transformer` provides
-  move / resize / rotate handles. *(as built)* **Single-select only** — marquee multi-select was
-  deferred in Slice 1 and is unscheduled; element **grouping is out** of the MVP.
-- **Text editing.** Double-click a `text` element for inline editing on the canvas.
+  move / resize / rotate handles. Locked elements retain a selection outline but cannot be moved,
+  resized, rotated, or opened for canvas text editing. *(as built)* **Single-select only** — marquee
+  multi-select was deferred in Slice 1 and is unscheduled; element **grouping is out** of the MVP.
+- **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box.
+  `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits; blur commits and flushes persistence.
 - **Active screen.** Exactly one artboard is the *active screen* at a time — the one last focused
   on the canvas or in the Screens list. It drives the Layers section (§3), the insert target for
   new elements (§4), and the no-selection inspector (§5).
@@ -59,40 +69,46 @@ holds properties of the current selection, the **left panel** holds structure (s
 
 ---
 
-## 3. Left panel — Screens + Layers
+## 3. Tool rail + contextual shelf
 
-Two stacked sections, both visible at once (no tabs — the workflow constantly moves between
-picking a screen and arranging its layers).
+The 56px permanent rail contains Select, Hand, Structure, Resources, and Add. Only one contextual
+shelf is open at a time; clicking its active rail item collapses it.
 
-- **Screens** (compact): name + device label *(as built — thumbnails pending)*, add, delete, and
-  drag-reorder (dnd-kit). Screen order is the **export order**, mirroring the planned CLI
-  `screen reorder` command (Phase 2) — one ordering source, shared by UI and CLI.
-- **Layers** (for the selected screen): elements in z-order (array order), with lock / hide /
+- **Structure / Screens** (compact): shared-renderer thumbnail + name + device label, add, delete,
+  and drag-reorder (dnd-kit). Screen order is the **export order**, mirroring the shipped CLI
+  `screen reorder` command — one ordering source, shared by UI and CLI.
+- **Structure / Layers** (for the selected screen): elements in z-order (array order), with lock / hide /
   rename. **No grouping.**
+- **Resources:** opens existing Fonts, Themes, and Templates dialogs.
+- **Add:** searchable, data-driven groups (`Basic`, `Media`, `Frames`, `Library`). Text and Shape
+  insert immediately. Asset-bearing entries remain visible but disabled with an asset-picker
+  explanation; Templates opens the existing library. Adding a future type extends catalog metadata
+  and an action rather than restructuring the workbench.
 
 ---
 
-## 4. Toolbar & adding elements
+## 4. Top bar & adding elements
 
-- Element tools: clicking a tool inserts the element at the centre of the active screen
+- Element entries in the Add shelf insert at a deterministic active-screen origin
   (insert-on-click, not drag-to-draw — simpler). *(as built)* Only **`text` + `shape`** are
   insertable — `screenshot` / `device-frame` have a required `assetUrl` and insertion needs an
   asset-picker UI that doesn't exist yet (they stay fully editable once present in the JSON).
   Asset picker + insert for those types is deferred.
-- Zoom controls *(as built)*: zoom in / out / reset-to-100%; "fit" is not implemented.
+- Zoom controls live on the canvas rather than in the top bar; Fit is implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
   CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*
-- Fonts, Themes, and Templates open their management/picker dialogs. Theme and template files are
+- Fonts, Themes, and Templates open from Resources. Theme and template files are
   server-side project inputs; the browser receives validated definitions and durable projects.
-- The toolbar does **not** edit background; background is an artboard property and lives in the
+- The top bar does **not** edit artboard background; that project property lives in the
   inspector (§5).
 
 ---
 
 ## 5. Inspector (contextual, per type)
 
-Always shows the shared element base when an element is selected: `x, y, width, height, rotation,
-opacity, locked, visible`. Type-specific fields below it:
+Shows editable geometry when an element is selected: `x, y, width, height, rotation, opacity`.
+Lock and visibility remain in Layers rather than being duplicated here. Numeric drafts are bounded
+to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
 Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
 the schema gains them (future phases). Everything else is as built.
@@ -117,12 +133,15 @@ the schema gains them (future phases). Everything else is as built.
 
 - **Save / load** read and write `app-store-screenshots.json` through the `core` `StorageAdapter`.
   Load runs strict Zod validation and pure `v1→v2→…` migrations.
+- Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
+  saves surface a visible workspace alert; the editor never silently presents a rejected value as
+  durable state.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, zip bundles by platform/device/locale. The UI export button and `cli export`
   must meet the Phase 0 parity exit criterion — exact target dimensions, no alpha channel, and a
   visual diff within tolerance (*not* byte-identical; PNG metadata/compression may differ). See
   `architecture.md` §2.
-- **Font management** opens from the toolbar: upload or materialize a Google Font, preview/list
+- **Font management** opens from Resources: upload or materialize a Google Font, preview/list
   registered identities, apply one to the selected text element, or remove it. CLI and UI reuse
   the same add-time Node service; render/export never fetch fonts from the network.
 - **Theme management** assigns roles in text/shape inspectors and applies strict `themes/*.json`
@@ -135,8 +154,10 @@ the schema gains them (future phases). Everything else is as built.
 ## 7. States
 
 - **Empty** (new project) → a call-to-action to add the first screen.
-- **Missing asset** → a placeholder on the canvas plus a warning in the inspector; never crash.
+- **Missing asset** → a visible placeholder on the canvas; never crash or block the rest of the screen.
 - **Invalid JSON on load** → a blocking error surfacing the validator message; never fail silently.
+- **Save failure** → the local edit remains visible but a workspace alert names the failed durable
+  write; a later successful mutation clears the error state.
 
 ---
 
@@ -144,8 +165,8 @@ the schema gains them (future phases). Everything else is as built.
 
 Held back to protect the thin slice (aligned with `roadmap.md`):
 
-- **Snapping / smart guides / alignment tools.** A free 2D canvas invites these, but they are out of
-  the MVP. Stated explicitly so the canvas choice does not quietly drag scope in.
+- **Snapping / smart guides / alignment tools.** Overview and pan/zoom do not imply cross-artboard
+  geometry or snapping; those remain out of the MVP.
 - **Undo/redo UI.** The store uses immutable state/patches (Zustand + Immer) from day 0, so the
   architecture is in place — but the undo *buttons* ship later.
 - **Element grouping.** Pulls in a selection model, nested transforms, and z-order edge cases.

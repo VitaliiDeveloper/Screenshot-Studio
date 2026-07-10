@@ -110,6 +110,14 @@ Theme tokens, template library, font-management UI (upload, preview, Google). CL
 One visual workbench system across toolbar, panels, inspector, resource dialogs, and empty states.
 This is deliberately presentation-only: schema, renderer, storage, APIs, and workflows stay unchanged.
 
+**Phase 3.6 — Editor workspace foundation — complete.**
+The editor now has a compact permanent tool rail with collapsible Structure, Resources, and Add
+shelves; `Focus` and isolated-artboard `Overview` modes; pointer-centred wheel/pinch zoom, Hand /
+Space-drag pan, Fit, and canvas-owned zoom controls; `Dots | Grid | None` editor backgrounds; a
+responsive inspector/layout contract; a data-driven Add catalog; and a realistic three-screen
+dogfood project. Project schema and the public render/export/persistence contracts stay unchanged.
+Sliced in §3d.
+
 **Phase 4 — Locales & RTL.**
 Multi-locale sets, RTL-native layouts.
 
@@ -196,6 +204,24 @@ Decisions taken up front (they set the slice boundaries above):
 - **Theme and template definitions live in `themes/*.json` and `templates/*.json`,** not in
   `Project`. They are inputs to a transformation, not something the renderer reads — so they do
   not belong in the render contract. `screenshots init` already scaffolds both directories.
+
+---
+
+## 3d. Phase 3.6 execution slices
+
+Phase 3.6 deliberately strengthens the editor workspace before Phase 4 without widening the
+render contract. Overview is a UI projection of `Project.screens`, not connected-canvas state.
+
+| Slice | Delivers | Contract kept |
+|-------|----------|---------------|
+| **1 — Responsive workspace shell** ✅ | Compact permanent rail, collapsible Structure/Resources/Add shelves, stable top bar, and collapsible inspector that never covers canvas-owned zoom controls. | Workspace state is ephemeral; project JSON and persistence APIs are unchanged. |
+| **2 — Canvas viewport interactions** ✅ | `Focus / Overview`, shared `25%…400%` zoom, pointer-centred Ctrl/Cmd-wheel and trackpad pinch, Hand/Space pan, Fit, and `Dots / Grid / None`. | Every artboard remains isolated and still renders through `elementToNodeConfig`. |
+| **3 — Extensible Add catalog** ✅ | Searchable Basic/Media/Frames/Library catalog; text/shape insert through existing factories; Templates bridge; honest asset-picker-gated entries. | No invalid asset element or future schema member is written. |
+| **4 — Three-screen dogfood demo** ✅ | Hero, Save Fast, and Stay Organized artboards using v1 text/shape/screenshot/device-frame elements plus one project-local generated app asset. | The sample parses with the strict v1 schema and exercises the same UI/headless asset path. |
+| **5 — Closure and interaction hardening** ✅ | Live-resize drawer behavior, accurate Fit math, logical screenshot transforms, locked-layer guards, positioned inline text editing, bounded Inspector input, visible save failures, keyboard menus/dialogs, and desktop/compact/phone QA. | The strict v1 JSON and exported pixels stay stable; editor, parity, and export gates cover the corrected behavior. |
+
+The accepted visual target and detailed interaction/responsive contract live in
+`docs/specs/2026-07-10-phase3-6-editor-workspace-foundation-design.md`.
 
 ---
 
