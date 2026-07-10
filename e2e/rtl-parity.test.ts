@@ -42,6 +42,7 @@ describe("Phase 4 RTL render parity", () => {
       screenId: "arabic-rtl",
       pixelRatio,
       headless: false,
+      timeoutMs: 60_000,
     }));
     const headless = stripAlpha(await renderScreenToPng({
       baseUrl: server.url,

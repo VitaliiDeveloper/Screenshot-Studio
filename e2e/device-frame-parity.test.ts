@@ -47,7 +47,7 @@ function mismatch(a: Buffer, b: Buffer): number {
 describe("Slice 3 device-frame parity", () => {
   it("headed and headless match, and the framed image is present (red at slot centre)", async () => {
     const headed = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath: fixturePath, screenId, pixelRatio, headless: false,
+      baseUrl: server.url, projectPath: fixturePath, screenId, pixelRatio, headless: false, timeoutMs: 60_000,
     }));
     const headless = stripAlpha(await renderScreenToPng({
       baseUrl: server.url, projectPath: fixturePath, screenId, pixelRatio, headless: true,

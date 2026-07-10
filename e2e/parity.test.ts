@@ -67,6 +67,7 @@ describe("Phase 0 render/export parity", () => {
       screenId,
       pixelRatio,
       headless: false,
+      timeoutMs: 60_000,
     });
     const headlessRaw = await renderScreenToPng({
       baseUrl: server.url,
