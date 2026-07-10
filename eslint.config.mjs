@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Flat ESLint config for the monorepo. One config at the root; framework-specific rules
 // are scoped by `files` so `packages/core` stays framework-agnostic (no React/Next rules).
 // Type-aware linting is intentionally deferred (no parserOptions.project) to keep lint fast

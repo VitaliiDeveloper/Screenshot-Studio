@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, isAbsolute, extname, sep } from "node:path";
 import { resolveProjectPath } from "../../../lib/project-path.js";

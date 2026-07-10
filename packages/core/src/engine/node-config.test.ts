@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { elementToNodeConfig, type ImageCache } from "./node-config.js";
 import type { TextElement, ShapeElement, ScreenshotElement, DeviceFrameElement } from "../model/schema.js";

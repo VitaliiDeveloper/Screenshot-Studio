@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeEach } from "vitest";
 import { editorStore } from "./editor-store.js";
 import type { Project } from "@screenshot-studio/core/model";

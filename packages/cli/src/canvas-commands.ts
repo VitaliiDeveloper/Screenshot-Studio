@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { setCanvasMode, type CanvasMode } from "@screenshot-studio/core/model";
 import { loadProjectFile, writeProjectFile } from "./project-io.js";
 

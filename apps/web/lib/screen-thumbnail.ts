@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { projectScreenGroup, type Project } from "@screenshot-studio/core/model";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 

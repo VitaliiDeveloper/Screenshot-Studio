@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";

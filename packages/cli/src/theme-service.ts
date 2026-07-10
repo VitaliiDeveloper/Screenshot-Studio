@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { applyTheme, parseThemeJson, type Theme } from "@screenshot-studio/core/themes";

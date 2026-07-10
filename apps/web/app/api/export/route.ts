@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { assertProjectFontsResolved, parseProjectJson } from "@screenshot-studio/core/model";

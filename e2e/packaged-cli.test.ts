@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFile as execFileCallback } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
@@ -89,6 +90,7 @@ describe("Phase 6 packaged CLI", () => {
       "dist/index.js.map",
       "dist/project-agent-guide.md",
       "LICENSE",
+      "NOTICE",
       "package.json",
       "README.md",
       "runtime/store-specs.json",

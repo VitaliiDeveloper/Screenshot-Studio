@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { handleThemeGet, handleThemePost } from "./handler.js";
 
 export const dynamic = "force-dynamic";

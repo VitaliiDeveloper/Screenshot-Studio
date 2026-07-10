@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
 
 /** Persist the project to disk through the API route (spec §4). Throws on a validation reject. */

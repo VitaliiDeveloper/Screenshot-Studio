@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { Project } from "../model/schema.js";
 import type { ImageCache } from "../engine/node-config.js";
 

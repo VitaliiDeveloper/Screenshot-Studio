@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createDebouncedSaver, createProjectSaveCoordinator } from "./debounced-save.js";
 import type { Project } from "@screenshot-studio/core/model";

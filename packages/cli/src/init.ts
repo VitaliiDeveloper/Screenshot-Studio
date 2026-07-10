@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SCHEMA_VERSION, type Project } from "@screenshot-studio/core/model";

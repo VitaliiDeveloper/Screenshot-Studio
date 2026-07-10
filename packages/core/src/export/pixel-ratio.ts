@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Compute the pixelRatio that scales an artboard up to an exact store target size.
  * UI and CLI both export via `Stage.toDataURL({ pixelRatio })` (docs/architecture.md §4), so

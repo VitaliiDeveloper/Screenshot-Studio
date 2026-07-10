@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { resolve } from "node:path";
 import { base64PngToBuffer } from "@screenshot-studio/core/export";

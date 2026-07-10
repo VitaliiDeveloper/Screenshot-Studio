@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 import { existsSync, realpathSync } from "node:fs";
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";

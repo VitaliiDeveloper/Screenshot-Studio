@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import Konva from "konva";
 import type { Project, Screen, Element, LayoutDirection } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";

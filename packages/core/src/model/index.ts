@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { Project, type Project as ProjectType } from "./schema.js";
 import { migrateToCurrent } from "./migrate.js";
 

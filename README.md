@@ -7,10 +7,12 @@ export to exact store sizes — driven by the same `core` from both a web UI and
 The project state lives in a single git-trackable JSON file, so decks are versionable,
 reproducible, automatable in CI, and give an AI agent a clean contract to work against.
 
+![Screenshot Studio editor showing a connected three-screen launch deck](docs/assets/editor-demo.gif)
+
 ## Quick start
 
 ```bash
-git clone <repo> && cd AppReviewPlatform
+git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
 corepack enable      # resolves the pinned pnpm 11 on a fresh machine
 pnpm install
 pnpm dev             # editor → http://localhost:3000/editor (opens the bundled sample project)
@@ -31,10 +33,23 @@ To build the installable CLI artifact locally (this does not publish it):
 ```bash
 pnpm build:cli-package
 pnpm --dir packages/cli/package pack
+pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.0.0.tgz
+screenshots init --dir ./my-app-screenshots
 ```
 
 The resulting package contains a built `screenshots` bin and the prebuilt shared Next render host;
 it does not need the monorepo or `tsx` after installation.
+
+The optional Codex skill can be installed from the same checkout after the CLI artifact is made
+available on `PATH`:
+
+```bash
+mkdir -p ~/.codex/skills
+cp -R skills/screenshot-studio ~/.codex/skills/screenshot-studio
+```
+
+It only discovers or initializes a project and then follows the generated project-local
+`AGENTS.md`; normal CLI/editor use does not require the skill or any AI provider.
 
 ## Documentation
 
@@ -54,6 +69,8 @@ Monorepo (pnpm workspaces):
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
 - `fixtures/` — sample projects used by tests and local dev (e.g. `phase-0-sample`).
+- `examples/` — self-contained v2 connected and RTL projects that are validated and exported in
+  the closure suite.
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
 - `docs/` — vision, architecture, roadmap, and per-slice design specs/plans.
@@ -102,16 +119,21 @@ numbering are shipped.
 non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
 locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
 background removal write new PNGs without touching source assets or project JSON. The generated
-workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slices 1–8 now
-ship schema v2, lossless v1 migration, connected UI/CLI crop parity, lifecycle-safe operations,
+workflow and both commands are dogfooded, and the full closure gate passes.
+
+**Phase 6 (connected canvas and completion foundations) — done.** Schema v2, lossless v1 migration,
+connected UI/CLI crop parity, lifecycle-safe operations,
 guarded canvas-mode CLI, gapless owner-aware connected authoring, and bounded persisted undo/redo.
 Zoom-correct connected-space snapping, ephemeral smart guides, and safe project-local insertion of
 existing screenshot/device-frame elements now ship as well. The connected workspace now keeps
 mode control, exact-group Screens/Overview/Fit, owner Layers, thumbnails, history, and compact
 keyboard behavior coherent. A built installable CLI now packages the same Next render host and is
 smoke-tested from a temporary offline install through exact export; it is not a registry release.
-The optional skill and OSS project polish come next. Phase 7 completes the baseline with multi-select, grouping, and new creative
-primitives. Stabilization/release readiness follows only after that baseline is complete.
+The optional skill is installable, delegates to the generated guide, and is clean-folder
+smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
+living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
+Phase 7 is next and completes the baseline with multi-select, grouping, and new creative primitives.
+Phase 8 stabilization/release readiness follows only after that baseline is complete.
 
 ## Requirements
 
@@ -217,10 +239,11 @@ editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before
 or `git checkout` the fixture afterwards.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
-strict `templates/*.json`. The Add shelf searches the current catalog and inserts valid text/shape
-elements. The top bar selects and manages complete locale sets; Screens and Overview show only the
-active locale, and screen reorder stays inside that locale's global slots. Inline editing and new
-text honor the active screen's LTR/RTL direction.
+strict `templates/*.json`. The Add shelf inserts text/shape directly and opens the safe
+project-local asset picker for screenshot/iPhone-frame elements. The top bar selects and manages
+complete locale sets; Screens and Overview show the active locale in isolated mode or the active
+exact platform/device/locale group in connected mode. Inline editing and new text honor the active
+screen's LTR/RTL direction.
 
 Template screens inherit the active screen's locale and direction while using the template's
 explicit platform, device, artboard, background, and element layout. LTR-authored geometry is
@@ -237,8 +260,11 @@ pnpm test:e2e:parity   # render/font/device parity
 pnpm test:e2e:export   # CLI + UI export paths
 pnpm test:e2e:editor   # editor workflows
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
+pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
+pnpm test:e2e:examples # validate + export the living example projects
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
+pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
 pnpm typecheck         # all packages
 ```
 
@@ -249,4 +275,5 @@ Playwright browsers from **Requirements** above.
 
 ## License
 
-Apache-2.0 — see [docs/vision.md](docs/vision.md).
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Contributions are welcome under the same
+terms; see [CONTRIBUTING.md](CONTRIBUTING.md).

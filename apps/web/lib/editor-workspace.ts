@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { sameScreenGroup, type Project, type Screen } from "@screenshot-studio/core/model";
 
 export const MIN_ZOOM = 0.25;

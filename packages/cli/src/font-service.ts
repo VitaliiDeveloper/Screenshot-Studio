@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { access, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { slugify, type FontAsset, type Project as ProjectModel } from "@screenshot-studio/core/model";

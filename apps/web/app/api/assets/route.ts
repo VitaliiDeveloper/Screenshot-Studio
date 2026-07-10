@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { listProjectImageAssets } from "../../../lib/project-assets.server.js";
 import { resolveProjectPath } from "../../../lib/project-path.js";
 

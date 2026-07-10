@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
 import { editorStore } from "./editor-store.js";
 import { saveProject } from "./save-project.js";

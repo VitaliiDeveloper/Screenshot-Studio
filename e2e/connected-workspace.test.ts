@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser, type Page } from "playwright";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";

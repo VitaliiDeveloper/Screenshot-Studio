@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { applyThemeFile, themeId } from "./theme-service.js";
 
 export type ThemeAction = { kind: "set"; id: string };

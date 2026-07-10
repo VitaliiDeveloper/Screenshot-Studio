@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Bundled device-frame geometry (docs/specs/2026-07-04-phase1-slice3-device-frame-design.md §3). All
  * values are FRACTIONS of the element's own box, so the frame scales with the element and the screen

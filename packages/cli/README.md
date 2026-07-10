@@ -13,4 +13,5 @@ screenshots export
 ```
 
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
-Presence of this package manifest does not mean a registry release has been published.
+The artifact carries its Apache-2.0 `LICENSE` and `NOTICE`. Presence of this package manifest does
+not mean a registry release has been published.

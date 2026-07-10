@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { chmod, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,7 +80,7 @@ const manifest = {
   type: "module",
   bin: { screenshots: "./dist/index.js" },
   engines: { node: ">=22.13" },
-  files: ["dist", "runtime", "README.md", "LICENSE"],
+  files: ["dist", "runtime", "README.md", "LICENSE", "NOTICE"],
   dependencies: {
     playwright: sourceManifest.dependencies.playwright,
     sharp: sourceManifest.dependencies.sharp,
@@ -88,3 +89,4 @@ const manifest = {
 await writeFile(join(packageRoot, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(join(cliRoot, "README.md"), join(packageRoot, "README.md"));
 await cp(join(repoRoot, "LICENSE"), join(packageRoot, "LICENSE"));
+await cp(join(repoRoot, "NOTICE"), join(packageRoot, "NOTICE"));

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { resolveStoreSpecsPath } from "../../../lib/store-specs-path.js";

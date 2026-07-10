@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { dirname, resolve } from "node:path";
 import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import { LocalFileStorageAdapter } from "@screenshot-studio/core/storage";

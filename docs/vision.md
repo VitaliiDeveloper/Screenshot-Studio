@@ -54,7 +54,8 @@ but built to remove its ceiling.
 | Architecture | single Next.js project | core/shell, testable core, open to extensions |
 
 We keep the reference's strengths: JSON as the source of truth, schema migrations, and
-size-bucketed export bundles. (Connected canvas is a later feature — see roadmap.md.)
+size-bucketed export bundles. Connected canvas now ships; advanced selection/grouping remains the
+next baseline phase (see `roadmap.md`).
 
 ---
 
@@ -69,10 +70,10 @@ Practical implications: ship a top-level `LICENSE` (the Apache-2.0 text) and a `
 add SPDX headers (`SPDX-License-Identifier: Apache-2.0`) to source files, and keep a short
 license/contribution note in `CONTRIBUTING.md`.
 
-**DX and low entry barrier = OSS marketing.** What should ship at release:
+**DX and low entry barrier = OSS marketing.** What should exist before a public release:
 
 - A README with a GIF of the editor in action and a one-line install.
-- One-line install: `clone → install → run` (and optionally `npx skills add <repo>` for zero-config).
+- One-line install: `clone → install → run`; registry/npx promotion waits for release readiness.
 - A clear, documented project schema (JSON) — hand-editable and git-friendly.
 - A `CONTRIBUTING.md` and good first issues.
 - 2–3 example projects (different styles/locales) as living templates.

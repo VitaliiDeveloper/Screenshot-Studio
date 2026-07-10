@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
 import type { Project as ProjectModel } from "@screenshot-studio/core/model";
 import { loadProjectFile } from "./project-io.js";

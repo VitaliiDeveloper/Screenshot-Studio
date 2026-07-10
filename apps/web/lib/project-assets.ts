@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export const PROJECT_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"] as const;
 
 export interface ProjectImageAsset {

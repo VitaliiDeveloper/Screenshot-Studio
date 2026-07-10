@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /** Human-readable fallback labels for the layers panel (name overrides these). */
 const TYPE_LABELS: Record<string, string> = {
   text: "Text",

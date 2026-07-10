@@ -132,18 +132,18 @@ Project-local `AGENTS.md` recipes for copy generation, baked auto-layout, and lo
 the CLI agent (subscription, no keys) ship from `screenshots init`. Deterministic local auto-crop and
 flat/near-uniform background removal ship through the non-destructive asset CLI. Sliced in §3f.
 
-**Phase 6 — Connected canvas + completion foundations — active.**
+**Phase 6 — Connected canvas + completion foundations — complete.**
 Cross-screen elements with precise export crops, a distributable CLI with its shared render host,
 baseline undo/redo, snapping, media insertion, the optional skill installer, and community
 polish (README GIF, `CONTRIBUTING.md`, example projects, SPDX headers on source files). Sliced in
 §3g.
 
-Distribution carry-ins for this phase (fine for the dogfood era, blocking for `npx`):
-- **Package the CLI.** Today `pnpm screenshots` runs TypeScript via `tsx` inside the repo —
-  there is no built/published binary. Zero-config use outside the repo needs a real build.
-- **CLI weight.** The export path requires the full `apps/web` Next host (the §2 parity
-  decision's accepted cost). Phase 6 keeps parity by packaging the prebuilt web host with the
-  standalone CLI; the source checkout remains the contributor/dev channel.
+Distribution decisions closed in this phase:
+- **Packaged, not published.** Source contributors still use `pnpm screenshots`; the built
+  installable artifact exposes a JavaScript `screenshots` bin outside the checkout. It has not been
+  published to a registry, which remains a later release action.
+- **Parity-preserving weight.** The export path keeps the full prebuilt `apps/web` Next host (the §2
+  decision's accepted cost) instead of adding a second lightweight renderer.
 
 **Phase 7 — Advanced editing + baseline completion — planned after Phase 6.**
 Marquee/modified-click multi-selection, a persisted group model with shared render/export parity,
@@ -309,13 +309,12 @@ deterministic.
 | **6 — Asset picker + existing media insertion** ✅ | Project-asset browsing plus insertion of the already-enforced `screenshot` and `device-frame` types from Add, with safe project-local paths and shared image loading. | Removes the current disabled media workflow without widening the element union or adding uploads outside project storage. |
 | **7 — Connected workspace hardening** ✅ | Mode control, group-scoped Overview/Fit/Screens/Layers behavior, thumbnails, active-screen boundaries, history/snapping/media interaction coverage, and responsive/keyboard QA. | Closes interaction ambiguity around ownership, screen boundaries, z-order, reordering, and narrow viewports. |
 | **8 — Standalone CLI distribution** ✅ | Built `screenshots` executable plus the prebuilt web render host required for editor/export parity; package contents and temp-directory install/export smoke coverage. | Removes the current repo-only `tsx` entry point without introducing a lighter second renderer. |
-| **9 — Optional skill installer** | A thin installable skill that bootstraps the packaged CLI and then delegates to the generated project `AGENTS.md`; clean-folder install/init smoke coverage. | Adds zero-config agent discovery without duplicating the product contract or making AI mandatory. |
-| **10 — Community polish + phase closure** | README demo GIF and install path, `CONTRIBUTING.md`, `NOTICE`, 2–3 validated/exportable example projects, scoped SPDX headers, public-doc truth, and the Phase 6 full gate. | Completes the OSS project foundation and catches drift across examples, packaging, docs, and licenses without claiming a public release. |
+| **9 — Optional skill installer** ✅ | A thin installable skill that bootstraps the packaged CLI and then delegates to the generated project `AGENTS.md`; clean-folder install/init smoke coverage. | Adds zero-config agent discovery without duplicating the product contract or making AI mandatory. |
+| **10 — Community polish + phase closure** ✅ | README demo GIF and install path, `CONTRIBUTING.md`, `NOTICE`, 2–3 validated/exportable example projects, scoped SPDX headers, public-doc truth, and the Phase 6 full gate. | Completes the OSS project foundation and catches drift across examples, packaging, docs, and licenses without claiming a public release. |
 
 The target data, render, editor, distribution, and completion contract lives in
-`docs/specs/2026-07-10-phase6-connected-canvas-completion-design.md`. Slice 1 is planned in
-`docs/plans/2026-07-10-phase6-slice1-connected-document-crop-parity.md`; completed Slice 2–4
-checkpoints are recorded beside it in `docs/plans/`.
+`docs/specs/2026-07-10-phase6-connected-canvas-completion-design.md`. The ten completed slice plans
+and verification checkpoints are recorded in `docs/plans/`.
 
 Phase 6 deliberately closes undo/redo, snapping, and insertion of existing media types because they
 are baseline editor gaps over the final connected mutation/coordinate model. Multi-select,

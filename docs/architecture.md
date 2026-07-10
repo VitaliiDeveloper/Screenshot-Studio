@@ -47,8 +47,10 @@ screenshot-studio/
 │   └── cli/             # CLI: init, dev, screen, locale, font, theme, import, export
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
+├── examples/            # self-contained v2 connected and RTL living projects
 ├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
-└── skill/               # RESERVED (not yet created): thin installer for use outside the repo
+└── skills/
+    └── screenshot-studio/ # optional discovery/bootstrap skill for use outside the repo
 ```
 
 CLI and `AGENTS.md` are the primary management interface (for humans and agents). `cli`
@@ -171,7 +173,8 @@ artboard dimensions, so the stage itself is the precise UI/CLI export crop — t
 PNG or post-export slicing path. Phase 6 Slice 3 adds one gapless editable group stage on the same
 `elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
 screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
-non-interactive crop. Editor mode controls remain a later workspace-hardening concern.
+non-interactive crop. The toolbar exposes project mode and guarded conversion feedback; successful
+changes travel through ordinary history/save.
 
 **Editor history — Phase 6 Slice 4.** The Zustand store keeps at most 50 prior project snapshots in
 memory. Consecutive patches for the same owner element, background, or artboard coalesce until an
@@ -342,15 +345,21 @@ and project-local assets; they add no provider integration or agent state. Auto-
 flat-background removal run locally through Sharp, write under `assets/processed/`, and never enter
 render/export. Source contributors invoke `pnpm screenshots`; Phase 6 Slice 8 also builds one
 installable `@screenshot-studio/cli` artifact whose Node 22 ESM bin bundles CLI/core code and whose
-runtime carries `store-specs.json`, the generated guide, and the prebuilt shared web host. The host
+runtime carries `store-specs.json`, the generated guide, and the prebuilt shared web host; the
+artifact also retains the repository `LICENSE` and `NOTICE`. The host
 is Next `output: standalone` plus `.next/static`, stored as `runtime/web.zip` so npm retains traced
 dependencies. Installed commands extract it into a unique OS temp directory, spawn its `server.js`,
 and clean it after stop/failure. `playwright` and `sharp` remain normal native/runtime package
 dependencies. The measured local tarball is about 41 MiB; that accepted weight preserves parity
 instead of introducing a second lightweight renderer. Building/packing is not a publication claim.
 
-**Skill — only for zero-config outside the repo.** A few lines telling the agent: "clone the
-repo, run `screenshots init`, then follow `AGENTS.md`." Added last; not required.
+**Skill — only for discovery/bootstrap outside the repo.** `skills/screenshot-studio` is a thin
+installable skill with one deterministic bootstrap script. It invokes the built CLI from an
+explicit path, `SCREENSHOT_STUDIO_CLI`, or `PATH`, refuses existing project/control files, and then
+delegates all product behavior to the generated project-local `AGENTS.md`. It does not copy the
+schema or recipes, fetch a package implicitly, add an AI SDK/provider, or become required for normal
+CLI/editor use. Its isolated smoke installs the skill into a temporary home and initializes a clean
+v2 project through the packaged CLI. This is still not a registry publication or release claim.
 
 ---
 

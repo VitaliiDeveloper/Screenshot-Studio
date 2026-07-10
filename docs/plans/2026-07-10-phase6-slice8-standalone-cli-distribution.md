@@ -20,6 +20,7 @@ The npm artifact is one `@screenshot-studio/cli` package:
 ├── runtime/web.zip               # Next output:standalone host + static assets
 ├── package.json                  # bin + playwright/sharp runtime dependencies only
 ├── README.md
+├── NOTICE
 └── LICENSE
 ```
 
@@ -40,7 +41,8 @@ The npm artifact is one `@screenshot-studio/cli` package:
 
 1. CLI/server suite — 17 files / 82 tests passed.
 2. `pnpm test:e2e:package` passed the production Next build and deterministic package assembly.
-3. Pack manifest is exactly 8 runtime/license files; no source, fixture, cache, or development docs.
+3. Pack manifest is exactly 9 runtime/license/notice files; no source, fixture, cache, or
+   development docs.
 4. Offline temp install outside the checkout passed.
 5. Installed bin `init`, project validation, `screen list`, and exact 1320×2868 PNG export through
    the extracted packaged host passed (2 package E2E scenarios total).

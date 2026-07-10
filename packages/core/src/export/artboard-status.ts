@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { exportPixelRatio } from "./pixel-ratio.js";
 import type { StoreSize, StoreSpecs } from "./specs.js";
 import type { Screen } from "../model/index.js";

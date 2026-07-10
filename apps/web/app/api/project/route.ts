@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { LocalFileStorageAdapter } from "@screenshot-studio/core/storage";
 import { parseProject, ProjectValidationError } from "@screenshot-studio/core/model";
 import { dirname } from "node:path";
