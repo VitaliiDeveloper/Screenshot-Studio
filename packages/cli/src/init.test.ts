@@ -14,7 +14,7 @@ describe("runInit", () => {
 
     const project = parseProjectJson(await readFile(join(dir, "app-store-screenshots.json"), "utf8"));
     expect(project.meta.name).toBe("Launch Deck");
-    expect(project).toMatchObject({ mode: "isolated", meta: { schemaVersion: 4 } });
+    expect(project).toMatchObject({ mode: "isolated", meta: { schemaVersion: 5 } });
     expect(project.screens).toHaveLength(1);
 
     for (const path of [
@@ -29,7 +29,7 @@ describe("runInit", () => {
     }
 
     const agentGuide = await readFile(join(dir, "AGENTS.md"), "utf8");
-    expect(agentGuide).toContain("strict v4 JSON");
+    expect(agentGuide).toContain("strict v5 JSON");
     expect(agentGuide).toContain("mode: isolated | connected");
     expect(agentGuide).toContain("## Recipe: generate or refresh copy");
     expect(agentGuide).toContain("## Recipe: lay out slides");

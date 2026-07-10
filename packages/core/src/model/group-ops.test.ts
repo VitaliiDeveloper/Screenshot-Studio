@@ -72,6 +72,21 @@ describe("group authoring operations", () => {
     });
   });
 
+  it("scales icon strokes with grouped geometry", () => {
+    const grouped = {
+      ...groupElements(screen(), ["red", "copy"], () => "group").group,
+      children: [{
+        id: "icon", type: "icon" as const, x: 10, y: 20, width: 80, height: 80,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        icon: "star" as const, color: "#FFCC00", strokeWidth: 3,
+      }],
+    };
+    const resized = resizeGroupUniform(grouped, grouped.width * 2, grouped.height * 2);
+    expect(resized.children[0]).toMatchObject({
+      type: "icon", x: 20, y: 40, width: 160, height: 160, strokeWidth: 6,
+    });
+  });
+
   it("finds nested children and duplicates groups with fresh ids", () => {
     const group = groupElements(screen(), ["red", "copy"], () => "group").group;
     const owner = { ...screen(), elements: [group] };

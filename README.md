@@ -132,11 +132,12 @@ smoke-tested from a temporary offline install through exact export; it is not a 
 The optional skill is installable, delegates to the generated guide, and is clean-folder
 smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
 living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
-**Phase 7 (advanced editing) — in progress through Slice 4.** Owner-aware modified-click/marquee
+**Phase 7 (advanced editing) — in progress through Slice 5.** Owner-aware modified-click/marquee
 multi-selection and atomic batch actions ship, followed by a strict v3 one-level group model with
 lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authoring/Layers and the
 strict v4 decorative image leaf now ship with secure asset insertion plus contain/cover/alpha
-parity. Vector icons and badge primitives are next.
+parity. Strict v5 trusted built-in vector icons now add editable colour/stroke controls without raw
+SVG input. Badge composition is next.
 Phase 8 stabilization/release readiness follows only after that baseline is complete.
 
 ## Requirements
@@ -222,7 +223,7 @@ Locale commands delegate to the same core transformations as the editor. `locale
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
 stored direction changes, and `locale rm` protects the last locale.
 
-An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v4
+An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v5
 guardrails and exact recipes for copy generation, literal layout, locale translation, and local asset
 processing. Init preflights the JSON and both agent control files and refuses to overwrite any of them.
 

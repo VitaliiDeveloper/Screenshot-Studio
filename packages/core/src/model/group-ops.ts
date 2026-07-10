@@ -109,6 +109,7 @@ export function resizeGroupUniform(
       height: child.height * scale,
       ...(child.type === "text" ? { size: child.size * scale, letterSpacing: child.letterSpacing * scale } : {}),
       ...(child.type === "shape" ? { radius: child.radius * scale } : {}),
+      ...(child.type === "icon" ? { strokeWidth: child.strokeWidth * scale } : {}),
       ...(child.type === "screenshot" || child.type === "image"
         ? { cornerRadius: child.cornerRadius * scale }
         : {}),

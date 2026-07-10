@@ -27,7 +27,7 @@ function scopeProject(mode: Project["mode"]): Project {
     elements: [],
   } as Project["screens"][number]);
   return {
-    meta: { name: "Scope", schemaVersion: 4 },
+    meta: { name: "Scope", schemaVersion: 5 },
     mode,
     platforms: ["apple", "android"],
     locales: ["en"],
@@ -65,7 +65,8 @@ describe("editor workspace helpers", () => {
       "image",
       "device-frame",
     ]);
-    expect(filterAddCatalog("")).toHaveLength(6);
+    expect(filterAddCatalog("")).toHaveLength(7);
+    expect(filterAddCatalog("vector").map((item) => item.id)).toEqual(["icon"]);
     expect(filterAddCatalog("screenshot").map((item) => item.action)).toEqual([
       "open-asset-picker",
       "open-asset-picker",

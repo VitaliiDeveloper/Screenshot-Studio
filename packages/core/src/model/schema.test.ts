@@ -56,20 +56,20 @@ describe("parseProject", () => {
     expect(parseProject(raw).mode).toBe("connected");
   });
 
-  it("migrates valid v1 input sequentially to isolated v4", () => {
+  it("migrates valid v1 input sequentially to isolated v5", () => {
     const raw = validProject() as Record<string, unknown>;
     delete raw.mode;
     (raw.meta as Record<string, unknown>).schemaVersion = 1;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(4);
+    expect(project.meta.schemaVersion).toBe(5);
     expect(project.mode).toBe("isolated");
   });
 
-  it("migrates valid v2 input losslessly through v3 to v4", () => {
+  it("migrates valid v2 input losslessly through v3/v4 to v5", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(4);
+    expect(project.meta.schemaVersion).toBe(5);
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text", content: "Hello" });
   });
 
@@ -86,11 +86,11 @@ describe("parseProject", () => {
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
-  it("migrates valid v3 input losslessly to v4", () => {
+  it("migrates valid v3 input losslessly through v4 to v5", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(4);
+    expect(project.meta.schemaVersion).toBe(5);
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
   });
 
@@ -115,6 +115,30 @@ describe("parseProject", () => {
       }],
     } as never];
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("migrates valid v4 input losslessly to v5", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 4 as typeof SCHEMA_VERSION;
+    const project = parseProject(raw);
+    expect(project.meta.schemaVersion).toBe(5);
+    expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
+  });
+
+  it("does not bless top-level or grouped icons mislabeled as schema v4", () => {
+    for (const grouped of [false, true]) {
+      const raw = validProject();
+      raw.meta.schemaVersion = 4 as typeof SCHEMA_VERSION;
+      const icon = {
+        id: "icon", type: "icon", x: 0, y: 0, width: 100, height: 100,
+        icon: "star", color: "#FF0000",
+      };
+      raw.screens[0]!.elements = grouped ? [{
+        id: "group", type: "group", x: 0, y: 0, width: 100, height: 100,
+        children: [icon],
+      } as never] : [icon as never];
+      expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+    }
   });
 
   it("rejects unknown keys (strict contract)", () => {
@@ -270,6 +294,30 @@ describe("ImageElement (schema v4)", () => {
     expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
     expect(() => Element.parse({ ...base, cornerRadius: -1 })).toThrow();
     expect(() => Element.parse({ ...base, crop: {} })).toThrow();
+  });
+});
+
+describe("IconElement (schema v5)", () => {
+  const base = {
+    id: "icon-1", type: "icon", x: 0, y: 0, width: 100, height: 100,
+    icon: "star", color: "#3B82F6",
+  };
+
+  it("accepts a trusted built-in icon with a positive stroke default", () => {
+    expect(Element.parse(base)).toMatchObject({ icon: "star", color: "#3B82F6", strokeWidth: 2 });
+  });
+
+  it("accepts every registered icon id", () => {
+    for (const icon of ["check", "heart", "sparkles", "star"]) {
+      expect(Element.parse({ ...base, icon })).toMatchObject({ icon });
+    }
+  });
+
+  it("rejects unknown ids, raw SVG, invalid colours, and invalid strokes", () => {
+    expect(() => Element.parse({ ...base, icon: "external" })).toThrow();
+    expect(() => Element.parse({ ...base, svg: "<svg onload='alert(1)'/>" })).toThrow();
+    expect(() => Element.parse({ ...base, color: "red" })).toThrow();
+    expect(() => Element.parse({ ...base, strokeWidth: 0 })).toThrow();
   });
 });
 

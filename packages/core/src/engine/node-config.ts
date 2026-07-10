@@ -3,6 +3,7 @@ import type Konva from "konva";
 import type { Element, LayoutDirection } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
+import { ICON_PATHS } from "../model/icons.js";
 
 /**
  * The single element→Konva-props map (docs/specs/2026-07-04-phase1-slice3-device-frame-design.md §1):
@@ -23,6 +24,7 @@ export type NodeConfig =
   | { konva: "Text"; config: Konva.TextConfig }
   | { konva: "Rect"; config: Konva.RectConfig }
   | { konva: "Image"; config: Konva.ImageConfig }
+  | { konva: "Path"; config: Konva.PathConfig }
   | { konva: "Group"; config: Konva.GroupConfig; children: NodeConfig[] };
 
 interface Box {
@@ -121,6 +123,33 @@ export function elementToNodeConfig(
           fill: element.fill,
           cornerRadius: element.radius,
         },
+      };
+
+    case "icon":
+      return {
+        konva: "Group",
+        config: { ...common, width: element.width, height: element.height },
+        children: [
+          {
+            konva: "Rect",
+            config: { x: 0, y: 0, width: element.width, height: element.height, fill: "rgba(0,0,0,0)" },
+          },
+          {
+            konva: "Path",
+            config: {
+              x: 0,
+              y: 0,
+              data: ICON_PATHS[element.icon],
+              scaleX: element.width / 24,
+              scaleY: element.height / 24,
+              stroke: element.color,
+              strokeWidth: element.strokeWidth,
+              strokeScaleEnabled: false,
+              lineCap: "round",
+              lineJoin: "round",
+            },
+          },
+        ],
       };
 
     case "screenshot":

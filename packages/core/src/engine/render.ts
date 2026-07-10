@@ -85,6 +85,8 @@ function buildNode(nc: NodeConfig): Konva.Node {
       return new Konva.Text(nc.config);
     case "Image":
       return new Konva.Image(nc.config);
+    case "Path":
+      return new Konva.Path(nc.config);
     case "Rect":
       return new Konva.Rect(nc.config);
     case "Group": {

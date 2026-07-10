@@ -3,16 +3,16 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v4). Narrower than the long-term target in docs/architecture.md §3:
- * solid backgrounds only; leaf types `text` | `shape` | `screenshot` | `image` | `device-frame` plus one-level groups
+ * Enforced project schema (v5). Narrower than the long-term target in docs/architecture.md §3:
+ * solid backgrounds only; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
  * (iphone frames only); platforms apple/{iphone,ipad} and android/phone; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
- * live outside the render contract. Gradient backgrounds and icon/badge elements are not
+ * live outside the render contract. Gradient backgrounds and badge elements are not
  * implemented yet. Objects are `.strict()` on purpose: the project JSON is the agent contract,
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const HexColor = z
   .string()
@@ -103,6 +103,21 @@ export const ImageElement = z
   .strict();
 export type ImageElement = z.infer<typeof ImageElement>;
 
+export const ICON_IDS = ["check", "heart", "sparkles", "star"] as const;
+export const IconId = z.enum(ICON_IDS);
+export type IconId = z.infer<typeof IconId>;
+
+export const IconElement = z
+  .object({
+    type: z.literal("icon"),
+    ...leafBase,
+    icon: IconId,
+    color: HexColor,
+    strokeWidth: z.number().positive().default(2),
+  })
+  .strict();
+export type IconElement = z.infer<typeof IconElement>;
+
 export const DeviceFrameElement = z
   .object({
     type: z.literal("device-frame"),
@@ -120,6 +135,7 @@ export const LeafElement = z.discriminatedUnion("type", [
   ShapeElement,
   ScreenshotElement,
   ImageElement,
+  IconElement,
   DeviceFrameElement,
 ]);
 export type LeafElement = z.infer<typeof LeafElement>;
@@ -139,6 +155,7 @@ export const Element = z.discriminatedUnion("type", [
   ShapeElement,
   ScreenshotElement,
   ImageElement,
+  IconElement,
   DeviceFrameElement,
   GroupElement,
 ]);

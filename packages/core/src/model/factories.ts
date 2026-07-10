@@ -2,6 +2,7 @@
 import type {
   DeviceFrameElement,
   ImageElement,
+  IconElement,
   LayoutDirection,
   ScreenshotElement,
   ShapeElement,
@@ -105,6 +106,22 @@ export function createImageElement(input: CreateImageElementInput): ImageElement
     assetUrl: input.assetUrl,
     fit: input.fit ?? "contain",
     cornerRadius: input.cornerRadius ?? 0,
+  };
+}
+
+export interface CreateIconElementInput extends SizedOrigin {
+  icon?: IconElement["icon"];
+  color?: string;
+  strokeWidth?: number;
+}
+
+export function createIconElement(input: CreateIconElementInput = {}): IconElement {
+  return {
+    ...elementBase(input, { width: 160, height: 160 }),
+    type: "icon",
+    icon: input.icon ?? "star",
+    color: input.color ?? "#3B82F6",
+    strokeWidth: input.strokeWidth ?? 2,
   };
 }
 

@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 4 },
+    meta: { name: "T", schemaVersion: 5 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -311,6 +311,20 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     });
     expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
       type: "image", assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
+    });
+  });
+
+  it("patches icon identity, colour, and stroke width", () => {
+    editorStore.getState().addElement({
+      id: "icon", type: "icon", x: 10, y: 20, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      icon: "star", color: "#3B82F6", strokeWidth: 2,
+    });
+    editorStore.getState().patchElement("icon", {
+      icon: "heart", color: "#FF0000", strokeWidth: 5,
+    });
+    expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
+      type: "icon", icon: "heart", color: "#FF0000", strokeWidth: 5,
     });
   });
 

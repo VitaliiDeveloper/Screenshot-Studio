@@ -76,12 +76,13 @@ export type AddCatalogCategory = "Basic" | "Media" | "Frames" | "Library";
 export type AddCatalogAction =
   | "insert-text"
   | "insert-shape"
+  | "insert-icon"
   | "open-templates"
   | "open-asset-picker"
   | "unavailable";
 
 export interface AddCatalogItem {
-  id: "text" | "shape" | "screenshot" | "image" | "device-frame" | "components";
+  id: "text" | "shape" | "icon" | "screenshot" | "image" | "device-frame" | "components";
   label: string;
   category: AddCatalogCategory;
   action: AddCatalogAction;
@@ -96,6 +97,7 @@ export interface AddCatalogItem {
 export const ADD_CATALOG: readonly AddCatalogItem[] = [
   { id: "text", label: "Text", category: "Basic", action: "insert-text", shortcut: "T" },
   { id: "shape", label: "Shape", category: "Basic", action: "insert-shape", shortcut: "R" },
+  { id: "icon", label: "Icon", category: "Basic", action: "insert-icon", hint: "Editable built-in vector" },
   {
     id: "screenshot",
     label: "Screenshot",

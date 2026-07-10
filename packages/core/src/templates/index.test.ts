@@ -5,7 +5,7 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 4 }, mode: "connected", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 5 }, mode: "connected", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   };
@@ -112,6 +112,23 @@ describe("createScreenFromTemplate", () => {
       type: "image", assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 16,
     });
     expect(result.screen.elements[0]!.id).not.toBe("decor");
+  });
+
+  it("preserves icon fields and freshens its id", () => {
+    const withIcon: Template = {
+      ...template,
+      id: "icon-card",
+      elements: [{
+        id: "icon", type: "icon", x: 80, y: 400, width: 160, height: 160,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        icon: "check", color: "#22C55E", strokeWidth: 4,
+      }],
+    };
+    const result = createScreenFromTemplate(project(), withIcon, "en");
+    expect(result.screen.elements[0]).toMatchObject({
+      type: "icon", icon: "check", color: "#22C55E", strokeWidth: 4,
+    });
+    expect(result.screen.elements[0]!.id).not.toBe("icon");
   });
 
   it("rejects template text with an unregistered font", () => {

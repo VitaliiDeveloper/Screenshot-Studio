@@ -3,7 +3,7 @@
 
 import { useStore } from "zustand";
 import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
-import { findElementLocation, getScreen } from "@screenshot-studio/core/model";
+import { findElementLocation, getScreen, ICON_IDS } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { primarySelection, selectionBounds } from "../lib/editor-selection";
@@ -255,6 +255,14 @@ export function Inspector({
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
               <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => patch(element.id, { cornerRadius })} />
+            </Section>
+          )}
+
+          {element.type === "icon" && (
+            <Section title="Icon">
+              <SelectField label="Icon" value={element.icon} options={ICON_IDS} onChange={(icon) => patch(element.id, { icon })} />
+              <ColorField label="Color" value={element.color} onChange={(color) => patch(element.id, { color })} />
+              <NumberField label="Stroke width" value={element.strokeWidth} min={0.1} step={0.5} onChange={(strokeWidth) => patch(element.id, { strokeWidth })} />
             </Section>
           )}
 

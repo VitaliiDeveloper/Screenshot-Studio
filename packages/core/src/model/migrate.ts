@@ -49,6 +49,17 @@ export function migrateToCurrent(raw: unknown): unknown {
     if (containsElementType(current, "image")) return current;
     const currentMeta = current.meta;
     if (!isRecord(currentMeta)) return current;
+    current = {
+      ...current,
+      meta: { ...currentMeta, schemaVersion: 4 },
+    };
+    version = 4;
+  }
+
+  if (version === 4) {
+    if (containsElementType(current, "icon")) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
     return {
       ...current,
       meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION },

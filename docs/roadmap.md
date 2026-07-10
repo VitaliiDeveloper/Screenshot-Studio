@@ -145,7 +145,7 @@ Distribution decisions closed in this phase:
 - **Parity-preserving weight.** The export path keeps the full prebuilt `apps/web` Next host (the §2
   decision's accepted cost) instead of adding a second lightweight renderer.
 
-**Phase 7 — Advanced editing + baseline completion — in progress; Slices 1–4 complete.**
+**Phase 7 — Advanced editing + baseline completion — in progress; Slices 1–5 complete.**
 Marquee/modified-click multi-selection, a persisted group model with shared render/export parity,
 group authoring and nested transforms, then independently proven `image`, `icon`, and `badge`
 primitives. Phase 7 completes the planned baseline product together with Phase 6; it does not imply
@@ -335,7 +335,7 @@ renderer independently.
 | **2 — Group model + render parity** ✅ | Ratified post-v2 schema/migration for one-level groups with local child coordinates; traversal updates for fonts/assets/themes/locales; shared renderer and exact export parity. | Proves serialization, nested transforms, clipping, z-order, RTL, and connected crops before group UI can write the model. |
 | **3 — Group authoring + Layers** ✅ | Group/ungroup from multi-selection, group transform/duplicate/delete/lock/hide/rename, child inspection, keyboard behavior, and owner-aware Layers presentation. | Prevents editor-only grouping semantics from diverging from the persisted/rendered group contract. |
 | **4 — Decorative image element** ✅ | Strict `image` element using the Phase 6 asset picker/loader, deterministic fit/crop behavior, inspector controls, templates/themes traversal, and parity coverage. | Adds the most general missing raster primitive without overloading the semantic `screenshot` type. |
-| **5 — Vector icon element** | Deterministic built-in/SVG icon contract, safe project-local authoring, colour/stroke controls, shared Konva mapping, and parity coverage. | Avoids unsafe or browser-dependent SVG behavior and keeps icons editable rather than raster-only. |
+| **5 — Vector icon element** ✅ | Deterministic built-in/SVG icon contract, safe project-local authoring, colour/stroke controls, shared Konva mapping, and parity coverage. | Avoids unsafe or browser-dependent SVG behavior and keeps icons editable rather than raster-only. |
 | **6 — Badge primitives** | Rating, store, and “as seen on” badge authoring through the smallest validated representation; prefer ordinary grouped primitives/templates unless unique badge semantics justify a union member. | Resolves whether badges need schema state instead of committing to a redundant composite element up front. |
 | **7 — Baseline completion dogfood + closure** | Multi-select/group workflows across connected locales, image/icon/badge examples, public docs truth, accessibility/keyboard QA, and the Phase 7 full gate. | Closes cross-feature traversal and parity gaps before declaring the baseline product complete, not publicly released. |
 

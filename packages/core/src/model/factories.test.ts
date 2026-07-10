@@ -4,6 +4,7 @@ import {
   createTextElement,
   createShapeElement,
   createImageElement,
+  createIconElement,
   createScreenshotElement,
   createDeviceFrameElement,
 } from "./factories.js";
@@ -50,6 +51,15 @@ describe("element factories (slice 5)", () => {
     expect(el).toMatchObject({
       type: "image", assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 0,
       x: 30, y: 40, width: 300, height: 300,
+    });
+  });
+
+  it("createIconElement returns a schema-valid editable built-in vector", () => {
+    const el = createIconElement({ icon: "heart", color: "#FF0000", strokeWidth: 3 });
+    expect(() => Element.parse(el)).not.toThrow();
+    expect(el).toMatchObject({
+      type: "icon", icon: "heart", color: "#FF0000", strokeWidth: 3,
+      width: 160, height: 160,
     });
   });
 

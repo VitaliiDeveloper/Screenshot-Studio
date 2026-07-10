@@ -21,6 +21,7 @@ import {
   type ShapeElement,
   type ScreenshotElement,
   type ImageElement,
+  type IconElement,
   type DeviceFrameElement,
   type FontAsset,
   type LayoutDirection,
@@ -54,6 +55,7 @@ type TextFields = Partial<
 type ShapeFields = Partial<Pick<ShapeElement, "fill" | "radius">>;
 type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
 type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
+type IconFields = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
 type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
 
 /**
@@ -66,6 +68,7 @@ export type ElementPatch = CommonElementPatch &
   ShapeFields &
   ScreenshotFields &
   ImageFields &
+  IconFields &
   DeviceFrameFields;
 
 function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
@@ -123,6 +126,11 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
       if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      break;
+    case "icon":
+      if (patch.icon !== undefined) el.icon = patch.icon;
+      if (patch.color !== undefined) el.color = patch.color;
+      if (patch.strokeWidth !== undefined) el.strokeWidth = patch.strokeWidth;
       break;
     case "device-frame":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;

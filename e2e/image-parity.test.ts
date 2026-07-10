@@ -41,7 +41,7 @@ beforeAll(async () => {
   writeFileSync(join(directory, "assets", "decor.png"), transparentFixture());
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Image parity", schemaVersion: 4 },
+    meta: { name: "Image parity", schemaVersion: 5 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

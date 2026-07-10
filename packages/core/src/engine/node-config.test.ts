@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { elementToNodeConfig, type ImageCache } from "./node-config.js";
-import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
+import { ICON_PATHS } from "../model/icons.js";
+import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, IconElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
 
 const baseText: TextElement = {
   id: "t1", type: "text", x: 10, y: 20, width: 300, height: 100,
@@ -41,6 +42,31 @@ describe("elementToNodeConfig", () => {
     expect(result.config).toMatchObject({
       id: "s1", x: 0, y: 0, width: 50, height: 40,
       rotation: 0, opacity: 1, fill: "#FF0000", cornerRadius: 8,
+    });
+  });
+});
+
+describe("elementToNodeConfig — trusted vector icon", () => {
+  const icon: IconElement = {
+    id: "icon", type: "icon", x: 20, y: 30, width: 120, height: 240,
+    rotation: 10, opacity: 0.75, locked: false, visible: true,
+    icon: "heart", color: "#FF3366", strokeWidth: 4,
+  };
+
+  it("maps the strict id to a logical box plus a deterministic core Path", () => {
+    const result = elementToNodeConfig(icon);
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.config).toMatchObject({ id: "icon", x: 20, y: 30, width: 120, height: 240 });
+    expect(result.children[0]).toMatchObject({
+      konva: "Rect", config: { x: 0, y: 0, width: 120, height: 240, fill: "rgba(0,0,0,0)" },
+    });
+    expect(result.children[1]).toMatchObject({
+      konva: "Path",
+      config: {
+        data: ICON_PATHS.heart, scaleX: 5, scaleY: 10,
+        stroke: "#FF3366", strokeWidth: 4, strokeScaleEnabled: false,
+        lineCap: "round", lineJoin: "round",
+      },
     });
   });
 });

@@ -113,7 +113,7 @@ describe("Phase 6 packaged CLI", () => {
     const projectPath = join(projectDirectory, "app-store-screenshots.json");
     const project = JSON.parse(await readFile(projectPath, "utf8"));
     expect(project).toMatchObject({
-      meta: { name: "Packaged Smoke", schemaVersion: 4 },
+      meta: { name: "Packaged Smoke", schemaVersion: 5 },
       mode: "isolated",
       screens: [{ id: "hero" }],
     });

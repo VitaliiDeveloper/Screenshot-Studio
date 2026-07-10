@@ -15,6 +15,7 @@ import {
   Pencil,
   Smartphone,
   Square,
+  Sparkles,
   Trash2,
   Type,
   Ungroup,
@@ -40,6 +41,7 @@ const elementIcons: Partial<Record<Element["type"], LucideIcon>> = {
   shape: Square,
   screenshot: ImageIcon,
   image: ImageIcon,
+  icon: Sparkles,
   "device-frame": Smartphone,
 };
 

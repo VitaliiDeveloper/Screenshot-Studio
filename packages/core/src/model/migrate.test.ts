@@ -39,7 +39,7 @@ describe("migrateToCurrent", () => {
     expect(migrateToCurrent(current)).toBe(current);
   });
 
-  it("migrates a valid v3 document to v4 without changing screens", () => {
+  it("migrates a valid v3 document through v4 to current without changing screens", () => {
     const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
     const v3: Record<string, unknown> = {
       ...current,
@@ -48,6 +48,17 @@ describe("migrateToCurrent", () => {
     const migrated = migrateToCurrent(v3) as Record<string, unknown>;
     expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
     expect(migrated.screens).toEqual(v3.screens);
+  });
+
+  it("migrates a valid v4 document to v5 without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v4: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 4 },
+    };
+    const migrated = migrateToCurrent(v4) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v4.screens);
   });
 
   it("does not reinterpret a mode field that was invalid under strict v1", () => {

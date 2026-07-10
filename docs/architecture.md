@@ -123,7 +123,7 @@ locked, visible, role?`) plus type-specific fields:
 - `device-frame` — deviceType (iphone/ipad/android-phone/tablet), frame color, screen slot
 - `shape` — rect / ellipse / blob, fill (solid/gradient), stroke, radius
 - `group` — one non-clipping level of existing leaf elements in local coordinates
-- `icon` — built-in icon set / SVG
+- `icon` — trusted built-in id, editable colour/stroke, core-owned normalised SVG path
 - `badge` — rating, "As seen on", store badges
 - `image` — arbitrary project-local decorative raster, contain/cover, cornerRadius
 
@@ -245,6 +245,14 @@ uniqueness across its complete one-level tree so Layers child inspection is unam
 interaction selects the group; owner-scoped Layers exposes one indented child level for inspection
 and child property actions. Group, ungroup, duplicate, and all group/child edits use the ordinary
 bounded history and durable-save path.
+
+**Trusted vector icons — schema v5 / Phase 7 Slice 5.** `icon` stores only one stable id from the
+core-owned `check | heart | sparkles | star` registry plus literal colour and positive stroke width.
+The registry supplies normalised `24×24` path data to the shared NodeConfig mapper, which returns a
+logical Group and Konva Path with screen-pixel stroke semantics. Static/UI/CLI rendering never parse
+project SVG/XML or use a font glyph. Add inserts a default star and Inspector edits the id, colour,
+and stroke. v4 migrates losslessly only when the previously invalid icon type does not appear at any
+tree depth; arbitrary SVG import remains outside the contract.
 
 ---
 
@@ -371,7 +379,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v4
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v5
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

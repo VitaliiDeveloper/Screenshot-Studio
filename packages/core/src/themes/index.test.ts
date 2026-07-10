@@ -5,7 +5,7 @@ import { applyTheme, Theme } from "./index.js";
 
 function project(): Project {
   return {
-    meta: { name: "Theme", schemaVersion: 4 },
+    meta: { name: "Theme", schemaVersion: 5 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -82,6 +82,17 @@ describe("applyTheme", () => {
       id: "decor", type: "image", x: 20, y: 30, width: 200, height: 100,
       rotation: 5, opacity: 0.8, locked: false, visible: true,
       assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 12,
+    });
+    const themed = applyTheme(source, theme);
+    expect(themed.screens[0]!.elements.at(-1)).toEqual(source.screens[0]!.elements.at(-1));
+  });
+
+  it("preserves editable icon literals while applying a theme", () => {
+    const source = project();
+    source.screens[0]!.elements.push({
+      id: "icon", type: "icon", x: 20, y: 30, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      icon: "sparkles", color: "#FFCC00", strokeWidth: 3,
     });
     const themed = applyTheme(source, theme);
     expect(themed.screens[0]!.elements.at(-1)).toEqual(source.screens[0]!.elements.at(-1));

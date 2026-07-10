@@ -9,7 +9,7 @@ async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), "theme-service-"));
   const projectPath = join(dir, "app-store-screenshots.json");
   const project = {
-    meta: { name: "Themes", schemaVersion: 4 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
+    meta: { name: "Themes", schemaVersion: 5 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "accent", type: "shape", role: "accent", x: 0, y: 0, width: 100, height: 10, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 }] }],
   };
   const theme = { id: "midnight", name: "Midnight", colors: { heading: "#F8FAFC", body: "#CBD5E1", accent: "#38BDF8", surface: "#0F172A" }, fonts: {} };

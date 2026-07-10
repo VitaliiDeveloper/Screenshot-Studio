@@ -12,12 +12,13 @@ import {
   RectangleHorizontal,
   Search,
   Smartphone,
+  Sparkles,
   Type,
   X,
 } from "lucide-react";
 import type { Element } from "@screenshot-studio/core/model";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { createShapeElement, createTextElement } from "@screenshot-studio/core/model";
+import { createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
   ADD_CATEGORIES,
   filterAddCatalog,
@@ -34,6 +35,7 @@ import { cx, editorUi } from "./editor-ui";
 const catalogIcons = {
   text: Type,
   shape: RectangleHorizontal,
+  icon: Sparkles,
   screenshot: ImageIcon,
   image: ImageIcon,
   "device-frame": Smartphone,
@@ -132,6 +134,9 @@ function AddPanel({
         break;
       case "insert-shape":
         insert(createShapeElement());
+        break;
+      case "insert-icon":
+        insert(createIconElement());
         break;
       case "open-templates":
         onOpenDialog("templates");
