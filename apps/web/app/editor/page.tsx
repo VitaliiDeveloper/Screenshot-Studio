@@ -34,6 +34,7 @@ const DynamicCanvasViewport = dynamic(
 
 const resolveAsset = (assetUrl: string) => `/api/asset?path=${encodeURIComponent(assetUrl)}`;
 const SIDE_PANEL_WIDTH = 288;
+const NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID = "screenshot-studio-next-devtools-alignment";
 
 export default function EditorPage() {
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,38 @@ export default function EditorPage() {
   );
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
+    let injectedStyle: HTMLStyleElement | null = null;
+    const alignIndicator = () => {
+      if (injectedStyle?.isConnected) return;
+      const root = document.querySelector("nextjs-portal")?.shadowRoot;
+      if (!root) return;
+
+      const existing = root.querySelector<HTMLStyleElement>(`#${NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID}`);
+      if (existing) {
+        injectedStyle = existing;
+        return;
+      }
+
+      const style = document.createElement("style");
+      style.id = NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID;
+      // Next renders a 36px dev indicator in a ShadowRoot. Center it in the 56px editor tool rail.
+      style.textContent = "#devtools-indicator { left: 10px !important; }";
+      root.append(style);
+      injectedStyle = style;
+    };
+
+    alignIndicator();
+    const observer = new MutationObserver(alignIndicator);
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      injectedStyle?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const overlayQuery = window.matchMedia("(max-width: 1279px)");
