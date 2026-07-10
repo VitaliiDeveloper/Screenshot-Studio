@@ -8,13 +8,14 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 5; Phase 6 Slices 1–4 are complete.**
+> **Status: implementation and verification are complete through Phase 5; Phase 6 Slices 1–5 are complete.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
 > removal are shipped and closure-verified. The v2 connected document and precise shared-renderer
-> crop contract, guarded lifecycle/CLI mode changes, gapless connected authoring, and bounded
-> persisted undo/redo are verified. Snapping/smart guides are next. Phase 6 and planned
+> crop contract, guarded lifecycle/CLI mode changes, gapless connected authoring, bounded persisted
+> undo/redo, and zoom-correct connected-space snapping/guides are verified. Asset picker and media
+> insertion are next. Phase 6 and planned
 > Phase 7 together close the baseline; public release readiness comes only after later stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical

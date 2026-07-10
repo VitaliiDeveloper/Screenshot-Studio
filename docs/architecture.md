@@ -181,6 +181,15 @@ through the same durable project save path as ordinary edits. Loading a project 
 after an external durable-resource operation resets history. Selection, viewport, dialogs, save
 status, and guide chrome are transient and never enter project history or JSON.
 
+**Editor snapping — Phase 6 Slice 5.** One dragged element derives rotation-aware bounds in the
+active stage coordinate space. Candidate anchors come from the connected group bounds, each active
+artboard, and visible non-zero-opacity elements; exact ties prefer element, then artboard, then
+group targets in stable project order. The logical tolerance is `6 / zoom`, keeping the interaction
+threshold at six screen pixels. Connected results translate back to the unchanged owner-local
+coordinate. Vertical/horizontal guides are non-listening Konva lines updated through refs during
+drag, cleared before persistence, and absent from the store, project schema, static renderer, and
+export.
+
 ---
 
 ## 4. Store export spec

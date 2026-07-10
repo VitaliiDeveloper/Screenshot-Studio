@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Konva from "konva";
-import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Transformer } from "react-konva";
+import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Line, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import {
   assertNever,
@@ -13,6 +13,7 @@ import {
 import { elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
+import { snapElementDrag, type SnapGuide } from "../lib/editor-snapping";
 import { mutateAndSave } from "../lib/mutate-and-save";
 
 /**
@@ -75,6 +76,9 @@ export function EditorStage({
 
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const verticalGuideRef = useRef<Konva.Line>(null);
+  const horizontalGuideRef = useRef<Konva.Line>(null);
   const [editing, setEditing] = useState<EditingText | null>(null);
   const endingEditRef = useRef(false);
 
@@ -144,9 +148,52 @@ export function EditorStage({
       ?.elements.find((element) => element.id === id);
   };
 
+  const showSnapGuides = (guides: readonly SnapGuide[]) => {
+    const vertical = guides.find((guide) => guide.axis === "x");
+    const horizontal = guides.find((guide) => guide.axis === "y");
+    const verticalNode = verticalGuideRef.current;
+    const horizontalNode = horizontalGuideRef.current;
+    if (verticalNode) {
+      verticalNode.points([vertical?.position ?? 0, 0, vertical?.position ?? 0, stageHeight]);
+      verticalNode.visible(Boolean(vertical));
+    }
+    if (horizontalNode) {
+      horizontalNode.points([0, horizontal?.position ?? 0, stageWidth, horizontal?.position ?? 0]);
+      horizontalNode.visible(Boolean(horizontal));
+    }
+    const wrapper = wrapperRef.current;
+    if (wrapper) {
+      if (vertical) wrapper.dataset.snapGuideX = String(vertical.position);
+      else delete wrapper.dataset.snapGuideX;
+      if (horizontal) wrapper.dataset.snapGuideY = String(horizontal.position);
+      else delete wrapper.dataset.snapGuideY;
+    }
+    verticalNode?.getLayer()?.batchDraw();
+  };
+
+  const clearSnapGuides = () => showSnapGuides([]);
+
+  const onDragMove = (ownerScreenId: string, id: string) => (
+    event: Konva.KonvaEventObject<DragEvent>,
+  ) => {
+    const element = liveElement(ownerScreenId, id);
+    if (!element || element.locked) return;
+    const result = snapElementDrag({
+      element,
+      ownerScreenId,
+      position: { x: event.target.x(), y: event.target.y() },
+      projections,
+      stage: { width: stageWidth, height: stageHeight },
+      zoom,
+    });
+    event.target.position(result.position);
+    showSnapGuides(result.guides);
+  };
+
   const onDragEnd = (ownerScreenId: string, id: string) => (
     event: Konva.KonvaEventObject<DragEvent>,
   ) => {
+    clearSnapGuides();
     if (liveElement(ownerScreenId, id)?.locked) return;
     commit(ownerScreenId, id, { x: event.target.x(), y: event.target.y() });
   };
@@ -154,6 +201,7 @@ export function EditorStage({
   const onTransformEnd = (ownerScreenId: string, id: string) => (
     event: Konva.KonvaEventObject<Event>,
   ) => {
+    clearSnapGuides();
     const node = event.target;
     const element = liveElement(ownerScreenId, id);
     if (!element || element.locked) {
@@ -220,7 +268,11 @@ export function EditorStage({
     : undefined;
 
   return (
-    <div style={{ position: "relative", width: stageWidth * zoom, height: stageHeight * zoom }}>
+    <div
+      ref={wrapperRef}
+      data-testid="editor-stage"
+      style={{ position: "relative", width: stageWidth * zoom, height: stageHeight * zoom }}
+    >
       <Stage
         width={stageWidth * zoom}
         height={stageHeight * zoom}
@@ -260,6 +312,7 @@ export function EditorStage({
                   },
                   onClick: () => editorStore.getState().select(element.id, screen.id),
                   onTap: () => editorStore.getState().select(element.id, screen.id),
+                  onDragMove: onDragMove(screen.id, element.id),
                   onDragEnd: onDragEnd(screen.id, element.id),
                   onTransformEnd: onTransformEnd(screen.id, element.id),
                 } : { listening: false };
@@ -312,6 +365,27 @@ export function EditorStage({
               />
             ))
             : null}
+
+          {canEdit ? (
+            <>
+              <Line
+                ref={verticalGuideRef}
+                visible={false}
+                listening={false}
+                stroke="#EC4899"
+                strokeWidth={1 / zoom}
+                dash={[6 / zoom, 4 / zoom]}
+              />
+              <Line
+                ref={horizontalGuideRef}
+                visible={false}
+                listening={false}
+                stroke="#EC4899"
+                strokeWidth={1 / zoom}
+                dash={[6 / zoom, 4 / zoom]}
+              />
+            </>
+          ) : null}
 
           {canEdit ? (
             <Transformer

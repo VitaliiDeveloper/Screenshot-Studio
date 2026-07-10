@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–4 through connected authoring and undo/redo are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–5 through connected authoring, undo/redo, and snapping are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -180,8 +180,10 @@ the schema gains them (future phases). Everything else is as built.
 
 Held back to protect the thin slice (aligned with `roadmap.md`):
 
-- **Snapping / smart guides / alignment tools.** Overview and pan/zoom do not imply cross-artboard
-  geometry or snapping; connected-space snapping and guides are planned for Phase 6.
+- **Snapping / smart guides — shipped in Phase 6 Slice 5.** Single-element drag aligns
+  rotation-aware bounds to active group/artboard and visible element edges/centres in isolated or
+  connected space. The threshold stays six screen pixels at every zoom; at most one guide per axis
+  is drawn as transient Konva chrome and only the final owner-local position is persisted.
 - **Undo/redo UI — shipped in Phase 6 Slice 4.** The editor keeps up to 50 project snapshots,
   coalesces consecutive edits to one element or screen surface, exposes toolbar and standard
   keyboard controls, persists every undo/redo through the normal save path, and resets history on
