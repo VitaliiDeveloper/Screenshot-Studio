@@ -101,7 +101,7 @@ describe("Phase 7 group render parity", () => {
 
     const box = (await canvas.boundingBox())!;
     await page.mouse.click(box.x + 270 * box.width / 600, box.y + 110 * box.height / 300);
-    await page.getByText("Group resize is available with group authoring.", { exact: true })
+    await page.getByText("2 children. Resize stays uniform to preserve child transforms.", { exact: true })
       .waitFor({ state: "visible" });
     await page.close();
   });

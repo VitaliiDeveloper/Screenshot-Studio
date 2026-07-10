@@ -2,8 +2,8 @@
 "use client";
 
 import { useStore } from "zustand";
-import { EyeOff, Lock, LockOpen, PanelRightClose, Trash2 } from "lucide-react";
-import { getScreen } from "@screenshot-studio/core/model";
+import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
+import { findElementLocation, getScreen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { primarySelection, selectionBounds } from "../lib/editor-selection";
@@ -63,18 +63,27 @@ export function Inspector({
   const primary = primarySelection(selectedItems);
   const screen = getScreen(project, selectedItems.length === 1 && primary ? primary.screenId : activeScreenId);
   const element = selectedItems.length === 1 && primary
-    ? screen.elements.find((candidate) => candidate.id === primary.elementId)
+    ? findElementLocation(screen, primary.elementId)?.element
     : undefined;
   const aggregate = selectedItems.length > 1
     ? selectionBounds(project, activeScreenId, selectedItems)
     : null;
   const selectedElements = selectedItems.flatMap((selection) => {
     const owner = project.screens.find((candidate) => candidate.id === selection.screenId);
-    const selected = owner?.elements.find((candidate) => candidate.id === selection.elementId);
+    const selected = owner ? findElementLocation(owner, selection.elementId)?.element : undefined;
     return selected ? [selected] : [];
   });
   const everyLocked = selectedElements.length > 0 && selectedElements.every((candidate) => candidate.locked);
   const everyHidden = selectedElements.length > 0 && selectedElements.every((candidate) => !candidate.visible);
+  const selectedLocations = selectedItems.map((selection) => {
+    const owner = project.screens.find((candidate) => candidate.id === selection.screenId);
+    return { selection, location: owner ? findElementLocation(owner, selection.elementId) : null };
+  });
+  const canGroup = selectedItems.length >= 2
+    && new Set(selectedItems.map((item) => item.screenId)).size === 1
+    && selectedLocations.every(({ location }) => location && !location.parent && location.element.type !== "group");
+  const canUngroup = selectedItems.length > 0
+    && selectedLocations.every(({ location }) => location && !location.parent && location.element.type === "group");
 
   return (
     <aside className={cx(
@@ -117,6 +126,22 @@ export function Inspector({
               <button
                 type="button"
                 className={editorUi.buttonSecondary}
+                disabled={!canGroup}
+                onClick={() => mutateAndSave(() => editorStore.getState().groupSelected())}
+              >
+                <Combine size={14} /> Group
+              </button>
+              <button
+                type="button"
+                className={editorUi.buttonSecondary}
+                disabled={!canUngroup}
+                onClick={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
+              >
+                <Ungroup size={14} /> Ungroup
+              </button>
+              <button
+                type="button"
+                className={editorUi.buttonSecondary}
                 onClick={() => mutateAndSave(() => editorStore.getState().setSelectedLocked(!everyLocked))}
               >
                 {everyLocked ? <LockOpen size={14} /> : <Lock size={14} />}
@@ -145,13 +170,26 @@ export function Inspector({
             <NumberField label="X" value={element.x} onChange={(x) => patch(element.id, { x })} />
             <NumberField label="Y" value={element.y} onChange={(y) => patch(element.id, { y })} />
             {element.type === "group" ? (
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                <span>Width <strong className="text-slate-700">{Math.round(element.width)}</strong></span>
-                <span>Height <strong className="text-slate-700">{Math.round(element.height)}</strong></span>
-                <p className="col-span-2 text-[11px] leading-4 text-slate-400">
-                  Group resize is available with group authoring.
-                </p>
-              </div>
+              <>
+                <NumberField
+                  label="Width"
+                  value={element.width}
+                  min={1}
+                  onChange={(width) => patch(element.id, {
+                    width,
+                    height: element.height * width / element.width,
+                  })}
+                />
+                <NumberField
+                  label="Height"
+                  value={element.height}
+                  min={1}
+                  onChange={(height) => patch(element.id, {
+                    width: element.width * height / element.height,
+                    height,
+                  })}
+                />
+              </>
             ) : (
               <>
                 <NumberField label="Width" value={element.width} min={1} onChange={(width) => patch(element.id, { width })} />
@@ -161,6 +199,22 @@ export function Inspector({
             <NumberField label="Rotation" value={element.rotation} onChange={(rotation) => patch(element.id, { rotation })} />
             <NumberField label="Opacity" value={element.opacity} min={0} max={1} step={0.1} onChange={(opacity) => patch(element.id, { opacity })} />
           </Section>
+
+          {element.type === "group" ? (
+            <Section title="Group">
+              <p className="text-[11px] leading-4 text-slate-400">
+                {element.children.length} {element.children.length === 1 ? "child" : "children"}. Resize stays uniform to preserve child transforms.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}>
+                  <Copy size={14} /> Duplicate
+                </button>
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}>
+                  <Ungroup size={14} /> Ungroup
+                </button>
+              </div>
+            </Section>
+          ) : null}
 
           {element.type === "text" && (
             <Section title="Text">

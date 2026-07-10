@@ -4,7 +4,7 @@
 import { useRef, useState } from "react";
 import { useStore } from "zustand";
 import { CloudDownload, Type, Upload } from "lucide-react";
-import { elementLeaves, fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
+import { elementLeaves, findElementLocation, fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
 import { registerFont } from "@screenshot-studio/core/fonts";
 import { editorStore } from "../lib/editor-store";
 import { primarySelection } from "../lib/editor-selection";
@@ -49,7 +49,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
 
   const primary = primarySelection(selectedItems);
   const selected = selectedItems.length === 1 && primary
-    ? getScreen(project, primary.screenId).elements.find((element) => element.id === primary.elementId)
+    ? findElementLocation(getScreen(project, primary.screenId), primary.elementId)?.element
     : undefined;
   const selectedText = selected?.type === "text" ? selected : undefined;
   const close = () => {

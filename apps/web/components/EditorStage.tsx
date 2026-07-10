@@ -260,12 +260,24 @@ export function EditorStage({
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
     node.scale({ x: 1, y: 1 });
+    const dimensions = element.type === "group"
+      ? (() => {
+          const scale = Math.max(
+            5 / element.width,
+            5 / element.height,
+            (Math.abs(scaleX) + Math.abs(scaleY)) / 2,
+          );
+          return { width: element.width * scale, height: element.height * scale };
+        })()
+      : {
+          width: Math.max(5, node.width() * scaleX),
+          height: Math.max(5, node.height() * scaleY),
+        };
     commit(ownerScreenId, id, {
       x: node.x(),
       y: node.y(),
       rotation: node.rotation(),
-      width: Math.max(5, node.width() * scaleX),
-      height: Math.max(5, node.height() * scaleY),
+      ...dimensions,
     });
   };
 
@@ -546,12 +558,13 @@ export function EditorStage({
           {canEdit ? (
             <Transformer
               ref={trRef}
-              resizeEnabled={
-                selectedItems.length === 1
-                && !selectedElement?.locked
-                && selectedElement?.type !== "group"
-              }
+              resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
+              keepRatio={selectedElement?.type === "group"}
+              flipEnabled={selectedElement?.type !== "group"}
+              enabledAnchors={selectedElement?.type === "group"
+                ? ["top-left", "top-right", "bottom-left", "bottom-right"]
+                : undefined}
             />
           ) : null}
 

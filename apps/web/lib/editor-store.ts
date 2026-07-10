@@ -4,11 +4,16 @@ import { produce } from "immer";
 import {
   cloneLocaleSet as cloneLocaleSetCore,
   cloneScreenWithFreshIds,
+  duplicateElement as duplicateElementCore,
+  findElementLocation,
+  groupElements as groupElementsCore,
   recomputeManifests,
   removeLocaleSet as removeLocaleSetCore,
+  resizeGroupUniform,
   sameScreenGroup,
   setCanvasMode as setCanvasModeCore,
   setLocaleDirection as setLocaleDirectionCore,
+  ungroupElement as ungroupElementCore,
   type CanvasMode,
   type Project,
   type Element,
@@ -78,6 +83,18 @@ function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
 
 /** Apply only fields legal for this element's type (no blind Object.assign). */
 export function applyElementPatch(el: Element, patch: ElementPatch): void {
+  if (el.type === "group" && (patch.width !== undefined || patch.height !== undefined)) {
+    const scale = patch.width !== undefined
+      ? patch.width / el.width
+      : patch.height! / el.height;
+    const resized = resizeGroupUniform(
+      el,
+      patch.width ?? el.width * scale,
+      patch.height ?? el.height * scale,
+    );
+    el.children = resized.children;
+    patch = { ...patch, width: resized.width, height: resized.height };
+  }
   applyCommonPatch(el, patch);
   switch (el.type) {
     case "text":
@@ -126,6 +143,9 @@ export interface EditorState {
   removeSelected: () => void;
   setSelectedLocked: (locked: boolean) => void;
   setSelectedVisible: (visible: boolean) => void;
+  groupSelected: () => void;
+  ungroupSelected: () => void;
+  duplicateSelected: () => void;
   selectScreen: (id: string) => void;
   selectLocale: (locale: string) => void;
   reorderScreens: (fromId: string, toId: string) => void;
@@ -238,8 +258,8 @@ export const editorStore = createStore<EditorState>((set) => ({
       if (!ownerScreenId) return state;
       const project = produce(state.project, (draft) => {
         const screen = draft.screens.find((candidate) => candidate.id === ownerScreenId);
-        const element = screen?.elements.find((candidate) => candidate.id === id);
-        if (element) applyElementPatch(element, patch);
+        const location = screen ? findElementLocation(screen, id) : null;
+        if (location) applyElementPatch(location.element, patch);
       });
       return recordProjectChange(state, project, `element:${ownerScreenId}:${id}`);
     }),
@@ -250,9 +270,17 @@ export const editorStore = createStore<EditorState>((set) => ({
       const project = produce(state.project, (draft) => {
         for (const screen of draft.screens) {
           for (const element of screen.elements) {
-            if (element.locked || !selectedKeys.has(`${screen.id}\u0000${element.id}`)) continue;
-            element.x += delta.x;
-            element.y += delta.y;
+            if (selectedKeys.has(`${screen.id}\u0000${element.id}`) && !element.locked) {
+              element.x += delta.x;
+              element.y += delta.y;
+            } else if (element.type === "group" && !element.locked) {
+              for (const child of element.children) {
+                if (!child.locked && selectedKeys.has(`${screen.id}\u0000${child.id}`)) {
+                  child.x += delta.x;
+                  child.y += delta.y;
+                }
+              }
+            }
           }
         }
       });
@@ -264,9 +292,20 @@ export const editorStore = createStore<EditorState>((set) => ({
       const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
       const project = produce(state.project, (draft) => {
         for (const screen of draft.screens) {
-          screen.elements = screen.elements.filter(
-            (element) => !selectedKeys.has(`${screen.id}\u0000${element.id}`),
-          );
+          for (let elementIndex = screen.elements.length - 1; elementIndex >= 0; elementIndex -= 1) {
+            const element = screen.elements[elementIndex]!;
+            if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) {
+              screen.elements.splice(elementIndex, 1);
+              continue;
+            }
+            if (element.type !== "group") continue;
+            for (let childIndex = element.children.length - 1; childIndex >= 0; childIndex -= 1) {
+              if (selectedKeys.has(`${screen.id}\u0000${element.children[childIndex]!.id}`)) {
+                element.children.splice(childIndex, 1);
+              }
+            }
+            if (element.children.length === 0) screen.elements.splice(elementIndex, 1);
+          }
         }
       });
       return recordProjectChange(state, project, null, { selectedItems: [] });
@@ -279,6 +318,11 @@ export const editorStore = createStore<EditorState>((set) => ({
         for (const screen of draft.screens) {
           for (const element of screen.elements) {
             if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) element.locked = locked;
+            if (element.type === "group") {
+              for (const child of element.children) {
+                if (selectedKeys.has(`${screen.id}\u0000${child.id}`)) child.locked = locked;
+              }
+            }
           }
         }
       });
@@ -292,10 +336,90 @@ export const editorStore = createStore<EditorState>((set) => ({
         for (const screen of draft.screens) {
           for (const element of screen.elements) {
             if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) element.visible = visible;
+            if (element.type === "group") {
+              for (const child of element.children) {
+                if (selectedKeys.has(`${screen.id}\u0000${child.id}`)) child.visible = visible;
+              }
+            }
           }
         }
       });
       return recordProjectChange(state, project, null, visible ? {} : { selectedItems: [] });
+    }),
+  groupSelected: () =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length < 2) return state;
+      const ownerIds = new Set(state.selectedItems.map((item) => item.screenId));
+      if (ownerIds.size !== 1) return state;
+      const ownerScreenId = state.selectedItems[0]!.screenId;
+      const owner = state.project.screens.find((screen) => screen.id === ownerScreenId);
+      if (!owner) return state;
+      const locations = state.selectedItems.map((item) => findElementLocation(owner, item.elementId));
+      if (locations.some((location) => !location || location.parent || location.element.type === "group")) return state;
+      const result = groupElementsCore(owner, state.selectedItems.map((item) => item.elementId));
+      const project = produce(state.project, (draft) => {
+        const index = draft.screens.findIndex((screen) => screen.id === ownerScreenId);
+        if (index >= 0) draft.screens[index] = result.screen;
+      });
+      return recordProjectChange(state, project, null, {
+        activeScreenId: ownerScreenId,
+        selectedItems: [{ screenId: ownerScreenId, elementId: result.group.id }],
+      });
+    }),
+  ungroupSelected: () =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length === 0) return state;
+      let project = state.project;
+      const selectedItems: SelectionRef[] = [];
+      for (const selection of state.selectedItems) {
+        const screen = project.screens.find((candidate) => candidate.id === selection.screenId);
+        const location = screen ? findElementLocation(screen, selection.elementId) : null;
+        if (!screen || !location || location.parent || location.element.type !== "group") {
+          return state;
+        }
+        const result = ungroupElementCore(screen, selection.elementId);
+        project = {
+          ...project,
+          screens: project.screens.map((candidate) => candidate.id === screen.id ? result.screen : candidate),
+        };
+        selectedItems.push(...result.children.map((child) => ({
+          screenId: screen.id,
+          elementId: child.id,
+        })));
+      }
+      return recordProjectChange(state, project, null, { selectedItems });
+    }),
+  duplicateSelected: () =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length === 0) return state;
+      const selectedByScreen = new Map<string, Set<string>>();
+      for (const selection of state.selectedItems) {
+        const screen = state.project.screens.find((candidate) => candidate.id === selection.screenId);
+        const location = screen ? findElementLocation(screen, selection.elementId) : null;
+        if (!location || location.parent) return state;
+        const ids = selectedByScreen.get(selection.screenId) ?? new Set<string>();
+        ids.add(selection.elementId);
+        selectedByScreen.set(selection.screenId, ids);
+      }
+      const nextSelection: SelectionRef[] = [];
+      const project: Project = {
+        ...state.project,
+        screens: state.project.screens.map((screen) => {
+          const selectedIds = selectedByScreen.get(screen.id);
+          if (!selectedIds) return screen;
+          const elements: Element[] = [];
+          for (const element of screen.elements) {
+            elements.push(element);
+            if (!selectedIds.has(element.id)) continue;
+            const copy = duplicateElementCore(element);
+            elements.push(copy);
+            nextSelection.push({ screenId: screen.id, elementId: copy.id });
+            selectedIds.delete(element.id);
+          }
+          return { ...screen, elements };
+        }),
+      };
+      return recordProjectChange(state, project, null, { selectedItems: nextSelection });
     }),
   selectScreen: (id) => set({
     activeScreenId: id,
@@ -428,7 +552,18 @@ export const editorStore = createStore<EditorState>((set) => ({
       if (!ownerScreenId) return state;
       const project = produce(state.project, (draft) => {
         const screen = draft.screens.find((s) => s.id === ownerScreenId);
-        if (screen) screen.elements = screen.elements.filter((e) => e.id !== id);
+        if (!screen) return;
+        for (let elementIndex = screen.elements.length - 1; elementIndex >= 0; elementIndex -= 1) {
+          const element = screen.elements[elementIndex]!;
+          if (element.id === id) {
+            screen.elements.splice(elementIndex, 1);
+            continue;
+          }
+          if (element.type !== "group") continue;
+          const childIndex = element.children.findIndex((child) => child.id === id);
+          if (childIndex >= 0) element.children.splice(childIndex, 1);
+          if (element.children.length === 0) screen.elements.splice(elementIndex, 1);
+        }
       });
       return recordProjectChange(state, project, null, {
         selectedItems: state.selectedItems.filter(

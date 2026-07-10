@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   Box,
+  Copy,
   Eye,
   EyeOff,
   Image as ImageIcon,
@@ -16,6 +17,7 @@ import {
   Square,
   Trash2,
   Type,
+  Ungroup,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -132,8 +134,8 @@ export function LayersSection() {
             {rows.map((el, rowIndex) => {
               const selected = isSelected(selectedItems, { screenId: activeScreenId, elementId: el.id });
               return (
+              <Fragment key={el.id}>
               <SortableRow
-                key={el.id}
                 id={el.id}
                 role="listitem"
                 className={cx(
@@ -230,6 +232,36 @@ export function LayersSection() {
                       <Pencil size={13} strokeWidth={1.8} />
                       Rename
                     </button>
+                    {el.type === "group" ? (
+                      <>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            editorStore.getState().select(el.id, activeScreenId);
+                            mutateAndSave(() => editorStore.getState().duplicateSelected());
+                            setOpenActionsId(null);
+                          }}
+                          aria-label="Duplicate group"
+                          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        >
+                          <Copy size={13} strokeWidth={1.8} /> Duplicate
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            editorStore.getState().select(el.id, activeScreenId);
+                            mutateAndSave(() => editorStore.getState().ungroupSelected());
+                            setOpenActionsId(null);
+                          }}
+                          aria-label="Ungroup layer"
+                          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        >
+                          <Ungroup size={13} strokeWidth={1.8} /> Ungroup
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       role="menuitem"
@@ -272,6 +304,60 @@ export function LayersSection() {
                   </div>
                 ) : null}
               </SortableRow>
+              {el.type === "group" ? el.children.map((child) => {
+                const childSelected = isSelected(selectedItems, {
+                  screenId: activeScreenId,
+                  elementId: child.id,
+                });
+                return (
+                  <div
+                    key={child.id}
+                    role="listitem"
+                    className={cx(
+                      "mx-2 ml-10 flex min-h-9 items-center gap-1 rounded-lg border-l border-slate-200 px-2",
+                      childSelected ? "bg-blue-50 ring-1 ring-blue-100" : "bg-slate-50/60",
+                    )}
+                  >
+                    <ElementTypeIcon element={child} />
+                    <button
+                      type="button"
+                      onClick={() => editorStore.getState().select(child.id, activeScreenId)}
+                      className={cx(
+                        "min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
+                        childSelected ? "font-semibold text-blue-700" : "text-slate-600",
+                        !child.visible && "line-through text-slate-400",
+                      )}
+                    >
+                      {elementLabel(child)}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
+                      aria-label={child.locked ? `Unlock ${elementLabel(child)}` : `Lock ${elementLabel(child)}`}
+                      onClick={() => patch(child.id, { locked: !child.locked })}
+                    >
+                      {child.locked ? <Lock size={12} /> : <LockOpen size={12} />}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
+                      aria-label={child.visible ? `Hide ${elementLabel(child)}` : `Show ${elementLabel(child)}`}
+                      onClick={() => patch(child.id, { visible: !child.visible })}
+                    >
+                      {child.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Delete ${elementLabel(child)}`}
+                      onClick={() => mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId))}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              }) : null}
+              </Fragment>
               );
             })}
           </div>

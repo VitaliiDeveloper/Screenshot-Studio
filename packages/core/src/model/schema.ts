@@ -290,6 +290,29 @@ export const Project = z
       }
     });
 
+    proj.screens.forEach((screen, screenIndex) => {
+      const ids = new Set<string>();
+      const register = (id: string, path: (string | number)[]) => {
+        if (ids.has(id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `duplicate element id within screen: "${id}"`,
+            path: ["screens", screenIndex, ...path, "id"],
+          });
+        } else {
+          ids.add(id);
+        }
+      };
+      screen.elements.forEach((element, elementIndex) => {
+        register(element.id, ["elements", elementIndex]);
+        if (element.type === "group") {
+          element.children.forEach((child, childIndex) => {
+            register(child.id, ["elements", elementIndex, "children", childIndex]);
+          });
+        }
+      });
+    });
+
     const fontIdentityIndexes = new Map<string, number>();
     proj.fonts.forEach((font, i) => {
       const key = fontIdentityKey(font);

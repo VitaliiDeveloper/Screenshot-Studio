@@ -166,7 +166,9 @@ describe("element theme role", () => {
   it("accepts a known optional role", () => {
     const p = validProject();
     (p.screens[0]!.elements[0] as Record<string, unknown>).role = "heading";
-    expect(parseProject(p).screens[0]!.elements[0]!.role).toBe("heading");
+    const parsed = parseProject(p).screens[0]!.elements[0]!;
+    if (parsed.type === "group") throw new Error("expected leaf fixture");
+    expect(parsed.role).toBe("heading");
   });
 
   it("rejects an unknown role", () => {
@@ -274,6 +276,16 @@ describe("GroupElement (schema v3)", () => {
   it("rejects group-level theme roles and unknown fields", () => {
     expect(() => Element.parse({ ...group, role: "accent" })).toThrow();
     expect(() => Element.parse({ ...group, clip: true })).toThrow();
+  });
+
+  it("requires element ids to be unique across one screen tree", () => {
+    const project = validProject();
+    const original = project.screens[0]!.elements[0]!;
+    project.screens[0]!.elements.push({
+      ...group,
+      children: [{ ...child, id: original.id }],
+    } as never);
+    expect(() => parseProject(project)).toThrow(/duplicate element id/);
   });
 });
 

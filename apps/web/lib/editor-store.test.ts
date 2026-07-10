@@ -567,3 +567,122 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
     ]);
   });
 });
+
+describe("editorStore group authoring (phase 7 slice 3)", () => {
+  beforeEach(() => {
+    const fixture = project();
+    fixture.screens[0]!.elements.push({
+      id: "card", type: "shape", x: 100, y: 340, width: 200, height: 120,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      kind: "rect", fill: "#3366FF", radius: 12,
+    });
+    editorStore.getState().load(fixture);
+  });
+
+  it("groups top-level leaves from one owner and restores them through undo", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "hero", elementId: "card" },
+    ]);
+    editorStore.getState().groupSelected();
+
+    const state = editorStore.getState();
+    const group = state.project!.screens[0]!.elements[0]!;
+    expect(group.type).toBe("group");
+    if (group.type !== "group") throw new Error("expected group");
+    expect(group.children.map((child) => child.id)).toEqual(["headline", "card"]);
+    expect(state.selectedItems).toEqual([{ screenId: "hero", elementId: group.id }]);
+    expect(state.historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.screens[0]!.elements.map((element) => element.id))
+      .toEqual(["headline", "card"]);
+  });
+
+  it("does not group selections from different owner screens", () => {
+    const loaded = structuredClone(editorStore.getState().project!);
+    const secondShape = structuredClone(loaded.screens[0]!.elements[1]!);
+    secondShape.id = "second-card";
+    loaded.screens[1]!.elements.push(secondShape);
+    editorStore.getState().load(loaded);
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "second-card" },
+    ]);
+
+    editorStore.getState().groupSelected();
+
+    expect(editorStore.getState().project).toBe(loaded);
+    expect(editorStore.getState().historyPast).toEqual([]);
+  });
+
+  it("patches nested children and removes an empty group", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "hero", elementId: "card" },
+    ]);
+    editorStore.getState().groupSelected();
+    editorStore.getState().patchElement("card", { fill: "#FF0000", x: 25 }, "hero");
+
+    const group = editorStore.getState().project!.screens[0]!.elements[0]!;
+    expect(group.type === "group" && group.children[1]).toMatchObject({ fill: "#FF0000", x: 25 });
+
+    editorStore.getState().removeElement("headline", "hero");
+    editorStore.getState().removeElement("card", "hero");
+    expect(editorStore.getState().project!.screens[0]!.elements).toEqual([]);
+  });
+
+  it("resizes uniformly and scales child geometry", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "hero", elementId: "card" },
+    ]);
+    editorStore.getState().groupSelected();
+    const group = editorStore.getState().project!.screens[0]!.elements[0]!;
+    if (group.type !== "group") throw new Error("expected group");
+    const before = structuredClone(group);
+
+    editorStore.getState().patchElement(group.id, { width: group.width * 2 }, "hero");
+
+    const resized = editorStore.getState().project!.screens[0]!.elements[0]!;
+    if (resized.type !== "group") throw new Error("expected group");
+    expect(resized).toMatchObject({ width: before.width * 2, height: before.height * 2 });
+    expect(resized.children[0]).toMatchObject({
+      width: before.children[0]!.width * 2,
+      height: before.children[0]!.height * 2,
+    });
+    expect(resized.children[0]!.type === "text" && resized.children[0]!.size)
+      .toBe(before.children[0]!.type === "text" ? before.children[0]!.size * 2 : undefined);
+  });
+
+  it("duplicates groups with fresh ids, then ungroups the copy", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "hero", elementId: "card" },
+    ]);
+    editorStore.getState().groupSelected();
+    const original = editorStore.getState().project!.screens[0]!.elements[0]!;
+    if (original.type !== "group") throw new Error("expected group");
+
+    editorStore.getState().duplicateSelected();
+    const elements = editorStore.getState().project!.screens[0]!.elements;
+    expect(elements).toHaveLength(2);
+    const copy = elements[1]!;
+    if (copy.type !== "group") throw new Error("expected copied group");
+    expect(copy.id).not.toBe(original.id);
+    expect(copy.children.map((child) => child.id)).not.toEqual(original.children.map((child) => child.id));
+    expect(copy).toMatchObject({ x: original.x + 20, y: original.y + 20 });
+    expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: copy.id }]);
+
+    editorStore.getState().patchElement(copy.id, { rotation: 30, opacity: 0.5 }, "hero");
+    editorStore.getState().ungroupSelected();
+    const ungrouped = editorStore.getState().project!.screens[0]!.elements.slice(1);
+    expect(ungrouped).toHaveLength(2);
+    expect(ungrouped[0]).toMatchObject({
+      rotation: copy.children[0]!.rotation + 30,
+      opacity: copy.children[0]!.opacity * 0.5,
+    });
+    expect(editorStore.getState().selectedItems.map((item) => item.elementId))
+      .toEqual(copy.children.map((child) => child.id));
+  });
+});

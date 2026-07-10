@@ -219,8 +219,8 @@ keyboard dismissal without persisting workspace chrome.
 click and rotation-aware marquee acquisition operate only inside the editable active screen or
 connected exact group. Aggregate translation adds one stage-space delta to each unlocked member's
 unchanged owner-local coordinates and commits one history/save mutation; delete, lock, and
-visibility are likewise atomic. Multi-resize/rotate, snapping, grouping, and persistence remain
-outside this selection contract. Selection is reconciled across screen/mode/load/undo boundaries
+visibility are likewise atomic. Multi-resize/rotate and snapping remain outside this selection
+contract. Selection is reconciled across screen/mode/load/undo boundaries
 but never enters project JSON, render/export input, or history snapshots.
 
 **Persisted groups — schema v3 / Phase 7 Slice 2.** `Element` is `LeafElement | GroupElement`,
@@ -232,6 +232,17 @@ overflow participates in the connected→isolated loss guard, and exact screen s
 the only export crop. v1 migrates through isolated v2 and v2 migrates losslessly to v3 by version
 bump; fonts, assets, themes, templates, cloning, and RTL all traverse group leaves through shared
 core helpers.
+
+**Group authoring — Phase 7 Slice 3.** Grouping requires at least two top-level leaves from one
+owner screen, rejects cross-owner/nested input, inserts one group at the frontmost selected slot,
+and converts its children to rotation-aware aggregate-bound-local coordinates. Groups transform as
+one top-level node; uniform resize bakes scale into every child geometry and dimensional leaf field.
+Ungroup composes group translation, rotation, opacity, lock, and visibility into its children at the
+same z-order slot. Duplicate freshens the group and every child id. Each screen enforces id
+uniqueness across its complete one-level tree so Layers child inspection is unambiguous. Canvas
+interaction selects the group; owner-scoped Layers exposes one indented child level for inspection
+and child property actions. Group, ungroup, duplicate, and all group/child edits use the ordinary
+bounded history and durable-save path.
 
 ---
 

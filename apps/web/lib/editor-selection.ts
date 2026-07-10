@@ -2,6 +2,7 @@
 import {
   projectScreenGroup,
   rotatedElementBounds,
+  findElementLocation,
   type ElementBounds,
   type Project,
 } from "@screenshot-studio/core/model";
@@ -54,7 +55,7 @@ export function reconcileSelection(
     const key = selectionKey(selection);
     if (seen.has(key) || !allowedScreenIds.has(selection.screenId)) return false;
     const owner = project.screens.find((screen) => screen.id === selection.screenId);
-    const exists = owner?.elements.some((element) => element.id === selection.elementId) ?? false;
+    const exists = owner ? findElementLocation(owner, selection.elementId) !== null : false;
     if (exists) seen.add(key);
     return exists;
   });
@@ -75,8 +76,9 @@ export function selectionBounds(
     const origin = origins.get(selection.screenId);
     if (origin === undefined) continue;
     const owner = project.screens.find((screen) => screen.id === selection.screenId);
-    const element = owner?.elements.find((candidate) => candidate.id === selection.elementId);
-    if (!element) continue;
+    const location = owner ? findElementLocation(owner, selection.elementId) : null;
+    if (!location || location.parent) continue;
+    const element = location.element;
     const local = rotatedElementBounds(element);
     bounds.push({
       minX: local.minX + origin,

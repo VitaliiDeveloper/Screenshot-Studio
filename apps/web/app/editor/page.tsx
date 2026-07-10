@@ -191,6 +191,19 @@ export default function EditorPage() {
         mutateAndSave(() => editorStore.getState().redo());
         return;
       }
+      if (modifier && key === "g") {
+        event.preventDefault();
+        mutateAndSave(() => event.shiftKey
+          ? editorStore.getState().ungroupSelected()
+          : editorStore.getState().groupSelected());
+        return;
+      }
+      if (modifier && key === "d") {
+        if (editorStore.getState().selectedItems.length === 0) return;
+        event.preventDefault();
+        mutateAndSave(() => editorStore.getState().duplicateSelected());
+        return;
+      }
       if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         event.preventDefault();
         setDialog("templates");

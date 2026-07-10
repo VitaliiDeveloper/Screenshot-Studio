@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slices 1–2 multi-selection/group persistence are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slices 1–3 multi-selection/group authoring are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -61,9 +61,9 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   resized, rotated, or opened for canvas text editing. Shift/Cmd/Ctrl click toggles composite
   owner-aware identities and blank-canvas drag performs rotation-aware marquee selection. A
   multi-selection exposes aggregate bounds plus atomic move/delete/lock/visibility; locked members
-  stay selected but do not move. Resize, rotate, and snapping remain single-element operations until
-  group authoring lands in Phase 7 Slice 3. JSON-authored one-level groups already render/select as
-  one non-clipping top-level layer through the shared UI/CLI node tree.
+  stay selected but do not move. Resize, rotate, and snapping remain single-element operations.
+  Same-owner top-level leaves can be grouped; one-level groups render/select through the shared
+  UI/CLI node tree, transform as one node, resize uniformly, and can be duplicated or ungrouped.
 - **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box
   with the screen's explicit LTR/RTL direction. `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits;
   blur commits and flushes persistence.
@@ -89,8 +89,9 @@ shelf is open at a time; clicking its active rail item collapses it.
   shared by UI and CLI; each platform/device/locale export group derives its relative `01`, `02`, …
   slot order from it. The final screen in a locale is protected here so whole-locale removal always
   goes through the confirmed locale-manager action.
-- **Structure / Layers** (for the selected screen): elements in z-order (array order), with lock / hide /
-  rename. **No grouping.**
+- **Structure / Layers** (for the selected screen): top-level elements in z-order (array order),
+  with lock / hide / rename. Groups expose one indented child level for selection, inspection,
+  lock, visibility, and deletion; top-level drag reorder remains group-atomic.
 - **Resources:** opens existing Fonts, Themes, and Templates dialogs.
 - **Add:** searchable, data-driven groups (`Basic`, `Media`, `Frames`, `Library`). Text and Shape
   insert immediately. Screenshot and iPhone Device Frame open the project image picker; the future
@@ -201,7 +202,10 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
   load or external project replacement. Selection and viewport state never enter history.
 - **Multi-select — shipped in Phase 7 Slice 1.** Composite owner-aware modified-click and marquee
   selection supports aggregate movement and atomic batch actions without persisting workspace
-  state. Element grouping follows only after a parity-proven persisted group contract.
+  state.
+- **Group authoring — shipped in Phase 7 Slice 3.** Same-owner top-level leaves group into the
+  parity-proven v3 contract. Layers exposes child inspection; keyboard group/ungroup/duplicate,
+  uniform group resize, and all group lifecycle actions persist through normal history/save.
 - **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;
   translation assistance remains Phase 5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the

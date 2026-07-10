@@ -56,12 +56,15 @@ describe("applyTheme", () => {
 
   it("bakes roles into grouped leaves without changing group transforms", () => {
     const grouped = project();
+    const title = grouped.screens[0]!.elements[0]!;
+    const accent = grouped.screens[0]!.elements[1]!;
+    if (title.type !== "text" || accent.type !== "shape") throw new Error("expected leaf fixtures");
     grouped.screens[0]!.elements = [{
       id: "group", type: "group", x: 120, y: 80, width: 400, height: 200,
       rotation: 12, opacity: 0.8, locked: false, visible: true,
       children: [
-        { ...grouped.screens[0]!.elements[0]!, id: "group-title", x: 0, y: 0 },
-        { ...grouped.screens[0]!.elements[1]!, id: "group-accent", x: 0, y: 120 },
+        { ...title, id: "group-title", x: 0, y: 0 },
+        { ...accent, id: "group-accent", x: 0, y: 120 },
       ],
     }];
 

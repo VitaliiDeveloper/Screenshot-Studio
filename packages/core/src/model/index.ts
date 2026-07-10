@@ -9,6 +9,7 @@ export * from "./factories.js";
 export * from "./project-ops.js";
 export * from "./connected-canvas.js";
 export * from "./element-tree.js";
+export * from "./group-ops.js";
 export * from "./assert-never.js";
 export { migrateToCurrent } from "./migrate.js";
 
