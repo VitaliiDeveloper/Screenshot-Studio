@@ -1,7 +1,7 @@
 # Roadmap & Execution Plan
 
 Scope, sequencing, and risks. This is the part that changes often.
-Version 0.9, 10 July 2026.
+Version 1.0, 11 July 2026.
 
 The guiding principle: ship a **thin vertical slice** first, and prove the riskiest thesis
 before building on top of it. Everything visually impressive (connected canvas, AI, themes,
@@ -49,6 +49,9 @@ rewrite. We ship without the undo *buttons*, but not without the architecture fo
   group model and group authoring. New `image`, `icon`, and `badge` primitives follow as independent
   render-risk slices rather than one broad schema expansion. Completing Phase 7 closes the baseline
   product scope; it is not itself a public release gate.
+- **Stabilization (Phase 8).** Failure/recovery behavior, packaged cross-environment proof,
+  sustained export/resource budgets, accessibility/browser coverage, current store-rule audit, and
+  release-candidate evidence. Defects may be fixed here; new product scope stays in Phase 9.
 
 ---
 
@@ -152,12 +155,12 @@ primitives. Living v5 examples and connected LTR/RTL keyboard dogfood close the 
 Phase 7 completes the planned baseline product together with Phase 6; it does not imply that the
 project is released. Sliced in §3h.
 
-**Phase 8 — Stabilization + release readiness — planned after baseline completion.**
+**Phase 8 — Stabilization + release readiness — in progress; Slice 1 complete.**
 Sustained dogfood, failure/recovery testing, cross-environment packaged-install checks, performance
 and memory profiling, accessibility and browser coverage, long-running export reliability, and
 release-candidate documentation. A first public release is considered only after this phase's gate;
-Phase 6/7 completion alone is not a release claim. Detailed execution slices are intentionally
-deferred until a dedicated Phase 8 design uses the now-recorded Phase 7 dogfood/closure evidence.
+Phase 6/7 completion alone is not a release claim. The dedicated design uses the recorded Phase 7
+closure evidence and slices the work in §3i.
 
 **Phase 9 — Expansion + continuous improvement — direction after stabilization.**
 Richer existing-type properties, additional frames/platform targets, workflow refinements,
@@ -348,6 +351,31 @@ new-type slices.
 The completed Slice 1–7 contracts and verification checkpoints are recorded in `docs/plans/`, with
 the v3 decision in `docs/specs/2026-07-10-phase7-group-model-design.md` and closure evidence in
 `docs/plans/2026-07-11-phase7-slice7-baseline-closure.md`.
+
+---
+
+## 3i. Phase 8 execution slices
+
+Phase 8 stabilizes the shipped v5 baseline; it does not expand it. Failure/recovery comes first
+because silent output damage or leaked runtime resources would invalidate later soak and package
+evidence. Cross-environment proof follows before performance, accessibility/browser, and final
+release surfaces are treated as representative.
+
+| Slice | Delivers | Risk it retires |
+|-------|----------|-----------------|
+| **1 — Failure/recovery hardening** ✅ | Injected render/filesystem/process fault matrix, staged and rollback-safe generated-output publication, prompt unexpected-host failure, and cleanup evidence. | Prevents failed exports from damaging prior output or leaking browser/server/temp resources. |
+| **2 — Cross-environment packaged install** | Packed install/init/manage/exact-export proof on Linux, macOS, and Windows at Node 22 plus Ubuntu Node 24 compatibility. | Replaces the current Ubuntu-only portability assumption with evidence over the supported engine/OS surface. |
+| **3 — Export soak + performance budgets** | Large/repeated packed-export harnesses, deterministic output checks, controlled wall-time/RSS baseline, ratified budgets, and leak detection. | Finds reliability or resource-growth failures hidden by the current one-export smoke. |
+| **4 — Accessibility + browser coverage** | Automated desktop/compact accessibility states, keyboard/focus regressions, and representative Chromium/Firefox/WebKit editor smoke. | Extends current named-control/keyboard evidence without pretending non-Chromium engines are export renderers. |
+| **5 — Store/dependency release audit** | Dated official-source verification for supported store presets plus actual production dependency, license, package-content, and artifact-size audit. | Prevents release against stale store rules or an unreviewed runtime artifact. |
+| **6 — Release artifact + candidate docs** | Candidate version/package metadata, clean dry-run tarball, changelog, security policy, lifecycle guidance, limitations, and maintainer checklist. | Makes the candidate reproducible and supportable without publishing it implicitly. |
+| **7 — Sustained dogfood + phase closure** | Source/packed living-project dogfood, completed evidence ledger, full repository and release-candidate gates, and explicit go/no-go. | Separates baseline completion from a defensible public-release decision. |
+
+The accepted stabilization, environment, reliability, accessibility, audit, and release gate lives
+in `docs/specs/2026-07-11-phase8-stabilization-release-readiness-design.md`. Slice 1's exact
+implementation/verification contract is recorded in
+`docs/plans/2026-07-11-phase8-slice1-failure-recovery-hardening.md`; cumulative evidence lives in
+`docs/release-readiness.md`.
 
 ---
 

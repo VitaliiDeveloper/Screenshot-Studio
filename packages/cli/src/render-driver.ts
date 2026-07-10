@@ -48,12 +48,34 @@ interface BrowserSessionOptions {
   launch?: typeof chromium.launch;
 }
 
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function errorsTogether(primary: unknown, cleanup: unknown, action: string): AggregateError {
+  return new AggregateError(
+    [primary, cleanup],
+    `${message(primary)}; ${action}: ${message(cleanup)}`,
+    { cause: primary },
+  );
+}
+
 export async function createRenderBrowserSession({
   headless = true,
   launch = chromium.launch,
 }: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
   const browser: Browser = await launch.call(chromium, { headless });
-  const context: BrowserContext = await browser.newContext();
+  let context: BrowserContext;
+  try {
+    context = await browser.newContext();
+  } catch (error) {
+    try {
+      await browser.close();
+    } catch (cleanupError) {
+      throw errorsTogether(error, cleanupError, "browser cleanup failed");
+    }
+    throw error;
+  }
 
   return {
     async renderScreenToPng(opts) {
@@ -62,6 +84,8 @@ export async function createRenderBrowserSession({
       const url = `${baseUrl}/render?project=${encodeURIComponent(abs)}&screen=${encodeURIComponent(screenId)}`;
 
       const page = await context.newPage();
+      let result: Buffer | undefined;
+      let primaryError: unknown;
       try {
         await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
 
@@ -75,14 +99,33 @@ export async function createRenderBrowserSession({
         if (renderError) throw new Error(`Render failed for screen "${screenId}": ${renderError}`);
 
         const dataUrl = await page.evaluate((ratio) => window.__exportPng!(ratio), pixelRatio);
-        return base64PngToBuffer(dataUrl);
-      } finally {
-        await page.close();
+        result = base64PngToBuffer(dataUrl);
+      } catch (error) {
+        primaryError = error;
       }
+      try {
+        await page.close();
+      } catch (cleanupError) {
+        if (primaryError) throw errorsTogether(primaryError, cleanupError, "page cleanup failed");
+        throw cleanupError;
+      }
+      if (primaryError) throw primaryError;
+      return result!;
     },
     async close() {
-      await context.close();
-      await browser.close();
+      let contextError: unknown;
+      try {
+        await context.close();
+      } catch (error) {
+        contextError = error;
+      }
+      try {
+        await browser.close();
+      } catch (browserError) {
+        if (contextError) throw errorsTogether(contextError, browserError, "browser cleanup failed");
+        throw browserError;
+      }
+      if (contextError) throw contextError;
     },
   };
 }

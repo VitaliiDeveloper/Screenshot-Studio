@@ -75,4 +75,54 @@ describe("RenderBrowserSession", () => {
     ).rejects.toThrow(/s1.*bad project/);
     expect(page.close).toHaveBeenCalledTimes(1);
   });
+
+  it("retains the render failure when page cleanup also fails", async () => {
+    const page = {
+      goto: vi.fn(async () => { throw new Error("navigation failed"); }),
+      waitForFunction: vi.fn(async () => undefined),
+      evaluate: vi.fn(),
+      close: vi.fn(async () => { throw new Error("page close failed"); }),
+    };
+    const context = {
+      newPage: vi.fn(async () => page),
+      close: vi.fn(async () => undefined),
+    };
+    const browser = { newContext: vi.fn(async () => context), close: vi.fn(async () => undefined) };
+    const session = await createRenderBrowserSession({ launch: vi.fn(async () => browser as never) });
+
+    await expect(session.renderScreenToPng({
+      baseUrl: "http://localhost:4000",
+      projectPath: "fixtures/project.json",
+      screenId: "s1",
+      pixelRatio: 1,
+    })).rejects.toThrow(/navigation failed.*page cleanup failed.*page close failed/);
+    expect(page.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the browser even when context cleanup fails", async () => {
+    const context = {
+      newPage: vi.fn(),
+      close: vi.fn(async () => { throw new Error("context close failed"); }),
+    };
+    const browser = {
+      newContext: vi.fn(async () => context),
+      close: vi.fn(async () => undefined),
+    };
+    const session = await createRenderBrowserSession({ launch: vi.fn(async () => browser as never) });
+
+    await expect(session.close()).rejects.toThrow(/context close failed/);
+    expect(browser.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the browser when context creation fails", async () => {
+    const browser = {
+      newContext: vi.fn(async () => { throw new Error("context creation failed"); }),
+      close: vi.fn(async () => undefined),
+    };
+
+    await expect(createRenderBrowserSession({
+      launch: vi.fn(async () => browser as never),
+    })).rejects.toThrow(/context creation failed/);
+    expect(browser.close).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { constants } from "node:fs";
-import { lstat, mkdir, open, readFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import JSZip from "jszip";
 import {
@@ -149,13 +149,38 @@ async function writeFileNoFollow(path: string, bytes: Buffer): Promise<void> {
   }
 }
 
+interface BundleOutputDependencies {
+  makeTempDirectory?: typeof mkdtemp;
+  move?: typeof rename;
+  remove?: typeof rm;
+  write?: typeof writeFileNoFollow;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function withSecondaryError(primary: unknown, secondary: unknown, action: string): AggregateError {
+  return new AggregateError(
+    [primary, secondary],
+    `${errorMessage(primary)}; ${action}: ${errorMessage(secondary)}`,
+    { cause: primary },
+  );
+}
+
 export async function writeBundleOutputs({
   outDir,
   entries,
+  dependencies = {},
 }: {
   outDir: string;
   entries: RenderedBundleEntry[];
+  dependencies?: BundleOutputDependencies;
 }): Promise<string> {
+  const makeTempDirectory = dependencies.makeTempDirectory ?? mkdtemp;
+  const move = dependencies.move ?? rename;
+  const remove = dependencies.remove ?? rm;
+  const write = dependencies.write ?? writeFileNoFollow;
   const seenPaths = new Set<string>();
   const outputs = entries.map(({ entry, png }) => {
     const outputPath = resolveSafeBundleOutputPath(outDir, entry.relativePath);
@@ -173,15 +198,99 @@ export async function writeBundleOutputs({
   await preflightOutputSymlinks(outDir, zipPath);
 
   const zip = new JSZip();
+  await ensureSafeOutputDirectory(outDir, outDir);
+  for (const { entry, png } of outputs) zip.file(entry.relativePath, png);
+  const zipBytes = await zip.generateAsync({ type: "nodebuffer" });
 
-  for (const { entry, png, outputPath } of outputs) {
-    await ensureSafeOutputDirectory(outDir, dirname(outputPath));
-    await writeFileNoFollow(outputPath, png);
-    zip.file(entry.relativePath, png);
+  const stagingRoot = await makeTempDirectory(join(resolve(outDir), ".screenshot-studio-stage-"));
+  const stagedFilesRoot = join(stagingRoot, "files");
+  const backupRoot = join(stagingRoot, "backup");
+  const publications = [
+    ...outputs.map(({ entry, png, outputPath }) => ({
+      relativePath: entry.relativePath,
+      bytes: png,
+      outputPath,
+    })),
+    {
+      relativePath: "app-store-screenshots-bundle.zip",
+      bytes: zipBytes,
+      outputPath: zipPath,
+    },
+  ];
+
+  let primaryError: unknown;
+  let preserveStagingForRecovery = false;
+  try {
+    for (const publication of publications) {
+      const stagedPath = resolveSafeBundleOutputPath(stagedFilesRoot, publication.relativePath);
+      await mkdir(dirname(stagedPath), { recursive: true });
+      await write(stagedPath, publication.bytes);
+    }
+
+    const applied: Array<{
+      outputPath: string;
+      backupPath: string;
+      backupMoved: boolean;
+      published: boolean;
+    }> = [];
+    try {
+      for (const [index, publication] of publications.entries()) {
+        await preflightOutputSymlinks(outDir, publication.outputPath);
+        await ensureSafeOutputDirectory(outDir, dirname(publication.outputPath));
+        const stagedPath = resolveSafeBundleOutputPath(stagedFilesRoot, publication.relativePath);
+        const backupPath = join(backupRoot, String(index));
+        const state = { outputPath: publication.outputPath, backupPath, backupMoved: false, published: false };
+        applied.push(state);
+
+        if (await lstatIfExists(publication.outputPath)) {
+          await mkdir(dirname(backupPath), { recursive: true });
+          await move(publication.outputPath, backupPath);
+          state.backupMoved = true;
+        }
+        await move(stagedPath, publication.outputPath);
+        state.published = true;
+      }
+    } catch (publishError) {
+      const rollbackErrors: unknown[] = [];
+      for (const state of applied.reverse()) {
+        if (state.published) {
+          try {
+            await remove(state.outputPath, { force: true });
+          } catch (rollbackError) {
+            rollbackErrors.push(rollbackError);
+          }
+        }
+        if (state.backupMoved) {
+          try {
+            await move(state.backupPath, state.outputPath);
+          } catch (rollbackError) {
+            rollbackErrors.push(rollbackError);
+          }
+        }
+      }
+      if (rollbackErrors.length > 0) {
+        preserveStagingForRecovery = true;
+        throw new AggregateError(
+          [publishError, ...rollbackErrors],
+          `${errorMessage(publishError)}; bundle output rollback failed; recovery data retained at ${stagingRoot}`,
+          { cause: publishError },
+        );
+      }
+      throw publishError;
+    }
+  } catch (error) {
+    primaryError = error;
   }
 
-  await ensureSafeOutputDirectory(outDir, outDir);
-  await writeFileNoFollow(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  if (!preserveStagingForRecovery) {
+    try {
+      await remove(stagingRoot, { recursive: true, force: true });
+    } catch (cleanupError) {
+      if (primaryError) throw withSecondaryError(primaryError, cleanupError, "staging cleanup failed");
+      throw cleanupError;
+    }
+  }
+  if (primaryError) throw primaryError;
   return zipPath;
 }
 

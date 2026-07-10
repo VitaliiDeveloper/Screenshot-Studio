@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInit } from "./init.js";
 import { startWebServer } from "./server.js";
+import type { RunningServer } from "./server.js";
 import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import {
@@ -143,6 +144,46 @@ async function cmdInit(flags: Record<string, string>): Promise<void> {
   console.log(`Initialized project in ${cwd}`);
 }
 
+function failWhenServerExits<T>(server: RunningServer, operation: Promise<T>): Promise<T> {
+  return Promise.race([
+    operation,
+    server.exited.then((error) => { throw error; }),
+  ]);
+}
+
+async function closeAll(actions: Array<() => Promise<void>>): Promise<void> {
+  const results = await Promise.allSettled(actions.map((action) => action()));
+  const failures = results
+    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+    .map((result) => result.reason);
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, "Multiple runtime resources failed to close");
+}
+
+async function runWithCleanup<T>(operation: () => Promise<T>, cleanup: () => Promise<void>): Promise<T> {
+  let result: T | undefined;
+  let primaryError: unknown;
+  try {
+    result = await operation();
+  } catch (error) {
+    primaryError = error;
+  }
+  try {
+    await cleanup();
+  } catch (cleanupError) {
+    if (primaryError) {
+      throw new AggregateError(
+        [primaryError, cleanupError],
+        `${primaryError instanceof Error ? primaryError.message : String(primaryError)}; runtime cleanup failed`,
+        { cause: cleanupError },
+      );
+    }
+    throw cleanupError;
+  }
+  if (primaryError) throw primaryError;
+  return result!;
+}
+
 async function cmdExport(flags: Record<string, string>): Promise<void> {
   const projectPath = resolve(flags.project ?? "app-store-screenshots.json");
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : DEFAULT_STORE_SPECS;
@@ -163,40 +204,39 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
     const outFile = join(outDir, singleExportFilename(screen, target));
 
     const server = await startWebServer();
-    try {
-      const png = await exportScreenToPng({
+    await runWithCleanup(async () => {
+      const png = await failWhenServerExits(server, exportScreenToPng({
         baseUrl: server.url,
         projectPath,
         screenId: mode.screenId,
         target,
-      });
+      }));
       await mkdir(outDir, { recursive: true });
       await writeFile(outFile, png);
       console.log(`Exported ${outFile} (${target.width}x${target.height})`);
-    } finally {
-      await server.stop();
-    }
+    }, () => server.stop());
     return;
   }
 
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   const entries = buildBundleEntries(project, specs, mode.filters);
   const server = await startWebServer();
-  const session = await createRenderBrowserSession();
-  try {
-    const zipPath = await exportBundle({
+  let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
+  await runWithCleanup(async () => {
+    session = await createRenderBrowserSession();
+    const zipPath = await failWhenServerExits(server, exportBundle({
       baseUrl: server.url,
       projectPath,
       outDir,
       entries,
       renderSession: session,
-    });
+    }));
     console.log(`Exported ${entries.length} screenshots to ${outDir}`);
     console.log(`Wrote bundle ${zipPath}`);
-  } finally {
-    await session.close();
-    await server.stop();
-  }
+  }, () => closeAll([
+    ...(session ? [() => session!.close()] : []),
+    () => server.stop(),
+  ]));
 }
 
 async function cmdScreen(args: string[], flags: Record<string, string>): Promise<void> {
@@ -211,14 +251,14 @@ async function cmdDev(flags: Record<string, string>): Promise<void> {
   const server = await startWebServer(options.port, { projectPath: options.projectPath });
   console.log(`Editor running at ${server.url}/editor`);
 
-  await new Promise<void>((resolveShutdown) => {
-    const shutdown = async () => {
-      await server.stop();
-      resolveShutdown();
-    };
-    process.once("SIGINT", shutdown);
-    process.once("SIGTERM", shutdown);
-  });
+  await runWithCleanup(() => Promise.race([
+    new Promise<void>((resolveShutdown) => {
+      const shutdown = () => resolveShutdown();
+      process.once("SIGINT", shutdown);
+      process.once("SIGTERM", shutdown);
+    }),
+    server.exited.then((error) => { throw error; }),
+  ]), () => server.stop());
 }
 
 async function cmdImport(args: string[], flags: Record<string, string>): Promise<void> {

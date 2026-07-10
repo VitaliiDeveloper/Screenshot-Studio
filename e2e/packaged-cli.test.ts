@@ -40,6 +40,13 @@ async function run(command: string, args: string[], cwd: string, timeout = 180_0
   }
 }
 
+async function renderHostDirectories(): Promise<string[]> {
+  return (await readdir(tmpdir(), { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("screenshot-studio-web-"))
+    .map((entry) => entry.name)
+    .sort();
+}
+
 beforeAll(async () => {
   await run("pnpm", ["build:cli-package"], repoRoot, 300_000);
   directory = await mkdtemp(join(tmpdir(), "packaged-cli-"));
@@ -83,7 +90,7 @@ afterAll(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 
-describe("Phase 6 packaged CLI", () => {
+describe("Packaged CLI", () => {
   it("contains only the explicit executable/runtime package surface", () => {
     expect(packedFiles).toEqual([
       "dist/index.js",
@@ -142,5 +149,60 @@ describe("Phase 6 packaged CLI", () => {
     expect(basename(files[0]!)).toContain("apple-iphone-6.9");
     const png = PNG.sync.read(await readFile(join(outputDirectory, files[0]!)));
     expect({ width: png.width, height: png.height }).toEqual({ width: 1320, height: 2868 });
+
+    const outputPath = join(outputDirectory, files[0]!);
+    const priorOutput = await readFile(outputPath);
+    const hostsBeforeFailure = await renderHostDirectories();
+    project.fonts = [{
+      family: "Missing Font",
+      weight: 400,
+      source: "uploaded",
+      path: "assets/fonts/missing.ttf",
+    }];
+    project.screens[0].elements = [{
+      id: "missing-font-text",
+      type: "text",
+      x: 40,
+      y: 40,
+      width: 400,
+      height: 120,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      content: "Missing font",
+      fontFamily: "Missing Font",
+      size: 48,
+      weight: 400,
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      align: "left",
+      color: "#FFFFFF",
+    }];
+    await writeFile(projectPath, `${JSON.stringify(project, null, 2)}\n`);
+
+    const exportArgs = [
+      "export",
+      "--screen",
+      "hero",
+      "--size",
+      "6.9",
+      "--project",
+      projectPath,
+      "--out",
+      outputDirectory,
+    ];
+    await expect(run(bin, exportArgs, consumer, 300_000)).rejects.toThrow(/font|asset|404/i);
+    expect(await readFile(outputPath)).toEqual(priorOutput);
+    expect(await renderHostDirectories()).toEqual(hostsBeforeFailure);
+
+    project.fonts = [];
+    project.screens[0].elements = [];
+    await writeFile(projectPath, `${JSON.stringify(project, null, 2)}\n`);
+    await expect(run(bin, exportArgs, consumer, 300_000)).resolves.toMatchObject({
+      stdout: expect.stringContaining("(1320x2868)"),
+    });
+    expect(await readFile(outputPath)).toEqual(priorOutput);
+    expect(await renderHostDirectories()).toEqual(hostsBeforeFailure);
   });
 });

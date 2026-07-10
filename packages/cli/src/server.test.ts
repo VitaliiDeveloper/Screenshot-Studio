@@ -13,7 +13,7 @@ class FakeChild extends EventEmitter {
   kill = vi.fn(() => {
     this.killed = true;
     this.exitCode = 0;
-    this.emit("exit");
+    this.emit("exit", 0, null);
     return true;
   });
 }
@@ -56,7 +56,9 @@ describe("createServerController", () => {
     expect(waitForHttp).toHaveBeenCalledWith("http://localhost:4567", 100);
     expect(server.url).toBe("http://localhost:4567");
     await server.stop();
+    await server.stop();
     expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(child.kill).toHaveBeenCalledTimes(1);
   });
 
   it("passes the project path to the web app when supplied", async () => {
@@ -87,5 +89,63 @@ describe("createServerController", () => {
       }),
     ).rejects.toThrow(/not ready/);
     expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+  });
+
+  it("fails readiness promptly when the render host exits", async () => {
+    const child = new FakeChild();
+    const pendingReadiness = vi.fn(async () => new Promise<void>(() => undefined));
+    const starting = createServerController({
+      port: 4570,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: pendingReadiness,
+      timeoutMs: 10_000,
+    });
+
+    await vi.waitFor(() => expect(pendingReadiness).toHaveBeenCalledTimes(1));
+    child.exitCode = 7;
+    child.emit("exit", 7, null);
+    await expect(starting).rejects.toThrow(/exited unexpectedly.*code 7/);
+  });
+
+  it("reports an unexpected exit after readiness", async () => {
+    const child = new FakeChild();
+    const server = await createServerController({
+      port: 4571,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => undefined),
+      timeoutMs: 100,
+    });
+
+    child.exitCode = null;
+    child.emit("exit", null, "SIGKILL");
+    await expect(server.exited).resolves.toMatchObject({
+      message: expect.stringMatching(/exited unexpectedly.*SIGKILL/),
+    });
+  });
+
+  it("runs host cleanup when child termination fails", async () => {
+    const child = new FakeChild();
+    child.kill = vi.fn(() => {
+      queueMicrotask(() => child.emit("error", new Error("kill failed")));
+      return false;
+    });
+    const cleanup = vi.fn(async () => undefined);
+    const server = await createServerController({
+      port: 4572,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => undefined),
+      prepareHost: vi.fn(async () => ({
+        command: "node",
+        args: [],
+        cwd: "/tmp",
+        env: {},
+        cleanup,
+      })),
+    });
+
+    const stopping = server.stop();
+    child.emit("exit", 1, null);
+    await stopping;
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 });

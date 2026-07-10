@@ -14,6 +14,8 @@ import JSZip from "jszip";
  */
 export interface RunningServer {
   url: string;
+  /** Resolves only when the child exits unexpectedly before an explicit stop. */
+  exited: Promise<Error>;
   stop: () => Promise<void>;
 }
 
@@ -127,11 +129,23 @@ export interface ServerControllerOptions {
 }
 
 async function terminateChild(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || child.killed) return;
+  if (child.exitCode !== null) return;
   await new Promise<void>((resolveStop) => {
     child.once("exit", () => resolveStop());
     child.kill("SIGTERM");
   });
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function lifecycleErrors(primary: unknown, cleanup: unknown): AggregateError {
+  return new AggregateError(
+    [primary, cleanup],
+    `${errorText(primary)}; render-host cleanup failed: ${errorText(cleanup)}`,
+    { cause: primary },
+  );
 }
 
 export async function createServerController({
@@ -155,23 +169,56 @@ export async function createServerController({
   });
 
   const url = `http://localhost:${selectedPort}`;
+  let stopping = false;
+  let resolveUnexpectedExit!: (error: Error) => void;
+  const exited = new Promise<Error>((resolveExit) => {
+    resolveUnexpectedExit = resolveExit;
+  });
+  child.once("error", (error) => {
+    if (!stopping) resolveUnexpectedExit(new Error(`Render host failed: ${error.message}`, { cause: error }));
+  });
+  child.once("exit", (code, signal) => {
+    if (stopping) return;
+    const status = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
+    resolveUnexpectedExit(new Error(`Render host exited unexpectedly (${status})`));
+  });
+
+  let stopPromise: Promise<void> | undefined;
+  const stop = () => {
+    stopPromise ??= (async () => {
+      stopping = true;
+      let terminateError: unknown;
+      try {
+        await terminateChild(child);
+      } catch (error) {
+        terminateError = error;
+      }
+      try {
+        await host.cleanup();
+      } catch (cleanupError) {
+        if (terminateError) throw lifecycleErrors(terminateError, cleanupError);
+        throw cleanupError;
+      }
+      if (terminateError) throw terminateError;
+    })();
+    return stopPromise;
+  };
+
   try {
-    await wait(url, timeoutMs);
+    await Promise.race([
+      wait(url, timeoutMs),
+      exited.then((error) => { throw error; }),
+    ]);
   } catch (error) {
-    await terminateChild(child);
-    await host.cleanup();
+    try {
+      await stop();
+    } catch (cleanupError) {
+      throw lifecycleErrors(error, cleanupError);
+    }
     throw error;
   }
 
-  let stopped = false;
-  const stop = async () => {
-    if (stopped) return;
-    stopped = true;
-    await terminateChild(child);
-    await host.cleanup();
-  };
-
-  return { url, stop };
+  return { url, exited, stop };
 }
 
 export async function startWebServer(

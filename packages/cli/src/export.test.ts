@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, mkdtemp, readFile, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rename, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import JSZip from "jszip";
@@ -125,6 +125,63 @@ describe("writeBundleOutputs", () => {
 
     expect(await readFile(destination)).toEqual(pngBytes());
   });
+
+  it("stages the complete batch and leaves prior outputs unchanged when staging fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "bundle-output-stage-fail-"));
+    const destination = join(outDir, entries[0]!.relativePath);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, "prior");
+    let writes = 0;
+
+    await expect(writeBundleOutputs({
+      outDir,
+      entries: [
+        { entry: entries[0]!, png: pngBytes() },
+        { entry: entries[1]!, png: pngBytes() },
+      ],
+      dependencies: {
+        write: vi.fn(async (path, bytes) => {
+          writes += 1;
+          if (writes === 2) throw new Error("staging disk full");
+          await writeFile(path, bytes);
+        }),
+      },
+    })).rejects.toThrow(/staging disk full/);
+
+    expect(await readFile(destination, "utf8")).toBe("prior");
+    expect((await readdir(outDir)).some((name) => name.startsWith(".screenshot-studio-stage-"))).toBe(false);
+  });
+
+  it("rolls back replaced and new generated files when publication fails", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "bundle-output-publish-fail-"));
+    const first = join(outDir, entries[0]!.relativePath);
+    const second = join(outDir, entries[1]!.relativePath);
+    const sentinel = join(outDir, "keep.txt");
+    await mkdir(dirname(first), { recursive: true });
+    await writeFile(first, "prior");
+    await writeFile(sentinel, "unrelated");
+    let moves = 0;
+
+    await expect(writeBundleOutputs({
+      outDir,
+      entries: [
+        { entry: entries[0]!, png: pngBytes() },
+        { entry: entries[1]!, png: pngBytes() },
+      ],
+      dependencies: {
+        move: vi.fn(async (source, destination) => {
+          moves += 1;
+          if (moves === 3) throw new Error("publish interrupted");
+          await rename(source, destination);
+        }),
+      },
+    })).rejects.toThrow(/publish interrupted/);
+
+    expect(await readFile(first, "utf8")).toBe("prior");
+    await expect(stat(second)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(sentinel, "utf8")).toBe("unrelated");
+    expect((await readdir(outDir)).some((name) => name.startsWith(".screenshot-studio-stage-"))).toBe(false);
+  });
 });
 
 describe("exportBundle", () => {
@@ -147,11 +204,15 @@ describe("exportBundle", () => {
   });
 
   it("wraps render errors with screen and target context", async () => {
+    const outDir = await mkdtemp(join(tmpdir(), "bundle-export-fail-"));
+    const prior = join(outDir, entries[0]!.relativePath);
+    await mkdir(dirname(prior), { recursive: true });
+    await writeFile(prior, "prior");
     await expect(
       exportBundle({
         baseUrl: "http://localhost:4000",
         projectPath: "fixtures/project.json",
-        outDir: await mkdtemp(join(tmpdir(), "bundle-export-fail-")),
+        outDir,
         entries: [entries[0]!],
         renderSession: {
           renderScreenToPng: vi.fn(async () => {
@@ -160,5 +221,6 @@ describe("exportBundle", () => {
         },
       }),
     ).rejects.toThrow(/s1.*one.*boom/);
+    expect(await readFile(prior, "utf8")).toBe("prior");
   });
 });
