@@ -129,20 +129,38 @@ export function elementToNodeConfig(element: Element, images?: ImageCache): Node
       }
       const fit = computeImageFit(image, { width: element.width, height: element.height }, element.fit);
       return {
-        konva: "Image",
-        config: {
-          ...common,
-          x: element.x + fit.x,
-          y: element.y + fit.y,
-          width: fit.width,
-          height: fit.height,
-          image,
-          cornerRadius: element.cornerRadius,
-          cropX: fit.cropX,
-          cropY: fit.cropY,
-          cropWidth: fit.cropWidth,
-          cropHeight: fit.cropHeight,
-        },
+        konva: "Group",
+        config: { ...common, width: element.width, height: element.height },
+        children: [
+          // Transparent logical box keeps contain-mode letterboxing selectable in the editor.
+          // It is visually inert in the shared export renderer.
+          {
+            konva: "Rect",
+            config: {
+              x: 0,
+              y: 0,
+              width: element.width,
+              height: element.height,
+              fill: "rgba(0,0,0,0)",
+              cornerRadius: element.cornerRadius,
+            },
+          },
+          {
+            konva: "Image",
+            config: {
+              x: fit.x,
+              y: fit.y,
+              width: fit.width,
+              height: fit.height,
+              image,
+              cornerRadius: element.cornerRadius,
+              cropX: fit.cropX,
+              cropY: fit.cropY,
+              cropWidth: fit.cropWidth,
+              cropHeight: fit.cropHeight,
+            },
+          },
+        ],
       };
     }
 

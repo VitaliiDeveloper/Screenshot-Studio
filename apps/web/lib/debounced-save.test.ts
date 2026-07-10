@@ -37,6 +37,16 @@ describe("createDebouncedSaver", () => {
     vi.advanceTimersByTime(300);
     expect(save).not.toHaveBeenCalled();
   });
+
+  it("flushes the latest queued snapshot immediately", async () => {
+    const save = vi.fn();
+    const debounced = createDebouncedSaver(save, 300);
+    debounced(fakeProject);
+    await debounced.flush();
+    expect(save).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(300);
+    expect(save).toHaveBeenCalledOnce();
+  });
 });
 
 describe("createProjectSaveCoordinator", () => {

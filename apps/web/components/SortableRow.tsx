@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { AriaRole, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
@@ -11,7 +11,19 @@ import { cx } from "./editor-ui";
  * inside the row stay clickable); a KeyboardSensor on the parent DndContext makes the handle
  * focusable and reorderable with the keyboard (also what the e2e drives, deterministically).
  */
-export function SortableRow({ id, children, className }: { id: string; children: ReactNode; className?: string }) {
+export function SortableRow({
+  id,
+  children,
+  className,
+  role,
+  ariaLevel,
+}: {
+  id: string;
+  children: ReactNode;
+  className?: string;
+  role?: AriaRole;
+  ariaLevel?: number;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
   const style = {
@@ -23,6 +35,8 @@ export function SortableRow({ id, children, className }: { id: string; children:
     <div
       ref={setNodeRef}
       style={style}
+      role={role}
+      aria-level={ariaLevel}
       className={cx(
         "group mx-2 my-0.5 flex min-h-9 items-center gap-1 rounded-lg px-1.5 transition-colors hover:bg-slate-50",
         className,

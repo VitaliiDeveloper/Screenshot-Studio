@@ -54,13 +54,30 @@ describe("theme management UI", () => {
     await page.waitForSelector("canvas");
 
     await page.getByRole("button", { name: "Theme headline", exact: true }).click();
-    await page.getByLabel("Theme role").selectOption("heading");
+    await page.getByRole("button", { name: "Theme role", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "heading", exact: true }).click();
     await expect.poll(() => headline().role).toBe("heading");
 
+    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: "Themes", exact: true }).click();
     const row = page.getByTestId("theme-row-midnight");
     await row.waitFor({ state: "visible" });
+    let releaseApply!: () => void;
+    const applyGate = new Promise<void>((resolve) => { releaseApply = resolve; });
+    await page.route("**/api/themes", async (route) => {
+      if (route.request().method() === "POST") await applyGate;
+      await route.continue();
+    });
     await row.getByRole("button", { name: "Apply", exact: true }).click();
+    const closeButton = page.getByRole("button", { name: "Close theme picker", exact: true });
+    try {
+      await page.getByRole("button", { name: "Applying…", exact: true }).waitFor();
+      expect(await closeButton.isDisabled()).toBe(true);
+      await page.getByRole("dialog", { name: "Theme picker" }).locator("..").click({ position: { x: 4, y: 4 } });
+      expect(await page.getByRole("dialog", { name: "Theme picker" }).isVisible()).toBe(true);
+    } finally {
+      releaseApply();
+    }
     await expect.poll(() => headline().color).toBe("#12ABCD");
     expect(headline()).toMatchObject({ role: "heading", fontFamily: "Pacifico", weight: 400 });
 
@@ -68,7 +85,7 @@ describe("theme management UI", () => {
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
     await page.getByRole("button", { name: "Theme headline", exact: true }).click();
-    expect(await page.getByLabel("Theme role").inputValue()).toBe("heading");
+    expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("heading");
     await page.close();
   });
 });

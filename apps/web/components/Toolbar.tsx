@@ -4,92 +4,84 @@ import { useState } from "react";
 import { useStore } from "zustand";
 import {
   Download,
-  Frame,
-  LayoutTemplate,
-  Palette,
-  RotateCcw,
-  Shapes,
-  Type,
-  ZoomIn,
-  ZoomOut,
+  LayoutGrid,
+  PanelsTopLeft,
+  PanelRight,
+  Scan,
 } from "lucide-react";
-import type { Element } from "@screenshot-studio/core/model";
-import { createTextElement, createShapeElement } from "@screenshot-studio/core/model";
+import type { WorkspaceView } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
-import { mutateAndSave } from "../lib/mutate-and-save";
 import { ExportDialog } from "./ExportDialog";
-import { FontManagerDialog } from "./FontManagerDialog";
-import { ThemeManagerDialog } from "./ThemeManagerDialog";
-import { TemplateLibraryDialog } from "./TemplateLibraryDialog";
-import { editorUi } from "./editor-ui";
+import { cx, editorUi } from "./editor-ui";
 
-/**
- * Editor toolbar: insert-on-click element tools (text + shape only — asset-bearing types are
- * inspector-edited, spec scope) plus zoom controls. Insert is a discrete action, so it persists
- * immediately (unlike the debounced inspector inputs).
- */
 export function Toolbar({
-  zoom, onZoomIn, onZoomOut, onZoomReset,
-}: { zoom: number; onZoomIn: () => void; onZoomOut: () => void; onZoomReset: () => void }) {
-  const insert = (element: Element) => {
-    mutateAndSave(() => editorStore.getState().addElement(element));
-  };
-
+  view,
+  inspectorOpen,
+  onViewChange,
+  onToggleInspector,
+}: {
+  view: WorkspaceView;
+  inspectorOpen: boolean;
+  onViewChange: (view: WorkspaceView) => void;
+  onToggleInspector: () => void;
+}) {
   const [exportOpen, setExportOpen] = useState(false);
-  const [fontsOpen, setFontsOpen] = useState(false);
-  const [themesOpen, setThemesOpen] = useState(false);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
-  const defaultFont = useStore(editorStore, (state) => state.project?.fonts[0]);
-
-  const insertText = () => {
-    if (!defaultFont) {
-      setFontsOpen(true);
-      return;
-    }
-    insert(createTextElement({ font: defaultFont }));
-  };
+  const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
 
   return (
-    <div className="flex min-h-14 items-center gap-2 border-b border-slate-200 bg-white px-4 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-      <div className="flex items-center gap-1.5" aria-label="Insert elements">
-        <button aria-label="+ Text" className={editorUi.buttonSecondary} onClick={insertText} title={defaultFont ? undefined : "Register a font before adding text"}>
-          <Type size={14} strokeWidth={1.9} /> Text
+    <header className="flex min-h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+          <PanelsTopLeft size={16} strokeWidth={1.9} />
+        </span>
+        <span className="hidden text-sm font-semibold tracking-tight text-slate-950 sm:inline">Screenshot Studio</span>
+        <span className="hidden h-5 w-px bg-slate-200 md:block" aria-hidden="true" />
+        <span className="hidden max-w-48 truncate text-xs font-medium text-slate-600 md:inline">{projectName}</span>
+      </div>
+
+      <div className="mx-auto flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Canvas view">
+        <button
+          type="button"
+          aria-label="Focus"
+          aria-pressed={view === "focus"}
+          className={cx(
+            "inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 sm:px-3",
+            view === "focus" ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+          )}
+          onClick={() => onViewChange("focus")}
+        >
+          <Scan size={14} strokeWidth={1.9} /> <span className="hidden sm:inline">Focus</span>
         </button>
-        <button aria-label="+ Shape" className={editorUi.buttonSecondary} onClick={() => insert(createShapeElement())}>
-          <Shapes size={14} strokeWidth={1.9} /> Shape
+        <button
+          type="button"
+          aria-label="Overview"
+          aria-pressed={view === "overview"}
+          className={cx(
+            "inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 sm:px-3",
+            view === "overview" ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+          )}
+          onClick={() => onViewChange("overview")}
+        >
+          <LayoutGrid size={14} strokeWidth={1.9} /> <span className="hidden sm:inline">Overview</span>
         </button>
       </div>
-      <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
-      <div className="flex items-center gap-1" aria-label="Project resources">
-        <button className={editorUi.buttonGhost} onClick={() => setFontsOpen(true)}>
-          <Frame size={14} strokeWidth={1.9} /> Fonts
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          aria-label="Inspect"
+          aria-pressed={inspectorOpen}
+          className={cx(editorUi.buttonGhost, inspectorOpen && "bg-slate-100 text-slate-900")}
+          onClick={onToggleInspector}
+        >
+          <PanelRight size={15} strokeWidth={1.9} /> <span className="hidden lg:inline">Inspect</span>
         </button>
-        <button className={editorUi.buttonGhost} onClick={() => setThemesOpen(true)}>
-          <Palette size={14} strokeWidth={1.9} /> Themes
-        </button>
-        <button className={editorUi.buttonGhost} onClick={() => setTemplatesOpen(true)}>
-          <LayoutTemplate size={14} strokeWidth={1.9} /> Templates
+        <button type="button" aria-label="Export" className={editorUi.buttonPrimary} onClick={() => setExportOpen(true)}>
+          <Download size={15} strokeWidth={2} /> <span className="hidden sm:inline">Export</span>
         </button>
       </div>
-      <button className={`${editorUi.buttonPrimary} ml-1`} onClick={() => setExportOpen(true)}>
-        <Download size={14} strokeWidth={2} /> Export
-      </button>
-      <FontManagerDialog open={fontsOpen} onClose={() => setFontsOpen(false)} />
-      {themesOpen ? <ThemeManagerDialog onClose={() => setThemesOpen(false)} /> : null}
-      {templatesOpen ? <TemplateLibraryDialog onClose={() => setTemplatesOpen(false)} /> : null}
+
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
-      <div className="ml-auto flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-        <button className={editorUi.iconButton} aria-label="Zoom out" onClick={onZoomOut}>
-          <ZoomOut size={14} strokeWidth={1.9} />
-        </button>
-        <span className="w-12 text-center text-xs font-medium tabular-nums text-slate-600">{Math.round(zoom * 100)}%</span>
-        <button className={editorUi.iconButton} aria-label="Zoom in" onClick={onZoomIn}>
-          <ZoomIn size={14} strokeWidth={1.9} />
-        </button>
-        <button className={editorUi.buttonGhost} onClick={onZoomReset}>
-          <RotateCcw size={13} strokeWidth={1.9} /> Reset
-        </button>
-      </div>
-    </div>
+    </header>
   );
 }

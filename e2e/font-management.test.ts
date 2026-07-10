@@ -46,6 +46,7 @@ describe("font management UI", () => {
     await page.waitForSelector("canvas");
 
     await page.getByRole("button", { name: "Font headline", exact: true }).click();
+    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: "Fonts", exact: true }).click();
     await page.getByLabel("Font file").setInputFiles(resolve(sampleAssets, "fonts/Pacifico-Regular.ttf"));
     await page.getByLabel("Upload font family").fill("Pacifico Alt");
@@ -91,7 +92,7 @@ describe("font management UI", () => {
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
     await page.getByRole("button", { name: "Font headline", exact: true }).click();
-    expect(await page.getByLabel("Font").inputValue()).toBe(JSON.stringify(["Pacifico Alt", 700]));
+    expect(await page.getByRole("button", { name: "Font", exact: true }).textContent()).toContain("Pacifico Alt · 700");
 
     await page.close();
   });

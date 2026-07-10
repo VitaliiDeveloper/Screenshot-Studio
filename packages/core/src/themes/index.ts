@@ -4,7 +4,6 @@ import {
   Project,
   THEME_ROLES,
   type Project as ProjectModel,
-  type ThemeRole as ThemeRoleModel,
 } from "../model/schema.js";
 import { fontIdentityKey } from "../model/font-identity.js";
 
@@ -63,15 +62,9 @@ export function parseThemeJson(json: string): Theme {
 
 function assertThemeFontsRegistered(project: ProjectModel, theme: Theme): void {
   const registered = new Set(project.fonts.map(fontIdentityKey));
-  const usedTextRoles = new Set<ThemeRoleModel>();
-  for (const screen of project.screens) {
-    for (const element of screen.elements) {
-      if (element.type === "text" && element.role) usedTextRoles.add(element.role);
-    }
-  }
   for (const role of THEME_ROLES) {
     const font = theme.fonts[role];
-    if (font && usedTextRoles.has(role) && !registered.has(fontIdentityKey(font))) {
+    if (font && !registered.has(fontIdentityKey(font))) {
       throw new Error(
         `Theme "${theme.id}" requires unregistered font "${font.family}" ${font.weight} for role "${role}"`,
       );

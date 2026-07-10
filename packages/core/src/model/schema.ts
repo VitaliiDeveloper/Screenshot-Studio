@@ -5,8 +5,9 @@ import { fontIdentityKey } from "./font-identity.js";
  * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md §3:
  * solid backgrounds only; element types `text` | `shape` | `screenshot` | `device-frame`
  * (iphone frames only); platforms apple/{iphone,ipad} and android/phone; fonts uploaded/google
- * with project-relative paths. No `themes`, gradient backgrounds, or icon/badge/image yet
- * (later phases). Objects are `.strict()` on purpose: the project JSON is the agent contract,
+ * with project-relative paths. There is no `themes` project key by design; baked theme inputs
+ * live outside the render contract. Gradient backgrounds and icon/badge/image elements are not
+ * implemented yet. Objects are `.strict()` on purpose: the project JSON is the agent contract,
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 

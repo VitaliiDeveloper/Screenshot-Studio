@@ -158,7 +158,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
       onClose={close}
       widthClass="max-w-3xl"
     >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
             <div className="flex items-center gap-2">
               <Upload size={15} className="text-slate-500" strokeWidth={1.8} />
@@ -216,7 +216,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
           ) : project.fonts.map((font) => {
             const usage = fontUsage(project, font);
             return (
-              <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className="flex flex-col items-stretch gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-xs text-slate-600">
                     <strong className="text-slate-900">{font.family}</strong>
@@ -228,8 +228,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
                     The quick brown fox 0123
                   </p>
                 </div>
-                <button className={editorUi.buttonSecondary} disabled={!selectedText || pending !== null} onClick={() => apply(font)}>Apply</button>
-                <button className={editorUi.buttonDanger} disabled={pending !== null} onClick={() => remove(font)}>Remove</button>
+                <div className="flex gap-2 sm:contents">
+                  <button className={`${editorUi.buttonSecondary} flex-1 sm:flex-none`} disabled={!selectedText || pending !== null} onClick={() => apply(font)}>Apply</button>
+                  <button className={`${editorUi.buttonDanger} flex-1 sm:flex-none`} disabled={pending !== null} onClick={() => remove(font)}>Remove</button>
+                </div>
               </div>
             );
           })}

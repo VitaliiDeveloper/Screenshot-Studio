@@ -48,22 +48,29 @@ const stubImage = { width: 400, height: 400 } as unknown as HTMLImageElement;
 const cache: ImageCache = new Map([["a.png", stubImage]]);
 
 describe("elementToNodeConfig — screenshot", () => {
-  it("maps a cover screenshot to an Image config with crop and cornerRadius", () => {
+  it("maps a cover screenshot to a logical Group with crop and cornerRadius", () => {
     const result = elementToNodeConfig(shot, cache);
-    expect(result.konva).toBe("Image");
+    expect(result.konva).toBe("Group");
+    if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.config).toMatchObject({
-      id: "p1", x: 10, y: 20, width: 200, height: 100, cornerRadius: 12, image: stubImage,
+      id: "p1", x: 10, y: 20, width: 200, height: 100,
     });
+    expect(result.children.map((child) => child.konva)).toEqual(["Rect", "Image"]);
+    expect(result.children[0]!.config).toMatchObject({ x: 0, y: 0, width: 200, height: 100, fill: "rgba(0,0,0,0)" });
     // 200×100 box (2:1) over a 400×400 image → keep full width, crop to half height, centred.
-    expect(result.config).toMatchObject({ cropX: 0, cropY: 100, cropWidth: 400, cropHeight: 200 });
+    expect(result.children[1]!.config).toMatchObject({
+      x: 0, y: 0, width: 200, height: 100, cornerRadius: 12, image: stubImage,
+      cropX: 0, cropY: 100, cropWidth: 400, cropHeight: 200,
+    });
   });
 
   it("maps a contain screenshot to a centred fitted box, no crop", () => {
     const result = elementToNodeConfig({ ...shot, fit: "contain" }, cache);
-    expect(result.konva).toBe("Image");
+    expect(result.konva).toBe("Group");
+    if (result.konva !== "Group") throw new Error("expected Group");
     // 400×400 image in a 200×100 box → scale 0.25 → drawn 100×100, centred horizontally in 200.
-    expect(result.config).toMatchObject({ x: 60, y: 20, width: 100, height: 100 });
-    expect((result.config as Record<string, unknown>).cropWidth).toBeUndefined();
+    expect(result.children[1]!.config).toMatchObject({ x: 50, y: 0, width: 100, height: 100 });
+    expect((result.children[1]!.config as Record<string, unknown>).cropWidth).toBeUndefined();
   });
 
   it("maps a missing image to a grey placeholder rect", () => {

@@ -10,18 +10,31 @@ import { saveProject } from "./save-project.js";
 export function createDebouncedSaver(
   saveFn: (project: Project) => void | Promise<void>,
   delayMs: number,
-): ((project: Project) => void) & { cancel: () => void } {
+): ((project: Project) => void) & { cancel: () => void; flush: () => Promise<void> } {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let pending: Project | undefined;
+  const invoke = async () => {
+    const project = pending;
+    pending = undefined;
+    if (project) await saveFn(project);
+  };
   const schedule = (project: Project) => {
+    pending = project;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = undefined;
-      saveFn(project);
+      void invoke().catch(() => undefined);
     }, delayMs);
   };
   schedule.cancel = () => {
     if (timer) clearTimeout(timer);
     timer = undefined;
+    pending = undefined;
+  };
+  schedule.flush = async () => {
+    if (timer) clearTimeout(timer);
+    timer = undefined;
+    await invoke();
   };
   return schedule;
 }
@@ -53,8 +66,19 @@ export function createProjectSaveCoordinator(
   };
 }
 
+async function persistProject(project: Project): Promise<void> {
+  editorStore.getState().setSaveState("saving");
+  try {
+    await saveProject(project);
+    editorStore.getState().setSaveState("saved");
+  } catch (error) {
+    editorStore.getState().setSaveState("error", (error as Error).message);
+    throw error;
+  }
+}
+
 const projectSaves = createProjectSaveCoordinator(
-  saveProject,
+  persistProject,
   () => editorStore.getState().project ?? undefined,
 );
 
@@ -64,7 +88,12 @@ export function saveLatestProject(): Promise<void> {
 }
 
 /** The editor's shared debounced saver (300 ms) — persists inspector edits to disk. */
-export const scheduleSave = createDebouncedSaver(() => void saveLatestProject(), 300);
+export const scheduleSave = createDebouncedSaver(() => saveLatestProject(), 300);
+
+/** Commit a pending Inspector edit immediately (for blur, reload, and resource operations). */
+export function flushScheduledSave(): Promise<void> {
+  return scheduleSave.flush();
+}
 
 /** Cancel a queued stale snapshot before an operation performs its own awaited flush. */
 export function cancelScheduledSave(): void {
@@ -80,7 +109,7 @@ export function withFlushedProject<T>(operation: () => Promise<T>): Promise<T> {
   return projectSaves.runExclusive(async () => {
     const project = editorStore.getState().project;
     if (!project) throw new Error("No project loaded");
-    await saveProject(project);
+    await persistProject(project);
     return operation();
   });
 }

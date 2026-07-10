@@ -71,6 +71,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       ariaLabel="Template library"
       closeLabel="Close template library"
       onClose={close}
+      closeDisabled={creating !== null}
       widthClass="max-w-2xl"
     >
       {error ? <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p> : null}
@@ -87,7 +88,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       <div className="flex flex-col gap-3">
         {templates.map((template) => (
           <section key={template.id} data-testid={`template-row-${template.id}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-sm font-semibold text-slate-900">{template.name}</h3>
@@ -98,7 +99,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
                     {template.platform} / {template.device} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
                   </p>
                 </div>
-                <button className={editorUi.buttonPrimary} disabled={!activeScreen || creating !== null} onClick={() => create(template.id)}>
+                <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={!activeScreen || creating !== null} onClick={() => create(template.id)}>
                   {creating === template.id ? "Creating…" : "Create screen"}
                 </button>
               </div>

@@ -96,7 +96,10 @@ export interface EditorState {
   project: Project | null;
   activeScreenId: string | null;
   selectedId: string | null;
+  saveStatus: "idle" | "saving" | "saved" | "error";
+  saveError: string | null;
   load: (project: Project) => void;
+  setSaveState: (status: EditorState["saveStatus"], error?: string | null) => void;
   select: (id: string | null) => void;
   patchElement: (id: string, patch: ElementPatch) => void;
   selectScreen: (id: string) => void;
@@ -123,17 +126,25 @@ export const editorStore = createStore<EditorState>((set) => ({
   project: null,
   activeScreenId: null,
   selectedId: null,
+  saveStatus: "idle",
+  saveError: null,
   load: (project) =>
-    set({ project, activeScreenId: project.screens[0]?.id ?? null, selectedId: null }),
+    set({
+      project,
+      activeScreenId: project.screens[0]?.id ?? null,
+      selectedId: null,
+      saveStatus: "idle",
+      saveError: null,
+    }),
+  setSaveState: (saveStatus, saveError = null) => set({ saveStatus, saveError }),
   select: (id) => set({ selectedId: id }),
   patchElement: (id, patch) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeScreenId) return state;
       const project = produce(state.project, (draft) => {
-        for (const screen of draft.screens) {
-          const el = screen.elements.find((e) => e.id === id);
-          if (el) applyElementPatch(el, patch);
-        }
+        const screen = draft.screens.find((candidate) => candidate.id === state.activeScreenId);
+        const element = screen?.elements.find((candidate) => candidate.id === id);
+        if (element) applyElementPatch(element, patch);
       });
       return { project };
     }),

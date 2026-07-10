@@ -15,9 +15,9 @@ import { runFontCommand } from "./font-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
 
 /**
- * `screenshots` CLI — the Phase 0 surface is `init` and `export` only (docs/roadmap.md Phase 0).
+ * `screenshots` CLI — project setup, export, and the shipped screen/font/theme management surface.
  * `export` delegates all pixel rendering to the served web renderer (decision A), so its output
- * is the same as the future UI export button by construction.
+ * stays identical to UI export by construction.
  */
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));

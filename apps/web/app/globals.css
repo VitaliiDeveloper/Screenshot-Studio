@@ -25,3 +25,34 @@ button {
 button:disabled {
   cursor: default;
 }
+
+.workspace-canvas {
+  background-color: #f8fafc;
+}
+
+.workspace-canvas[data-pattern="dots"] {
+  background-image: radial-gradient(circle, rgb(148 163 184 / 32%) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.workspace-canvas[data-pattern="grid"] {
+  background-image:
+    linear-gradient(to right, rgb(148 163 184 / 12%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(148 163 184 / 12%) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.workspace-canvas[data-pattern="none"] {
+  background-image: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

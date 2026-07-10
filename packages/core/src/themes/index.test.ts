@@ -55,4 +55,9 @@ describe("applyTheme", () => {
     expect(() => applyTheme(project(), { ...theme, fonts: { heading: { family: "Missing", weight: 400 } } }))
       .toThrow(/unregistered font/);
   });
+
+  it("rejects an unregistered theme font even when no text uses that role", () => {
+    expect(() => applyTheme(project(), { ...theme, fonts: { body: { family: "Missing", weight: 400 } } }))
+      .toThrow(/unregistered font/);
+  });
 });

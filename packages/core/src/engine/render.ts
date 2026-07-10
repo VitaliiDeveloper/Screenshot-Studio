@@ -48,7 +48,7 @@ function drawElement(layer: Konva.Layer, element: Element, images: ImageCache): 
   layer.add(buildNode(elementToNodeConfig(element, images)) as Konva.Group | Konva.Shape);
 }
 
-/** Realise a NodeConfig as Konva nodes, recursing into the device-frame Group's children. */
+/** Realise a NodeConfig as Konva nodes, recursing into composite screenshot/device-frame Groups. */
 function buildNode(nc: NodeConfig): Konva.Node {
   switch (nc.konva) {
     case "Text":

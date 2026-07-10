@@ -5,7 +5,7 @@ import { useStore } from "zustand";
 import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
-import { DialogShell, editorUi } from "./editor-ui";
+import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
@@ -74,24 +74,35 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
       <div className="flex flex-col gap-3">
         <label className="flex items-center justify-between gap-4 text-xs">
           <span className="font-medium text-slate-600">Platform</span>
-          <select className={`${editorUi.field} w-40`} value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
-            <option value="all">all</option><option value="apple">apple</option><option value="android">android</option>
-          </select>
+          <MenuSelect
+            ariaLabel="Platform"
+            value={platform}
+            options={[{ value: "all", label: "all" }, { value: "apple", label: "apple" }, { value: "android", label: "android" }]}
+            onChange={setPlatform}
+            className="w-40"
+          />
         </label>
 
         <label className="flex items-center justify-between gap-4 text-xs">
           <span className="font-medium text-slate-600">Device</span>
-          <select className={`${editorUi.field} w-40`} value={device} onChange={(e) => setDevice(e.target.value as Device)}>
-            <option value="all">all</option><option value="iphone">iphone</option><option value="ipad">ipad</option><option value="phone">phone</option>
-          </select>
+          <MenuSelect
+            ariaLabel="Device"
+            value={device}
+            options={[{ value: "all", label: "all" }, { value: "iphone", label: "iphone" }, { value: "ipad", label: "ipad" }, { value: "phone", label: "phone" }]}
+            onChange={setDevice}
+            className="w-40"
+          />
         </label>
 
         <label className="flex items-center justify-between gap-4 text-xs">
           <span className="font-medium text-slate-600">Locale</span>
-          <select className={`${editorUi.field} w-40`} value={locale} onChange={(e) => setLocale(e.target.value)}>
-            <option value="all">all</option>
-            {project.locales.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
+          <MenuSelect
+            ariaLabel="Locale"
+            value={locale}
+            options={[{ value: "all", label: "all" }, ...project.locales.map((entry) => ({ value: entry, label: entry }))]}
+            onChange={setLocale}
+            className="w-40"
+          />
         </label>
 
         {error && <p className="whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}

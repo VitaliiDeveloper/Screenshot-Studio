@@ -58,6 +58,20 @@ describe("editorStore", () => {
     expect(after.screens[0]!.elements[0]!).toMatchObject({ x: 123, y: 456 });
     expect(before.screens[0]!.elements[0]!.x).toBe(40); // original untouched
   });
+
+  it("patchElement scopes duplicate ids to the active screen", () => {
+    const duplicateIds = project();
+    const duplicate = structuredClone(duplicateIds.screens[0]!.elements[0]!);
+    if (duplicate.type !== "text") throw new Error("expected text fixture");
+    duplicate.content = "Second screen";
+    duplicateIds.screens[1]!.elements = [duplicate];
+    editorStore.getState().load(duplicateIds);
+
+    editorStore.getState().patchElement("headline", { x: 222 });
+
+    expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(222);
+    expect(editorStore.getState().project!.screens[1]!.elements[0]!.x).toBe(40);
+  });
 });
 
 describe("editorStore screens (slice 4)", () => {

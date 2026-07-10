@@ -10,7 +10,7 @@ import { saveLatestProject, scheduleSave } from "./debounced-save.js";
 export function mutateAndSave(mutate: () => void): void {
   mutate();
   const next = editorStore.getState().project;
-  if (next) void saveLatestProject();
+  if (next) void saveLatestProject().catch(() => undefined);
 }
 
 /** Continuous inputs (inspector keystrokes / sliders) — coalesced via scheduleSave. */

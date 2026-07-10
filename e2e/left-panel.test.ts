@@ -43,6 +43,16 @@ function elementIds(): string[] {
   return p.screens[0].elements.map((e: { id: string }) => e.id);
 }
 
+function screenIds(): string[] {
+  const project = JSON.parse(readFileSync(projectFile, "utf8"));
+  return project.screens.map((screen: { id: string }) => screen.id);
+}
+
+function elementName(id: string): string | undefined {
+  const project = JSON.parse(readFileSync(projectFile, "utf8"));
+  return project.screens[0].elements.find((element: { id: string }) => element.id === id)?.name;
+}
+
 describe("left panel", () => {
   it("reordering a layer persists the new element order to disk", async () => {
     const before = elementIds(); // ["accent", "headline"]
@@ -66,6 +76,53 @@ describe("left panel", () => {
     await expect.poll(() => elementIds().join(","), { timeout: 10_000 })
       .not.toBe(before.join(","));
     expect(elementIds().slice().sort()).toEqual(before.slice().sort()); // same set, new order
+    await page.close();
+  });
+
+  it("supports keyboard layer actions, Escape close, and menu-based rename", async () => {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const trigger = page.getByRole("button", { name: "More actions for Hero headline", exact: true });
+    await trigger.click();
+    const menu = page.getByRole("menu", { name: "Hero headline actions", exact: true });
+    await menu.waitFor({ state: "visible" });
+    await expect.poll(() => page.evaluate(() => document.activeElement?.textContent?.trim())).toBe("Rename");
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(() => page.evaluate(() => document.activeElement?.textContent?.trim())).toBe("Hide");
+    await page.keyboard.press("Escape");
+    expect(await menu.count()).toBe(0);
+    expect(await page.getByRole("heading", { name: "Structure", exact: true }).count()).toBe(1);
+    expect(await trigger.evaluate((node) => document.activeElement === node)).toBe(true);
+
+    await trigger.click();
+    await page.getByRole("menuitem", { name: "Rename layer", exact: true }).click();
+    const rename = page.getByRole("list", { name: "Layers for Hero" }).getByRole("textbox");
+    await rename.fill("Hero title");
+    await rename.press("Enter");
+    await expect.poll(() => elementName("headline"), { timeout: 10_000 }).toBe("Hero title");
+    await page.close();
+  });
+
+  it("reorders and deletes screens through the Structure panel", async () => {
+    const before = screenIds();
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const screens = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Screens", exact: true }),
+    });
+    const handle = screens.getByLabel("Drag to reorder").first();
+    await handle.focus();
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(200);
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(200);
+    await page.keyboard.press("Space");
+    await expect.poll(() => screenIds().join(","), { timeout: 10_000 }).not.toBe(before.join(","));
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Delete Save Fast", exact: true }).click();
+    await expect.poll(() => screenIds().length, { timeout: 10_000 }).toBe(before.length - 1);
+    expect(screenIds()).not.toContain("save-fast");
     await page.close();
   });
 });

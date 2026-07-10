@@ -1,27 +1,66 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   fontIdentityKey,
   THEME_ROLES,
   type FontAsset,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
-import { editorUi } from "./editor-ui";
+import { editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 
 export function NumberField({
-  label, value, onChange, step = 1,
-}: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
+  label, value, onChange, step = 1, min, max, integer = false,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  step?: number;
+  min?: number;
+  max?: number;
+  integer?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState(String(value));
+  const parse = (raw: string): number | null => {
+    if (raw.trim() === "") return null;
+    const next = Number(raw);
+    if (!Number.isFinite(next)) return null;
+    if (integer && !Number.isInteger(next)) return null;
+    if (min !== undefined && next < min) return null;
+    if (max !== undefined && next > max) return null;
+    return next;
+  };
+  const valid = parse(draft) !== null;
+
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) setDraft(String(value));
+  }, [value]);
+
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
       <input
+        ref={inputRef}
         type="number"
-        value={Number.isFinite(value) ? value : 0}
+        value={draft}
         step={step}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className={`${editorUi.field} w-28 text-right tabular-nums`}
+        min={min}
+        max={max}
+        aria-invalid={!valid}
+        onChange={(event) => {
+          const raw = event.target.value;
+          setDraft(raw);
+          const next = parse(raw);
+          if (next !== null) onChange(next);
+        }}
+        onBlur={() => {
+          const next = parse(draft);
+          if (next === null) setDraft(String(value));
+        }}
+        className={`${editorUi.field} w-28 text-right tabular-nums aria-invalid:border-red-400 aria-invalid:ring-2 aria-invalid:ring-red-500/15`}
       />
     </label>
   );
@@ -74,15 +113,13 @@ export function SelectField<T extends string>({
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
-      <select
+      <MenuSelect
+        ariaLabel={label}
         value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className={`${editorUi.field} w-28`}
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>{o}</option>
-        ))}
-      </select>
+        options={options.map((option) => ({ value: option, label: option }))}
+        onChange={onChange}
+        className="w-28"
+      />
     </label>
   );
 }
@@ -97,25 +134,22 @@ export function FontIdentityField({
 }) {
   const current = fontIdentityKey({ family, weight });
   const resolved = fonts.some((font) => font.family === family && font.weight === weight);
+  const options: MenuSelectOption<string>[] = [
+    ...(!resolved ? [{ value: current, label: `Missing: ${family} · ${weight}` }] : []),
+    ...fonts.map((font) => ({ value: fontIdentityKey(font), label: `${font.family} · ${font.weight}` })),
+  ];
   return (
     <label className="flex flex-col gap-1.5 text-xs">
       <span className="text-slate-500">Font</span>
-      <select
-        aria-label="Font"
+      <MenuSelect
+        ariaLabel="Font"
         value={current}
-        onChange={(event) => {
-          const [nextFamily, nextWeight] = JSON.parse(event.target.value) as [string, number];
+        options={options}
+        onChange={(nextValue) => {
+          const [nextFamily, nextWeight] = JSON.parse(nextValue) as [string, number];
           onChange({ family: nextFamily, weight: nextWeight });
         }}
-        className={editorUi.field}
-      >
-        {!resolved && <option value={current}>Missing: {family} · {weight}</option>}
-        {fonts.map((font) => (
-          <option key={fontIdentityKey(font)} value={fontIdentityKey(font)}>
-            {font.family} · {font.weight}
-          </option>
-        ))}
-      </select>
+      />
     </label>
   );
 }
@@ -130,15 +164,16 @@ export function ThemeRoleField({
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-slate-500">Theme role</span>
-      <select
-        aria-label="Theme role"
+      <MenuSelect
+        ariaLabel="Theme role"
         value={value ?? ""}
-        onChange={(event) => onChange((event.target.value || null) as ThemeRole | null)}
-        className={`${editorUi.field} w-28`}
-      >
-        <option value="">none</option>
-        {THEME_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
-      </select>
+        options={[
+          { value: "", label: "none" },
+          ...THEME_ROLES.map((role) => ({ value: role, label: role })),
+        ]}
+        onChange={(nextValue) => onChange((nextValue || null) as ThemeRole | null)}
+        className="w-28"
+      />
     </label>
   );
 }
