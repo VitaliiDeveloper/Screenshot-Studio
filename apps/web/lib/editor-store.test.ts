@@ -367,3 +367,73 @@ describe("editorStore screen editors (slice 5)", () => {
     expect(editorStore.getState().project!.screens[1]!.artboard.width).toBe(660);
   });
 });
+
+describe("editorStore history (phase 6 slice 4)", () => {
+  beforeEach(() => {
+    editorStore.getState().load(project());
+  });
+
+  it("coalesces consecutive element patches and supports undo/redo", () => {
+    editorStore.getState().patchElement("headline", { x: 120 });
+    editorStore.getState().patchElement("headline", { x: 240 });
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(40);
+    expect(editorStore.getState().historyFuture).toHaveLength(1);
+
+    editorStore.getState().redo();
+    expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(240);
+  });
+
+  it("starts a new undo step after an explicit history boundary", () => {
+    editorStore.getState().patchElement("headline", { x: 120 });
+    editorStore.getState().endHistoryGroup();
+    editorStore.getState().patchElement("headline", { y: 220 });
+    expect(editorStore.getState().historyPast).toHaveLength(2);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ x: 120, y: 100 });
+  });
+
+  it("clears redo after a new mutation and resets history on load/replace", () => {
+    editorStore.getState().patchElement("headline", { x: 120 });
+    editorStore.getState().undo();
+    expect(editorStore.getState().historyFuture).toHaveLength(1);
+    editorStore.getState().patchElement("headline", { y: 220 });
+    expect(editorStore.getState().historyFuture).toHaveLength(0);
+
+    editorStore.getState().load(project());
+    expect(editorStore.getState().historyPast).toHaveLength(0);
+    editorStore.getState().patchElement("headline", { x: 300 });
+    editorStore.getState().replaceProject(structuredClone(editorStore.getState().project!));
+    expect(editorStore.getState()).toMatchObject({ historyPast: [], historyFuture: [] });
+  });
+
+  it("bounds history and does not record transient selection", () => {
+    editorStore.getState().select("headline", "hero");
+    editorStore.getState().selectScreen("second");
+    expect(editorStore.getState().historyPast).toHaveLength(0);
+
+    editorStore.getState().selectScreen("hero");
+    for (let index = 0; index < 60; index += 1) {
+      editorStore.getState().patchElement("headline", { x: index });
+      editorStore.getState().endHistoryGroup();
+    }
+    expect(editorStore.getState().historyPast).toHaveLength(50);
+  });
+
+  it("clears an invalid selection when undo removes the selected element", () => {
+    editorStore.getState().addElement({
+      id: "temporary", type: "shape", x: 0, y: 0, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      kind: "rect", fill: "#00FF00", radius: 0,
+    });
+    expect(editorStore.getState()).toMatchObject({
+      selectedId: "temporary",
+      selectedScreenId: "hero",
+    });
+    editorStore.getState().undo();
+    expect(editorStore.getState()).toMatchObject({ selectedId: null, selectedScreenId: null });
+  });
+});

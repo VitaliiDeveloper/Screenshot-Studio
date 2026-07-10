@@ -66,7 +66,10 @@ export function Inspector({
     <aside className={cx(
       "flex h-full w-[min(18rem,calc(100vw-3.5rem))] shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
       className,
-    )} onBlurCapture={() => void flushScheduledSave().catch(() => undefined)}>
+    )} onBlurCapture={() => {
+      editorStore.getState().endHistoryGroup();
+      void flushScheduledSave().catch(() => undefined);
+    }}>
       <header className="sticky top-0 z-10 flex min-h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
         <div>
           <h2 className="text-sm font-semibold tracking-tight text-slate-950">Inspect</h2>

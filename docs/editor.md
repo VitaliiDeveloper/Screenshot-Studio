@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–3 through connected authoring are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–4 through connected authoring and undo/redo are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -182,9 +182,10 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
 
 - **Snapping / smart guides / alignment tools.** Overview and pan/zoom do not imply cross-artboard
   geometry or snapping; connected-space snapping and guides are planned for Phase 6.
-- **Undo/redo UI.** The store uses immutable state/patches (Zustand + Immer) from day 0, so the
-  architecture is in place; bounded history, shortcuts, and controls are planned for Phase 6 after
-  connected mutations stabilize.
+- **Undo/redo UI — shipped in Phase 6 Slice 4.** The editor keeps up to 50 project snapshots,
+  coalesces consecutive edits to one element or screen surface, exposes toolbar and standard
+  keyboard controls, persists every undo/redo through the normal save path, and resets history on
+  load or external project replacement. Selection and viewport state never enter history.
 - **Multi-select and element grouping.** Phase 7 starts with the selection model, then adds a
   parity-proven persisted group contract before group authoring UI.
 - **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;

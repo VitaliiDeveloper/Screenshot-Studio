@@ -23,7 +23,8 @@ const specs = parseStoreSpecs({
 
 function project(): Project {
   return {
-    meta: { name: "Bundle", schemaVersion: 1 },
+    meta: { name: "Bundle", schemaVersion: 2 },
+    mode: "isolated",
     platforms: ["apple", "android"],
     locales: ["en", "uk"],
     fonts: [],

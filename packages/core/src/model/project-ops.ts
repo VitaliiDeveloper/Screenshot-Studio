@@ -236,6 +236,9 @@ export function setLocaleDirection(
   direction: LayoutDirection,
 ): ProjectModel {
   if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+  if (project.screens
+    .filter((screen) => screen.locale === locale)
+    .every((screen) => screen.direction === direction)) return project;
 
   const screens = project.screens.map((screen) =>
     screen.locale === locale ? setScreenDirection(screen, direction) : screen,

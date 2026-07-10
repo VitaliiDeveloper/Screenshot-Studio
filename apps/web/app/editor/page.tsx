@@ -173,13 +173,28 @@ export default function EditorPage() {
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isInteractive(event.target) || document.querySelector("[role='dialog'][aria-modal='true']")) return;
+      const key = event.key.toLowerCase();
+      const modifier = event.metaKey || event.ctrlKey;
+      if (modifier && key === "z") {
+        const state = editorStore.getState();
+        const redo = event.shiftKey;
+        if (redo ? state.historyFuture.length === 0 : state.historyPast.length === 0) return;
+        event.preventDefault();
+        mutateAndSave(() => redo ? editorStore.getState().redo() : editorStore.getState().undo());
+        return;
+      }
+      if (event.ctrlKey && key === "y") {
+        if (editorStore.getState().historyFuture.length === 0) return;
+        event.preventDefault();
+        mutateAndSave(() => editorStore.getState().redo());
+        return;
+      }
       if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         event.preventDefault();
         setDialog("templates");
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const key = event.key.toLowerCase();
       if (key === "t") {
         event.preventDefault();
         const state = editorStore.getState();

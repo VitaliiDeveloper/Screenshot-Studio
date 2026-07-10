@@ -101,6 +101,9 @@ export interface EditorState {
   activeScreenId: string | null;
   selectedId: string | null;
   selectedScreenId: string | null;
+  historyPast: Project[];
+  historyFuture: Project[];
+  historyGroupKey: string | null;
   saveStatus: "idle" | "saving" | "saved" | "error";
   saveError: string | null;
   load: (project: Project) => void;
@@ -122,6 +125,9 @@ export interface EditorState {
   patchArtboard: (patch: { width?: number; height?: number }) => void;
   replaceFonts: (fonts: FontAsset[]) => void;
   replaceProject: (project: Project) => void;
+  endHistoryGroup: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 /** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
@@ -131,11 +137,51 @@ function moveInPlace<T>(arr: T[], from: number, to: number): void {
   arr.splice(to, 0, item as T);
 }
 
+const HISTORY_LIMIT = 50;
+
+function recordProjectChange(
+  state: EditorState,
+  project: Project,
+  historyGroupKey: string | null = null,
+  extra: Partial<EditorState> = {},
+): EditorState | Partial<EditorState> {
+  if (!state.project || project === state.project) return state;
+  const continuesGroup = historyGroupKey !== null && state.historyGroupKey === historyGroupKey;
+  const historyPast = continuesGroup
+    ? state.historyPast
+    : [...state.historyPast, state.project].slice(-HISTORY_LIMIT);
+  return {
+    project,
+    historyPast,
+    historyFuture: [],
+    historyGroupKey,
+    ...extra,
+  };
+}
+
+function selectionForProject(state: EditorState, project: Project) {
+  const activeScreenId = project.screens.some((screen) => screen.id === state.activeScreenId)
+    ? state.activeScreenId
+    : project.screens[0]?.id ?? null;
+  const selectedScreen = project.screens.find((screen) => screen.id === state.selectedScreenId);
+  const selectedId = selectedScreen?.elements.some((element) => element.id === state.selectedId)
+    ? state.selectedId
+    : null;
+  return {
+    activeScreenId,
+    selectedId,
+    selectedScreenId: selectedId ? selectedScreen!.id : null,
+  };
+}
+
 export const editorStore = createStore<EditorState>((set) => ({
   project: null,
   activeScreenId: null,
   selectedId: null,
   selectedScreenId: null,
+  historyPast: [],
+  historyFuture: [],
+  historyGroupKey: null,
   saveStatus: "idle",
   saveError: null,
   load: (project) =>
@@ -144,17 +190,21 @@ export const editorStore = createStore<EditorState>((set) => ({
       activeScreenId: project.screens[0]?.id ?? null,
       selectedId: null,
       selectedScreenId: null,
+      historyPast: [],
+      historyFuture: [],
+      historyGroupKey: null,
       saveStatus: "idle",
       saveError: null,
     }),
   setSaveState: (saveStatus, saveError = null) => set({ saveStatus, saveError }),
   select: (id, screenId) => set((state) => {
-    if (id === null) return { selectedId: null, selectedScreenId: null };
+    if (id === null) return { selectedId: null, selectedScreenId: null, historyGroupKey: null };
     const ownerScreenId = screenId ?? state.activeScreenId;
     if (!ownerScreenId) return state;
     return {
       selectedId: id,
       selectedScreenId: ownerScreenId,
+      historyGroupKey: null,
       ...(state.project?.mode === "connected" ? { activeScreenId: ownerScreenId } : {}),
     };
   }),
@@ -170,13 +220,20 @@ export const editorStore = createStore<EditorState>((set) => ({
         const element = screen?.elements.find((candidate) => candidate.id === id);
         if (element) applyElementPatch(element, patch);
       });
-      return { project };
+      return recordProjectChange(state, project, `element:${ownerScreenId}:${id}`);
     }),
-  selectScreen: (id) => set({ activeScreenId: id, selectedId: null, selectedScreenId: null }),
+  selectScreen: (id) => set({
+    activeScreenId: id,
+    selectedId: null,
+    selectedScreenId: null,
+    historyGroupKey: null,
+  }),
   selectLocale: (locale) =>
     set((state) => {
       const activeScreenId = state.project?.screens.find((screen) => screen.locale === locale)?.id;
-      return activeScreenId ? { activeScreenId, selectedId: null, selectedScreenId: null } : state;
+      return activeScreenId
+        ? { activeScreenId, selectedId: null, selectedScreenId: null, historyGroupKey: null }
+        : state;
     }),
   reorderScreensInLocale: (fromId, toId) =>
     set((state) => {
@@ -194,7 +251,7 @@ export const editorStore = createStore<EditorState>((set) => ({
         moveInPlace(screens, from, to);
         indices.forEach((index, position) => { draft.screens[index] = screens[position]!; });
       });
-      return { project };
+      return recordProjectChange(state, project);
     }),
   addScreen: () =>
     set((state) => {
@@ -208,7 +265,11 @@ export const editorStore = createStore<EditorState>((set) => ({
         ...state.project,
         screens: [...state.project.screens, copy],
       });
-      return { project, activeScreenId: copy.id, selectedId: null, selectedScreenId: null };
+      return recordProjectChange(state, project, null, {
+        activeScreenId: copy.id,
+        selectedId: null,
+        selectedScreenId: null,
+      });
     }),
   removeScreen: (id) =>
     set((state) => {
@@ -231,31 +292,42 @@ export const editorStore = createStore<EditorState>((set) => ({
       const clearsSelection = state.selectedScreenId === id;
       const selectedId = clearsSelection ? null : state.selectedId;
       const selectedScreenId = clearsSelection ? null : state.selectedScreenId;
-      return { project, activeScreenId, selectedId, selectedScreenId };
+      return recordProjectChange(state, project, null, {
+        activeScreenId,
+        selectedId,
+        selectedScreenId,
+      });
     }),
   addLocale: (sourceLocale, targetLocale, direction) =>
     set((state) => {
       if (!state.project) return state;
       const project = cloneLocaleSetCore(state.project, sourceLocale, targetLocale, direction);
       const activeScreenId = project.screens.find((screen) => screen.locale === targetLocale)!.id;
-      return { project, activeScreenId, selectedId: null, selectedScreenId: null };
+      return recordProjectChange(state, project, null, {
+        activeScreenId,
+        selectedId: null,
+        selectedScreenId: null,
+      });
     }),
   setLocaleDirection: (locale, direction) =>
-    set((state) => state.project
-      ? { project: setLocaleDirectionCore(state.project, locale, direction) }
-      : state),
+    set((state) => {
+      if (!state.project) return state;
+      return recordProjectChange(
+        state,
+        setLocaleDirectionCore(state.project, locale, direction),
+      );
+    }),
   removeLocale: (locale) =>
     set((state) => {
       if (!state.project) return state;
       const activeScreen = state.project.screens.find((screen) => screen.id === state.activeScreenId);
       const project = removeLocaleSetCore(state.project, locale);
-      if (activeScreen?.locale !== locale) return { project };
-      return {
-        project,
+      if (activeScreen?.locale !== locale) return recordProjectChange(state, project);
+      return recordProjectChange(state, project, null, {
         activeScreenId: project.screens[0]!.id,
         selectedId: null,
         selectedScreenId: null,
-      };
+      });
     }),
   reorderElements: (from, to) =>
     set((state) => {
@@ -264,7 +336,7 @@ export const editorStore = createStore<EditorState>((set) => ({
         const screen = draft.screens.find((s) => s.id === state.activeScreenId);
         if (screen) moveInPlace(screen.elements, from, to);
       });
-      return { project };
+      return recordProjectChange(state, project);
     }),
   removeElement: (id, screenId) =>
     set((state) => {
@@ -278,11 +350,10 @@ export const editorStore = createStore<EditorState>((set) => ({
         if (screen) screen.elements = screen.elements.filter((e) => e.id !== id);
       });
       const clearsSelection = state.selectedId === id && state.selectedScreenId === ownerScreenId;
-      return {
-        project,
+      return recordProjectChange(state, project, null, {
         selectedId: clearsSelection ? null : state.selectedId,
         selectedScreenId: clearsSelection ? null : state.selectedScreenId,
-      };
+      });
     }),
   addElement: (element) =>
     set((state) => {
@@ -291,7 +362,10 @@ export const editorStore = createStore<EditorState>((set) => ({
         const screen = draft.screens.find((s) => s.id === state.activeScreenId);
         if (screen) screen.elements.push(element);
       });
-      return { project, selectedId: element.id, selectedScreenId: state.activeScreenId };
+      return recordProjectChange(state, project, null, {
+        selectedId: element.id,
+        selectedScreenId: state.activeScreenId,
+      });
     }),
   patchBackground: (patch) =>
     set((state) => {
@@ -300,7 +374,7 @@ export const editorStore = createStore<EditorState>((set) => ({
         const screen = draft.screens.find((s) => s.id === state.activeScreenId);
         if (screen && screen.background.type === "solid") Object.assign(screen.background, patch);
       });
-      return { project };
+      return recordProjectChange(state, project, `background:${state.activeScreenId}`);
     }),
   patchArtboard: (patch) =>
     set((state) => {
@@ -309,27 +383,46 @@ export const editorStore = createStore<EditorState>((set) => ({
         const screen = draft.screens.find((s) => s.id === state.activeScreenId);
         if (screen) Object.assign(screen.artboard, patch);
       });
-      return { project };
+      return recordProjectChange(state, project, `artboard:${state.activeScreenId}`);
     }),
   replaceFonts: (fonts) =>
     set((state) => {
       if (!state.project) return state;
-      return { project: { ...state.project, fonts } };
+      return recordProjectChange(state, { ...state.project, fonts });
     }),
   replaceProject: (project) =>
     set((state) => {
-      const activeScreenId = project.screens.some((screen) => screen.id === state.activeScreenId)
-        ? state.activeScreenId
-        : project.screens[0]?.id ?? null;
-      const selectedScreen = project.screens.find((screen) => screen.id === state.selectedScreenId);
-      const selectedId = selectedScreen?.elements.some((element) => element.id === state.selectedId)
-        ? state.selectedId
-        : null;
       return {
         project,
-        activeScreenId,
-        selectedId,
-        selectedScreenId: selectedId ? selectedScreen!.id : null,
+        ...selectionForProject(state, project),
+        historyPast: [],
+        historyFuture: [],
+        historyGroupKey: null,
+      };
+    }),
+  endHistoryGroup: () => set({ historyGroupKey: null }),
+  undo: () =>
+    set((state) => {
+      if (!state.project || state.historyPast.length === 0) return state;
+      const project = state.historyPast.at(-1)!;
+      return {
+        project,
+        ...selectionForProject(state, project),
+        historyPast: state.historyPast.slice(0, -1),
+        historyFuture: [state.project, ...state.historyFuture].slice(0, HISTORY_LIMIT),
+        historyGroupKey: null,
+      };
+    }),
+  redo: () =>
+    set((state) => {
+      if (!state.project || state.historyFuture.length === 0) return state;
+      const [project, ...historyFuture] = state.historyFuture;
+      return {
+        project: project!,
+        ...selectionForProject(state, project!),
+        historyPast: [...state.historyPast, state.project].slice(-HISTORY_LIMIT),
+        historyFuture,
+        historyGroupKey: null,
       };
     }),
 }));

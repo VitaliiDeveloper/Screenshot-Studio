@@ -8,12 +8,15 @@ import {
   Languages,
   PanelsTopLeft,
   PanelRight,
+  Redo2,
   Scan,
+  Undo2,
 } from "lucide-react";
 import type { WorkspaceView } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
 import { cx, editorUi, MenuSelect } from "./editor-ui";
+import { mutateAndSave } from "../lib/mutate-and-save";
 
 const EMPTY_LOCALES: string[] = [];
 
@@ -38,6 +41,8 @@ export function Toolbar({
       ?? state.project?.locales[0]
       ?? "",
   );
+  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0);
+  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0);
   const localeOptions = useMemo(
     () => locales.map((locale) => ({ value: locale, label: locale })),
     [locales],
@@ -82,6 +87,26 @@ export function Toolbar({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          aria-label="Undo"
+          title="Undo (⌘Z)"
+          disabled={!canUndo}
+          className={editorUi.iconButton}
+          onClick={() => mutateAndSave(() => editorStore.getState().undo())}
+        >
+          <Undo2 size={15} strokeWidth={1.9} />
+        </button>
+        <button
+          type="button"
+          aria-label="Redo"
+          title="Redo (⇧⌘Z)"
+          disabled={!canRedo}
+          className={editorUi.iconButton}
+          onClick={() => mutateAndSave(() => editorStore.getState().redo())}
+        >
+          <Redo2 size={15} strokeWidth={1.9} />
+        </button>
         {activeLocale && localeOptions.length > 0 ? (
           <MenuSelect
             ariaLabel={`Active locale: ${activeLocale}`}

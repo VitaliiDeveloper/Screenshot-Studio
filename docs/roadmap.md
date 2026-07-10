@@ -304,7 +304,7 @@ deterministic.
 | **1 — Connected document + crop parity** ✅ | Schema v2 with explicit `isolated | connected` mode and a lossless v1→v2 isolated migration; pure group/origin projection; connected rendering and exact per-screen crops through the existing UI/CLI headless path; a JSON-authored two-screen parity fixture. | Proves the highest-risk claim before editor work: cross-screen pixels still use one renderer and exact store crops. |
 | **2 — Connected lifecycle + CLI** ✅ | Guarded mode conversion, deterministic group helpers, and connected-safe add/duplicate/reorder/remove, locale clone/direction, template, theme, and CLI workflows. | Prevents ordinary management commands from corrupting ownership, ordering, or locale behavior after the schema widens. |
 | **3 — Connected editor stage** ✅ | One gapless editable strip for the active platform/device/locale group; cross-boundary select/move/resize/rotate and inline text editing; composite owner-aware selection; exact Focus crop preview. | Replaces the isolated DOM projection without forking element rendering or losing element ownership. |
-| **4 — Undo/redo history** | Bounded ephemeral history over validated project mutations, keyboard shortcuts, toolbar state, save integration, and explicit history reset at load/replace boundaries. | Adds the day-0 promised recovery path only after connected mutations have their final ownership semantics. |
+| **4 — Undo/redo history** ✅ | Bounded ephemeral history over validated project mutations, keyboard shortcuts, toolbar state, save integration, and explicit history reset at load/replace boundaries. | Adds the day-0 promised recovery path only after connected mutations have their final ownership semantics. |
 | **5 — Snapping + smart guides** | Deterministic single-selection snapping to active group/artboard edges, centres, and nearby elements with zoom-correct ephemeral guides. | Prevents connected-space alignment from becoming a second persisted layout system or renderer concern. |
 | **6 — Asset picker + existing media insertion** | Project-asset browsing plus insertion of the already-enforced `screenshot` and `device-frame` types from Add, with safe project-local paths and shared image loading. | Removes the current disabled media workflow without widening the element union or adding uploads outside project storage. |
 | **7 — Connected workspace hardening** | Mode control, group-scoped Overview/Fit/Screens/Layers behavior, thumbnails, active-screen boundaries, history/snapping/media interaction coverage, and responsive/keyboard QA. | Closes interaction ambiguity around ownership, screen boundaries, z-order, reordering, and narrow viewports. |
@@ -314,7 +314,8 @@ deterministic.
 
 The target data, render, editor, distribution, and completion contract lives in
 `docs/specs/2026-07-10-phase6-connected-canvas-completion-design.md`. Slice 1 is planned in
-`docs/plans/2026-07-10-phase6-slice1-connected-document-crop-parity.md`.
+`docs/plans/2026-07-10-phase6-slice1-connected-document-crop-parity.md`; completed Slice 2–4
+checkpoints are recorded beside it in `docs/plans/`.
 
 Phase 6 deliberately closes undo/redo, snapping, and insertion of existing media types because they
 are baseline editor gaps over the final connected mutation/coordinate model. Multi-select,

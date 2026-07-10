@@ -16,7 +16,7 @@ Version 0.6, 10 July 2026.
 | UI framework | Next.js (App Router) + React + TypeScript | Dev server, routing, easy self-host |
 | Styling | Tailwind CSS | Speed, consistency |
 | Components | Shared local workbench primitives + Lucide | Inspector, dialogs, selects, menus, tooltips |
-| State | Zustand (+ Immer) | Light editor store; immutable patches enable undo/redo later |
+| State | Zustand (+ Immer) | Light editor store with bounded project history and transient workspace state |
 | Export (UI) | `Stage.toDataURL({ pixelRatio })` + JSZip | Exact-size PNGs, zip bundle |
 | Export (CLI / headless) | **Playwright** (recommended) renders the same web stage | Pixel parity with the UI by construction — see §2 |
 | Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
@@ -172,6 +172,14 @@ PNG or post-export slicing path. Phase 6 Slice 3 adds one gapless editable group
 `elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
 screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
 non-interactive crop. Editor mode controls remain a later workspace-hardening concern.
+
+**Editor history — Phase 6 Slice 4.** The Zustand store keeps at most 50 prior project snapshots in
+memory. Consecutive patches for the same owner element, background, or artboard coalesce until an
+explicit interaction boundary; structural mutations remain separate steps. Undo and redo preserve
+only still-valid active/selected ids, clear the opposite branch after a new mutation, and travel
+through the same durable project save path as ordinary edits. Loading a project or replacing it
+after an external durable-resource operation resets history. Selection, viewport, dialogs, save
+status, and guide chrome are transient and never enter project history or JSON.
 
 ---
 
