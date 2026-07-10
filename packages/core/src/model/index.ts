@@ -11,6 +11,7 @@ export * from "./connected-canvas.js";
 export * from "./element-tree.js";
 export * from "./group-ops.js";
 export * from "./icons.js";
+export * from "./badge-primitives.js";
 export * from "./assert-never.js";
 export { migrateToCurrent } from "./migrate.js";
 

@@ -124,7 +124,7 @@ locked, visible, role?`) plus type-specific fields:
 - `shape` — rect / ellipse / blob, fill (solid/gradient), stroke, radius
 - `group` — one non-clipping level of existing leaf elements in local coordinates
 - `icon` — trusted built-in id, editable colour/stroke, core-owned normalised SVG path
-- `badge` — rating, "As seen on", store badges
+- badge compositions — ordinary shape/icon/text groups for rating/press proof; ordinary images for official store badges
 - `image` — arbitrary project-local decorative raster, contain/cover, cornerRadius
 
 **Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
@@ -253,6 +253,14 @@ logical Group and Konva Path with screen-pixel stroke semantics. Static/UI/CLI r
 project SVG/XML or use a font glyph. Add inserts a default star and Inspector edits the id, colour,
 and stroke. v4 migrates losslessly only when the previously invalid icon type does not appear at any
 tree depth; arbitrary SVG import remains outside the contract.
+
+**Badge primitives — Phase 7 Slice 6.** Badges add no render-state union member and keep schema v5.
+Core factories return fresh-id ordinary groups for rating (shape + star icon + editable registered-
+font text) and “as seen on” (shape + sparkles icon + editable registered-font text). The editor
+refuses those insertions without a registered font. Official store badges are named contain-fit
+decorative images selected through the existing secure asset picker. After insertion, group/image
+selection, child inspection, transforms, duplication, ungrouping, themes, RTL, history, save, and
+export remain the existing contracts; `type: "badge"` is invalid.
 
 ---
 

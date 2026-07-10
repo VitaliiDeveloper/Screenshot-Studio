@@ -304,6 +304,9 @@ export default function EditorPage() {
       {dialog === "image-assets" ? (
         <AssetPickerDialog elementType="image" onClose={() => setDialog(null)} />
       ) : null}
+      {dialog === "store-badge-assets" ? (
+        <AssetPickerDialog elementType="store-badge" onClose={() => setDialog(null)} />
+      ) : null}
       {dialog === "device-frame-assets" ? (
         <AssetPickerDialog elementType="device-frame" onClose={() => setDialog(null)} />
       ) : null}

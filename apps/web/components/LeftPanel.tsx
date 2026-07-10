@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import {
   Box,
+  BadgeCheck,
   Frame,
   Image as ImageIcon,
   LayoutTemplate,
@@ -13,12 +14,13 @@ import {
   Search,
   Smartphone,
   Sparkles,
+  Star,
   Type,
   X,
 } from "lucide-react";
 import type { Element } from "@screenshot-studio/core/model";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
+import { createBadgePrimitive, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
   ADD_CATEGORIES,
   filterAddCatalog,
@@ -36,6 +38,9 @@ const catalogIcons = {
   text: Type,
   shape: RectangleHorizontal,
   icon: Sparkles,
+  "rating-badge": Star,
+  "as-seen-on-badge": BadgeCheck,
+  "store-badge": ImageIcon,
   screenshot: ImageIcon,
   image: ImageIcon,
   "device-frame": Smartphone,
@@ -138,6 +143,16 @@ function AddPanel({
       case "insert-icon":
         insert(createIconElement());
         break;
+      case "insert-badge":
+        if (!defaultFont) {
+          onOpenDialog("fonts");
+          return;
+        }
+        insert(createBadgePrimitive({
+          kind: item.id === "rating-badge" ? "rating" : "as-seen-on",
+          font: defaultFont,
+        }));
+        break;
       case "open-templates":
         onOpenDialog("templates");
         break;
@@ -145,6 +160,9 @@ function AddPanel({
         if (item.id === "screenshot") onOpenDialog("screenshot-assets");
         else if (item.id === "image") onOpenDialog("image-assets");
         else if (item.id === "device-frame") onOpenDialog("device-frame-assets");
+        break;
+      case "open-store-badge-picker":
+        onOpenDialog("store-badge-assets");
         break;
       case "unavailable":
         break;

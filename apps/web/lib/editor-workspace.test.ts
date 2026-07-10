@@ -64,9 +64,15 @@ describe("editor workspace helpers", () => {
       "screenshot",
       "image",
       "device-frame",
+      "store-badge",
     ]);
-    expect(filterAddCatalog("")).toHaveLength(7);
+    expect(filterAddCatalog("")).toHaveLength(10);
     expect(filterAddCatalog("vector").map((item) => item.id)).toEqual(["icon"]);
+    expect(filterAddCatalog("badge").map((item) => item.id)).toEqual([
+      "rating-badge",
+      "as-seen-on-badge",
+      "store-badge",
+    ]);
     expect(filterAddCatalog("screenshot").map((item) => item.action)).toEqual([
       "open-asset-picker",
       "open-asset-picker",

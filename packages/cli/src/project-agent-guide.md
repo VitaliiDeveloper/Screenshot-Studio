@@ -62,6 +62,10 @@ non-clipping and occupies one screen z-order slot; child array order is z-order 
 the current project and its registered fonts before changing copy or layout; do not reconstruct
 objects from this summary.
 
+Badges are compositions, not a `badge` element type. Rating and “as seen on” badges are ordinary
+one-level groups of shape/icon/text leaves; official store badges are ordinary contain-fit `image`
+elements. Preserve and edit their literal children like any other group/image.
+
 `mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
 platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned
 by one screen with owner-local coordinates, and export crops the requested artboard through the

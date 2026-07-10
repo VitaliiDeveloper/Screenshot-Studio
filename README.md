@@ -132,12 +132,13 @@ smoke-tested from a temporary offline install through exact export; it is not a 
 The optional skill is installable, delegates to the generated guide, and is clean-folder
 smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
 living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
-**Phase 7 (advanced editing) — in progress through Slice 5.** Owner-aware modified-click/marquee
+**Phase 7 (advanced editing) — in progress through Slice 6.** Owner-aware modified-click/marquee
 multi-selection and atomic batch actions ship, followed by a strict v3 one-level group model with
 lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authoring/Layers and the
 strict v4 decorative image leaf now ship with secure asset insertion plus contain/cover/alpha
 parity. Strict v5 trusted built-in vector icons now add editable colour/stroke controls without raw
-SVG input. Badge composition is next.
+SVG input. Rating and press-proof badges now use editable ordinary groups, and official store badges
+reuse secure contain-fit project images without a redundant schema type. Dogfood/closure is next.
 Phase 8 stabilization/release readiness follows only after that baseline is complete.
 
 ## Requirements

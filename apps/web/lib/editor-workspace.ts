@@ -17,6 +17,7 @@ export type ResourceDialog =
   | "templates"
   | "screenshot-assets"
   | "image-assets"
+  | "store-badge-assets"
   | "device-frame-assets";
 
 /** Connected workspaces expose one exact group; isolated workspaces retain the locale set. */
@@ -77,12 +78,16 @@ export type AddCatalogAction =
   | "insert-text"
   | "insert-shape"
   | "insert-icon"
+  | "insert-badge"
   | "open-templates"
   | "open-asset-picker"
+  | "open-store-badge-picker"
   | "unavailable";
 
 export interface AddCatalogItem {
-  id: "text" | "shape" | "icon" | "screenshot" | "image" | "device-frame" | "components";
+  id:
+    | "text" | "shape" | "icon" | "screenshot" | "image" | "device-frame"
+    | "rating-badge" | "as-seen-on-badge" | "store-badge" | "components";
   label: string;
   category: AddCatalogCategory;
   action: AddCatalogAction;
@@ -126,6 +131,27 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     action: "open-templates",
     shortcut: "⌘/",
     hint: "Project templates",
+  },
+  {
+    id: "rating-badge",
+    label: "Rating badge",
+    category: "Library",
+    action: "insert-badge",
+    hint: "Editable grouped rating proof",
+  },
+  {
+    id: "as-seen-on-badge",
+    label: "As seen on badge",
+    category: "Library",
+    action: "insert-badge",
+    hint: "Editable grouped press proof",
+  },
+  {
+    id: "store-badge",
+    label: "Store badge",
+    category: "Library",
+    action: "open-store-badge-picker",
+    hint: "Choose an official project asset",
   },
 ] as const;
 

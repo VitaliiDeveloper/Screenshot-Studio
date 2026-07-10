@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slices 1–5 multi-selection/group/image/icon authoring are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slices 1–6 multi-selection/group/image/icon/badge authoring are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -97,6 +97,8 @@ shelf is open at a time; clicking its active rail item collapses it.
   and trusted built-in Icon insert immediately. Screenshot, decorative Image, and iPhone Device Frame open the project image
   picker. Templates opens the existing library. Adding a
   future type extends catalog metadata and an action rather than restructuring the workbench.
+  Library also inserts editable grouped Rating and As seen on badges when a registered font exists;
+  Store badge opens the secure project picker and inserts a named contain-fit image.
 
 ---
 
@@ -147,6 +149,8 @@ the schema gains them (future phases). Everything else is as built.
 - **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; crop *(target)*.
 - **`image`** → assetUrl, fit (contain default or centred cover crop), cornerRadius.
 - **`icon`** → trusted built-in id (`check | heart | sparkles | star`), color, strokeWidth.
+- **Badge compositions** → no dedicated inspector/schema type; grouped rating/press badges expose
+  their ordinary child fields, while official store badges use the ordinary image inspector.
 - **`device-frame`** → assetUrl, fit; deviceType (read-only, `iphone` only today); frame color,
   authorable screen slot *(target)*.
 - **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect` today;
@@ -213,8 +217,8 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the
   project's primary scope-creep risk and directly compounds the render/export parity risk that
   Phase 0 must retire first. Not before Phase 0 passes.
-- **New creative element types** — decorative `image` and trusted `icon` shipped in Phase 7
-  Slices 4–5; badge composition remains Phase 7 Slice 6.
+- **New creative primitives** — decorative `image`, trusted `icon`, and ordinary group/image badge
+  compositions shipped in Phase 7 Slices 4–6.
 
 ---
 
