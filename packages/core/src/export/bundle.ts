@@ -53,10 +53,57 @@ function sanitizeSegment(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function bundleRelativePath(screen: Screen, target: Pick<StoreSize, "id">, index: number): string {
-  const prefix = String(index + 1).padStart(2, "0");
-  const safeName = sanitizeSegment(screen.name) || sanitizeSegment(screen.id) || "screen";
-  return `${screen.platform}/${screen.device}/${screen.locale}/${prefix}-${safeName}-${target.id}.png`;
+const MAX_LOCALE_PATH_SEGMENT_LENGTH = 120;
+const MAX_STORE_SIZE_PATH_TOKEN_LENGTH = 64;
+const MAX_SCREEN_NAME_PATH_TOKEN_LENGTH = 96;
+
+function encodePortableIdentity(value: string, allowDot = false): string {
+  let encoded = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    const safe = (code >= 0x61 && code <= 0x7a)
+      || (code >= 0x30 && code <= 0x39)
+      || code === 0x2d
+      || code === 0x5f
+      || (allowDot && code === 0x2e);
+    encoded += safe ? value[index]! : `~${code.toString(16).padStart(4, "0")}`;
+  }
+  return encoded;
+}
+
+/**
+ * Encode an exact free-form locale as one portable, case-insensitive-filesystem-safe segment.
+ * Lowercase ASCII, digits, `_`, and `-` stay readable; every other UTF-16 code unit is escaped.
+ * The fixed prefix avoids Windows reserved filenames such as `con` and `aux`.
+ */
+export function safeLocalePathSegment(locale: string): string {
+  const segment = `locale-${encodePortableIdentity(locale)}`;
+  if (segment.length > MAX_LOCALE_PATH_SEGMENT_LENGTH) {
+    throw new Error(`Locale identifier is too long for a portable export path (${locale.length} characters)`);
+  }
+  return segment;
+}
+
+/** Keep the exact store-size id for lookup, but encode its identity at the filename sink. */
+export function safeStoreSizePathToken(sizeId: string): string {
+  const token = encodePortableIdentity(sizeId, true) || "~empty";
+  if (token.length > MAX_STORE_SIZE_PATH_TOKEN_LENGTH) {
+    throw new Error(`Store-size id is too long for a portable export filename (${sizeId.length} characters)`);
+  }
+  return token;
+}
+
+export function bundleRelativePath(
+  screen: Screen,
+  target: Pick<StoreSize, "id">,
+  groupIndex: number,
+): string {
+  const prefix = String(groupIndex + 1).padStart(2, "0");
+  const safeName = (sanitizeSegment(screen.name) || sanitizeSegment(screen.id) || "screen")
+    .slice(0, MAX_SCREEN_NAME_PATH_TOKEN_LENGTH);
+  const localeSegment = safeLocalePathSegment(screen.locale);
+  const targetToken = safeStoreSizePathToken(target.id);
+  return `${screen.platform}/${screen.device}/${localeSegment}/${prefix}-${safeName}-${targetToken}.png`;
 }
 
 export function buildBundleEntries(
@@ -64,10 +111,24 @@ export function buildBundleEntries(
   specs: StoreSpecs,
   filters: BundleFilters = {},
 ): BundleEntry[] {
-  return selectBundleScreens(project, filters).map((screen, index) => {
+  const counts = new Map<string, Map<string, Map<string, number>>>();
+  return selectBundleScreens(project, filters).map((screen) => {
+    let byDevice = counts.get(screen.platform);
+    if (!byDevice) {
+      byDevice = new Map();
+      counts.set(screen.platform, byDevice);
+    }
+    let byLocale = byDevice.get(screen.device);
+    if (!byLocale) {
+      byLocale = new Map();
+      byDevice.set(screen.device, byLocale);
+    }
+    const groupIndex = byLocale.get(screen.locale) ?? 0;
+    byLocale.set(screen.locale, groupIndex + 1);
+
     const sizeId = leadStoreSizeId(screen.platform, screen.device);
     const target = findStoreSize(specs, screen.platform, screen.device, sizeId);
-    return { screen, target, relativePath: bundleRelativePath(screen, target, index) };
+    return { screen, target, relativePath: bundleRelativePath(screen, target, groupIndex) };
   });
 }
 

@@ -171,7 +171,19 @@ added once export is rock-solid.
 
 Design at each platform's largest size, export by scaling down. UI export uses
 `Stage.toDataURL` with the right `pixelRatio`; CLI export uses the same `core` through the
-Phase 0 renderer. Bundles are zips organized by `platform / device / resolution / locale`.
+Phase 0 renderer. Both write bundle entries as
+`platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
+the exact free-form identifier, filtering remains exact against the stored string, and `NN`
+restarts inside each platform/device/locale group while preserving that group's relative project
+order. The complete filesystem/ZIP batch is validated for containment and duplicate paths before
+any output is written; existing symlinked ancestors/files are rejected and final files use
+no-follow opens. Re-running export deliberately replaces regular files at the same generated
+destinations; only in-batch collisions and redirecting filesystem objects are rejected.
+
+The safe locale directory uses a fixed `locale-` prefix and an injective `~hhhh` escape for every
+UTF-16 code unit outside lowercase ASCII letters, digits, `_`, and `-`; overlong segments fail
+before rendering. Store-size ids remain exact data for lookup and receive the same portable escape
+only at the filename sink, so custom specs stay compatible without introducing unsafe path bytes.
 
 **"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
 sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one

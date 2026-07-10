@@ -8,11 +8,10 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 4 Slice 4; Slice 5 is next.**
+> **Status: implementation and verification are complete through Phase 4; Phase 5 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
-> Focus/Overview editor workspace with active-locale filtering are built. Read only docs directly
-> relevant to the active task;
-> do not scan all of `docs/` by default. When in doubt, follow
+> locale/RTL editor and collision-safe multi-locale export are built. Read only docs directly
+> relevant to the active task; do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
 ## What this project is
@@ -100,11 +99,15 @@ Status: ✅ shipped.
 `export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
 lead-size bundle for every matching screen, grouped by `platform/device/locale`, plus
 `app-store-screenshots-bundle.zip`; filters are optional (`--platform`, `--device`, `--locale`).
-Bundle export uses one render host and one browser context for the run. Export sizes live in
-`store-specs.json` (data, not hardcode), with dimension tests. Strip the alpha channel on export —
-stores require no transparency. See architecture §4.
+Each PNG is written as `platform/device/<safe-locale>/NN-<screen>-<size>.png`; the locale folder is
+a collision-safe encoding of the exact stored identifier, and `NN` restarts at `01` inside every
+platform/device/locale group while preserving relative project order. Bundle export uses one render
+host and one browser context for the run. Export sizes live in `store-specs.json` (data, not hardcode),
+with dimension tests. Strip the alpha channel on export — stores require no transparency. See
+architecture §4.
 
-`screen list` prints screens in bundle/export order. `screen add` requires `--platform`, `--device`,
+`screen list` prints project order, which also defines relative slot order inside every export group.
+`screen add` requires `--platform`, `--device`,
 and `--locale`; `--id`, `--name`, and `--size` are optional. `screen rm <id>` refuses to remove the
 last screen. `screen reorder <id> --to <position>` uses 1-based positions. `import <dir>` expects the
 documented `apple/{iphone,ipad}/{locale}/NN.png` and `android/phone/{locale}/NN.png` capture layout,

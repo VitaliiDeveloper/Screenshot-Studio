@@ -6,8 +6,20 @@ import { runInit } from "./init.js";
 import { startWebServer } from "./server.js";
 import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
 import { createRenderBrowserSession } from "./render-driver.js";
-import { buildBundleEntries, parseStoreSpecs, type BundleFilters } from "@screenshot-studio/core/export";
-import { assertProjectFontsResolved, getScreen, parseProjectJson } from "@screenshot-studio/core/model";
+import {
+  buildBundleEntries,
+  parseStoreSpecs,
+  safeLocalePathSegment,
+  safeStoreSizePathToken,
+  type BundleFilters,
+  type StoreSize,
+} from "@screenshot-studio/core/export";
+import {
+  assertProjectFontsResolved,
+  getScreen,
+  parseProjectJson,
+  type Screen,
+} from "@screenshot-studio/core/model";
 import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { importCaptures } from "./import-command.js";
@@ -75,6 +87,18 @@ export interface ImportOptions {
   inputDir: string;
 }
 
+export function singleExportFilename(
+  screen: Pick<Screen, "platform" | "device" | "locale">,
+  target: Pick<StoreSize, "id">,
+): string {
+  const targetToken = safeStoreSizePathToken(target.id);
+  const filename = `${screen.platform}-${screen.device}-${targetToken}-${safeLocalePathSegment(screen.locale)}.png`;
+  if (filename.includes("/") || filename.includes("\\") || filename.includes("\0")) {
+    throw new Error(`Unsafe single export filename "${filename}"`);
+  }
+  return filename;
+}
+
 export function resolveImportOptions(args: string[], flags: Record<string, string>): ImportOptions {
   const [inputDir] = args;
   if (!inputDir) throw new Error("Usage: screenshots import <dir>");
@@ -129,6 +153,7 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
       screen.device,
       mode.sizeId,
     );
+    const outFile = join(outDir, singleExportFilename(screen, target));
 
     const server = await startWebServer();
     try {
@@ -139,7 +164,6 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
         target,
       });
       await mkdir(outDir, { recursive: true });
-      const outFile = join(outDir, `${screen.platform}-${screen.device}-${target.id}-${screen.locale}.png`);
       await writeFile(outFile, png);
       console.log(`Exported ${outFile} (${target.width}x${target.height})`);
     } finally {

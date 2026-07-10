@@ -11,15 +11,25 @@ import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js
 import { exportBundle } from "../packages/cli/src/export.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-2-bundle/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/phase-4-multi-locale/app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 
-describe("Phase 2 bundle export", () => {
-  it("exports lead-size PNGs and a zip using one server/browser session", async () => {
+const expectedPaths = [
+  "apple/iphone/locale-en/01-english-one-6.9.png",
+  "apple/iphone/locale-~002e~002e~002far/01-arabic-one-6.9.png",
+  "apple/iphone/locale-en/02-english-two-6.9.png",
+  "apple/iphone/locale-~002e~002e~002far/02-arabic-two-6.9.png",
+  "apple/ipad/locale-en/01-english-ipad-13.png",
+  "android/phone/locale-en_~0055~0053/01-underscore-android-phone-portrait.png",
+];
+
+describe("Phase 4 multi-locale bundle export", () => {
+  it("exports safe per-group-numbered PNGs and a zip using one server/browser session", async () => {
     const project = parseProjectJson(await readFile(fixturePath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
     const entries = buildBundleEntries(project, specs, {});
-    const outDir = await mkdtemp(join(tmpdir(), "phase-2-bundle-"));
+    expect(entries.map((entry) => entry.relativePath)).toEqual(expectedPaths);
+    const outDir = await mkdtemp(join(tmpdir(), "phase-4-bundle-"));
     const server = await startWebServer();
     const session = await createRenderBrowserSession();
     try {
@@ -42,7 +52,7 @@ describe("Phase 2 bundle export", () => {
       await expect(stat(zipPath)).resolves.toBeTruthy();
       const zip = await JSZip.loadAsync(await readFile(zipPath));
       expect(Object.values(zip.files).filter((file) => !file.dir).map((file) => file.name).sort()).toEqual(
-        entries.map((e) => e.relativePath).sort(),
+        [...expectedPaths].sort(),
       );
     } finally {
       await session.close();

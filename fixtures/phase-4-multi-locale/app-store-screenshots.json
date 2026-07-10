@@ -1,0 +1,74 @@
+{
+  "meta": { "name": "Phase 4 Multi-Locale Export", "schemaVersion": 1 },
+  "platforms": ["apple", "android"],
+  "locales": ["en", "../ar", "en_US"],
+  "fonts": [],
+  "screens": [
+    {
+      "id": "english-one",
+      "name": "English One",
+      "platform": "apple",
+      "device": "iphone",
+      "locale": "en",
+      "direction": "ltr",
+      "artboard": { "width": 1320, "height": 2868 },
+      "background": { "type": "solid", "color": "#111827" },
+      "elements": []
+    },
+    {
+      "id": "arabic-one",
+      "name": "Arabic One",
+      "platform": "apple",
+      "device": "iphone",
+      "locale": "../ar",
+      "direction": "rtl",
+      "artboard": { "width": 1320, "height": 2868 },
+      "background": { "type": "solid", "color": "#1E3A8A" },
+      "elements": []
+    },
+    {
+      "id": "english-two",
+      "name": "English Two",
+      "platform": "apple",
+      "device": "iphone",
+      "locale": "en",
+      "direction": "ltr",
+      "artboard": { "width": 1320, "height": 2868 },
+      "background": { "type": "solid", "color": "#172554" },
+      "elements": []
+    },
+    {
+      "id": "arabic-two",
+      "name": "Arabic Two",
+      "platform": "apple",
+      "device": "iphone",
+      "locale": "../ar",
+      "direction": "rtl",
+      "artboard": { "width": 1320, "height": 2868 },
+      "background": { "type": "solid", "color": "#312E81" },
+      "elements": []
+    },
+    {
+      "id": "english-ipad",
+      "name": "English iPad",
+      "platform": "apple",
+      "device": "ipad",
+      "locale": "en",
+      "direction": "ltr",
+      "artboard": { "width": 2064, "height": 2752 },
+      "background": { "type": "solid", "color": "#0F172A" },
+      "elements": []
+    },
+    {
+      "id": "underscore-android",
+      "name": "Underscore Android",
+      "platform": "android",
+      "device": "phone",
+      "locale": "en_US",
+      "direction": "ltr",
+      "artboard": { "width": 1080, "height": 1920 },
+      "background": { "type": "solid", "color": "#052E16" },
+      "elements": []
+    }
+  ]
+}

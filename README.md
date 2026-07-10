@@ -82,8 +82,10 @@ creation catalog, pointer-centred wheel/pinch zoom, Hand/Space pan, Fit, `Dots |
 responsive inspector/canvas layout. Closure QA also hardens live viewport changes, locked elements,
 inline text editing, contain-image transforms, schema-bounded Inspector input, save errors, and
 keyboard behavior. The bundled sample is a realistic three-screen launch deck.
-Phase 4 is in progress: locale-set core, explicit RTL render/parity, the locale CLI, and the editor
-locale workspace are complete; export hardening and closure are next.
+
+**Phase 4 (locales and RTL) — done.** Complete locale-set core/CLI/editor workflows, explicit baked
+RTL render parity, collision-safe multi-locale bundle paths, and per-platform/device/locale store-slot
+numbering are shipped. Phase 5 agent workflows are next.
 
 ## Requirements
 
@@ -126,7 +128,7 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 # Export one screen to an explicit store size
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --screen hero --size 6.9
 
-# Manage screens in export order
+# Manage project order (the relative order within each export group)
 pnpm screenshots screen list --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots screen add --project ./my-app-screenshots/app-store-screenshots.json --platform apple --device iphone --locale en --name "Hero"
 pnpm screenshots screen reorder hero --to 1 --project ./my-app-screenshots/app-store-screenshots.json
@@ -147,14 +149,18 @@ pnpm screenshots theme set midnight --project ./my-app-screenshots/app-store-scr
 Bundle `export` flags: optional `--platform <apple|android>`, `--device <iphone|ipad|phone>`,
 `--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode uses the
 lead size per device from [store-specs.json](store-specs.json) and writes
-`app-store-screenshots-bundle.zip`.
+`app-store-screenshots-bundle.zip`. PNGs use
+`platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
+the exact stored identifier, and numbering restarts at `01` for each platform/device/locale group.
+`--locale` filtering still compares the exact stored string.
 
 Single-screen `export` flags: `--screen <id>`, optional `--size <id>` (defaults to `6.9`), and
 `--out <dir>`.
 
-Screen commands mutate the same strict JSON source of truth. `screen list` prints current bundle
-order, `screen rm <id>` refuses to remove the last screen, and `screen reorder <id> --to <position>`
-uses 1-based positions.
+Screen commands mutate the same strict JSON source of truth. `screen list` prints project order;
+within each export group that relative order becomes the `01`, `02`, … store-slot order.
+`screen rm <id>` refuses to remove the last screen, and `screen reorder <id> --to <position>` uses
+1-based positions.
 
 Locale commands delegate to the same core transformations as the editor. `locale add` clones a
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the

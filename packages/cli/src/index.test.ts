@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { assertProjectFontsResolved } from "@screenshot-studio/core/model";
-import { positionalArgs, resolveDevOptions, resolveExportMode, resolveImportOptions } from "./index.js";
+import {
+  positionalArgs,
+  resolveDevOptions,
+  resolveExportMode,
+  resolveImportOptions,
+  singleExportFilename,
+} from "./index.js";
 
 describe("positionalArgs", () => {
   it("keeps subcommands and skips flag values", () => {
@@ -59,6 +65,22 @@ describe("resolveExportMode", () => {
 
   it("rejects screen mixed with bundle filters", () => {
     expect(() => resolveExportMode({ screen: "hero", platform: "apple" })).toThrow(/cannot be combined/);
+  });
+});
+
+describe("singleExportFilename", () => {
+  it("uses the same safe locale segment as bundle export", () => {
+    expect(singleExportFilename(
+      { platform: "apple", device: "iphone", locale: "../ar" },
+      { id: "6.9" },
+    )).toBe("apple-iphone-6.9-locale-~002e~002e~002far.png");
+  });
+
+  it("encodes a custom store-size id at the filename sink", () => {
+    expect(singleExportFilename(
+      { platform: "apple", device: "iphone", locale: "en" },
+      { id: "6.9:alt*" },
+    )).toBe("apple-iphone-6.9~003aalt~002a-locale-en.png");
   });
 });
 

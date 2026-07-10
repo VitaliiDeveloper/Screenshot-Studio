@@ -1,5 +1,6 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { constants } from "node:fs";
+import { lstat, mkdir, open, readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import JSZip from "jszip";
 import {
   parseProjectJson,
@@ -65,6 +66,88 @@ export interface RenderedBundleEntry {
   png: Buffer;
 }
 
+function resolveSafeBundleOutputPath(outDir: string, relativePath: string): string {
+  const segments = relativePath.split("/");
+  if (
+    isAbsolute(relativePath)
+    || relativePath.includes("\\")
+    || relativePath.includes("\0")
+    || segments.some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    throw new Error(`Unsafe bundle output path "${relativePath}"`);
+  }
+  const root = resolve(outDir);
+  const outputPath = resolve(root, relativePath);
+  const fromRoot = relative(root, outputPath);
+  if (fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
+    throw new Error(`Unsafe bundle output path "${relativePath}"`);
+  }
+  return outputPath;
+}
+
+async function lstatIfExists(path: string) {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function assertDirectoryNotSymlink(path: string, stats: Awaited<ReturnType<typeof lstat>>): void {
+  if (stats.isSymbolicLink()) throw new Error(`Unsafe symbolic link in bundle output path "${path}"`);
+  if (!stats.isDirectory()) throw new Error(`Bundle output ancestor is not a directory "${path}"`);
+}
+
+async function preflightOutputSymlinks(outDir: string, outputPath: string): Promise<void> {
+  const root = resolve(outDir);
+  const rootStats = await lstatIfExists(root);
+  if (rootStats) assertDirectoryNotSymlink(root, rootStats);
+
+  const directory = dirname(outputPath);
+  const relativeDirectory = relative(root, directory);
+  let current = root;
+  for (const segment of relativeDirectory === "" ? [] : relativeDirectory.split(sep)) {
+    current = join(current, segment);
+    const stats = await lstatIfExists(current);
+    if (!stats) break;
+    assertDirectoryNotSymlink(current, stats);
+  }
+
+  const outputStats = await lstatIfExists(outputPath);
+  if (outputStats?.isSymbolicLink()) {
+    throw new Error(`Unsafe symbolic link at bundle output file "${outputPath}"`);
+  }
+  if (outputStats?.isDirectory()) {
+    throw new Error(`Bundle output file is an existing directory "${outputPath}"`);
+  }
+}
+
+async function ensureSafeOutputDirectory(outDir: string, directory: string): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  const root = resolve(outDir);
+  const relativeDirectory = relative(root, directory);
+  let current = root;
+  for (const segment of ["", ...(relativeDirectory === "" ? [] : relativeDirectory.split(sep))]) {
+    if (segment) current = join(current, segment);
+    const stats = await lstat(current);
+    assertDirectoryNotSymlink(current, stats);
+  }
+}
+
+async function writeFileNoFollow(path: string, bytes: Buffer): Promise<void> {
+  const flags = constants.O_WRONLY
+    | constants.O_CREAT
+    | constants.O_TRUNC
+    | (constants.O_NOFOLLOW ?? 0);
+  const handle = await open(path, flags, 0o666);
+  try {
+    await handle.writeFile(bytes);
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function writeBundleOutputs({
   outDir,
   entries,
@@ -72,18 +155,32 @@ export async function writeBundleOutputs({
   outDir: string;
   entries: RenderedBundleEntry[];
 }): Promise<string> {
+  const seenPaths = new Set<string>();
+  const outputs = entries.map(({ entry, png }) => {
+    const outputPath = resolveSafeBundleOutputPath(outDir, entry.relativePath);
+    const collisionKey = entry.relativePath.normalize("NFC").toLowerCase();
+    if (seenPaths.has(collisionKey)) {
+      throw new Error(`Duplicate bundle output path "${entry.relativePath}"`);
+    }
+    seenPaths.add(collisionKey);
+    return { entry, png, outputPath };
+  });
+  const zipPath = join(outDir, "app-store-screenshots-bundle.zip");
+  for (const { outputPath } of outputs) {
+    await preflightOutputSymlinks(outDir, outputPath);
+  }
+  await preflightOutputSymlinks(outDir, zipPath);
+
   const zip = new JSZip();
 
-  for (const { entry, png } of entries) {
-    const outFile = join(outDir, entry.relativePath);
-    await mkdir(dirname(outFile), { recursive: true });
-    await writeFile(outFile, png);
+  for (const { entry, png, outputPath } of outputs) {
+    await ensureSafeOutputDirectory(outDir, dirname(outputPath));
+    await writeFileNoFollow(outputPath, png);
     zip.file(entry.relativePath, png);
   }
 
-  const zipPath = join(outDir, "app-store-screenshots-bundle.zip");
-  await mkdir(outDir, { recursive: true });
-  await writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+  await ensureSafeOutputDirectory(outDir, outDir);
+  await writeFileNoFollow(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
   return zipPath;
 }
 

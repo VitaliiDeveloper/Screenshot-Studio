@@ -3,9 +3,9 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.6, 10 July 2026.
+Version 0.7, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5 visual polish, the Phase 3.6 workspace foundation, and Phase 4 Slice 4's locale workspace are implemented**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5 visual polish, the Phase 3.6 workspace foundation, and the complete Phase 4 locale/RTL workflow are implemented**
 > (see `roadmap.md` §3a/§3c/§3e and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -79,9 +79,10 @@ shelf is open at a time; clicking its active rail item collapses it.
 
 - **Structure / Screens** (compact): shared-renderer thumbnail + name + device label, add, delete,
   and drag-reorder (dnd-kit) for the active locale. Reorder changes only that locale's slots in the
-  project array, preserving other locales' relative order. The resulting project order is the
-  **export order** — one ordering source shared by UI and CLI. The final screen in a locale is
-  protected here so whole-locale removal always goes through the confirmed locale-manager action.
+  project array, preserving other locales' relative order. Project order is the one ordering source
+  shared by UI and CLI; each platform/device/locale export group derives its relative `01`, `02`, …
+  slot order from it. The final screen in a locale is protected here so whole-locale removal always
+  goes through the confirmed locale-manager action.
 - **Structure / Layers** (for the selected screen): elements in z-order (array order), with lock / hide /
   rename. **No grouping.**
 - **Resources:** opens existing Fonts, Themes, and Templates dialogs.
@@ -146,10 +147,12 @@ the schema gains them (future phases). Everything else is as built.
   saves surface a visible workspace alert; the editor never silently presents a rejected value as
   durable state.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
-  `store-specs.json`, zip bundles by platform/device/locale. The UI export button and `cli export`
-  must meet the Phase 0 parity exit criterion — exact target dimensions, no alpha channel, and a
-  visual diff within tolerance (*not* byte-identical; PNG metadata/compression may differ). See
-  `architecture.md` §2.
+  `store-specs.json`, and zip bundles at
+  `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is
+  shared with CLI export; numbering restarts per exact platform/device/locale group in relative
+  project order. The UI export button and `cli export` must meet the Phase 0 parity exit criterion —
+  exact target dimensions, no alpha channel, and a visual diff within tolerance (*not*
+  byte-identical; PNG metadata/compression may differ). See `architecture.md` §2.
 - **Font management** opens from Resources: upload or materialize a Google Font, preview/list
   registered identities, apply one to the selected text element, or remove it. CLI and UI reuse
   the same add-time Node service; render/export never fetch fonts from the network.
