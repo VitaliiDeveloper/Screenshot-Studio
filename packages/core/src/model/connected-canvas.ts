@@ -1,4 +1,10 @@
-import type { Project, Screen } from "./schema.js";
+import {
+  Project as ProjectSchema,
+  type CanvasMode,
+  type Element,
+  type Project,
+  type Screen,
+} from "./schema.js";
 
 /** One screen projected into its exact platform/device/locale strip. */
 export interface ProjectedScreen {
@@ -29,4 +35,76 @@ export function projectScreenGroup(project: Project, screenId: string): Projecte
       x += screen.artboard.width;
       return projected;
     });
+}
+
+export interface ElementBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+export interface OwnerOverflow {
+  screenId: string;
+  elementId: string;
+  bounds: ElementBounds;
+}
+
+/** Axis-aligned bounds for Konva's default top-left rotation origin. */
+export function rotatedElementBounds(element: Element): ElementBounds {
+  const radians = element.rotation * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const corners = [
+    [0, 0],
+    [element.width, 0],
+    [0, element.height],
+    [element.width, element.height],
+  ] as const;
+  const points = corners.map(([x, y]) => ({
+    x: element.x + x * cos - y * sin,
+    y: element.y + x * sin + y * cos,
+  }));
+  return {
+    minX: Math.min(...points.map((point) => point.x)),
+    minY: Math.min(...points.map((point) => point.y)),
+    maxX: Math.max(...points.map((point) => point.x)),
+    maxY: Math.max(...points.map((point) => point.y)),
+  };
+}
+
+export function findOwnerOverflows(project: Project): OwnerOverflow[] {
+  const epsilon = 1e-9;
+  const overflows: OwnerOverflow[] = [];
+  for (const screen of project.screens) {
+    for (const element of screen.elements) {
+      if (!element.visible || element.opacity === 0) continue;
+      const bounds = rotatedElementBounds(element);
+      if (
+        bounds.minX < -epsilon
+        || bounds.minY < -epsilon
+        || bounds.maxX > screen.artboard.width + epsilon
+        || bounds.maxY > screen.artboard.height + epsilon
+      ) {
+        overflows.push({ screenId: screen.id, elementId: element.id, bounds });
+      }
+    }
+  }
+  return overflows;
+}
+
+/** Explicit, loss-aware canvas-mode transition; never clips connected pixels silently. */
+export function setCanvasMode(project: Project, mode: CanvasMode): Project {
+  if (project.mode === mode) return project;
+  if (mode === "isolated") {
+    const overflows = findOwnerOverflows(project);
+    if (overflows.length > 0) {
+      const first = overflows[0]!;
+      const suffix = overflows.length === 1 ? "" : ` and ${overflows.length - 1} more`;
+      throw new Error(
+        `Cannot switch to isolated mode: element "${first.elementId}" on screen "${first.screenId}" crosses its owner artboard${suffix}`,
+      );
+    }
+  }
+  return ProjectSchema.parse({ ...project, mode });
 }

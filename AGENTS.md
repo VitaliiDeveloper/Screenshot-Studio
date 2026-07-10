@@ -8,12 +8,13 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 5; Phase 6 Slice 1 is complete.**
+> **Status: implementation and verification are complete through Phase 5; Phase 6 Slices 1–2 are complete.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
 > removal are shipped and closure-verified. The v2 connected document and precise shared-renderer
-> crop contract are closure-verified; interactive connected authoring is next. Phase 6 and planned
+> crop contract plus guarded lifecycle/CLI mode changes are verified; interactive connected authoring
+> is next. Phase 6 and planned
 > Phase 7 together close the baseline; public release readiness comes only after later stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
@@ -108,6 +109,7 @@ Status: ✅ shipped.
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Register and manage deterministic font assets | ✅ |
 | `theme set <id>` | Apply `themes/<id>.json` to all role-tagged elements | ✅ |
 | `locale list / add / direction / rm` | Manage complete locale sets and baked layout direction | ✅ |
+| `canvas mode [isolated|connected]` | Inspect or explicitly change the project canvas mode | ✅ |
 | `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets | ✅ |
 
 `export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
@@ -132,6 +134,11 @@ copies PNGs into `assets/imports/...`, and appends screenshot-backed screens.
 `locale direction <locale> --to <ltr|rtl>` is repeat-safe; `locale rm <locale>` refuses to remove
 the last locale. `locale list` prints direction plus screen count. `screen add --direction` is optional;
 without it, an existing locale's direction is inherited and a new locale defaults to LTR.
+
+`canvas mode` prints the current project-wide mode. `canvas mode connected` is an explicit opt-in:
+previously clipped owner-local overflow can appear on neighbouring screens in the same exact group.
+`canvas mode isolated` refuses while any rendered element's rotation-aware bounds cross its owner
+artboard, so changing mode cannot silently drop connected pixels.
 
 `font add <file>` requires `--family` and accepts `.ttf`, `.otf`, `.woff`, or `.woff2`; `--weight`
 defaults to `400`. `font add --google <family>` downloads one exact-weight file at add-time, so

@@ -4,7 +4,7 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 2 }, mode: "isolated", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 2 }, mode: "connected", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   };
@@ -35,6 +35,7 @@ describe("createScreenFromTemplate", () => {
     expect(result.screen.id).toBe("feature-card");
     expect(result.screen.elements.map((element) => element.id)).not.toEqual(["title", "accent"]);
     expect(new Set(result.screen.elements.map((element) => element.id)).size).toBe(2);
+    expect(result.project.mode).toBe("connected");
     expect(result.project.platforms).toEqual(["apple", "android"]);
     expect(result.project.locales).toEqual(["en", "uk"]);
   });

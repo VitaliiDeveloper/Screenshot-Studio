@@ -1,6 +1,6 @@
 # Phase 6 — Connected canvas and completion foundations
 
-Status: active. Slice 1 is complete and closure-verified; nine execution slices remain. The
+Status: active. Slices 1–2 are complete and verified; eight execution slices remain. The
 enforced project contract is v2 with lossless v1→v2 isolated migration.
 
 ## Goal
@@ -95,9 +95,9 @@ Existing operations keep their ordinary meaning:
 - themes, fonts, templates, assets, and unresolved-font checks continue to traverse screen-owned
   elements and do not need a parallel connected-element path.
 
-The CLI receives an explicit canvas-mode command in Slice 2; direct JSON authoring remains valid
-after schema validation. No mode switch runs implicitly during init, import, template creation, or
-locale cloning.
+The CLI exposes `screenshots canvas mode [isolated|connected]`. Switching back to isolated refuses
+while rendered rotation-aware bounds cross an owner artboard; no mode switch runs implicitly during
+init, import, template creation, or locale cloning.
 
 ## Editor contract
 

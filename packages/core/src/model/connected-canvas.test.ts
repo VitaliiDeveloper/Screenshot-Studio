@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "./schema.js";
-import { projectScreenGroup, sameScreenGroup } from "./connected-canvas.js";
+import {
+  findOwnerOverflows,
+  projectScreenGroup,
+  rotatedElementBounds,
+  sameScreenGroup,
+  setCanvasMode,
+} from "./connected-canvas.js";
 
 function project(): Project {
   return {
@@ -60,3 +66,51 @@ describe("connected canvas projection", () => {
     expect(() => projectScreenGroup(project(), "missing")).toThrow(/not found/);
   });
 });
+
+describe("canvas mode transitions", () => {
+  it("switches isolated to connected and is idempotent", () => {
+    const isolated = { ...project(), mode: "isolated" as const };
+    const connected = setCanvasMode(isolated, "connected");
+    expect(connected.mode).toBe("connected");
+    expect(setCanvasMode(connected, "connected")).toBe(connected);
+  });
+
+  it("refuses connected to isolated when a visible element crosses its owner artboard", () => {
+    const connected = project();
+    connected.screens[0]!.elements = [shape("bridge", 90, 20, 20, 0)];
+    expect(findOwnerOverflows(connected)).toMatchObject([{ screenId: "first", elementId: "bridge" }]);
+    expect(() => setCanvasMode(connected, "isolated")).toThrow(/bridge.*first.*crosses/);
+  });
+
+  it("uses rotation-aware bounds and ignores non-rendering overflow", () => {
+    const connected = project();
+    const rotated = shape("rotated", 90, 20, 20, 45);
+    expect(rotatedElementBounds(rotated).maxX).toBeGreaterThan(100);
+    connected.screens[0]!.elements = [rotated];
+    expect(() => setCanvasMode(connected, "isolated")).toThrow(/rotated/);
+
+    rotated.visible = false;
+    expect(setCanvasMode(connected, "isolated").mode).toBe("isolated");
+    rotated.visible = true;
+    rotated.opacity = 0;
+    expect(setCanvasMode(connected, "isolated").mode).toBe("isolated");
+  });
+});
+
+function shape(id: string, x: number, width: number, height: number, rotation: number) {
+  return {
+    id,
+    type: "shape" as const,
+    x,
+    y: 10,
+    width,
+    height,
+    rotation,
+    opacity: 1,
+    locked: false,
+    visible: true,
+    kind: "rect" as const,
+    fill: "#FF0000",
+    radius: 0,
+  };
+}

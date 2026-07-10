@@ -29,6 +29,9 @@ command as `pnpm screenshots` from that checkout and pass this project's JSON wi
   assigning that identity.
 - Layout is literal. There is no responsive constraint engine: write final `x`, `y`, `width`, and
   `height` values for each artboard.
+- Inspect mode with `screenshots canvas mode`. Change it only explicitly with
+  `screenshots canvas mode isolated|connected`; switching to isolated refuses while rendered
+  elements cross their owner artboards.
 - RTL is explicit and baked. Never reflect screenshot or device media pixels.
 - Do not add prompt history, translation-pair ids, group state, new element types, or any
   other field outside the enforced schema.

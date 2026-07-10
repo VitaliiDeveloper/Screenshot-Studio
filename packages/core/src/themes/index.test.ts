@@ -5,7 +5,7 @@ import { applyTheme, Theme } from "./index.js";
 function project(): Project {
   return {
     meta: { name: "Theme", schemaVersion: 2 },
-    mode: "isolated",
+    mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
     fonts: [
@@ -41,6 +41,7 @@ describe("Theme", () => {
 describe("applyTheme", () => {
   it("bakes role colors and fonts while preserving opt-out elements", () => {
     const next = applyTheme(project(), theme);
+    expect(next.mode).toBe("connected");
     expect(next.screens[0]!.elements[0]).toMatchObject({ role: "heading", color: "#F8FAFC", fontFamily: "Inter", weight: 700 });
     expect(next.screens[0]!.elements[1]).toMatchObject({ role: "accent", fill: "#38BDF8" });
     expect(next.screens[0]!.elements[2]).toEqual(project().screens[0]!.elements[2]);

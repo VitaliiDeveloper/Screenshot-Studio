@@ -289,6 +289,7 @@ my-app-screenshots/
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
 | `theme set <id>` | Apply a theme to all screens |
 | `locale list / add / direction / rm` | Manage complete locale sets and baked LTR/RTL placement |
+| `canvas mode [isolated|connected]` | Inspect or explicitly change the project-wide canvas mode |
 | `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets |
 | `import <dir>` | Ingest raw captures by directory convention |
 | `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |

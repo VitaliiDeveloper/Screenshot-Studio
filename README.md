@@ -38,7 +38,7 @@ Monorepo (pnpm workspaces):
 
 - `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
   asset loading, storage. The single source of truth for rendering (architecture.md §2).
-- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme/locale
+- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme/locale/canvas
   management, and non-destructive local asset processing).
 - `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
@@ -92,9 +92,10 @@ numbering are shipped.
 non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
 locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
 background removal write new PNGs without touching source assets or project JSON. The generated
-workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slice 1 now
-ships schema v2, lossless v1 migration, and connected UI/CLI crop parity. Connected lifecycle and
-authoring come next, followed by undo/redo, snapping, media insertion, standalone distribution,
+workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slices 1–2 now
+ship schema v2, lossless v1 migration, connected UI/CLI crop parity, lifecycle-safe operations, and
+an explicit guarded canvas-mode CLI. Connected authoring comes next, followed by undo/redo,
+snapping, media insertion, standalone distribution,
 and OSS project polish. Phase 7 completes the baseline with multi-select, grouping, and new creative
 primitives. Stabilization/release readiness follows only after that baseline is complete.
 

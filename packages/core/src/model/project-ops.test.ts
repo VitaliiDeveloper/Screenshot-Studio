@@ -20,7 +20,7 @@ import {
 function sampleProject(): Project {
   return {
     meta: { name: "T", schemaVersion: 2 },
-    mode: "isolated",
+    mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
     fonts: [],
@@ -72,6 +72,7 @@ describe("project-ops", () => {
       locale: "uk",
       artboard: { width: 2048, height: 2732 },
     });
+    expect(project.mode).toBe("connected");
     expect(project.locales).toEqual(["en", "uk"]);
     expect(project.screens.at(-1)).toMatchObject({
       id: "ipad-hero",

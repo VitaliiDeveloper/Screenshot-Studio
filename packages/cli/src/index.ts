@@ -27,10 +27,11 @@ import { runFontCommand } from "./font-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { runAssetCommand } from "./asset-commands.js";
+import { runCanvasCommand } from "./canvas-commands.js";
 
 /**
  * `screenshots` CLI — project setup, export, deterministic asset processing, and the shipped
- * screen/locale/font/theme management surface.
+ * screen/locale/font/theme/canvas management surface.
  * `export` delegates all pixel rendering to the served web renderer (decision A), so its output
  * stays identical to UI export by construction.
  */
@@ -240,6 +241,10 @@ async function cmdAsset(args: string[], flags: Record<string, string>): Promise<
   console.log(await runAssetCommand(resolveProjectPath(flags), args, flags));
 }
 
+async function cmdCanvas(args: string[], flags: Record<string, string>): Promise<void> {
+  console.log(await runCanvasCommand(resolveProjectPath(flags), args));
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -272,8 +277,11 @@ async function main(): Promise<void> {
     case "asset":
       await cmdAsset(args, flags);
       break;
+    case "canvas":
+      await cmdCanvas(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|canvas> [flags]`);
       process.exit(1);
   }
 }
