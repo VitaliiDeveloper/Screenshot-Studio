@@ -26,9 +26,11 @@ import { importCaptures } from "./import-command.js";
 import { runFontCommand } from "./font-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
+import { runAssetCommand } from "./asset-commands.js";
 
 /**
- * `screenshots` CLI — project setup, export, and the shipped screen/locale/font/theme management surface.
+ * `screenshots` CLI — project setup, export, deterministic asset processing, and the shipped
+ * screen/locale/font/theme management surface.
  * `export` delegates all pixel rendering to the served web renderer (decision A), so its output
  * stays identical to UI export by construction.
  */
@@ -234,6 +236,10 @@ async function cmdLocale(args: string[], flags: Record<string, string>): Promise
   console.log(await runLocaleCommand(resolveProjectPath(flags), args, flags));
 }
 
+async function cmdAsset(args: string[], flags: Record<string, string>): Promise<void> {
+  console.log(await runAssetCommand(resolveProjectPath(flags), args, flags));
+}
+
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
@@ -263,8 +269,11 @@ async function main(): Promise<void> {
     case "locale":
       await cmdLocale(args, flags);
       break;
+    case "asset":
+      await cmdAsset(args, flags);
+      break;
     default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale> [flags]`);
+      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset> [flags]`);
       process.exit(1);
   }
 }

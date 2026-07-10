@@ -1,10 +1,11 @@
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SCHEMA_VERSION, type Project } from "@screenshot-studio/core/model";
 
 /**
- * `screenshots init` — scaffold the project file and the standard directories (AGENTS.md
- * layout). Phase 0 seeds a minimal but valid project so `export` works immediately after init.
+ * `screenshots init` — scaffold the project file, agent instructions, and standard directories.
+ * The minimal project is valid immediately, while its project-local guide documents the Phase 5
+ * copy, literal-layout, and translation workflows without adding persisted agent state.
  */
 
 const STANDARD_DIRS = [
@@ -15,6 +16,17 @@ const STANDARD_DIRS = [
   "templates",
   "export",
 ];
+
+const PROJECT_FILE = "app-store-screenshots.json";
+const AGENT_GUIDE_FILE = "AGENTS.md";
+const CLAUDE_GUIDE_FILE = "CLAUDE.md";
+const CONTROL_FILES = [PROJECT_FILE, AGENT_GUIDE_FILE, CLAUDE_GUIDE_FILE];
+const CLAUDE_GUIDE = `# CLAUDE.md
+
+Follow the project workflow and schema instructions in \`AGENTS.md\`.
+
+@AGENTS.md
+`;
 
 function starterProject(name: string): Project {
   return {
@@ -50,11 +62,23 @@ async function exists(path: string): Promise<boolean> {
 }
 
 export async function runInit(cwd: string, projectName = "My App Screenshots"): Promise<void> {
+  for (const filename of CONTROL_FILES) {
+    const path = join(cwd, filename);
+    if (await exists(path)) {
+      throw new Error(`Refusing to overwrite existing ${path}`);
+    }
+  }
+
+  const agentGuide = await readFile(new URL("./project-agent-guide.md", import.meta.url), "utf8");
   await Promise.all(STANDARD_DIRS.map((d) => mkdir(join(cwd, d), { recursive: true })));
 
-  const projectFile = join(cwd, "app-store-screenshots.json");
-  if (await exists(projectFile)) {
-    throw new Error(`Refusing to overwrite existing ${projectFile}`);
-  }
-  await writeFile(projectFile, `${JSON.stringify(starterProject(projectName), null, 2)}\n`, "utf8");
+  await Promise.all([
+    writeFile(
+      join(cwd, PROJECT_FILE),
+      `${JSON.stringify(starterProject(projectName), null, 2)}\n`,
+      { encoding: "utf8", flag: "wx" },
+    ),
+    writeFile(join(cwd, AGENT_GUIDE_FILE), agentGuide, { encoding: "utf8", flag: "wx" }),
+    writeFile(join(cwd, CLAUDE_GUIDE_FILE), CLAUDE_GUIDE, { encoding: "utf8", flag: "wx" }),
+  ]);
 }

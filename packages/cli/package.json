@@ -21,6 +21,7 @@
   "dependencies": {
     "@screenshot-studio/core": "workspace:*",
     "jszip": "^3.10.1",
-    "playwright": "^1.49.1"
+    "playwright": "^1.49.1",
+    "sharp": "^0.34.5"
   }
 }

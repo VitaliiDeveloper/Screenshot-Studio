@@ -277,19 +277,25 @@ my-app-screenshots/
 
 | Command | Action |
 |---------|--------|
-| `init` | Scaffold the project and standard directories |
+| `init` | Scaffold the project, standard directories, and project-local agent guides |
 | `dev` | Run the canvas editor (dev server) |
 | `screen add / list / rm / reorder` | Manage screens |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
 | `theme set <id>` | Apply a theme to all screens |
 | `locale list / add / direction / rm` | Manage complete locale sets and baked LTR/RTL placement |
+| `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets |
 | `import <dir>` | Ingest raw captures by directory convention |
 | `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
 
-**`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** Any CLI agent that
-opens the repo auto-reads this file and learns the directory structure, the project JSON
-schema, the CLI commands, and the design guardrails (§7). That is enough for the agent to
-generate copy, lay out slides, and translate locales — no packaging required.
+**`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
+materializes a self-contained project guide plus a small Claude forwarding file and refuses to
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v1
+schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
+locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
+and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic
+flat-background removal run locally through Sharp, write under `assets/processed/`, and never enter
+render/export. The current source-checkout invocation is `pnpm screenshots`; packaging the standalone
+`screenshots` executable remains Phase 6.
 
 **Skill — only for zero-config outside the repo.** A few lines telling the agent: "clone the
 repo, run `screenshots init`, then follow `AGENTS.md`." Added last; not required.

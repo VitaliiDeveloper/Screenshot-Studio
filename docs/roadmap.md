@@ -121,10 +121,10 @@ Sliced in §3d.
 **Phase 4 — Locales & RTL — complete.**
 Multi-locale sets, RTL-native layouts. Sliced in §3e.
 
-**Phase 5 — Agent workflows.**
-`AGENTS.md` recipes: copy generation, auto-layout, locale translation via the CLI agent
-(subscription, no keys). Local image processing (background removal / auto-crop) via a WASM
-model or a local utility.
+**Phase 5 — Agent workflows — complete.**
+Project-local `AGENTS.md` recipes for copy generation, baked auto-layout, and locale translation via
+the CLI agent (subscription, no keys) ship from `screenshots init`. Deterministic local auto-crop and
+flat/near-uniform background removal ship through the non-destructive asset CLI. Sliced in §3f.
 
 **Phase 6 — Connected canvas + polish.**
 Cross-screen elements with precise export crops, the optional skill installer, and community
@@ -241,6 +241,24 @@ Automatic translation remains Phase 5.
 
 The accepted data, RTL-transform, CLI, editor, and export contract lives in
 `docs/specs/2026-07-10-phase4-locales-rtl-design.md`.
+
+---
+
+## 3f. Phase 5 execution slices
+
+Phase 5 keeps AI outside the deterministic product core. Agent workflows edit ordinary v1 literals
+and delegate structural changes to the shipped CLI; image preprocessing is explicit, local, and
+non-destructive rather than a render-time effect.
+
+| Slice | Delivers | Contract kept |
+|-------|----------|---------------|
+| **1 — Project agent guide scaffold** ✅ | `screenshots init` creates a project-local `AGENTS.md` plus `CLAUDE.md` forwarding file with copy, literal auto-layout, and locale-translation recipes. | No AI provider, schema field, prompt state, or second layout/render path. |
+| **2 — Deterministic auto-crop CLI** ✅ | Non-destructive local crop output under `assets/processed/` with safe paths and collision handling. | Source assets and project JSON are unchanged until the caller explicitly uses the result. |
+| **3 — Local background removal utility** ✅ | Deterministic edge-connected removal for flat/near-uniform backgrounds behind the asset-processing CLI boundary. | No hosted inference, API key, browser model, network request, or render/export dependency. |
+| **4 — Dogfood and closure** ✅ | Generated-guide workflow coverage, asset-processing integration coverage, public docs truth, and the Phase 5 gate. | Agent help remains optional; deterministic CLI/editor/export behavior remains independently usable. |
+
+The accepted workflow and local-processing boundary lives in
+`docs/specs/2026-07-10-phase5-agent-workflows-design.md`.
 
 ---
 

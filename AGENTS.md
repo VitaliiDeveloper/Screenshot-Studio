@@ -8,11 +8,13 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 4; Phase 5 is next.**
+> **Status: implementation and verification are complete through Phase 5; Phase 6 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
-> locale/RTL editor and collision-safe multi-locale export are built. Read only docs directly
-> relevant to the active task; do not scan all of `docs/` by default. When in doubt, follow
-> `docs/architecture.md` (the technical contract) — it wins over this summary.
+> locale/RTL editor and collision-safe multi-locale export are built. New projects receive
+> copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
+> removal are shipped and closure-verified. Read only docs directly relevant to the active task; do
+> not scan all of `docs/` by default. When in doubt, follow `docs/architecture.md` (the technical
+> contract) — it wins over this summary.
 
 ## What this project is
 
@@ -86,7 +88,7 @@ Status: ✅ shipped.
 
 | Command | Action | Status |
 |---------|--------|--------|
-| `init` | Scaffold the project and standard directories | ✅ |
+| `init` | Scaffold the project, standard directories, and project-local agent guides | ✅ |
 | `export [--screen --size]` | Export one screen to an exact store size (PNG, no alpha) | ✅ |
 | `export [--platform --device --locale]` | Export lead-size PNG **bundles** + zip by platform/device/locale | ✅ |
 | `dev` | Run the canvas editor (dev server) | ✅ |
@@ -95,6 +97,7 @@ Status: ✅ shipped.
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Register and manage deterministic font assets | ✅ |
 | `theme set <id>` | Apply `themes/<id>.json` to all role-tagged elements | ✅ |
 | `locale list / add / direction / rm` | Manage complete locale sets and baked layout direction | ✅ |
+| `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets | ✅ |
 
 `export --screen --size` writes a single explicit target. Without `--screen`, `export` writes a
 lead-size bundle for every matching screen, grouped by `platform/device/locale`, plus
@@ -140,6 +143,19 @@ once before the ordinary screen is persisted.
 The editor top bar selects and manages complete locale sets. Structure/Screens and Overview show
 only the active locale; drag reorder is locale-scoped, inline editing and new text use the active
 screen direction, and the last screen in a locale is removed only through the guarded locale manager.
+
+`screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
+forwarder, refusing to overwrite either. The canonical generated guide is
+`packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
+locale translation, and explicit local asset processing through the shipped CLI and strict v1 fields.
+Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
+subscription-backed orchestration over ordinary project JSON.
+
+`asset auto-crop <file>` and `asset remove-background <file>` resolve sources from the project root,
+reject real-path and symlink escapes, preserve the source and project JSON, and write collision-safe
+PNG results under `assets/processed/`. Auto-crop bounds edge-connected top-left-colour margins;
+background removal makes an edge-connected flat/near-uniform colour transparent. The latter is not
+semantic segmentation and must not be presented as reliable for complex photographic scenes.
 
 ## Design guardrails (always apply when generating slides/copy)
 

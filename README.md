@@ -38,7 +38,8 @@ Monorepo (pnpm workspaces):
 
 - `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
   asset loading, storage. The single source of truth for rendering (architecture.md §2).
-- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme/locale management).
+- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme/locale
+  management, and non-destructive local asset processing).
 - `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
@@ -85,7 +86,13 @@ keyboard behavior. The bundled sample is a realistic three-screen launch deck.
 
 **Phase 4 (locales and RTL) — done.** Complete locale-set core/CLI/editor workflows, explicit baked
 RTL render parity, collision-safe multi-locale bundle paths, and per-platform/device/locale store-slot
-numbering are shipped. Phase 5 agent workflows are next.
+numbering are shipped.
+
+**Phase 5 (agent workflows and local image processing) — done.** `screenshots init` creates
+non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
+locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
+background removal write new PNGs without touching source assets or project JSON. The generated
+workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 is next.
 
 ## Requirements
 
@@ -116,7 +123,7 @@ a headless (`chromium-headless-shell`) one.
 ### CLI (`init` / `export` / project management)
 
 ```bash
-# Scaffold a project (writes app-store-screenshots.json + standard directories)
+# Scaffold a project (writes JSON, standard directories, AGENTS.md, and CLAUDE.md)
 pnpm screenshots init --dir ./my-app-screenshots
 
 # Export every screen to its lead store target (PNGs + zip, no alpha)
@@ -144,6 +151,10 @@ pnpm screenshots import ./my-app-screenshots/screenshots --project ./my-app-scre
 # Manage deterministic font files and bake a theme into role-tagged elements
 pnpm screenshots font add ./Inter.ttf --family Inter --weight 700 --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots theme set midnight --project ./my-app-screenshots/app-store-screenshots.json
+
+# Create non-destructive local processed assets (printed paths can then be assigned to assetUrl)
+pnpm screenshots asset auto-crop assets/icons/product.png --threshold 10 --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots asset remove-background assets/icons/product.png --background FFFFFF --tolerance 24 --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
 Bundle `export` flags: optional `--platform <apple|android>`, `--device <iphone|ipad|phone>`,
@@ -165,6 +176,15 @@ within each export group that relative order becomes the `01`, `02`, … store-s
 Locale commands delegate to the same core transformations as the editor. `locale add` clones a
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
 stored direction changes, and `locale rm` protects the last locale.
+
+An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v1
+guardrails and exact recipes for copy generation, literal layout, locale translation, and local asset
+processing. Init preflights the JSON and both agent control files and refuses to overwrite any of them.
+
+Asset inputs resolve relative to the project root and must remain inside it after real-path/symlink
+resolution. Results are collision-safe PNGs under `assets/processed/`; neither command updates project
+JSON automatically. Background removal targets edge-connected flat or near-uniform colours and is not
+semantic object/person segmentation for complex scenes.
 
 ### Editor
 
