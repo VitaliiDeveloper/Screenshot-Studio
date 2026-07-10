@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Project } from "./schema.js";
 import {
   addScreenToProject,
+  cloneLocaleSet,
   cloneScreenWithFreshIds,
   findUnresolvedFonts,
   assertProjectFontsResolved,
@@ -9,6 +10,7 @@ import {
   parseScreenPlacement,
   recomputeManifests,
   removeScreenFromProject,
+  removeLocaleSet,
   reorderScreenInProject,
   slugify,
   uniqueId,
@@ -136,6 +138,62 @@ describe("project-ops", () => {
     expect(copy.id).not.toBe(src.id);
     expect(copy.elements[0]!.id).not.toBe("headline");
     expect(copy.name).toBe("Hero copy");
+  });
+
+  it("cloneLocaleSet appends an independent target set in source order", () => {
+    const source = sampleProject();
+    source.screens[0]!.elements = [
+      {
+        id: "hero-shot",
+        type: "screenshot",
+        x: 10,
+        y: 20,
+        width: 600,
+        height: 1200,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        assetUrl: "assets/shared/hero.png",
+        fit: "cover",
+        cornerRadius: 24,
+      },
+    ];
+
+    const result = cloneLocaleSet(source, "en", "ar");
+    const targets = result.screens.filter((screen) => screen.locale === "ar");
+
+    expect(result.locales).toEqual(["en", "ar"]);
+    expect(result.screens.slice(-2)).toEqual(targets);
+    expect(targets.map((screen) => screen.name)).toEqual(["Hero", "Details"]);
+    expect(targets.map((screen) => screen.id)).not.toEqual(["hero", "details"]);
+    expect(targets[0]!.elements[0]!.id).not.toBe("hero-shot");
+    expect(targets[0]!.elements[0]).toMatchObject({
+      type: "screenshot",
+      assetUrl: "assets/shared/hero.png",
+      x: 10,
+      y: 20,
+    });
+    expect(source.locales).toEqual(["en"]);
+    expect(source.screens).toHaveLength(2);
+  });
+
+  it("cloneLocaleSet rejects invalid source and target locales", () => {
+    const project = sampleProject();
+
+    expect(() => cloneLocaleSet(project, "missing", "uk")).toThrow(/Unknown source locale/);
+    expect(() => cloneLocaleSet(project, "en", "en")).toThrow(/already exists/);
+    expect(() => cloneLocaleSet(project, "en", "   ")).toThrow(/must not be empty/);
+  });
+
+  it("removeLocaleSet removes the whole set and protects the last locale", () => {
+    const project = cloneLocaleSet(sampleProject(), "en", "uk");
+    const result = removeLocaleSet(project, "en");
+
+    expect(result.locales).toEqual(["uk"]);
+    expect(result.screens.map((screen) => screen.locale)).toEqual(["uk", "uk"]);
+    expect(() => removeLocaleSet(result, "missing")).toThrow(/Unknown locale/);
+    expect(() => removeLocaleSet(result, "uk")).toThrow(/last locale/);
   });
 
   it("finds each text font identity absent from project assets once", () => {

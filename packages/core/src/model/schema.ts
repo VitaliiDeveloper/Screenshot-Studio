@@ -215,6 +215,34 @@ export const Project = z
       }
     });
 
+    if (new Set(proj.locales).size !== proj.locales.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "locales must not contain duplicates",
+        path: ["locales"],
+      });
+    }
+    const declaredLocales = new Set(proj.locales);
+    const usedLocales = new Set(proj.screens.map((screen) => screen.locale));
+    for (const locale of declaredLocales) {
+      if (!usedLocales.has(locale)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `locale "${locale}" is declared but no screen uses it`,
+          path: ["locales"],
+        });
+      }
+    }
+    proj.screens.forEach((screen, index) => {
+      if (!declaredLocales.has(screen.locale)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `screen locale "${screen.locale}" is not listed in locales`,
+          path: ["screens", index, "locale"],
+        });
+      }
+    });
+
     const fontIdentityIndexes = new Map<string, number>();
     proj.fonts.forEach((font, i) => {
       const key = fontIdentityKey(font);

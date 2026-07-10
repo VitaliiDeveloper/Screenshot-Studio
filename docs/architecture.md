@@ -103,7 +103,7 @@ silently).
 Project
 ├── meta: { name, appIcon, schemaVersion }
 ├── platforms: ["apple", "android"]
-├── locales: ["en", "de", "ar"]            # ar → RTL
+├── locales: ["en", "de", "ar"]            # derived from screens
 ├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
 └── screens: Screen[]
     ├── id, name, platform, device, locale
@@ -133,6 +133,12 @@ resolves tokens or ids; unknown/invalid theme data fails before a project is wri
 and contain an exact platform/device/artboard plus ordinary background and element literals.
 Instantiation injects the chosen locale, creates fresh screen/element ids, recomputes manifests,
 and writes an ordinary `Project`; render and export never read template files.
+
+**Locale sets are ordinary screens, not a parallel model.** `Project.locales` is a duplicate-free
+derived manifest whose set is exactly the locale strings used by `screens`; locale identifiers stay
+free-form and comparisons are exact. Cloning a locale appends fresh-id copies of its screens in the
+same relative order and shares existing asset paths. The copies are independent after creation —
+there is no persisted source/translation pairing id in the render contract.
 
 **Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
 optional fields such as `role` keep the current version; structural changes require a migration.

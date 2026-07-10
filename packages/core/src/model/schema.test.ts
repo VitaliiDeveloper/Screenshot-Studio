@@ -282,3 +282,39 @@ describe("Project.platforms manifest", () => {
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
   });
 });
+
+describe("Project.locales manifest", () => {
+  it("accepts a project whose locale manifest matches its screens", () => {
+    const project = validProject();
+    project.locales = ["en", "uk"];
+    project.screens.push({
+      ...structuredClone(project.screens[0]!),
+      id: "s2",
+      name: "Screen 2",
+      locale: "uk",
+    });
+
+    expect(() => parseProject(project)).not.toThrow();
+  });
+
+  it("rejects a duplicate locale", () => {
+    const bad = validProject();
+    bad.locales = ["en", "en"];
+
+    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+
+  it("rejects a declared locale with no screen", () => {
+    const bad = validProject();
+    bad.locales = ["en", "uk"];
+
+    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+
+  it("rejects a screen whose locale is not declared", () => {
+    const bad = validProject();
+    bad.screens[0]!.locale = "uk";
+
+    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+});

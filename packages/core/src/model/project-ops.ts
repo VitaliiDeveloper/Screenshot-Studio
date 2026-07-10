@@ -163,3 +163,39 @@ export function cloneScreenWithFreshIds(src: Screen): Screen {
   copy.elements = copy.elements.map((el) => ({ ...el, id: crypto.randomUUID() }));
   return copy;
 }
+
+/** Clone every screen in one locale as an independent target set, preserving source order. */
+export function cloneLocaleSet(
+  project: ProjectModel,
+  sourceLocale: string,
+  targetLocale: string,
+): ProjectModel {
+  if (!targetLocale.trim()) throw new Error("Target locale must not be empty");
+
+  const sourceScreens = project.screens.filter((screen) => screen.locale === sourceLocale);
+  if (sourceScreens.length === 0) throw new Error(`Unknown source locale "${sourceLocale}"`);
+  if (project.locales.includes(targetLocale)) {
+    throw new Error(`Locale "${targetLocale}" already exists`);
+  }
+
+  const copies = sourceScreens.map((source) => {
+    const copy = cloneScreenWithFreshIds(source);
+    return { ...copy, name: source.name, locale: targetLocale };
+  });
+
+  return recomputeManifests({
+    ...project,
+    screens: [...project.screens, ...copies],
+  });
+}
+
+/** Remove an entire locale set without deleting any shared project assets. */
+export function removeLocaleSet(project: ProjectModel, locale: string): ProjectModel {
+  if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+  if (project.locales.length === 1) throw new Error("Cannot remove the last locale");
+
+  return recomputeManifests({
+    ...project,
+    screens: project.screens.filter((screen) => screen.locale !== locale),
+  });
+}
