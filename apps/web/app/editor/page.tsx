@@ -301,6 +301,9 @@ export default function EditorPage() {
       {dialog === "screenshot-assets" ? (
         <AssetPickerDialog elementType="screenshot" onClose={() => setDialog(null)} />
       ) : null}
+      {dialog === "image-assets" ? (
+        <AssetPickerDialog elementType="image" onClose={() => setDialog(null)} />
+      ) : null}
       {dialog === "device-frame-assets" ? (
         <AssetPickerDialog elementType="device-frame" onClose={() => setDialog(null)} />
       ) : null}

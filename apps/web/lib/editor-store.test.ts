@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 3 },
+    meta: { name: "T", schemaVersion: 4 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -298,6 +298,20 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     const el = editorStore.getState().project!.screens[0]!.elements
       .find((e) => e.id === "headline")! as { color: string; size: number; align: string; opacity: number };
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
+  });
+
+  it("patches decorative image asset, fit, and corner radius", () => {
+    editorStore.getState().addElement({
+      id: "decor", type: "image", x: 10, y: 20, width: 100, height: 80,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      assetUrl: "assets/old.png", fit: "contain", cornerRadius: 0,
+    });
+    editorStore.getState().patchElement("decor", {
+      assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
+    });
+    expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
+      type: "image", assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
+    });
   });
 
   it("applies a font family and weight in one project patch", () => {

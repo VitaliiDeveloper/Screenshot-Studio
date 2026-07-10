@@ -5,7 +5,7 @@ import { applyTheme, Theme } from "./index.js";
 
 function project(): Project {
   return {
-    meta: { name: "Theme", schemaVersion: 3 },
+    meta: { name: "Theme", schemaVersion: 4 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -74,6 +74,17 @@ describe("applyTheme", () => {
     if (result.type !== "group") throw new Error("expected group");
     expect(result.children[0]).toMatchObject({ color: "#F8FAFC", fontFamily: "Inter", weight: 700 });
     expect(result.children[1]).toMatchObject({ fill: "#38BDF8" });
+  });
+
+  it("preserves decorative image literals while applying a theme", () => {
+    const source = project();
+    source.screens[0]!.elements.push({
+      id: "decor", type: "image", x: 20, y: 30, width: 200, height: 100,
+      rotation: 5, opacity: 0.8, locked: false, visible: true,
+      assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 12,
+    });
+    const themed = applyTheme(source, theme);
+    expect(themed.screens[0]!.elements.at(-1)).toEqual(source.screens[0]!.elements.at(-1));
   });
 
   it("rejects a theme font that the project has not registered", () => {

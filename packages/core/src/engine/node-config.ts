@@ -123,7 +123,8 @@ export function elementToNodeConfig(
         },
       };
 
-    case "screenshot": {
+    case "screenshot":
+    case "image": {
       const image = images?.get(element.assetUrl);
       if (!image) {
         // Missing/failed asset → a visible placeholder, never a crash or hang (editor.md §7).

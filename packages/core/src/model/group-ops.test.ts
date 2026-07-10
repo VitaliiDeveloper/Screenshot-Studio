@@ -57,6 +57,21 @@ describe("group authoring operations", () => {
     expect(() => resizeGroupUniform(grouped, 320, 180)).toThrow(/uniformly/);
   });
 
+  it("scales decorative-image corner radius with grouped geometry", () => {
+    const grouped = {
+      ...groupElements(screen(), ["red", "copy"], () => "group").group,
+      children: [{
+        id: "decor", type: "image" as const, x: 10, y: 20, width: 80, height: 60,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        assetUrl: "assets/decor.png", fit: "contain" as const, cornerRadius: 6,
+      }],
+    };
+    const resized = resizeGroupUniform(grouped, grouped.width * 2, grouped.height * 2);
+    expect(resized.children[0]).toMatchObject({
+      type: "image", x: 20, y: 40, width: 160, height: 120, cornerRadius: 12,
+    });
+  });
+
   it("finds nested children and duplicates groups with fresh ids", () => {
     const group = groupElements(screen(), ["red", "copy"], () => "group").group;
     const owner = { ...screen(), elements: [group] };

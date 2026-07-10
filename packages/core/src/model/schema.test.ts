@@ -56,20 +56,20 @@ describe("parseProject", () => {
     expect(parseProject(raw).mode).toBe("connected");
   });
 
-  it("migrates valid v1 input sequentially to isolated v3", () => {
+  it("migrates valid v1 input sequentially to isolated v4", () => {
     const raw = validProject() as Record<string, unknown>;
     delete raw.mode;
     (raw.meta as Record<string, unknown>).schemaVersion = 1;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(3);
+    expect(project.meta.schemaVersion).toBe(4);
     expect(project.mode).toBe("isolated");
   });
 
-  it("migrates valid v2 input losslessly to v3", () => {
+  it("migrates valid v2 input losslessly through v3 to v4", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(3);
+    expect(project.meta.schemaVersion).toBe(4);
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text", content: "Hello" });
   });
 
@@ -81,6 +81,37 @@ describe("parseProject", () => {
       children: [{
         id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 50,
         kind: "rect", fill: "#FF0000",
+      }],
+    } as never];
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("migrates valid v3 input losslessly to v4", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
+    const project = parseProject(raw);
+    expect(project.meta.schemaVersion).toBe(4);
+    expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
+  });
+
+  it("does not bless an image mislabeled as schema v3", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
+    raw.screens[0]!.elements = [{
+      id: "image", type: "image", x: 0, y: 0, width: 100, height: 50,
+      assetUrl: "assets/image.png",
+    } as never];
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("does not bless a grouped image mislabeled as schema v3", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
+    raw.screens[0]!.elements = [{
+      id: "group", type: "group", x: 0, y: 0, width: 100, height: 50,
+      children: [{
+        id: "image", type: "image", x: 0, y: 0, width: 100, height: 50,
+        assetUrl: "assets/image.png",
       }],
     } as never];
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
@@ -216,6 +247,29 @@ describe("ScreenshotElement", () => {
 
   it("rejects an unknown key (strict)", () => {
     expect(() => Element.parse({ ...base, bogus: 1 })).toThrow();
+  });
+});
+
+describe("ImageElement (schema v4)", () => {
+  const base = {
+    id: "image-1", type: "image", x: 0, y: 0, width: 100, height: 200,
+    assetUrl: "assets/decor.png",
+  };
+
+  it("parses a valid decorative image with non-cropping defaults", () => {
+    expect(Element.parse(base)).toMatchObject({ type: "image", fit: "contain", cornerRadius: 0 });
+  });
+
+  it("accepts deterministic cover and corner radius", () => {
+    expect(Element.parse({ ...base, fit: "cover", cornerRadius: 18 }))
+      .toMatchObject({ fit: "cover", cornerRadius: 18 });
+  });
+
+  it("rejects invalid fit, empty assets, negative radius, and unknown fields", () => {
+    expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
+    expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
+    expect(() => Element.parse({ ...base, cornerRadius: -1 })).toThrow();
+    expect(() => Element.parse({ ...base, crop: {} })).toThrow();
   });
 });
 

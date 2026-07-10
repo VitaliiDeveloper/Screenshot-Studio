@@ -15,13 +15,15 @@ import type { ImageCache } from "../engine/node-config.js";
  */
 export type { ImageCache } from "../engine/node-config.js";
 
-/** Every distinct content assetUrl (screenshot + device-frame) in the project. Pure. */
+/** Every distinct raster assetUrl in the project. Pure. */
 export function collectImageUrls(project: Project): string[] {
   const urls = new Set<string>();
   for (const screen of project.screens) {
     for (const el of screen.elements) {
       for (const leaf of elementLeaves(el)) {
-        if (leaf.type === "screenshot" || leaf.type === "device-frame") urls.add(leaf.assetUrl);
+        if (leaf.type === "screenshot" || leaf.type === "image" || leaf.type === "device-frame") {
+          urls.add(leaf.assetUrl);
+        }
       }
     }
   }

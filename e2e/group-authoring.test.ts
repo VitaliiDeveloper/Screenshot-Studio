@@ -20,7 +20,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "group-authoring-"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Group authoring", schemaVersion: 3 },
+    meta: { name: "Group authoring", schemaVersion: 4 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

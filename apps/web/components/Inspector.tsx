@@ -250,6 +250,14 @@ export function Inspector({
             </Section>
           )}
 
+          {element.type === "image" && (
+            <Section title="Image">
+              <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
+              <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
+              <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => patch(element.id, { cornerRadius })} />
+            </Section>
+          )}
+
           {element.type === "device-frame" && (
             <Section title="Device frame">
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />

@@ -6,6 +6,7 @@ import NextImage from "next/image";
 import { FolderOpen, Image as ImageIcon, Search, Smartphone } from "lucide-react";
 import {
   createDeviceFrameElement,
+  createImageElement,
   createScreenshotElement,
 } from "@screenshot-studio/core/model";
 import {
@@ -16,7 +17,7 @@ import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
-type AssetElementType = "screenshot" | "device-frame";
+type AssetElementType = "screenshot" | "image" | "device-frame";
 
 function assetUrl(path: string): string {
   return `/api/asset?path=${encodeURIComponent(path)}`;
@@ -53,22 +54,27 @@ export function AssetPickerDialog({
     [assets, query],
   );
   const isFrame = elementType === "device-frame";
+  const isImage = elementType === "image";
   const insert = (path: string) => {
     mutateAndSave(() => editorStore.getState().addElement(
       isFrame
         ? createDeviceFrameElement({ assetUrl: path })
-        : createScreenshotElement({ assetUrl: path }),
+        : isImage
+          ? createImageElement({ assetUrl: path })
+          : createScreenshotElement({ assetUrl: path }),
     ));
     onClose();
   };
 
   return (
     <DialogShell
-      title={isFrame ? "Choose device screenshot" : "Choose screenshot asset"}
+      title={isFrame ? "Choose device screenshot" : isImage ? "Choose decorative image" : "Choose screenshot asset"}
       description={isFrame
         ? "Place a project image inside the existing deterministic iPhone frame."
-        : "Insert an existing project image as a screenshot element."}
-      ariaLabel={isFrame ? "Device frame asset picker" : "Screenshot asset picker"}
+        : isImage
+          ? "Insert an existing project asset as a decorative image element."
+          : "Insert an existing project image as a screenshot element."}
+      ariaLabel={isFrame ? "Device frame asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
       closeLabel="Close asset picker"
       onClose={onClose}
       widthClass="max-w-4xl"

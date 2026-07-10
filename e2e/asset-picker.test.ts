@@ -38,8 +38,8 @@ function project() {
   return JSON.parse(readFileSync(projectPath, "utf8"));
 }
 
-describe("Phase 6 asset picker", () => {
-  it("inserts existing screenshot and device-frame types into the connected owner", async () => {
+describe("Project asset picker", () => {
+  it("inserts screenshot, decorative image, and device-frame types into the connected owner", async () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
@@ -69,12 +69,35 @@ describe("Phase 6 asset picker", () => {
     });
     expect(project().screens[1].elements).toHaveLength(1);
 
+    await page.getByRole("button", { name: "Image", exact: true }).click();
+    const imageDialog = page.getByRole("dialog", { name: "Image asset picker" });
+    await imageDialog.waitFor({ state: "visible" });
+    await imageDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
+
+    await expect.poll(() => project().screens[0].elements.length).toBe(3);
+    expect(project().screens[0].elements.at(-1)).toMatchObject({
+      type: "image",
+      assetUrl: "assets/demo-logistics-app.png",
+      fit: "contain",
+      cornerRadius: 0,
+      x: 100,
+      y: 100,
+      width: 300,
+      height: 300,
+    });
+    await page.getByLabel("Fit", { exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "cover", exact: true }).click();
+    await page.getByLabel("Corner radius", { exact: true }).fill("24");
+    await page.getByLabel("Corner radius", { exact: true }).blur();
+    await expect.poll(() => project().screens[0].elements.at(-1).cornerRadius).toBe(24);
+    expect(project().screens[0].elements.at(-1).fit).toBe("cover");
+
     await page.getByRole("button", { name: "iPhone Device Frame", exact: true }).click();
     const frameDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
 
-    await expect.poll(() => project().screens[0].elements.length).toBe(3);
+    await expect.poll(() => project().screens[0].elements.length).toBe(4);
     expect(project().screens[0].elements.at(-1)).toMatchObject({
       type: "device-frame",
       deviceType: "iphone",

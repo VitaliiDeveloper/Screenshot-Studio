@@ -35,8 +35,20 @@ export function migrateToCurrent(raw: unknown): unknown {
     if (containsGroupElement(current)) return current;
     const currentMeta = current.meta;
     if (!isRecord(currentMeta)) return current;
-    // v3 adds the group union member. Existing v2 leaf arrays need no structural rewrite, so this
-    // version-only migration is lossless and makes group-aware readers explicit.
+    // v3 adds the group union member. Existing v2 leaf arrays need no structural rewrite.
+    current = {
+      ...current,
+      meta: { ...currentMeta, schemaVersion: 3 },
+    };
+    version = 3;
+  }
+
+  if (version === 3) {
+    // `image` was not legal in strict v3. Refuse a mislabeled v3 image document instead of
+    // legitimising future data through a version-only migration.
+    if (containsElementType(current, "image")) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
     return {
       ...current,
       meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION },
@@ -47,11 +59,22 @@ export function migrateToCurrent(raw: unknown): unknown {
 }
 
 function containsGroupElement(project: Record<string, unknown>): boolean {
+  return containsElementType(project, "group");
+}
+
+function containsElementType(project: Record<string, unknown>, type: string): boolean {
   if (!Array.isArray(project.screens)) return false;
   return project.screens.some((screen) => {
     if (!isRecord(screen) || !Array.isArray(screen.elements)) return false;
-    return screen.elements.some((element) => isRecord(element) && element.type === "group");
+    return screen.elements.some((element) => elementContainsType(element, type));
   });
+}
+
+function elementContainsType(element: unknown, type: string): boolean {
+  if (!isRecord(element)) return false;
+  if (element.type === type) return true;
+  return Array.isArray(element.children)
+    && element.children.some((child) => elementContainsType(child, type));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

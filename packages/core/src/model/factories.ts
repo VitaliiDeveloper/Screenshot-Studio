@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type {
   DeviceFrameElement,
+  ImageElement,
   LayoutDirection,
   ScreenshotElement,
   ShapeElement,
@@ -84,6 +85,25 @@ export function createScreenshotElement(input: CreateScreenshotElementInput): Sc
     type: "screenshot",
     assetUrl: input.assetUrl,
     fit: input.fit ?? "cover",
+    cornerRadius: input.cornerRadius ?? 0,
+  };
+}
+
+export interface CreateImageElementInput extends SizedOrigin {
+  assetUrl: string;
+  fit?: ImageElement["fit"];
+  cornerRadius?: number;
+}
+
+export function createImageElement(input: CreateImageElementInput): ImageElement {
+  return {
+    ...elementBase(input, {
+      width: input.width ?? 300,
+      height: input.height ?? 300,
+    }),
+    type: "image",
+    assetUrl: input.assetUrl,
+    fit: input.fit ?? "contain",
     cornerRadius: input.cornerRadius ?? 0,
   };
 }

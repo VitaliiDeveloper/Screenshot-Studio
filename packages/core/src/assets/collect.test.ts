@@ -5,7 +5,7 @@ import type { Project, Element, LeafElement } from "../model/schema.js";
 
 function project(elements: Element[]): Project {
   return {
-    meta: { name: "T", schemaVersion: 3 },
+    meta: { name: "T", schemaVersion: 4 },
     mode: "isolated",
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{
@@ -29,6 +29,12 @@ const framed = (id: string, assetUrl: string): LeafElement => ({
   deviceType: "iphone", assetUrl, fit: "cover",
 });
 
+const image = (id: string, assetUrl: string): LeafElement => ({
+  id, type: "image", x: 0, y: 0, width: 10, height: 10,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  assetUrl, fit: "contain", cornerRadius: 0,
+});
+
 describe("collectImageUrls", () => {
   it("returns every screenshot url, de-duplicated", () => {
     expect(collectImageUrls(project([shot("a", "a.png"), shot("b", "b.png"), shot("c", "a.png")])).sort())
@@ -36,8 +42,13 @@ describe("collectImageUrls", () => {
   });
 
   it("includes device-frame content urls and dedups across element types", () => {
-    expect(collectImageUrls(project([shot("a", "a.png"), framed("f", "b.png"), framed("g", "a.png")])).sort())
-      .toEqual(["a.png", "b.png"]);
+    expect(collectImageUrls(project([shot("a", "a.png"), image("i", "decor.png"), framed("f", "b.png"), framed("g", "a.png")])).sort())
+      .toEqual(["a.png", "b.png", "decor.png"]);
+  });
+
+  it("deduplicates decorative images against semantic screenshots", () => {
+    expect(collectImageUrls(project([image("i", "a.png"), shot("a", "a.png")])).sort())
+      .toEqual(["a.png"]);
   });
 
   it("returns empty when there are no image-bearing elements", () => {

@@ -27,7 +27,7 @@ function scopeProject(mode: Project["mode"]): Project {
     elements: [],
   } as Project["screens"][number]);
   return {
-    meta: { name: "Scope", schemaVersion: 3 },
+    meta: { name: "Scope", schemaVersion: 4 },
     mode,
     platforms: ["apple", "android"],
     locales: ["en"],
@@ -62,6 +62,7 @@ describe("editor workspace helpers", () => {
     expect(filterAddCatalog("frame").map((item) => item.id)).toEqual(["device-frame"]);
     expect(filterAddCatalog("asset").map((item) => item.id)).toEqual([
       "screenshot",
+      "image",
       "device-frame",
     ]);
     expect(filterAddCatalog("")).toHaveLength(6);

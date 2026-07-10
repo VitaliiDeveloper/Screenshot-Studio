@@ -8,7 +8,7 @@ import { resolveCanvasAction, runCanvasCommand } from "./canvas-commands.js";
 
 function project(): Project {
   return {
-    meta: { name: "Canvas", schemaVersion: 3 },
+    meta: { name: "Canvas", schemaVersion: 4 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

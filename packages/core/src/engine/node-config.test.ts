@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { elementToNodeConfig, type ImageCache } from "./node-config.js";
-import type { TextElement, ShapeElement, ScreenshotElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
+import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
 
 const baseText: TextElement = {
   id: "t1", type: "text", x: 10, y: 20, width: 300, height: 100,
@@ -109,6 +109,32 @@ describe("elementToNodeConfig — screenshot", () => {
     const result = elementToNodeConfig(shot, { images: new Map() });
     expect(result.konva).toBe("Rect");
     expect(result.config).toMatchObject({ id: "p1", width: 200, height: 100, cornerRadius: 12 });
+  });
+});
+
+describe("elementToNodeConfig — decorative image", () => {
+  const image: ImageElement = {
+    ...shot,
+    id: "decor",
+    type: "image",
+    fit: "contain",
+  };
+
+  it("uses the shared deterministic contain mapping and preserves alpha-bearing image input", () => {
+    const result = elementToNodeConfig(image, { images: cache });
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.config).toMatchObject({ id: "decor", x: 10, y: 20, width: 200, height: 100 });
+    expect(result.children[1]).toMatchObject({
+      konva: "Image",
+      config: { x: 50, y: 0, width: 100, height: 100, image: stubImage, cornerRadius: 12 },
+    });
+  });
+
+  it("uses the screenshot placeholder contract when the asset is unavailable", () => {
+    expect(elementToNodeConfig(image, { images: new Map() })).toMatchObject({
+      konva: "Rect",
+      config: { id: "decor", fill: "#CCCCCC", cornerRadius: 12 },
+    });
   });
 });
 

@@ -18,7 +18,7 @@ plain `screenshots` spelling above.
 
 ## Source of truth and guardrails
 
-- `app-store-screenshots.json` is the only persisted project state. It is strict v3 JSON; unknown
+- `app-store-screenshots.json` is the only persisted project state. It is strict v4 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to screens, locales, fonts, themes, and imports. Directly
   edit JSON only for literals the CLI does not manage, such as text content and element geometry.
@@ -38,11 +38,11 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v3 shape
+## Enforced v4 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 3 }
+├── meta: { name, appIcon?, schemaVersion: 4 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
@@ -54,7 +54,7 @@ Project
     └── elements: Element[]               # array order is z-order
 ```
 
-Leaf element types are `text`, `shape`, `screenshot`, and `device-frame`; `group` contains a
+Leaf element types are `text`, `shape`, `screenshot`, decorative `image`, and `device-frame`; `group` contains a
 non-empty, non-nested `children` array of those leaves in group-local coordinates. All top-level
 elements share literal position, size, rotation, opacity, lock, and visibility fields. A group is
 non-clipping and occupies one screen z-order slot; child array order is z-order inside it. Inspect

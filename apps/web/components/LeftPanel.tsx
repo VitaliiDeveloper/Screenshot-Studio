@@ -138,6 +138,7 @@ function AddPanel({
         break;
       case "open-asset-picker":
         if (item.id === "screenshot") onOpenDialog("screenshot-assets");
+        else if (item.id === "image") onOpenDialog("image-assets");
         else if (item.id === "device-frame") onOpenDialog("device-frame-assets");
         break;
       case "unavailable":

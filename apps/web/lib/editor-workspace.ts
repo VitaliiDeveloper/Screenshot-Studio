@@ -16,6 +16,7 @@ export type ResourceDialog =
   | "themes"
   | "templates"
   | "screenshot-assets"
+  | "image-assets"
   | "device-frame-assets";
 
 /** Connected workspaces expose one exact group; isolated workspaces retain the locale set. */
@@ -106,8 +107,8 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     id: "image",
     label: "Image",
     category: "Media",
-    action: "unavailable",
-    hint: "Planned element type",
+    action: "open-asset-picker",
+    hint: "Choose a decorative project asset",
   },
   {
     id: "device-frame",

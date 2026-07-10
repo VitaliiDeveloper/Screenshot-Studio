@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   createTextElement,
   createShapeElement,
+  createImageElement,
   createScreenshotElement,
   createDeviceFrameElement,
 } from "./factories.js";
@@ -41,6 +42,15 @@ describe("element factories (slice 5)", () => {
     });
     expect(() => Element.parse(el)).not.toThrow();
     expect(el).toMatchObject({ type: "screenshot", assetUrl: "assets/shot.png", fit: "cover" });
+  });
+
+  it("createImageElement returns a schema-valid non-cropping decorative image", () => {
+    const el = createImageElement({ assetUrl: "assets/decor.png", x: 30, y: 40 });
+    expect(() => Element.parse(el)).not.toThrow();
+    expect(el).toMatchObject({
+      type: "image", assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 0,
+      x: 30, y: 40, width: 300, height: 300,
+    });
   });
 
   it("createDeviceFrameElement returns a schema-valid device-frame element", () => {

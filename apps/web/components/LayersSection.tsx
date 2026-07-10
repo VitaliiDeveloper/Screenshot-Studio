@@ -39,6 +39,7 @@ const elementIcons: Partial<Record<Element["type"], LucideIcon>> = {
   text: Type,
   shape: Square,
   screenshot: ImageIcon,
+  image: ImageIcon,
   "device-frame": Smartphone,
 };
 

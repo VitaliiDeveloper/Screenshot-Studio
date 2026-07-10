@@ -125,7 +125,7 @@ locked, visible, role?`) plus type-specific fields:
 - `group` — one non-clipping level of existing leaf elements in local coordinates
 - `icon` — built-in icon set / SVG
 - `badge` — rating, "As seen on", store badges
-- `image` — arbitrary decorative image
+- `image` — arbitrary project-local decorative raster, contain/cover, cornerRadius
 
 **Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
 `applyTheme(project, theme)` rewrites the existing literal text/shape fields selected by an
@@ -194,14 +194,16 @@ coordinate. Vertical/horizontal guides are non-listening Konva lines updated thr
 drag, cleared before persistence, and absent from the store, project schema, static renderer, and
 export.
 
-**Editor asset discovery — Phase 6 Slice 6.** `/api/assets` recursively lists regular PNG, JPEG,
+**Editor asset discovery — Phase 6 Slice 6 / Phase 7 Slice 4.** `/api/assets` recursively lists regular PNG, JPEG,
 and WebP files only under the project-root `assets/` and `screenshots/` directories, skips hidden
-entries and symlinks, and returns stable portable relative paths. The Add picker creates only the
-existing `screenshot` and `device-frame` schema members through core factories; insertion then uses
+entries and symlinks, and returns stable portable relative paths. The Add picker creates the
+`screenshot`, decorative `image`, and `device-frame` schema members through core factories; insertion uses
 the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
 the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
 reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
-project replacement, and the future decorative `image` type remains outside v3.
+project replacement. Schema v4 adds `image` with non-cropping `contain` default, deterministic
+centred `cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder;
+v3 migrates losslessly only when it does not already contain the previously invalid image type.
 
 **Connected workspace hardening — Phase 6 Slice 7.** One `workspaceScreenScope` derivation feeds
 Overview/Fit and Screens: exact platform/device/locale group in connected mode, active locale in
@@ -369,7 +371,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v3
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v4
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

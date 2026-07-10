@@ -20,7 +20,7 @@ import {
 
 function sampleProject(): Project {
   return {
-    meta: { name: "T", schemaVersion: 3 },
+    meta: { name: "T", schemaVersion: 4 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

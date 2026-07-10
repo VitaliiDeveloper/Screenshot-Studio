@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 7 Slice 3; Slice 4 is next.**
+> **Status: implementation and verification are complete through Phase 7 Slice 4; Slice 5 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
@@ -22,7 +22,8 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > the baseline. Phase 7 now has owner-aware modified-click/marquee multi-selection and atomic batch
 > movement/actions plus a strict v3 one-level group model with lossless v1/v2 migration, recursive
 > traversal, shared UI/CLI connected-crop parity, and owner-aware group authoring with nested Layers
-> inspection and uniform transforms. Decorative image authoring is next. Public
+> inspection and uniform transforms, plus the strict v4 decorative image leaf with secure asset
+> authoring and shared contain/cover/alpha parity. Vector icon authoring is next. Public
 > release readiness comes only after Phase 8 stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
@@ -65,13 +66,13 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v3 only; future schema ideas are not valid project fields.
+against the enforced v4 only; future schema ideas are not valid project fields.
 
-**Current v3 (enforced today):**
+**Current v4 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 3 }
+├── meta: { name, appIcon?, schemaVersion: 4 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
@@ -85,8 +86,9 @@ Project
 
 Element transform base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?`.
 Leaf elements may also carry `role?`. Element types today are leaf `text`, `shape` (rect),
-`screenshot`, `device-frame` (iphone), plus one-level `group` with `children: LeafElement[]` in
-group-local coordinates. Groups cannot nest and do not clip their children.
+`screenshot`, decorative `image`, `device-frame` (iphone), plus one-level `group` with
+`children: LeafElement[]` in group-local coordinates. Groups cannot nest and do not clip their
+children.
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 
@@ -178,7 +180,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v3 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v4 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 

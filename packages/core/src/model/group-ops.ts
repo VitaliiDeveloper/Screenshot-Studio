@@ -109,7 +109,9 @@ export function resizeGroupUniform(
       height: child.height * scale,
       ...(child.type === "text" ? { size: child.size * scale, letterSpacing: child.letterSpacing * scale } : {}),
       ...(child.type === "shape" ? { radius: child.radius * scale } : {}),
-      ...(child.type === "screenshot" ? { cornerRadius: child.cornerRadius * scale } : {}),
+      ...(child.type === "screenshot" || child.type === "image"
+        ? { cornerRadius: child.cornerRadius * scale }
+        : {}),
     })),
   };
 }

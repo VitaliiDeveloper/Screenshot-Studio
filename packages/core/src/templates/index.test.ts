@@ -5,7 +5,7 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 3 }, mode: "connected", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 4 }, mode: "connected", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   };
@@ -95,6 +95,23 @@ describe("createScreenFromTemplate", () => {
       } as never],
     };
     expect(() => createScreenFromTemplate(project(), missing, "en")).toThrow(/unregistered font/);
+  });
+
+  it("preserves decorative image fields and freshens its id", () => {
+    const withImage: Template = {
+      ...template,
+      id: "image-card",
+      elements: [{
+        id: "decor", type: "image", x: 80, y: 400, width: 300, height: 200,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 16,
+      }],
+    };
+    const result = createScreenFromTemplate(project(), withImage, "en");
+    expect(result.screen.elements[0]).toMatchObject({
+      type: "image", assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 16,
+    });
+    expect(result.screen.elements[0]!.id).not.toBe("decor");
   });
 
   it("rejects template text with an unregistered font", () => {

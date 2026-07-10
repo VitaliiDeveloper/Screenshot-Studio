@@ -20,6 +20,7 @@ import {
   type TextElement,
   type ShapeElement,
   type ScreenshotElement,
+  type ImageElement,
   type DeviceFrameElement,
   type FontAsset,
   type LayoutDirection,
@@ -52,6 +53,7 @@ type TextFields = Partial<
 >;
 type ShapeFields = Partial<Pick<ShapeElement, "fill" | "radius">>;
 type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
+type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
 type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
 
 /**
@@ -63,6 +65,7 @@ export type ElementPatch = CommonElementPatch &
   TextFields &
   ShapeFields &
   ScreenshotFields &
+  ImageFields &
   DeviceFrameFields;
 
 function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
@@ -112,6 +115,11 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
       if (patch.radius !== undefined) el.radius = patch.radius;
       break;
     case "screenshot":
+      if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
+      if (patch.fit !== undefined) el.fit = patch.fit;
+      if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      break;
+    case "image":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
       if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
