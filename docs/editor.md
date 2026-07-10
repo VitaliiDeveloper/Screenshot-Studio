@@ -3,10 +3,10 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.7, 10 July 2026.
+Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5 visual polish, the Phase 3.6 workspace foundation, and the complete Phase 4 locale/RTL workflow are implemented**
-> (see `roadmap.md` §3a/§3c/§3e and `docs/specs/`).
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and the Phase 6 Slice 1 connected document/export contract are implemented. Connected authoring remains a later Phase 6 slice.**
+> (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
 > and a slice spec disagree, the slice spec — being the ratified decision — wins for what
@@ -52,13 +52,14 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Isolated-artboard invariant.** Each artboard clips its own elements (Konva clip); export is
-  per-artboard. No element crosses an artboard boundary. Connected canvas is deferred (§8, Phase 6)
-  and is not represented in the enforced v1 schema.
+- **Canvas mode.** The enforced v2 project stores `mode: isolated | connected`. Isolated editor
+  behavior remains as built. Connected static render/export already projects exact
+  platform/device/locale strips and returns precise per-screen crops; the interactive editor still
+  authors isolated stages until the connected editor slice lands.
 - **Selection & transform.** Click selects an element; a Konva `Transformer` provides
   move / resize / rotate handles. Locked elements retain a selection outline but cannot be moved,
   resized, rotated, or opened for canvas text editing. *(as built)* **Single-select only** — marquee
-  multi-select was deferred in Slice 1 and is unscheduled; element **grouping is out** of the MVP.
+  multi-select was deferred in Slice 1; multi-select and element grouping are planned for Phase 7.
 - **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box
   with the screen's explicit LTR/RTL direction. `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits;
   blur commits and flushes persistence.
@@ -99,7 +100,8 @@ shelf is open at a time; clicking its active rail item collapses it.
   (insert-on-click, not drag-to-draw — simpler). *(as built)* Only **`text` + `shape`** are
   insertable — `screenshot` / `device-frame` have a required `assetUrl` and insertion needs an
   asset-picker UI that doesn't exist yet (they stay fully editable once present in the JSON).
-  Asset picker + insert for those types is deferred.
+  Asset picker + insert for those existing types is planned for Phase 6; the future decorative
+  `image` element is Phase 7.
 - Zoom controls live on the canvas rather than in the top bar; Fit is implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
   CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*
@@ -179,15 +181,19 @@ the schema gains them (future phases). Everything else is as built.
 Held back to protect the thin slice (aligned with `roadmap.md`):
 
 - **Snapping / smart guides / alignment tools.** Overview and pan/zoom do not imply cross-artboard
-  geometry or snapping; those remain out of the MVP.
+  geometry or snapping; connected-space snapping and guides are planned for Phase 6.
 - **Undo/redo UI.** The store uses immutable state/patches (Zustand + Immer) from day 0, so the
-  architecture is in place — but the undo *buttons* ship later.
-- **Element grouping.** Pulls in a selection model, nested transforms, and z-order edge cases.
+  architecture is in place; bounded history, shortcuts, and controls are planned for Phase 6 after
+  connected mutations stabilize.
+- **Multi-select and element grouping.** Phase 7 starts with the selection model, then adds a
+  parity-proven persisted group contract before group authoring UI.
 - **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;
   translation assistance remains Phase 5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the
   project's primary scope-creep risk and directly compounds the render/export parity risk that
   Phase 0 must retire first. Not before Phase 0 passes.
+- **New creative element types** (`image`, `icon`, `badge`) — **Phase 7**, one parity-proven type
+  per execution slice rather than a single broad schema expansion.
 
 ---
 

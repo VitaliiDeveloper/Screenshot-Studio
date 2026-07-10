@@ -92,7 +92,11 @@ numbering are shipped.
 non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
 locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
 background removal write new PNGs without touching source assets or project JSON. The generated
-workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 is next.
+workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slice 1 now
+ships schema v2, lossless v1 migration, and connected UI/CLI crop parity. Connected lifecycle and
+authoring come next, followed by undo/redo, snapping, media insertion, standalone distribution,
+and OSS project polish. Phase 7 completes the baseline with multi-select, grouping, and new creative
+primitives. Stabilization/release readiness follows only after that baseline is complete.
 
 ## Requirements
 
@@ -177,7 +181,7 @@ Locale commands delegate to the same core transformations as the editor. `locale
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
 stored direction changes, and `locale rm` protects the last locale.
 
-An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v1
+An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v2
 guardrails and exact recipes for copy generation, literal layout, locale translation, and local asset
 processing. Init preflights the JSON and both agent control files and refuses to overwrite any of them.
 

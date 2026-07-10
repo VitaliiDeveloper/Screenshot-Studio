@@ -17,7 +17,7 @@ command as `pnpm screenshots` from that checkout and pass this project's JSON wi
 
 ## Source of truth and guardrails
 
-- `app-store-screenshots.json` is the only persisted project state. It is strict v1 JSON; unknown
+- `app-store-screenshots.json` is the only persisted project state. It is strict v2 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to screens, locales, fonts, themes, and imports. Directly
   edit JSON only for literals the CLI does not manage, such as text content and element geometry.
@@ -30,15 +30,16 @@ command as `pnpm screenshots` from that checkout and pass this project's JSON wi
 - Layout is literal. There is no responsive constraint engine: write final `x`, `y`, `width`, and
   `height` values for each artboard.
 - RTL is explicit and baked. Never reflect screenshot or device media pixels.
-- Do not add prompt history, translation-pair ids, connected-canvas state, new element types, or any
+- Do not add prompt history, translation-pair ids, group state, new element types, or any
   other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v1 shape
+## Enforced v2 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 1 }
+├── meta: { name, appIcon?, schemaVersion: 2 }
+├── mode: isolated | connected
 ├── platforms: ["apple" | "android", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
 ├── fonts: FontAsset[]                    # file-backed project fonts
@@ -52,6 +53,12 @@ Project
 Element types are `text`, `shape`, `screenshot`, and `device-frame`. All share literal position,
 size, rotation, opacity, lock, and visibility fields. Inspect the current project and its registered
 fonts before changing copy or layout; do not reconstruct objects from this summary.
+
+`mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
+platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned
+by one screen with owner-local coordinates, and export crops the requested artboard through the
+shared renderer. The editor cannot author connected geometry yet, so inspect exported crops after
+any direct connected-mode layout edit.
 
 ## Recipe: generate or refresh copy
 
@@ -81,8 +88,10 @@ fonts before changing copy or layout; do not reconstruct objects from this summa
 3. Write final element geometry against that screen's exact artboard. Keep all finite dimensions
    positive, preserve intentional aspect ratios for media, and remember that `elements` order is
    back-to-front z-order.
-4. Vary device placement and negative space across adjacent slides. Do not solve one slide by making
-   another dependent on a cross-screen crop.
+4. Vary device placement and negative space across adjacent slides. In `isolated` mode, never make
+   one slide depend on a neighbouring crop. In `connected` mode, cross-screen decoration may span an
+   exact platform/device/locale strip, but required text and critical UI must remain complete in
+   every exported artboard.
 5. Inspect Focus and Overview in the editor, then export the affected locale. Exported PNGs, not the
    editor chrome, are the final layout evidence.
 

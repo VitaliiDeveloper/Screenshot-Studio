@@ -102,6 +102,7 @@ silently).
 ```
 Project
 ├── meta: { name, appIcon, schemaVersion }
+├── mode: isolated | connected
 ├── platforms: ["apple", "android"]
 ├── locales: ["en", "de", "ar"]            # derived from screens
 ├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
@@ -148,7 +149,7 @@ without disturbing another locale's relative order. The locale manager delegates
 and removal to the same pure core operations used by the CLI. Editor chrome remains LTR.
 
 **RTL direction is explicit, not inferred from locale.** Every screen stores
-`direction: "ltr" | "rtl"` (existing v1 files default to `ltr`), and all screens in one locale
+`direction: "ltr" | "rtl"` (legacy v1 files migrate to v2 isolated and default to `ltr`), and all screens in one locale
 must agree. Changing direction bakes horizontal placement (`x' = artboard.width - x - width`) and
 physical `left ↔ right` text alignment into JSON while preserving media pixels and rotation. The
 shared `elementToNodeConfig(element, { images, direction })` mapper sends the stored direction to
@@ -159,11 +160,16 @@ Templates remain LTR-authored inputs and are baked once when instantiated into a
 **Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
 optional fields such as `role` keep the current version; structural changes require a migration.
 
-**Connected canvas — deferred (Phase 6).** Letting an element cross artboard boundaries and
-exporting each screen as a precise crop is a nice differentiator, but it multiplies
-complexity across selection, bounds, crop, previews, and snapping. The MVP uses **isolated
-artboards** only; the schema leaves room (`mode: "isolated" | "connected"`) so it can be
-added once export is rock-solid.
+**Connected canvas — v2 render/export contract (Phase 6 Slice 1).** `Project.mode` is one explicit
+project-level `isolated | connected` choice. Valid v1 input migrates without pixel changes to v2
+`isolated`. In connected mode, screens with the same exact `platform/device/locale` form a gapless,
+top-aligned strip in project order; each origin is the cumulative width of earlier group screens.
+Elements remain in their owner screen with owner-local coordinates. The shared renderer paints all
+group backgrounds first, then visible elements by screen order and element-array order, translated
+against the requested screen origin. `renderScreen` still returns a stage at exactly the requested
+artboard dimensions, so the stage itself is the precise UI/CLI export crop — there is no stitched
+PNG or post-export slicing path. Interactive connected authoring, selection, and mode controls land
+in later Phase 6 slices on top of this contract.
 
 ---
 
@@ -289,7 +295,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v1
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v2
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

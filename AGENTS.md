@@ -8,12 +8,15 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 5; Phase 6 is next.**
+> **Status: implementation and verification are complete through Phase 5; Phase 6 Slice 1 is complete.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
-> removal are shipped and closure-verified. Read only docs directly relevant to the active task; do
-> not scan all of `docs/` by default. When in doubt, follow `docs/architecture.md` (the technical
+> removal are shipped and closure-verified. The v2 connected document and precise shared-renderer
+> crop contract are closure-verified; interactive connected authoring is next. Phase 6 and planned
+> Phase 7 together close the baseline; public release readiness comes only after later stabilization.
+> Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
+> doubt, follow `docs/architecture.md` (the technical
 > contract) — it wins over this summary.
 
 ## What this project is
@@ -53,13 +56,14 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v1 only; future schema ideas are not valid project fields.
+against the enforced v2 only; future schema ideas are not valid project fields.
 
-**Current v1 (enforced today):**
+**Current v2 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 1 }
+├── meta: { name, appIcon?, schemaVersion: 2 }
+├── mode: isolated | connected
 ├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
 ├── fonts: FontAsset[]                     # uploaded / Google file assets under assets/fonts/
@@ -79,8 +83,15 @@ into literal element fields by `theme set`; the strict project validator rejects
 to `ltr`, is consistent within a locale, and is passed explicitly to the shared text renderer.
 Direction changes bake horizontal placement/alignment into JSON; they never reflect media pixels.
 
+`Project.mode` is project-wide. In `connected` mode, each exact `platform/device/locale` group is a
+gapless, top-aligned horizontal strip in project order. Elements remain owned by a screen and keep
+owner-local coordinates; the shared renderer projects every group screen, paints all backgrounds
+first, then elements by screen/array order, and returns the requested screen's exact crop. Valid v1
+projects load through a lossless migration to v2 `isolated`. Connected editor authoring is not yet
+shipped; Slice 1 provides the strict document plus shared UI/CLI export contract.
+
 Future schema work is roadmap-governed. Do not add new background/element types, per-element RTL
-fields, or connected-canvas state until the enforced schema and architecture explicitly widen.
+fields, group state, or other canvas fields until the enforced schema and architecture widen.
 
 ## CLI (`screenshots ...`) — the primary interface
 
@@ -147,7 +158,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v1 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v2 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 

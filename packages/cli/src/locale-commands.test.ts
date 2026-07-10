@@ -12,7 +12,8 @@ import {
 
 function project(): Project {
   return {
-    meta: { name: "Locales", schemaVersion: 1 },
+    meta: { name: "Locales", schemaVersion: 2 },
+    mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
     fonts: [],

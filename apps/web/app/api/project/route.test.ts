@@ -36,6 +36,7 @@ describe("GET /api/project", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.meta.name).toBe("T");
+    expect(body).toMatchObject({ mode: "isolated", meta: { schemaVersion: 2 } });
   });
 });
 
@@ -47,7 +48,10 @@ describe("PUT /api/project", () => {
       method: "PUT", body: JSON.stringify(next),
     }));
     expect(res.status).toBe(200);
-    expect(JSON.parse(readFileSync(file, "utf8")).meta.name).toBe("Renamed");
+    expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
+      mode: "isolated",
+      meta: { name: "Renamed", schemaVersion: 2 },
+    });
   });
 
   it("rejects an invalid project with 400 and does not write", async () => {

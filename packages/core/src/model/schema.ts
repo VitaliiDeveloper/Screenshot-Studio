@@ -2,7 +2,7 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v2). Narrower than the long-term target in docs/architecture.md §3:
  * solid backgrounds only; element types `text` | `shape` | `screenshot` | `device-frame`
  * (iphone frames only); platforms apple/{iphone,ipad} and android/phone; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
@@ -11,7 +11,7 @@ import { fontIdentityKey } from "./font-identity.js";
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const HexColor = z
   .string()
@@ -25,6 +25,10 @@ export type ThemeRole = z.infer<typeof ThemeRole>;
 
 export const LayoutDirection = z.enum(["ltr", "rtl"]);
 export type LayoutDirection = z.infer<typeof LayoutDirection>;
+
+/** Project-wide authoring/render projection; exact platform/device/locale groups stay independent. */
+export const CanvasMode = z.enum(["isolated", "connected"]);
+export type CanvasMode = z.infer<typeof CanvasMode>;
 
 /** Fields every element shares (docs/architecture.md §3). z-order is array order in `elements`. */
 const elementBase = {
@@ -182,6 +186,7 @@ export const Project = z
         schemaVersion: z.literal(SCHEMA_VERSION),
       })
       .strict(),
+    mode: CanvasMode,
     platforms: z.array(z.enum(PLATFORM_VALUES)).min(1),
     locales: z.array(z.string().min(1)).min(1),
     fonts: z.array(FontAsset).default([]),

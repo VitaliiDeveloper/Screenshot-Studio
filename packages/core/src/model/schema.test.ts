@@ -4,6 +4,7 @@ import { parseProject, ProjectValidationError, getScreen, SCHEMA_VERSION, Elemen
 function validProject() {
   return {
     meta: { name: "Sample", schemaVersion: SCHEMA_VERSION },
+    mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
     fonts: [],
@@ -46,6 +47,21 @@ describe("parseProject", () => {
     expect(el.opacity).toBe(1);
     expect(el.visible).toBe(true);
     expect(el.rotation).toBe(0);
+  });
+
+  it("accepts connected mode", () => {
+    const raw = validProject();
+    raw.mode = "connected";
+    expect(parseProject(raw).mode).toBe("connected");
+  });
+
+  it("migrates valid v1 input to isolated v2", () => {
+    const raw = validProject() as Record<string, unknown>;
+    delete raw.mode;
+    (raw.meta as Record<string, unknown>).schemaVersion = 1;
+    const project = parseProject(raw);
+    expect(project.meta.schemaVersion).toBe(2);
+    expect(project.mode).toBe("isolated");
   });
 
   it("rejects unknown keys (strict contract)", () => {

@@ -1,7 +1,7 @@
 # Roadmap & Execution Plan
 
 Scope, sequencing, and risks. This is the part that changes often.
-Version 0.6, 10 July 2026.
+Version 0.9, 10 July 2026.
 
 The guiding principle: ship a **thin vertical slice** first, and prove the riskiest thesis
 before building on top of it. Everything visually impressive (connected canvas, AI, themes,
@@ -34,7 +34,9 @@ rewrite. We ship without the undo *buttons*, but not without the architecture fo
 - **Editor (Phase 1).** Konva stage with zoom/pan; move/resize/rotate with handles; a layers
   panel (z-order, lock, hide, rename — **no grouping**); inspector. Snapping, undo/redo UI, and
   element grouping come once the basics are stable (grouping pulls in a selection model, nested
-  transforms, serialization, and z-order edge cases, so it stays out of the thin slice).
+  transforms, serialization, and z-order edge cases, so it stays out of the thin slice). Phase 6
+  closes undo/redo, snapping, and insertion of existing media types; Phase 7 owns multi-select and
+  grouping.
 - **Export (Phase 2).** Verified store bundles from `store-specs.json`, alpha-channel removal,
   Vitest dimension tests, zip by platform/device/locale.
 - **Fonts & themes (Phase 3).** Google + custom upload UI; theme tokens applied across
@@ -43,6 +45,10 @@ rewrite. We ship without the undo *buttons*, but not without the architecture fo
 - **Locales & RTL (Phase 4).** Per-language screenshot sets; mirrored layout/alignment for
   Arabic/Hebrew so slides are RTL-native, not just translated.
 - **AI (Phase 5).** A bonus on top of a deterministic core, never a prerequisite.
+- **Advanced editing (Phase 7).** Multi-select and marquee selection first, then a parity-proven
+  group model and group authoring. New `image`, `icon`, and `badge` primitives follow as independent
+  render-risk slices rather than one broad schema expansion. Completing Phase 7 closes the baseline
+  product scope; it is not itself a public release gate.
 
 ---
 
@@ -126,16 +132,38 @@ Project-local `AGENTS.md` recipes for copy generation, baked auto-layout, and lo
 the CLI agent (subscription, no keys) ship from `screenshots init`. Deterministic local auto-crop and
 flat/near-uniform background removal ship through the non-destructive asset CLI. Sliced in §3f.
 
-**Phase 6 — Connected canvas + polish.**
-Cross-screen elements with precise export crops, the optional skill installer, and community
-polish (README GIF, `CONTRIBUTING.md`, example projects, SPDX headers on source files).
+**Phase 6 — Connected canvas + completion foundations — active.**
+Cross-screen elements with precise export crops, a distributable CLI with its shared render host,
+baseline undo/redo, snapping, media insertion, the optional skill installer, and community
+polish (README GIF, `CONTRIBUTING.md`, example projects, SPDX headers on source files). Sliced in
+§3g.
 
-Distribution decisions parked for this phase (fine for the dogfood era, blocking for `npx`):
+Distribution carry-ins for this phase (fine for the dogfood era, blocking for `npx`):
 - **Package the CLI.** Today `pnpm screenshots` runs TypeScript via `tsx` inside the repo —
   there is no built/published binary. Zero-config use outside the repo needs a real build.
 - **CLI weight.** The export path requires the full `apps/web` Next host (the §2 parity
-  decision's accepted cost). Decide how distribution ships it: repo clone stays the primary
-  channel, or the package bundles a prebuilt web host.
+  decision's accepted cost). Phase 6 keeps parity by packaging the prebuilt web host with the
+  standalone CLI; the source checkout remains the contributor/dev channel.
+
+**Phase 7 — Advanced editing + baseline completion — planned after Phase 6.**
+Marquee/modified-click multi-selection, a persisted group model with shared render/export parity,
+group authoring and nested transforms, then independently proven `image`, `icon`, and `badge`
+primitives. Phase 7 completes the planned baseline product together with Phase 6; it does not imply
+that the project is released. Its concrete v3 schema design starts only after the connected-canvas
+v2 contract closes. Sliced in §3h.
+
+**Phase 8 — Stabilization + release readiness — planned after baseline completion.**
+Sustained dogfood, failure/recovery testing, cross-environment packaged-install checks, performance
+and memory profiling, accessibility and browser coverage, long-running export reliability, and
+release-candidate documentation. A first public release is considered only after this phase's gate;
+Phase 6/7 completion alone is not a release claim. Detailed execution slices are intentionally
+deferred until Phase 7 closes and real dogfood evidence exists.
+
+**Phase 9 — Expansion + continuous improvement — direction after stabilization.**
+Richer existing-type properties, additional frames/platform targets, workflow refinements,
+performance improvements, and further creative capabilities driven by Phase 8 findings and real
+use. This is a direction boundary, not a pre-approved catch-all implementation plan; each expansion
+still needs a scoped design, parity impact, and verification plan.
 
 ---
 
@@ -262,6 +290,63 @@ The accepted workflow and local-processing boundary lives in
 
 ---
 
+## 3g. Phase 6 execution slices
+
+Phase 6 separates the connected-canvas parity risk from distribution and community foundations.
+Connected mode is one project-level choice, but every exact `platform/device/locale` export group
+forms its own horizontal strip in project order. Elements stay owned by a screen and keep local
+coordinates; the shared renderer projects them into strip coordinates and crops the requested
+screen. This preserves the ordinary screen/element model while making cross-boundary pixels
+deterministic.
+
+| Slice | Delivers | Risk it retires |
+|-------|----------|-----------------|
+| **1 — Connected document + crop parity** ✅ | Schema v2 with explicit `isolated | connected` mode and a lossless v1→v2 isolated migration; pure group/origin projection; connected rendering and exact per-screen crops through the existing UI/CLI headless path; a JSON-authored two-screen parity fixture. | Proves the highest-risk claim before editor work: cross-screen pixels still use one renderer and exact store crops. |
+| **2 — Connected lifecycle + CLI** | Guarded mode conversion, deterministic group helpers, and connected-safe add/duplicate/reorder/remove, locale clone/direction, template, theme, and CLI workflows. | Prevents ordinary management commands from corrupting ownership, ordering, or locale behavior after the schema widens. |
+| **3 — Connected editor stage** | One gapless editable strip for the active platform/device/locale group; cross-boundary select/move/resize/rotate and inline text editing; composite owner-aware selection; exact Focus crop preview. | Replaces the isolated DOM projection without forking element rendering or losing element ownership. |
+| **4 — Undo/redo history** | Bounded ephemeral history over validated project mutations, keyboard shortcuts, toolbar state, save integration, and explicit history reset at load/replace boundaries. | Adds the day-0 promised recovery path only after connected mutations have their final ownership semantics. |
+| **5 — Snapping + smart guides** | Deterministic single-selection snapping to active group/artboard edges, centres, and nearby elements with zoom-correct ephemeral guides. | Prevents connected-space alignment from becoming a second persisted layout system or renderer concern. |
+| **6 — Asset picker + existing media insertion** | Project-asset browsing plus insertion of the already-enforced `screenshot` and `device-frame` types from Add, with safe project-local paths and shared image loading. | Removes the current disabled media workflow without widening the element union or adding uploads outside project storage. |
+| **7 — Connected workspace hardening** | Mode control, group-scoped Overview/Fit/Screens/Layers behavior, thumbnails, active-screen boundaries, history/snapping/media interaction coverage, and responsive/keyboard QA. | Closes interaction ambiguity around ownership, screen boundaries, z-order, reordering, and narrow viewports. |
+| **8 — Standalone CLI distribution** | Built `screenshots` executable plus the prebuilt web render host required for editor/export parity; package contents and temp-directory install/export smoke coverage. | Removes the current repo-only `tsx` entry point without introducing a lighter second renderer. |
+| **9 — Optional skill installer** | A thin installable skill that bootstraps the packaged CLI and then delegates to the generated project `AGENTS.md`; clean-folder install/init smoke coverage. | Adds zero-config agent discovery without duplicating the product contract or making AI mandatory. |
+| **10 — Community polish + phase closure** | README demo GIF and install path, `CONTRIBUTING.md`, `NOTICE`, 2–3 validated/exportable example projects, scoped SPDX headers, public-doc truth, and the Phase 6 full gate. | Completes the OSS project foundation and catches drift across examples, packaging, docs, and licenses without claiming a public release. |
+
+The target data, render, editor, distribution, and completion contract lives in
+`docs/specs/2026-07-10-phase6-connected-canvas-completion-design.md`. Slice 1 is planned in
+`docs/plans/2026-07-10-phase6-slice1-connected-document-crop-parity.md`.
+
+Phase 6 deliberately closes undo/redo, snapping, and insertion of existing media types because they
+are baseline editor gaps over the final connected mutation/coordinate model. Multi-select,
+grouping, and new render element types stay in the explicit Phase 7 boundary below.
+
+---
+
+## 3h. Phase 7 execution slices
+
+Phase 7 is advanced editing after the Phase 6 completion foundation is stable. Selection remains
+ephemeral; grouping is the first persisted/render-affecting change and therefore gets its own
+schema/migration/parity slice before editor authoring. Each new element type then proves the shared
+renderer independently.
+
+| Slice | Delivers | Risk it retires |
+|-------|----------|-----------------|
+| **1 — Multi-select foundation** | Owner-aware selection set, Shift/Cmd click, marquee selection, aggregate bounds, and batch move/delete/lock/visibility over isolated and connected canvases. | Establishes one unambiguous selection model without persisting workspace state or prematurely adding groups. |
+| **2 — Group model + render parity** | Ratified post-v2 schema/migration for one-level groups with local child coordinates; traversal updates for fonts/assets/themes/locales; shared renderer and exact export parity. | Proves serialization, nested transforms, clipping, z-order, RTL, and connected crops before group UI can write the model. |
+| **3 — Group authoring + Layers** | Group/ungroup from multi-selection, group transform/duplicate/delete/lock/hide/rename, child inspection, keyboard behavior, and owner-aware Layers presentation. | Prevents editor-only grouping semantics from diverging from the persisted/rendered group contract. |
+| **4 — Decorative image element** | Strict `image` element using the Phase 6 asset picker/loader, deterministic fit/crop behavior, inspector controls, templates/themes traversal, and parity coverage. | Adds the most general missing raster primitive without overloading the semantic `screenshot` type. |
+| **5 — Vector icon element** | Deterministic built-in/SVG icon contract, safe project-local authoring, colour/stroke controls, shared Konva mapping, and parity coverage. | Avoids unsafe or browser-dependent SVG behavior and keeps icons editable rather than raster-only. |
+| **6 — Badge primitives** | Rating, store, and “as seen on” badge authoring through the smallest validated representation; prefer ordinary grouped primitives/templates unless unique badge semantics justify a union member. | Resolves whether badges need schema state instead of committing to a redundant composite element up front. |
+| **7 — Baseline completion dogfood + closure** | Multi-select/group workflows across connected locales, image/icon/badge examples, public docs truth, accessibility/keyboard QA, and the Phase 7 full gate. | Closes cross-feature traversal and parity gaps before declaring the baseline product complete, not publicly released. |
+
+Phase 7 reserves product scope, not a premature v3 shape. Slice 2 must re-read the shipped Phase 6
+schema and write its own design spec before implementation. Richer existing-type properties
+(gradient/image backgrounds, text shadow, screenshot crop, additional frame variants, and expanded
+shape styles) remain roadmap-governed Phase 9 expansion candidates; they are not hidden inside the
+new-type slices.
+
+---
+
 ## 4. Technical risks
 
 1. **Render/export parity (highest).** UI (browser Konva) vs CLI (headless) must produce the
@@ -274,5 +359,6 @@ The accepted workflow and local-processing boundary lives in
    tests, not hardcoded values.
 3. **Font fidelity.** Custom fonts must embed and render identically across both renderers.
    *Mitigation:* ship minimal embedding with the Phase 0 spike, not as a late feature.
-4. **Scope creep.** The vision is large. *Mitigation:* hold the line on the thin MVP; defer
-   connected canvas and AI explicitly.
+4. **Scope creep.** The vision is large. *Mitigation:* Phase 6 and Phase 7 close the baseline in
+   fixed order; Phase 8 owns stabilization/release evidence, while Phase 9 expansion still requires
+   explicit scoped slices.

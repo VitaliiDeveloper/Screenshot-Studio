@@ -31,6 +31,7 @@ Follow the project workflow and schema instructions in \`AGENTS.md\`.
 function starterProject(name: string): Project {
   return {
     meta: { name, schemaVersion: SCHEMA_VERSION },
+    mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
     fonts: [],

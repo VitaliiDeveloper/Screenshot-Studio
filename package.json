@@ -18,8 +18,8 @@
     "test:cli": "vitest run packages/cli/src",
     "test:web": "vitest run apps/web",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:e2e:parity": "vitest run --config vitest.e2e.config.ts e2e/parity.test.ts e2e/screenshot-parity.test.ts e2e/device-frame-parity.test.ts e2e/rtl-parity.test.ts",
-    "test:e2e:export": "vitest run --config vitest.e2e.config.ts e2e/bundle-export.test.ts e2e/ui-export.test.ts",
+    "test:e2e:parity": "vitest run --config vitest.e2e.config.ts e2e/parity.test.ts e2e/screenshot-parity.test.ts e2e/device-frame-parity.test.ts e2e/rtl-parity.test.ts e2e/connected-canvas-parity.test.ts",
+    "test:e2e:export": "vitest run --config vitest.e2e.config.ts e2e/bundle-export.test.ts e2e/ui-export.test.ts e2e/connected-canvas-export.test.ts",
     "test:e2e:editor": "vitest run --config vitest.e2e.config.ts e2e/editor.test.ts e2e/left-panel.test.ts e2e/inspector-toolbar.test.ts e2e/font-management.test.ts e2e/theme-management.test.ts e2e/template-library.test.ts e2e/editor-workspace.test.ts e2e/locale-workspace.test.ts",
     "typecheck": "pnpm -r run typecheck"
   },

@@ -4,7 +4,8 @@ import type { Project, Element } from "../model/schema.js";
 
 function project(elements: Element[]): Project {
   return {
-    meta: { name: "T", schemaVersion: 1 },
+    meta: { name: "T", schemaVersion: 2 },
+    mode: "isolated",
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{
       id: "s", name: "S", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
