@@ -9,7 +9,7 @@ async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), "theme-command-"));
   const projectPath = join(dir, "app-store-screenshots.json");
   const project = {
-    meta: { name: "Themes", schemaVersion: 2 }, mode: "isolated", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Themes", schemaVersion: 3 }, mode: "isolated", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "title", type: "text", role: "heading", x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1, locked: false, visible: true, content: "Title", fontFamily: "Old", size: 24, weight: 400, lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF" }] }],
   };

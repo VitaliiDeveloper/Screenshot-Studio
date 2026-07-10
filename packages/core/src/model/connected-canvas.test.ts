@@ -4,6 +4,7 @@ import type { Project } from "./schema.js";
 import {
   findOwnerOverflows,
   projectScreenGroup,
+  renderedElementBounds,
   rotatedElementBounds,
   sameScreenGroup,
   setCanvasMode,
@@ -11,7 +12,7 @@ import {
 
 function project(): Project {
   return {
-    meta: { name: "Connected", schemaVersion: 2 },
+    meta: { name: "Connected", schemaVersion: 3 },
     mode: "connected",
     platforms: ["apple", "android"],
     locales: ["en", "fr"],
@@ -94,6 +95,22 @@ describe("canvas mode transitions", () => {
     expect(setCanvasMode(connected, "isolated").mode).toBe("isolated");
     rotated.visible = true;
     rotated.opacity = 0;
+    expect(setCanvasMode(connected, "isolated").mode).toBe("isolated");
+  });
+
+  it("uses transformed child pixels rather than only declared group bounds", () => {
+    const connected = project();
+    const group = {
+      id: "group", type: "group" as const, x: 0, y: 0, width: 50, height: 50,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      children: [shape("child", 80, 30, 20, 0)],
+    };
+    expect(rotatedElementBounds(group).maxX).toBe(50);
+    expect(renderedElementBounds(group)?.maxX).toBe(110);
+    connected.screens[0]!.elements = [group];
+    expect(() => setCanvasMode(connected, "isolated")).toThrow(/group/);
+
+    group.children[0]!.visible = false;
     expect(setCanvasMode(connected, "isolated").mode).toBe("isolated");
   });
 });

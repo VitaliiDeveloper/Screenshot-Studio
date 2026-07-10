@@ -145,7 +145,7 @@ Distribution decisions closed in this phase:
 - **Parity-preserving weight.** The export path keeps the full prebuilt `apps/web` Next host (the §2
   decision's accepted cost) instead of adding a second lightweight renderer.
 
-**Phase 7 — Advanced editing + baseline completion — in progress; Slice 1 complete.**
+**Phase 7 — Advanced editing + baseline completion — in progress; Slices 1–2 complete.**
 Marquee/modified-click multi-selection, a persisted group model with shared render/export parity,
 group authoring and nested transforms, then independently proven `image`, `icon`, and `badge`
 primitives. Phase 7 completes the planned baseline product together with Phase 6; it does not imply
@@ -332,7 +332,7 @@ renderer independently.
 | Slice | Delivers | Risk it retires |
 |-------|----------|-----------------|
 | **1 — Multi-select foundation** ✅ | Owner-aware selection set, Shift/Cmd click, marquee selection, aggregate bounds, and batch move/delete/lock/visibility over isolated and connected canvases. | Establishes one unambiguous selection model without persisting workspace state or prematurely adding groups. |
-| **2 — Group model + render parity** | Ratified post-v2 schema/migration for one-level groups with local child coordinates; traversal updates for fonts/assets/themes/locales; shared renderer and exact export parity. | Proves serialization, nested transforms, clipping, z-order, RTL, and connected crops before group UI can write the model. |
+| **2 — Group model + render parity** ✅ | Ratified post-v2 schema/migration for one-level groups with local child coordinates; traversal updates for fonts/assets/themes/locales; shared renderer and exact export parity. | Proves serialization, nested transforms, clipping, z-order, RTL, and connected crops before group UI can write the model. |
 | **3 — Group authoring + Layers** | Group/ungroup from multi-selection, group transform/duplicate/delete/lock/hide/rename, child inspection, keyboard behavior, and owner-aware Layers presentation. | Prevents editor-only grouping semantics from diverging from the persisted/rendered group contract. |
 | **4 — Decorative image element** | Strict `image` element using the Phase 6 asset picker/loader, deterministic fit/crop behavior, inspector controls, templates/themes traversal, and parity coverage. | Adds the most general missing raster primitive without overloading the semantic `screenshot` type. |
 | **5 — Vector icon element** | Deterministic built-in/SVG icon contract, safe project-local authoring, colour/stroke controls, shared Konva mapping, and parity coverage. | Avoids unsafe or browser-dependent SVG behavior and keeps icons editable rather than raster-only. |
@@ -345,8 +345,8 @@ schema and write its own design spec before implementation. Richer existing-type
 shape styles) remain roadmap-governed Phase 9 expansion candidates; they are not hidden inside the
 new-type slices.
 
-The completed Slice 1 contract and verification checkpoint are recorded in
-`docs/plans/2026-07-10-phase7-slice1-multi-select-foundation.md`.
+The completed Slice 1–2 contracts and verification checkpoints are recorded in `docs/plans/`, with
+the v3 decision in `docs/specs/2026-07-10-phase7-group-model-design.md`.
 
 ---
 

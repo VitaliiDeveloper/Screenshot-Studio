@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slice 1 multi-selection are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slices 1–2 multi-selection/group persistence are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v2 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v3 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -62,7 +62,8 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   owner-aware identities and blank-canvas drag performs rotation-aware marquee selection. A
   multi-selection exposes aggregate bounds plus atomic move/delete/lock/visibility; locked members
   stay selected but do not move. Resize, rotate, and snapping remain single-element operations until
-  the Phase 7 persisted group contract is ratified.
+  group authoring lands in Phase 7 Slice 3. JSON-authored one-level groups already render/select as
+  one non-clipping top-level layer through the shared UI/CLI node tree.
 - **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box
   with the screen's explicit LTR/RTL direction. `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits;
   blur commits and flushes persistence.

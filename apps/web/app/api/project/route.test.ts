@@ -37,7 +37,7 @@ describe("GET /api/project", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.meta.name).toBe("T");
-    expect(body).toMatchObject({ mode: "isolated", meta: { schemaVersion: 2 } });
+    expect(body).toMatchObject({ mode: "isolated", meta: { schemaVersion: 3 } });
   });
 });
 
@@ -51,7 +51,7 @@ describe("PUT /api/project", () => {
     expect(res.status).toBe(200);
     expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
       mode: "isolated",
-      meta: { name: "Renamed", schemaVersion: 2 },
+      meta: { name: "Renamed", schemaVersion: 3 },
     });
   });
 

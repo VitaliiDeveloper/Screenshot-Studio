@@ -3,8 +3,8 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v2). Narrower than the long-term target in docs/architecture.md §3:
- * solid backgrounds only; element types `text` | `shape` | `screenshot` | `device-frame`
+ * Enforced project schema (v3). Narrower than the long-term target in docs/architecture.md §3:
+ * solid backgrounds only; leaf types `text` | `shape` | `screenshot` | `device-frame` plus one-level groups
  * (iphone frames only); platforms apple/{iphone,ipad} and android/phone; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
  * live outside the render contract. Gradient backgrounds and icon/badge/image elements are not
@@ -12,7 +12,7 @@ import { fontIdentityKey } from "./font-identity.js";
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const HexColor = z
   .string()
@@ -32,7 +32,7 @@ export const CanvasMode = z.enum(["isolated", "connected"]);
 export type CanvasMode = z.infer<typeof CanvasMode>;
 
 /** Fields every element shares (docs/architecture.md §3). z-order is array order in `elements`. */
-const elementBase = {
+const transformBase = {
   id: z.string().min(1),
   x: z.number(),
   y: z.number(),
@@ -44,6 +44,10 @@ const elementBase = {
   visible: z.boolean().default(true),
   /** Layers-panel display label (slice 4). Metadata only — never rendered/exported. */
   name: z.string().optional(),
+};
+
+const leafBase = {
+  ...transformBase,
   /** Optional baked-theme role. The renderer continues to consume literal element fields. */
   role: ThemeRole.optional(),
 };
@@ -51,7 +55,7 @@ const elementBase = {
 export const TextElement = z
   .object({
     type: z.literal("text"),
-    ...elementBase,
+    ...leafBase,
     content: z.string(),
     fontFamily: z.string().min(1),
     size: z.number().positive(),
@@ -67,7 +71,7 @@ export type TextElement = z.infer<typeof TextElement>;
 export const ShapeElement = z
   .object({
     type: z.literal("shape"),
-    ...elementBase,
+    ...leafBase,
     kind: z.literal("rect"),
     fill: HexColor,
     radius: z.number().min(0).default(0),
@@ -78,7 +82,7 @@ export type ShapeElement = z.infer<typeof ShapeElement>;
 export const ScreenshotElement = z
   .object({
     type: z.literal("screenshot"),
-    ...elementBase,
+    ...leafBase,
     /** Document-relative path to the image, served by the web-host asset route. */
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("cover"),
@@ -90,7 +94,7 @@ export type ScreenshotElement = z.infer<typeof ScreenshotElement>;
 export const DeviceFrameElement = z
   .object({
     type: z.literal("device-frame"),
-    ...elementBase,
+    ...leafBase,
     deviceType: z.literal("iphone"),
     /** Document-relative path to the screenshot placed in the frame's screen slot. */
     assetUrl: z.string().min(1),
@@ -99,11 +103,30 @@ export const DeviceFrameElement = z
   .strict();
 export type DeviceFrameElement = z.infer<typeof DeviceFrameElement>;
 
+export const LeafElement = z.discriminatedUnion("type", [
+  TextElement,
+  ShapeElement,
+  ScreenshotElement,
+  DeviceFrameElement,
+]);
+export type LeafElement = z.infer<typeof LeafElement>;
+
+export const GroupElement = z
+  .object({
+    type: z.literal("group"),
+    ...transformBase,
+    /** Exactly one persisted grouping level; children cannot themselves be groups. */
+    children: z.array(LeafElement).min(1),
+  })
+  .strict();
+export type GroupElement = z.infer<typeof GroupElement>;
+
 export const Element = z.discriminatedUnion("type", [
   TextElement,
   ShapeElement,
   ScreenshotElement,
   DeviceFrameElement,
+  GroupElement,
 ]);
 export type Element = z.infer<typeof Element>;
 

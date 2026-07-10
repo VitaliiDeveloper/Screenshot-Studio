@@ -9,6 +9,7 @@ import {
   type Screen,
 } from "./schema.js";
 import { fontIdentityKey, type FontIdentity } from "./font-identity.js";
+import { cloneElementWithFreshIds, elementLeaves, mirrorElement } from "./element-tree.js";
 
 /** Slug suitable for screen ids (lowercase, hyphenated, non-empty). */
 export function slugify(value: string): string {
@@ -47,11 +48,13 @@ export function findUnresolvedFonts(project: ProjectModel): FontIdentity[] {
 
   for (const screen of project.screens) {
     for (const element of screen.elements) {
-      if (element.type !== "text") continue;
-      const key = fontIdentityKey({ family: element.fontFamily, weight: element.weight });
-      if (!registered.has(key) && !seen.has(key)) {
-        unresolved.push({ family: element.fontFamily, weight: element.weight });
-        seen.add(key);
+      for (const leaf of elementLeaves(element)) {
+        if (leaf.type !== "text") continue;
+        const key = fontIdentityKey({ family: leaf.fontFamily, weight: leaf.weight });
+        if (!registered.has(key) && !seen.has(key)) {
+          unresolved.push({ family: leaf.fontFamily, weight: leaf.weight });
+          seen.add(key);
+        }
       }
     }
   }
@@ -171,7 +174,7 @@ export function cloneScreenWithFreshIds(src: Screen): Screen {
   const copy = structuredClone(src);
   copy.id = crypto.randomUUID();
   copy.name = `${src.name} copy`;
-  copy.elements = copy.elements.map((el) => ({ ...el, id: crypto.randomUUID() }));
+  copy.elements = copy.elements.map((element) => cloneElementWithFreshIds(element));
   return copy;
 }
 
@@ -219,13 +222,7 @@ export function setScreenDirection(screen: Screen, direction: LayoutDirection): 
   const currentDirection = screen.direction ?? "ltr";
   if (currentDirection === direction) return ScreenSchema.parse(screen);
 
-  const elements = screen.elements.map((element) => ({
-    ...element,
-    x: screen.artboard.width - element.x - element.width,
-    ...(element.type === "text"
-      ? { align: element.align === "left" ? "right" : element.align === "right" ? "left" : "center" }
-      : {}),
-  }));
+  const elements = screen.elements.map((element) => mirrorElement(element, screen.artboard.width));
 
   return ScreenSchema.parse({ ...screen, direction, elements });
 }

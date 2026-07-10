@@ -5,6 +5,7 @@ const TYPE_LABELS: Record<string, string> = {
   shape: "Shape",
   screenshot: "Screenshot",
   "device-frame": "Device frame",
+  group: "Group",
   icon: "Icon",
   badge: "Badge",
   image: "Image",

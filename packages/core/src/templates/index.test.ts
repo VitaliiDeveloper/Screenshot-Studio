@@ -5,7 +5,7 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 2 }, mode: "connected", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 3 }, mode: "connected", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   };
@@ -67,6 +67,34 @@ describe("createScreenFromTemplate", () => {
   it("uses a unique screen id on repeated creation", () => {
     const first = createScreenFromTemplate(project(), template, "en").project;
     expect(createScreenFromTemplate(first, template, "en").screen.id).toBe("feature-card-2");
+  });
+
+  it("validates grouped fonts and regenerates group plus child ids", () => {
+    const title = template.elements[0]!;
+    if (title.type !== "text") throw new Error("expected text");
+    const grouped: Template = {
+      ...template,
+      id: "grouped-card",
+      elements: [{
+        id: "group", type: "group", x: 80, y: 120, width: 920, height: 220,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        children: [{ ...title, id: "group-title", x: 0, y: 0 }],
+      }],
+    };
+
+    const result = createScreenFromTemplate(project(), grouped, "en");
+    const group = result.screen.elements[0]!;
+    expect(group.id).not.toBe("group");
+    expect(group.type === "group" && group.children[0]!.id).not.toBe("group-title");
+
+    const missing: Template = {
+      ...grouped,
+      elements: [{
+        ...grouped.elements[0]!,
+        children: [{ ...title, id: "missing", fontFamily: "Missing" }],
+      } as never],
+    };
+    expect(() => createScreenFromTemplate(project(), missing, "en")).toThrow(/unregistered font/);
   });
 
   it("rejects template text with an unregistered font", () => {

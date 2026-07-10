@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "../model/schema.js";
+import { elementLeaves } from "../model/element-tree.js";
 import type { ImageCache } from "../engine/node-config.js";
 
 /**
@@ -19,7 +20,9 @@ export function collectImageUrls(project: Project): string[] {
   const urls = new Set<string>();
   for (const screen of project.screens) {
     for (const el of screen.elements) {
-      if (el.type === "screenshot" || el.type === "device-frame") urls.add(el.assetUrl);
+      for (const leaf of elementLeaves(el)) {
+        if (leaf.type === "screenshot" || leaf.type === "device-frame") urls.add(leaf.assetUrl);
+      }
     }
   }
   return [...urls];

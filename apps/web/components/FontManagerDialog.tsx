@@ -4,7 +4,7 @@
 import { useRef, useState } from "react";
 import { useStore } from "zustand";
 import { CloudDownload, Type, Upload } from "lucide-react";
-import { fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
+import { elementLeaves, fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
 import { registerFont } from "@screenshot-studio/core/fonts";
 import { editorStore } from "../lib/editor-store";
 import { primarySelection } from "../lib/editor-selection";
@@ -18,7 +18,9 @@ function fontUsage(project: Project, font: FontAsset): number {
   let count = 0;
   for (const screen of project.screens) {
     for (const element of screen.elements) {
-      if (element.type === "text" && element.fontFamily === font.family && element.weight === font.weight) count += 1;
+      for (const leaf of elementLeaves(element)) {
+        if (leaf.type === "text" && leaf.fontFamily === font.family && leaf.weight === font.weight) count += 1;
+      }
     }
   }
   return count;

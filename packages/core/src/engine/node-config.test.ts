@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { elementToNodeConfig, type ImageCache } from "./node-config.js";
-import type { TextElement, ShapeElement, ScreenshotElement, DeviceFrameElement } from "../model/schema.js";
+import type { TextElement, ShapeElement, ScreenshotElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
 
 const baseText: TextElement = {
   id: "t1", type: "text", x: 10, y: 20, width: 300, height: 100,
@@ -41,6 +41,30 @@ describe("elementToNodeConfig", () => {
     expect(result.config).toMatchObject({
       id: "s1", x: 0, y: 0, width: 50, height: 40,
       rotation: 0, opacity: 1, fill: "#FF0000", cornerRadius: 8,
+    });
+  });
+});
+
+describe("elementToNodeConfig — persisted group", () => {
+  const group: GroupElement = {
+    id: "group", type: "group", x: 120, y: 80, width: 300, height: 180,
+    rotation: 15, opacity: 0.75, locked: false, visible: true,
+    children: [
+      { ...baseShape, id: "visible", x: 10, y: 20, opacity: 0.5 },
+      { ...baseText, id: "hidden", x: 100, y: 80, visible: false },
+    ],
+  };
+
+  it("maps parent transforms and visible children in local z-order", () => {
+    const result = elementToNodeConfig(group);
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.config).toMatchObject({
+      id: "group", x: 120, y: 80, width: 300, height: 180, rotation: 15, opacity: 0.75,
+    });
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0]).toMatchObject({
+      konva: "Rect",
+      config: { id: "visible", x: 10, y: 20, opacity: 0.5, fill: "#FF0000" },
     });
   });
 });

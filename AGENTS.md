@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 7 Slice 1; Slice 2 is next.**
+> **Status: implementation and verification are complete through Phase 7 Slice 2; Slice 3 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
@@ -20,7 +20,8 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > generated project guidance, are verified. The real editor GIF, contribution/license surfaces,
 > living examples, and scoped SPDX policy close Phase 6. Phase 6 and planned Phase 7 together close
 > the baseline. Phase 7 now has owner-aware modified-click/marquee multi-selection and atomic batch
-> movement/actions without persisted workspace state; the group schema/parity slice is next. Public
+> movement/actions plus a strict v3 one-level group model with lossless v1/v2 migration, recursive
+> traversal, and shared UI/CLI connected-crop parity; group authoring is next. Public
 > release readiness comes only after Phase 8 stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
@@ -63,13 +64,13 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v2 only; future schema ideas are not valid project fields.
+against the enforced v3 only; future schema ideas are not valid project fields.
 
-**Current v2 (enforced today):**
+**Current v3 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 2 }
+├── meta: { name, appIcon?, schemaVersion: 3 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
@@ -81,8 +82,10 @@ Project
     └── elements: Element[]                # z-order = array order
 ```
 
-Element base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?, role?`.
-Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphone).
+Element transform base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?`.
+Leaf elements may also carry `role?`. Element types today are leaf `text`, `shape` (rect),
+`screenshot`, `device-frame` (iphone), plus one-level `group` with `children: LeafElement[]` in
+group-local coordinates. Groups cannot nest and do not clip their children.
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 
@@ -94,12 +97,14 @@ Direction changes bake horizontal placement/alignment into JSON; they never refl
 gapless, top-aligned horizontal strip in project order. Elements remain owned by a screen and keep
 owner-local coordinates; the shared renderer projects every group screen, paints all backgrounds
 first, then elements by screen/array order, and returns the requested screen's exact crop. Valid v1
-projects load through a lossless migration to v2 `isolated`. Connected Overview is one editable
+and v2 projects load through lossless sequential migration to v3; v1 defaults to `isolated`.
+Connected Overview is one editable
 gapless strip for the active exact group; owner-aware selection keeps duplicate ids unambiguous and
 stores transforms in owner-local coordinates. Focus is a non-interactive exact crop preview.
 
 Future schema work is roadmap-governed. Do not add new background/element types, per-element RTL
-fields, group state, or other canvas fields until the enforced schema and architecture widen.
+fields, nested groups, clipping/scale state, or other canvas fields until the enforced schema and
+architecture widen.
 
 ## CLI (`screenshots ...`) — the primary interface
 
@@ -172,7 +177,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v2 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v3 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 

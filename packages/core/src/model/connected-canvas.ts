@@ -74,13 +74,59 @@ export function rotatedElementBounds(element: Element): ElementBounds {
   };
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+function leafCorners(element: Exclude<Element, { type: "group" }>): Point[] {
+  const radians = element.rotation * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return [
+    [0, 0],
+    [element.width, 0],
+    [0, element.height],
+    [element.width, element.height],
+  ].map(([x, y]) => ({
+    x: element.x + x! * cos - y! * sin,
+    y: element.y + x! * sin + y! * cos,
+  }));
+}
+
+/** Pixel-bearing bounds, including persisted group transforms and visible child overflow. */
+export function renderedElementBounds(element: Element): ElementBounds | null {
+  if (!element.visible || element.opacity === 0) return null;
+  const points = element.type === "group"
+    ? element.children
+      .filter((child) => child.visible && child.opacity !== 0)
+      .flatMap((child) => leafCorners(child))
+      .map((point) => {
+        const radians = element.rotation * Math.PI / 180;
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        return {
+          x: element.x + point.x * cos - point.y * sin,
+          y: element.y + point.x * sin + point.y * cos,
+        };
+      })
+    : leafCorners(element);
+  if (points.length === 0) return null;
+  return {
+    minX: Math.min(...points.map((point) => point.x)),
+    minY: Math.min(...points.map((point) => point.y)),
+    maxX: Math.max(...points.map((point) => point.x)),
+    maxY: Math.max(...points.map((point) => point.y)),
+  };
+}
+
 export function findOwnerOverflows(project: Project): OwnerOverflow[] {
   const epsilon = 1e-9;
   const overflows: OwnerOverflow[] = [];
   for (const screen of project.screens) {
     for (const element of screen.elements) {
-      if (!element.visible || element.opacity === 0) continue;
-      const bounds = rotatedElementBounds(element);
+      const bounds = renderedElementBounds(element);
+      if (!bounds) continue;
       if (
         bounds.minX < -epsilon
         || bounds.minY < -epsilon

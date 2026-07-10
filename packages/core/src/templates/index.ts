@@ -6,6 +6,8 @@ import {
   Project,
   SCREEN_DEVICES_BY_PLATFORM,
   addScreenToProject,
+  cloneElementWithFreshIds,
+  elementLeaves,
   setScreenDirection,
   type Project as ProjectModel,
   type Screen,
@@ -48,9 +50,11 @@ function assertTemplateFontsRegistered(project: ProjectModel, template: ScreenTe
   const registered = new Set(project.fonts.map(fontIdentityKey));
   const missing = new Set<string>();
   for (const element of template.elements) {
-    if (element.type !== "text") continue;
-    const key = fontIdentityKey({ family: element.fontFamily, weight: element.weight });
-    if (!registered.has(key)) missing.add(`"${element.fontFamily}" ${element.weight}`);
+    for (const leaf of elementLeaves(element)) {
+      if (leaf.type !== "text") continue;
+      const key = fontIdentityKey({ family: leaf.fontFamily, weight: leaf.weight });
+      if (!registered.has(key)) missing.add(`"${leaf.fontFamily}" ${leaf.weight}`);
+    }
   }
   if (missing.size > 0) {
     throw new Error(
@@ -67,7 +71,7 @@ export function createScreenFromTemplate(
   const template = ScreenTemplate.parse(input);
   if (!locale.trim()) throw new Error("Template screen locale must not be empty");
   assertTemplateFontsRegistered(project, template);
-  const elements = template.elements.map((element) => ({ ...structuredClone(element), id: crypto.randomUUID() }));
+  const elements = template.elements.map((element) => cloneElementWithFreshIds(element));
   const common = {
     id: template.id,
     name: template.name,

@@ -13,21 +13,45 @@ export function migrateToCurrent(raw: unknown): unknown {
   if (!isRecord(raw)) return raw;
   const meta = raw.meta;
   if (!isRecord(meta)) return raw;
-  const version = meta.schemaVersion;
+  let version = meta.schemaVersion;
   if (version === SCHEMA_VERSION) return raw;
 
+  let current = raw;
   if (version === 1) {
     // `mode` was unknown under strict v1. Refuse to reinterpret a hand-written future field as a
     // valid v2 value; valid v1 input always migrates pixel-preservingly to isolated mode.
     if (Object.prototype.hasOwnProperty.call(raw, "mode")) return raw;
-    return {
+    current = {
       ...raw,
-      meta: { ...meta, schemaVersion: SCHEMA_VERSION },
+      meta: { ...meta, schemaVersion: 2 },
       mode: "isolated",
+    };
+    version = 2;
+  }
+
+  if (version === 2) {
+    // `group` was not legal in strict v2. Do not bless a mislabeled future document by changing
+    // only its version; leave it untouched so the current schema rejects the old version.
+    if (containsGroupElement(current)) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
+    // v3 adds the group union member. Existing v2 leaf arrays need no structural rewrite, so this
+    // version-only migration is lossless and makes group-aware readers explicit.
+    return {
+      ...current,
+      meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION },
     };
   }
 
   return raw;
+}
+
+function containsGroupElement(project: Record<string, unknown>): boolean {
+  if (!Array.isArray(project.screens)) return false;
+  return project.screens.some((screen) => {
+    if (!isRecord(screen) || !Array.isArray(screen.elements)) return false;
+    return screen.elements.some((element) => isRecord(element) && element.type === "group");
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

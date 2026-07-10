@@ -56,13 +56,34 @@ describe("parseProject", () => {
     expect(parseProject(raw).mode).toBe("connected");
   });
 
-  it("migrates valid v1 input to isolated v2", () => {
+  it("migrates valid v1 input sequentially to isolated v3", () => {
     const raw = validProject() as Record<string, unknown>;
     delete raw.mode;
     (raw.meta as Record<string, unknown>).schemaVersion = 1;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(2);
+    expect(project.meta.schemaVersion).toBe(3);
     expect(project.mode).toBe("isolated");
+  });
+
+  it("migrates valid v2 input losslessly to v3", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
+    const project = parseProject(raw);
+    expect(project.meta.schemaVersion).toBe(3);
+    expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text", content: "Hello" });
+  });
+
+  it("does not bless a group mislabeled as schema v2", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
+    raw.screens[0]!.elements = [{
+      id: "group", type: "group", x: 0, y: 0, width: 100, height: 50,
+      children: [{
+        id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 50,
+        kind: "rect", fill: "#FF0000",
+      }],
+    } as never];
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
   it("rejects unknown keys (strict contract)", () => {
@@ -225,6 +246,34 @@ describe("DeviceFrameElement", () => {
 
   it("rejects an unknown key (strict)", () => {
     expect(() => Element.parse({ ...base, bogus: 1 })).toThrow();
+  });
+});
+
+describe("GroupElement (schema v3)", () => {
+  const child = {
+    id: "child", type: "shape", x: 0, y: 0, width: 100, height: 50,
+    kind: "rect", fill: "#FF0000",
+  };
+  const group = {
+    id: "group", type: "group", x: 10, y: 20, width: 100, height: 50,
+    children: [child],
+  };
+
+  it("accepts one-level groups and applies transform defaults", () => {
+    expect(Element.parse(group)).toMatchObject({
+      type: "group", rotation: 0, opacity: 1, locked: false, visible: true,
+      children: [{ type: "shape", rotation: 0, opacity: 1, locked: false, visible: true }],
+    });
+  });
+
+  it("rejects empty or nested groups", () => {
+    expect(() => Element.parse({ ...group, children: [] })).toThrow();
+    expect(() => Element.parse({ ...group, children: [group] })).toThrow();
+  });
+
+  it("rejects group-level theme roles and unknown fields", () => {
+    expect(() => Element.parse({ ...group, role: "accent" })).toThrow();
+    expect(() => Element.parse({ ...group, clip: true })).toThrow();
   });
 });
 

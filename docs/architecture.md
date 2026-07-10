@@ -122,6 +122,7 @@ locked, visible, role?`) plus type-specific fields:
 - `screenshot` — assetUrl, fit (cover/contain), crop, cornerRadius
 - `device-frame` — deviceType (iphone/ipad/android-phone/tablet), frame color, screen slot
 - `shape` — rect / ellipse / blob, fill (solid/gradient), stroke, radius
+- `group` — one non-clipping level of existing leaf elements in local coordinates
 - `icon` — built-in icon set / SVG
 - `badge` — rating, "As seen on", store badges
 - `image` — arbitrary decorative image
@@ -200,7 +201,7 @@ existing `screenshot` and `device-frame` schema members through core factories; 
 the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
 the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
 reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
-project replacement, and the future decorative `image` type remains outside v2.
+project replacement, and the future decorative `image` type remains outside v3.
 
 **Connected workspace hardening — Phase 6 Slice 7.** One `workspaceScreenScope` derivation feeds
 Overview/Fit and Screens: exact platform/device/locale group in connected mode, active locale in
@@ -221,6 +222,16 @@ unchanged owner-local coordinates and commits one history/save mutation; delete,
 visibility are likewise atomic. Multi-resize/rotate, snapping, grouping, and persistence remain
 outside this selection contract. Selection is reconciled across screen/mode/load/undo boundaries
 but never enters project JSON, render/export input, or history snapshots.
+
+**Persisted groups — schema v3 / Phase 7 Slice 2.** `Element` is `LeafElement | GroupElement`,
+where a group owns a non-empty, non-nested `children: LeafElement[]` array in local coordinates.
+The group occupies one top-level z-order slot; child array order is internal z-order. Group
+translation/rotation/opacity compose through the ordinary recursive `NodeConfig` tree, while
+`width/height` are authoring bounds and introduce neither runtime scale nor clipping. Visible child
+overflow participates in the connected→isolated loss guard, and exact screen stage dimensions remain
+the only export crop. v1 migrates through isolated v2 and v2 migrates losslessly to v3 by version
+bump; fonts, assets, themes, templates, cloning, and RTL all traverse group leaves through shared
+core helpers.
 
 ---
 
@@ -347,7 +358,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v2
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v3
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

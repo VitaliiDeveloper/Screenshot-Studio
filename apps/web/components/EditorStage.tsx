@@ -38,8 +38,13 @@ function renderNodeConfigChild(child: NodeConfig, key: number, listening: boolea
     case "Rect":
       return <Rect key={key} {...child.config} listening={listening} />;
     case "Text":
+      return <Text key={key} {...child.config} listening={listening} />;
     case "Group":
-      return null;
+      return (
+        <Group key={key} {...child.config} listening={listening}>
+          {child.children.map((nested, index) => renderNodeConfigChild(nested, index, listening))}
+        </Group>
+      );
     default:
       return assertNever(child);
   }
@@ -541,7 +546,11 @@ export function EditorStage({
           {canEdit ? (
             <Transformer
               ref={trRef}
-              resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
+              resizeEnabled={
+                selectedItems.length === 1
+                && !selectedElement?.locked
+                && selectedElement?.type !== "group"
+              }
               rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
             />
           ) : null}

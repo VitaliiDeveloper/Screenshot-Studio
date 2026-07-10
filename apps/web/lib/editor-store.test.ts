@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 2 },
+    meta: { name: "T", schemaVersion: 3 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

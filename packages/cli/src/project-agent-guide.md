@@ -18,7 +18,7 @@ plain `screenshots` spelling above.
 
 ## Source of truth and guardrails
 
-- `app-store-screenshots.json` is the only persisted project state. It is strict v2 JSON; unknown
+- `app-store-screenshots.json` is the only persisted project state. It is strict v3 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to screens, locales, fonts, themes, and imports. Directly
   edit JSON only for literals the CLI does not manage, such as text content and element geometry.
@@ -34,15 +34,15 @@ plain `screenshots` spelling above.
   `screenshots canvas mode isolated|connected`; switching to isolated refuses while rendered
   elements cross their owner artboards.
 - RTL is explicit and baked. Never reflect screenshot or device media pixels.
-- Do not add prompt history, translation-pair ids, group state, new element types, or any
-  other field outside the enforced schema.
+- Do not add prompt history, translation-pair ids, nested groups, clipping/scale state, new element
+  types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v2 shape
+## Enforced v3 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 2 }
+├── meta: { name, appIcon?, schemaVersion: 3 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
@@ -54,9 +54,12 @@ Project
     └── elements: Element[]               # array order is z-order
 ```
 
-Element types are `text`, `shape`, `screenshot`, and `device-frame`. All share literal position,
-size, rotation, opacity, lock, and visibility fields. Inspect the current project and its registered
-fonts before changing copy or layout; do not reconstruct objects from this summary.
+Leaf element types are `text`, `shape`, `screenshot`, and `device-frame`; `group` contains a
+non-empty, non-nested `children` array of those leaves in group-local coordinates. All top-level
+elements share literal position, size, rotation, opacity, lock, and visibility fields. A group is
+non-clipping and occupies one screen z-order slot; child array order is z-order inside it. Inspect
+the current project and its registered fonts before changing copy or layout; do not reconstruct
+objects from this summary.
 
 `mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
 platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned

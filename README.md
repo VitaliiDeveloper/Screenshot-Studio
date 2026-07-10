@@ -132,7 +132,10 @@ smoke-tested from a temporary offline install through exact export; it is not a 
 The optional skill is installable, delegates to the generated guide, and is clean-folder
 smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
 living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
-Phase 7 is next and completes the baseline with multi-select, grouping, and new creative primitives.
+**Phase 7 (advanced editing) — in progress through Slice 2.** Owner-aware modified-click/marquee
+multi-selection and atomic batch actions ship, followed by a strict v3 one-level group model with
+lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authoring and the new
+creative primitives are next.
 Phase 8 stabilization/release readiness follows only after that baseline is complete.
 
 ## Requirements
@@ -218,7 +221,7 @@ Locale commands delegate to the same core transformations as the editor. `locale
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
 stored direction changes, and `locale rm` protects the last locale.
 
-An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v2
+An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v3
 guardrails and exact recipes for copy generation, literal layout, locale translation, and local asset
 processing. Init preflights the JSON and both agent control files and refuses to overwrite any of them.
 

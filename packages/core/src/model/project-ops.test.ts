@@ -20,7 +20,7 @@ import {
 
 function sampleProject(): Project {
   return {
-    meta: { name: "T", schemaVersion: 2 },
+    meta: { name: "T", schemaVersion: 3 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -181,6 +181,26 @@ describe("project-ops", () => {
     expect(copy.name).toBe("Hero copy");
   });
 
+  it("clones group and child ids and resolves grouped fonts", () => {
+    const source = sampleProject();
+    source.screens[0]!.elements = [{
+      id: "group", type: "group", x: 10, y: 20, width: 200, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      children: [{
+        id: "child", type: "text", x: 0, y: 0, width: 200, height: 100,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        content: "Grouped", fontFamily: "Missing", size: 30, weight: 700,
+        lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF",
+      }],
+    }];
+
+    expect(findUnresolvedFonts(source)).toEqual([{ family: "Missing", weight: 700 }]);
+    const copy = cloneScreenWithFreshIds(source.screens[0]!);
+    const copiedGroup = copy.elements[0]!;
+    expect(copiedGroup.id).not.toBe("group");
+    expect(copiedGroup.type === "group" && copiedGroup.children[0]!.id).not.toBe("child");
+  });
+
   it("cloneLocaleSet appends an independent target set in source order", () => {
     const source = sampleProject();
     source.screens[0]!.elements = [
@@ -293,6 +313,35 @@ describe("project-ops", () => {
     expect(setLocaleDirection(rtl, "en", "rtl")).toEqual(rtl);
     expect(setLocaleDirection(rtl, "en", "ltr")).toEqual(source);
     expect(() => setLocaleDirection(source, "missing", "rtl")).toThrow(/Unknown locale/);
+  });
+
+  it("setLocaleDirection mirrors grouped children without reflecting media state", () => {
+    const source = sampleProject();
+    source.screens[0]!.elements = [{
+      id: "group", type: "group", x: 100, y: 20, width: 300, height: 200,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      children: [
+        {
+          id: "copy", type: "text", x: 20, y: 10, width: 100, height: 40,
+          rotation: 0, opacity: 1, locked: false, visible: true,
+          content: "Hello", fontFamily: "Inter", size: 24, weight: 400,
+          lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF",
+        },
+        {
+          id: "shot", type: "screenshot", x: 180, y: 60, width: 80, height: 100,
+          rotation: 0, opacity: 1, locked: false, visible: true,
+          assetUrl: "assets/shot.png", fit: "contain", cornerRadius: 8,
+        },
+      ],
+    }];
+
+    const rtl = setLocaleDirection(source, "en", "rtl");
+    const grouped = rtl.screens[0]!.elements[0]!;
+    expect(grouped).toMatchObject({ x: 920 });
+    if (grouped.type !== "group") throw new Error("expected group");
+    expect(grouped.children[0]).toMatchObject({ x: 180, align: "right" });
+    expect(grouped.children[1]).toMatchObject({ x: 40, assetUrl: "assets/shot.png", fit: "contain" });
+    expect(setLocaleDirection(rtl, "en", "ltr")).toEqual(source);
   });
 
   it("cloneLocaleSet can bake a target direction while preserving the source", () => {

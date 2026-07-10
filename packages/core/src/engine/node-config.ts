@@ -248,6 +248,15 @@ export function elementToNodeConfig(
       return { konva: "Group", config: { ...common, width: W, height: H }, children };
     }
 
+    case "group":
+      return {
+        konva: "Group",
+        config: { ...common, width: element.width, height: element.height },
+        children: element.children
+          .filter((child) => child.visible)
+          .map((child) => elementToNodeConfig(child, context)),
+      };
+
     default:
       return assertNever(element);
   }

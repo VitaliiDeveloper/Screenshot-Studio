@@ -7,6 +7,7 @@ import {
   type Project as ProjectModel,
 } from "../model/schema.js";
 import { fontIdentityKey } from "../model/font-identity.js";
+import { mapElementLeaves } from "../model/element-tree.js";
 
 const ThemeFont = z
   .object({
@@ -80,21 +81,21 @@ export function applyTheme(project: ProjectModel, input: Theme): ProjectModel {
 
   const screens = project.screens.map((screen) => ({
     ...screen,
-    elements: screen.elements.map((element) => {
-      if (!element.role) return element;
-      if (element.type === "text") {
-        const font = theme.fonts[element.role];
+    elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => {
+      if (!leaf.role) return leaf;
+      if (leaf.type === "text") {
+        const font = theme.fonts[leaf.role];
         return {
-          ...element,
-          color: theme.colors[element.role],
+          ...leaf,
+          color: theme.colors[leaf.role],
           ...(font ? { fontFamily: font.family, weight: font.weight } : {}),
         };
       }
-      if (element.type === "shape") {
-        return { ...element, fill: theme.colors[element.role] };
+      if (leaf.type === "shape") {
+        return { ...leaf, fill: theme.colors[leaf.role] };
       }
-      return element;
-    }),
+      return leaf;
+    })),
   }));
 
   return Project.parse({ ...project, screens });

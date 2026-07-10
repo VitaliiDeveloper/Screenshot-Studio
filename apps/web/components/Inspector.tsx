@@ -144,8 +144,20 @@ export function Inspector({
           <Section title="Transform">
             <NumberField label="X" value={element.x} onChange={(x) => patch(element.id, { x })} />
             <NumberField label="Y" value={element.y} onChange={(y) => patch(element.id, { y })} />
-            <NumberField label="Width" value={element.width} min={1} onChange={(width) => patch(element.id, { width })} />
-            <NumberField label="Height" value={element.height} min={1} onChange={(height) => patch(element.id, { height })} />
+            {element.type === "group" ? (
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                <span>Width <strong className="text-slate-700">{Math.round(element.width)}</strong></span>
+                <span>Height <strong className="text-slate-700">{Math.round(element.height)}</strong></span>
+                <p className="col-span-2 text-[11px] leading-4 text-slate-400">
+                  Group resize is available with group authoring.
+                </p>
+              </div>
+            ) : (
+              <>
+                <NumberField label="Width" value={element.width} min={1} onChange={(width) => patch(element.id, { width })} />
+                <NumberField label="Height" value={element.height} min={1} onChange={(height) => patch(element.id, { height })} />
+              </>
+            )}
             <NumberField label="Rotation" value={element.rotation} onChange={(rotation) => patch(element.id, { rotation })} />
             <NumberField label="Opacity" value={element.opacity} min={0} max={1} step={0.1} onChange={(opacity) => patch(element.id, { opacity })} />
           </Section>

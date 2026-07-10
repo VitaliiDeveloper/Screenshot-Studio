@@ -70,7 +70,7 @@ function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
   if (patch.locked !== undefined) el.locked = patch.locked;
   if (patch.visible !== undefined) el.visible = patch.visible;
   if (patch.name !== undefined) el.name = patch.name;
-  if (patch.role !== undefined) {
+  if (patch.role !== undefined && (el.type === "text" || el.type === "shape")) {
     if (patch.role === null) delete el.role;
     else el.role = patch.role;
   }
@@ -102,6 +102,8 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
     case "device-frame":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
+      break;
+    case "group":
       break;
   }
 }

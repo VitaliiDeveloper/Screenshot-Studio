@@ -5,7 +5,7 @@ import { applyTheme, Theme } from "./index.js";
 
 function project(): Project {
   return {
-    meta: { name: "Theme", schemaVersion: 2 },
+    meta: { name: "Theme", schemaVersion: 3 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -52,6 +52,25 @@ describe("applyTheme", () => {
     const first = applyTheme(project(), theme);
     const next = applyTheme(first, { ...theme, id: "sunrise", name: "Sunrise", colors: { ...theme.colors, heading: "#111111" } });
     expect(next.screens[0]!.elements[0]).toMatchObject({ role: "heading", color: "#111111" });
+  });
+
+  it("bakes roles into grouped leaves without changing group transforms", () => {
+    const grouped = project();
+    grouped.screens[0]!.elements = [{
+      id: "group", type: "group", x: 120, y: 80, width: 400, height: 200,
+      rotation: 12, opacity: 0.8, locked: false, visible: true,
+      children: [
+        { ...grouped.screens[0]!.elements[0]!, id: "group-title", x: 0, y: 0 },
+        { ...grouped.screens[0]!.elements[1]!, id: "group-accent", x: 0, y: 120 },
+      ],
+    }];
+
+    const next = applyTheme(grouped, theme);
+    const result = next.screens[0]!.elements[0]!;
+    expect(result).toMatchObject({ type: "group", x: 120, rotation: 12, opacity: 0.8 });
+    if (result.type !== "group") throw new Error("expected group");
+    expect(result.children[0]).toMatchObject({ color: "#F8FAFC", fontFamily: "Inter", weight: 700 });
+    expect(result.children[1]).toMatchObject({ fill: "#38BDF8" });
   });
 
   it("rejects a theme font that the project has not registered", () => {
