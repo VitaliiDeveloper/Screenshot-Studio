@@ -33,7 +33,7 @@ function project(): Project {
 
 describe("editorStore", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
   });
 
   it("load sets the project and the first screen as active", () => {
@@ -73,11 +73,31 @@ describe("editorStore", () => {
     expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(222);
     expect(editorStore.getState().project!.screens[1]!.elements[0]!.x).toBe(40);
   });
+
+  it("uses an owner-aware selection for duplicate ids in connected mode", () => {
+    const connected = project();
+    connected.mode = "connected";
+    const duplicate = structuredClone(connected.screens[0]!.elements[0]!);
+    connected.screens[1]!.elements = [duplicate];
+    editorStore.getState().load(connected);
+
+    editorStore.getState().select("headline", "second");
+    editorStore.getState().patchElement("headline", { x: 333 });
+
+    const state = editorStore.getState();
+    expect(state).toMatchObject({
+      activeScreenId: "second",
+      selectedId: "headline",
+      selectedScreenId: "second",
+    });
+    expect(state.project!.screens[0]!.elements[0]!.x).toBe(40);
+    expect(state.project!.screens[1]!.elements[0]!.x).toBe(333);
+  });
 });
 
 describe("editorStore screens (slice 4)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
     editorStore.getState().load(project());
   });
 
@@ -117,7 +137,7 @@ describe("editorStore screens (slice 4)", () => {
 
 describe("editorStore locale workspace (phase 4 slice 4)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
     editorStore.getState().load(project());
   });
 
@@ -215,7 +235,7 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
 
 describe("editorStore elements (slice 4)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
     editorStore.getState().load(project());
     // give the active screen a second element so reorder is observable
     editorStore.setState((s) => {
@@ -255,7 +275,7 @@ describe("editorStore elements (slice 4)", () => {
 
 describe("editorStore addElement + wide patch (slice 5)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
     editorStore.getState().load(project());
   });
 
@@ -326,7 +346,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
 
 describe("editorStore screen editors (slice 5)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
     editorStore.getState().load(project());
   });
 

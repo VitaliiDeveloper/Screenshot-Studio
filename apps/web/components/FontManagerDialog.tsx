@@ -32,6 +32,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const project = useStore(editorStore, (state) => state.project);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedId = useStore(editorStore, (state) => state.selectedId);
+  const selectedScreenId = useStore(editorStore, (state) => state.selectedScreenId);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadFamily, setUploadFamily] = useState("");
   const [uploadWeight, setUploadWeight] = useState(400);
@@ -44,7 +45,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   if (!open || !project || !activeScreenId) return null;
 
   const selected = selectedId
-    ? getScreen(project, activeScreenId).elements.find((element) => element.id === selectedId)
+    ? getScreen(project, selectedScreenId ?? activeScreenId).elements.find((element) => element.id === selectedId)
     : undefined;
   const selectedText = selected?.type === "text" ? selected : undefined;
   const close = () => {
@@ -146,7 +147,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     mutateAndSave(() => editorStore.getState().patchElement(selectedText.id, {
       fontFamily: font.family,
       weight: font.weight,
-    }));
+    }, selectedScreenId ?? activeScreenId));
   };
 
   return (

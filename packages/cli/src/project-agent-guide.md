@@ -60,8 +60,8 @@ fonts before changing copy or layout; do not reconstruct objects from this summa
 `mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
 platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned
 by one screen with owner-local coordinates, and export crops the requested artboard through the
-shared renderer. The editor cannot author connected geometry yet, so inspect exported crops after
-any direct connected-mode layout edit.
+shared renderer. Connected Overview authors the complete exact group; Focus previews one exact crop.
+Selecting a cross-screen element resolves to its owner screen, and transforms stay owner-local.
 
 ## Recipe: generate or refresh copy
 

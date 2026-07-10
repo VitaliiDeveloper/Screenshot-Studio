@@ -8,13 +8,13 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 5; Phase 6 Slices 1–2 are complete.**
+> **Status: implementation and verification are complete through Phase 5; Phase 6 Slices 1–3 are complete.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
 > removal are shipped and closure-verified. The v2 connected document and precise shared-renderer
-> crop contract plus guarded lifecycle/CLI mode changes are verified; interactive connected authoring
-> is next. Phase 6 and planned
+> crop contract, guarded lifecycle/CLI mode changes, and gapless connected authoring are verified.
+> Undo/redo is next. Phase 6 and planned
 > Phase 7 together close the baseline; public release readiness comes only after later stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
@@ -88,8 +88,9 @@ Direction changes bake horizontal placement/alignment into JSON; they never refl
 gapless, top-aligned horizontal strip in project order. Elements remain owned by a screen and keep
 owner-local coordinates; the shared renderer projects every group screen, paints all backgrounds
 first, then elements by screen/array order, and returns the requested screen's exact crop. Valid v1
-projects load through a lossless migration to v2 `isolated`. Connected editor authoring is not yet
-shipped; Slice 1 provides the strict document plus shared UI/CLI export contract.
+projects load through a lossless migration to v2 `isolated`. Connected Overview is one editable
+gapless strip for the active exact group; owner-aware selection keeps duplicate ids unambiguous and
+stores transforms in owner-local coordinates. Focus is a non-interactive exact crop preview.
 
 Future schema work is roadmap-governed. Do not add new background/element types, per-element RTL
 fields, group state, or other canvas fields until the enforced schema and architecture widen.

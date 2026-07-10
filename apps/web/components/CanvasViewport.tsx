@@ -11,6 +11,7 @@ import {
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import { sameScreenGroup } from "@screenshot-studio/core/model";
 import {
   ARTBOARD_LABEL_HEIGHT,
   CANVAS_PADDING,
@@ -69,11 +70,16 @@ export function CanvasViewport({
   const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
   const activeLocale = activeScreen?.locale;
   const screens = useMemo(
-    () => view === "overview"
-      ? project?.screens.filter((screen) => screen.locale === activeLocale) ?? []
-      : activeScreen ? [activeScreen] : [],
-    [activeLocale, activeScreen, project?.screens, view],
+    () => {
+      if (!project || !activeScreen) return [];
+      if (view !== "overview") return [activeScreen];
+      return project.mode === "connected"
+        ? project.screens.filter((screen) => sameScreenGroup(screen, activeScreen))
+        : project.screens.filter((screen) => screen.locale === activeLocale);
+    },
+    [activeLocale, activeScreen, project, view],
   );
+  const connectedOverview = project?.mode === "connected" && view === "overview";
 
   const contentBounds = useMemo(() => {
     if (screens.length === 0) return { width: 1, height: 1 };
@@ -121,7 +127,7 @@ export function CanvasViewport({
         height: contentHeight,
       })),
       {
-        gap: view === "overview" ? OVERVIEW_GAP : 0,
+        gap: view === "overview" && !connectedOverview ? OVERVIEW_GAP : 0,
         padding: CANVAS_PADDING,
         labelHeight: ARTBOARD_LABEL_HEIGHT,
       },
@@ -131,7 +137,7 @@ export function CanvasViewport({
     requestAnimationFrame(() => {
       viewport.scrollTo({ left: 0, top: 0 });
     });
-  }, [contentHeight, contentWidth, leftInset, onZoomChange, rightInset, screens.length, view]);
+  }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, rightInset, screens.length, view]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -232,10 +238,39 @@ export function CanvasViewport({
           }}
         >
           <div
-            className={cx("flex items-start", view === "overview" ? "gap-12" : "gap-0")}
+            className={cx("flex items-start", view === "overview" && !connectedOverview ? "gap-12" : "gap-0")}
             data-testid={view === "overview" ? "overview-artboards" : "focus-artboard"}
           >
-            {screens.map((screen) => {
+            {connectedOverview ? (
+              <div className="shrink-0" data-testid="connected-artboards">
+                <div className="mb-2 flex text-xs font-medium">
+                  {screens.map((screen) => (
+                    <div
+                      key={screen.id}
+                      className={cx(
+                        "flex shrink-0 items-center gap-2 px-1",
+                        screen.id === activeScreenId ? "text-blue-700" : "text-slate-500",
+                      )}
+                      style={{ width: screen.artboard.width * zoom }}
+                    >
+                      <span className="truncate">{screen.name}</span>
+                      <span className="shrink-0 text-[10px] font-normal text-slate-400">
+                        {screen.device} · {screen.locale}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
+                  <EditorStage
+                    images={images}
+                    zoom={zoom}
+                    screenId={activeScreenId ?? undefined}
+                    connectedOverview
+                    interactive
+                  />
+                </div>
+              </div>
+            ) : screens.map((screen) => {
               const active = screen.id === activeScreenId;
               return (
                 <div key={screen.id} className="shrink-0">
@@ -266,7 +301,12 @@ export function CanvasViewport({
                       }
                     }}
                   >
-                    <EditorStage images={images} zoom={zoom} screenId={screen.id} interactive={active} />
+                    <EditorStage
+                      images={images}
+                      zoom={zoom}
+                      screenId={screen.id}
+                      interactive={project.mode === "connected" ? false : active}
+                    />
                   </div>
                 </div>
               );

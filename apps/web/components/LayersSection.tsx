@@ -58,6 +58,7 @@ export function LayersSection() {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedId = useStore(editorStore, (s) => s.selectedId);
+  const selectedScreenId = useStore(editorStore, (s) => s.selectedScreenId);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -108,7 +109,7 @@ export function LayersSection() {
   };
 
   const patch = (id: string, p: ElementPatch) =>
-    mutateAndSave(() => editorStore.getState().patchElement(id, p));
+    mutateAndSave(() => editorStore.getState().patchElement(id, p, activeScreenId));
 
   return (
     <section className="pb-3">
@@ -129,7 +130,9 @@ export function LayersSection() {
                 role="listitem"
                 className={cx(
                   "relative mx-2 pr-1",
-                  el.id === selectedId ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
+                  el.id === selectedId && selectedScreenId === activeScreenId
+                    ? "bg-blue-50 ring-1 ring-blue-100"
+                    : undefined,
                 )}
               >
                 <ElementTypeIcon element={el} />
@@ -149,11 +152,13 @@ export function LayersSection() {
                   <button
                     onClick={() => {
                       setOpenActionsId(null);
-                      editorStore.getState().select(el.id);
+                      editorStore.getState().select(el.id, activeScreenId);
                     }}
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
                     className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
-                      el.id === selectedId ? "font-semibold text-blue-700" : "text-slate-700"
+                      el.id === selectedId && selectedScreenId === activeScreenId
+                        ? "font-semibold text-blue-700"
+                        : "text-slate-700"
                     } ${el.visible ? "" : "text-slate-400 line-through"}`}
                   >
                     {elementLabel(el)}
@@ -245,7 +250,7 @@ export function LayersSection() {
                       type="button"
                       role="menuitem"
                       onClick={() => {
-                        mutateAndSave(() => editorStore.getState().removeElement(el.id));
+                        mutateAndSave(() => editorStore.getState().removeElement(el.id, activeScreenId));
                         setOpenActionsId(null);
                       }}
                       aria-label="Delete layer"

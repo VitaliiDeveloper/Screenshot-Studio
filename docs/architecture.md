@@ -168,8 +168,10 @@ Elements remain in their owner screen with owner-local coordinates. The shared r
 group backgrounds first, then visible elements by screen order and element-array order, translated
 against the requested screen origin. `renderScreen` still returns a stage at exactly the requested
 artboard dimensions, so the stage itself is the precise UI/CLI export crop — there is no stitched
-PNG or post-export slicing path. Interactive connected authoring, selection, and mode controls land
-in later Phase 6 slices on top of this contract.
+PNG or post-export slicing path. Phase 6 Slice 3 adds one gapless editable group stage on the same
+`elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
+screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
+non-interactive crop. Editor mode controls remain a later workspace-hardening concern.
 
 ---
 

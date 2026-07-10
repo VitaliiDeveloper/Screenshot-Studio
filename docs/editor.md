@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and the Phase 6 Slice 1 connected document/export contract are implemented. Connected authoring remains a later Phase 6 slice.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–3 through connected authoring are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -52,10 +52,10 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v2 project stores `mode: isolated | connected`. Isolated editor
-  behavior remains as built. Connected static render/export already projects exact
-  platform/device/locale strips and returns precise per-screen crops; the interactive editor still
-  authors isolated stages until the connected editor slice lands.
+- **Canvas mode.** The enforced v2 project stores `mode: isolated | connected`. Isolated behavior
+  remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
+  screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
+  owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
 - **Selection & transform.** Click selects an element; a Konva `Transformer` provides
   move / resize / rotate handles. Locked elements retain a selection outline but cannot be moved,
   resized, rotated, or opened for canvas text editing. *(as built)* **Single-select only** — marquee

@@ -4,17 +4,22 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Transformer } from "react-konva";
 import { useStore } from "zustand";
-import { assertNever, type Element } from "@screenshot-studio/core/model";
+import {
+  assertNever,
+  projectScreenGroup,
+  type Element,
+  type Screen,
+} from "@screenshot-studio/core/model";
 import { elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 
 /**
- * Interactive editor canvas. Elements are rendered through the SAME elementToNodeConfig map the
- * export renderer uses (spec §1). Interaction props (draggable, listeners) and the Transformer
- * are layered on here only — they never touch the shared map, so export output is unaffected.
- * Each committed change flows through the store then mutateAndSave.
+ * Interactive canvas over the same elementToNodeConfig map used by export. Isolated mode renders
+ * one screen. Connected Overview renders one gapless group stage; owner offset Groups translate
+ * screen-local element coordinates without changing persisted ownership or geometry. Connected
+ * Focus uses the same projection with the active artboard as a non-interactive exact crop preview.
  */
 function renderNodeConfigChild(child: NodeConfig, key: number, listening: boolean) {
   switch (child.konva) {
@@ -24,11 +29,26 @@ function renderNodeConfigChild(child: NodeConfig, key: number, listening: boolea
       return <Rect key={key} {...child.config} listening={listening} />;
     case "Text":
     case "Group":
-      // Screenshot/device-frame groups only contain Rect/Image today; keep exhaustive for future groups.
       return null;
     default:
       return assertNever(child);
   }
+}
+
+function selectionKey(screenId: string, elementId: string): string {
+  return `${screenId}\u0000${elementId}`;
+}
+
+interface EditingText {
+  screenId: string;
+  id: string;
+  value: string;
+}
+
+interface StageProjection {
+  screen: Screen;
+  x: number;
+  y: number;
 }
 
 export function EditorStage({
@@ -36,64 +56,106 @@ export function EditorStage({
   zoom = 1,
   screenId,
   interactive = true,
+  connectedOverview = false,
 }: {
   images: ImageCache;
   zoom?: number;
   screenId?: string;
   interactive?: boolean;
+  connectedOverview?: boolean;
 }) {
-  const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
-  const selectedId = useStore(editorStore, (s) => s.selectedId);
-  const screen = useStore(editorStore, (state) => {
-    const id = screenId ?? state.activeScreenId;
-    return id ? state.project?.screens.find((candidate) => candidate.id === id) : undefined;
-  });
+  const project = useStore(editorStore, (state) => state.project);
+  const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
+  const selectedId = useStore(editorStore, (state) => state.selectedId);
+  const selectedScreenId = useStore(editorStore, (state) => state.selectedScreenId);
+  const requestedScreenId = screenId ?? activeScreenId;
+  const requestedScreen = requestedScreenId
+    ? project?.screens.find((candidate) => candidate.id === requestedScreenId)
+    : undefined;
 
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
-  const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const [editing, setEditing] = useState<EditingText | null>(null);
   const endingEditRef = useRef(false);
 
-  const canEdit = Boolean(screen && interactive && screen.id === activeScreenId);
-  const selectedElement = canEdit && selectedId
-    ? screen?.elements.find((element) => element.id === selectedId)
+  let projections: StageProjection[] = [];
+  let baseX = 0;
+  let stageWidth = requestedScreen?.artboard.width ?? 0;
+  let stageHeight = requestedScreen?.artboard.height ?? 0;
+  if (project && requestedScreen) {
+    if (project.mode === "connected") {
+      projections = projectScreenGroup(project, requestedScreen.id);
+      const target = projections.find((entry) => entry.screen.id === requestedScreen.id)!;
+      if (connectedOverview) {
+        const last = projections.at(-1)!;
+        stageWidth = last.x + last.screen.artboard.width;
+        stageHeight = Math.max(...projections.map((entry) => entry.screen.artboard.height));
+      } else {
+        baseX = -target.x;
+      }
+    } else {
+      projections = [{ screen: requestedScreen, x: 0, y: 0 }];
+    }
+  }
+
+  const canEdit = Boolean(
+    project
+    && requestedScreen
+    && interactive
+    && (project.mode === "connected" ? connectedOverview : requestedScreen.id === activeScreenId),
+  );
+  const selectedProjection = selectedScreenId
+    ? projections.find((entry) => entry.screen.id === selectedScreenId)
+    : undefined;
+  const selectedElement = canEdit && selectedId && selectedProjection
+    ? selectedProjection.screen.elements.find((element) => element.id === selectedId)
+    : undefined;
+  const editingProjection = editing
+    ? projections.find((entry) => entry.screen.id === editing.screenId)
     : undefined;
   const editingElement = editing && canEdit
-    ? screen?.elements.find((element) => element.id === editing.id && element.type === "text")
+    ? editingProjection?.screen.elements.find(
+      (element) => element.id === editing.id && element.type === "text",
+    )
     : undefined;
 
-  // Keep the Transformer attached to whatever node is selected.
   useEffect(() => {
-    const tr = trRef.current;
-    if (!tr) return;
-    const node = canEdit && selectedId && !editingElement ? nodeRefs.current.get(selectedId) : undefined;
-    tr.nodes(node ? [node] : []);
-    tr.forceUpdate();
-    tr.getLayer()?.batchDraw();
-  }, [canEdit, editingElement, screen, selectedId]);
+    const transformer = trRef.current;
+    if (!transformer) return;
+    const key = selectedId && selectedScreenId
+      ? selectionKey(selectedScreenId, selectedId)
+      : null;
+    const node = canEdit && key && !editingElement ? nodeRefs.current.get(key) : undefined;
+    transformer.nodes(node ? [node] : []);
+    transformer.forceUpdate();
+    transformer.getLayer()?.batchDraw();
+  }, [canEdit, editingElement, project, selectedId, selectedScreenId]);
 
-  if (!screen) return null;
-  const { width, height } = screen.artboard;
+  if (!project || !requestedScreen || projections.length === 0) return null;
 
-  const commit = (id: string, patch: ElementPatch) => {
-    mutateAndSave(() => editorStore.getState().patchElement(id, patch));
+  const commit = (ownerScreenId: string, id: string, patch: ElementPatch) => {
+    mutateAndSave(() => editorStore.getState().patchElement(id, patch, ownerScreenId));
   };
 
-  const liveElement = (id: string): Element | undefined => {
+  const liveElement = (ownerScreenId: string, id: string): Element | undefined => {
     const state = editorStore.getState();
-    const active = state.project?.screens.find((candidate) => candidate.id === state.activeScreenId);
-    return active?.elements.find((element) => element.id === id);
+    return state.project?.screens
+      .find((candidate) => candidate.id === ownerScreenId)
+      ?.elements.find((element) => element.id === id);
   };
 
-  const onDragEnd = (id: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
-    if (liveElement(id)?.locked) return;
-    commit(id, { x: e.target.x(), y: e.target.y() });
+  const onDragEnd = (ownerScreenId: string, id: string) => (
+    event: Konva.KonvaEventObject<DragEvent>,
+  ) => {
+    if (liveElement(ownerScreenId, id)?.locked) return;
+    commit(ownerScreenId, id, { x: event.target.x(), y: event.target.y() });
   };
 
-  // Konva applies scale on transform; bake it into width/height and reset scale to 1.
-  const onTransformEnd = (id: string) => (e: Konva.KonvaEventObject<Event>) => {
-    const node = e.target;
-    const element = liveElement(id);
+  const onTransformEnd = (ownerScreenId: string, id: string) => (
+    event: Konva.KonvaEventObject<Event>,
+  ) => {
+    const node = event.target;
+    const element = liveElement(ownerScreenId, id);
     if (!element || element.locked) {
       node.position({ x: element?.x ?? node.x(), y: element?.y ?? node.y() });
       node.rotation(element?.rotation ?? node.rotation());
@@ -106,9 +168,8 @@ export function EditorStage({
     }
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
-    node.scaleX(1);
-    node.scaleY(1);
-    commit(id, {
+    node.scale({ x: 1, y: 1 });
+    commit(ownerScreenId, id, {
       x: node.x(),
       y: node.y(),
       rotation: node.rotation(),
@@ -120,99 +181,138 @@ export function EditorStage({
   const finishEditing = (save: boolean) => {
     if (!editing || endingEditRef.current) return;
     endingEditRef.current = true;
-    if (save && !liveElement(editing.id)?.locked) commit(editing.id, { content: editing.value });
+    if (save && !liveElement(editing.screenId, editing.id)?.locked) {
+      commit(editing.screenId, editing.id, { content: editing.value });
+    }
     setEditing(null);
     queueMicrotask(() => { endingEditRef.current = false; });
   };
 
-  const beginTextEditing = (element: Extract<Element, { type: "text" }>, value: string) => {
+  const beginTextEditing = (
+    ownerScreenId: string,
+    element: Extract<Element, { type: "text" }>,
+    value: string,
+  ) => {
     if (!canEdit || element.locked) return;
     endingEditRef.current = false;
-    editorStore.getState().select(element.id);
-    setEditing({ id: element.id, value });
+    editorStore.getState().select(element.id, ownerScreenId);
+    setEditing({ screenId: ownerScreenId, id: element.id, value });
   };
 
-  const editingStyle: CSSProperties | undefined = editingElement?.type === "text" ? {
-    left: editingElement.x * zoom,
-    top: editingElement.y * zoom,
-    width: editingElement.width * zoom,
-    height: editingElement.height * zoom,
-    transform: `rotate(${editingElement.rotation}deg)`,
-    transformOrigin: "top left",
-    fontFamily: `"${editingElement.fontFamily}"`,
-    fontSize: editingElement.size * zoom,
-    fontWeight: editingElement.weight,
-    lineHeight: editingElement.lineHeight,
-    letterSpacing: editingElement.letterSpacing * zoom,
-    textAlign: editingElement.align,
-    direction: screen.direction,
-    color: editingElement.color,
-    opacity: editingElement.opacity,
-  } : undefined;
+  const editingStyle: CSSProperties | undefined = editingElement?.type === "text" && editingProjection
+    ? {
+      left: (editingProjection.x + baseX + editingElement.x) * zoom,
+      top: (editingProjection.y + editingElement.y) * zoom,
+      width: editingElement.width * zoom,
+      height: editingElement.height * zoom,
+      transform: `rotate(${editingElement.rotation}deg)`,
+      transformOrigin: "top left",
+      fontFamily: `"${editingElement.fontFamily}"`,
+      fontSize: editingElement.size * zoom,
+      fontWeight: editingElement.weight,
+      lineHeight: editingElement.lineHeight,
+      letterSpacing: editingElement.letterSpacing * zoom,
+      textAlign: editingElement.align,
+      direction: editingProjection.screen.direction,
+      color: editingElement.color,
+      opacity: editingElement.opacity,
+    }
+    : undefined;
 
   return (
-    <div style={{ position: "relative", width: width * zoom, height: height * zoom }}>
+    <div style={{ position: "relative", width: stageWidth * zoom, height: stageHeight * zoom }}>
       <Stage
-        width={width * zoom}
-        height={height * zoom}
+        width={stageWidth * zoom}
+        height={stageHeight * zoom}
         scaleX={zoom}
         scaleY={zoom}
         style={{ pointerEvents: canEdit ? "auto" : "none" }}
-        onMouseDown={(e) => {
-          // Click on empty stage clears the selection.
-          if (canEdit && e.target === e.target.getStage()) editorStore.getState().select(null);
+        onMouseDown={(event) => {
+          if (canEdit && event.target === event.target.getStage()) editorStore.getState().select(null);
         }}
       >
         <Layer>
-          {screen.background.type === "solid" && (
-            <Rect x={0} y={0} width={width} height={height} fill={screen.background.color} listening={false} />
-          )}
-          {screen.elements.map((element) => {
-            if (!element.visible) return null;
-            const nc = elementToNodeConfig(element, { images, direction: screen.direction });
-            const interaction = canEdit ? {
-              draggable: !element.locked,
-              ref: (n: Konva.Node | null) => {
-                if (n) nodeRefs.current.set(element.id, n);
-                else nodeRefs.current.delete(element.id);
-              },
-              onClick: () => editorStore.getState().select(element.id),
-              onTap: () => editorStore.getState().select(element.id),
-              onDragEnd: onDragEnd(element.id),
-              onTransformEnd: onTransformEnd(element.id),
-            } : { listening: false };
-            switch (nc.konva) {
-              case "Text": {
-                if (element.type !== "text") return null;
-                return (
-                  <Text
-                    key={element.id}
-                    {...nc.config}
-                    {...interaction}
-                    visible={editing?.id !== element.id}
-                    onClick={(event) => {
-                      editorStore.getState().select(element.id);
-                      if (event.evt.detail >= 2) beginTextEditing(element, nc.config.text ?? "");
-                    }}
-                    onDblClick={() => beginTextEditing(element, nc.config.text ?? "")}
-                  />
-                );
-              }
-              case "Image":
-                return <KonvaImage key={element.id} {...nc.config} {...interaction} />;
-              case "Group":
-                return (
-                  <Group key={element.id} {...nc.config} {...interaction}>
-                    {/* Groups have no hit shape of their own; listening children bubble selection to the Group. */}
-                    {nc.children.map((child, i) => renderNodeConfigChild(child, i, canEdit))}
-                  </Group>
-                );
-              case "Rect":
-                return <Rect key={element.id} {...nc.config} {...interaction} />;
-              default:
-                return assertNever(nc);
-            }
-          })}
+          {projections.map(({ screen, x, y }) => screen.background.type === "solid" ? (
+            <Rect
+              key={`background-${screen.id}`}
+              x={x + baseX}
+              y={y}
+              width={screen.artboard.width}
+              height={screen.artboard.height}
+              fill={screen.background.color}
+              listening={canEdit}
+              onClick={() => editorStore.getState().selectScreen(screen.id)}
+              onTap={() => editorStore.getState().selectScreen(screen.id)}
+            />
+          ) : null)}
+
+          {projections.map(({ screen, x, y }) => (
+            <Group key={`owner-${screen.id}`} x={x + baseX} y={y}>
+              {screen.elements.map((element) => {
+                if (!element.visible) return null;
+                const nc = elementToNodeConfig(element, { images, direction: screen.direction });
+                const key = selectionKey(screen.id, element.id);
+                const interaction = canEdit ? {
+                  draggable: !element.locked,
+                  ref: (node: Konva.Node | null) => {
+                    if (node) nodeRefs.current.set(key, node);
+                    else nodeRefs.current.delete(key);
+                  },
+                  onClick: () => editorStore.getState().select(element.id, screen.id),
+                  onTap: () => editorStore.getState().select(element.id, screen.id),
+                  onDragEnd: onDragEnd(screen.id, element.id),
+                  onTransformEnd: onTransformEnd(screen.id, element.id),
+                } : { listening: false };
+                switch (nc.konva) {
+                  case "Text":
+                    if (element.type !== "text") return null;
+                    return (
+                      <Text
+                        key={element.id}
+                        {...nc.config}
+                        {...interaction}
+                        visible={!(editing?.screenId === screen.id && editing.id === element.id)}
+                        onClick={(event) => {
+                          editorStore.getState().select(element.id, screen.id);
+                          if (event.evt.detail >= 2) {
+                            beginTextEditing(screen.id, element, nc.config.text ?? "");
+                          }
+                        }}
+                        onDblClick={() => beginTextEditing(screen.id, element, nc.config.text ?? "")}
+                      />
+                    );
+                  case "Image":
+                    return <KonvaImage key={element.id} {...nc.config} {...interaction} />;
+                  case "Group":
+                    return (
+                      <Group key={element.id} {...nc.config} {...interaction}>
+                        {nc.children.map((child, index) => renderNodeConfigChild(child, index, canEdit))}
+                      </Group>
+                    );
+                  case "Rect":
+                    return <Rect key={element.id} {...nc.config} {...interaction} />;
+                  default:
+                    return assertNever(nc);
+                }
+              })}
+            </Group>
+          ))}
+
+          {project.mode === "connected" && connectedOverview
+            ? projections.map(({ screen, x, y }) => (
+              <Rect
+                key={`boundary-${screen.id}`}
+                x={x}
+                y={y}
+                width={screen.artboard.width}
+                height={screen.artboard.height}
+                stroke={screen.id === activeScreenId ? "#2563EB" : "#94A3B8"}
+                strokeWidth={(screen.id === activeScreenId ? 2 : 1) / zoom}
+                listening={false}
+              />
+            ))
+            : null}
+
           {canEdit ? (
             <Transformer
               ref={trRef}
@@ -223,13 +323,13 @@ export function EditorStage({
         </Layer>
       </Stage>
 
-      {canEdit && editing && editingElement?.type === "text" && (
+      {canEdit && editing && editingElement?.type === "text" && editingProjection ? (
         <textarea
           autoFocus
-          dir={screen.direction}
+          dir={editingProjection.screen.direction}
           aria-label={`Edit ${editingElement.name ?? "text"}`}
           value={editing.value}
-          onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+          onChange={(event) => setEditing({ ...editing, value: event.target.value })}
           onBlur={() => finishEditing(true)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -245,7 +345,7 @@ export function EditorStage({
           style={editingStyle}
           className="absolute z-10 resize-none overflow-hidden border border-blue-500 bg-transparent p-0 outline-none ring-2 ring-blue-500/20"
         />
-      )}
+      ) : null}
     </div>
   );
 }

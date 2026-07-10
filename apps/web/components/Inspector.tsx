@@ -56,9 +56,10 @@ export function Inspector({
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedId = useStore(editorStore, (s) => s.selectedId);
+  const selectedScreenId = useStore(editorStore, (s) => s.selectedScreenId);
 
   if (!project || !activeScreenId) return <aside className={cx("w-72 shrink-0 border-l border-slate-200 bg-white", className)} />;
-  const screen = getScreen(project, activeScreenId);
+  const screen = getScreen(project, selectedId && selectedScreenId ? selectedScreenId : activeScreenId);
   const element = selectedId ? screen.elements.find((e) => e.id === selectedId) : undefined;
 
   return (
