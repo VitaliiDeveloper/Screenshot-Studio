@@ -1,7 +1,7 @@
 # Release readiness evidence
 
-Status: Phase 8 in progress. Slices 1–2 are complete; Slice 3 export soak and performance budgets
-are next. This ledger is evidence for a future go/no-go decision, not a public-release claim.
+Status: Phase 8 in progress. Slices 1–3 are complete; Slice 4 accessibility and browser coverage is
+next. This ledger is evidence for a future go/no-go decision, not a public-release claim.
 
 ## Baseline entering Phase 8
 
@@ -63,8 +63,8 @@ Implemented:
 - explicit Chromium and Chromium Headless Shell installation on every runner, with Linux-only
   system dependency installation;
 - workspace unit/typecheck coverage on the Ubuntu/Node 24 compatibility entry;
-- direct portable ZIP assembly that follows pnpm directory links/junctions without reproducing
-  privileged links in staging;
+- portable ZIP assembly with a trusted internal link manifest that restores POSIX directory
+  symlinks or unprivileged Windows junctions and copies file-link targets;
 - argument-preserving Windows execution through pnpm's Node entrypoint and `cmd.exe` only for the
   installed `.cmd` shim, while POSIX retains direct execution.
 
@@ -85,10 +85,34 @@ Remote evidence:
   and typecheck gates. The final docs-only closure amend reruns the matrix through its workflow-file
   change so the final checkpoint SHA retains remote evidence.
 
+## Slice 3 — Export soak and performance budgets
+
+Environment on 11 July 2026: Darwin 25.5.0 arm64, Node 24.16.0, Apple M3 Pro with 12 logical CPUs
+and 18,432 MiB memory. The opt-in harness built and installed the package once, then used fresh
+packed CLI processes for every sample.
+
+Ratified limits and verify results:
+
+- 12-screen/four-locale living-v5 large bundle: median wall budget 10,500 ms and peak aggregate
+  process-tree RSS budget 1350 MiB; verify median 8319 ms and peak 1116.4 MiB;
+- repeated three-screen living-v5 bundle: median wall budget 4200 ms and peak aggregate process-tree
+  RSS budget 1200 MiB; verify median 3177 ms and peak 982.5 MiB;
+- five baseline and five verify samples per harness produced stable per-file/ZIP SHA-256 manifests,
+  exact 1320×2868 opaque PNGs, zero leaked staging or packaged-host temp directories, zero failed
+  child exits, and no material monotonic RSS growth.
+
+The first fresh-build soak exposed an unstable flattened-pnpm-link assumption (`styled-jsx` could
+not resolve from the flattened Next package). The final trusted link manifest preserves standalone
+realpath topology using POSIX symlinks or Windows junctions for directories and regular copies for
+file links. Targeted archive/extraction security tests, the 17-file/93-test CLI suite, workspace
+typecheck, and packaged CLI E2E all passed after the correction. The ordinary per-change CI remains
+free of soak cost; Slice 7 reruns the opt-in budget gate and the current package matrix.
+
 ## Remaining release blockers
 
-- Slice 3: large/repeated export soak plus ratified wall-time/RSS budgets.
 - Slice 4: automated accessibility states and representative Chromium/Firefox/WebKit editor smoke.
 - Slice 5: dated current store-rule and production package/dependency/license audit.
 - Slice 6: candidate version/artifact and release-candidate documentation.
 - Slice 7: sustained dogfood, full closure gates, and explicit go/no-go.
+- Final remote package-matrix revalidation is required after the current local Slice 3 package-host
+  changes are pushed; no push is performed without explicit owner authorization.

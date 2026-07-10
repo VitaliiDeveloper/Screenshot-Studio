@@ -37,6 +37,44 @@ describe("extractWebArchive", () => {
     await expect(readFile(join(destination, "apps/web/server.js"), "utf8")).resolves.toBe("server");
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("restores internal package directory links from the portable manifest", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-links-"));
+    const archivePath = join(directory, "web.zip");
+    const destination = join(directory, "extracted");
+    const archive = new JSZip();
+    archive.file("node_modules/.pnpm/react/index.js", "react");
+    archive.file(".screenshot-studio-links.json", JSON.stringify({
+      version: 1,
+      links: [{
+        path: "apps/web/node_modules/react",
+        target: "node_modules/.pnpm/react",
+        type: "directory",
+      }],
+    }));
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await extractWebArchive(archivePath, destination);
+    await expect(readFile(join(destination, "apps/web/node_modules/react/index.js"), "utf8"))
+      .resolves.toBe("react");
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("rejects links whose target escapes the extracted host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-link-escape-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file("apps/web/server.js", "server");
+    archive.file(".screenshot-studio-links.json", JSON.stringify({
+      version: 1,
+      links: [{ path: "apps/web/node_modules/react", target: "../outside", type: "directory" }],
+    }));
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await expect(extractWebArchive(archivePath, join(directory, "extracted")))
+      .rejects.toThrow(/Unsafe packaged render-host link/);
+    await rm(directory, { recursive: true, force: true });
+  });
 });
 
 describe("createServerController", () => {

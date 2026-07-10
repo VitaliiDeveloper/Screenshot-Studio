@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "screenshots": "tsx packages/cli/src/index.ts",
+    "soak:export": "pnpm build:cli-package && node scripts/export-soak.mjs",
     "test": "vitest run",
     "test:core": "vitest run packages/core/src",
     "test:cli": "vitest run packages/cli/src",

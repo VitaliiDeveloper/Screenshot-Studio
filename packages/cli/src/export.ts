@@ -67,6 +67,8 @@ export interface RenderedBundleEntry {
   png: Buffer;
 }
 
+const DETERMINISTIC_ZIP_DATE = new Date("2000-01-01T00:00:00.000Z");
+
 function resolveSafeBundleOutputPath(outDir: string, relativePath: string): string {
   const segments = relativePath.split("/");
   if (
@@ -199,7 +201,12 @@ export async function writeBundleOutputs({
 
   const zip = new JSZip();
   await ensureSafeOutputDirectory(outDir, outDir);
-  for (const { entry, png } of outputs) zip.file(entry.relativePath, png);
+  for (const { entry, png } of outputs) {
+    zip.file(entry.relativePath, png, {
+      createFolders: false,
+      date: DETERMINISTIC_ZIP_DATE,
+    });
+  }
   const zipBytes = await zip.generateAsync({ type: "nodebuffer" });
 
   const stagingRoot = await makeTempDirectory(join(resolve(outDir), ".screenshot-studio-stage-"));

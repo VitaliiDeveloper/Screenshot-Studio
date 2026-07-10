@@ -21,9 +21,9 @@ Node major, while retaining newer-LTS compatibility without multiplying the full
    installs system dependencies.
 5. Preserve arguments by launching pnpm through its Node entrypoint and only the installed Windows
    `.cmd` shim through `cmd.exe`; POSIX retains direct `execFile` execution.
-6. Do not skip packaged export on Windows. Assemble `web.zip` directly from the Next standalone
-   tree so pnpm directory links/junctions become portable regular archive files without creating
-   privileged links in the package staging directory.
+6. Do not skip packaged export on Windows. Archive Next standalone regular files once and preserve
+   its trusted internal directory-link topology in a manifest; extraction restores POSIX symlinks
+   or unprivileged Windows junctions and materializes file-link targets as regular files.
 7. Trigger the matrix manually, on package-relevant `phase-8` pushes, or on package-relevant pull
    requests; docs-only phase work does not pay the matrix cost.
 

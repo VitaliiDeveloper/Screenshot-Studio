@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -35,6 +35,13 @@ const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sourceWebDir = resolve(packageRoot, "../../apps/web");
 const packagedWebArchive = join(packageRoot, "runtime", "web.zip");
 const packagedServerEntry = join("apps", "web", "server.js");
+const packageLinksManifest = ".screenshot-studio-links.json";
+
+interface PackageLink {
+  path: string;
+  target: string;
+  type: "directory" | "file";
+}
 
 function isWithin(root: string, target: string): boolean {
   const path = relative(root, target);
@@ -44,7 +51,16 @@ function isWithin(root: string, target: string): boolean {
 /** Extract the trusted build-time standalone host without accepting archive path traversal. */
 export async function extractWebArchive(archivePath: string, destination: string): Promise<void> {
   const archive = await JSZip.loadAsync(await readFile(archivePath));
+  const manifestEntry = archive.file(packageLinksManifest);
+  const manifest = manifestEntry
+    ? JSON.parse(await manifestEntry.async("string")) as { version?: unknown; links?: unknown }
+    : { version: 1, links: [] };
+  if (manifest.version !== 1 || !Array.isArray(manifest.links)) {
+    throw new Error("Invalid packaged render-host link manifest");
+  }
+  const links = manifest.links as PackageLink[];
   for (const entry of Object.values(archive.files)) {
+    if (entry.name === packageLinksManifest) continue;
     const target = resolve(destination, entry.name);
     if (!isWithin(destination, target)) {
       throw new Error(`Unsafe packaged render-host path "${entry.name}"`);
@@ -55,6 +71,38 @@ export async function extractWebArchive(archivePath: string, destination: string
     }
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, await entry.async("nodebuffer"));
+  }
+  for (const link of links) {
+    if (
+      !link
+      || typeof link.path !== "string"
+      || typeof link.target !== "string"
+      || (link.type !== "directory" && link.type !== "file")
+    ) {
+      throw new Error("Invalid packaged render-host link entry");
+    }
+    const linkPath = resolve(destination, link.path);
+    const targetPath = resolve(destination, link.target);
+    if (!isWithin(destination, linkPath) || !isWithin(destination, targetPath)) {
+      throw new Error(`Unsafe packaged render-host link "${link.path}"`);
+    }
+    const targetStats = await lstat(targetPath);
+    if (link.type === "directory" && !targetStats.isDirectory()) {
+      throw new Error(`Packaged render-host directory link has a non-directory target "${link.path}"`);
+    }
+    if (link.type === "file" && !targetStats.isFile()) {
+      throw new Error(`Packaged render-host file link has a non-file target "${link.path}"`);
+    }
+    await mkdir(dirname(linkPath), { recursive: true });
+    if (link.type === "file") {
+      await copyFile(targetPath, linkPath);
+    } else {
+      await symlink(
+        process.platform === "win32" ? targetPath : relative(dirname(linkPath), targetPath),
+        linkPath,
+        process.platform === "win32" ? "junction" : "dir",
+      );
+    }
   }
 }
 

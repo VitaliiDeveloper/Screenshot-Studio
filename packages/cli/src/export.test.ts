@@ -49,6 +49,20 @@ describe("writeBundleOutputs", () => {
     ]);
   });
 
+  it("writes byte-identical zip files for identical entries", async () => {
+    const firstOutDir = await mkdtemp(join(tmpdir(), "bundle-output-deterministic-first-"));
+    const secondOutDir = await mkdtemp(join(tmpdir(), "bundle-output-deterministic-second-"));
+    const renderedEntries = [
+      { entry: entries[0]!, png: pngBytes() },
+      { entry: entries[1]!, png: pngBytes() },
+    ];
+
+    const firstZip = await writeBundleOutputs({ outDir: firstOutDir, entries: renderedEntries });
+    const secondZip = await writeBundleOutputs({ outDir: secondOutDir, entries: renderedEntries });
+
+    expect(await readFile(firstZip)).toEqual(await readFile(secondZip));
+  });
+
   it("preflights the complete batch before rejecting a traversal path", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "bundle-output-unsafe-"));
     const outDir = join(workspace, "export");

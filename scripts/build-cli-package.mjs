@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import JSZip from "jszip";
-import { addDirectory } from "./package-archive.mjs";
+import { addDirectory, PACKAGE_LINKS_MANIFEST } from "./package-archive.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cliRoot = join(repoRoot, "packages", "cli");
@@ -37,13 +37,18 @@ await cp(join(repoRoot, "store-specs.json"), join(packageRoot, "runtime", "store
 await readFile(expectedServer);
 
 const zip = new JSZip();
-await addDirectory(zip, standaloneRoot);
-await addDirectory(zip, join(webRoot, ".next", "static"), "apps/web/.next/static");
+const links = await addDirectory(zip, standaloneRoot);
+links.push(...await addDirectory(zip, join(webRoot, ".next", "static"), "apps/web/.next/static"));
 try {
-  await addDirectory(zip, join(webRoot, "public"), "apps/web/public");
+  links.push(...await addDirectory(zip, join(webRoot, "public"), "apps/web/public"));
 } catch (error) {
   if (error.code !== "ENOENT") throw error;
 }
+links.sort((first, second) => first.path.localeCompare(second.path));
+zip.file(PACKAGE_LINKS_MANIFEST, `${JSON.stringify({ version: 1, links }, null, 2)}\n`, {
+  createFolders: false,
+  date: new Date("2000-01-01T00:00:00.000Z"),
+});
 await writeFile(
   join(packageRoot, "runtime", "web.zip"),
   await zip.generateAsync({ type: "nodebuffer", compression: "STORE" }),
