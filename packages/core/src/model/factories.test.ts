@@ -16,6 +16,13 @@ describe("element factories (slice 5)", () => {
     expect(el).toMatchObject({ fontFamily: "Inter", weight: 700 });
   });
 
+  it("right-aligns newly inserted text for an RTL screen", () => {
+    expect(createTextElement({
+      font: { family: "Inter", weight: 700 },
+      direction: "rtl",
+    }).align).toBe("right");
+  });
+
   it("createShapeElement returns a schema-valid shape element", () => {
     const el = createShapeElement();
     expect(() => Element.parse(el)).not.toThrow();

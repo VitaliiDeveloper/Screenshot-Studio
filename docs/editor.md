@@ -3,10 +3,10 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.5, 10 July 2026.
+Version 0.6, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5 visual polish, and the Phase 3.6 workspace foundation are implemented**
-> (see `roadmap.md` §3a/§3c and `docs/specs/`).
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5 visual polish, the Phase 3.6 workspace foundation, and Phase 4 Slice 4's locale workspace are implemented**
+> (see `roadmap.md` §3a/§3c/§3e and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
 > and a slice spec disagree, the slice spec — being the ratified decision — wins for what
@@ -18,7 +18,7 @@ Version 0.5, 10 July 2026.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Top bar: project · Focus/Overview · Inspect · Export           │
+│ Top bar: project · locale/manage · Focus/Overview · Export     │
 ├────┬──────────────┬────────────────────────────┬──────────────┤
 │Tool│ Context shelf│ Canvas viewport            │ Inspector    │
 │rail│ (collapsible)│ artboards · pattern        │ (collapsible)│
@@ -43,9 +43,10 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
 
 ## 2. Canvas
 
-- *(as built in Phase 3.6)* `Focus` shows one active screen; `Overview` lays every screen
-  left-to-right in export order on one shared scroll/zoom viewport. Overview is presentation only:
-  each screen remains an isolated artboard and exactly one screen is active/editable.
+- *(as built in Phase 3.6 and narrowed in Phase 4)* `Focus` shows one active screen; `Overview`
+  lays every screen in the active locale left-to-right in export order on one shared scroll/zoom
+  viewport. Overview is presentation only: each screen remains an isolated artboard and exactly
+  one screen is active/editable.
 - Zoom supports controls, reset-to-100%, and Fit over `25%…400%`. `Ctrl`/`Cmd` + wheel and Mac
   trackpad pinch zoom around the pointer. Hand mode or holding Space enables drag-pan; ordinary
   two-axis wheel/trackpad scrolling remains native.
@@ -58,11 +59,13 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   move / resize / rotate handles. Locked elements retain a selection outline but cannot be moved,
   resized, rotated, or opened for canvas text editing. *(as built)* **Single-select only** — marquee
   multi-select was deferred in Slice 1 and is unscheduled; element **grouping is out** of the MVP.
-- **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box.
-  `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits; blur commits and flushes persistence.
+- **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box
+  with the screen's explicit LTR/RTL direction. `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits;
+  blur commits and flushes persistence.
 - **Active screen.** Exactly one artboard is the *active screen* at a time — the one last focused
   on the canvas or in the Screens list. It drives the Layers section (§3), the insert target for
-  new elements (§4), and the no-selection inspector (§5).
+  new elements (§4), and the no-selection inspector (§5). The active locale is derived from this
+  screen rather than persisted as a second workspace selection.
 - Placing two device mockups on one artboard (a 2-device slide) is possible manually or through
   an exact project-local template. Templates create screens; they do not add responsive layout
   behavior to the canvas.
@@ -75,8 +78,10 @@ The 56px permanent rail contains Select, Hand, Structure, Resources, and Add. On
 shelf is open at a time; clicking its active rail item collapses it.
 
 - **Structure / Screens** (compact): shared-renderer thumbnail + name + device label, add, delete,
-  and drag-reorder (dnd-kit). Screen order is the **export order**, mirroring the shipped CLI
-  `screen reorder` command — one ordering source, shared by UI and CLI.
+  and drag-reorder (dnd-kit) for the active locale. Reorder changes only that locale's slots in the
+  project array, preserving other locales' relative order. The resulting project order is the
+  **export order** — one ordering source shared by UI and CLI. The final screen in a locale is
+  protected here so whole-locale removal always goes through the confirmed locale-manager action.
 - **Structure / Layers** (for the selected screen): elements in z-order (array order), with lock / hide /
   rename. **No grouping.**
 - **Resources:** opens existing Fonts, Themes, and Templates dialogs.
@@ -97,8 +102,12 @@ shelf is open at a time; clicking its active rail item collapses it.
 - Zoom controls live on the canvas rather than in the top bar; Fit is implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
   CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*
+- The locale selector switches complete sets. Its manager clones a source set, chooses explicit
+  LTR/RTL direction, mirrors an existing set with confirmation, and removes all screens for a
+  locale while protecting the final locale.
 - Fonts, Themes, and Templates open from Resources. Theme and template files are
   server-side project inputs; the browser receives validated definitions and durable projects.
+  LTR-authored template geometry is baked once when instantiated into an RTL locale.
 - The top bar does **not** edit artboard background; that project property lives in the
   inspector (§5).
 
@@ -147,7 +156,8 @@ the schema gains them (future phases). Everything else is as built.
 - **Theme management** assigns roles in text/shape inspectors and applies strict `themes/*.json`
   through a serialized server mutation. Only literal project fields reach rendering.
 - **Template library** lists strict `templates/*.json`, creates a fresh-id screen using the active
-  locale, persists it, and selects it. Templates never enter the render contract.
+  locale and direction, persists it, and selects it. LTR-authored template placement/alignment is
+  mirrored once for an RTL target. Templates never enter the render contract.
 
 ---
 
@@ -170,8 +180,8 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
 - **Undo/redo UI.** The store uses immutable state/patches (Zustand + Immer) from day 0, so the
   architecture is in place — but the undo *buttons* ship later.
 - **Element grouping.** Pulls in a selection model, nested transforms, and z-order edge cases.
-- **Locales / RTL** — Phase 4. Font management shipped in Phase 3 Slice 3; baked theme CLI/UI
-  shipped in Slices 4–5.
+- **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;
+  translation assistance remains Phase 5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the
   project's primary scope-creep risk and directly compounds the render/export parity risk that
   Phase 0 must retire first. Not before Phase 0 passes.

@@ -22,6 +22,7 @@ import { ToolRail } from "../../components/ToolRail";
 import { FontManagerDialog } from "../../components/FontManagerDialog";
 import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
 import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
+import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
 import { mutateAndSave } from "../../lib/mutate-and-save";
 import { flushScheduledSave } from "../../lib/debounced-save";
 
@@ -45,6 +46,7 @@ export default function EditorPage() {
   const [panel, setPanel] = useState<WorkspacePanel | null>("structure");
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [dialog, setDialog] = useState<ResourceDialog | null>(null);
+  const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const assetSignature = useStore(editorStore, (state) =>
     state.project ? collectImageUrls(state.project).sort().join("\n") : "",
@@ -147,9 +149,12 @@ export default function EditorPage() {
       const key = event.key.toLowerCase();
       if (key === "t") {
         event.preventDefault();
-        const font = editorStore.getState().project?.fonts[0];
+        const state = editorStore.getState();
+        const font = state.project?.fonts[0];
+        const direction = state.project?.screens
+          .find((screen) => screen.id === state.activeScreenId)?.direction;
         if (!font) setDialog("fonts");
-        else mutateAndSave(() => editorStore.getState().addElement(createTextElement({ font })));
+        else mutateAndSave(() => editorStore.getState().addElement(createTextElement({ font, direction })));
       } else if (key === "r") {
         event.preventDefault();
         mutateAndSave(() => editorStore.getState().addElement(createShapeElement()));
@@ -161,13 +166,13 @@ export default function EditorPage() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== "Escape" || dialog) return;
+      if (event.defaultPrevented || event.key !== "Escape" || dialog || localeDialogOpen) return;
       if (panel) setPanel(null);
       else if (layout.overlay && inspectorOpen) setInspectorOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dialog, inspectorOpen, layout.overlay, panel]);
+  }, [dialog, inspectorOpen, layout.overlay, localeDialogOpen, panel]);
 
   if (error) return <main className="grid h-dvh place-items-center whitespace-pre-wrap p-6 text-sm text-red-600">{error}</main>;
   if (!images) return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;
@@ -177,6 +182,7 @@ export default function EditorPage() {
         view={view}
         inspectorOpen={inspectorOpen}
         onViewChange={setView}
+        onOpenLocales={() => setLocaleDialogOpen(true)}
         onToggleInspector={() => {
           const opening = !inspectorOpen;
           if (opening && layout.compact) setPanel(null);
@@ -225,6 +231,7 @@ export default function EditorPage() {
       <FontManagerDialog open={dialog === "fonts"} onClose={() => setDialog(null)} />
       {dialog === "themes" ? <ThemeManagerDialog onClose={() => setDialog(null)} /> : null}
       {dialog === "templates" ? <TemplateLibraryDialog onClose={() => setDialog(null)} /> : null}
+      {localeDialogOpen ? <LocaleManagerDialog onClose={() => setLocaleDialogOpen(false)} /> : null}
     </main>
   );
 }

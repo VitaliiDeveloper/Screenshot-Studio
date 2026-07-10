@@ -131,8 +131,10 @@ resolves tokens or ids; unknown/invalid theme data fails before a project is wri
 
 **Templates are screen inputs, not render state.** Strict definitions live in `templates/*.json`
 and contain an exact platform/device/artboard plus ordinary background and element literals.
-Instantiation injects the chosen locale, creates fresh screen/element ids, recomputes manifests,
-and writes an ordinary `Project`; render and export never read template files.
+Instantiation injects the chosen locale and its persisted direction, creates fresh screen/element
+ids, recomputes manifests, and writes an ordinary `Project`. Template geometry is authored as LTR;
+an RTL target bakes mirrored placement/alignment exactly once before persistence. Render and export
+never read template files.
 
 **Locale sets are ordinary screens, not a parallel model.** `Project.locales` is a duplicate-free
 derived manifest whose set is exactly the locale strings used by `screens`; locale identifiers stay
@@ -140,12 +142,19 @@ free-form and comparisons are exact. Cloning a locale appends fresh-id copies of
 same relative order and shares existing asset paths. The copies are independent after creation —
 there is no persisted source/translation pairing id in the render contract.
 
+The editor derives its active locale from the active screen rather than storing a second selection.
+Screens and Overview project only that locale; locale-scoped reorder changes those screens' slots
+without disturbing another locale's relative order. The locale manager delegates clone, direction,
+and removal to the same pure core operations used by the CLI. Editor chrome remains LTR.
+
 **RTL direction is explicit, not inferred from locale.** Every screen stores
 `direction: "ltr" | "rtl"` (existing v1 files default to `ltr`), and all screens in one locale
 must agree. Changing direction bakes horizontal placement (`x' = artboard.width - x - width`) and
 physical `left ↔ right` text alignment into JSON while preserving media pixels and rotation. The
 shared `elementToNodeConfig(element, { images, direction })` mapper sends the stored direction to
 Konva text in both the editor and headless renderer; geometry is never mirrored at render time.
+Inline editors inherit the screen direction, and new text uses physical right alignment in RTL.
+Templates remain LTR-authored inputs and are baked once when instantiated into an RTL locale.
 
 **Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
 optional fields such as `role` keep the current version; structural changes require a migration.

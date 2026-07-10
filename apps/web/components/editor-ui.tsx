@@ -64,8 +64,8 @@ export function MenuSelect<T extends string>({
         const estimatedMenuHeight = options.length * 36 + 12;
         setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight && rect.top > window.innerHeight - rect.bottom);
       }
-      controlRef.current
-        ?.querySelector<HTMLButtonElement>(`[data-menu-select-value='${value}']`)
+      Array.from(controlRef.current?.querySelectorAll<HTMLButtonElement>("[data-menu-select-value]") ?? [])
+        .find((option) => option.dataset.menuSelectValue === value)
         ?.focus();
     });
     const onPointerDown = (event: PointerEvent) => {

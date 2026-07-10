@@ -111,6 +111,9 @@ function AddPanel({
 }) {
   const [query, setQuery] = useState("");
   const defaultFont = useStore(editorStore, (state) => state.project?.fonts[0]);
+  const activeDirection = useStore(editorStore, (state) =>
+    state.project?.screens.find((screen) => screen.id === state.activeScreenId)?.direction ?? "ltr",
+  );
   const items = useMemo(() => filterAddCatalog(query), [query]);
 
   const insert = (element: Element) => {
@@ -124,7 +127,7 @@ function AddPanel({
           onOpenDialog("fonts");
           return;
         }
-        insert(createTextElement({ font: defaultFont }));
+        insert(createTextElement({ font: defaultFont, direction: activeDirection }));
         break;
       case "insert-shape":
         insert(createShapeElement());

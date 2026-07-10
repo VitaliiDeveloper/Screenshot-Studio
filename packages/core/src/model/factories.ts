@@ -1,5 +1,6 @@
 import type {
   DeviceFrameElement,
+  LayoutDirection,
   ScreenshotElement,
   ShapeElement,
   TextElement,
@@ -39,6 +40,7 @@ function elementBase(origin: SizedOrigin, defaults: { width: number; height: num
  */
 export interface CreateTextElementInput extends ElementOrigin {
   font: FontIdentity;
+  direction?: LayoutDirection;
 }
 
 export function createTextElement(input: CreateTextElementInput): TextElement {
@@ -51,7 +53,7 @@ export function createTextElement(input: CreateTextElementInput): TextElement {
     weight: input.font.weight,
     lineHeight: 1.2,
     letterSpacing: 0,
-    align: "left",
+    align: input.direction === "rtl" ? "right" : "left",
     color: "#000000",
   };
 }

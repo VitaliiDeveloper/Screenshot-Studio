@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import {
   Download,
   LayoutGrid,
+  Languages,
   PanelsTopLeft,
   PanelRight,
   Scan,
@@ -12,26 +13,40 @@ import {
 import type { WorkspaceView } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
-import { cx, editorUi } from "./editor-ui";
+import { cx, editorUi, MenuSelect } from "./editor-ui";
+
+const EMPTY_LOCALES: string[] = [];
 
 export function Toolbar({
   view,
   inspectorOpen,
   onViewChange,
   onToggleInspector,
+  onOpenLocales,
 }: {
   view: WorkspaceView;
   inspectorOpen: boolean;
   onViewChange: (view: WorkspaceView) => void;
   onToggleInspector: () => void;
+  onOpenLocales: () => void;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
+  const locales = useStore(editorStore, (state) => state.project?.locales ?? EMPTY_LOCALES);
+  const activeLocale = useStore(editorStore, (state) =>
+    state.project?.screens.find((screen) => screen.id === state.activeScreenId)?.locale
+      ?? state.project?.locales[0]
+      ?? "",
+  );
+  const localeOptions = useMemo(
+    () => locales.map((locale) => ({ value: locale, label: locale })),
+    [locales],
+  );
 
   return (
     <header className="flex min-h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+        <span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20 sm:inline-flex">
           <PanelsTopLeft size={16} strokeWidth={1.9} />
         </span>
         <span className="hidden text-sm font-semibold tracking-tight text-slate-950 sm:inline">Screenshot Studio</span>
@@ -67,6 +82,21 @@ export function Toolbar({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {activeLocale && localeOptions.length > 0 ? (
+          <MenuSelect
+            ariaLabel={`Active locale: ${activeLocale}`}
+            menuLabel="Project locales"
+            value={activeLocale}
+            options={localeOptions}
+            onChange={(locale) => editorStore.getState().selectLocale(locale)}
+            className="w-16 sm:w-24"
+            triggerClassName="h-8 px-2 font-semibold"
+            menuClassName="w-32"
+          />
+        ) : null}
+        <button type="button" aria-label="Manage locales" className={editorUi.iconButton} onClick={onOpenLocales}>
+          <Languages size={15} strokeWidth={1.9} />
+        </button>
         <button
           type="button"
           aria-label="Inspect"

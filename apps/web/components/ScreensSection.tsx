@@ -21,7 +21,7 @@ const DynamicScreenThumbnail = dynamic(
   { ssr: false },
 );
 
-/** Screens list: select active, dnd reorder (= project.screens order), duplicate-add, delete. */
+/** Active-locale screens: select, locale-scoped reorder, duplicate-add, and delete. */
 export function ScreensSection({ images }: { images: ImageCache }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
@@ -30,17 +30,17 @@ export function ScreensSection({ images }: { images: ImageCache }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   if (!project) return null;
-  const screens = project.screens;
+  const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
+  const activeLocale = activeScreen?.locale ?? project.locales[0]!;
+  const screens = project.screens.filter((screen) => screen.locale === activeLocale);
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
-    const from = screens.findIndex((s) => s.id === e.active.id);
-    const to = screens.findIndex((s) => s.id === e.over!.id);
-    mutateAndSave(() => editorStore.getState().reorderScreens(from, to));
+    mutateAndSave(() => editorStore.getState().reorderScreensInLocale(String(e.active.id), String(e.over!.id)));
   };
 
   const onDelete = (id: string, name: string) => {
-    if (screens.length <= 1) return; // last screen is not deletable
+    if (screens.length <= 1) return; // remove a complete locale only through the locale manager
     if (!window.confirm(`Delete screen "${name}" and all its layers?`)) return;
     mutateAndSave(() => editorStore.getState().removeScreen(id));
   };
@@ -48,7 +48,10 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   return (
     <section className="border-b border-slate-200 pb-2">
       <header className="flex items-center justify-between px-4 py-3">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Screens</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Screens</h2>
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">{activeLocale}</span>
+        </div>
         <button
           onClick={() => mutateAndSave(() => editorStore.getState().addScreen())}
           className={`${editorUi.buttonGhost} text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
@@ -58,7 +61,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div role="list" aria-label="Screens">
+          <div role="list" aria-label={`Screens for ${activeLocale}`}>
             {screens.map((s, index) => (
               <SortableRow
                 key={s.id}
@@ -81,6 +84,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 </span>
                 <button
                   onClick={() => editorStore.getState().selectScreen(s.id)}
+                  data-screen-id={s.id}
                   aria-label={`${s.name} · ${s.device}`}
                   aria-current={s.id === activeScreenId ? "true" : undefined}
                   className={`min-w-0 flex-1 rounded-md px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
@@ -89,7 +93,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 >
                   <span className="block truncate text-xs font-semibold">{s.name}</span>
                   <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-400">
-                    {s.device} · {s.artboard.width}×{s.artboard.height}
+                    {s.device} · {s.locale} · {s.artboard.width}×{s.artboard.height}
                   </span>
                 </button>
                 <button

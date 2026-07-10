@@ -38,7 +38,7 @@ Monorepo (pnpm workspaces):
 
 - `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
   asset loading, storage. The single source of truth for rendering (architecture.md §2).
-- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme management).
+- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme/locale management).
 - `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
@@ -82,8 +82,8 @@ creation catalog, pointer-centred wheel/pinch zoom, Hand/Space pan, Fit, `Dots |
 responsive inspector/canvas layout. Closure QA also hardens live viewport changes, locked elements,
 inline text editing, contain-image transforms, schema-bounded Inspector input, save errors, and
 keyboard behavior. The bundled sample is a realistic three-screen launch deck.
-Phase 4 is in progress: locale-set core, explicit RTL render/parity, and the locale CLI are complete;
-the editor locale workspace is next.
+Phase 4 is in progress: locale-set core, explicit RTL render/parity, the locale CLI, and the editor
+locale workspace are complete; export hardening and closure are next.
 
 ## Requirements
 
@@ -173,8 +173,13 @@ or `git checkout` the fixture afterwards.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
 strict `templates/*.json`. The Add shelf searches the current catalog and inserts valid text/shape
-elements. Template screens inherit the active screen's locale and use the template's explicit
-platform, device, artboard, background, and element layout.
+elements. The top bar selects and manages complete locale sets; Screens and Overview show only the
+active locale, and screen reorder stays inside that locale's global slots. Inline editing and new
+text honor the active screen's LTR/RTL direction.
+
+Template screens inherit the active screen's locale and direction while using the template's
+explicit platform, device, artboard, background, and element layout. LTR-authored geometry is
+mirrored exactly once when a template is instantiated into an RTL locale.
 
 ## Development
 

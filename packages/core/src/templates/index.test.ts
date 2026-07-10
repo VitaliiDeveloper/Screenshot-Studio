@@ -39,6 +39,29 @@ describe("createScreenFromTemplate", () => {
     expect(result.project.locales).toEqual(["en", "uk"]);
   });
 
+  it("bakes LTR template geometry for an existing RTL locale", () => {
+    const rtlProject = project();
+    rtlProject.screens[0]!.direction = "rtl";
+    const title = template.elements[0]!;
+    if (title.type !== "text") throw new Error("Expected template title text");
+    const rtlTemplate: Template = {
+      ...template,
+      elements: [{
+        ...title,
+        id: "rtl-title",
+        x: 100,
+        width: 300,
+        align: "left",
+      }],
+    };
+
+    const result = createScreenFromTemplate(rtlProject, rtlTemplate, "en");
+
+    expect(result.screen.direction).toBe("rtl");
+    expect(result.screen.elements[0]).toMatchObject({ x: 680, align: "right" });
+    expect(rtlTemplate.elements[0]).toMatchObject({ x: 100, align: "left" });
+  });
+
   it("uses a unique screen id on repeated creation", () => {
     const first = createScreenFromTemplate(project(), template, "en").project;
     expect(createScreenFromTemplate(first, template, "en").screen.id).toBe("feature-card-2");

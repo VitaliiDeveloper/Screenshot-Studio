@@ -67,9 +67,12 @@ export function CanvasViewport({
   }, [zoom]);
 
   const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
+  const activeLocale = activeScreen?.locale;
   const screens = useMemo(
-    () => view === "overview" ? project?.screens ?? [] : activeScreen ? [activeScreen] : [],
-    [activeScreen, project?.screens, view],
+    () => view === "overview"
+      ? project?.screens.filter((screen) => screen.locale === activeLocale) ?? []
+      : activeScreen ? [activeScreen] : [],
+    [activeLocale, activeScreen, project?.screens, view],
   );
 
   const contentBounds = useMemo(() => {
@@ -241,7 +244,7 @@ export function CanvasViewport({
                     active ? "text-blue-700" : "text-slate-500",
                   )}>
                     <span className="truncate">{screen.name}</span>
-                    <span className="text-[10px] font-normal text-slate-400">{screen.device}</span>
+                    <span className="text-[10px] font-normal text-slate-400">{screen.device} · {screen.locale}</span>
                   </div>
                   <div
                     role={!active && view === "overview" ? "button" : undefined}

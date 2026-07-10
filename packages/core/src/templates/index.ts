@@ -5,6 +5,7 @@ import {
   Project,
   SCREEN_DEVICES_BY_PLATFORM,
   addScreenToProject,
+  setScreenDirection,
   type Project as ProjectModel,
   type Screen,
 } from "../model/index.js";
@@ -78,5 +79,14 @@ export function createScreenFromTemplate(
     ? addScreenToProject(project, { ...common, platform: "apple", device: template.device })
     : addScreenToProject(project, { ...common, platform: "android", device: template.device });
   const screen = nextProject.screens.at(-1)!;
-  return { project: Project.parse(nextProject), screen };
+  if (screen.direction === "ltr") return { project: Project.parse(nextProject), screen };
+
+  // Template geometry is authored as physical LTR literals. Bake the target locale direction
+  // once before persistence; render must never mirror template geometry implicitly.
+  const localized = setScreenDirection({ ...screen, direction: "ltr" }, screen.direction);
+  const localizedProject = Project.parse({
+    ...nextProject,
+    screens: [...nextProject.screens.slice(0, -1), localized],
+  });
+  return { project: localizedProject, screen: localized };
 }

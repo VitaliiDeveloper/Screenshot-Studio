@@ -1,8 +1,11 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
 import {
+  cloneLocaleSet as cloneLocaleSetCore,
   cloneScreenWithFreshIds,
   recomputeManifests,
+  removeLocaleSet as removeLocaleSetCore,
+  setLocaleDirection as setLocaleDirectionCore,
   type Project,
   type Element,
   type TextElement,
@@ -10,6 +13,7 @@ import {
   type ScreenshotElement,
   type DeviceFrameElement,
   type FontAsset,
+  type LayoutDirection,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
 
@@ -103,9 +107,13 @@ export interface EditorState {
   select: (id: string | null) => void;
   patchElement: (id: string, patch: ElementPatch) => void;
   selectScreen: (id: string) => void;
-  reorderScreens: (from: number, to: number) => void;
+  selectLocale: (locale: string) => void;
+  reorderScreensInLocale: (fromId: string, toId: string) => void;
   addScreen: () => void;
   removeScreen: (id: string) => void;
+  addLocale: (sourceLocale: string, targetLocale: string, direction: LayoutDirection) => void;
+  setLocaleDirection: (locale: string, direction: LayoutDirection) => void;
+  removeLocale: (locale: string) => void;
   reorderElements: (from: number, to: number) => void;
   removeElement: (id: string) => void;
   addElement: (element: Element) => void;
@@ -149,11 +157,26 @@ export const editorStore = createStore<EditorState>((set) => ({
       return { project };
     }),
   selectScreen: (id) => set({ activeScreenId: id, selectedId: null }),
-  reorderScreens: (from, to) =>
+  selectLocale: (locale) =>
     set((state) => {
-      if (!state.project) return state;
+      const activeScreenId = state.project?.screens.find((screen) => screen.locale === locale)?.id;
+      return activeScreenId ? { activeScreenId, selectedId: null } : state;
+    }),
+  reorderScreensInLocale: (fromId, toId) =>
+    set((state) => {
+      if (!state.project || fromId === toId) return state;
+      const fromScreen = state.project.screens.find((screen) => screen.id === fromId);
+      const toScreen = state.project.screens.find((screen) => screen.id === toId);
+      if (!fromScreen || !toScreen || fromScreen.locale !== toScreen.locale) return state;
       const project = produce(state.project, (draft) => {
-        moveInPlace(draft.screens, from, to);
+        const indices = draft.screens
+          .map((screen, index) => screen.locale === fromScreen.locale ? index : -1)
+          .filter((index) => index >= 0);
+        const screens = indices.map((index) => draft.screens[index]!);
+        const from = screens.findIndex((screen) => screen.id === fromId);
+        const to = screens.findIndex((screen) => screen.id === toId);
+        moveInPlace(screens, from, to);
+        indices.forEach((index, position) => { draft.screens[index] = screens[position]!; });
       });
       return { project };
     }),
@@ -176,14 +199,40 @@ export const editorStore = createStore<EditorState>((set) => ({
       if (!state.project || state.project.screens.length <= 1) return state;
       const idx = state.project.screens.findIndex((s) => s.id === id);
       if (idx === -1) return state;
+      const removed = state.project.screens[idx]!;
+      const localeScreens = state.project.screens
+        .filter((screen) => screen.locale === removed.locale);
+      if (localeScreens.length <= 1) return state;
+      const localeIndex = localeScreens.findIndex((screen) => screen.id === id);
       const screens = state.project.screens.filter((s) => s.id !== id);
       const project = recomputeManifests({ ...state.project, screens });
       const wasActive = state.activeScreenId === id;
+      const sameLocale = project.screens.filter((screen) => screen.locale === removed.locale);
       const activeScreenId = wasActive
-        ? project.screens[Math.min(idx, project.screens.length - 1)]!.id
+        ? (sameLocale[Math.min(localeIndex, sameLocale.length - 1)]
+          ?? project.screens[Math.min(idx, project.screens.length - 1)])!.id
         : state.activeScreenId;
       const selectedId = wasActive ? null : state.selectedId;
       return { project, activeScreenId, selectedId };
+    }),
+  addLocale: (sourceLocale, targetLocale, direction) =>
+    set((state) => {
+      if (!state.project) return state;
+      const project = cloneLocaleSetCore(state.project, sourceLocale, targetLocale, direction);
+      const activeScreenId = project.screens.find((screen) => screen.locale === targetLocale)!.id;
+      return { project, activeScreenId, selectedId: null };
+    }),
+  setLocaleDirection: (locale, direction) =>
+    set((state) => state.project
+      ? { project: setLocaleDirectionCore(state.project, locale, direction) }
+      : state),
+  removeLocale: (locale) =>
+    set((state) => {
+      if (!state.project) return state;
+      const activeScreen = state.project.screens.find((screen) => screen.id === state.activeScreenId);
+      const project = removeLocaleSetCore(state.project, locale);
+      if (activeScreen?.locale !== locale) return { project };
+      return { project, activeScreenId: project.screens[0]!.id, selectedId: null };
     }),
   reorderElements: (from, to) =>
     set((state) => {

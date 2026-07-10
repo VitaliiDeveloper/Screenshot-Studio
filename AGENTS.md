@@ -8,9 +8,10 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 4 Slice 3; Slice 4 is next.**
+> **Status: implementation and verification are complete through Phase 4 Slice 4; Slice 5 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
-> Focus/Overview editor workspace are built. Read only docs directly relevant to the active task;
+> Focus/Overview editor workspace with active-locale filtering are built. Read only docs directly
+> relevant to the active task;
 > do not scan all of `docs/` by default. When in doubt, follow
 > `docs/architecture.md` (the technical contract) — it wins over this summary.
 
@@ -128,8 +129,14 @@ The editor's Themes dialog lists and applies the same files; text/shape inspecto
 the persisted role.
 
 The editor's Templates dialog lists strict `templates/*.json` definitions and creates a new screen
-using the template's platform/device/artboard plus the active screen's locale. Every instantiated
-screen and element receives a fresh id; template text fonts must already exist in `fonts`.
+using the template's platform/device/artboard plus the active screen's locale and direction. Every
+instantiated screen and element receives a fresh id; template text fonts must already exist in
+`fonts`. Templates are authored as LTR literals, so RTL targets mirror placement/alignment exactly
+once before the ordinary screen is persisted.
+
+The editor top bar selects and manages complete locale sets. Structure/Screens and Overview show
+only the active locale; drag reorder is locale-scoped, inline editing and new text use the active
+screen direction, and the last screen in a locale is removed only through the guarded locale manager.
 
 ## Design guardrails (always apply when generating slides/copy)
 

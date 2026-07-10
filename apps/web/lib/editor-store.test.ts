@@ -87,11 +87,6 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().selectedId).toBeNull();
   });
 
-  it("reorderScreens moves a screen and preserves the source of truth order", () => {
-    editorStore.getState().reorderScreens(0, 1);
-    expect(editorStore.getState().project!.screens.map((s) => s.id)).toEqual(["second", "hero"]);
-  });
-
   it("addScreen duplicates the active screen with fresh ids, appended and active", () => {
     const before = editorStore.getState().project!.screens.length;
     editorStore.getState().addScreen();
@@ -116,6 +111,104 @@ describe("editorStore screens (slice 4)", () => {
     editorStore.getState().removeScreen("second");
     editorStore.getState().removeScreen("hero"); // now the only one
     expect(editorStore.getState().project!.screens.map((s) => s.id)).toEqual(["hero"]);
+  });
+});
+
+describe("editorStore locale workspace (phase 4 slice 4)", () => {
+  beforeEach(() => {
+    editorStore.setState({ project: null, activeScreenId: null, selectedId: null });
+    editorStore.getState().load(project());
+  });
+
+  it("selectLocale activates the first screen in that locale", () => {
+    editorStore.getState().addLocale("en", "ar", "rtl");
+    editorStore.getState().selectLocale("en");
+
+    expect(editorStore.getState().activeScreenId).toBe("hero");
+    editorStore.getState().selectLocale("ar");
+    const active = editorStore.getState().project!.screens
+      .find((screen) => screen.id === editorStore.getState().activeScreenId);
+    expect(active?.locale).toBe("ar");
+  });
+
+  it("adds an RTL locale with fresh ids and makes it active", () => {
+    editorStore.getState().addLocale("en", "ar", "rtl");
+    const state = editorStore.getState();
+    const arabic = state.project!.screens.filter((screen) => screen.locale === "ar");
+
+    expect(state.project!.locales).toEqual(["en", "ar"]);
+    expect(arabic).toHaveLength(2);
+    expect(arabic.every((screen) => screen.direction === "rtl")).toBe(true);
+    expect(arabic.map((screen) => screen.id)).not.toEqual(["hero", "second"]);
+    expect(arabic.some((screen) => screen.id === state.activeScreenId)).toBe(true);
+  });
+
+  it("changes direction idempotently and removes a complete locale", () => {
+    editorStore.getState().addLocale("en", "ar", "rtl");
+    const rtl = structuredClone(editorStore.getState().project!);
+    editorStore.getState().setLocaleDirection("ar", "rtl");
+    expect(editorStore.getState().project).toEqual(rtl);
+
+    editorStore.getState().setLocaleDirection("ar", "ltr");
+    expect(editorStore.getState().project!.screens
+      .filter((screen) => screen.locale === "ar")
+      .every((screen) => screen.direction === "ltr")).toBe(true);
+
+    editorStore.getState().removeLocale("ar");
+    expect(editorStore.getState().project!.locales).toEqual(["en"]);
+    expect(editorStore.getState().activeScreenId).toBe("hero");
+  });
+
+  it("reorders locale screens by id without moving other locale slots", () => {
+    editorStore.getState().addLocale("en", "ar", "ltr");
+    const current = editorStore.getState().project!;
+    const [enFirst, enSecond] = current.screens.filter((screen) => screen.locale === "en");
+    const [arFirst, arSecond] = current.screens.filter((screen) => screen.locale === "ar");
+    editorStore.getState().replaceProject({
+      ...current,
+      screens: [enFirst!, arFirst!, enSecond!, arSecond!],
+    });
+
+    editorStore.getState().reorderScreensInLocale(arFirst!.id, arSecond!.id);
+
+    expect(editorStore.getState().project!.screens.map((screen) => screen.id)).toEqual([
+      enFirst!.id,
+      arSecond!.id,
+      enSecond!.id,
+      arFirst!.id,
+    ]);
+  });
+
+  it("keeps screen selection in the active locale after an interleaved deletion", () => {
+    editorStore.getState().addLocale("en", "ar", "ltr");
+    const current = editorStore.getState().project!;
+    const [enFirst, enSecond] = current.screens.filter((screen) => screen.locale === "en");
+    const [arFirst, arSecond] = current.screens.filter((screen) => screen.locale === "ar");
+    editorStore.getState().replaceProject({
+      ...current,
+      screens: [enFirst!, arFirst!, enSecond!, arSecond!],
+    });
+    editorStore.getState().selectScreen(enFirst!.id);
+
+    editorStore.getState().removeScreen(enFirst!.id);
+
+    expect(editorStore.getState().activeScreenId).toBe(enSecond!.id);
+  });
+
+  it("protects the final screen in a locale from screen-level removal", () => {
+    editorStore.getState().addLocale("en", "ar", "rtl");
+    const arabic = editorStore.getState().project!.screens
+      .filter((screen) => screen.locale === "ar");
+    editorStore.getState().removeScreen(arabic[1]!.id);
+    const remaining = editorStore.getState().project!.screens
+      .find((screen) => screen.locale === "ar")!;
+
+    editorStore.getState().removeScreen(remaining.id);
+
+    expect(editorStore.getState().project!.screens
+      .filter((screen) => screen.locale === "ar"))
+      .toEqual([remaining]);
+    expect(editorStore.getState().project!.locales).toContain("ar");
   });
 });
 
