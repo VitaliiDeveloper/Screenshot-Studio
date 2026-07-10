@@ -340,8 +340,14 @@ schema, shipped CLI commands, design guardrails (§7), and recipes for copy, bak
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic
 flat-background removal run locally through Sharp, write under `assets/processed/`, and never enter
-render/export. The current source-checkout invocation is `pnpm screenshots`; packaging the standalone
-`screenshots` executable remains Phase 6.
+render/export. Source contributors invoke `pnpm screenshots`; Phase 6 Slice 8 also builds one
+installable `@screenshot-studio/cli` artifact whose Node 22 ESM bin bundles CLI/core code and whose
+runtime carries `store-specs.json`, the generated guide, and the prebuilt shared web host. The host
+is Next `output: standalone` plus `.next/static`, stored as `runtime/web.zip` so npm retains traced
+dependencies. Installed commands extract it into a unique OS temp directory, spawn its `server.js`,
+and clean it after stop/failure. `playwright` and `sharp` remain normal native/runtime package
+dependencies. The measured local tarball is about 41 MiB; that accepted weight preserves parity
+instead of introducing a second lightweight renderer. Building/packing is not a publication claim.
 
 **Skill — only for zero-config outside the repo.** A few lines telling the agent: "clone the
 repo, run `screenshots init`, then follow `AGENTS.md`." Added last; not required.

@@ -12,8 +12,9 @@ The recipes use the packaged command name:
 screenshots <command> --project ./app-store-screenshots.json
 ```
 
-When working from the Screenshot Studio source checkout before the CLI is packaged, run the same
-command as `pnpm screenshots` from that checkout and pass this project's JSON with `--project`.
+When working from the Screenshot Studio source checkout, run the same command as `pnpm screenshots`
+from that checkout and pass this project's JSON with `--project`. An installed package uses the
+plain `screenshots` spelling above.
 
 ## Source of truth and guardrails
 

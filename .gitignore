@@ -45,6 +45,7 @@ export/
 # Lint / tool caches
 .eslintcache
 .cache/
+packages/cli/package/
 
 # Agent planning artifacts (local, not the curated docs/ contract)
 docs/superpowers/

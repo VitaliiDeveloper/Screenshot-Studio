@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { existsSync, realpathSync } from "node:fs";
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { runInit } from "./init.js";
 import { startWebServer } from "./server.js";
 import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
@@ -36,8 +37,10 @@ import { runCanvasCommand } from "./canvas-commands.js";
  * stays identical to UI export by construction.
  */
 
-const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-const DEFAULT_STORE_SPECS = join(repoRoot, "store-specs.json");
+const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const packagedStoreSpecs = join(packageRoot, "runtime", "store-specs.json");
+const sourceStoreSpecs = resolve(packageRoot, "../../store-specs.json");
+const DEFAULT_STORE_SPECS = existsSync(packagedStoreSpecs) ? packagedStoreSpecs : sourceStoreSpecs;
 
 function parseFlags(argv: string[]): Record<string, string> {
   const flags: Record<string, string> = {};
@@ -286,7 +289,12 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+const invokedPath = process.argv[1];
+const invokedDirectly = invokedPath
+  ? realpathSync(invokedPath) === realpathSync(fileURLToPath(import.meta.url))
+  : false;
+
+if (invokedDirectly) {
   main().catch((err) => {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);

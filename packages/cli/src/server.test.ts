@@ -1,6 +1,10 @@
 import { EventEmitter } from "node:events";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createServerController, resolveServerPort } from "./server.js";
+import JSZip from "jszip";
+import { createServerController, extractWebArchive, resolveServerPort } from "./server.js";
 
 class FakeChild extends EventEmitter {
   exitCode: number | null = null;
@@ -16,6 +20,21 @@ class FakeChild extends EventEmitter {
 describe("resolveServerPort", () => {
   it("uses an explicit port unchanged", async () => {
     await expect(resolveServerPort(3123)).resolves.toBe(3123);
+  });
+});
+
+describe("extractWebArchive", () => {
+  it("materializes the packaged standalone host tree", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-archive-"));
+    const archivePath = join(directory, "web.zip");
+    const destination = join(directory, "extracted");
+    const archive = new JSZip();
+    archive.file("apps/web/server.js", "server");
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await extractWebArchive(archivePath, destination);
+    await expect(readFile(join(destination, "apps/web/server.js"), "utf8")).resolves.toBe("server");
+    await rm(directory, { recursive: true, force: true });
   });
 });
 

@@ -26,6 +26,16 @@ PROJECT_PATH=./my-app-screenshots/app-store-screenshots.json pnpm dev
 Exporting store-ready PNGs (and the e2e suite) additionally needs a one-time Playwright
 browser download — see **Requirements** below.
 
+To build the installable CLI artifact locally (this does not publish it):
+
+```bash
+pnpm build:cli-package
+pnpm --dir packages/cli/package pack
+```
+
+The resulting package contains a built `screenshots` bin and the prebuilt shared Next render host;
+it does not need the monorepo or `tsx` after installation.
+
 ## Documentation
 
 - [docs/vision.md](docs/vision.md) — strategy, positioning, license, distribution _(changes rarely)_
@@ -92,14 +102,15 @@ numbering are shipped.
 non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
 locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
 background removal write new PNGs without touching source assets or project JSON. The generated
-workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slices 1–7 now
+workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slices 1–8 now
 ship schema v2, lossless v1 migration, connected UI/CLI crop parity, lifecycle-safe operations,
 guarded canvas-mode CLI, gapless owner-aware connected authoring, and bounded persisted undo/redo.
 Zoom-correct connected-space snapping, ephemeral smart guides, and safe project-local insertion of
 existing screenshot/device-frame elements now ship as well. The connected workspace now keeps
 mode control, exact-group Screens/Overview/Fit, owner Layers, thumbnails, history, and compact
-keyboard behavior coherent. Standalone distribution comes next,
-and OSS project polish. Phase 7 completes the baseline with multi-select, grouping, and new creative
+keyboard behavior coherent. A built installable CLI now packages the same Next render host and is
+smoke-tested from a temporary offline install through exact export; it is not a registry release.
+The optional skill and OSS project polish come next. Phase 7 completes the baseline with multi-select, grouping, and new creative
 primitives. Stabilization/release readiness follows only after that baseline is complete.
 
 ## Requirements
@@ -225,7 +236,9 @@ pnpm test:web          # web unit tests only
 pnpm test:e2e:parity   # render/font/device parity
 pnpm test:e2e:export   # CLI + UI export paths
 pnpm test:e2e:editor   # editor workflows
+pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
+pnpm build:cli-package # assemble the installable CLI + standalone render host
 pnpm typecheck         # all packages
 ```
 

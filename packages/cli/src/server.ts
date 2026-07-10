@@ -1,23 +1,88 @@
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import JSZip from "jszip";
 
 /**
- * Starts the `apps/web` render host and resolves only once it answers HTTP. Both `screenshots
- * export` and the parity harness use this so they drive the same served artifact. Readiness is
- * gated on a real HTTP response (not a fixed sleep), which is what keeps starting Next in a test
- * fast and non-flaky.
+ * Starts either the source-checkout Next dev host or the packaged standalone host and resolves only
+ * once it answers HTTP. Export and parity still drive the exact same web renderer in both modes.
  */
 export interface RunningServer {
   url: string;
   stop: () => Promise<void>;
 }
 
+export interface PreparedRenderHost {
+  command: string;
+  args: string[];
+  cwd: string;
+  env: Record<string, string>;
+  cleanup: () => Promise<void>;
+}
+
 type SpawnFn = (command: string, args: string[], options: Parameters<typeof nodeSpawn>[2]) => ChildProcess;
 type WaitForHttpFn = (url: string, timeoutMs: number) => Promise<void>;
+type PrepareRenderHostFn = (port: number) => Promise<PreparedRenderHost>;
 
-const webDir = resolve(fileURLToPath(new URL("../../../apps/web", import.meta.url)));
+const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const sourceWebDir = resolve(packageRoot, "../../apps/web");
+const packagedWebArchive = join(packageRoot, "runtime", "web.zip");
+const packagedServerEntry = join("apps", "web", "server.js");
+
+function isWithin(root: string, target: string): boolean {
+  const path = relative(root, target);
+  return path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
+}
+
+/** Extract the trusted build-time standalone host without accepting archive path traversal. */
+export async function extractWebArchive(archivePath: string, destination: string): Promise<void> {
+  const archive = await JSZip.loadAsync(await readFile(archivePath));
+  for (const entry of Object.values(archive.files)) {
+    const target = resolve(destination, entry.name);
+    if (!isWithin(destination, target)) {
+      throw new Error(`Unsafe packaged render-host path "${entry.name}"`);
+    }
+    if (entry.dir) {
+      await mkdir(target, { recursive: true });
+      continue;
+    }
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, await entry.async("nodebuffer"));
+  }
+}
+
+export async function prepareRenderHost(port: number): Promise<PreparedRenderHost> {
+  if (!existsSync(packagedWebArchive)) {
+    return {
+      command: "pnpm",
+      args: ["exec", "next", "dev", "--port", String(port)],
+      cwd: sourceWebDir,
+      env: { NODE_ENV: "development" },
+      cleanup: async () => undefined,
+    };
+  }
+
+  const directory = await mkdtemp(join(tmpdir(), "screenshot-studio-web-"));
+  try {
+    await extractWebArchive(packagedWebArchive, directory);
+    const entry = join(directory, packagedServerEntry);
+    if (!existsSync(entry)) throw new Error(`Packaged render host is missing ${packagedServerEntry}`);
+    return {
+      command: process.execPath,
+      args: [entry],
+      cwd: dirname(entry),
+      env: { NODE_ENV: "production", PORT: String(port), HOSTNAME: "127.0.0.1" },
+      cleanup: () => rm(directory, { recursive: true, force: true }),
+    };
+  } catch (error) {
+    await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
+}
 
 async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -27,7 +92,7 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
       await fetch(url);
       return;
     } catch {
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((resolveWait) => setTimeout(resolveWait, 250));
     }
   }
   throw new Error(`Web server did not become ready within ${timeoutMs}ms`);
@@ -57,6 +122,15 @@ export interface ServerControllerOptions {
   timeoutMs?: number;
   spawn?: SpawnFn;
   waitForHttp?: WaitForHttpFn;
+  prepareHost?: PrepareRenderHostFn;
+}
+
+async function terminateChild(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.killed) return;
+  await new Promise<void>((resolveStop) => {
+    child.once("exit", () => resolveStop());
+    child.kill("SIGTERM");
+  });
 }
 
 export async function createServerController({
@@ -65,14 +139,16 @@ export async function createServerController({
   timeoutMs = 120_000,
   spawn = nodeSpawn,
   waitForHttp: wait = waitForHttp,
+  prepareHost = prepareRenderHost,
 }: ServerControllerOptions = {}): Promise<RunningServer> {
   const selectedPort = await resolveServerPort(port);
-  const child: ChildProcess = spawn("pnpm", ["exec", "next", "dev", "--port", String(selectedPort)], {
-    cwd: webDir,
+  const host = await prepareHost(selectedPort);
+  const child: ChildProcess = spawn(host.command, host.args, {
+    cwd: host.cwd,
     stdio: "ignore",
     env: {
       ...process.env,
-      NODE_ENV: "development",
+      ...host.env,
       ...(projectPath ? { PROJECT_PATH: projectPath } : {}),
     },
   });
@@ -80,17 +156,19 @@ export async function createServerController({
   const url = `http://localhost:${selectedPort}`;
   try {
     await wait(url, timeoutMs);
-  } catch (err) {
-    child.kill("SIGTERM");
-    throw err;
+  } catch (error) {
+    await terminateChild(child);
+    await host.cleanup();
+    throw error;
   }
 
-  const stop = () =>
-    new Promise<void>((resolveStop) => {
-      if (child.exitCode !== null || child.killed) return resolveStop();
-      child.once("exit", () => resolveStop());
-      child.kill("SIGTERM");
-    });
+  let stopped = false;
+  const stop = async () => {
+    if (stopped) return;
+    stopped = true;
+    await terminateChild(child);
+    await host.cleanup();
+  };
 
   return { url, stop };
 }

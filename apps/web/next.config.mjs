@@ -1,5 +1,12 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const monorepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: monorepoRoot,
   // core is shipped as TypeScript source across the workspace; let Next transpile it.
   transpilePackages: ["@screenshot-studio/core", "@screenshot-studio/cli"],
   // Playwright ships a native driver; keep it a runtime require rather than letting webpack
