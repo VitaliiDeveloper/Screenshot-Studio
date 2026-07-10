@@ -250,6 +250,39 @@ describe("Screen platform/device union", () => {
   });
 });
 
+describe("Screen direction", () => {
+  it("defaults an existing v1 screen to ltr", () => {
+    expect(parseProject(validProject()).screens[0]!.direction).toBe("ltr");
+  });
+
+  it("accepts an explicit rtl direction", () => {
+    const project = validProject();
+    (project.screens[0] as Record<string, unknown>).direction = "rtl";
+
+    expect(parseProject(project).screens[0]!.direction).toBe("rtl");
+  });
+
+  it("rejects an unknown direction", () => {
+    const project = validProject();
+    (project.screens[0] as Record<string, unknown>).direction = "auto";
+
+    expect(() => parseProject(project)).toThrow(ProjectValidationError);
+  });
+
+  it("requires every screen in one locale set to share a direction", () => {
+    const project = validProject();
+    (project.screens[0] as Record<string, unknown>).direction = "ltr";
+    project.screens.push({
+      ...structuredClone(project.screens[0]!),
+      id: "s2",
+      name: "Screen 2",
+    });
+    (project.screens[1] as Record<string, unknown>).direction = "rtl";
+
+    expect(() => parseProject(project)).toThrow(ProjectValidationError);
+  });
+});
+
 describe("Project.platforms manifest", () => {
   function androidProject() {
     const p = validProject();

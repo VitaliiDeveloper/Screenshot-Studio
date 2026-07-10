@@ -1,5 +1,5 @@
 import Konva from "konva";
-import type { Project, Screen, Element } from "../model/schema.js";
+import type { Project, Screen, Element, LayoutDirection } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import type { ImageCache, NodeConfig } from "./node-config.js";
 import { getScreen } from "../model/index.js";
@@ -30,7 +30,7 @@ export function renderScreen(
   drawBackground(layer, screen);
   for (const element of screen.elements) {
     if (!element.visible) continue;
-    drawElement(layer, element, images);
+    drawElement(layer, element, images, screen.direction);
   }
 
   layer.draw();
@@ -44,8 +44,13 @@ function drawBackground(layer: Konva.Layer, screen: Screen): void {
   }
 }
 
-function drawElement(layer: Konva.Layer, element: Element, images: ImageCache): void {
-  layer.add(buildNode(elementToNodeConfig(element, images)) as Konva.Group | Konva.Shape);
+function drawElement(
+  layer: Konva.Layer,
+  element: Element,
+  images: ImageCache,
+  direction: LayoutDirection,
+): void {
+  layer.add(buildNode(elementToNodeConfig(element, { images, direction })) as Konva.Group | Konva.Shape);
 }
 
 /** Realise a NodeConfig as Konva nodes, recursing into composite screenshot/device-frame Groups. */

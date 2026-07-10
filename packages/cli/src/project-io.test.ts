@@ -18,6 +18,7 @@ function sampleProject(): Project {
         platform: "apple",
         device: "iphone",
         locale: "en",
+        direction: "ltr",
         artboard: { width: 1320, height: 2868 },
         background: { type: "solid", color: "#101827" },
         elements: [],

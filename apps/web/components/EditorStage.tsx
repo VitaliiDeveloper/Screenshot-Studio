@@ -145,6 +145,7 @@ export function EditorStage({
     lineHeight: editingElement.lineHeight,
     letterSpacing: editingElement.letterSpacing * zoom,
     textAlign: editingElement.align,
+    direction: screen.direction,
     color: editingElement.color,
     opacity: editingElement.opacity,
   } : undefined;
@@ -168,7 +169,7 @@ export function EditorStage({
           )}
           {screen.elements.map((element) => {
             if (!element.visible) return null;
-            const nc = elementToNodeConfig(element, images);
+            const nc = elementToNodeConfig(element, { images, direction: screen.direction });
             const interaction = canEdit ? {
               draggable: !element.locked,
               ref: (n: Konva.Node | null) => {
@@ -225,6 +226,7 @@ export function EditorStage({
       {canEdit && editing && editingElement?.type === "text" && (
         <textarea
           autoFocus
+          dir={screen.direction}
           aria-label={`Edit ${editingElement.name ?? "text"}`}
           value={editing.value}
           onChange={(e) => setEditing({ ...editing, value: e.target.value })}

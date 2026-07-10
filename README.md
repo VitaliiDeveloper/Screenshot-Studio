@@ -82,7 +82,8 @@ creation catalog, pointer-centred wheel/pinch zoom, Hand/Space pan, Fit, `Dots |
 responsive inspector/canvas layout. Closure QA also hardens live viewport changes, locked elements,
 inline text editing, contain-image transforms, schema-bounded Inspector input, save errors, and
 keyboard behavior. The bundled sample is a realistic three-screen launch deck.
-Phase 4 (locales and RTL) is next.
+Phase 4 is in progress: the locale-set core and explicit RTL render/parity contract are complete;
+the locale CLI is next.
 
 ## Requirements
 

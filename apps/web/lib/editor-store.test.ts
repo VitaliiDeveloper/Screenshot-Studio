@@ -10,7 +10,7 @@ function project(): Project {
     fonts: [],
     screens: [
       {
-        id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+        id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 660, height: 1434 },
         background: { type: "solid", color: "#000000" },
         elements: [{
@@ -21,7 +21,7 @@ function project(): Project {
         }],
       },
       {
-        id: "second", name: "Second", platform: "apple", device: "iphone", locale: "en",
+        id: "second", name: "Second", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 660, height: 1434 },
         background: { type: "solid", color: "#111111" },
         elements: [],

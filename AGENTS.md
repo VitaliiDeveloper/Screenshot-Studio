@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 3.6; Phase 4 is next.**
+> **Status: implementation and verification are complete through Phase 4 Slice 2; Slice 3 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > Focus/Overview editor workspace are built. Read only docs directly relevant to the active task;
 > do not scan all of `docs/` by default. When in doubt, follow
@@ -59,10 +59,10 @@ against the enforced v1 only; future schema ideas are not valid project fields.
 Project
 ├── meta: { name, appIcon?, schemaVersion: 1 }
 ├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
-├── locales: ["en", …]                     # free-form strings
+├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
 ├── fonts: FontAsset[]                     # uploaded / Google file assets under assets/fonts/
 └── screens: Screen[]
-    ├── id, name, platform, device, locale  # apple→{iphone,ipad}, android→{phone}
+    ├── id, name, platform, device, locale, direction  # direction: ltr | rtl
     ├── artboard: { width, height }
     ├── background: solid only
     └── elements: Element[]                # z-order = array order
@@ -73,8 +73,12 @@ Element types today: `text`, `shape` (rect), `screenshot`, `device-frame` (iphon
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 
-Future schema work is roadmap-governed. Do not add new background/element types, RTL fields, or
-connected-canvas state until the enforced schema and architecture explicitly widen.
+`Project.locales` is set-equal to the locale strings used by screens. `Screen.direction` defaults
+to `ltr`, is consistent within a locale, and is passed explicitly to the shared text renderer.
+Direction changes bake horizontal placement/alignment into JSON; they never reflect media pixels.
+
+Future schema work is roadmap-governed. Do not add new background/element types, per-element RTL
+fields, or connected-canvas state until the enforced schema and architecture explicitly widen.
 
 ## CLI (`screenshots ...`) — the primary interface
 

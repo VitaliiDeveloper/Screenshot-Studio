@@ -1,7 +1,9 @@
 import {
   Project,
+  Screen as ScreenSchema,
   SCREEN_DEVICES_BY_PLATFORM,
   type Element,
+  type LayoutDirection,
   type Project as ProjectModel,
   type Screen,
 } from "./schema.js";
@@ -99,6 +101,7 @@ export type CreateScreenInput = ScreenPlacement & {
   id?: string;
   name?: string;
   locale: string;
+  direction?: LayoutDirection;
   artboard: { width: number; height: number };
   elements?: Element[];
   backgroundColor?: string;
@@ -110,6 +113,7 @@ export function createScreen(input: CreateScreenInput): Screen {
     id: input.id ?? crypto.randomUUID(),
     name: input.name ?? titleFromId(input.id ?? "screen"),
     locale: input.locale,
+    direction: input.direction ?? "ltr",
     artboard: input.artboard,
     background: { type: "solid" as const, color: input.backgroundColor ?? "#101827" },
     elements: input.elements ?? [],
@@ -126,7 +130,13 @@ export function addScreenToProject(project: ProjectModel, input: CreateScreenInp
   );
   const id = uniqueId(baseId, project.screens);
   const name = input.name ?? titleFromId(id);
-  const screen = createScreen({ ...input, id, name });
+  const localeDirection = project.screens.find((screen) => screen.locale === input.locale)?.direction;
+  const screen = createScreen({
+    ...input,
+    id,
+    name,
+    direction: input.direction ?? localeDirection ?? "ltr",
+  });
   return recomputeManifests({ ...project, screens: [...project.screens, screen] });
 }
 
@@ -169,6 +179,7 @@ export function cloneLocaleSet(
   project: ProjectModel,
   sourceLocale: string,
   targetLocale: string,
+  targetDirection?: LayoutDirection,
 ): ProjectModel {
   if (!targetLocale.trim()) throw new Error("Target locale must not be empty");
 
@@ -178,9 +189,11 @@ export function cloneLocaleSet(
     throw new Error(`Locale "${targetLocale}" already exists`);
   }
 
+  const direction = targetDirection ?? sourceScreens[0]!.direction ?? "ltr";
   const copies = sourceScreens.map((source) => {
     const copy = cloneScreenWithFreshIds(source);
-    return { ...copy, name: source.name, locale: targetLocale };
+    const localized = ScreenSchema.parse({ ...copy, name: source.name, locale: targetLocale });
+    return setScreenDirection(localized, direction);
   });
 
   return recomputeManifests({
@@ -198,4 +211,34 @@ export function removeLocaleSet(project: ProjectModel, locale: string): ProjectM
     ...project,
     screens: project.screens.filter((screen) => screen.locale !== locale),
   });
+}
+
+/** Materialize a screen's opposite horizontal placement without reflecting media pixels. */
+export function setScreenDirection(screen: Screen, direction: LayoutDirection): Screen {
+  const currentDirection = screen.direction ?? "ltr";
+  if (currentDirection === direction) return ScreenSchema.parse(screen);
+
+  const elements = screen.elements.map((element) => ({
+    ...element,
+    x: screen.artboard.width - element.x - element.width,
+    ...(element.type === "text"
+      ? { align: element.align === "left" ? "right" : element.align === "right" ? "left" : "center" }
+      : {}),
+  }));
+
+  return ScreenSchema.parse({ ...screen, direction, elements });
+}
+
+/** Change every screen in a locale together so the locale set keeps one direction. */
+export function setLocaleDirection(
+  project: ProjectModel,
+  locale: string,
+  direction: LayoutDirection,
+): ProjectModel {
+  if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+
+  const screens = project.screens.map((screen) =>
+    screen.locale === locale ? setScreenDirection(screen, direction) : screen,
+  );
+  return Project.parse({ ...project, screens });
 }

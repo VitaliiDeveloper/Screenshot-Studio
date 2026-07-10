@@ -106,7 +106,7 @@ Project
 ├── locales: ["en", "de", "ar"]            # derived from screens
 ├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
 └── screens: Screen[]
-    ├── id, name, platform, device, locale
+    ├── id, name, platform, device, locale, direction
     ├── artboard: { width, height }        # slide size
     ├── background: Background              # solid | gradient | image
     └── elements: Element[]                # z-order = array order
@@ -139,6 +139,13 @@ derived manifest whose set is exactly the locale strings used by `screens`; loca
 free-form and comparisons are exact. Cloning a locale appends fresh-id copies of its screens in the
 same relative order and shares existing asset paths. The copies are independent after creation —
 there is no persisted source/translation pairing id in the render contract.
+
+**RTL direction is explicit, not inferred from locale.** Every screen stores
+`direction: "ltr" | "rtl"` (existing v1 files default to `ltr`), and all screens in one locale
+must agree. Changing direction bakes horizontal placement (`x' = artboard.width - x - width`) and
+physical `left ↔ right` text alignment into JSON while preserving media pixels and rotation. The
+shared `elementToNodeConfig(element, { images, direction })` mapper sends the stored direction to
+Konva text in both the editor and headless renderer; geometry is never mirrored at render time.
 
 **Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
 optional fields such as `role` keep the current version; structural changes require a migration.

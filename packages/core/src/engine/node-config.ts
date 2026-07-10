@@ -1,5 +1,5 @@
 import type Konva from "konva";
-import type { Element } from "../model/schema.js";
+import type { Element, LayoutDirection } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 
@@ -12,6 +12,11 @@ import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
  * concern and are added by the caller, never here.
  */
 export type ImageCache = Map<string, HTMLImageElement>;
+
+export interface ElementRenderContext {
+  images?: ImageCache;
+  direction?: LayoutDirection;
+}
 
 export type NodeConfig =
   | { konva: "Text"; config: Konva.TextConfig }
@@ -70,7 +75,11 @@ function computeImageFit(image: HTMLImageElement, box: Box, fit: "cover" | "cont
   };
 }
 
-export function elementToNodeConfig(element: Element, images?: ImageCache): NodeConfig {
+export function elementToNodeConfig(
+  element: Element,
+  context: ElementRenderContext = {},
+): NodeConfig {
+  const { images, direction = "ltr" } = context;
   const common = {
     id: element.id,
     x: element.x,
@@ -96,6 +105,7 @@ export function elementToNodeConfig(element: Element, images?: ImageCache): Node
           lineHeight: element.lineHeight,
           letterSpacing: element.letterSpacing,
           align: element.align,
+          direction,
           fill: element.color,
         },
       };

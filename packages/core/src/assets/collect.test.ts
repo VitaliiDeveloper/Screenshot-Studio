@@ -7,7 +7,7 @@ function project(elements: Element[]): Project {
     meta: { name: "T", schemaVersion: 1 },
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{
-      id: "s", name: "S", platform: "apple", device: "iphone", locale: "en",
+      id: "s", name: "S", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
       artboard: { width: 660, height: 1434 },
       background: { type: "solid", color: "#000000" },
       elements,

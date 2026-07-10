@@ -23,8 +23,15 @@ describe("elementToNodeConfig", () => {
       id: "t1", x: 10, y: 20, width: 300, height: 100,
       rotation: 5, opacity: 0.8, text: "Hi", fontFamily: "Pacifico",
       fontSize: 96, fontStyle: "600", lineHeight: 1.2,
-      letterSpacing: 2, align: "center", fill: "#FFFFFF",
+      letterSpacing: 2, align: "center", direction: "ltr", fill: "#FFFFFF",
     });
+  });
+
+  it("maps explicit rtl direction without changing physical alignment", () => {
+    const result = elementToNodeConfig({ ...baseText, align: "right" }, { direction: "rtl" });
+
+    expect(result.konva).toBe("Text");
+    expect(result.config).toMatchObject({ direction: "rtl", align: "right" });
   });
 
   it("maps a shape element to a Konva Rect config", () => {
@@ -49,7 +56,7 @@ const cache: ImageCache = new Map([["a.png", stubImage]]);
 
 describe("elementToNodeConfig — screenshot", () => {
   it("maps a cover screenshot to a logical Group with crop and cornerRadius", () => {
-    const result = elementToNodeConfig(shot, cache);
+    const result = elementToNodeConfig(shot, { images: cache });
     expect(result.konva).toBe("Group");
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.config).toMatchObject({
@@ -65,7 +72,7 @@ describe("elementToNodeConfig — screenshot", () => {
   });
 
   it("maps a contain screenshot to a centred fitted box, no crop", () => {
-    const result = elementToNodeConfig({ ...shot, fit: "contain" }, cache);
+    const result = elementToNodeConfig({ ...shot, fit: "contain" }, { images: cache });
     expect(result.konva).toBe("Group");
     if (result.konva !== "Group") throw new Error("expected Group");
     // 400×400 image in a 200×100 box → scale 0.25 → drawn 100×100, centred horizontally in 200.
@@ -74,7 +81,7 @@ describe("elementToNodeConfig — screenshot", () => {
   });
 
   it("maps a missing image to a grey placeholder rect", () => {
-    const result = elementToNodeConfig(shot, new Map());
+    const result = elementToNodeConfig(shot, { images: new Map() });
     expect(result.konva).toBe("Rect");
     expect(result.config).toMatchObject({ id: "p1", width: 200, height: 100, cornerRadius: 12 });
   });
@@ -92,13 +99,13 @@ const frameCache: ImageCache = new Map([["hero.png", frameStub]]);
 
 describe("elementToNodeConfig — device-frame", () => {
   it("maps to a Group carrying the element box, positioned by x/y", () => {
-    const result = elementToNodeConfig(frame, frameCache);
+    const result = elementToNodeConfig(frame, { images: frameCache });
     expect(result.konva).toBe("Group");
     expect(result.config).toMatchObject({ id: "df1", x: 100, y: 50, width: 1000, height: 1000 });
   });
 
   it("composits body, slot background, clipped content image, and notch (box-local)", () => {
-    const result = elementToNodeConfig(frame, frameCache);
+    const result = elementToNodeConfig(frame, { images: frameCache });
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Image", "Rect"]);
 
@@ -113,7 +120,7 @@ describe("elementToNodeConfig — device-frame", () => {
   });
 
   it("drops the content image when the asset is missing (frame + slot bg + notch remain)", () => {
-    const result = elementToNodeConfig(frame, new Map());
+    const result = elementToNodeConfig(frame, { images: new Map() });
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Rect"]);
   });

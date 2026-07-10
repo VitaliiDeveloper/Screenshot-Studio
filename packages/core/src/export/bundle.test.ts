@@ -48,6 +48,7 @@ function screen(
     platform,
     device,
     locale,
+    direction: "ltr",
     artboard: { width, height },
     background: { type: "solid", color: "#000000" },
     elements: [],

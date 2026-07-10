@@ -234,7 +234,7 @@ Automatic translation remains Phase 5.
 | Slice | Delivers | Risk it retires |
 |-------|----------|-----------------|
 | **1 — Locale-set core contract** ✅ | Duplicate-free/set-equal locale manifest; pure clone/remove of a complete source locale with fresh screen/element ids and stable source order. | Locale features building on a stale manifest or ad-hoc screen loops. |
-| **2 — RTL direction + render parity** | Additive screen direction, baked placement/alignment conversion, explicit Konva direction, and a real Arabic-font parity fixture. | Editor/headless bidi or geometry divergence. |
+| **2 — RTL direction + render parity** ✅ | Additive screen direction, baked placement/alignment conversion, explicit Konva direction, and a real Arabic-font parity fixture. | Editor/headless bidi or geometry divergence. |
 | **3 — Locale CLI** | `locale list/add/direction/rm` plus direction-aware lower-level screen creation. | Agent workflows rewriting project JSON inconsistently. |
 | **4 — Editor locale workspace** | Active-locale selector/manager, locale-filtered Screens and Overview, locale-scoped reorder, RTL-aware insertion/editing, and template inheritance. | Flat multi-locale UI mutating the wrong global screen indices. |
 | **5 — Export hardening + closure** | Safe locale path segments, per-platform/device/locale numbering, multi-locale export coverage, docs truth, and the Phase 4 gate. | Unsafe/free-form paths and incorrect store-slot ordering across locales. |

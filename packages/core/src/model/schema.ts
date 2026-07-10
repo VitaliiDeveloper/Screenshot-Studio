@@ -23,6 +23,9 @@ export const THEME_ROLES = ["heading", "body", "accent", "surface"] as const;
 export const ThemeRole = z.enum(THEME_ROLES);
 export type ThemeRole = z.infer<typeof ThemeRole>;
 
+export const LayoutDirection = z.enum(["ltr", "rtl"]);
+export type LayoutDirection = z.infer<typeof LayoutDirection>;
+
 /** Fields every element shares (docs/architecture.md §3). z-order is array order in `elements`. */
 const elementBase = {
   id: z.string().min(1),
@@ -142,6 +145,7 @@ const screenBase = {
   id: z.string().min(1),
   name: z.string().min(1),
   locale: z.string().min(1),
+  direction: LayoutDirection.default("ltr"),
   artboard: z
     .object({ width: z.number().int().positive(), height: z.number().int().positive() })
     .strict(),
@@ -240,6 +244,20 @@ export const Project = z
           message: `screen locale "${screen.locale}" is not listed in locales`,
           path: ["screens", index, "locale"],
         });
+      }
+    });
+
+    const directionByLocale = new Map<string, LayoutDirection>();
+    proj.screens.forEach((screen, index) => {
+      const direction = directionByLocale.get(screen.locale);
+      if (direction !== undefined && direction !== screen.direction) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `all screens in locale "${screen.locale}" must use direction "${direction}"`,
+          path: ["screens", index, "direction"],
+        });
+      } else {
+        directionByLocale.set(screen.locale, screen.direction);
       }
     });
 

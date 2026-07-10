@@ -11,7 +11,7 @@ function project(): Project {
       { family: "Inter", weight: 700, source: "uploaded", path: "assets/fonts/inter-700.ttf" },
     ],
     screens: [{
-      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
       artboard: { width: 1320, height: 2868 },
       background: { type: "solid", color: "#000000" },
       elements: [

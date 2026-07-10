@@ -29,6 +29,7 @@ function starterProject(name: string): Project {
         platform: "apple",
         device: "iphone",
         locale: "en",
+        direction: "ltr",
         artboard: { width: 660, height: 1434 },
         background: { type: "solid", color: "#0B1020" },
         // A blank starter is exportable everywhere. Adding a system-font headline here would

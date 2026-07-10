@@ -12,6 +12,7 @@ import {
   removeScreenFromProject,
   removeLocaleSet,
   reorderScreenInProject,
+  setLocaleDirection,
   slugify,
   uniqueId,
 } from "./project-ops.js";
@@ -29,6 +30,7 @@ function sampleProject(): Project {
         platform: "apple",
         device: "iphone",
         locale: "en",
+        direction: "ltr",
         artboard: { width: 1320, height: 2868 },
         background: { type: "solid", color: "#101827" },
         elements: [],
@@ -39,6 +41,7 @@ function sampleProject(): Project {
         platform: "apple",
         device: "iphone",
         locale: "en",
+        direction: "ltr",
         artboard: { width: 1320, height: 2868 },
         background: { type: "solid", color: "#101827" },
         elements: [],
@@ -76,6 +79,27 @@ describe("project-ops", () => {
       locale: "uk",
       artboard: { width: 2048, height: 2732 },
     });
+  });
+
+  it("addScreenToProject inherits an existing locale direction and defaults a new locale to ltr", () => {
+    const rtl = setLocaleDirection(sampleProject(), "en", "rtl");
+    const sameLocale = addScreenToProject(rtl, {
+      name: "More",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      artboard: { width: 1320, height: 2868 },
+    });
+    const newLocale = addScreenToProject(sameLocale, {
+      name: "Ukrainian",
+      platform: "apple",
+      device: "iphone",
+      locale: "uk",
+      artboard: { width: 1320, height: 2868 },
+    });
+
+    expect(sameLocale.screens.at(-1)!.direction).toBe("rtl");
+    expect(newLocale.screens.at(-1)!.direction).toBe("ltr");
   });
 
   it("removeScreenFromProject refuses the last screen and recomputes platforms", () => {
@@ -194,6 +218,95 @@ describe("project-ops", () => {
     expect(result.screens.map((screen) => screen.locale)).toEqual(["uk", "uk"]);
     expect(() => removeLocaleSet(result, "missing")).toThrow(/Unknown locale/);
     expect(() => removeLocaleSet(result, "uk")).toThrow(/last locale/);
+  });
+
+  it("setLocaleDirection mirrors placement once and is reversible", () => {
+    const source = sampleProject();
+    source.screens[0]!.elements = [
+      {
+        id: "shot",
+        type: "screenshot",
+        x: 100,
+        y: 200,
+        width: 600,
+        height: 1200,
+        rotation: 8,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        assetUrl: "assets/hero.png",
+        fit: "cover",
+        cornerRadius: 20,
+      },
+      {
+        id: "headline",
+        type: "text",
+        x: 80,
+        y: 40,
+        width: 800,
+        height: 200,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        content: "Hello",
+        fontFamily: "Inter",
+        size: 96,
+        weight: 700,
+        lineHeight: 1.2,
+        letterSpacing: 0,
+        align: "left",
+        color: "#FFFFFF",
+      },
+    ];
+
+    const rtl = setLocaleDirection(source, "en", "rtl");
+    const [shot, headline] = rtl.screens[0]!.elements;
+
+    expect(rtl.screens.every((screen) => screen.direction === "rtl")).toBe(true);
+    expect(shot).toMatchObject({
+      type: "screenshot",
+      x: 620,
+      y: 200,
+      width: 600,
+      rotation: 8,
+      assetUrl: "assets/hero.png",
+    });
+    expect(headline).toMatchObject({ type: "text", x: 440, align: "right", content: "Hello" });
+    expect(setLocaleDirection(rtl, "en", "rtl")).toEqual(rtl);
+    expect(setLocaleDirection(rtl, "en", "ltr")).toEqual(source);
+    expect(() => setLocaleDirection(source, "missing", "rtl")).toThrow(/Unknown locale/);
+  });
+
+  it("cloneLocaleSet can bake a target direction while preserving the source", () => {
+    const source = sampleProject();
+    source.screens[0]!.elements = [{
+      id: "title",
+      type: "text",
+      x: 100,
+      y: 100,
+      width: 500,
+      height: 100,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      content: "Title",
+      fontFamily: "Inter",
+      size: 64,
+      weight: 700,
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      align: "left",
+      color: "#FFFFFF",
+    }];
+
+    const project = cloneLocaleSet(source, "en", "ar", "rtl");
+    const target = project.screens.find((screen) => screen.locale === "ar")!;
+
+    expect(target.direction).toBe("rtl");
+    expect(target.elements[0]).toMatchObject({ x: 720, align: "right" });
+    expect(source.screens[0]!.elements[0]).toMatchObject({ x: 100, align: "left" });
   });
 
   it("finds each text font identity absent from project assets once", () => {
