@@ -126,6 +126,7 @@ export function Inspector({
               <button
                 type="button"
                 className={editorUi.buttonSecondary}
+                aria-keyshortcuts="Control+G Meta+G"
                 disabled={!canGroup}
                 onClick={() => mutateAndSave(() => editorStore.getState().groupSelected())}
               >
@@ -134,6 +135,7 @@ export function Inspector({
               <button
                 type="button"
                 className={editorUi.buttonSecondary}
+                aria-keyshortcuts="Control+Shift+G Meta+Shift+G"
                 disabled={!canUngroup}
                 onClick={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
               >
@@ -206,10 +208,20 @@ export function Inspector({
                 {element.children.length} {element.children.length === 1 ? "child" : "children"}. Resize stays uniform to preserve child transforms.
               </p>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" className={editorUi.buttonSecondary} onClick={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}>
+                <button
+                  type="button"
+                  className={editorUi.buttonSecondary}
+                  aria-keyshortcuts="Control+D Meta+D"
+                  onClick={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
+                >
                   <Copy size={14} /> Duplicate
                 </button>
-                <button type="button" className={editorUi.buttonSecondary} onClick={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}>
+                <button
+                  type="button"
+                  className={editorUi.buttonSecondary}
+                  aria-keyshortcuts="Control+Shift+G Meta+Shift+G"
+                  onClick={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
+                >
                   <Ungroup size={14} /> Ungroup
                 </button>
               </div>

@@ -30,7 +30,7 @@ const readme = await readFile(join(repoRoot, "README.md"), "utf8");
 assertIncludes(readme, "docs/assets/editor-demo.gif", "README demo");
 assertIncludes(readme, "https://github.com/VitaliiDeveloper/Screenshot-Studio.git", "README source install");
 assertIncludes(readme, "it is not a registry release", "README release status");
-assertIncludes(readme, "Phase 7 is next and completes the baseline", "README baseline status");
+assertIncludes(readme, "Phase 6 and Phase 7 complete the planned baseline", "README baseline status");
 
 const notice = await readFile(join(repoRoot, "NOTICE"), "utf8");
 assertIncludes(notice, "Copyright 2026 Vitalii Lavreniuk", "NOTICE copyright");
@@ -41,7 +41,7 @@ for (const path of [
   "examples/rtl-delivery/app-store-screenshots.json",
 ]) {
   const project = JSON.parse(await readFile(join(repoRoot, path), "utf8"));
-  if (project.meta?.schemaVersion !== 2) throw new Error(`Example is not authored as v2: ${path}`);
+  if (project.meta?.schemaVersion !== 5) throw new Error(`Example is not authored as v5: ${path}`);
 }
 
 console.log(`Verified ${requiredFiles.length} community surfaces and public status statements.`);

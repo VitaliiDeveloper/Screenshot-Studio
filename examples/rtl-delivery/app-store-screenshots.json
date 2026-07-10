@@ -1,9 +1,9 @@
 {
   "meta": {
     "name": "RTL Delivery",
-    "schemaVersion": 3
+    "schemaVersion": 5
   },
-  "mode": "isolated",
+  "mode": "connected",
   "platforms": [
     "apple"
   ],
@@ -47,6 +47,7 @@
           "opacity": 1,
           "locked": false,
           "visible": true,
+          "name": "LTR accent",
           "kind": "rect",
           "fill": "#38BDF8",
           "radius": 6
@@ -62,6 +63,7 @@
           "opacity": 1,
           "locked": false,
           "visible": true,
+          "name": "LTR title",
           "content": "اطلب الآن — التوصيل خلال 24 ساعة!",
           "fontFamily": "Noto Sans Arabic",
           "size": 72,
@@ -82,6 +84,7 @@
           "opacity": 0.9,
           "locked": false,
           "visible": true,
+          "name": "LTR body",
           "content": "الطلب #123 جاهز (3 عناصر)",
           "fontFamily": "Noto Sans Arabic",
           "size": 48,
@@ -90,6 +93,87 @@
           "letterSpacing": 0,
           "align": "right",
           "color": "#BAE6FD"
+        },
+        {
+          "type": "group",
+          "id": "ltr-connected-proof",
+          "x": 560,
+          "y": 820,
+          "width": 180,
+          "height": 180,
+          "rotation": 0,
+          "opacity": 1,
+          "locked": false,
+          "visible": true,
+          "name": "LTR connected group",
+          "children": [
+            {
+              "type": "shape",
+              "id": "ltr-connected-card",
+              "x": 0,
+              "y": 0,
+              "width": 180,
+              "height": 180,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "LTR connected card",
+              "kind": "rect",
+              "fill": "#7C3AED",
+              "radius": 48
+            },
+            {
+              "type": "icon",
+              "id": "ltr-connected-star",
+              "x": 50,
+              "y": 50,
+              "width": 80,
+              "height": 80,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "LTR connected star",
+              "icon": "star",
+              "color": "#FFFFFF",
+              "strokeWidth": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "platform": "apple",
+      "device": "iphone",
+      "id": "english-connected",
+      "name": "English connected crop",
+      "locale": "en",
+      "direction": "ltr",
+      "artboard": {
+        "width": 660,
+        "height": 1434
+      },
+      "background": {
+        "type": "solid",
+        "color": "#0F172A"
+      },
+      "elements": [
+        {
+          "type": "icon",
+          "id": "english-connected-sparkles",
+          "x": 455,
+          "y": 920,
+          "width": 96,
+          "height": 96,
+          "rotation": -10,
+          "opacity": 1,
+          "locked": false,
+          "visible": true,
+          "name": "English connected sparkles",
+          "icon": "sparkles",
+          "color": "#38BDF8",
+          "strokeWidth": 5
         }
       ]
     },
@@ -120,6 +204,7 @@
           "opacity": 1,
           "locked": false,
           "visible": true,
+          "name": "RTL accent",
           "kind": "rect",
           "fill": "#38BDF8",
           "radius": 6
@@ -135,6 +220,7 @@
           "opacity": 1,
           "locked": false,
           "visible": true,
+          "name": "RTL title",
           "content": "اطلب الآن — التوصيل خلال 24 ساعة!",
           "fontFamily": "Noto Sans Arabic",
           "size": 72,
@@ -155,6 +241,7 @@
           "opacity": 0.9,
           "locked": false,
           "visible": true,
+          "name": "RTL body",
           "content": "الطلب #123 جاهز (3 عناصر)",
           "fontFamily": "Noto Sans Arabic",
           "size": 48,
@@ -163,6 +250,87 @@
           "letterSpacing": 0,
           "align": "right",
           "color": "#BAE6FD"
+        },
+        {
+          "type": "group",
+          "id": "rtl-connected-proof",
+          "x": 560,
+          "y": 820,
+          "width": 180,
+          "height": 180,
+          "rotation": 0,
+          "opacity": 1,
+          "locked": false,
+          "visible": true,
+          "name": "RTL connected group",
+          "children": [
+            {
+              "type": "shape",
+              "id": "rtl-connected-card",
+              "x": 0,
+              "y": 0,
+              "width": 180,
+              "height": 180,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "RTL connected card",
+              "kind": "rect",
+              "fill": "#7C3AED",
+              "radius": 48
+            },
+            {
+              "type": "icon",
+              "id": "rtl-connected-star",
+              "x": 50,
+              "y": 50,
+              "width": 80,
+              "height": 80,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "RTL connected star",
+              "icon": "star",
+              "color": "#FFFFFF",
+              "strokeWidth": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "platform": "apple",
+      "device": "iphone",
+      "id": "arabic-connected",
+      "name": "Arabic connected crop",
+      "locale": "ar",
+      "direction": "rtl",
+      "artboard": {
+        "width": 660,
+        "height": 1434
+      },
+      "background": {
+        "type": "solid",
+        "color": "#0F172A"
+      },
+      "elements": [
+        {
+          "type": "icon",
+          "id": "arabic-connected-sparkles",
+          "x": 455,
+          "y": 920,
+          "width": 96,
+          "height": 96,
+          "rotation": -10,
+          "opacity": 1,
+          "locked": false,
+          "visible": true,
+          "name": "Arabic connected sparkles",
+          "icon": "sparkles",
+          "color": "#38BDF8",
+          "strokeWidth": 5
         }
       ]
     }

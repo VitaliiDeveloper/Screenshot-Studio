@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 7 Slice 6; Slice 7 closure is next.**
+> **Status: implementation and verification are complete through Phase 7; Phase 8 stabilization is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
@@ -18,16 +18,17 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > existing screenshot/device-frame types, the group-scoped connected workspace, and the installable
 > CLI artifact with its packaged shared render host, plus the thin optional skill that delegates to
 > generated project guidance, are verified. The real editor GIF, contribution/license surfaces,
-> living examples, and scoped SPDX policy close Phase 6. Phase 6 and planned Phase 7 together close
-> the baseline. Phase 7 now has owner-aware modified-click/marquee multi-selection and atomic batch
+> living examples, and scoped SPDX policy close Phase 6. Phase 6 and Phase 7 together close the
+> planned baseline. Phase 7 has owner-aware modified-click/marquee multi-selection and atomic batch
 > movement/actions plus a strict v3 one-level group model with lossless v1/v2 migration, recursive
 > traversal, shared UI/CLI connected-crop parity, and owner-aware group authoring with nested Layers
 > inspection and uniform transforms, the strict v4 decorative image leaf with secure asset
 > authoring and shared contain/cover/alpha parity, and the strict v5 trusted built-in vector icon
 > leaf with editable colour/stroke parity. Rating and “as seen on” badges now author as ordinary
 > fresh-id groups, while official store badges reuse contain-fit project images; no redundant badge
-> schema member was added. Phase 7 dogfood and closure are next. Public
-> release readiness comes only after Phase 8 stabilization.
+> schema member was added. Current v5 living examples now prove connected image/icon/badge/group
+> crops and keyboard group workflows across LTR/RTL locale groups. This is baseline completion, not
+> a public release; release readiness comes only after Phase 8 stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
 > contract) — it wins over this summary.

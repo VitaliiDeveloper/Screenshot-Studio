@@ -4,7 +4,7 @@ How the system is built and the contracts everything agrees on: tech stack, core
 split, render/export parity, data model & schema, store export spec, fonts, the management
 interface (CLI + conventions + `AGENTS.md`), and design guardrails.
 
-Version 0.6, 10 July 2026.
+Version 0.7, 11 July 2026.
 
 ---
 
@@ -47,7 +47,7 @@ screenshot-studio/
 │   └── cli/             # CLI: init, dev, screen, locale, font, theme, import, export
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
-├── examples/            # self-contained v2 connected and RTL living projects
+├── examples/            # self-contained v5 connected and RTL living projects
 ├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
 └── skills/
     └── screenshot-studio/ # optional discovery/bootstrap skill for use outside the repo
@@ -262,6 +262,12 @@ decorative images selected through the existing secure asset picker. After inser
 selection, child inspection, transforms, duplication, ungrouping, themes, RTL, history, save, and
 export remain the existing contracts; `type: "badge"` is invalid.
 
+**Baseline closure — Phase 7 Slice 7.** The self-contained v5 living projects exercise connected
+image overflow, trusted icons, ordinary badge groups, and two-screen LTR/RTL locale groups. The
+closure browser gate edits a copied example through accessible named controls and the documented
+group/duplicate/ungroup/undo shortcuts, reloads the persisted result, and exports exact alpha-free
+store PNGs. This closes the planned Phase 6/7 baseline, not the Phase 8 release-readiness gate.
+
 ---
 
 ## 4. Store export spec
@@ -408,7 +414,8 @@ explicit path, `SCREENSHOT_STUDIO_CLI`, or `PATH`, refuses existing project/cont
 delegates all product behavior to the generated project-local `AGENTS.md`. It does not copy the
 schema or recipes, fetch a package implicitly, add an AI SDK/provider, or become required for normal
 CLI/editor use. Its isolated smoke installs the skill into a temporary home and initializes a clean
-v2 project through the packaged CLI. This is still not a registry publication or release claim.
+current-schema project through the packaged CLI. This is still not a registry publication or
+release claim.
 
 ---
 

@@ -3,9 +3,9 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 0.9, 10 July 2026.
+Version 1.0, 11 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slices 1–6 multi-selection/group/image/icon/badge authoring are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and all Phase 7 multi-selection/group/image/icon/badge authoring and closure work are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -212,6 +212,8 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
 - **Group authoring — shipped in Phase 7 Slice 3.** Same-owner top-level leaves group into the
   parity-proven v3 contract. Layers exposes child inspection; keyboard group/ungroup/duplicate,
   uniform group resize, and all group lifecycle actions persist through normal history/save.
+  Slice 7 exposes these shortcuts through accessible control metadata and dogfoods them across
+  connected LTR/RTL locale groups.
 - **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;
   translation assistance remains Phase 5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the

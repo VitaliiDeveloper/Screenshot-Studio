@@ -145,19 +145,19 @@ Distribution decisions closed in this phase:
 - **Parity-preserving weight.** The export path keeps the full prebuilt `apps/web` Next host (the §2
   decision's accepted cost) instead of adding a second lightweight renderer.
 
-**Phase 7 — Advanced editing + baseline completion — in progress; Slices 1–6 complete.**
+**Phase 7 — Advanced editing + baseline completion — complete.**
 Marquee/modified-click multi-selection, a persisted group model with shared render/export parity,
 group authoring and nested transforms, then independently proven `image`, `icon`, and `badge`
-primitives. Phase 7 completes the planned baseline product together with Phase 6; it does not imply
-that the project is released. Its concrete v3 schema design starts only after the connected-canvas
-v2 contract closes. Sliced in §3h.
+primitives. Living v5 examples and connected LTR/RTL keyboard dogfood close the cross-feature gate.
+Phase 7 completes the planned baseline product together with Phase 6; it does not imply that the
+project is released. Sliced in §3h.
 
 **Phase 8 — Stabilization + release readiness — planned after baseline completion.**
 Sustained dogfood, failure/recovery testing, cross-environment packaged-install checks, performance
 and memory profiling, accessibility and browser coverage, long-running export reliability, and
 release-candidate documentation. A first public release is considered only after this phase's gate;
 Phase 6/7 completion alone is not a release claim. Detailed execution slices are intentionally
-deferred until Phase 7 closes and real dogfood evidence exists.
+deferred until a dedicated Phase 8 design uses the now-recorded Phase 7 dogfood/closure evidence.
 
 **Phase 9 — Expansion + continuous improvement — direction after stabilization.**
 Richer existing-type properties, additional frames/platform targets, workflow refinements,
@@ -337,7 +337,7 @@ renderer independently.
 | **4 — Decorative image element** ✅ | Strict `image` element using the Phase 6 asset picker/loader, deterministic fit/crop behavior, inspector controls, templates/themes traversal, and parity coverage. | Adds the most general missing raster primitive without overloading the semantic `screenshot` type. |
 | **5 — Vector icon element** ✅ | Deterministic built-in/SVG icon contract, safe project-local authoring, colour/stroke controls, shared Konva mapping, and parity coverage. | Avoids unsafe or browser-dependent SVG behavior and keeps icons editable rather than raster-only. |
 | **6 — Badge primitives** ✅ | Rating, store, and “as seen on” badge authoring through the smallest validated representation; ordinary grouped primitives for editable proof badges and contain-fit project images for official store badges, with no redundant union member. | Resolves whether badges need schema state instead of committing to a redundant composite element up front. |
-| **7 — Baseline completion dogfood + closure** | Multi-select/group workflows across connected locales, image/icon/badge examples, public docs truth, accessibility/keyboard QA, and the Phase 7 full gate. | Closes cross-feature traversal and parity gaps before declaring the baseline product complete, not publicly released. |
+| **7 — Baseline completion dogfood + closure** ✅ | Multi-select/group workflows across connected locales, image/icon/badge examples, public docs truth, accessibility/keyboard QA, and the Phase 7 full gate. | Closes cross-feature traversal and parity gaps before declaring the baseline product complete, not publicly released. |
 
 Phase 7 reserves product scope, not a premature v3 shape. Slice 2 must re-read the shipped Phase 6
 schema and write its own design spec before implementation. Richer existing-type properties
@@ -345,8 +345,9 @@ schema and write its own design spec before implementation. Richer existing-type
 shape styles) remain roadmap-governed Phase 9 expansion candidates; they are not hidden inside the
 new-type slices.
 
-The completed Slice 1–2 contracts and verification checkpoints are recorded in `docs/plans/`, with
-the v3 decision in `docs/specs/2026-07-10-phase7-group-model-design.md`.
+The completed Slice 1–7 contracts and verification checkpoints are recorded in `docs/plans/`, with
+the v3 decision in `docs/specs/2026-07-10-phase7-group-model-design.md` and closure evidence in
+`docs/plans/2026-07-11-phase7-slice7-baseline-closure.md`.
 
 ---
 

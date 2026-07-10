@@ -69,8 +69,8 @@ Monorepo (pnpm workspaces):
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
 - `fixtures/` — sample projects used by tests and local dev (e.g. `phase-0-sample`).
-- `examples/` — self-contained v2 connected and RTL projects that are validated and exported in
-  the closure suite.
+- `examples/` — self-contained v5 connected and RTL projects that are validated, edited, and
+  exported in the closure suite.
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
 - `docs/` — vision, architecture, roadmap, and per-slice design specs/plans.
@@ -132,14 +132,16 @@ smoke-tested from a temporary offline install through exact export; it is not a 
 The optional skill is installable, delegates to the generated guide, and is clean-folder
 smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
 living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
-**Phase 7 (advanced editing) — in progress through Slice 6.** Owner-aware modified-click/marquee
+**Phase 7 (advanced editing + baseline completion) — done.** Owner-aware modified-click/marquee
 multi-selection and atomic batch actions ship, followed by a strict v3 one-level group model with
 lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authoring/Layers and the
 strict v4 decorative image leaf now ship with secure asset insertion plus contain/cover/alpha
 parity. Strict v5 trusted built-in vector icons now add editable colour/stroke controls without raw
 SVG input. Rating and press-proof badges now use editable ordinary groups, and official store badges
-reuse secure contain-fit project images without a redundant schema type. Dogfood/closure is next.
-Phase 8 stabilization/release readiness follows only after that baseline is complete.
+reuse secure contain-fit project images without a redundant schema type. Living v5 projects prove
+connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
+Phase 6 and Phase 7 complete the planned baseline; Phase 8 stabilization/release readiness is next,
+and no public release is claimed yet.
 
 ## Requirements
 
@@ -245,11 +247,12 @@ editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before
 or `git checkout` the fixture afterwards.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
-strict `templates/*.json`. The Add shelf inserts text/shape directly and opens the safe
-project-local asset picker for screenshot/iPhone-frame elements. The top bar selects and manages
-complete locale sets; Screens and Overview show the active locale in isolated mode or the active
-exact platform/device/locale group in connected mode. Inline editing and new text honor the active
-screen's LTR/RTL direction.
+strict `templates/*.json`. The Add shelf inserts text, shape, and trusted built-in icons directly;
+opens the safe project-local asset picker for screenshot, iPhone-frame, decorative image, and
+official store-badge assets; and creates editable rating/press-proof badge groups when a registered
+font is available. The top bar selects and manages complete locale sets; Screens and Overview show
+the active locale in isolated mode or the active exact platform/device/locale group in connected
+mode. Inline editing and new text honor the active screen's LTR/RTL direction.
 
 Template screens inherit the active screen's locale and direction while using the template's
 explicit platform, device, artboard, background, and element layout. LTR-authored geometry is
@@ -267,7 +270,7 @@ pnpm test:e2e:export   # CLI + UI export paths
 pnpm test:e2e:editor   # editor workflows
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
-pnpm test:e2e:examples # validate + export the living example projects
+pnpm test:e2e:examples # validate, edit, and export the living example projects
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
 pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
