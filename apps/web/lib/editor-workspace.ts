@@ -1,3 +1,5 @@
+import { sameScreenGroup, type Project, type Screen } from "@screenshot-studio/core/model";
+
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 4;
 export const CANVAS_PADDING = 80;
@@ -14,6 +16,13 @@ export type ResourceDialog =
   | "templates"
   | "screenshot-assets"
   | "device-frame-assets";
+
+/** Connected workspaces expose one exact group; isolated workspaces retain the locale set. */
+export function workspaceScreenScope(project: Project, activeScreen: Screen): Screen[] {
+  return project.mode === "connected"
+    ? project.screens.filter((screen) => sameScreenGroup(screen, activeScreen))
+    : project.screens.filter((screen) => screen.locale === activeScreen.locale);
+}
 
 export function clampZoom(value: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(3))));

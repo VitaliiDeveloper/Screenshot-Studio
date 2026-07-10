@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–6 through connected authoring, undo/redo, snapping, and media insertion are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–7 through the hardened connected authoring workspace are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -79,8 +79,9 @@ The 56px permanent rail contains Select, Hand, Structure, Resources, and Add. On
 shelf is open at a time; clicking its active rail item collapses it.
 
 - **Structure / Screens** (compact): shared-renderer thumbnail + name + device label, add, delete,
-  and drag-reorder (dnd-kit) for the active locale. Reorder changes only that locale's slots in the
-  project array, preserving other locales' relative order. Project order is the one ordering source
+  and drag-reorder (dnd-kit) for the active locale in isolated mode or exact group in connected
+  mode. Reorder changes only that scope's slots in the project array, preserving unrelated slots.
+  Project order is the one ordering source
   shared by UI and CLI; each platform/device/locale export group derives its relative `01`, `02`, …
   slot order from it. The final screen in a locale is protected here so whole-locale removal always
   goes through the confirmed locale-manager action.
@@ -108,6 +109,11 @@ shelf is open at a time; clicking its active rail item collapses it.
 - The locale selector switches complete sets. Its manager clones a source set, chooses explicit
   LTR/RTL direction, mirrors an existing set with confirmation, and removes all screens for a
   locale while protecting the final locale.
+- In connected mode, Overview, Fit, and Screens share the active exact platform/device/locale
+  group. Reorder changes only that group's project slots; unrelated same-locale groups keep their
+  indices. Thumbnails depend on the full group because neighbour-owned pixels may enter a crop.
+  Layers labels and follows the active owner screen. The toolbar's mode control surfaces guarded
+  connected→isolated refusal and successful mode changes use ordinary history/save.
 - Fonts, Themes, and Templates open from Resources. Theme and template files are
   server-side project inputs; the browser receives validated definitions and durable projects.
   LTR-authored template geometry is baked once when instantiated into an RTL locale.

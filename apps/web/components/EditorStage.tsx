@@ -271,6 +271,8 @@ export function EditorStage({
     <div
       ref={wrapperRef}
       data-testid="editor-stage"
+      data-active-screen-id={activeScreenId ?? undefined}
+      data-stage-screen-ids={projections.map((projection) => projection.screen.id).join(" ")}
       style={{ position: "relative", width: stageWidth * zoom, height: stageHeight * zoom }}
     >
       <Stage

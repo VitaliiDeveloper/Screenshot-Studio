@@ -1,11 +1,43 @@
 import { describe, expect, it } from "vitest";
+import type { Project } from "@screenshot-studio/core/model";
 import {
   clampZoom,
   filterAddCatalog,
   fitArtboardsZoom,
   fitZoom,
   OVERVIEW_GAP,
+  workspaceScreenScope,
 } from "./editor-workspace";
+
+function scopeProject(mode: Project["mode"]): Project {
+  const screen = (
+    id: string,
+    platform: "apple" | "android",
+    device: "iphone" | "phone",
+  ): Project["screens"][number] => ({
+    id,
+    name: id,
+    platform,
+    device,
+    locale: "en",
+    direction: "ltr",
+    artboard: { width: 660, height: 1434 },
+    background: { type: "solid", color: "#000000" },
+    elements: [],
+  } as Project["screens"][number]);
+  return {
+    meta: { name: "Scope", schemaVersion: 2 },
+    mode,
+    platforms: ["apple", "android"],
+    locales: ["en"],
+    fonts: [],
+    screens: [
+      screen("first", "apple", "iphone"),
+      screen("unrelated", "android", "phone"),
+      screen("second", "apple", "iphone"),
+    ],
+  };
+}
 
 describe("editor workspace helpers", () => {
   it("clamps zoom to the supported viewport range", () => {
@@ -36,5 +68,14 @@ describe("editor workspace helpers", () => {
       "open-asset-picker",
       "open-asset-picker",
     ]);
+  });
+
+  it("scopes connected workspaces to the exact group and isolated workspaces to the locale", () => {
+    const connected = scopeProject("connected");
+    expect(workspaceScreenScope(connected, connected.screens[0]!).map((screen) => screen.id))
+      .toEqual(["first", "second"]);
+    const isolated = scopeProject("isolated");
+    expect(workspaceScreenScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
+      .toEqual(["first", "unrelated", "second"]);
   });
 });

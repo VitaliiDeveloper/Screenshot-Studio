@@ -199,6 +199,17 @@ the static renderer. `/api/asset` checks both lexical and canonical real-path co
 reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
 project replacement, and the future decorative `image` type remains outside v2.
 
+**Connected workspace hardening — Phase 6 Slice 7.** One `workspaceScreenScope` derivation feeds
+Overview/Fit and Screens: exact platform/device/locale group in connected mode, active locale in
+isolated mode. Connected reorder rewrites only the visible group's existing project-array slots;
+unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
+memoization compares every exact-group screen reference and projected order because a neighbour's
+element can change the requested crop, while unrelated groups remain memoized. The toolbar mode
+control delegates to the guarded core transition, reports refusal without adding history, and sends
+successful changes through bounded history and durable save. Desktop and compact browser coverage
+composes mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
+keyboard dismissal without persisting workspace chrome.
+
 ---
 
 ## 4. Store export spec

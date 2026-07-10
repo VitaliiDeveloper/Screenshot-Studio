@@ -5,7 +5,10 @@ import {
   cloneScreenWithFreshIds,
   recomputeManifests,
   removeLocaleSet as removeLocaleSetCore,
+  sameScreenGroup,
+  setCanvasMode as setCanvasModeCore,
   setLocaleDirection as setLocaleDirectionCore,
+  type CanvasMode,
   type Project,
   type Element,
   type TextElement,
@@ -20,7 +23,7 @@ import {
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
  * components. Every mutation goes through Immer, so each change is a discrete immutable patch —
- * the day-0 requirement (roadmap.md §1) that lets undo/redo be added later without a rewrite.
+ * the day-0 requirement (roadmap.md §1) now used by bounded undo/redo history.
  * The store is the only writer of project state; the canvas dispatches actions, never mutates.
  */
 
@@ -112,7 +115,8 @@ export interface EditorState {
   patchElement: (id: string, patch: ElementPatch, screenId?: string) => void;
   selectScreen: (id: string) => void;
   selectLocale: (locale: string) => void;
-  reorderScreensInLocale: (fromId: string, toId: string) => void;
+  reorderScreens: (fromId: string, toId: string) => void;
+  setCanvasMode: (mode: CanvasMode) => void;
   addScreen: () => void;
   removeScreen: (id: string) => void;
   addLocale: (sourceLocale: string, targetLocale: string, direction: LayoutDirection) => void;
@@ -235,15 +239,19 @@ export const editorStore = createStore<EditorState>((set) => ({
         ? { activeScreenId, selectedId: null, selectedScreenId: null, historyGroupKey: null }
         : state;
     }),
-  reorderScreensInLocale: (fromId, toId) =>
+  reorderScreens: (fromId, toId) =>
     set((state) => {
       if (!state.project || fromId === toId) return state;
       const fromScreen = state.project.screens.find((screen) => screen.id === fromId);
       const toScreen = state.project.screens.find((screen) => screen.id === toId);
-      if (!fromScreen || !toScreen || fromScreen.locale !== toScreen.locale) return state;
+      if (!fromScreen || !toScreen) return state;
+      const inScope = state.project.mode === "connected"
+        ? (screen: typeof fromScreen) => sameScreenGroup(screen, fromScreen)
+        : (screen: typeof fromScreen) => screen.locale === fromScreen.locale;
+      if (!inScope(toScreen)) return state;
       const project = produce(state.project, (draft) => {
         const indices = draft.screens
-          .map((screen, index) => screen.locale === fromScreen.locale ? index : -1)
+          .map((screen, index) => inScope(screen) ? index : -1)
           .filter((index) => index >= 0);
         const screens = indices.map((index) => draft.screens[index]!);
         const from = screens.findIndex((screen) => screen.id === fromId);
@@ -253,6 +261,10 @@ export const editorStore = createStore<EditorState>((set) => ({
       });
       return recordProjectChange(state, project);
     }),
+  setCanvasMode: (mode) =>
+    set((state) => state.project
+      ? recordProjectChange(state, setCanvasModeCore(state.project, mode))
+      : state),
   addScreen: () =>
     set((state) => {
       if (!state.project) return state;

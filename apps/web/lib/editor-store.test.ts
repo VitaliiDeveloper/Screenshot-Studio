@@ -190,7 +190,7 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
       screens: [enFirst!, arFirst!, enSecond!, arSecond!],
     });
 
-    editorStore.getState().reorderScreensInLocale(arFirst!.id, arSecond!.id);
+    editorStore.getState().reorderScreens(arFirst!.id, arSecond!.id);
 
     expect(editorStore.getState().project!.screens.map((screen) => screen.id)).toEqual([
       enFirst!.id,
@@ -435,5 +435,51 @@ describe("editorStore history (phase 6 slice 4)", () => {
     });
     editorStore.getState().undo();
     expect(editorStore.getState()).toMatchObject({ selectedId: null, selectedScreenId: null });
+  });
+});
+
+describe("editorStore connected workspace hardening (phase 6 slice 7)", () => {
+  it("records a successful canvas-mode change and makes it undoable", () => {
+    editorStore.getState().load(project());
+    editorStore.getState().setCanvasMode("connected");
+    expect(editorStore.getState().project?.mode).toBe("connected");
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project?.mode).toBe("isolated");
+  });
+
+  it("refuses a lossy isolated switch without changing history", () => {
+    const connected = project();
+    connected.mode = "connected";
+    connected.screens[0]!.elements[0]!.x = 100;
+    editorStore.getState().load(connected);
+
+    expect(() => editorStore.getState().setCanvasMode("isolated")).toThrow(/crosses its owner artboard/);
+    expect(editorStore.getState().project?.mode).toBe("connected");
+    expect(editorStore.getState().historyPast).toHaveLength(0);
+  });
+
+  it("reorders only exact connected-group slots", () => {
+    const connected = project();
+    connected.mode = "connected";
+    connected.platforms = ["apple", "android"];
+    const unrelated: Project["screens"][number] = {
+      id: "unrelated",
+      name: "Unrelated",
+      platform: "android",
+      device: "phone",
+      locale: "en",
+      direction: "ltr",
+      artboard: { width: 540, height: 960 },
+      background: { type: "solid", color: "#222222" },
+      elements: [],
+    };
+    connected.screens = [connected.screens[0]!, unrelated, connected.screens[1]!];
+    editorStore.getState().load(connected);
+
+    editorStore.getState().reorderScreens("hero", "second");
+    expect(editorStore.getState().project!.screens.map((screen) => screen.id))
+      .toEqual(["second", "unrelated", "hero"]);
   });
 });

@@ -118,7 +118,12 @@ export function LayersSection() {
           <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Layers</h2>
           <span className="text-[10px] font-medium tabular-nums text-slate-400">{rows.length}</span>
         </div>
-        <p className="mt-1 truncate text-xs font-semibold text-slate-700">{screen.name}</p>
+        <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
+          {project.mode === "connected" ? (
+            <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-600">Owner</span>
+          ) : null}
+          <span data-testid="layers-owner" className="truncate">{screen.name}</span>
+        </p>
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>

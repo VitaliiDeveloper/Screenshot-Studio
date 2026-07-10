@@ -11,13 +11,13 @@ import {
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { sameScreenGroup } from "@screenshot-studio/core/model";
 import {
   ARTBOARD_LABEL_HEIGHT,
   CANVAS_PADDING,
   clampZoom,
   fitArtboardsZoom,
   OVERVIEW_GAP,
+  workspaceScreenScope,
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
@@ -68,16 +68,13 @@ export function CanvasViewport({
   }, [zoom]);
 
   const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
-  const activeLocale = activeScreen?.locale;
   const screens = useMemo(
     () => {
       if (!project || !activeScreen) return [];
       if (view !== "overview") return [activeScreen];
-      return project.mode === "connected"
-        ? project.screens.filter((screen) => sameScreenGroup(screen, activeScreen))
-        : project.screens.filter((screen) => screen.locale === activeLocale);
+      return workspaceScreenScope(project, activeScreen);
     },
-    [activeLocale, activeScreen, project, view],
+    [activeScreen, project, view],
   );
   const connectedOverview = project?.mode === "connected" && view === "overview";
 

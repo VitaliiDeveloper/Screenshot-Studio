@@ -11,6 +11,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import { workspaceScreenScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
@@ -21,7 +22,7 @@ const DynamicScreenThumbnail = dynamic(
   { ssr: false },
 );
 
-/** Active-locale screens: select, locale-scoped reorder, duplicate-add, and delete. */
+/** Active connected group (or isolated locale): select, scoped reorder, duplicate-add, and delete. */
 export function ScreensSection({ images }: { images: ImageCache }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
@@ -32,15 +33,24 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   if (!project) return null;
   const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
   const activeLocale = activeScreen?.locale ?? project.locales[0]!;
-  const screens = project.screens.filter((screen) => screen.locale === activeLocale);
+  const screens = activeScreen
+    ? workspaceScreenScope(project, activeScreen)
+    : project.screens.filter((screen) => screen.locale === activeLocale);
+  const localeScreenCount = project.screens.filter((screen) => screen.locale === activeLocale).length;
+  const scopeLabel = project.mode === "connected" && activeScreen
+    ? `${activeLocale} · ${activeScreen.device}`
+    : activeLocale;
+  const listLabel = project.mode === "connected" && activeScreen
+    ? `Screens for ${activeLocale} ${activeScreen.device} group`
+    : `Screens for ${activeLocale}`;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
-    mutateAndSave(() => editorStore.getState().reorderScreensInLocale(String(e.active.id), String(e.over!.id)));
+    mutateAndSave(() => editorStore.getState().reorderScreens(String(e.active.id), String(e.over!.id)));
   };
 
   const onDelete = (id: string, name: string) => {
-    if (screens.length <= 1) return; // remove a complete locale only through the locale manager
+    if (localeScreenCount <= 1) return; // remove a complete locale only through the locale manager
     if (!window.confirm(`Delete screen "${name}" and all its layers?`)) return;
     mutateAndSave(() => editorStore.getState().removeScreen(id));
   };
@@ -50,7 +60,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
       <header className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Screens</h2>
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">{activeLocale}</span>
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">{scopeLabel}</span>
         </div>
         <button
           onClick={() => mutateAndSave(() => editorStore.getState().addScreen())}
@@ -61,7 +71,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div role="list" aria-label={`Screens for ${activeLocale}`}>
+          <div role="list" aria-label={listLabel}>
             {screens.map((s, index) => (
               <SortableRow
                 key={s.id}
@@ -98,7 +108,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 </button>
                 <button
                   onClick={() => onDelete(s.id, s.name)}
-                  disabled={screens.length <= 1}
+                  disabled={localeScreenCount <= 1}
                   aria-label={`Delete ${s.name}`}
                   className={`${editorUi.iconButton} opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus-visible:opacity-100`}
                 >
