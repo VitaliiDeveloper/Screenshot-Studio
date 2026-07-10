@@ -141,8 +141,8 @@ SVG input. Rating and press-proof badges now use editable ordinary groups, and o
 reuse secure contain-fit project images without a redundant schema type. Living v5 projects prove
 connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
 Phase 6 and Phase 7 complete the planned baseline. Phase 8 stabilization/release readiness is now
-in progress: failure/recovery hardening is complete and cross-environment packaged-install proof is
-next. No public release is claimed yet.
+in progress: failure/recovery hardening and the cross-environment packaged-install matrix are
+complete, with export soak/performance budgets next. No public release is claimed yet.
 
 ## Requirements
 

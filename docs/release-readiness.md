@@ -1,7 +1,7 @@
 # Release readiness evidence
 
-Status: Phase 8 in progress. Slice 1 is complete; Slice 2 cross-environment packaged-install proof
-is next. This ledger is evidence for a future go/no-go decision, not a public-release claim.
+Status: Phase 8 in progress. Slices 1–2 are complete; Slice 3 export soak and performance budgets
+are next. This ledger is evidence for a future go/no-go decision, not a public-release claim.
 
 ## Baseline entering Phase 8
 
@@ -53,9 +53,40 @@ intentional offline consumer install. Its first sandboxed render attempt then fa
 `listen EPERM` on `127.0.0.1`; the same test passed outside the network-listen sandbox. These were
 test-environment prerequisites, not product failures.
 
+## Slice 2 — Cross-environment packaged install
+
+Implemented:
+
+- a dedicated four-entry package matrix for Ubuntu/macOS/Windows on Node 22 plus Ubuntu on Node 24;
+- package-relevant pull-request and explicit manual triggers, without multiplying the ordinary full
+  browser gate across every environment;
+- explicit Chromium and Chromium Headless Shell installation on every runner, with Linux-only
+  system dependency installation;
+- workspace unit/typecheck coverage on the Ubuntu/Node 24 compatibility entry;
+- direct portable ZIP assembly that follows pnpm directory links/junctions without reproducing
+  privileged links in staging;
+- argument-preserving Windows execution through pnpm's Node entrypoint and `cmd.exe` only for the
+  installed `.cmd` shim, while POSIX retains direct execution.
+
+Local evidence on Darwin 25.5.0 arm64 / Node 24.16.0:
+
+1. `pnpm test:e2e:package` — 2 tests passed, including exact export and failure/recovery.
+2. Workspace typecheck passed for core, CLI, and web.
+3. Targeted ESLint for the changed package harness passed.
+4. The package-link archive unit regression passed.
+5. The package-matrix workflow parsed as YAML, community assertions passed, and
+   `git diff --check` passed.
+
+Remote evidence:
+
+- [Package Matrix run 29130389081](https://github.com/VitaliiDeveloper/Screenshot-Studio/actions/runs/29130389081)
+  passed the same packed install/init/manage/exact-export/failure-recovery smoke on Ubuntu, macOS,
+  and Windows with Node 22, plus Ubuntu with Node 24. The Node 24 entry also passed workspace unit
+  and typecheck gates. The final docs-only closure amend reruns the matrix through its workflow-file
+  change so the final checkpoint SHA retains remote evidence.
+
 ## Remaining release blockers
 
-- Slice 2: Linux/macOS/Windows Node 22 package matrix and Ubuntu Node 24 compatibility.
 - Slice 3: large/repeated export soak plus ratified wall-time/RSS budgets.
 - Slice 4: automated accessibility states and representative Chromium/Firefox/WebKit editor smoke.
 - Slice 5: dated current store-rule and production package/dependency/license audit.

@@ -20,8 +20,19 @@ let packedFiles: string[];
 let packedBytes: number;
 
 async function run(command: string, args: string[], cwd: string, timeout = 180_000) {
+  let executable = command;
+  let executableArgs = args;
+  if (process.platform === "win32" && command === "pnpm") {
+    if (!process.env.npm_execpath) throw new Error("pnpm entrypoint is unavailable");
+    executable = process.execPath;
+    executableArgs = [process.env.npm_execpath, ...args];
+  } else if (process.platform === "win32" && command.endsWith(".cmd")) {
+    executable = process.env.ComSpec ?? "cmd.exe";
+    executableArgs = ["/d", "/s", "/c", command, ...args];
+  }
+
   try {
-    return await execFile(command, args, {
+    return await execFile(executable, executableArgs, {
       cwd,
       timeout,
       maxBuffer: 10 * 1024 * 1024,
@@ -87,7 +98,7 @@ beforeAll(async () => {
 }, 300_000);
 
 afterAll(async () => {
-  await rm(directory, { recursive: true, force: true });
+  if (directory) await rm(directory, { recursive: true, force: true });
 });
 
 describe("Packaged CLI", () => {
