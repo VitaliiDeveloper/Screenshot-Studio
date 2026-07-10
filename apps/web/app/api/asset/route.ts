@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { dirname, join, resolve, relative, isAbsolute, extname } from "node:path";
+import { readFile, realpath } from "node:fs/promises";
+import { dirname, join, resolve, relative, isAbsolute, extname, sep } from "node:path";
 import { resolveProjectPath } from "../../../lib/project-path.js";
 
 /**
@@ -26,19 +26,29 @@ export async function GET(req: Request): Promise<Response> {
   const rel = url.searchParams.get("path");
   if (!rel) return Response.json({ error: "missing path" }, { status: 400 });
 
-  const projectPath = url.searchParams.get("project") ?? resolveProjectPath();
-  const baseDir = dirname(resolve(projectPath));
-  const target = resolve(join(baseDir, rel));
+  if (isAbsolute(rel)) return Response.json({ error: "path outside project" }, { status: 400 });
 
-  // Traversal guard: the resolved target must stay within the base dir.
-  const within = relative(baseDir, target);
-  if (within.startsWith("..") || isAbsolute(within)) {
+  const projectPath = url.searchParams.get("project") ?? resolveProjectPath();
+  let baseDir: string;
+  try {
+    baseDir = dirname(await realpath(resolve(projectPath)));
+  } catch {
+    return Response.json({ error: "project not found" }, { status: 404 });
+  }
+  const target = resolve(join(baseDir, rel));
+  const lexical = relative(baseDir, target);
+  if (lexical === ".." || lexical.startsWith(`..${sep}`) || isAbsolute(lexical)) {
     return Response.json({ error: "path outside project" }, { status: 400 });
   }
 
   try {
-    const bytes = await readFile(target);
-    const type = CONTENT_TYPES[extname(target).toLowerCase()] ?? "application/octet-stream";
+    const canonical = await realpath(target);
+    const within = relative(baseDir, canonical);
+    if (within === ".." || within.startsWith(`..${sep}`) || isAbsolute(within)) {
+      return Response.json({ error: "path outside project" }, { status: 400 });
+    }
+    const bytes = await readFile(canonical);
+    const type = CONTENT_TYPES[extname(canonical).toLowerCase()] ?? "application/octet-stream";
     return new Response(bytes, { status: 200, headers: { "content-type": type } });
   } catch {
     return Response.json({ error: "not found" }, { status: 404 });

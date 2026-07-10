@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–5 through connected authoring, undo/redo, and snapping are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and Phase 6 Slices 1–6 through connected authoring, undo/redo, snapping, and media insertion are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -88,20 +88,20 @@ shelf is open at a time; clicking its active rail item collapses it.
   rename. **No grouping.**
 - **Resources:** opens existing Fonts, Themes, and Templates dialogs.
 - **Add:** searchable, data-driven groups (`Basic`, `Media`, `Frames`, `Library`). Text and Shape
-  insert immediately. Asset-bearing entries remain visible but disabled with an asset-picker
-  explanation; Templates opens the existing library. Adding a future type extends catalog metadata
-  and an action rather than restructuring the workbench.
+  insert immediately. Screenshot and iPhone Device Frame open the project image picker; the future
+  decorative Image type stays visibly disabled. Templates opens the existing library. Adding a
+  future type extends catalog metadata and an action rather than restructuring the workbench.
 
 ---
 
 ## 4. Top bar & adding elements
 
 - Element entries in the Add shelf insert at a deterministic active-screen origin
-  (insert-on-click, not drag-to-draw — simpler). *(as built)* Only **`text` + `shape`** are
-  insertable — `screenshot` / `device-frame` have a required `assetUrl` and insertion needs an
-  asset-picker UI that doesn't exist yet (they stay fully editable once present in the JSON).
-  Asset picker + insert for those existing types is planned for Phase 6; the future decorative
-  `image` element is Phase 7.
+  (insert-on-click, not drag-to-draw — simpler). *(as built)* `text` and `shape` insert directly;
+  `screenshot` and `device-frame` choose a PNG/JPEG/WebP under project-local `assets/` or
+  `screenshots/`, then insert through the existing factories and shared image cache. Discovery and
+  serving reject traversal and symlink escapes. The picker does not upload or mutate files. The
+  future decorative `image` element remains Phase 7.
 - Zoom controls live on the canvas rather than in the top bar; Fit is implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
   CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*

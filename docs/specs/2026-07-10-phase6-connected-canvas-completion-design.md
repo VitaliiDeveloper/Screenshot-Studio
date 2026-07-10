@@ -1,6 +1,6 @@
 # Phase 6 — Connected canvas and completion foundations
 
-Status: active. Slices 1–5 are complete and verified; five execution slices remain. The
+Status: active. Slices 1–6 are complete and verified; four execution slices remain. The
 enforced project contract is v2 with lossless v1→v2 isolated migration.
 
 ## Goal

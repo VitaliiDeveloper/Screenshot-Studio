@@ -23,6 +23,7 @@ import { FontManagerDialog } from "../../components/FontManagerDialog";
 import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
 import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
 import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
+import { AssetPickerDialog } from "../../components/AssetPickerDialog";
 import { mutateAndSave } from "../../lib/mutate-and-save";
 import { flushScheduledSave } from "../../lib/debounced-save";
 
@@ -279,6 +280,12 @@ export default function EditorPage() {
       <FontManagerDialog open={dialog === "fonts"} onClose={() => setDialog(null)} />
       {dialog === "themes" ? <ThemeManagerDialog onClose={() => setDialog(null)} /> : null}
       {dialog === "templates" ? <TemplateLibraryDialog onClose={() => setDialog(null)} /> : null}
+      {dialog === "screenshot-assets" ? (
+        <AssetPickerDialog elementType="screenshot" onClose={() => setDialog(null)} />
+      ) : null}
+      {dialog === "device-frame-assets" ? (
+        <AssetPickerDialog elementType="device-frame" onClose={() => setDialog(null)} />
+      ) : null}
       {localeDialogOpen ? <LocaleManagerDialog onClose={() => setLocaleDialogOpen(false)} /> : null}
     </main>
   );

@@ -27,10 +27,14 @@ describe("editor workspace helpers", () => {
 
   it("filters the extensible add catalog by label, group, and hint", () => {
     expect(filterAddCatalog("frame").map((item) => item.id)).toEqual(["device-frame"]);
-    expect(filterAddCatalog("asset picker").map((item) => item.id)).toEqual([
+    expect(filterAddCatalog("asset").map((item) => item.id)).toEqual([
       "screenshot",
       "device-frame",
     ]);
     expect(filterAddCatalog("")).toHaveLength(6);
+    expect(filterAddCatalog("screenshot").map((item) => item.action)).toEqual([
+      "open-asset-picker",
+      "open-asset-picker",
+    ]);
   });
 });

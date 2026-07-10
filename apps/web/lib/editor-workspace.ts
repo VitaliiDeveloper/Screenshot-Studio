@@ -8,7 +8,12 @@ export type WorkspaceView = "focus" | "overview";
 export type WorkspaceTool = "select" | "hand";
 export type WorkspacePanel = "structure" | "resources" | "add";
 export type CanvasPattern = "dots" | "grid" | "none";
-export type ResourceDialog = "fonts" | "themes" | "templates";
+export type ResourceDialog =
+  | "fonts"
+  | "themes"
+  | "templates"
+  | "screenshot-assets"
+  | "device-frame-assets";
 
 export function clampZoom(value: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(3))));
@@ -57,7 +62,12 @@ export function fitArtboardsZoom(
 }
 
 export type AddCatalogCategory = "Basic" | "Media" | "Frames" | "Library";
-export type AddCatalogAction = "insert-text" | "insert-shape" | "open-templates" | "unavailable";
+export type AddCatalogAction =
+  | "insert-text"
+  | "insert-shape"
+  | "open-templates"
+  | "open-asset-picker"
+  | "unavailable";
 
 export interface AddCatalogItem {
   id: "text" | "shape" | "screenshot" | "image" | "device-frame" | "components";
@@ -70,7 +80,7 @@ export interface AddCatalogItem {
 
 /**
  * The creation shelf is data-driven so schema additions only add one descriptor + action.
- * Asset-backed entries remain visible but honest until the project has an asset picker.
+ * Every action maps to an enforced element type or an explicit future placeholder.
  */
 export const ADD_CATALOG: readonly AddCatalogItem[] = [
   { id: "text", label: "Text", category: "Basic", action: "insert-text", shortcut: "T" },
@@ -79,8 +89,8 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     id: "screenshot",
     label: "Screenshot",
     category: "Media",
-    action: "unavailable",
-    hint: "Asset picker required",
+    action: "open-asset-picker",
+    hint: "Choose a project image asset",
   },
   {
     id: "image",
@@ -93,8 +103,8 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     id: "device-frame",
     label: "iPhone Device Frame",
     category: "Frames",
-    action: "unavailable",
-    hint: "Asset picker required",
+    action: "open-asset-picker",
+    hint: "Choose a project screenshot asset",
   },
   {
     id: "components",

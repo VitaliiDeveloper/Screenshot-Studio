@@ -190,6 +190,15 @@ coordinate. Vertical/horizontal guides are non-listening Konva lines updated thr
 drag, cleared before persistence, and absent from the store, project schema, static renderer, and
 export.
 
+**Editor asset discovery — Phase 6 Slice 6.** `/api/assets` recursively lists regular PNG, JPEG,
+and WebP files only under the project-root `assets/` and `screenshots/` directories, skips hidden
+entries and symlinks, and returns stable portable relative paths. The Add picker creates only the
+existing `screenshot` and `device-frame` schema members through core factories; insertion then uses
+the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
+the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
+reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
+project replacement, and the future decorative `image` type remains outside v2.
+
 ---
 
 ## 4. Store export spec

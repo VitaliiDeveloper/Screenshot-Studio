@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { writeFileSync, mkdtempSync, rmSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdtempSync, rmSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GET } from "./route.js";
 
 let dir: string;
 let projectFile: string;
+let outsideDir: string;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "asset-"));
@@ -18,11 +19,13 @@ beforeEach(() => {
     writeFileSync(join(dir, "assets", "fonts", `demo.${ext}`), Buffer.from([0x00, 0x01]));
   }
   process.env.PROJECT_PATH = projectFile;
+  outsideDir = mkdtempSync(join(tmpdir(), "asset-outside-"));
 });
 
 afterEach(() => {
   delete process.env.PROJECT_PATH;
   rmSync(dir, { recursive: true, force: true });
+  rmSync(outsideDir, { recursive: true, force: true });
 });
 
 function req(qs: string): Request {
@@ -43,6 +46,13 @@ describe("GET /api/asset", () => {
 
   it("rejects path traversal outside the base dir", async () => {
     expect((await GET(req("path=../../etc/passwd"))).status).toBe(400);
+  });
+
+  it("rejects a symlink escape outside the project", async () => {
+    const outside = join(outsideDir, "outside.png");
+    writeFileSync(outside, "outside");
+    symlinkSync(outside, join(dir, "assets", "escape.png"));
+    expect((await GET(req("path=assets/escape.png"))).status).toBe(400);
   });
 
   it("404s a nonexistent file", async () => {

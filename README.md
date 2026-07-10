@@ -92,11 +92,12 @@ numbering are shipped.
 non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
 locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
 background removal write new PNGs without touching source assets or project JSON. The generated
-workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slices 1–5 now
+workflow and both commands are dogfooded, and the full closure gate passes. Phase 6 Slices 1–6 now
 ship schema v2, lossless v1 migration, connected UI/CLI crop parity, lifecycle-safe operations,
 guarded canvas-mode CLI, gapless owner-aware connected authoring, and bounded persisted undo/redo.
-Zoom-correct connected-space snapping and ephemeral smart guides now ship as well. Media insertion
-comes next, followed by standalone distribution,
+Zoom-correct connected-space snapping, ephemeral smart guides, and safe project-local insertion of
+existing screenshot/device-frame elements now ship as well. Connected workspace hardening comes
+next, followed by standalone distribution,
 and OSS project polish. Phase 7 completes the baseline with multi-select, grouping, and new creative
 primitives. Stabilization/release readiness follows only after that baseline is complete.
 
