@@ -7,6 +7,7 @@ import { CloudDownload, Type, Upload } from "lucide-react";
 import { fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
 import { registerFont } from "@screenshot-studio/core/fonts";
 import { editorStore } from "../lib/editor-store";
+import { primarySelection } from "../lib/editor-selection";
 import { withFlushedProject } from "../lib/debounced-save";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
@@ -32,8 +33,7 @@ async function responseProject(response: Response): Promise<Project> {
 export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
-  const selectedId = useStore(editorStore, (state) => state.selectedId);
-  const selectedScreenId = useStore(editorStore, (state) => state.selectedScreenId);
+  const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadFamily, setUploadFamily] = useState("");
   const [uploadWeight, setUploadWeight] = useState(400);
@@ -45,8 +45,9 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
 
   if (!open || !project || !activeScreenId) return null;
 
-  const selected = selectedId
-    ? getScreen(project, selectedScreenId ?? activeScreenId).elements.find((element) => element.id === selectedId)
+  const primary = primarySelection(selectedItems);
+  const selected = selectedItems.length === 1 && primary
+    ? getScreen(project, primary.screenId).elements.find((element) => element.id === primary.elementId)
     : undefined;
   const selectedText = selected?.type === "text" ? selected : undefined;
   const close = () => {
@@ -148,7 +149,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     mutateAndSave(() => editorStore.getState().patchElement(selectedText.id, {
       fontFamily: font.family,
       weight: font.weight,
-    }, selectedScreenId ?? activeScreenId));
+    }, primary?.screenId ?? activeScreenId));
   };
 
   return (

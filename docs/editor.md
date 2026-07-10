@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 0.9, 10 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, and the complete Phase 6 connected authoring foundation are implemented.**
+> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and Phase 7 Slice 1 multi-selection are implemented.**
 > (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
 > This spec now records both the **as-built** editor and the remaining **target** surface.
 > Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
@@ -58,8 +58,11 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
 - **Selection & transform.** Click selects an element; a Konva `Transformer` provides
   move / resize / rotate handles. Locked elements retain a selection outline but cannot be moved,
-  resized, rotated, or opened for canvas text editing. *(as built)* **Single-select only** — marquee
-  multi-select was deferred in Slice 1; multi-select and element grouping are planned for Phase 7.
+  resized, rotated, or opened for canvas text editing. Shift/Cmd/Ctrl click toggles composite
+  owner-aware identities and blank-canvas drag performs rotation-aware marquee selection. A
+  multi-selection exposes aggregate bounds plus atomic move/delete/lock/visibility; locked members
+  stay selected but do not move. Resize, rotate, and snapping remain single-element operations until
+  the Phase 7 persisted group contract is ratified.
 - **Text editing.** Double-click a `text` element for an overlay aligned to its scaled logical box
   with the screen's explicit LTR/RTL direction. `Escape` cancels and `Ctrl`/`Cmd` + `Enter` commits;
   blur commits and flushes persistence.
@@ -124,8 +127,9 @@ shelf is open at a time; clicking its active rail item collapses it.
 
 ## 5. Inspector (contextual, per type)
 
-Shows editable geometry when an element is selected: `x, y, width, height, rotation, opacity`.
-Lock and visibility remain in Layers rather than being duplicated here. Numeric drafts are bounded
+Shows editable geometry when one element is selected: `x, y, width, height, rotation, opacity`.
+Multiple elements show read-only aggregate bounds and batch lock/unlock, hide/show, and delete
+actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
 Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
@@ -194,8 +198,9 @@ Held back to protect the thin slice (aligned with `roadmap.md`):
   coalesces consecutive edits to one element or screen surface, exposes toolbar and standard
   keyboard controls, persists every undo/redo through the normal save path, and resets history on
   load or external project replacement. Selection and viewport state never enter history.
-- **Multi-select and element grouping.** Phase 7 starts with the selection model, then adds a
-  parity-proven persisted group contract before group authoring UI.
+- **Multi-select — shipped in Phase 7 Slice 1.** Composite owner-aware modified-click and marquee
+  selection supports aggregate movement and atomic batch actions without persisting workspace
+  state. Element grouping follows only after a parity-proven persisted group contract.
 - **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;
   translation assistance remains Phase 5.
 - **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the

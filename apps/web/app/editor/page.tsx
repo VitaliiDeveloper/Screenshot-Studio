@@ -197,7 +197,11 @@ export default function EditorPage() {
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (key === "t") {
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (editorStore.getState().selectedItems.length === 0) return;
+        event.preventDefault();
+        mutateAndSave(() => editorStore.getState().removeSelected());
+      } else if (key === "t") {
         event.preventDefault();
         const state = editorStore.getState();
         const font = state.project?.fonts[0];

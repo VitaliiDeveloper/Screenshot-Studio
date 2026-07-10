@@ -34,7 +34,7 @@ function project(): Project {
 
 describe("editorStore", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
   });
 
   it("load sets the project and the first screen as active", () => {
@@ -42,13 +42,13 @@ describe("editorStore", () => {
     const s = editorStore.getState();
     expect(s.project?.meta.name).toBe("T");
     expect(s.activeScreenId).toBe("hero");
-    expect(s.selectedId).toBeNull();
+    expect(s.selectedItems).toEqual([]);
   });
 
   it("select sets the selected id", () => {
     editorStore.getState().load(project());
     editorStore.getState().select("headline");
-    expect(editorStore.getState().selectedId).toBe("headline");
+    expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: "headline" }]);
   });
 
   it("patchElement updates geometry immutably (new project reference)", () => {
@@ -88,8 +88,7 @@ describe("editorStore", () => {
     const state = editorStore.getState();
     expect(state).toMatchObject({
       activeScreenId: "second",
-      selectedId: "headline",
-      selectedScreenId: "second",
+      selectedItems: [{ screenId: "second", elementId: "headline" }],
     });
     expect(state.project!.screens[0]!.elements[0]!.x).toBe(40);
     expect(state.project!.screens[1]!.elements[0]!.x).toBe(333);
@@ -98,7 +97,7 @@ describe("editorStore", () => {
 
 describe("editorStore screens (slice 4)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
     editorStore.getState().load(project());
   });
 
@@ -106,7 +105,7 @@ describe("editorStore screens (slice 4)", () => {
     editorStore.getState().select("headline");
     editorStore.getState().selectScreen("second");
     expect(editorStore.getState().activeScreenId).toBe("second");
-    expect(editorStore.getState().selectedId).toBeNull();
+    expect(editorStore.getState().selectedItems).toEqual([]);
   });
 
   it("addScreen duplicates the active screen with fresh ids, appended and active", () => {
@@ -138,7 +137,7 @@ describe("editorStore screens (slice 4)", () => {
 
 describe("editorStore locale workspace (phase 4 slice 4)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
     editorStore.getState().load(project());
   });
 
@@ -236,7 +235,7 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
 
 describe("editorStore elements (slice 4)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
     editorStore.getState().load(project());
     // give the active screen a second element so reorder is observable
     editorStore.setState((s) => {
@@ -263,7 +262,7 @@ describe("editorStore elements (slice 4)", () => {
     editorStore.getState().removeElement("accent");
     expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
       .toEqual(["headline"]);
-    expect(editorStore.getState().selectedId).toBeNull();
+    expect(editorStore.getState().selectedItems).toEqual([]);
   });
 
   it("patchElement can set locked, visible and name", () => {
@@ -276,7 +275,7 @@ describe("editorStore elements (slice 4)", () => {
 
 describe("editorStore addElement + wide patch (slice 5)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
     editorStore.getState().load(project());
   });
 
@@ -289,7 +288,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     editorStore.getState().addElement(el);
     const screen = editorStore.getState().project!.screens[0]!;
     expect(screen.elements.map((e) => e.id)).toContain("new-shape");
-    expect(editorStore.getState().selectedId).toBe("new-shape");
+    expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: "new-shape" }]);
   });
 
   it("patchElement can set type-specific fields", () => {
@@ -313,7 +312,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       { family: "Inter", weight: 400, source: "uploaded", path: "assets/fonts/inter-400.ttf" },
     ]);
     expect(editorStore.getState().project!.fonts).toHaveLength(1);
-    expect(editorStore.getState().selectedId).toBe("headline");
+    expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: "headline" }]);
   });
 
   it("patchElement ignores fields that do not belong to the element type", () => {
@@ -340,14 +339,17 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     const headline = next.screens[0]!.elements[0]!;
     if (headline.type === "text") headline.color = "#123456";
     editorStore.getState().replaceProject(next);
-    expect(editorStore.getState()).toMatchObject({ activeScreenId: "hero", selectedId: "headline" });
+    expect(editorStore.getState()).toMatchObject({
+      activeScreenId: "hero",
+      selectedItems: [{ screenId: "hero", elementId: "headline" }],
+    });
     expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ color: "#123456" });
   });
 });
 
 describe("editorStore screen editors (slice 5)", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedId: null, selectedScreenId: null });
+    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
     editorStore.getState().load(project());
   });
 
@@ -431,11 +433,10 @@ describe("editorStore history (phase 6 slice 4)", () => {
       kind: "rect", fill: "#00FF00", radius: 0,
     });
     expect(editorStore.getState()).toMatchObject({
-      selectedId: "temporary",
-      selectedScreenId: "hero",
+      selectedItems: [{ screenId: "hero", elementId: "temporary" }],
     });
     editorStore.getState().undo();
-    expect(editorStore.getState()).toMatchObject({ selectedId: null, selectedScreenId: null });
+    expect(editorStore.getState().selectedItems).toEqual([]);
   });
 });
 
@@ -482,5 +483,87 @@ describe("editorStore connected workspace hardening (phase 6 slice 7)", () => {
     editorStore.getState().reorderScreens("hero", "second");
     expect(editorStore.getState().project!.screens.map((screen) => screen.id))
       .toEqual(["second", "unrelated", "hero"]);
+  });
+});
+
+describe("editorStore multi-selection (phase 7 slice 1)", () => {
+  beforeEach(() => {
+    const connected = project();
+    connected.mode = "connected";
+    const duplicate = structuredClone(connected.screens[0]!.elements[0]!);
+    duplicate.locked = true;
+    connected.screens[1]!.elements = [duplicate];
+    editorStore.getState().load(connected);
+  });
+
+  it("toggles owner-aware duplicate ids and keeps the last item primary", () => {
+    editorStore.getState().select("headline", "hero");
+    editorStore.getState().select("headline", "second", "toggle");
+    expect(editorStore.getState().selectedItems).toEqual([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+
+    editorStore.getState().select("headline", "hero", "toggle");
+    expect(editorStore.getState().selectedItems).toEqual([
+      { screenId: "second", elementId: "headline" },
+    ]);
+  });
+
+  it("moves every unlocked selected owner in one undoable mutation", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+    editorStore.getState().moveSelected({ x: 15, y: -5 });
+
+    const [first, second] = editorStore.getState().project!.screens;
+    expect(first!.elements[0]).toMatchObject({ x: 55, y: 95 });
+    expect(second!.elements[0]).toMatchObject({ x: 40, y: 100 });
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ x: 40, y: 100 });
+  });
+
+  it("locks and hides the complete selection atomically", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+    editorStore.getState().setSelectedLocked(true);
+    expect(editorStore.getState().project!.screens.every((screen) => screen.elements[0]!.locked)).toBe(true);
+    expect(editorStore.getState().selectedItems).toHaveLength(2);
+
+    editorStore.getState().setSelectedVisible(false);
+    expect(editorStore.getState().project!.screens.every((screen) => !screen.elements[0]!.visible)).toBe(true);
+    expect(editorStore.getState().selectedItems).toEqual([]);
+    expect(editorStore.getState().historyPast).toHaveLength(2);
+  });
+
+  it("deletes duplicate ids from both owners in one undo step", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+    editorStore.getState().removeSelected();
+    expect(editorStore.getState().project!.screens.every((screen) => screen.elements.length === 0)).toBe(true);
+    expect(editorStore.getState().selectedItems).toEqual([]);
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.screens.every((screen) => screen.elements.length === 1)).toBe(true);
+    expect(editorStore.getState().selectedItems).toEqual([]);
+  });
+
+  it("reconciles connected selection when switching to isolated mode", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+    editorStore.getState().setCanvasMode("isolated");
+    expect(editorStore.getState().selectedItems).toEqual([
+      { screenId: "hero", elementId: "headline" },
+    ]);
   });
 });

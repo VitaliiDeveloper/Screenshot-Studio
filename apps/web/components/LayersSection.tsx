@@ -27,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
+import { isSelected } from "../lib/editor-selection";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "../lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
@@ -58,8 +59,7 @@ function ElementTypeIcon({ element }: { element: Element }) {
 export function LayersSection() {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
-  const selectedId = useStore(editorStore, (s) => s.selectedId);
-  const selectedScreenId = useStore(editorStore, (s) => s.selectedScreenId);
+  const selectedItems = useStore(editorStore, (s) => s.selectedItems);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -129,16 +129,16 @@ export function LayersSection() {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>
           <div role="list" aria-label={`Layers for ${screen.name}`}>
-            {rows.map((el, rowIndex) => (
+            {rows.map((el, rowIndex) => {
+              const selected = isSelected(selectedItems, { screenId: activeScreenId, elementId: el.id });
+              return (
               <SortableRow
                 key={el.id}
                 id={el.id}
                 role="listitem"
                 className={cx(
                   "relative mx-2 pr-1",
-                  el.id === selectedId && selectedScreenId === activeScreenId
-                    ? "bg-blue-50 ring-1 ring-blue-100"
-                    : undefined,
+                  selected ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
                 )}
               >
                 <ElementTypeIcon element={el} />
@@ -156,13 +156,17 @@ export function LayersSection() {
                   />
                 ) : (
                   <button
-                    onClick={() => {
+                    onClick={(event) => {
                       setOpenActionsId(null);
-                      editorStore.getState().select(el.id, activeScreenId);
+                      editorStore.getState().select(
+                        el.id,
+                        activeScreenId,
+                        event.shiftKey || event.metaKey || event.ctrlKey ? "toggle" : "replace",
+                      );
                     }}
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
                     className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
-                      el.id === selectedId && selectedScreenId === activeScreenId
+                      selected
                         ? "font-semibold text-blue-700"
                         : "text-slate-700"
                     } ${el.visible ? "" : "text-slate-400 line-through"}`}
@@ -268,7 +272,8 @@ export function LayersSection() {
                   </div>
                 ) : null}
               </SortableRow>
-            ))}
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>

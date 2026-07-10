@@ -8,12 +8,20 @@ import { useStore } from "zustand";
 import {
   assertNever,
   projectScreenGroup,
+  rotatedElementBounds,
   type Element,
   type Screen,
 } from "@screenshot-studio/core/model";
 import { elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
+import {
+  boundsIntersect,
+  isSelected,
+  primarySelection,
+  toggleSelection,
+  type SelectionRef,
+} from "../lib/editor-selection";
 import { snapElementDrag, type SnapGuide } from "../lib/editor-snapping";
 import { mutateAndSave } from "../lib/mutate-and-save";
 
@@ -37,8 +45,15 @@ function renderNodeConfigChild(child: NodeConfig, key: number, listening: boolea
   }
 }
 
-function selectionKey(screenId: string, elementId: string): string {
+function nodeSelectionKey(screenId: string, elementId: string): string {
   return `${screenId}\u0000${elementId}`;
+}
+
+interface MarqueeState {
+  start: { x: number; y: number };
+  current: { x: number; y: number };
+  initial: SelectionRef[];
+  toggle: boolean;
 }
 
 interface EditingText {
@@ -68,8 +83,7 @@ export function EditorStage({
 }) {
   const project = useStore(editorStore, (state) => state.project);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
-  const selectedId = useStore(editorStore, (state) => state.selectedId);
-  const selectedScreenId = useStore(editorStore, (state) => state.selectedScreenId);
+  const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const requestedScreenId = screenId ?? activeScreenId;
   const requestedScreen = requestedScreenId
     ? project?.screens.find((candidate) => candidate.id === requestedScreenId)
@@ -80,7 +94,9 @@ export function EditorStage({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const verticalGuideRef = useRef<Konva.Line>(null);
   const horizontalGuideRef = useRef<Konva.Line>(null);
+  const marqueeMovedRef = useRef(false);
   const [editing, setEditing] = useState<EditingText | null>(null);
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const endingEditRef = useRef(false);
 
   let projections: StageProjection[] = [];
@@ -109,11 +125,12 @@ export function EditorStage({
     && interactive
     && (project.mode === "connected" ? connectedOverview : requestedScreen.id === activeScreenId),
   );
-  const selectedProjection = selectedScreenId
-    ? projections.find((entry) => entry.screen.id === selectedScreenId)
+  const primary = primarySelection(selectedItems);
+  const selectedProjection = primary
+    ? projections.find((entry) => entry.screen.id === primary.screenId)
     : undefined;
-  const selectedElement = canEdit && selectedId && selectedProjection
-    ? selectedProjection.screen.elements.find((element) => element.id === selectedId)
+  const selectedElement = canEdit && primary && selectedProjection
+    ? selectedProjection.screen.elements.find((element) => element.id === primary.elementId)
     : undefined;
   const editingProjection = editing
     ? projections.find((entry) => entry.screen.id === editing.screenId)
@@ -127,14 +144,15 @@ export function EditorStage({
   useEffect(() => {
     const transformer = trRef.current;
     if (!transformer) return;
-    const key = selectedId && selectedScreenId
-      ? selectionKey(selectedScreenId, selectedId)
-      : null;
-    const node = canEdit && key && !editingElement ? nodeRefs.current.get(key) : undefined;
-    transformer.nodes(node ? [node] : []);
+    const nodes = canEdit && !editingElement
+      ? selectedItems
+        .map((selection) => nodeRefs.current.get(nodeSelectionKey(selection.screenId, selection.elementId)))
+        .filter((node): node is Konva.Node => Boolean(node))
+      : [];
+    transformer.nodes(nodes);
     transformer.forceUpdate();
     transformer.getLayer()?.batchDraw();
-  }, [canEdit, editingElement, project, selectedId, selectedScreenId]);
+  }, [canEdit, editingElement, project, selectedItems]);
 
   if (!project || !requestedScreen || projections.length === 0) return null;
 
@@ -179,6 +197,19 @@ export function EditorStage({
   ) => {
     const element = liveElement(ownerScreenId, id);
     if (!element || element.locked) return;
+    const candidate = { screenId: ownerScreenId, elementId: id };
+    if (selectedItems.length > 1 && isSelected(selectedItems, candidate)) {
+      clearSnapGuides();
+      const delta = { x: event.target.x() - element.x, y: event.target.y() - element.y };
+      for (const selection of selectedItems) {
+        if (selection.screenId === ownerScreenId && selection.elementId === id) continue;
+        const selected = liveElement(selection.screenId, selection.elementId);
+        const node = nodeRefs.current.get(nodeSelectionKey(selection.screenId, selection.elementId));
+        if (selected && node && !selected.locked) node.position({ x: selected.x + delta.x, y: selected.y + delta.y });
+      }
+      event.target.getLayer()?.batchDraw();
+      return;
+    }
     const result = snapElementDrag({
       element,
       ownerScreenId,
@@ -195,7 +226,13 @@ export function EditorStage({
     event: Konva.KonvaEventObject<DragEvent>,
   ) => {
     clearSnapGuides();
-    if (liveElement(ownerScreenId, id)?.locked) return;
+    const element = liveElement(ownerScreenId, id);
+    if (!element || element.locked) return;
+    if (selectedItems.length > 1 && isSelected(selectedItems, { screenId: ownerScreenId, elementId: id })) {
+      const delta = { x: event.target.x() - element.x, y: event.target.y() - element.y };
+      mutateAndSave(() => editorStore.getState().moveSelected(delta));
+      return;
+    }
     commit(ownerScreenId, id, { x: event.target.x(), y: event.target.y() });
   };
 
@@ -248,6 +285,107 @@ export function EditorStage({
     setEditing({ screenId: ownerScreenId, id: element.id, value });
   };
 
+  const selectionModifier = (event: Konva.KonvaEventObject<Event>) => {
+    const native = event.evt as MouseEvent;
+    return native.shiftKey || native.metaKey || native.ctrlKey;
+  };
+
+  const selectElement = (event: Konva.KonvaEventObject<Event>, screenId: string, elementId: string) => {
+    const candidate = { screenId, elementId };
+    if (!selectionModifier(event) && selectedItems.length > 1 && isSelected(selectedItems, candidate)) {
+      return;
+    }
+    editorStore.getState().select(
+      elementId,
+      screenId,
+      selectionModifier(event) ? "toggle" : "replace",
+    );
+  };
+
+  const finishElementClick = (
+    event: Konva.KonvaEventObject<Event>,
+    screenId: string,
+    elementId: string,
+  ) => {
+    if (selectionModifier(event)) return;
+    const state = editorStore.getState();
+    const candidate = { screenId, elementId };
+    if (state.selectedItems.length > 1 && isSelected(state.selectedItems, candidate)) {
+      state.select(elementId, screenId, "replace");
+    }
+  };
+
+  const pointerPosition = (stage: Konva.Stage) => {
+    const point = stage.getPointerPosition();
+    return point ? { x: point.x / zoom, y: point.y / zoom } : null;
+  };
+
+  const marqueeBounds = (value: MarqueeState) => ({
+    minX: Math.min(value.start.x, value.current.x),
+    minY: Math.min(value.start.y, value.current.y),
+    maxX: Math.max(value.start.x, value.current.x),
+    maxY: Math.max(value.start.y, value.current.y),
+  });
+
+  const marqueeHasMoved = (value: MarqueeState) =>
+    Math.hypot(value.current.x - value.start.x, value.current.y - value.start.y) >= 3 / zoom;
+
+  const beginMarquee = (event: Konva.KonvaEventObject<MouseEvent>) => {
+    if (!canEdit) return;
+    const stage = event.target.getStage();
+    const blank = event.target === stage || event.target.name() === "artboard-background";
+    if (!stage || !blank) return;
+    const point = pointerPosition(stage);
+    if (!point) return;
+    marqueeMovedRef.current = false;
+    setMarquee({
+      start: point,
+      current: point,
+      initial: [...selectedItems],
+      toggle: selectionModifier(event),
+    });
+  };
+
+  const updateMarquee = (event: Konva.KonvaEventObject<MouseEvent>) => {
+    if (!marquee) return;
+    const stage = event.target.getStage();
+    if (!stage) return;
+    const point = pointerPosition(stage);
+    if (!point) return;
+    const moved = marqueeHasMoved({ ...marquee, current: point });
+    if (moved) marqueeMovedRef.current = true;
+    setMarquee({ ...marquee, current: point });
+  };
+
+  const finishMarquee = () => {
+    if (!marquee) return;
+    if (marqueeMovedRef.current) {
+      const area = marqueeBounds(marquee);
+      const hits: SelectionRef[] = [];
+      for (const projection of projections) {
+        for (const element of projection.screen.elements) {
+          if (!element.visible) continue;
+          const local = rotatedElementBounds(element);
+          const bounds = {
+            minX: local.minX + projection.x + baseX,
+            minY: local.minY + projection.y,
+            maxX: local.maxX + projection.x + baseX,
+            maxY: local.maxY + projection.y,
+          };
+          if (boundsIntersect(area, bounds)) {
+            hits.push({ screenId: projection.screen.id, elementId: element.id });
+          }
+        }
+      }
+      const next = marquee.toggle
+        ? hits.reduce((items, hit) => toggleSelection(items, hit), marquee.initial)
+        : hits;
+      editorStore.getState().setSelection(next);
+    }
+    setMarquee(null);
+    window.setTimeout(() => { marqueeMovedRef.current = false; }, 0);
+  };
+
   const editingStyle: CSSProperties | undefined = editingElement?.type === "text" && editingProjection
     ? {
       left: (editingProjection.x + baseX + editingElement.x) * zoom,
@@ -274,6 +412,7 @@ export function EditorStage({
       data-testid="editor-stage"
       data-active-screen-id={activeScreenId ?? undefined}
       data-stage-screen-ids={projections.map((projection) => projection.screen.id).join(" ")}
+      data-selection-count={selectedItems.length}
       style={{ position: "relative", width: stageWidth * zoom, height: stageHeight * zoom }}
     >
       <Stage
@@ -282,9 +421,9 @@ export function EditorStage({
         scaleX={zoom}
         scaleY={zoom}
         style={{ pointerEvents: canEdit ? "auto" : "none" }}
-        onMouseDown={(event) => {
-          if (canEdit && event.target === event.target.getStage()) editorStore.getState().select(null);
-        }}
+        onMouseDown={beginMarquee}
+        onMouseMove={updateMarquee}
+        onMouseUp={finishMarquee}
       >
         <Layer>
           {projections.map(({ screen, x, y }) => screen.background.type === "solid" ? (
@@ -295,8 +434,12 @@ export function EditorStage({
               width={screen.artboard.width}
               height={screen.artboard.height}
               fill={screen.background.color}
+              name="artboard-background"
               listening={canEdit}
-              onClick={() => editorStore.getState().selectScreen(screen.id)}
+              onClick={(event) => {
+                if (marqueeMovedRef.current || selectionModifier(event)) return;
+                editorStore.getState().selectScreen(screen.id);
+              }}
               onTap={() => editorStore.getState().selectScreen(screen.id)}
             />
           ) : null)}
@@ -306,14 +449,19 @@ export function EditorStage({
               {screen.elements.map((element) => {
                 if (!element.visible) return null;
                 const nc = elementToNodeConfig(element, { images, direction: screen.direction });
-                const key = selectionKey(screen.id, element.id);
+                const key = nodeSelectionKey(screen.id, element.id);
                 const interaction = canEdit ? {
                   draggable: !element.locked,
                   ref: (node: Konva.Node | null) => {
                     if (node) nodeRefs.current.set(key, node);
                     else nodeRefs.current.delete(key);
                   },
-                  onClick: () => editorStore.getState().select(element.id, screen.id),
+                  onMouseDown: (event: Konva.KonvaEventObject<MouseEvent>) => {
+                    selectElement(event, screen.id, element.id);
+                  },
+                  onClick: (event: Konva.KonvaEventObject<MouseEvent>) => {
+                    finishElementClick(event, screen.id, element.id);
+                  },
                   onTap: () => editorStore.getState().select(element.id, screen.id),
                   onDragMove: onDragMove(screen.id, element.id),
                   onDragEnd: onDragEnd(screen.id, element.id),
@@ -329,7 +477,7 @@ export function EditorStage({
                         {...interaction}
                         visible={!(editing?.screenId === screen.id && editing.id === element.id)}
                         onClick={(event) => {
-                          editorStore.getState().select(element.id, screen.id);
+                          finishElementClick(event, screen.id, element.id);
                           if (event.evt.detail >= 2) {
                             beginTextEditing(screen.id, element, nc.config.text ?? "");
                           }
@@ -393,10 +541,28 @@ export function EditorStage({
           {canEdit ? (
             <Transformer
               ref={trRef}
-              resizeEnabled={!selectedElement?.locked}
-              rotateEnabled={!selectedElement?.locked}
+              resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
+              rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
             />
           ) : null}
+
+          {canEdit && marquee && marqueeHasMoved(marquee) ? (() => {
+            const bounds = marqueeBounds(marquee);
+            return (
+              <Rect
+                data-testid="selection-marquee"
+                x={bounds.minX}
+                y={bounds.minY}
+                width={bounds.maxX - bounds.minX}
+                height={bounds.maxY - bounds.minY}
+                fill="rgba(37, 99, 235, 0.12)"
+                stroke="#2563EB"
+                strokeWidth={1 / zoom}
+                dash={[5 / zoom, 3 / zoom]}
+                listening={false}
+              />
+            );
+          })() : null}
         </Layer>
       </Stage>
 

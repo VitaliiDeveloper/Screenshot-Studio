@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 6; Phase 7 is next.**
+> **Status: implementation and verification are complete through Phase 7 Slice 1; Slice 2 is next.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
@@ -19,7 +19,9 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > CLI artifact with its packaged shared render host, plus the thin optional skill that delegates to
 > generated project guidance, are verified. The real editor GIF, contribution/license surfaces,
 > living examples, and scoped SPDX policy close Phase 6. Phase 6 and planned Phase 7 together close
-> the baseline; public release readiness comes only after Phase 8 stabilization.
+> the baseline. Phase 7 now has owner-aware modified-click/marquee multi-selection and atomic batch
+> movement/actions without persisted workspace state; the group schema/parity slice is next. Public
+> release readiness comes only after Phase 8 stabilization.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
 > contract) — it wins over this summary.

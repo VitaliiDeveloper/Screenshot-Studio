@@ -2,11 +2,12 @@
 "use client";
 
 import { useStore } from "zustand";
-import { PanelRightClose } from "lucide-react";
+import { EyeOff, Lock, LockOpen, PanelRightClose, Trash2 } from "lucide-react";
 import { getScreen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
-import { mutateAndScheduleSave } from "../lib/mutate-and-save";
+import { primarySelection, selectionBounds } from "../lib/editor-selection";
+import { mutateAndSave, mutateAndScheduleSave } from "../lib/mutate-and-save";
 import { flushScheduledSave } from "../lib/debounced-save";
 import {
   NumberField,
@@ -56,12 +57,24 @@ export function Inspector({
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
-  const selectedId = useStore(editorStore, (s) => s.selectedId);
-  const selectedScreenId = useStore(editorStore, (s) => s.selectedScreenId);
+  const selectedItems = useStore(editorStore, (s) => s.selectedItems);
 
   if (!project || !activeScreenId) return <aside className={cx("w-72 shrink-0 border-l border-slate-200 bg-white", className)} />;
-  const screen = getScreen(project, selectedId && selectedScreenId ? selectedScreenId : activeScreenId);
-  const element = selectedId ? screen.elements.find((e) => e.id === selectedId) : undefined;
+  const primary = primarySelection(selectedItems);
+  const screen = getScreen(project, selectedItems.length === 1 && primary ? primary.screenId : activeScreenId);
+  const element = selectedItems.length === 1 && primary
+    ? screen.elements.find((candidate) => candidate.id === primary.elementId)
+    : undefined;
+  const aggregate = selectedItems.length > 1
+    ? selectionBounds(project, activeScreenId, selectedItems)
+    : null;
+  const selectedElements = selectedItems.flatMap((selection) => {
+    const owner = project.screens.find((candidate) => candidate.id === selection.screenId);
+    const selected = owner?.elements.find((candidate) => candidate.id === selection.elementId);
+    return selected ? [selected] : [];
+  });
+  const everyLocked = selectedElements.length > 0 && selectedElements.every((candidate) => candidate.locked);
+  const everyHidden = selectedElements.length > 0 && selectedElements.every((candidate) => !candidate.visible);
 
   return (
     <aside className={cx(
@@ -74,7 +87,9 @@ export function Inspector({
       <header className="sticky top-0 z-10 flex min-h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
         <div>
           <h2 className="text-sm font-semibold tracking-tight text-slate-950">Inspect</h2>
-          <p className="text-[10px] text-slate-400">{element ? element.type : screen.name}</p>
+          <p className="text-[10px] text-slate-400">
+            {selectedItems.length > 1 ? `${selectedItems.length} elements` : element ? element.type : screen.name}
+          </p>
         </div>
         {onClose ? (
           <button type="button" aria-label="Close inspector" className={editorUi.iconButton} onClick={onClose}>
@@ -82,7 +97,49 @@ export function Inspector({
           </button>
         ) : null}
       </header>
-      {element ? (
+      {selectedItems.length > 1 ? (
+        <>
+          <Section title="Selection">
+            {aggregate ? (
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                <span>X <strong className="text-slate-700">{Math.round(aggregate.minX)}</strong></span>
+                <span>Y <strong className="text-slate-700">{Math.round(aggregate.minY)}</strong></span>
+                <span>Width <strong className="text-slate-700">{Math.round(aggregate.maxX - aggregate.minX)}</strong></span>
+                <span>Height <strong className="text-slate-700">{Math.round(aggregate.maxY - aggregate.minY)}</strong></span>
+              </div>
+            ) : null}
+            <p className="text-[11px] leading-4 text-slate-400">
+              Drag to move the unlocked selection. Resize and rotation remain single-element actions.
+            </p>
+          </Section>
+          <Section title="Batch actions">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={editorUi.buttonSecondary}
+                onClick={() => mutateAndSave(() => editorStore.getState().setSelectedLocked(!everyLocked))}
+              >
+                {everyLocked ? <LockOpen size={14} /> : <Lock size={14} />}
+                {everyLocked ? "Unlock" : "Lock"}
+              </button>
+              <button
+                type="button"
+                className={editorUi.buttonSecondary}
+                onClick={() => mutateAndSave(() => editorStore.getState().setSelectedVisible(everyHidden))}
+              >
+                <EyeOff size={14} /> {everyHidden ? "Show" : "Hide"}
+              </button>
+              <button
+                type="button"
+                className={`${editorUi.buttonDanger} col-span-2`}
+                onClick={() => mutateAndSave(() => editorStore.getState().removeSelected())}
+              >
+                <Trash2 size={14} /> Delete selected
+              </button>
+            </div>
+          </Section>
+        </>
+      ) : element ? (
         <>
           <Section title="Transform">
             <NumberField label="X" value={element.x} onChange={(x) => patch(element.id, { x })} />

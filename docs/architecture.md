@@ -213,6 +213,15 @@ successful changes through bounded history and durable save. Desktop and compact
 composes mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
 keyboard dismissal without persisting workspace chrome.
 
+**Editor multi-selection — Phase 7 Slice 1.** Selection is an ephemeral ordered set of composite
+`{ screenId, elementId }` identities; its last member is the primary single-item target. Modified
+click and rotation-aware marquee acquisition operate only inside the editable active screen or
+connected exact group. Aggregate translation adds one stage-space delta to each unlocked member's
+unchanged owner-local coordinates and commits one history/save mutation; delete, lock, and
+visibility are likewise atomic. Multi-resize/rotate, snapping, grouping, and persistence remain
+outside this selection contract. Selection is reconciled across screen/mode/load/undo boundaries
+but never enters project JSON, render/export input, or history snapshots.
+
 ---
 
 ## 4. Store export spec

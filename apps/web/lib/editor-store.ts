@@ -20,6 +20,12 @@ import {
   type LayoutDirection,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
+import {
+  primarySelection,
+  reconcileSelection,
+  toggleSelection,
+  type SelectionRef,
+} from "./editor-selection.js";
 
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
@@ -103,8 +109,7 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
 export interface EditorState {
   project: Project | null;
   activeScreenId: string | null;
-  selectedId: string | null;
-  selectedScreenId: string | null;
+  selectedItems: SelectionRef[];
   historyPast: Project[];
   historyFuture: Project[];
   historyGroupKey: string | null;
@@ -112,8 +117,13 @@ export interface EditorState {
   saveError: string | null;
   load: (project: Project) => void;
   setSaveState: (status: EditorState["saveStatus"], error?: string | null) => void;
-  select: (id: string | null, screenId?: string) => void;
+  select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
+  setSelection: (items: SelectionRef[]) => void;
   patchElement: (id: string, patch: ElementPatch, screenId?: string) => void;
+  moveSelected: (delta: { x: number; y: number }) => void;
+  removeSelected: () => void;
+  setSelectedLocked: (locked: boolean) => void;
+  setSelectedVisible: (visible: boolean) => void;
   selectScreen: (id: string) => void;
   selectLocale: (locale: string) => void;
   reorderScreens: (fromId: string, toId: string) => void;
@@ -168,22 +178,16 @@ function selectionForProject(state: EditorState, project: Project) {
   const activeScreenId = project.screens.some((screen) => screen.id === state.activeScreenId)
     ? state.activeScreenId
     : project.screens[0]?.id ?? null;
-  const selectedScreen = project.screens.find((screen) => screen.id === state.selectedScreenId);
-  const selectedId = selectedScreen?.elements.some((element) => element.id === state.selectedId)
-    ? state.selectedId
-    : null;
   return {
     activeScreenId,
-    selectedId,
-    selectedScreenId: selectedId ? selectedScreen!.id : null,
+    selectedItems: reconcileSelection(project, activeScreenId, state.selectedItems),
   };
 }
 
 export const editorStore = createStore<EditorState>((set) => ({
   project: null,
   activeScreenId: null,
-  selectedId: null,
-  selectedScreenId: null,
+  selectedItems: [],
   historyPast: [],
   historyFuture: [],
   historyGroupKey: null,
@@ -193,8 +197,7 @@ export const editorStore = createStore<EditorState>((set) => ({
     set({
       project,
       activeScreenId: project.screens[0]?.id ?? null,
-      selectedId: null,
-      selectedScreenId: null,
+      selectedItems: [],
       historyPast: [],
       historyFuture: [],
       historyGroupKey: null,
@@ -202,22 +205,33 @@ export const editorStore = createStore<EditorState>((set) => ({
       saveError: null,
     }),
   setSaveState: (saveStatus, saveError = null) => set({ saveStatus, saveError }),
-  select: (id, screenId) => set((state) => {
-    if (id === null) return { selectedId: null, selectedScreenId: null, historyGroupKey: null };
+  select: (id, screenId, mode = "replace") => set((state) => {
+    if (id === null) return { selectedItems: [], historyGroupKey: null };
     const ownerScreenId = screenId ?? state.activeScreenId;
     if (!ownerScreenId) return state;
+    const candidate = { screenId: ownerScreenId, elementId: id };
+    const selectedItems = mode === "toggle"
+      ? toggleSelection(state.selectedItems, candidate)
+      : [candidate];
     return {
-      selectedId: id,
-      selectedScreenId: ownerScreenId,
+      selectedItems,
       historyGroupKey: null,
       ...(state.project?.mode === "connected" ? { activeScreenId: ownerScreenId } : {}),
+    };
+  }),
+  setSelection: (items) => set((state) => {
+    if (!state.project) return state;
+    return {
+      selectedItems: reconcileSelection(state.project, state.activeScreenId, items),
+      historyGroupKey: null,
     };
   }),
   patchElement: (id, patch, screenId) =>
     set((state) => {
       if (!state.project) return state;
+      const primary = primarySelection(state.selectedItems);
       const ownerScreenId = screenId
-        ?? (state.selectedId === id ? state.selectedScreenId : null)
+        ?? (primary?.elementId === id ? primary.screenId : null)
         ?? state.activeScreenId;
       if (!ownerScreenId) return state;
       const project = produce(state.project, (draft) => {
@@ -227,17 +241,70 @@ export const editorStore = createStore<EditorState>((set) => ({
       });
       return recordProjectChange(state, project, `element:${ownerScreenId}:${id}`);
     }),
+  moveSelected: (delta) =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length === 0 || (delta.x === 0 && delta.y === 0)) return state;
+      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
+      const project = produce(state.project, (draft) => {
+        for (const screen of draft.screens) {
+          for (const element of screen.elements) {
+            if (element.locked || !selectedKeys.has(`${screen.id}\u0000${element.id}`)) continue;
+            element.x += delta.x;
+            element.y += delta.y;
+          }
+        }
+      });
+      return recordProjectChange(state, project);
+    }),
+  removeSelected: () =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length === 0) return state;
+      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
+      const project = produce(state.project, (draft) => {
+        for (const screen of draft.screens) {
+          screen.elements = screen.elements.filter(
+            (element) => !selectedKeys.has(`${screen.id}\u0000${element.id}`),
+          );
+        }
+      });
+      return recordProjectChange(state, project, null, { selectedItems: [] });
+    }),
+  setSelectedLocked: (locked) =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length === 0) return state;
+      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
+      const project = produce(state.project, (draft) => {
+        for (const screen of draft.screens) {
+          for (const element of screen.elements) {
+            if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) element.locked = locked;
+          }
+        }
+      });
+      return recordProjectChange(state, project);
+    }),
+  setSelectedVisible: (visible) =>
+    set((state) => {
+      if (!state.project || state.selectedItems.length === 0) return state;
+      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
+      const project = produce(state.project, (draft) => {
+        for (const screen of draft.screens) {
+          for (const element of screen.elements) {
+            if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) element.visible = visible;
+          }
+        }
+      });
+      return recordProjectChange(state, project, null, visible ? {} : { selectedItems: [] });
+    }),
   selectScreen: (id) => set({
     activeScreenId: id,
-    selectedId: null,
-    selectedScreenId: null,
+    selectedItems: [],
     historyGroupKey: null,
   }),
   selectLocale: (locale) =>
     set((state) => {
       const activeScreenId = state.project?.screens.find((screen) => screen.locale === locale)?.id;
       return activeScreenId
-        ? { activeScreenId, selectedId: null, selectedScreenId: null, historyGroupKey: null }
+        ? { activeScreenId, selectedItems: [], historyGroupKey: null }
         : state;
     }),
   reorderScreens: (fromId, toId) =>
@@ -263,9 +330,13 @@ export const editorStore = createStore<EditorState>((set) => ({
       return recordProjectChange(state, project);
     }),
   setCanvasMode: (mode) =>
-    set((state) => state.project
-      ? recordProjectChange(state, setCanvasModeCore(state.project, mode))
-      : state),
+    set((state) => {
+      if (!state.project) return state;
+      const project = setCanvasModeCore(state.project, mode);
+      return recordProjectChange(state, project, null, {
+        selectedItems: reconcileSelection(project, state.activeScreenId, state.selectedItems),
+      });
+    }),
   addScreen: () =>
     set((state) => {
       if (!state.project) return state;
@@ -280,8 +351,7 @@ export const editorStore = createStore<EditorState>((set) => ({
       });
       return recordProjectChange(state, project, null, {
         activeScreenId: copy.id,
-        selectedId: null,
-        selectedScreenId: null,
+        selectedItems: [],
       });
     }),
   removeScreen: (id) =>
@@ -302,13 +372,10 @@ export const editorStore = createStore<EditorState>((set) => ({
         ? (sameLocale[Math.min(localeIndex, sameLocale.length - 1)]
           ?? project.screens[Math.min(idx, project.screens.length - 1)])!.id
         : state.activeScreenId;
-      const clearsSelection = state.selectedScreenId === id;
-      const selectedId = clearsSelection ? null : state.selectedId;
-      const selectedScreenId = clearsSelection ? null : state.selectedScreenId;
+      const selectedItems = state.selectedItems.filter((item) => item.screenId !== id);
       return recordProjectChange(state, project, null, {
         activeScreenId,
-        selectedId,
-        selectedScreenId,
+        selectedItems: reconcileSelection(project, activeScreenId, selectedItems),
       });
     }),
   addLocale: (sourceLocale, targetLocale, direction) =>
@@ -318,8 +385,7 @@ export const editorStore = createStore<EditorState>((set) => ({
       const activeScreenId = project.screens.find((screen) => screen.locale === targetLocale)!.id;
       return recordProjectChange(state, project, null, {
         activeScreenId,
-        selectedId: null,
-        selectedScreenId: null,
+        selectedItems: [],
       });
     }),
   setLocaleDirection: (locale, direction) =>
@@ -338,8 +404,7 @@ export const editorStore = createStore<EditorState>((set) => ({
       if (activeScreen?.locale !== locale) return recordProjectChange(state, project);
       return recordProjectChange(state, project, null, {
         activeScreenId: project.screens[0]!.id,
-        selectedId: null,
-        selectedScreenId: null,
+        selectedItems: [],
       });
     }),
   reorderElements: (from, to) =>
@@ -354,18 +419,19 @@ export const editorStore = createStore<EditorState>((set) => ({
   removeElement: (id, screenId) =>
     set((state) => {
       if (!state.project) return state;
+      const primary = primarySelection(state.selectedItems);
       const ownerScreenId = screenId
-        ?? (state.selectedId === id ? state.selectedScreenId : null)
+        ?? (primary?.elementId === id ? primary.screenId : null)
         ?? state.activeScreenId;
       if (!ownerScreenId) return state;
       const project = produce(state.project, (draft) => {
         const screen = draft.screens.find((s) => s.id === ownerScreenId);
         if (screen) screen.elements = screen.elements.filter((e) => e.id !== id);
       });
-      const clearsSelection = state.selectedId === id && state.selectedScreenId === ownerScreenId;
       return recordProjectChange(state, project, null, {
-        selectedId: clearsSelection ? null : state.selectedId,
-        selectedScreenId: clearsSelection ? null : state.selectedScreenId,
+        selectedItems: state.selectedItems.filter(
+          (item) => item.screenId !== ownerScreenId || item.elementId !== id,
+        ),
       });
     }),
   addElement: (element) =>
@@ -376,8 +442,7 @@ export const editorStore = createStore<EditorState>((set) => ({
         if (screen) screen.elements.push(element);
       });
       return recordProjectChange(state, project, null, {
-        selectedId: element.id,
-        selectedScreenId: state.activeScreenId,
+        selectedItems: [{ screenId: state.activeScreenId, elementId: element.id }],
       });
     }),
   patchBackground: (patch) =>
