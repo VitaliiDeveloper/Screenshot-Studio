@@ -34,6 +34,14 @@ assertIncludes(readme, "docs/assets/editor-demo.gif", "README demo");
 assertIncludes(readme, "https://github.com/VitaliiDeveloper/Screenshot-Studio.git", "README source install");
 assertIncludes(readme, "it is not a registry release", "README release status");
 assertIncludes(readme, "Phase 6 and Phase 7 complete the planned baseline", "README baseline status");
+assertIncludes(
+  readme,
+  "Phase 8 (stabilization + release readiness) — done; decision: `GO`.",
+  "README Phase 8 status",
+);
+if (readme.includes("Phase 8 stabilization/release readiness is now\nin progress")) {
+  throw new Error("README still reports Phase 8 as in progress");
+}
 assertIncludes(readme, "screenshot-studio-cli-0.1.0.tgz", "README candidate artifact");
 
 const changelog = await readFile(join(repoRoot, "CHANGELOG.md"), "utf8");
