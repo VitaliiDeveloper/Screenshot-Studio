@@ -281,13 +281,19 @@ pnpm test              # full unit suite
 pnpm test:core         # core unit tests only
 pnpm test:cli          # CLI unit tests only
 pnpm test:web          # web unit tests only
-pnpm test:e2e:parity   # render/font/device parity
+pnpm test:e2e:parity:foundation # base renderer/font/media/RTL/connected parity
+pnpm test:e2e:parity:elements   # group/image/icon/badge parity
 pnpm test:e2e:export   # CLI + UI export paths
-pnpm test:e2e:editor   # editor workflows
-pnpm test:e2e:accessibility # Axe states + Chromium/Firefox/WebKit editor smoke
+pnpm test:e2e:editor:interaction # canvas/panels/inspector/history/snapping
+pnpm test:e2e:editor:workspace   # locale/connected/responsive workspace
+pnpm test:e2e:editor:authoring   # fonts/themes/templates/assets/group authoring
+pnpm test:e2e:accessibility # desktop + compact Axe states
+pnpm test:e2e:browsers # Chromium/Firefox/WebKit editor smoke
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
-pnpm test:e2e:examples # validate, edit, and export the living example projects
+pnpm test:e2e:examples # validate and export the living example projects
+pnpm test:e2e:ci       # 27-case development-branch subset
+pnpm test:e2e:release-surfaces # browsers/package/skill/examples aggregate
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
 pnpm audit:release     # pack and audit files, runtime deps/licenses, portability, and size
@@ -296,10 +302,11 @@ pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
 pnpm typecheck         # all packages
 ```
 
-The targeted scripts are the normal implementation-loop checks; exact Vitest file paths are
-preferred for a narrower change. `pnpm test:e2e` starts multiple `apps/web` render hosts and
-drives Chromium, so reserve it for shared-contract or closure verification. It requires the
-Playwright browsers from **Requirements** above.
+The leaf scripts are the normal implementation-loop checks; exact Vitest file paths are preferred
+for a narrower change. The unsuffixed parity/editor commands remain aggregates. `pnpm test:e2e`
+starts multiple `apps/web` render hosts and drives every configured browser, so reserve it for
+shared-contract or closure verification. See the human-readable ownership and cost matrix in
+[`docs/testing.md`](docs/testing.md).
 
 ## License
 
