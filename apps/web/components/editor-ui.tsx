@@ -157,6 +157,7 @@ export function AddMenu<T extends string>({
 export type MenuSelectOption<T extends string> = {
   value: T;
   label: string;
+  triggerLabel?: string;
   icon?: LucideIcon;
 };
 
@@ -172,6 +173,7 @@ export function MenuSelect<T extends string>({
   menuClassName,
   showSelectedIcon = false,
   density = "default",
+  appearance = "field",
 }: {
   ariaLabel: string;
   menuLabel?: string;
@@ -183,6 +185,7 @@ export function MenuSelect<T extends string>({
   menuClassName?: string;
   showSelectedIcon?: boolean;
   density?: "default" | "compact";
+  appearance?: "field" | "breadcrumb";
 }) {
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
@@ -192,6 +195,7 @@ export function MenuSelect<T extends string>({
   const activeOption = options.find((option) => option.value === value) ?? options[0];
   const ActiveIcon = activeOption?.icon;
   const compact = density === "compact";
+  const breadcrumb = appearance === "breadcrumb";
 
   useEffect(() => {
     if (!open) return;
@@ -242,13 +246,19 @@ export function MenuSelect<T extends string>({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={cx(
-          "group flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white shadow-sm transition-all",
+          "group flex w-full items-center gap-2 transition-all",
+          breadcrumb
+            ? "rounded-none border-0 bg-transparent shadow-none hover:bg-slate-100/70 hover:text-slate-700"
+            : "rounded-lg border border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
           compact
             ? "h-7 px-2 text-[10px] font-normal text-slate-500"
             : "h-8 px-2.5 text-xs text-slate-800",
-          "hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
-          open && "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10",
+          breadcrumb
+            ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
+            : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
+          open && (breadcrumb
+            ? "bg-slate-100/80 text-slate-700"
+            : "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10"),
           triggerClassName,
         )}
         onClick={() => setOpen((current) => !current)}
@@ -263,7 +273,7 @@ export function MenuSelect<T extends string>({
             <ActiveIcon size={14} strokeWidth={1.8} />
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-left">{activeOption.label}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{activeOption.triggerLabel ?? activeOption.label}</span>
         <ChevronDown size={14} strokeWidth={1.9} className={cx("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
       </button>
 

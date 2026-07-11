@@ -99,7 +99,7 @@ export function ScreensSection({ images }: { images: ImageCache }) {
         </button>
       </header>
       {showOutputSwitcher ? (
-        <div className="border-y border-slate-100 bg-slate-50/60 px-2 py-1.5">
+        <div className="border-y border-slate-100 bg-slate-50/40">
           <MenuSelect
             ariaLabel={`Output family for ${activeLocale}`}
             menuLabel={`Output family options for ${activeLocale}`}
@@ -107,14 +107,15 @@ export function ScreensSection({ images }: { images: ImageCache }) {
             options={outputRows.map((row) => ({
               value: row.key,
               label: `${row.label} · ${row.screens.length}`,
+              triggerLabel: `${row.label.replace(" · ", " / ")} · ${row.screens.length} ${row.screens.length === 1 ? "screen" : "screens"}`,
             }))}
             onChange={(outputKey) => {
               const output = outputRows.find((row) => row.key === outputKey);
               if (output) editorStore.getState().selectScreen(output.screens[0]!.id);
             }}
             density="compact"
+            appearance="breadcrumb"
             className="w-full"
-            triggerClassName="rounded-md shadow-none"
             menuClassName="w-full"
           />
         </div>

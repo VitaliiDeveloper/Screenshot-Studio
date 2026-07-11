@@ -155,7 +155,7 @@ describe("Phase 3.6 editor workspace", () => {
 
     const outputFamily = page.getByRole("button", { name: "Output family for en", exact: true });
     await expect.poll(() => outputFamily.count()).toBe(1);
-    expect(await outputFamily.textContent()).toContain("App Store · iPad · 3");
+    expect(await outputFamily.textContent()).toContain("App Store / iPad · 3 screens");
 
     await outputFamily.click();
     const outputOptions = page.getByRole("menu", { name: "Output family options for en", exact: true });
@@ -172,7 +172,7 @@ describe("Phase 3.6 editor workspace", () => {
     await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
-    expect(await outputFamily.textContent()).toContain("App Store · iPhone · 3");
+    expect(await outputFamily.textContent()).toContain("App Store / iPhone · 3 screens");
     expect(await page.getByTestId("overview-output-families").getByRole("region").count()).toBe(2);
 
     await outputFamily.click();
