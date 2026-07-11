@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { EventEmitter } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
-import { createServerController, extractWebArchive, resolveServerPort } from "./server.js";
+import {
+  createServerController,
+  extractWebArchive,
+  materializeSharpRuntime,
+  resolveServerPort,
+} from "./server.js";
 
 class FakeChild extends EventEmitter {
   exitCode: number | null = null;
@@ -73,6 +78,48 @@ describe("extractWebArchive", () => {
 
     await expect(extractWebArchive(archivePath, join(directory, "extracted")))
       .rejects.toThrow(/Unsafe packaged render-host link/);
+    await rm(directory, { recursive: true, force: true });
+  });
+});
+
+describe("materializeSharpRuntime", () => {
+  it("finds the installed platform package even when package.json is not exported", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "sharp-runtime-installed-"));
+    const copied = await materializeSharpRuntime(directory);
+
+    expect(copied).toContain("sharp");
+    expect(copied).toContain("@img/colour");
+    expect(copied.some((name) => /^@img\/sharp-(?!libvips)/.test(name))).toBe(true);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("copies required and installed optional packages into the extracted host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "sharp-runtime-"));
+    const packages = join(directory, "packages");
+    const destination = join(directory, "host");
+    const manifests = new Map<string, string>();
+    for (const [name, manifest] of [
+      ["sharp", { dependencies: { "sharp-required": "1" }, optionalDependencies: { "sharp-native": "1", "sharp-missing": "1" } }],
+      ["sharp-required", {}],
+      ["sharp-native", {}],
+    ] as const) {
+      const path = join(packages, name, "package.json");
+      await mkdir(join(packages, name), { recursive: true });
+      await writeFile(path, JSON.stringify({ name, ...manifest }));
+      manifests.set(name, path);
+    }
+
+    const copied = await materializeSharpRuntime(destination, (name) => {
+      const manifest = manifests.get(name);
+      if (!manifest) throw new Error(`Missing ${name}`);
+      return manifest;
+    });
+
+    expect(copied).toEqual(["sharp", "sharp-native", "sharp-required"]);
+    await expect(readFile(join(destination, "node_modules", "sharp", "package.json"), "utf8"))
+      .resolves.toContain('"name":"sharp"');
+    await expect(readFile(join(destination, "node_modules", "sharp-native", "package.json"), "utf8"))
+      .resolves.toContain('"name":"sharp-native"');
     await rm(directory, { recursive: true, force: true });
   });
 });

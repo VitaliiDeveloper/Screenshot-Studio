@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "pnpm --filter @screenshot-studio/web dev",
     "build:cli-package": "pnpm --filter @screenshot-studio/web build && node scripts/build-cli-package.mjs",
+    "audit:release": "pnpm build:cli-package && node scripts/release-audit.mjs",
     "check:community": "node scripts/check-community.mjs",
     "check:spdx": "node scripts/check-spdx.mjs",
     "lint": "eslint .",

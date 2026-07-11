@@ -1,7 +1,8 @@
 # Release readiness evidence
 
-Status: Phase 8 in progress. Slices 1–4 are complete; Slice 5 store/dependency release audit is
-next. This ledger is evidence for a future go/no-go decision, not a public-release claim.
+Status: Phase 8 in progress. Slices 1–5 are complete; Slice 6 release artifact and candidate
+documentation is next. This ledger is evidence for a future go/no-go decision, not a public-release
+claim.
 
 ## Baseline entering Phase 8
 
@@ -135,10 +136,35 @@ Final evidence:
 5. In-app browser QA found a meaningful editor DOM, no framework overlay, no console warnings or
    errors, and a working Locale manager open/close interaction.
 
+## Slice 5 — Store and production-package audit
+
+Official rules were rechecked on 11 July 2026 against the supported presets:
+
+- Apple's current screenshot specification accepts the supported iPhone portrait presets
+  `1320×2868`, `1284×2778`, `1206×2622`, and `1125×2436`, plus the supported iPad 13 preset
+  `2064×2752`. Additional accepted sizes remain outside the Phase 8 surface.
+- Google Play accepts the supported alpha-free `1080×1920` Android phone PNG preset under its
+  320–3840 pixel and 2:1 long-side constraints. Listing-level screenshot-count policy is not a
+  pixel-export validator responsibility.
+
+The production audit now builds and packs the staged CLI, enforces an exact ten-file allowlist,
+checks required runtime/manifest/link files, records direct and embedded production dependencies,
+and generates `THIRD_PARTY_NOTICES.md` from audited license material. The final verified tarball was
+10,451,405 bytes; `runtime/web.zip` was 49,298,390 bytes. The audit recorded 33 embedded production
+package identities plus the installed external Playwright/Sharp closure, including the current
+platform's libvips LGPL identity.
+
+The initial inspection rejected a macOS-contaminated web archive containing Darwin-only Sharp,
+libvips, and `fsevents` payloads. The final archive rejects native/platform entries and the installed
+CLI materializes its own platform's Sharp runtime into the extracted host before startup. The final
+packed install/init/manage/export/failure-recovery E2E passed 2/2; targeted archive/audit/server
+tests passed 16/16; the CLI suite passed 95/95; workspace typecheck, targeted ESLint,
+community/SPDX checks, and `git diff --check` passed. Version remains `0.0.0` by design until Slice
+6, and nothing was published.
+
 ## Remaining release blockers
 
-- Slice 5: dated current store-rule and production package/dependency/license audit.
 - Slice 6: candidate version/artifact and release-candidate documentation.
 - Slice 7: sustained dogfood, full closure gates, and explicit go/no-go.
-- Final remote package-matrix revalidation is required after the current local Slice 3 package-host
-  changes are pushed; no push is performed without explicit owner authorization.
+- Final remote package-matrix revalidation is required after the current local Slice 3–5
+  package-host changes are pushed; no push is performed without explicit owner authorization.

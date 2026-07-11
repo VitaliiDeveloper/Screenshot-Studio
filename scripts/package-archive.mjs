@@ -5,6 +5,19 @@ import { dirname, isAbsolute, posix, relative, resolve, sep } from "node:path";
 export const PACKAGE_LINKS_MANIFEST = ".screenshot-studio-links.json";
 const ARCHIVE_DATE = new Date("2000-01-01T00:00:00.000Z");
 
+/** Keep build-machine native optional dependencies out of the published shared render host. */
+export function isPortableRenderHostPath(path) {
+  const normalized = path.split("\\").join("/");
+  return ![
+    /(^|\/)node_modules\/\.pnpm\/@img\+sharp-/,
+    /(^|\/)node_modules\/\.pnpm\/sharp@/,
+    /(^|\/)node_modules\/\.pnpm\/fsevents@/,
+    /(^|\/)node_modules\/@img\/sharp-/,
+    /(^|\/)node_modules\/sharp(?:\/|$)/,
+    /(^|\/)node_modules\/fsevents(?:\/|$)/,
+  ].some((pattern) => pattern.test(normalized));
+}
+
 function archivePathFor(root, archiveRoot, source) {
   const path = relative(root, source);
   if (path === ".." || path.startsWith(`..${sep}`) || isAbsolute(path)) {
@@ -13,7 +26,8 @@ function archivePathFor(root, archiveRoot, source) {
   return posix.join(archiveRoot, path.split("\\").join("/"));
 }
 
-async function addPath(zip, root, archiveRoot, source, archivePath, links, ancestors) {
+async function addPath(zip, root, archiveRoot, source, archivePath, links, ancestors, include) {
+  if (!include(archivePath)) return;
   const metadata = await lstat(source);
 
   if (metadata.isSymbolicLink()) {
@@ -46,6 +60,7 @@ async function addPath(zip, root, archiveRoot, source, archivePath, links, ances
         posix.join(archivePath, entry),
         links,
         nextAncestors,
+        include,
       );
     }
     return;
@@ -56,10 +71,11 @@ async function addPath(zip, root, archiveRoot, source, archivePath, links, ances
   }
 }
 
-export async function addDirectory(zip, directory, archiveRoot = "") {
+export async function addDirectory(zip, directory, archiveRoot = "", options = {}) {
   const root = resolve(directory);
   const entries = await readdir(root);
   const links = [];
+  const include = options.include ?? (() => true);
   entries.sort();
   for (const entry of entries) {
     await addPath(
@@ -70,6 +86,7 @@ export async function addDirectory(zip, directory, archiveRoot = "") {
       posix.join(archiveRoot, entry),
       links,
       new Set(),
+      include,
     );
   }
   return links.sort((first, second) => first.path.localeCompare(second.path));

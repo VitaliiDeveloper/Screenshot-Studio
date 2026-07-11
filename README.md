@@ -142,8 +142,8 @@ reuse secure contain-fit project images without a redundant schema type. Living 
 connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
 Phase 6 and Phase 7 complete the planned baseline. Phase 8 stabilization/release readiness is now
 in progress: failure/recovery, cross-environment package proof, and export soak/performance budgets
-plus accessibility/browser coverage are complete, with the store/dependency release audit next. No
-public release is claimed yet.
+plus accessibility/browser coverage and the store/dependency release audit are complete, with the
+release artifact and candidate documentation next. No public release is claimed yet.
 
 ## Requirements
 
@@ -283,6 +283,7 @@ pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
 pnpm test:e2e:examples # validate, edit, and export the living example projects
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
+pnpm audit:release     # pack and audit files, runtime deps/licenses, portability, and size
 pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
 pnpm typecheck         # all packages
 ```

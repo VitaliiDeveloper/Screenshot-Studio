@@ -113,6 +113,7 @@ describe("Packaged CLI", () => {
       "README.md",
       "runtime/store-specs.json",
       "runtime/web.zip",
+      "THIRD_PARTY_NOTICES.md",
     ]);
     expect(packedFiles.some((path) => path.startsWith("src/") || path.includes("fixtures"))).toBe(false);
     expect(packedBytes).toBeLessThan(64 * 1024 * 1024);

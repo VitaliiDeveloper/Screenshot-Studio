@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
-import { addDirectory } from "./package-archive.mjs";
+import { addDirectory, isPortableRenderHostPath } from "./package-archive.mjs";
 
 const directories: string[] = [];
 
@@ -16,6 +16,13 @@ afterEach(async () => {
 });
 
 describe("package archive", () => {
+  it("rejects build-machine native Sharp and fsevents payloads", () => {
+    expect(isPortableRenderHostPath("node_modules/.pnpm/@img+sharp-darwin-arm64@1/node_modules/@img/sharp-darwin-arm64/lib.node")).toBe(false);
+    expect(isPortableRenderHostPath("apps/web/node_modules/sharp")).toBe(false);
+    expect(isPortableRenderHostPath("node_modules/.pnpm/fsevents@2/node_modules/fsevents/fsevents.node")).toBe(false);
+    expect(isPortableRenderHostPath("node_modules/.pnpm/react@19/node_modules/react/index.js")).toBe(true);
+  });
+
   it("records directory links without flattening their package-resolution topology", async () => {
     const directory = await mkdtemp(join(tmpdir(), "package-archive-"));
     directories.push(directory);

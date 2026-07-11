@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
-import { copyFile, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
+import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -41,6 +42,67 @@ interface PackageLink {
   path: string;
   target: string;
   type: "directory" | "file";
+}
+
+type ResolvePackageManifest = (name: string, from: string) => string;
+
+function resolvePackageManifest(name: string, from: string): string {
+  const require = createRequire(from);
+  try {
+    return require.resolve(`${name}/package.json`);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ERR_PACKAGE_PATH_NOT_EXPORTED" && code !== "MODULE_NOT_FOUND") throw error;
+  }
+  let cursor = dirname(from);
+  while (true) {
+    for (const base of [cursor, join(cursor, "node_modules")]) {
+      const candidate = join(base, ...name.split("/"), "package.json");
+      if (existsSync(candidate)) {
+        const manifest = JSON.parse(readFileSync(candidate, "utf8")) as { name?: string };
+        if (manifest.name === name) return candidate;
+      }
+    }
+    const parent = resolve(cursor, "..");
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+  throw new Error(`Could not resolve package manifest for ${name}`);
+}
+
+/** Materialize the current machine's installed Sharp packages into the OS-neutral web host. */
+export async function materializeSharpRuntime(
+  destination: string,
+  resolveManifest: ResolvePackageManifest = resolvePackageManifest,
+): Promise<string[]> {
+  const sharpManifestPath = await realpath(resolveManifest("sharp", fileURLToPath(import.meta.url)));
+  const manifest = JSON.parse(await readFile(sharpManifestPath, "utf8")) as {
+    dependencies?: Record<string, string>;
+    optionalDependencies?: Record<string, string>;
+  };
+  const required = Object.keys(manifest.dependencies ?? {});
+  const optional = new Set(Object.keys(manifest.optionalDependencies ?? {}));
+  const packageNames = ["sharp", ...required, ...optional].sort();
+  const copied: string[] = [];
+
+  for (const name of packageNames) {
+    let manifestPath: string;
+    try {
+      manifestPath = name === "sharp"
+        ? sharpManifestPath
+        : resolveManifest(name, sharpManifestPath);
+      manifestPath = await realpath(manifestPath);
+    } catch (error) {
+      if (optional.has(name)) continue;
+      throw error;
+    }
+    const target = join(destination, "node_modules", ...name.split("/"));
+    await mkdir(dirname(target), { recursive: true });
+    await rm(target, { recursive: true, force: true });
+    await cp(dirname(manifestPath), target, { recursive: true, dereference: true });
+    copied.push(name);
+  }
+  return copied;
 }
 
 function isWithin(root: string, target: string): boolean {
@@ -120,6 +182,7 @@ export async function prepareRenderHost(port: number): Promise<PreparedRenderHos
   const directory = await mkdtemp(join(tmpdir(), "screenshot-studio-web-"));
   try {
     await extractWebArchive(packagedWebArchive, directory);
+    await materializeSharpRuntime(directory);
     const entry = join(directory, packagedServerEntry);
     if (!existsSync(entry)) throw new Error(`Packaged render host is missing ${packagedServerEntry}`);
     return {

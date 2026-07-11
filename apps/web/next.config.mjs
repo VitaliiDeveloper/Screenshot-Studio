@@ -12,7 +12,7 @@ const nextConfig = {
   transpilePackages: ["@screenshot-studio/core", "@screenshot-studio/cli"],
   // Playwright ships a native driver; keep it a runtime require rather than letting webpack
   // bundle it into the server route (Next 15 key). The export route runs it on the Node runtime.
-  serverExternalPackages: ["playwright"],
+  serverExternalPackages: ["playwright", "sharp"],
   reactStrictMode: false,
   webpack: (config) => {
     // Konva optionally requires the node-only `canvas` package for server rendering; we render
