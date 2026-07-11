@@ -1,7 +1,8 @@
 # Release readiness evidence
 
-Status: Phase 8 in progress. Slices 1–6 are complete; Slice 7 sustained dogfood and explicit
-go/no-go is next. This ledger is evidence for that decision, not a public-release claim.
+Status: Phase 8 complete. Slices 1–7 and every local/remote release-candidate gate are green; the
+explicit decision is `GO — release ready`. This ledger is evidence for that decision, not a claim
+that a tag, registry package, GitHub release, or public announcement already exists.
 
 ## Baseline entering Phase 8
 
@@ -183,8 +184,43 @@ ESLint, community/SPDX checks, frozen-lockfile validation, and `git diff --check
 GitHub release, registry authentication, publication, or announcement occurred, and npm scope
 ownership is not assumed.
 
-## Remaining release blockers
+## Slice 7 — Local sustained dogfood and closure gate
 
-- Slice 7: sustained dogfood, full closure gates, and explicit go/no-go.
-- Final remote package-matrix revalidation is required after the current local Slice 3–6
-  package-host changes are pushed; no push is performed without explicit owner authorization.
+Local closure ran on 11 July 2026 at `ab911c2` on Darwin 25.5.0 arm64, Node 24.16.0, pnpm 11.10.0,
+and an Apple M3 Pro with 12 logical CPUs and 18,432 MiB memory.
+
+- Full unit verification passed 56 files / 389 tests; full ESLint and workspace typecheck passed.
+- One isolated structured full E2E run passed 70 suites / 59 tests with zero failures.
+- The dedicated accessibility/browser run passed 2 files / 5 tests: zero serious/critical Axe
+  findings and green Chromium/Firefox/WebKit edit-persist-reload smoke.
+- Source living-project dogfood passed 2 files / 3 tests over connected-launch and RTL-delivery,
+  including exact exports and persisted connected LTR/RTL keyboard group workflows.
+- Five-sample packed soak verification passed: the 12-screen case measured 7,917 ms median and
+  1,112.5 MiB peak RSS; the repeat case measured 2,922 ms median and 965.4 MiB peak RSS. Output
+  manifests stayed stable, material monotonic RSS growth was false, and no packaged-host temp
+  directories leaked.
+- Candidate/package/community/SPDX/diff assertions passed. The retained 10,451,880-byte
+  `screenshot-studio-cli-0.1.0.tgz` has SHA-256
+  `37239a1e6693c47233635bb4b6ba33bc23005c5bd91278f11859f3cd7fd09705`.
+- That exact tarball installed into a new temporary consumer and exported both living projects to
+  seven independently inspected exact 1320×2868 opaque PNGs plus their bundles.
+
+Remote closure evidence:
+
+- [Package Matrix run 29151150458](https://github.com/VitaliiDeveloper/Screenshot-Studio/actions/runs/29151150458)
+  passed the last package-changing candidate SHA
+  `ab911c2400e669ee9b8974cd3ad3f3d85241a4a5` on macOS/Windows/Ubuntu Node 22 and Ubuntu Node 24;
+- every job built candidate `0.1.0` and passed its clean packed install/init/manage/exact-export and
+  failure/recovery smoke; Ubuntu Node 24 also passed workspace unit/typecheck compatibility;
+- the final Slice 7 patch is closure documentation only and does not change the tested package.
+
+### Final release-readiness decision
+
+**GO — release ready.** Failure/recovery, cross-environment packaging, deterministic soak budgets,
+accessibility/browser coverage, current store rules, production dependency/license/package audit,
+candidate metadata/docs, sustained source/packed dogfood, and the complete closure gate are all
+green. No release-readiness blocker remains.
+
+This GO authorizes no external promotion by itself. A Git tag, GitHub release, npm authentication or
+publication, announcement, and registry-install verification still require explicit owner action
+under `docs/releasing.md`.

@@ -145,8 +145,10 @@ connected image/icon/badge/group crops plus keyboard group workflows across LTR/
 Phase 6 and Phase 7 complete the planned baseline. Phase 8 stabilization/release readiness is now
 in progress: failure/recovery, cross-environment package proof, and export soak/performance budgets
 plus accessibility/browser coverage and the store/dependency release audit are complete, with the
-`0.1.0` release artifact/candidate documentation now complete as well. Sustained dogfood and the
-explicit Slice 7 go/no-go remain; no public release is claimed yet.
+`0.1.0` release artifact/candidate documentation now complete as well. Slice 7's local full gate,
+source/packed dogfood, retained candidate, and Linux/macOS/Windows package matrix are green. Phase 8
+is complete with a release-readiness `GO`; no tag, registry publication, GitHub release, or public
+announcement is claimed.
 
 ## Requirements
 

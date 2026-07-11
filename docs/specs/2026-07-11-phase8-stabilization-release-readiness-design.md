@@ -1,7 +1,8 @@
 # Phase 8 — Stabilization and release readiness
 
-Status: in progress. The Phase 7 baseline and Phase 8 Slices 1–6 are complete; Slice 7 sustained
-dogfood and explicit go/no-go is next.
+Status: complete. The Phase 7 baseline and all Phase 8 Slices 1–7 are complete. The local full gate,
+sustained source/packed dogfood, candidate audit, and Linux/macOS/Windows package matrix are green;
+candidate `0.1.0` has an explicit release-readiness `GO`.
 
 ## Goal
 

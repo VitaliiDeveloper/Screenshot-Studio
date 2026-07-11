@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 7; Phase 8 stabilization is in progress, with Slices 1–6 complete and Slice 7 sustained dogfood/go-no-go next.**
+> **Status: implementation and verification are complete through Phase 8. Slices 1–7, the full local release-candidate gate, sustained source/packed dogfood, and the Linux/macOS/Windows package matrix are green. Candidate 0.1.0 has an explicit release-readiness GO; no tag, registry publication, GitHub release, or announcement is implied.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background

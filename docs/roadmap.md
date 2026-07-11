@@ -155,7 +155,10 @@ primitives. Living v5 examples and connected LTR/RTL keyboard dogfood close the 
 Phase 7 completes the planned baseline product together with Phase 6; it does not imply that the
 project is released. Sliced in §3h.
 
-**Phase 8 — Stabilization + release readiness — in progress; Slices 1–6 complete, Slice 7 next.**
+**Phase 8 — Stabilization + release readiness — complete; Slices 1–7 green, decision: GO.**
+The local full gate, sustained source/packed dogfood, retained candidate, and Linux/macOS/Windows
+package matrix are green. Candidate `0.1.0` is release ready; publication remains a separate,
+explicitly authorized owner action.
 Sustained dogfood, failure/recovery testing, cross-environment packaged-install checks, performance
 and memory profiling, accessibility and browser coverage, long-running export reliability, and
 release-candidate documentation. A first public release is considered only after this phase's gate;
@@ -369,7 +372,7 @@ release surfaces are treated as representative.
 | **4 — Accessibility + browser coverage** ✅ | Automated desktop/compact accessibility states, keyboard/focus regressions, and representative Chromium/Firefox/WebKit editor smoke. | Extends current named-control/keyboard evidence without pretending non-Chromium engines are export renderers. |
 | **5 — Store/dependency release audit** ✅ | Dated official-source verification for supported store presets plus actual production dependency, license, package-content, portability, notice, and artifact-size audit. | Prevents release against stale store rules or an unreviewed runtime artifact. |
 | **6 — Release artifact + candidate docs** ✅ | Candidate version/package metadata, clean dry-run tarball, changelog, security policy, lifecycle guidance, limitations, and maintainer checklist. | Makes the candidate reproducible and supportable without publishing it implicitly. |
-| **7 — Sustained dogfood + phase closure** | Source/packed living-project dogfood, completed evidence ledger, full repository and release-candidate gates, and explicit go/no-go. | Separates baseline completion from a defensible public-release decision. |
+| **7 — Sustained dogfood + phase closure** ✅ | Source/packed living-project dogfood, completed evidence ledger, full repository and release-candidate gates, green cross-OS matrix, and explicit `GO`. | Separates baseline completion from a defensible public-release decision. |
 
 The accepted stabilization, environment, reliability, accessibility, audit, and release gate lives
 in `docs/specs/2026-07-11-phase8-stabilization-release-readiness-design.md`. Slice 1's exact
