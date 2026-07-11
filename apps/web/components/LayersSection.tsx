@@ -121,8 +121,8 @@ export function LayersSection() {
     <section className="pb-3">
       <header className="px-4 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Layers</h2>
-          <span className="text-[10px] font-medium tabular-nums text-slate-400">{rows.length}</span>
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Layers</h2>
+          <span className="text-[10px] font-medium tabular-nums text-slate-600">{rows.length}</span>
         </div>
         <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
           {project.mode === "connected" ? (

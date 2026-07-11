@@ -1,6 +1,6 @@
 # Release readiness evidence
 
-Status: Phase 8 in progress. Slices 1–3 are complete; Slice 4 accessibility and browser coverage is
+Status: Phase 8 in progress. Slices 1–4 are complete; Slice 5 store/dependency release audit is
 next. This ledger is evidence for a future go/no-go decision, not a public-release claim.
 
 ## Baseline entering Phase 8
@@ -108,9 +108,35 @@ file links. Targeted archive/extraction security tests, the 17-file/93-test CLI 
 typecheck, and packaged CLI E2E all passed after the correction. The ordinary per-change CI remains
 free of soak cost; Slice 7 reruns the opt-in budget gate and the current package matrix.
 
+## Slice 4 — Accessibility and browser coverage
+
+Environment on 11 July 2026: Darwin 25.5.0 arm64, Node 24.16.0, Playwright-managed Chromium,
+Firefox 151.0, and WebKit 26.5.
+
+Implemented and verified:
+
+- `@axe-core/playwright` audits the WCAG 2 A/AA and WCAG 2.1 A/AA rules and fails every serious or
+  critical violation in the selected state;
+- desktop states cover the loaded shell, Structure/Add panels, canvas menu, locale dialog,
+  inspector form, and an injected save-failure alert; compact states cover shell, Add, and locale;
+- the first audit found real serious contrast failures in small secondary text and section labels;
+  the final UI uses compliant darker Slate text for those screen/layer/inspector/Add/locale surfaces;
+- Chromium, Firefox, and WebKit each loaded the editor, navigated to another screen, inserted a
+  shape, observed the project-file update, reloaded, and proved the extra layer persisted;
+- non-Chromium engines remain representative editor smoke only; export and pixel parity continue
+  to use the canonical Chromium renderer.
+
+Final evidence:
+
+1. `pnpm test:e2e:accessibility` — 2 files / 5 tests passed.
+2. Targeted ESLint over changed web components and both E2E files passed.
+3. Workspace typecheck passed for core, CLI, and web.
+4. Community assertions and `git diff --check` passed.
+5. In-app browser QA found a meaningful editor DOM, no framework overlay, no console warnings or
+   errors, and a working Locale manager open/close interaction.
+
 ## Remaining release blockers
 
-- Slice 4: automated accessibility states and representative Chromium/Firefox/WebKit editor smoke.
 - Slice 5: dated current store-rule and production package/dependency/license audit.
 - Slice 6: candidate version/artifact and release-candidate documentation.
 - Slice 7: sustained dogfood, full closure gates, and explicit go/no-go.

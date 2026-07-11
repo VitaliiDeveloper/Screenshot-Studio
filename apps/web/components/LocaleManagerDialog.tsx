@@ -138,7 +138,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
         {error ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
 
         <section aria-label="Project locales">
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Current locales</h3>
+          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Current locales</h3>
           <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
             {project.locales.map((locale) => {
               const screens = project.screens.filter((screen) => screen.locale === locale);
@@ -149,7 +149,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-semibold text-slate-900">{locale}</span>
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">{direction}</span>
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">{direction}</span>
                       {active ? <span className="text-[10px] font-medium text-blue-600">Active</span> : null}
                     </div>
                     <p className="mt-0.5 text-[11px] text-slate-500">{screens.length} {screens.length === 1 ? "screen" : "screens"}</p>

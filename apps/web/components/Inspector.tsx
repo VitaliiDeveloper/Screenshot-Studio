@@ -40,7 +40,7 @@ function editBackground(color: string) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5 border-b border-slate-200 px-4 py-4">
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{title}</h3>
+      <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">{title}</h3>
       {children}
     </section>
   );
@@ -96,7 +96,7 @@ export function Inspector({
       <header className="sticky top-0 z-10 flex min-h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
         <div>
           <h2 className="text-sm font-semibold tracking-tight text-slate-950">Inspect</h2>
-          <p className="text-[10px] text-slate-400">
+          <p className="text-[10px] text-slate-600">
             {selectedItems.length > 1 ? `${selectedItems.length} elements` : element ? element.type : screen.name}
           </p>
         </div>

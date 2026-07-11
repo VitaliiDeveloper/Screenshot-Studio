@@ -155,7 +155,7 @@ primitives. Living v5 examples and connected LTR/RTL keyboard dogfood close the 
 Phase 7 completes the planned baseline product together with Phase 6; it does not imply that the
 project is released. Sliced in §3h.
 
-**Phase 8 — Stabilization + release readiness — in progress; Slices 1–3 complete, Slice 4 next.**
+**Phase 8 — Stabilization + release readiness — in progress; Slices 1–4 complete, Slice 5 next.**
 Sustained dogfood, failure/recovery testing, cross-environment packaged-install checks, performance
 and memory profiling, accessibility and browser coverage, long-running export reliability, and
 release-candidate documentation. A first public release is considered only after this phase's gate;
@@ -366,7 +366,7 @@ release surfaces are treated as representative.
 | **1 — Failure/recovery hardening** ✅ | Injected render/filesystem/process fault matrix, staged and rollback-safe generated-output publication, prompt unexpected-host failure, and cleanup evidence. | Prevents failed exports from damaging prior output or leaking browser/server/temp resources. |
 | **2 — Cross-environment packaged install** ✅ | Packed install/init/manage/exact-export proof on Linux, macOS, and Windows at Node 22 plus Ubuntu Node 24 compatibility. | Replaces the current Ubuntu-only portability assumption with evidence over the supported engine/OS surface. |
 | **3 — Export soak + performance budgets** ✅ | Large/repeated packed-export harnesses, deterministic output checks, controlled wall-time/RSS baseline, ratified budgets, and leak detection. | Finds reliability or resource-growth failures hidden by the current one-export smoke. |
-| **4 — Accessibility + browser coverage** | Automated desktop/compact accessibility states, keyboard/focus regressions, and representative Chromium/Firefox/WebKit editor smoke. | Extends current named-control/keyboard evidence without pretending non-Chromium engines are export renderers. |
+| **4 — Accessibility + browser coverage** ✅ | Automated desktop/compact accessibility states, keyboard/focus regressions, and representative Chromium/Firefox/WebKit editor smoke. | Extends current named-control/keyboard evidence without pretending non-Chromium engines are export renderers. |
 | **5 — Store/dependency release audit** | Dated official-source verification for supported store presets plus actual production dependency, license, package-content, and artifact-size audit. | Prevents release against stale store rules or an unreviewed runtime artifact. |
 | **6 — Release artifact + candidate docs** | Candidate version/package metadata, clean dry-run tarball, changelog, security policy, lifecycle guidance, limitations, and maintainer checklist. | Makes the candidate reproducible and supportable without publishing it implicitly. |
 | **7 — Sustained dogfood + phase closure** | Source/packed living-project dogfood, completed evidence ledger, full repository and release-candidate gates, and explicit go/no-go. | Separates baseline completion from a defensible public-release decision. |

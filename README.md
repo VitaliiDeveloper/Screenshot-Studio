@@ -142,7 +142,8 @@ reuse secure contain-fit project images without a redundant schema type. Living 
 connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
 Phase 6 and Phase 7 complete the planned baseline. Phase 8 stabilization/release readiness is now
 in progress: failure/recovery, cross-environment package proof, and export soak/performance budgets
-are complete, with accessibility/browser coverage next. No public release is claimed yet.
+plus accessibility/browser coverage are complete, with the store/dependency release audit next. No
+public release is claimed yet.
 
 ## Requirements
 
@@ -167,6 +168,13 @@ pnpm exec playwright install chromium chromium-headless-shell
 
 Both browser builds are needed: the parity check compares a headed (`chromium`) render against
 a headless (`chromium-headless-shell`) one.
+
+Contributors running the dedicated accessibility/cross-browser smoke also need its two additional
+local browser engines (they are not CLI runtime dependencies):
+
+```bash
+pnpm exec playwright install firefox webkit
+```
 
 ## Usage
 
@@ -269,6 +277,7 @@ pnpm test:web          # web unit tests only
 pnpm test:e2e:parity   # render/font/device parity
 pnpm test:e2e:export   # CLI + UI export paths
 pnpm test:e2e:editor   # editor workflows
+pnpm test:e2e:accessibility # Axe states + Chromium/Firefox/WebKit editor smoke
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
 pnpm test:e2e:examples # validate, edit, and export the living example projects

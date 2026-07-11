@@ -105,9 +105,9 @@ function AddCatalogRow({ item, onAction }: { item: AddCatalogItem; onAction: (it
       <Icon size={18} strokeWidth={1.75} className="shrink-0" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium">{item.label}</span>
-        {item.hint ? <span className="block truncate text-[10px] text-slate-400">{item.hint}</span> : null}
+        {item.hint ? <span className="block truncate text-[10px] text-slate-600">{item.hint}</span> : null}
       </span>
-      {item.shortcut ? <kbd className="text-[10px] font-medium text-slate-400">{item.shortcut}</kbd> : null}
+      {item.shortcut ? <kbd className="text-[10px] font-medium text-slate-600">{item.shortcut}</kbd> : null}
     </button>
   );
 }
@@ -190,7 +190,7 @@ function AddPanel({
           if (rows.length === 0) return null;
           return (
             <section key={category} className="border-b border-slate-100 py-3 last:border-b-0">
-              <h3 className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{category}</h3>
+              <h3 className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{category}</h3>
               {rows.map((item) => <AddCatalogRow key={item.id} item={item} onAction={onAction} />)}
             </section>
           );
