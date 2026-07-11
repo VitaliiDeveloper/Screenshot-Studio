@@ -5,9 +5,13 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
-import { renderScreenToPng } from "../packages/cli/src/render-driver.js";
+import { startWebServer } from "../packages/cli/src/server.js";
 import { stripAlpha } from "../packages/core/src/export/png.js";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
 
 /**
  * Slice 3 gate: proves the device-frame Group is parity-safe. (1) headed vs headless renders of a
@@ -25,15 +29,15 @@ const target = { width: 1320, height: 2868 };
 const PER_PIXEL_THRESHOLD = 0.1;
 const MAX_MISMATCH_FRACTION = 0.001;
 
-let server: RunningServer;
+let harness: ParityRenderHarness;
 
 beforeAll(async () => {
   mkdirSync(tmpDir, { recursive: true });
-  server = await startWebServer(3126);
+  harness = await startParityRenderHarness(() => startWebServer(3126));
 }, 180_000);
 
 afterAll(async () => {
-  await server?.stop();
+  await closeParityRenderHarness(harness);
 });
 
 function mismatch(a: Buffer, b: Buffer): number {
@@ -47,11 +51,11 @@ function mismatch(a: Buffer, b: Buffer): number {
 
 describe("Slice 3 device-frame parity", () => {
   it("headed and headless match, and the framed image is present (red at slot centre)", async () => {
-    const headed = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath: fixturePath, screenId, pixelRatio, headless: false, timeoutMs: 60_000,
+    const headed = stripAlpha(await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio, timeoutMs: 60_000,
     }));
-    const headless = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath: fixturePath, screenId, pixelRatio, headless: true,
+    const headless = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio,
     }));
 
     const px = PNG.sync.read(headless);
@@ -78,11 +82,11 @@ describe("Slice 3 device-frame parity", () => {
     const missingInDir = resolve(fixtureDir, "_missing.json");
     writeFileSync(missingInDir, JSON.stringify(project));
 
-    const present = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath: fixturePath, screenId, pixelRatio, headless: true,
+    const present = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio,
     }));
-    const placeholder = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath: missingInDir, screenId, pixelRatio, headless: true,
+    const placeholder = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath: missingInDir, screenId, pixelRatio,
     }));
     expect(mismatch(present, placeholder)).toBeGreaterThan(2000);
   });

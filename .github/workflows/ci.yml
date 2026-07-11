@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - "dev"
@@ -41,8 +42,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
-  e2e:
-    # Full browser gate: render/export parity and editor workflows with real Next servers + Chromium.
+  e2e-targeted:
+    # Development pushes get the highest-value Chromium contracts without release-only workflows.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,4 +61,20 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       # The parity tests render a *headed* Chromium (headless-vs-headed pixel diff), which
       # needs a display; Linux runners have none, so wrap the suite in a virtual framebuffer.
+      - run: xvfb-run -a pnpm test:e2e:ci
+
+  e2e-full:
+    # Pull-request closure, main, and explicit release checks retain the complete browser gate.
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ | sudo xargs -0 -r rm -f
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
       - run: xvfb-run -a pnpm test:e2e

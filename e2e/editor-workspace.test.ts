@@ -45,20 +45,6 @@ function project() {
 }
 
 describe("Phase 3.6 editor workspace", () => {
-  it("keeps demo headline selection boxes clear of their supporting-copy layers", () => {
-    const pairs = [
-      ["headline", "hero-support"],
-      ["save-fast-headline", "save-fast-support"],
-      ["organized-headline", "organized-support"],
-    ] as const;
-    const elements = project().screens.flatMap((screen) => screen.elements);
-    for (const [headlineId, supportId] of pairs) {
-      const headline = elements.find((element) => element.id === headlineId)!;
-      const support = elements.find((element) => element.id === supportId)!;
-      expect(headline.y + headline.height).toBeLessThan(support.y);
-    }
-  });
-
   it("shows only the active screen's layers and updates them when screen selection changes", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

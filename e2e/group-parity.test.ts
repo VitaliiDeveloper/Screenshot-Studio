@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { stripAlpha } from "../packages/core/src/export/png.js";
-import { renderScreenToPng } from "../packages/cli/src/render-driver.js";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+import { startWebServer } from "../packages/cli/src/server.js";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixturePath = resolve(repoRoot, "fixtures/phase-7-group/app-store-screenshots.json");
@@ -15,18 +19,15 @@ const pixelRatio = 2;
 const target = { width: 600, height: 600 };
 const MAX_MISMATCH_FRACTION = 0.001;
 
-let server: RunningServer;
-let browser: Browser;
+let harness: ParityRenderHarness;
 
 beforeAll(async () => {
   process.env.PROJECT_PATH = fixturePath;
-  server = await startWebServer();
-  browser = await chromium.launch();
+  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
 }, 180_000);
 
 afterAll(async () => {
-  await browser?.close();
-  await server?.stop();
+  await closeParityRenderHarness(harness);
   delete process.env.PROJECT_PATH;
 });
 
@@ -45,27 +46,24 @@ function mismatch(first: Buffer, second: Buffer): number {
 
 describe("Phase 7 group render parity", () => {
   it("matches headed/headless exact crops and the interactive shared node tree", async () => {
-    const headedSecond = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "group-second",
       pixelRatio,
-      headless: false,
       timeoutMs: 60_000,
     }));
-    const headlessSecond = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headlessSecond = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "group-second",
       pixelRatio,
-      headless: true,
     }));
-    const headlessFirst = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headlessFirst = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "group-first",
       pixelRatio,
-      headless: true,
     }));
 
     for (const bytes of [headedSecond, headlessSecond, headlessFirst]) {
@@ -80,8 +78,8 @@ describe("Phase 7 group render parity", () => {
     expect(mismatch(headedSecond, headlessSecond) / (target.width * target.height))
       .toBeLessThan(MAX_MISMATCH_FRACTION);
 
-    const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const page = await harness.interactive!.newPage({ viewport: { width: 1400, height: 900 } });
+    await page.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
     const stage = page.getByTestId("editor-stage");
     await stage.waitFor({ state: "visible" });
     const canvas = stage.locator("canvas").first();
