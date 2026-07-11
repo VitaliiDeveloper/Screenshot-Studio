@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "phase-8"
+      - "dev"
+      - "main"
     paths:
       - ".github/workflows/package-matrix.yml"
       - "apps/web/**"
@@ -18,6 +19,9 @@ on:
       - "pnpm-workspace.yaml"
       - "store-specs.json"
   pull_request:
+    branches:
+      - "dev"
+      - "main"
     paths:
       - ".github/workflows/package-matrix.yml"
       - "apps/web/**"
