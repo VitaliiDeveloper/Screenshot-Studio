@@ -2,7 +2,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Fragment } from "react";
 import { useStore } from "zustand";
 import { CornerUpLeft, Plus, Trash2 } from "lucide-react";
 import {
@@ -13,9 +12,10 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { storeOutputLabel, workspaceScreenScope } from "../lib/editor-workspace";
+import { groupScreensByOutput, workspaceScreenScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
+import { OutputFamilySwitcher } from "./OutputFamilySwitcher";
 import { SortableRow } from "./SortableRow";
 import { editorUi } from "./editor-ui";
 
@@ -47,11 +47,20 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   const scopeLabel = project.mode === "connected" && activeScreen
     ? `${activeLocale} · ${activeScreen.device}${activeScreen.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`
     : `${activeLocale}${activeScreen?.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`;
-  const listLabel = project.mode === "connected" && activeScreen
-    ? `Screens for ${activeLocale} ${activeScreen.device} group`
-    : `Screens for ${activeLocale}`;
-  const showOutputGroups = project.mode === "isolated"
-    && new Set(screens.map((screen) => `${screen.platform}/${screen.device}`)).size > 1;
+  const outputRows = project.mode === "isolated" && activeScreen && activeScreen.variantOf === undefined
+    ? groupScreensByOutput(screens)
+    : [];
+  const activeOutputKey = activeScreen ? `${activeScreen.platform}/${activeScreen.device}` : "";
+  const showOutputSwitcher = outputRows.length > 1;
+  const visibleOutput = showOutputSwitcher
+    ? outputRows.find((row) => row.key === activeOutputKey) ?? outputRows[0]!
+    : undefined;
+  const visibleScreens = visibleOutput?.screens ?? screens;
+  const listLabel = visibleOutput
+    ? `Screens for ${activeLocale} · ${visibleOutput.label}`
+    : project.mode === "connected" && activeScreen
+      ? `Screens for ${activeLocale} ${activeScreen.device} group`
+      : `Screens for ${activeLocale}`;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -90,35 +99,24 @@ export function ScreensSection({ images }: { images: ImageCache }) {
           {activeRoot ? "Master" : null}
         </button>
       </header>
-      {showOutputGroups ? (
-        <p className="border-y border-slate-100 bg-slate-50/80 px-4 py-2 text-[10px] leading-4 text-slate-500">
-          Outputs start as fitted copies and edit independently.
-        </p>
+      {showOutputSwitcher ? (
+        <OutputFamilySwitcher
+          locale={activeLocale}
+          rows={outputRows}
+          activeKey={activeOutputKey}
+          onSelect={(screenId) => editorStore.getState().selectScreen(screenId)}
+        />
       ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={visibleScreens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div role="list" aria-label={listLabel}>
-            {screens.map((s, index) => {
-              const outputKey = `${s.platform}/${s.device}`;
-              const previous = screens[index - 1];
-              const startsOutput = showOutputGroups
-                && (!previous || `${previous.platform}/${previous.device}` !== outputKey);
-              return (
-                <Fragment key={s.id}>
-                  {startsOutput ? (
-                    <div
-                      role="presentation"
-                      aria-hidden="true"
-                      className="border-b border-slate-100 bg-white px-4 pb-1.5 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500"
-                    >
-                      {storeOutputLabel(s.platform, s.device)}
-                    </div>
-                  ) : null}
-                  <SortableRow
-                    id={s.id}
-                    role="listitem"
-                    className={`min-h-[3.25rem] py-1 ${s.id === activeScreenId ? "bg-blue-50 ring-1 ring-blue-100" : ""}`}
-                  >
+            {visibleScreens.map((s, index) => (
+              <SortableRow
+                key={s.id}
+                id={s.id}
+                role="listitem"
+                className={`min-h-[3.25rem] py-1 ${s.id === activeScreenId ? "bg-blue-50 ring-1 ring-blue-100" : ""}`}
+              >
                 <span
                   aria-hidden="true"
                   className={`relative inline-flex h-12 w-7 shrink-0 items-center justify-center overflow-visible rounded-md border bg-slate-900 text-white shadow-sm ${
@@ -154,10 +152,8 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                 </button>
-                  </SortableRow>
-                </Fragment>
-              );
-            })}
+              </SortableRow>
+            ))}
           </div>
         </SortableContext>
       </DndContext>
