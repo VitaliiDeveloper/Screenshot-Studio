@@ -294,6 +294,17 @@ describe("elementToNodeConfig — device-frame", () => {
     expect(result.config).toMatchObject({ id: "df1", x: 100, y: 50, width: 1000, height: 1000 });
   });
 
+  it("maps every trusted preset, with notch only where specified", () => {
+    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const) {
+      const result = elementToNodeConfig({ ...frame, deviceType }, { images: frameCache });
+      if (result.konva !== "Group") throw new Error("expected Group");
+      expect(result.children[0]).toMatchObject({ konva: "Rect" });
+      expect(result.children[1]).toMatchObject({ konva: "Rect", config: { fill: "#000000" } });
+      expect(result.children[2]).toMatchObject({ konva: "Image", config: { image: frameStub } });
+      expect(result.children).toHaveLength(deviceType === "iphone" || deviceType === "android-phone" ? 4 : 3);
+    }
+  });
+
   it("composits body, slot background, clipped content image, and notch (box-local)", () => {
     const result = elementToNodeConfig(frame, { images: frameCache });
     if (result.konva !== "Group") throw new Error("expected Group");

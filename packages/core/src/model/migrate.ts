@@ -101,10 +101,31 @@ export function migrateToCurrent(raw: unknown): unknown {
     if (containsFutureStyling(current)) return current;
     const currentMeta = current.meta;
     if (!isRecord(currentMeta)) return current;
+    current = { ...current, meta: { ...currentMeta, schemaVersion: 9 } };
+    version = 9;
+  }
+
+  if (version === 9) {
+    if (containsFutureFramePreset(current)) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
     return { ...current, meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION } };
   }
 
   return raw;
+}
+
+function containsFutureFramePreset(project: Record<string, unknown>): boolean {
+  if (!Array.isArray(project.screens)) return false;
+  return project.screens.some((screen) => isRecord(screen)
+    && Array.isArray(screen.elements)
+    && screen.elements.some(elementContainsFutureFramePreset));
+}
+
+function elementContainsFutureFramePreset(element: unknown): boolean {
+  if (!isRecord(element)) return false;
+  if (element.type === "device-frame" && element.deviceType !== "iphone") return true;
+  return Array.isArray(element.children) && element.children.some(elementContainsFutureFramePreset);
 }
 
 function containsFutureStyling(project: Record<string, unknown>): boolean {

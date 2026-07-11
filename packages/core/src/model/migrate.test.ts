@@ -105,6 +105,17 @@ describe("migrateToCurrent", () => {
     expect(migrated.screens).toEqual(v8.screens);
   });
 
+  it("migrates a valid iPhone-only v9 document to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v9: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 9 },
+    };
+    const migrated = migrateToCurrent(v9) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v9.screens);
+  });
+
   it("does not reinterpret a mode field that was invalid under strict v1", () => {
     const raw = { ...v1Project(), mode: "connected" };
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
@@ -112,7 +123,7 @@ describe("migrateToCurrent", () => {
 
   it("leaves malformed and future-version input for strict validation", () => {
     expect(migrateToCurrent(null)).toBeNull();
-    expect(() => parseProject({ ...v1Project(), meta: { name: "Future", schemaVersion: 99 } }))
+    expect(() => parseProject({ ...v1Project(), meta: { name: "Future", schemaVersion: 109 } }))
       .toThrow(ProjectValidationError);
   });
 });

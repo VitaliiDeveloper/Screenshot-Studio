@@ -38,7 +38,7 @@ beforeAll(async () => {
   writeFileSync(join(directory, "assets", "background.png"), transparentBackground());
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Background parity", schemaVersion: 9 },
+    meta: { name: "Background parity", schemaVersion: 10 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

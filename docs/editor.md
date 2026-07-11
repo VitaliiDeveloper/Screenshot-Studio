@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v9 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v10 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -94,7 +94,7 @@ shelf is open at a time; clicking its active rail item collapses it.
   lock, visibility, and deletion; top-level drag reorder remains group-atomic.
 - **Resources:** opens existing Fonts, Themes, and Templates dialogs.
 - **Add:** searchable, data-driven groups (`Basic`, `Media`, `Frames`, `Library`). Text and Shape
-  and trusted built-in Icon insert immediately. Screenshot, decorative Image, and iPhone Device Frame open the project image
+  and trusted built-in Icon insert immediately. Screenshot, decorative Image, and Device Frame open the project image
   picker. Templates opens the existing library. Adding a
   future type extends catalog metadata and an action rather than restructuring the workbench.
   Library also inserts editable grouped Rating and As seen on badges when a registered font exists;
@@ -153,8 +153,9 @@ the schema gains them (future phases). Everything else is as built.
 - **`icon`** → trusted built-in id (`check | heart | sparkles | star`), color, strokeWidth.
 - **Badge compositions** → no dedicated inspector/schema type; grouped rating/press badges expose
   their ordinary child fields, while official store badges use the ordinary image inspector.
-- **`device-frame`** → assetUrl, fit; deviceType (read-only, `iphone` only today); frame color,
-  authorable screen slot *(target)*.
+- **`device-frame`** → assetUrl, fit, and trusted preset (`iphone | android-phone | tablet | desktop |
+  tv | watch`). Switching preset fits the outer box to its canonical aspect ratio; frame color and
+  author-defined screen slot remain outside the contract.
 - **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect | ellipse`),
   solid fallback or two-stop linear-gradient fill, rect radius, and optional stroke.
 

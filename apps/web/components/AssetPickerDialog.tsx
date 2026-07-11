@@ -83,7 +83,7 @@ export function AssetPickerDialog({
     <DialogShell
       title={isFrame ? "Choose device screenshot" : isBackground ? "Choose background image" : isStoreBadge ? "Choose store badge asset" : isImage ? "Choose decorative image" : "Choose screenshot asset"}
       description={isFrame
-        ? "Place a project image inside the existing deterministic iPhone frame."
+        ? "Place a project image inside a deterministic built-in device frame."
         : isBackground
           ? "Use an existing project image as this output's artboard background."
         : isStoreBadge

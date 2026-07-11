@@ -31,7 +31,7 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   const font = { family: "Pacifico", weight: 400 };
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Badge parity", schemaVersion: 9 },
+    meta: { name: "Badge parity", schemaVersion: 10 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

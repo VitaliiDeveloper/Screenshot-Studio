@@ -100,7 +100,7 @@ describe("Project asset picker", () => {
       fit: "cover", crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
 
-    await page.getByRole("button", { name: "iPhone Device Frame", exact: true }).click();
+    await page.getByRole("button", { name: "Device Frame", exact: true }).click();
     const frameDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
@@ -117,6 +117,12 @@ describe("Project asset picker", () => {
       height: 650,
     });
     expect(project().screens[1].elements).toHaveLength(1);
+
+    await page.getByLabel("Frame preset", { exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "desktop", exact: true }).click();
+    await expect.poll(() => project().screens[0].elements.at(-1)).toMatchObject({
+      deviceType: "desktop", width: 300, height: 187.5,
+    });
 
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });

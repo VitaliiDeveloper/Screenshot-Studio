@@ -3,16 +3,16 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v9). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v10). Narrower than the long-term target in docs/architecture.md §3:
  * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
- * (iphone frames only); store families are platform-keyed; fonts uploaded/google
+ * (trusted built-in frame presets only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
  * live outside the render contract. Badge elements are deliberately represented as ordinary
  * groups. Objects are `.strict()` on purpose: the project JSON is the agent contract,
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export const HexColor = z
   .string()
@@ -152,11 +152,15 @@ export const IconElement = z
   .strict();
 export type IconElement = z.infer<typeof IconElement>;
 
+export const DEVICE_FRAME_IDS = ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const;
+export const DeviceFrameId = z.enum(DEVICE_FRAME_IDS);
+export type DeviceFrameId = z.infer<typeof DeviceFrameId>;
+
 export const DeviceFrameElement = z
   .object({
     type: z.literal("device-frame"),
     ...leafBase,
-    deviceType: z.literal("iphone"),
+    deviceType: DeviceFrameId,
     /** Document-relative path to the screenshot placed in the frame's screen slot. */
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("cover"),

@@ -303,6 +303,13 @@ editor and static export; ellipse uses a logical owner Group so persisted x/y re
 drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects. v8
 migration refuses previously invalid styling fields at any leaf depth.
 
+**Built-in frame presets — schema v10 / Phase 9 Slice 5.** The existing `device-frame` leaf selects
+one core-owned `iphone | android-phone | tablet | desktop | tv | watch` preset. Each supplies
+normalized outer aspect, bezel, screen-slot, corner, and optional notch geometry rendered with
+native Konva primitives; the project screenshot remains the only asset. Preset switching preserves
+width and fits height to the canonical outer aspect. v9 migration accepts only its prior iPhone
+literal and refuses mislabeled future presets at any leaf depth.
+
 ---
 
 ### Store output families

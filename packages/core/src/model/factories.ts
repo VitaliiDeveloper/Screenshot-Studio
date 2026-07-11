@@ -9,6 +9,7 @@ import type {
   TextElement,
 } from "./schema.js";
 import type { FontIdentity } from "./font-identity.js";
+import { DEVICE_FRAME_SPECS } from "./device-frames.js";
 
 /** Optional top-left origin for a newly inserted element (defaults to a fixed offset). */
 export interface ElementOrigin {
@@ -132,13 +133,14 @@ export interface CreateDeviceFrameElementInput extends SizedOrigin {
 }
 
 export function createDeviceFrameElement(input: CreateDeviceFrameElementInput): DeviceFrameElement {
+  const deviceType = input.deviceType ?? "iphone";
   return {
     ...elementBase(input, {
       width: input.width ?? 300,
-      height: input.height ?? 650,
+      height: input.height ?? 300 / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
     }),
     type: "device-frame",
-    deviceType: input.deviceType ?? "iphone",
+    deviceType,
     assetUrl: input.assetUrl,
     fit: input.fit ?? "cover",
   };

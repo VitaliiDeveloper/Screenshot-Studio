@@ -71,7 +71,7 @@ type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "co
 type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
 type MediaFields = { crop?: MediaCrop | null };
 type IconFields = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
-type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
+type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit" | "deviceType">>;
 
 /**
  * Call-site convenience: common fields plus optional type-specific fields.
@@ -162,6 +162,7 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
     case "device-frame":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
+      if (patch.deviceType !== undefined) el.deviceType = patch.deviceType;
       break;
     case "group":
       break;

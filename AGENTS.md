@@ -75,13 +75,13 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v9 only; future schema ideas are not valid project fields.
+against the enforced v10 only; future schema ideas are not valid project fields.
 
-**Current v9 (enforced today):**
+**Current v10 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 9 }
+├── meta: { name, appIcon?, schemaVersion: 10 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …] # derived manifest: set-equal to screens
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
@@ -97,13 +97,14 @@ Project
 
 Element transform base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?`.
 Leaf elements may also carry `role?`. Element types today are leaf `text`, `shape` (rect),
-`screenshot`, decorative `image`, trusted built-in vector `icon`, `device-frame` (iphone), plus one-level `group` with
+`screenshot`, decorative `image`, trusted built-in vector `icon`, trusted built-in `device-frame`, plus one-level `group` with
 `children: LeafElement[]` in group-local coordinates. Groups cannot nest and do not clip their
 children.
 Screenshot and decorative-image leaves may carry `crop: { x, y, zoom }`; normalized focal points
 and bounded zoom affect `cover` only, while `contain` deterministically ignores the crop literal.
 Text may carry one strict deterministic shadow. Shapes support rect/ellipse, an optional two-stop
 linear gradient, and an optional literal stroke; arbitrary paths and generic effects remain invalid.
+Device frames select only from the core-owned phone/tablet/desktop/TV/watch preset registry.
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 

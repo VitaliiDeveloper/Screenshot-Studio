@@ -129,10 +129,10 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
   },
   {
     id: "device-frame",
-    label: "iPhone Device Frame",
+    label: "Device Frame",
     category: "Frames",
     action: "open-asset-picker",
-    hint: "Choose a project screenshot asset",
+    hint: "Choose a screenshot asset; phone, tablet, desktop, TV, or watch",
   },
   {
     id: "components",

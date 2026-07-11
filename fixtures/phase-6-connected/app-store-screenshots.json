@@ -1,5 +1,5 @@
 {
-  "meta": { "name": "Phase 6 Connected Crop", "schemaVersion": 9 },
+  "meta": { "name": "Phase 6 Connected Crop", "schemaVersion": 10 },
   "mode": "connected",
   "platforms": ["apple", "android"],
   "locales": ["en"],

@@ -401,19 +401,21 @@ export function elementToNodeConfig(
         });
       }
 
-      const notchW = spec.notch.widthFrac * W;
-      const notchH = spec.notch.heightFrac * H;
-      children.push({
-        konva: "Rect",
-        config: {
-          x: (W - notchW) / 2,
-          y: spec.notch.topFrac * H,
-          width: notchW,
-          height: notchH,
-          fill: spec.bezelColor,
-          cornerRadius: notchH / 2,
-        },
-      });
+      if (spec.notch) {
+        const notchW = spec.notch.widthFrac * W;
+        const notchH = spec.notch.heightFrac * H;
+        children.push({
+          konva: "Rect",
+          config: {
+            x: (W - notchW) / 2,
+            y: spec.notch.topFrac * H,
+            width: notchW,
+            height: notchH,
+            fill: spec.bezelColor,
+            cornerRadius: notchH / 2,
+          },
+        });
+      }
 
       return { konva: "Group", config: { ...common, width: W, height: H }, children };
     }

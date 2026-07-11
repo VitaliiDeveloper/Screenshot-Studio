@@ -500,6 +500,20 @@ describe("DeviceFrameElement", () => {
     expect(() => Element.parse({ ...base, deviceType: "android" })).toThrow();
   });
 
+  it("accepts every trusted built-in frame preset", () => {
+    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const) {
+      expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
+    }
+  });
+
+  it("does not bless non-iPhone presets mislabeled as schema v9", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    (raw.meta as Record<string, unknown>).schemaVersion = 9;
+    const screen = (raw.screens as Array<Record<string, unknown>>)[0]!;
+    screen.elements = [{ ...base, deviceType: "tablet" }];
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
   it("rejects an unknown fit", () => {
     expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
   });

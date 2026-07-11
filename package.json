@@ -36,7 +36,7 @@
     "test:e2e:ci": "pnpm test:e2e:parity:foundation && pnpm test:e2e:export && pnpm test:e2e:editor:interaction && pnpm test:e2e:accessibility",
     "test:e2e:parity": "pnpm test:e2e:parity:foundation && pnpm test:e2e:parity:elements",
     "test:e2e:parity:foundation": "vitest run --config vitest.e2e.config.ts e2e/parity.test.ts e2e/screenshot-parity.test.ts e2e/device-frame-parity.test.ts e2e/rtl-parity.test.ts e2e/connected-canvas-parity.test.ts",
-    "test:e2e:parity:elements": "vitest run --config vitest.e2e.config.ts e2e/group-parity.test.ts e2e/image-parity.test.ts e2e/icon-parity.test.ts e2e/badge-parity.test.ts e2e/background-parity.test.ts e2e/styling-parity.test.ts",
+    "test:e2e:parity:elements": "vitest run --config vitest.e2e.config.ts e2e/group-parity.test.ts e2e/image-parity.test.ts e2e/icon-parity.test.ts e2e/badge-parity.test.ts e2e/background-parity.test.ts e2e/styling-parity.test.ts e2e/frame-presets-parity.test.ts",
     "test:e2e:export": "vitest run --config vitest.e2e.config.ts e2e/bundle-export.test.ts e2e/ui-export.test.ts e2e/connected-canvas-export.test.ts",
     "test:e2e:editor": "pnpm test:e2e:editor:interaction && pnpm test:e2e:editor:workspace && pnpm test:e2e:editor:authoring",
     "test:e2e:editor:interaction": "vitest run --config vitest.e2e.config.ts e2e/editor.test.ts e2e/left-panel.test.ts e2e/inspector-toolbar.test.ts e2e/editor-history.test.ts e2e/editor-snapping.test.ts",

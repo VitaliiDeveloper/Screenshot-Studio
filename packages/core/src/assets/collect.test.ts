@@ -5,7 +5,7 @@ import type { Background, Project, Element, LeafElement } from "../model/schema.
 
 function project(elements: Element[], background: Background = { type: "solid", color: "#000000" }): Project {
   return {
-    meta: { name: "T", schemaVersion: 9 },
+    meta: { name: "T", schemaVersion: 10 },
     mode: "isolated",
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{

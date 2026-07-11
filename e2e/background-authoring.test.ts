@@ -21,7 +21,7 @@ beforeAll(async () => {
   cpSync(imagePath, join(directory, "assets", "background.png"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Background authoring", schemaVersion: 9 },
+    meta: { name: "Background authoring", schemaVersion: 10 },
     mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{
       id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",

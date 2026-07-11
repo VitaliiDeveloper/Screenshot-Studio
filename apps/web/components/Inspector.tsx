@@ -8,6 +8,8 @@ import {
   findElementLocation,
   getScreen,
   ICON_IDS,
+  DEVICE_FRAME_IDS,
+  DEVICE_FRAME_SPECS,
   type Background,
   type ImageElement,
   type Screen,
@@ -466,10 +468,10 @@ export function Inspector({
             <Section title="Device frame">
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-slate-500">Device</span>
-                <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">{element.deviceType}</span>
-              </div>
+              <SelectField label="Frame preset" value={element.deviceType} options={DEVICE_FRAME_IDS} onChange={(deviceType) => patch(element.id, {
+                deviceType,
+                height: element.width / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
+              })} />
             </Section>
           )}
         </>
