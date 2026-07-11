@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type Konva from "konva";
-import type { Background, Element, LayoutDirection } from "../model/schema.js";
+import type { Background, Element, LayoutDirection, MediaCrop } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 import { ICON_PATHS } from "../model/icons.js";
@@ -52,7 +52,12 @@ interface Fit {
  * object-fit for a decoded image inside a box, RELATIVE to the box's (0,0). Shared by `screenshot`
  * (box = the element) and `device-frame` (box = the screen slot). Pure.
  */
-function computeImageFit(image: HTMLImageElement, box: Box, fit: "cover" | "contain"): Fit {
+function computeImageFit(
+  image: HTMLImageElement,
+  box: Box,
+  fit: "cover" | "contain",
+  crop?: MediaCrop,
+): Fit {
   if (fit === "contain") {
     const scale = Math.min(box.width / image.width, box.height / image.height);
     const drawW = image.width * scale;
@@ -71,13 +76,20 @@ function computeImageFit(image: HTMLImageElement, box: Box, fit: "cover" | "cont
     cropWidth = image.height * boxRatio;
     cropHeight = image.height;
   }
+  const zoom = crop?.zoom ?? 1;
+  cropWidth /= zoom;
+  cropHeight /= zoom;
+  const focalX = (crop?.x ?? 0.5) * image.width;
+  const focalY = (crop?.y ?? 0.5) * image.height;
+  const cropX = Math.min(image.width - cropWidth, Math.max(0, focalX - cropWidth / 2));
+  const cropY = Math.min(image.height - cropHeight, Math.max(0, focalY - cropHeight / 2));
   return {
     x: 0,
     y: 0,
     width: box.width,
     height: box.height,
-    cropX: (image.width - cropWidth) / 2,
-    cropY: (image.height - cropHeight) / 2,
+    cropX,
+    cropY,
     cropWidth,
     cropHeight,
   };
@@ -254,7 +266,12 @@ export function elementToNodeConfig(
           },
         };
       }
-      const fit = computeImageFit(image, { width: element.width, height: element.height }, element.fit);
+      const fit = computeImageFit(
+        image,
+        { width: element.width, height: element.height },
+        element.fit,
+        element.crop,
+      );
       return {
         konva: "Group",
         config: { ...common, width: element.width, height: element.height },

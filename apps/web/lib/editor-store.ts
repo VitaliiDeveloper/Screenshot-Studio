@@ -31,6 +31,7 @@ import {
   type DeviceFrameElement,
   type FontAsset,
   type LayoutDirection,
+  type MediaCrop,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
@@ -62,6 +63,7 @@ type TextFields = Partial<
 type ShapeFields = Partial<Pick<ShapeElement, "fill" | "radius">>;
 type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
 type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
+type MediaFields = { crop?: MediaCrop | null };
 type IconFields = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
 type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
 
@@ -75,6 +77,7 @@ export type ElementPatch = CommonElementPatch &
   ShapeFields &
   ScreenshotFields &
   ImageFields &
+  MediaFields &
   IconFields &
   DeviceFrameFields;
 
@@ -128,11 +131,15 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
       if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      if (patch.crop === null) delete el.crop;
+      else if (patch.crop !== undefined) el.crop = patch.crop;
       break;
     case "image":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
       if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      if (patch.crop === null) delete el.crop;
+      else if (patch.crop !== undefined) el.crop = patch.crop;
       break;
     case "icon":
       if (patch.icon !== undefined) el.icon = patch.icon;

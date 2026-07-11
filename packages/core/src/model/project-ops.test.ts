@@ -25,7 +25,7 @@ import {
 
 function sampleProject(): Project {
   return {
-    meta: { name: "T", schemaVersion: 7 },
+    meta: { name: "T", schemaVersion: 8 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v7 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v8 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -147,8 +147,9 @@ the schema gains them (future phases). Everything else is as built.
   registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;
   shadow *(target)*.
-- **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; crop *(target)*.
-- **`image`** → assetUrl, fit (contain default or centred cover crop), cornerRadius.
+- **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; normalized focal-point percentages,
+  bounded crop zoom, and reset when fit is cover.
+- **`image`** → assetUrl, fit (contain default or cover), cornerRadius, and the same cover-only crop controls.
 - **`icon`** → trusted built-in id (`check | heart | sparkles | star`), color, strokeWidth.
 - **Badge compositions** → no dedicated inspector/schema type; grouped rating/press badges expose
   their ordinary child fields, while official store badges use the ordinary image inspector.

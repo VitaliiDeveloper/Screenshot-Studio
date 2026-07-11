@@ -289,6 +289,13 @@ ordinary project preload cache and retain the same path-containment rules as ima
 renderer paints every background before connected elements and export still strips alpha. v6
 migrates losslessly only when its previously legal solid-only background contract is respected.
 
+**Media crop controls — schema v8 / Phase 9 Slice 3.** Screenshot and decorative-image leaves may
+store `crop: { x, y, zoom }`, where focal coordinates are normalized `0…1` and zoom is bounded
+`1…4`. The shared object-fit mapper derives a clamped source window for `cover`; missing crop is
+centred at zoom 1, and `contain` preserves but ignores crop state. The element box, connected owner
+coordinates, export crop, and alpha handling remain unchanged. v7 migrates only when no previously
+invalid crop field appears at any leaf depth.
+
 ---
 
 ### Store output families

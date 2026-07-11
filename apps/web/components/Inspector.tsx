@@ -4,7 +4,15 @@
 import { useState } from "react";
 import { useStore } from "zustand";
 import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
-import { findElementLocation, getScreen, ICON_IDS, type Background, type Screen } from "@screenshot-studio/core/model";
+import {
+  findElementLocation,
+  getScreen,
+  ICON_IDS,
+  type Background,
+  type ImageElement,
+  type Screen,
+  type ScreenshotElement,
+} from "@screenshot-studio/core/model";
 import {
   artboardTargetStatus,
   leadStoreSizeId,
@@ -46,6 +54,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">{title}</h3>
       {children}
     </section>
+  );
+}
+
+function MediaCropFields({
+  element,
+  onChange,
+}: {
+  element: ScreenshotElement | ImageElement;
+  onChange: (patch: ElementPatch) => void;
+}) {
+  if (element.fit !== "cover") return null;
+  const crop = element.crop ?? { x: 0.5, y: 0.5, zoom: 1 };
+  return (
+    <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>
+      <NumberField label="Focal X %" value={crop.x * 100} min={0} max={100} integer onChange={(x) => onChange({ crop: { ...crop, x: x / 100 } })} />
+      <NumberField label="Focal Y %" value={crop.y * 100} min={0} max={100} integer onChange={(y) => onChange({ crop: { ...crop, y: y / 100 } })} />
+      <NumberField label="Crop zoom" value={crop.zoom} min={1} max={4} step={0.1} onChange={(zoom) => onChange({ crop: { ...crop, zoom } })} />
+      {element.crop ? (
+        <button type="button" className={editorUi.buttonSecondary} onClick={() => onChange({ crop: null })}>
+          Reset crop
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -371,6 +403,7 @@ export function Inspector({
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
               <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => patch(element.id, { cornerRadius })} />
+              <MediaCropFields element={element} onChange={(change) => patch(element.id, change)} />
             </Section>
           )}
 
@@ -379,6 +412,7 @@ export function Inspector({
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
               <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => patch(element.id, { cornerRadius })} />
+              <MediaCropFields element={element} onChange={(change) => patch(element.id, change)} />
             </Section>
           )}
 

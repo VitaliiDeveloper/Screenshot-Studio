@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "Store Launch Demo",
-    "schemaVersion": 7
+    "schemaVersion": 8
   },
   "mode": "isolated",
   "platforms": [

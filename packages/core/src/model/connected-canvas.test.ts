@@ -12,7 +12,7 @@ import {
 
 function project(): Project {
   return {
-    meta: { name: "Connected", schemaVersion: 7 },
+    meta: { name: "Connected", schemaVersion: 8 },
     mode: "connected",
     platforms: ["apple", "android"],
     locales: ["en", "fr"],

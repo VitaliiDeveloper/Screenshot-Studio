@@ -8,7 +8,7 @@ import { loadProjectFile, writeProjectFile } from "./project-io.js";
 
 function sampleProject(): Project {
   return {
-    meta: { name: "CLI Project", schemaVersion: 7 },
+    meta: { name: "CLI Project", schemaVersion: 8 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

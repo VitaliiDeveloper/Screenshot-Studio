@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 7 },
+    meta: { name: "T", schemaVersion: 8 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -386,7 +386,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
   });
 
-  it("patches decorative image asset, fit, and corner radius", () => {
+  it("patches and resets decorative-image crop with the other media fields", () => {
     editorStore.getState().addElement({
       id: "decor", type: "image", x: 10, y: 20, width: 100, height: 80,
       rotation: 0, opacity: 1, locked: false, visible: true,
@@ -394,10 +394,15 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     });
     editorStore.getState().patchElement("decor", {
       assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
+      crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
     expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
       type: "image", assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
+      crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
+    editorStore.getState().patchElement("decor", { crop: null });
+    expect(editorStore.getState().project!.screens[0]!.elements.at(-1))
+      .not.toHaveProperty("crop");
   });
 
   it("patches icon identity, colour, and stroke width", () => {

@@ -38,11 +38,11 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v7 shape
+## Enforced v8 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 7 }
+├── meta: { name, appIcon?, schemaVersion: 8 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
@@ -66,6 +66,9 @@ objects from this summary.
 Badges are compositions, not a `badge` element type. Rating and “as seen on” badges are ordinary
 one-level groups of shape/icon/text leaves; official store badges are ordinary contain-fit `image`
 elements. Preserve and edit their literal children like any other group/image.
+
+Screenshot and decorative-image leaves may store normalized `crop: { x, y, zoom }`: focal `x/y`
+are in `0…1`, zoom is `1…4`, and the literal affects `cover` only. `contain` keeps but ignores it.
 
 Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
 an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and

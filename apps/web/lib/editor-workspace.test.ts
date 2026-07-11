@@ -27,7 +27,7 @@ function scopeProject(mode: Project["mode"]): Project {
     elements: [],
   } as Project["screens"][number]);
   return {
-    meta: { name: "Scope", schemaVersion: 7 },
+    meta: { name: "Scope", schemaVersion: 8 },
     mode,
     platforms: ["apple", "android"],
     locales: ["en"],

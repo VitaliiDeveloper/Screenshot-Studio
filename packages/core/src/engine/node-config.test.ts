@@ -192,6 +192,26 @@ describe("elementToNodeConfig — screenshot", () => {
     expect((result.children[1]!.config as Record<string, unknown>).cropWidth).toBeUndefined();
   });
 
+  it("applies normalized focal point and zoom only to cover", () => {
+    const cropped = elementToNodeConfig({
+      ...shot,
+      crop: { x: 1, y: 0, zoom: 2 },
+    }, { images: cache });
+    if (cropped.konva !== "Group") throw new Error("expected Group");
+    expect(cropped.children[1]!.config).toMatchObject({
+      cropX: 200, cropY: 0, cropWidth: 200, cropHeight: 100,
+    });
+
+    const contained = elementToNodeConfig({
+      ...shot,
+      fit: "contain",
+      crop: { x: 1, y: 0, zoom: 4 },
+    }, { images: cache });
+    if (contained.konva !== "Group") throw new Error("expected Group");
+    expect(contained.children[1]!.config).toMatchObject({ x: 50, y: 0, width: 100, height: 100 });
+    expect((contained.children[1]!.config as Record<string, unknown>).cropWidth).toBeUndefined();
+  });
+
   it("maps a missing image to a grey placeholder rect", () => {
     const result = elementToNodeConfig(shot, { images: new Map() });
     expect(result.konva).toBe("Rect");

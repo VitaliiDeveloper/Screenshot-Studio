@@ -161,6 +161,25 @@ describe("parseProject", () => {
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
+  it("migrates valid v7 input and rejects crop fields mislabeled as v7", () => {
+    const valid = validProject();
+    valid.meta.schemaVersion = 7 as typeof SCHEMA_VERSION;
+    expect(parseProject(valid).meta.schemaVersion).toBe(SCHEMA_VERSION);
+
+    const mislabeled = validProject() as unknown as Record<string, unknown>;
+    (mislabeled.meta as Record<string, unknown>).schemaVersion = 7;
+    const screen = (mislabeled.screens as Array<Record<string, unknown>>)[0]!;
+    const element = (screen.elements as Array<Record<string, unknown>>)[0]!;
+    Object.assign(element, {
+      type: "screenshot", assetUrl: "assets/shot.png", fit: "cover", crop: { x: 0.2, y: 0.8, zoom: 2 },
+    });
+    delete element.content;
+    delete element.fontFamily;
+    delete element.size;
+    delete element.color;
+    expect(() => parseProject(mislabeled)).toThrow(ProjectValidationError);
+  });
+
   it("accepts strict linear-gradient and image backgrounds with defaults", () => {
     const gradient = validProject() as unknown as Record<string, unknown>;
     const gradientScreen = (gradient.screens as Array<Record<string, unknown>>)[0]!;
@@ -355,6 +374,17 @@ describe("ScreenshotElement", () => {
       .toMatchObject({ fit: "contain", cornerRadius: 24 });
   });
 
+  it("accepts bounded normalized crop and applies crop defaults", () => {
+    expect(Element.parse({ ...base, crop: {} })).toMatchObject({
+      crop: { x: 0.5, y: 0.5, zoom: 1 },
+    });
+    expect(Element.parse({ ...base, crop: { x: 0, y: 1, zoom: 4 } })).toMatchObject({
+      crop: { x: 0, y: 1, zoom: 4 },
+    });
+    expect(() => Element.parse({ ...base, crop: { x: -0.1, y: 0.5, zoom: 1 } })).toThrow();
+    expect(() => Element.parse({ ...base, crop: { x: 0.5, y: 0.5, zoom: 4.1 } })).toThrow();
+  });
+
   it("rejects an unknown fit", () => {
     expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
   });
@@ -387,7 +417,7 @@ describe("ImageElement (schema v4)", () => {
     expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
     expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
     expect(() => Element.parse({ ...base, cornerRadius: -1 })).toThrow();
-    expect(() => Element.parse({ ...base, crop: {} })).toThrow();
+    expect(() => Element.parse({ ...base, bogus: true })).toThrow();
   });
 });
 

@@ -21,7 +21,7 @@ function project(mode: Project["mode"] = "connected"): Project {
     radius: 0,
   });
   return {
-    meta: { name: "Thumbnails", schemaVersion: 7 },
+    meta: { name: "Thumbnails", schemaVersion: 8 },
     mode,
     platforms: ["apple", "android"],
     locales: ["en"],

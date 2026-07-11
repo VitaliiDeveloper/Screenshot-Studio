@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v7). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v8). Narrower than the long-term target in docs/architecture.md §3:
  * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
  * (iphone frames only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
@@ -12,7 +12,7 @@ import { fontIdentityKey } from "./font-identity.js";
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const HexColor = z
   .string()
@@ -26,6 +26,13 @@ export type ThemeRole = z.infer<typeof ThemeRole>;
 
 export const LayoutDirection = z.enum(["ltr", "rtl"]);
 export type LayoutDirection = z.infer<typeof LayoutDirection>;
+
+export const MediaCrop = z.object({
+  x: unitInterval.default(0.5),
+  y: unitInterval.default(0.5),
+  zoom: z.number().finite().min(1).max(4).default(1),
+}).strict();
+export type MediaCrop = z.infer<typeof MediaCrop>;
 
 /** Project-wide authoring/render projection; exact platform/device/locale groups stay independent. */
 export const CanvasMode = z.enum(["isolated", "connected"]);
@@ -87,6 +94,7 @@ export const ScreenshotElement = z
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("cover"),
     cornerRadius: z.number().min(0).default(0),
+    crop: MediaCrop.optional(),
   })
   .strict();
 export type ScreenshotElement = z.infer<typeof ScreenshotElement>;
@@ -99,6 +107,7 @@ export const ImageElement = z
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("contain"),
     cornerRadius: z.number().min(0).default(0),
+    crop: MediaCrop.optional(),
   })
   .strict();
 export type ImageElement = z.infer<typeof ImageElement>;
