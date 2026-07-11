@@ -153,23 +153,30 @@ describe("Phase 3.6 editor workspace", () => {
     const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
 
-    const outputFamilies = page.getByRole("navigation", { name: "Output families for en", exact: true });
-    await expect.poll(() => outputFamilies.getByRole("button").count()).toBe(2);
-    const ipadSelector = outputFamilies.getByRole("button", { name: "App Store · iPad · 3", exact: true });
-    expect(await ipadSelector.getAttribute("aria-pressed")).toBe("true");
+    const outputFamily = page.getByRole("button", { name: "Output family for en", exact: true });
+    await expect.poll(() => outputFamily.count()).toBe(1);
+    expect(await outputFamily.textContent()).toContain("App Store · iPad · 3");
+
+    await outputFamily.click();
+    const outputOptions = page.getByRole("menu", { name: "Output family options for en", exact: true });
+    await expect.poll(() => outputOptions.getByRole("menuitemradio").count()).toBe(2);
+    expect(await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true })
+      .getAttribute("aria-checked")).toBe("true");
 
     const ipadScreens = page.getByRole("list", { name: "Screens for en · App Store · iPad", exact: true });
     await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
-    await outputFamilies.getByRole("button", { name: "App Store · iPhone · 3", exact: true }).click();
+    await outputOptions.getByRole("menuitemradio", { name: "App Store · iPhone · 3", exact: true }).click();
     const iphoneScreens = page.getByRole("list", { name: "Screens for en · App Store · iPhone", exact: true });
     await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
+    expect(await outputFamily.textContent()).toContain("App Store · iPhone · 3");
     expect(await page.getByTestId("overview-output-families").getByRole("region").count()).toBe(2);
 
-    await ipadSelector.click();
+    await outputFamily.click();
+    await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true }).click();
 
     const iphoneRow = page.getByRole("region", { name: "App Store · iPhone output row", exact: true });
     const ipadRow = page.getByRole("region", { name: "App Store · iPad output row", exact: true });

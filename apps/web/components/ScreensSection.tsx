@@ -15,9 +15,8 @@ import type { ImageCache } from "@screenshot-studio/core/assets";
 import { groupScreensByOutput, workspaceScreenScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { OutputFamilySwitcher } from "./OutputFamilySwitcher";
 import { SortableRow } from "./SortableRow";
-import { editorUi } from "./editor-ui";
+import { editorUi, MenuSelect } from "./editor-ui";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
@@ -100,12 +99,25 @@ export function ScreensSection({ images }: { images: ImageCache }) {
         </button>
       </header>
       {showOutputSwitcher ? (
-        <OutputFamilySwitcher
-          locale={activeLocale}
-          rows={outputRows}
-          activeKey={activeOutputKey}
-          onSelect={(screenId) => editorStore.getState().selectScreen(screenId)}
-        />
+        <div className="border-y border-slate-100 bg-slate-50/60 px-2 py-1.5">
+          <MenuSelect
+            ariaLabel={`Output family for ${activeLocale}`}
+            menuLabel={`Output family options for ${activeLocale}`}
+            value={activeOutputKey}
+            options={outputRows.map((row) => ({
+              value: row.key,
+              label: `${row.label} · ${row.screens.length}`,
+            }))}
+            onChange={(outputKey) => {
+              const output = outputRows.find((row) => row.key === outputKey);
+              if (output) editorStore.getState().selectScreen(output.screens[0]!.id);
+            }}
+            density="compact"
+            className="w-full"
+            triggerClassName="rounded-md shadow-none"
+            menuClassName="w-full"
+          />
+        </div>
       ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={visibleScreens.map((s) => s.id)} strategy={verticalListSortingStrategy}>

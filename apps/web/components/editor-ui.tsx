@@ -171,6 +171,7 @@ export function MenuSelect<T extends string>({
   triggerClassName,
   menuClassName,
   showSelectedIcon = false,
+  density = "default",
 }: {
   ariaLabel: string;
   menuLabel?: string;
@@ -181,6 +182,7 @@ export function MenuSelect<T extends string>({
   triggerClassName?: string;
   menuClassName?: string;
   showSelectedIcon?: boolean;
+  density?: "default" | "compact";
 }) {
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
@@ -189,6 +191,7 @@ export function MenuSelect<T extends string>({
   const [openUpward, setOpenUpward] = useState(false);
   const activeOption = options.find((option) => option.value === value) ?? options[0];
   const ActiveIcon = activeOption?.icon;
+  const compact = density === "compact";
 
   useEffect(() => {
     if (!open) return;
@@ -239,7 +242,10 @@ export function MenuSelect<T extends string>({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={cx(
-          "group flex h-8 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 shadow-sm transition-all",
+          "group flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white shadow-sm transition-all",
+          compact
+            ? "h-7 px-2 text-[10px] font-normal text-slate-500"
+            : "h-8 px-2.5 text-xs text-slate-800",
           "hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
           open && "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10",
@@ -267,7 +273,8 @@ export function MenuSelect<T extends string>({
           role="menu"
           aria-label={menuLabel}
           className={cx(
-            "absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/12",
+            "absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/12",
+            compact ? "p-1" : "p-1.5",
             openUpward ? "bottom-full mb-1" : "top-full mt-1",
             menuClassName,
           )}
@@ -298,7 +305,10 @@ export function MenuSelect<T extends string>({
                 aria-checked={selected}
                 data-menu-select-value={option.value}
                 className={cx(
-                  "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium transition-colors",
+                  "flex w-full items-center gap-2 px-2 text-left transition-colors",
+                  compact
+                    ? "h-8 rounded-none border-b border-slate-100 text-[11px] font-normal last:border-b-0"
+                    : "h-9 rounded-lg text-xs font-medium",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60",
                   selected ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
