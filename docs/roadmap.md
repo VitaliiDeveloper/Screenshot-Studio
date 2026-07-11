@@ -189,11 +189,11 @@ are in `docs/specs/2026-07-11-phase9-closure-design.md`; execution order is in
 Phase 9 completion.
 Closure evidence and the release-independent decision are recorded in `docs/phase9-closure.md`.
 
-**Post-Phase 8 corrective work — active, independent of release planning.** Confirmed defects and
-misleading workflows found during ordinary dogfood may be fixed before Phase 9 without reopening
+**Post-Phase 8 corrective work — complete, independent of release planning.** Confirmed defects and
+misleading workflows found during ordinary dogfood were fixed before Phase 9 without reopening
 Phase 8 or implying publication. Store target variants were pulled out of the prospective Phase 9
 intake as corrective Slice 1 because the shipped `Set exact` action destructively changed the root
-artboard. The accepted contract is in
+artboard. The completed contract is in
 `docs/specs/2026-07-11-store-target-variants-design.md`; its execution plan is in
 `docs/plans/2026-07-11-post-phase8-slice1-store-target-variants.md`. Candidates outside the finite
 completed Phase 9 scope stay optional and evidence-driven rather than forming a release checklist.
