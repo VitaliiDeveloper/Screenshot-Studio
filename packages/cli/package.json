@@ -1,9 +1,29 @@
 {
   "name": "@screenshot-studio/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "Code-first App Store and Google Play screenshot editor and exporter",
   "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VitaliiDeveloper/Screenshot-Studio.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/VitaliiDeveloper/Screenshot-Studio#readme",
+  "bugs": {
+    "url": "https://github.com/VitaliiDeveloper/Screenshot-Studio/issues"
+  },
+  "keywords": [
+    "app-store",
+    "google-play",
+    "screenshots",
+    "cli",
+    "editor"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "screenshots": "./src/index.ts"
   },
@@ -21,7 +41,7 @@
   "dependencies": {
     "@screenshot-studio/core": "workspace:*",
     "jszip": "^3.10.1",
-    "playwright": "^1.49.1",
-    "sharp": "^0.34.5"
+    "playwright": "1.61.1",
+    "sharp": "0.34.5"
   }
 }

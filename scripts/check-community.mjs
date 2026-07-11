@@ -10,6 +10,9 @@ const requiredFiles = [
   "LICENSE",
   "NOTICE",
   "CONTRIBUTING.md",
+  "CHANGELOG.md",
+  "SECURITY.md",
+  "docs/releasing.md",
   "docs/assets/editor-demo.gif",
   "examples/README.md",
   "examples/connected-launch/app-store-screenshots.json",
@@ -31,6 +34,17 @@ assertIncludes(readme, "docs/assets/editor-demo.gif", "README demo");
 assertIncludes(readme, "https://github.com/VitaliiDeveloper/Screenshot-Studio.git", "README source install");
 assertIncludes(readme, "it is not a registry release", "README release status");
 assertIncludes(readme, "Phase 6 and Phase 7 complete the planned baseline", "README baseline status");
+assertIncludes(readme, "screenshot-studio-cli-0.1.0.tgz", "README candidate artifact");
+
+const changelog = await readFile(join(repoRoot, "CHANGELOG.md"), "utf8");
+assertIncludes(changelog, "## [0.1.0] - 2026-07-11 (release candidate)", "candidate changelog");
+
+const security = await readFile(join(repoRoot, "SECURITY.md"), "utf8");
+assertIncludes(security, "security/advisories/new", "private vulnerability reporting");
+
+const releasing = await readFile(join(repoRoot, "docs/releasing.md"), "utf8");
+assertIncludes(releasing, "requires explicit owner authorization", "release authorization boundary");
+assertIncludes(releasing, "screenshot-studio-cli-0.1.0.tgz", "release candidate artifact");
 
 const notice = await readFile(join(repoRoot, "NOTICE"), "utf8");
 assertIncludes(notice, "Copyright 2026 Vitalii Lavreniuk", "NOTICE copyright");

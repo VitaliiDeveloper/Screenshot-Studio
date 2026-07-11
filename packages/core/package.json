@@ -1,6 +1,6 @@
 {
   "name": "@screenshot-studio/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -24,6 +24,6 @@
   },
   "devDependencies": {
     "@types/pngjs": "^6.0.5",
-    "playwright": "^1.49.1"
+    "playwright": "1.61.1"
   }
 }

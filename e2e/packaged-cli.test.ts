@@ -18,6 +18,7 @@ let projectDirectory: string;
 let bin: string;
 let packedFiles: string[];
 let packedBytes: number;
+let packedName: string;
 
 async function run(command: string, args: string[], cwd: string, timeout = 180_000) {
   let executable = command;
@@ -80,6 +81,7 @@ beforeAll(async () => {
   };
   packedFiles = details.files.map((file) => file.path);
   packedBytes = (await stat(details.filename)).size;
+  packedName = basename(details.filename);
 
   const store = (await run("pnpm", ["store", "path"], repoRoot)).stdout.trim();
   await run("pnpm", [
@@ -102,7 +104,20 @@ afterAll(async () => {
 });
 
 describe("Packaged CLI", () => {
-  it("contains only the explicit executable/runtime package surface", () => {
+  it("contains the candidate metadata and only the explicit executable/runtime surface", async () => {
+    const manifest = JSON.parse(await readFile(join(stagedPackage, "package.json"), "utf8"));
+    expect(packedName).toBe("screenshot-studio-cli-0.1.0.tgz");
+    expect(manifest).toMatchObject({
+      name: "@screenshot-studio/cli",
+      version: "0.1.0",
+      repository: {
+        url: "git+https://github.com/VitaliiDeveloper/Screenshot-Studio.git",
+        directory: "packages/cli",
+      },
+      publishConfig: { access: "public" },
+      dependencies: { playwright: "1.61.1", sharp: "0.34.5" },
+    });
+    expect(manifest.private).toBeUndefined();
     expect(packedFiles).toEqual([
       "dist/index.js",
       "dist/index.js.map",

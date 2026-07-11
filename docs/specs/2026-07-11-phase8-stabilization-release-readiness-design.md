@@ -1,8 +1,7 @@
 # Phase 8 — Stabilization and release readiness
 
-Status: in progress. The Phase 7 baseline is complete, this dedicated stabilization contract is
-recorded, Slice 1 failure/recovery hardening is complete, and Slice 2 cross-environment packaged
-installation is next.
+Status: in progress. The Phase 7 baseline and Phase 8 Slices 1–6 are complete; Slice 7 sustained
+dogfood and explicit go/no-go is next.
 
 ## Goal
 

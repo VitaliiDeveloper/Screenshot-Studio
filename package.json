@@ -1,9 +1,18 @@
 {
   "name": "screenshot-studio",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
+  "description": "Code-first App Store and Google Play screenshot editor and exporter",
   "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VitaliiDeveloper/Screenshot-Studio.git"
+  },
+  "homepage": "https://github.com/VitaliiDeveloper/Screenshot-Studio#readme",
+  "bugs": {
+    "url": "https://github.com/VitaliiDeveloper/Screenshot-Studio/issues"
+  },
   "engines": {
     "node": ">=22.13"
   },
@@ -12,6 +21,7 @@
     "dev": "pnpm --filter @screenshot-studio/web dev",
     "build:cli-package": "pnpm --filter @screenshot-studio/web build && node scripts/build-cli-package.mjs",
     "audit:release": "pnpm build:cli-package && node scripts/release-audit.mjs",
+    "check:release-candidate": "pnpm audit:release && node scripts/check-release-candidate.mjs",
     "check:community": "node scripts/check-community.mjs",
     "check:spdx": "node scripts/check-spdx.mjs",
     "lint": "eslint .",
@@ -43,7 +53,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "jszip": "^3.10.1",
     "pixelmatch": "^6.0.0",
-    "playwright": "^1.49.1",
+    "playwright": "1.61.1",
     "pngjs": "^7.0.0",
     "tsx": "^4.23.0",
     "typescript": "^5.7.2",

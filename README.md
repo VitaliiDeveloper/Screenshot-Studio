@@ -33,12 +33,13 @@ To build the installable CLI artifact locally (this does not publish it):
 ```bash
 pnpm build:cli-package
 pnpm --dir packages/cli/package pack
-pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.0.0.tgz
+pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
 screenshots init --dir ./my-app-screenshots
 ```
 
 The resulting package contains a built `screenshots` bin and the prebuilt shared Next render host;
-it does not need the monorepo or `tsx` after installation.
+it does not need the monorepo or `tsx` after installation. Version `0.1.0` is a dry-run candidate;
+it is not a registry release.
 
 The optional Codex skill can be installed from the same checkout after the CLI artifact is made
 available on `PATH`:
@@ -56,6 +57,7 @@ It only discovers or initializes a project and then follows the generated projec
 - [docs/vision.md](docs/vision.md) — strategy, positioning, license, distribution _(changes rarely)_
 - [docs/architecture.md](docs/architecture.md) — stack, core/shell, data model, render/export parity, CLI & conventions _(the technical contract)_
 - [docs/roadmap.md](docs/roadmap.md) — MVP scope, phased plan, technical risks, exit criteria _(changes often)_
+- [docs/releasing.md](docs/releasing.md) — candidate install/upgrade/uninstall, limitations, and maintainer checklist
 
 ## Project structure
 
@@ -143,7 +145,8 @@ connected image/icon/badge/group crops plus keyboard group workflows across LTR/
 Phase 6 and Phase 7 complete the planned baseline. Phase 8 stabilization/release readiness is now
 in progress: failure/recovery, cross-environment package proof, and export soak/performance budgets
 plus accessibility/browser coverage and the store/dependency release audit are complete, with the
-release artifact and candidate documentation next. No public release is claimed yet.
+`0.1.0` release artifact/candidate documentation now complete as well. Sustained dogfood and the
+explicit Slice 7 go/no-go remain; no public release is claimed yet.
 
 ## Requirements
 
@@ -284,6 +287,7 @@ pnpm test:e2e:examples # validate, edit, and export the living example projects
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
 pnpm audit:release     # pack and audit files, runtime deps/licenses, portability, and size
+pnpm check:release-candidate # audit candidate version, metadata, and public docs
 pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
 pnpm typecheck         # all packages
 ```

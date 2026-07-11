@@ -1,8 +1,7 @@
 # Release readiness evidence
 
-Status: Phase 8 in progress. Slices 1–5 are complete; Slice 6 release artifact and candidate
-documentation is next. This ledger is evidence for a future go/no-go decision, not a public-release
-claim.
+Status: Phase 8 in progress. Slices 1–6 are complete; Slice 7 sustained dogfood and explicit
+go/no-go is next. This ledger is evidence for that decision, not a public-release claim.
 
 ## Baseline entering Phase 8
 
@@ -162,9 +161,30 @@ tests passed 16/16; the CLI suite passed 95/95; workspace typecheck, targeted ES
 community/SPDX checks, and `git diff --check` passed. Version remains `0.0.0` by design until Slice
 6, and nothing was published.
 
+## Slice 6 — Release artifact and candidate documentation
+
+Candidate `0.1.0` is now consistent across the private root/core/CLI/web workspace manifests. The
+generated `@screenshot-studio/cli` artifact intentionally omits `private`, carries repository,
+homepage, bugs, keywords, and public-scope metadata, and pins Playwright `1.61.1` plus Sharp
+`0.34.5` to the tested runtime resolutions.
+
+`CHANGELOG.md`, `SECURITY.md`, and `docs/releasing.md` now agree on the dry-run candidate,
+install/upgrade/uninstall paths, current limitations, private vulnerability reporting, maintainer
+checklist, and owner-only publication boundary. `pnpm check:release-candidate` rebuilds and audits
+the actual tarball before asserting all workspace/packed metadata and documentation. It passed with
+the exact ten-file package surface; the final audit pack was 10,451,837 bytes and its OS-neutral web
+archive was 49,299,413 bytes. The audit recorded 33 embedded package identities and reviewed
+installed runtime license identities.
+
+The clean temporary-consumer E2E passed 2/2 after asserting the candidate filename and manifest; it
+installed the tarball, initialized/managed a project, ran the packaged host, exported an exact PNG,
+preserved it through a render failure, and retried successfully. Workspace typecheck, targeted
+ESLint, community/SPDX checks, frozen-lockfile validation, and `git diff --check` passed. No tag,
+GitHub release, registry authentication, publication, or announcement occurred, and npm scope
+ownership is not assumed.
+
 ## Remaining release blockers
 
-- Slice 6: candidate version/artifact and release-candidate documentation.
 - Slice 7: sustained dogfood, full closure gates, and explicit go/no-go.
-- Final remote package-matrix revalidation is required after the current local Slice 3–5
+- Final remote package-matrix revalidation is required after the current local Slice 3–6
   package-host changes are pushed; no push is performed without explicit owner authorization.
