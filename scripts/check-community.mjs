@@ -58,12 +58,19 @@ const notice = await readFile(join(repoRoot, "NOTICE"), "utf8");
 assertIncludes(notice, "Copyright 2026 Vitalii Lavreniuk", "NOTICE copyright");
 assertIncludes(notice, "Apache License, Version 2.0", "NOTICE license");
 
+const schemaSource = await readFile(join(repoRoot, "packages/core/src/model/schema.ts"), "utf8");
+const schemaVersionMatch = schemaSource.match(/export const SCHEMA_VERSION = (\d+);/);
+if (!schemaVersionMatch) throw new Error("Cannot resolve the enforced schema version");
+const currentSchemaVersion = Number(schemaVersionMatch[1]);
+
 for (const path of [
   "examples/connected-launch/app-store-screenshots.json",
   "examples/rtl-delivery/app-store-screenshots.json",
 ]) {
   const project = JSON.parse(await readFile(join(repoRoot, path), "utf8"));
-  if (project.meta?.schemaVersion !== 6) throw new Error(`Example is not authored as v6: ${path}`);
+  if (project.meta?.schemaVersion !== currentSchemaVersion) {
+    throw new Error(`Example is not authored as v${currentSchemaVersion}: ${path}`);
+  }
 }
 
 console.log(`Verified ${requiredFiles.length} community surfaces and public status statements.`);

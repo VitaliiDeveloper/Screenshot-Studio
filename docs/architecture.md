@@ -47,7 +47,7 @@ screenshot-studio/
 │   └── cli/             # CLI: init, dev, screen, locale, font, theme, import, export
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
-├── examples/            # self-contained v6 connected and RTL living projects
+├── examples/            # self-contained current-schema connected and RTL living projects
 ├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
 └── skills/
     └── screenshot-studio/ # optional discovery/bootstrap skill for use outside the repo
@@ -449,7 +449,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v6
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v10
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

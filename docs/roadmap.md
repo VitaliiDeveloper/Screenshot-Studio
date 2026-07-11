@@ -167,7 +167,7 @@ release-candidate documentation. A first public release is considered only after
 Phase 6/7 completion alone is not a release claim. The dedicated design uses the recorded Phase 7
 closure evidence and slices the work in §3i.
 
-**Phase 9 — Expansion + continuous improvement — direction after stabilization.**
+**Phase 9 — Expansion + continuous improvement — complete.**
 Richer existing-type properties, additional frames/platform targets, workflow refinements,
 performance improvements, and further creative capabilities driven by Phase 8 findings and real
 use. This is a direction boundary, not a pre-approved catch-all implementation plan; each expansion
@@ -181,12 +181,13 @@ The contract and plan are in
 `docs/specs/2026-07-11-phase9-slice1-store-output-families.md` and
 `docs/plans/2026-07-11-phase9-slice1-store-output-families.md`.
 
-**Finite Phase 9 closure sequence — active.** Phase 9 closes through six slices: Store Output
+**Finite Phase 9 closure sequence — complete.** Phase 9 closed through six slices: Store Output
 Families; Background Authoring; Media Crop Controls; Text and Shape Styling; Built-in Frame Presets;
 and Workflow/Performance Closure. The ratified scope, exit criteria, and deliberate YAGNI boundary
 are in `docs/specs/2026-07-11-phase9-closure-design.md`; execution order is in
 `docs/plans/2026-07-11-phase9-closure.md`. Candidates outside that document are not requirements for
 Phase 9 completion.
+Closure evidence and the release-independent decision are recorded in `docs/phase9-closure.md`.
 
 **Post-Phase 8 corrective work — active, independent of release planning.** Confirmed defects and
 misleading workflows found during ordinary dogfood may be fixed before Phase 9 without reopening
@@ -194,8 +195,8 @@ Phase 8 or implying publication. Store target variants were pulled out of the pr
 intake as corrective Slice 1 because the shipped `Set exact` action destructively changed the root
 artboard. The accepted contract is in
 `docs/specs/2026-07-11-store-target-variants-design.md`; its execution plan is in
-`docs/plans/2026-07-11-post-phase8-slice1-store-target-variants.md`. Remaining Phase 9 candidates
-stay optional and evidence-driven rather than forming a mandatory release checklist.
+`docs/plans/2026-07-11-post-phase8-slice1-store-target-variants.md`. Candidates outside the finite
+completed Phase 9 scope stay optional and evidence-driven rather than forming a release checklist.
 
 ---
 

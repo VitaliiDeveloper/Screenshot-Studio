@@ -55,7 +55,7 @@ Uninstalling the CLI does not remove projects, exported files, or Playwright's s
 - Only the presets present in `store-specs.json` are supported. Additional Apple accepted sizes and
   Google device classes remain future work.
 - Groups are one level, do not clip children, and cannot nest. Backgrounds remain solid, and project
-  JSON accepts only the strict v6 element/property surface.
+  JSON accepts only the strict v10 element/property surface.
 - Fonts must be registered as project assets. Export rejects machine-dependent fallback fonts.
 - Background removal handles edge-connected flat or near-uniform colours; it is not semantic
   segmentation for complex photographs.

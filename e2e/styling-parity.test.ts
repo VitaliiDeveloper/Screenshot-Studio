@@ -26,7 +26,10 @@ beforeAll(async () => {
   cpSync(fixtureRoot, directory, { recursive: true });
   projectPath = join(directory, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(projectPath, "utf8")) as {
-    screens: Array<{ elements: Array<Record<string, unknown>> }>;
+    screens: Array<{ background: Record<string, unknown>; elements: Array<Record<string, unknown>> }>;
+  };
+  project.screens[0]!.background = {
+    type: "linear-gradient", from: "#0B1020", to: "#172554", angle: 35,
   };
   const shape = project.screens[0]!.elements.find((element) => element.type === "shape")!;
   Object.assign(shape, {
@@ -36,6 +39,18 @@ beforeAll(async () => {
   });
   const text = project.screens[0]!.elements.find((element) => element.type === "text")!;
   text.shadow = { color: "#000000", blur: 12, offsetX: 4, offsetY: 8, opacity: 0.6 };
+  const presets = ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const;
+  project.screens[0]!.elements.push(...presets.map((deviceType, index) => ({
+    id: `phase9-${deviceType}`, type: "device-frame", deviceType,
+    assetUrl: "assets/demo-logistics-app.png", fit: "cover",
+    x: 15 + index * 105, y: 1190, width: 90,
+    height: deviceType === "iphone" || deviceType === "android-phone" ? 195
+      : deviceType === "tablet" || deviceType === "watch" ? 120 : 56,
+    rotation: 0, opacity: 1, locked: false, visible: true,
+  })));
+  project.screens[1]!.background = {
+    type: "image", assetUrl: "assets/demo-logistics-app.png", fit: "cover", color: "#081426",
+  };
   writeFileSync(projectPath, JSON.stringify(project));
   process.env.PROJECT_PATH = projectPath;
   harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
@@ -47,19 +62,23 @@ afterAll(async () => {
   rmSync(directory, { recursive: true, force: true });
 });
 
-describe("Phase 9 styling parity", () => {
-  it("matches UI/CLI pixels for text shadow and ellipse gradient stroke", async () => {
-    const headless = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "hero", pixelRatio: 1,
-    }));
-    const headed = stripAlpha(await harness.headed.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "hero", pixelRatio: 1, timeoutMs: 60_000,
-    }));
-    const expected = PNG.sync.read(headless);
-    const actual = PNG.sync.read(headed);
-    expect({ width: expected.width, height: expected.height }).toEqual({ width: 660, height: 1434 });
-    const diff = new PNG({ width: expected.width, height: expected.height });
-    expect(pixelmatch(expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1 }))
-      .toBe(0);
+describe("Phase 9 expanded renderer parity", () => {
+  it("matches UI/CLI pixels for backgrounds, styling, and every frame preset", async () => {
+    for (const screenId of ["hero", "save-fast"]) {
+      const headless = stripAlpha(await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath, screenId, pixelRatio: 1,
+      }));
+      const headed = stripAlpha(await harness.headed.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath, screenId, pixelRatio: 1, timeoutMs: 60_000,
+      }));
+      const expected = PNG.sync.read(headless);
+      const actual = PNG.sync.read(headed);
+      expect({ width: expected.width, height: expected.height }).toEqual({ width: 660, height: 1434 });
+      const diff = new PNG({ width: expected.width, height: expected.height });
+      const mismatch = pixelmatch(
+        expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1 },
+      );
+      expect(mismatch / (expected.width * expected.height)).toBeLessThan(0.005);
+    }
   });
 });

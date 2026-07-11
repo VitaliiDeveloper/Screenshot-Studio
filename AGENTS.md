@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 8. Slices 1–7, the full local release-candidate gate, sustained source/packed dogfood, and the Linux/macOS/Windows package matrix are green. Candidate 0.1.0 has an explicit release-readiness GO; no tag, registry publication, GitHub release, or announcement is implied.**
+> **Status: implementation and verification are complete through finite Phase 9. Phase 8's candidate evidence and Phase 9's release-independent expansion closure are green. No tag, registry publication, GitHub release, or announcement is implied.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
@@ -31,9 +31,9 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > adds paired `variantOf`/`storeTargetId` screens so explicit store sizes are independent fresh-id
 > copies and Store Targets never resize a root in place. This is baseline completion, not
 > a public release; release readiness comes only after Phase 8 stabilization.
-> Phase 9 Slice 1 widens Store Outputs to independent iPhone, iPad, macOS, tvOS, watchOS,
-> Android phone, and Windows desktop root sets, with family-local exact-size variants and the
-> same shared render/export path.
+> Phase 9 adds independent output families, strict background/media/style literals, trusted frame
+> presets, current-schema living examples, and measured browser/export closure through the same
+> shared render path. Publication remains a separate explicitly authorized workflow.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
 > contract) — it wins over this summary.
@@ -196,7 +196,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v6 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v10 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 

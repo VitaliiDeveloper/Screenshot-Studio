@@ -30,7 +30,7 @@ describe("runInit", () => {
     }
 
     const agentGuide = await readFile(join(dir, "AGENTS.md"), "utf8");
-    expect(agentGuide).toContain("strict v6 JSON");
+    expect(agentGuide).toContain("strict v10 JSON");
     expect(agentGuide).toContain("mode: isolated | connected");
     expect(agentGuide).toContain("## Recipe: generate or refresh copy");
     expect(agentGuide).toContain("## Recipe: lay out slides");
