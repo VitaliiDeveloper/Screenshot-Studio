@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type Konva from "konva";
-import type { Element, LayoutDirection } from "../model/schema.js";
+import type { Background, Element, LayoutDirection } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 import { ICON_PATHS } from "../model/icons.js";
@@ -30,6 +30,11 @@ export type NodeConfig =
 interface Box {
   width: number;
   height: number;
+}
+
+interface PositionedBox extends Box {
+  x?: number;
+  y?: number;
 }
 
 interface Fit {
@@ -76,6 +81,87 @@ function computeImageFit(image: HTMLImageElement, box: Box, fit: "cover" | "cont
     cropWidth,
     cropHeight,
   };
+}
+
+/** Shared artboard-background mapping for the interactive and static renderers. */
+export function backgroundToNodeConfig(
+  background: Background,
+  box: PositionedBox,
+  images?: ImageCache,
+): NodeConfig {
+  const x = box.x ?? 0;
+  const y = box.y ?? 0;
+  switch (background.type) {
+    case "solid":
+      return {
+        konva: "Rect",
+        config: { x, y, width: box.width, height: box.height, fill: background.color },
+      };
+    case "linear-gradient": {
+      const radians = background.angle * Math.PI / 180;
+      const cos = Math.cos(radians);
+      const sin = Math.sin(radians);
+      const halfProjection = (Math.abs(box.width * cos) + Math.abs(box.height * sin)) / 2;
+      // Konva gradient points are local to the Rect; the Rect's own x/y positions it on stage.
+      const centerX = box.width / 2;
+      const centerY = box.height / 2;
+      return {
+        konva: "Rect",
+        config: {
+          x,
+          y,
+          width: box.width,
+          height: box.height,
+          fillLinearGradientStartPoint: {
+            x: centerX - cos * halfProjection,
+            y: centerY - sin * halfProjection,
+          },
+          fillLinearGradientEndPoint: {
+            x: centerX + cos * halfProjection,
+            y: centerY + sin * halfProjection,
+          },
+          fillLinearGradientColorStops: [0, background.from, 1, background.to],
+        },
+      };
+    }
+    case "image": {
+      const image = images?.get(background.assetUrl);
+      const base: NodeConfig = {
+        konva: "Rect",
+        config: { x: 0, y: 0, width: box.width, height: box.height, fill: background.color },
+      };
+      if (!image) {
+        return {
+          konva: "Rect",
+          config: { x, y, width: box.width, height: box.height, fill: background.color },
+        };
+      }
+      const fit = computeImageFit(image, box, background.fit);
+      return {
+        konva: "Group",
+        config: { x, y, width: box.width, height: box.height },
+        children: [
+          base,
+          {
+            konva: "Image",
+            config: {
+              x: fit.x,
+              y: fit.y,
+              width: fit.width,
+              height: fit.height,
+              image,
+              cropX: fit.cropX,
+              cropY: fit.cropY,
+              cropWidth: fit.cropWidth,
+              cropHeight: fit.cropHeight,
+            },
+          },
+        ],
+      };
+    }
+    default:
+      return assertNever(background);
+  }
 }
 
 export function elementToNodeConfig(

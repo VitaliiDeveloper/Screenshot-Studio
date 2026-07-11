@@ -19,6 +19,7 @@ export type { ImageCache } from "../engine/node-config.js";
 export function collectImageUrls(project: Project): string[] {
   const urls = new Set<string>();
   for (const screen of project.screens) {
+    if (screen.background.type === "image") urls.add(screen.background.assetUrl);
     for (const el of screen.elements) {
       for (const leaf of elementLeaves(el)) {
         if (leaf.type === "screenshot" || leaf.type === "image" || leaf.type === "device-frame") {

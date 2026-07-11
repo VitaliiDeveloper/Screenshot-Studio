@@ -181,6 +181,13 @@ The contract and plan are in
 `docs/specs/2026-07-11-phase9-slice1-store-output-families.md` and
 `docs/plans/2026-07-11-phase9-slice1-store-output-families.md`.
 
+**Finite Phase 9 closure sequence — active.** Phase 9 closes through six slices: Store Output
+Families; Background Authoring; Media Crop Controls; Text and Shape Styling; Built-in Frame Presets;
+and Workflow/Performance Closure. The ratified scope, exit criteria, and deliberate YAGNI boundary
+are in `docs/specs/2026-07-11-phase9-closure-design.md`; execution order is in
+`docs/plans/2026-07-11-phase9-closure.md`. Candidates outside that document are not requirements for
+Phase 9 completion.
+
 **Post-Phase 8 corrective work — active, independent of release planning.** Confirmed defects and
 misleading workflows found during ordinary dogfood may be fixed before Phase 9 without reopening
 Phase 8 or implying publication. Store target variants were pulled out of the prospective Phase 9

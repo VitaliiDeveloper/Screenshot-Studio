@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "Connected Launch",
-    "schemaVersion": 6
+    "schemaVersion": 7
   },
   "mode": "connected",
   "platforms": [

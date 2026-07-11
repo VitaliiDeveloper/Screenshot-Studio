@@ -71,6 +71,17 @@ export function migrateToCurrent(raw: unknown): unknown {
     if (containsStoreTargetVariant(current)) return current;
     const currentMeta = current.meta;
     if (!isRecord(currentMeta)) return current;
+    current = {
+      ...current,
+      meta: { ...currentMeta, schemaVersion: 6 },
+    };
+    version = 6;
+  }
+
+  if (version === 6) {
+    if (containsFutureBackground(current)) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
     return {
       ...current,
       meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION },
@@ -78,6 +89,14 @@ export function migrateToCurrent(raw: unknown): unknown {
   }
 
   return raw;
+}
+
+function containsFutureBackground(project: Record<string, unknown>): boolean {
+  if (!Array.isArray(project.screens)) return false;
+  return project.screens.some((screen) => {
+    if (!isRecord(screen) || !isRecord(screen.background)) return false;
+    return screen.background.type !== "solid";
+  });
 }
 
 function containsStoreTargetVariant(project: Record<string, unknown>): boolean {

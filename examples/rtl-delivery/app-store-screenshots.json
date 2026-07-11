@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "RTL Delivery",
-    "schemaVersion": 6
+    "schemaVersion": 7
   },
   "mode": "connected",
   "platforms": [

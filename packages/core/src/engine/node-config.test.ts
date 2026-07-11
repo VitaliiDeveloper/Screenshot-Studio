@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { elementToNodeConfig, type ImageCache } from "./node-config.js";
+import { backgroundToNodeConfig, elementToNodeConfig, type ImageCache } from "./node-config.js";
 import { ICON_PATHS } from "../model/icons.js";
 import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, IconElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
 
@@ -16,6 +16,67 @@ const baseShape: ShapeElement = {
   rotation: 0, opacity: 1, locked: false, visible: true,
   kind: "rect", fill: "#FF0000", radius: 8,
 };
+
+describe("backgroundToNodeConfig", () => {
+  it("maps solid and translated gradients with local deterministic points", () => {
+    expect(backgroundToNodeConfig(
+      { type: "solid", color: "#112233" },
+      { x: 300, y: 40, width: 200, height: 100 },
+    )).toMatchObject({
+      konva: "Rect", config: { x: 300, y: 40, width: 200, height: 100, fill: "#112233" },
+    });
+
+    const gradient = backgroundToNodeConfig(
+      { type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 0 },
+      { x: 300, y: 40, width: 200, height: 100 },
+    );
+    expect(gradient).toMatchObject({
+      konva: "Rect",
+      config: {
+        x: 300, y: 40, width: 200, height: 100,
+        fillLinearGradientStartPoint: { x: 0, y: 50 },
+        fillLinearGradientEndPoint: { x: 200, y: 50 },
+        fillLinearGradientColorStops: [0, "#000000", 1, "#FFFFFF"],
+      },
+    });
+  });
+
+  it("maps image contain/cover and returns the opaque fallback before preload", () => {
+    const image = { width: 400, height: 400 } as unknown as HTMLImageElement;
+    const background = {
+      type: "image" as const, assetUrl: "background.png", fit: "contain" as const, color: "#123456",
+    };
+    const missing = backgroundToNodeConfig(background, { x: 20, y: 30, width: 200, height: 100 });
+    expect(missing).toMatchObject({
+      konva: "Rect", config: { x: 20, y: 30, width: 200, height: 100, fill: "#123456" },
+    });
+
+    const contain = backgroundToNodeConfig(
+      background,
+      { x: 20, y: 30, width: 200, height: 100 },
+      new Map([["background.png", image]]),
+    );
+    if (contain.konva !== "Group") throw new Error("expected Group");
+    expect(contain.config).toMatchObject({ x: 20, y: 30, width: 200, height: 100 });
+    expect(contain.children[0]).toMatchObject({
+      konva: "Rect", config: { x: 0, y: 0, width: 200, height: 100, fill: "#123456" },
+    });
+    expect(contain.children[1]).toMatchObject({
+      konva: "Image", config: { x: 50, y: 0, width: 100, height: 100, image },
+    });
+
+    const cover = backgroundToNodeConfig(
+      { ...background, fit: "cover" },
+      { width: 200, height: 100 },
+      new Map([["background.png", image]]),
+    );
+    if (cover.konva !== "Group") throw new Error("expected Group");
+    expect(cover.children[1]).toMatchObject({
+      konva: "Image",
+      config: { width: 200, height: 100, cropX: 0, cropY: 100, cropWidth: 400, cropHeight: 200 },
+    });
+  });
+});
 
 describe("elementToNodeConfig", () => {
   it("maps a text element to a Konva Text config", () => {

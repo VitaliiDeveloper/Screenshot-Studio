@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useStore } from "zustand";
 import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
-import { findElementLocation, getScreen, ICON_IDS, type Screen } from "@screenshot-studio/core/model";
+import { findElementLocation, getScreen, ICON_IDS, type Background, type Screen } from "@screenshot-studio/core/model";
 import {
   artboardTargetStatus,
   leadStoreSizeId,
@@ -36,8 +36,8 @@ function patch(id: string, p: ElementPatch) {
   mutateAndScheduleSave(() => editorStore.getState().patchElement(id, p));
 }
 
-function editBackground(color: string) {
-  mutateAndScheduleSave(() => editorStore.getState().patchBackground({ color }));
+function editBackground(background: Background) {
+  mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -146,10 +146,12 @@ function MasterArtboardEditor({
 
 export function Inspector({
   specs,
+  onOpenBackgroundAsset,
   onClose,
   className,
 }: {
   specs: StoreSpecs | null;
+  onOpenBackgroundAsset?: () => void;
   onClose?: () => void;
   className?: string;
 }) {
@@ -160,6 +162,7 @@ export function Inspector({
   if (!project || !activeScreenId) return <aside className={cx("w-72 shrink-0 border-l border-slate-200 bg-white", className)} />;
   const primary = primarySelection(selectedItems);
   const screen = getScreen(project, selectedItems.length === 1 && primary ? primary.screenId : activeScreenId);
+  const background = screen.background;
   const element = selectedItems.length === 1 && primary
     ? findElementLocation(screen, primary.elementId)?.element
     : undefined;
@@ -438,11 +441,78 @@ export function Inspector({
               />
             </Section>
           )}
-          {screen.background.type === "solid" && (
-            <Section title="Background">
-              <ColorField label="Color" value={screen.background.color} onChange={editBackground} />
-            </Section>
-          )}
+          <Section title="Background">
+            <SelectField
+              label="Type"
+              value={background.type}
+              options={["solid", "linear-gradient", "image"] as const}
+              onChange={(type) => {
+                const baseColor = background.type === "solid"
+                  ? background.color
+                  : background.type === "linear-gradient"
+                    ? background.from
+                    : background.color;
+                if (type === "solid") editBackground({ type, color: baseColor });
+                else if (type === "linear-gradient") {
+                  editBackground({ type, from: baseColor, to: "#000000", angle: 0 });
+                } else if (background.type !== "image") {
+                  onOpenBackgroundAsset?.();
+                }
+              }}
+            />
+            {background.type === "solid" ? (
+              <ColorField
+                label="Color"
+                value={background.color}
+                onChange={(color) => editBackground({ ...background, color })}
+              />
+            ) : background.type === "linear-gradient" ? (
+              <>
+                <ColorField
+                  label="From"
+                  value={background.from}
+                  onChange={(from) => editBackground({ ...background, from })}
+                />
+                <ColorField
+                  label="To"
+                  value={background.to}
+                  onChange={(to) => editBackground({ ...background, to })}
+                />
+                <NumberField
+                  label="Angle"
+                  value={background.angle}
+                  min={0}
+                  max={360}
+                  integer
+                  onChange={(angle) => editBackground({ ...background, angle })}
+                />
+              </>
+            ) : (
+              <>
+                <TextField
+                  label="Asset URL"
+                  value={background.assetUrl}
+                  onChange={(assetUrl) => editBackground({ ...background, assetUrl })}
+                />
+                <SelectField
+                  label="Fit"
+                  value={background.fit}
+                  options={["cover", "contain"] as const}
+                  onChange={(fit) => editBackground({ ...background, fit })}
+                />
+                <ColorField
+                  label="Fallback"
+                  value={background.color}
+                  onChange={(color) => editBackground({ ...background, color })}
+                />
+                {onOpenBackgroundAsset ? (
+                  <button type="button" className={editorUi.buttonSecondary} onClick={onOpenBackgroundAsset}>
+                    Choose project image
+                  </button>
+                ) : null}
+              </>
+            )}
+          </Section>
         </>
       )}
     </aside>

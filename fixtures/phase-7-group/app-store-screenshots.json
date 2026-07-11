@@ -1,5 +1,5 @@
 {
-  "meta": { "name": "Phase 7 Group Parity", "schemaVersion": 6 },
+  "meta": { "name": "Phase 7 Group Parity", "schemaVersion": 7 },
   "mode": "connected",
   "platforms": ["apple"],
   "locales": ["en"],

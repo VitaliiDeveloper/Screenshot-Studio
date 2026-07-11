@@ -26,7 +26,7 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > authoring and shared contain/cover/alpha parity, and the strict v5 trusted built-in vector icon
 > leaf with editable colour/stroke parity. Rating and “as seen on” badges now author as ordinary
 > fresh-id groups, while official store badges reuse contain-fit project images; no redundant badge
-> schema member was added. Current v6 living examples now prove connected image/icon/badge/group
+> schema member was added. Current living examples prove connected image/icon/badge/group
 > crops and keyboard group workflows across LTR/RTL locale groups. Post-Phase 8 corrective Slice 1
 > adds paired `variantOf`/`storeTargetId` screens so explicit store sizes are independent fresh-id
 > copies and Store Targets never resize a root in place. This is baseline completion, not
@@ -75,13 +75,13 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v6 only; future schema ideas are not valid project fields.
+against the enforced v7 only; future schema ideas are not valid project fields.
 
-**Current v6 (enforced today):**
+**Current v7 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 6 }
+├── meta: { name, appIcon?, schemaVersion: 7 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …] # derived manifest: set-equal to screens
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
@@ -91,7 +91,7 @@ Project
     │                                                  # android: phone; windows: desktop
     ├── variantOf?, storeTargetId?                     # paired on explicit target variants
     ├── artboard: { width, height }
-    ├── background: solid only
+    ├── background: solid | linear-gradient | project image
     └── elements: Element[]                # z-order = array order
 ```
 
@@ -116,7 +116,7 @@ Connected Overview is one editable
 gapless strip for the active exact group; owner-aware selection keeps duplicate ids unambiguous and
 stores transforms in owner-local coordinates. Focus is a non-interactive exact crop preview.
 
-Future schema work is roadmap-governed. Do not add new background/element types, per-element RTL
+Future schema work is roadmap-governed. Do not add background/element types beyond the enforced unions, per-element RTL
 fields, nested groups, clipping/scale state, or other canvas fields until the enforced schema and
 architecture widen.
 

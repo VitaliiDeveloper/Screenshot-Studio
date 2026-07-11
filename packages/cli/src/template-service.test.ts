@@ -15,7 +15,7 @@ async function fixture() {
   };
   await mkdir(join(dir, "templates"));
   await writeFile(projectPath, JSON.stringify({
-    meta: { name: "Templates", schemaVersion: 6 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
+    meta: { name: "Templates", schemaVersion: 7 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [] }],
   }));
   await writeFile(join(dir, "templates/accent-card.json"), JSON.stringify(template));

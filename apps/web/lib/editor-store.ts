@@ -20,6 +20,7 @@ import {
   setLocaleDirection as setLocaleDirectionCore,
   ungroupElement as ungroupElementCore,
   type CanvasMode,
+  type Background,
   type Project,
   type Element,
   type TextElement,
@@ -183,7 +184,7 @@ export interface EditorState {
   reorderElements: (from: number, to: number) => void;
   removeElement: (id: string, screenId?: string) => void;
   addElement: (element: Element) => void;
-  patchBackground: (patch: { color: string }) => void;
+  setBackground: (background: Background) => void;
   resizeArtboard: (size: { width: number; height: number }) => void;
   replaceFonts: (fonts: FontAsset[]) => void;
   replaceProject: (project: Project) => void;
@@ -655,12 +656,12 @@ export const editorStore = createStore<EditorState>((set) => ({
         selectedItems: [{ screenId: state.activeScreenId, elementId: element.id }],
       });
     }),
-  patchBackground: (patch) =>
+  setBackground: (background) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
       const project = produce(state.project, (draft) => {
         const screen = draft.screens.find((s) => s.id === state.activeScreenId);
-        if (screen && screen.background.type === "solid") Object.assign(screen.background, patch);
+        if (screen) screen.background = background;
       });
       return recordProjectChange(state, project, `background:${state.activeScreenId}`);
     }),

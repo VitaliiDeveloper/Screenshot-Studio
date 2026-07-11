@@ -90,7 +90,7 @@ case (an embedded custom font).
 **Phase 1 (web editor) — done.** The interactive `/editor` canvas covers `text`, `shape`,
 `screenshot`, and `device-frame` elements over a shared render path, with select / move /
 resize / rotate, inline text edit, a screens + layers left panel (reorder, lock, hide, rename),
-a per-type inspector (plus a no-selection artboard/background editor), and a toolbar
+a per-type inspector (plus solid/linear-gradient/project-image artboard backgrounds), and a toolbar
 (insert-on-click for `text`/`shape`, zoom).
 
 **Phase 2 (verified export) — done.** CLI and UI export both use the same headless `/render`

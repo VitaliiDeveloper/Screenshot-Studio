@@ -20,7 +20,7 @@ function fixture(mode: Project["mode"] = "connected"): Project {
     kind: "rect" as const, fill: "#000000", radius: 0,
   });
   return {
-    meta: { name: "Selection", schemaVersion: 6 }, mode,
+    meta: { name: "Selection", schemaVersion: 7 }, mode,
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [
       {

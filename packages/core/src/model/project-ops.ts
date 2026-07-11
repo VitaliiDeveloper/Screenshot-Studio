@@ -4,6 +4,7 @@ import {
   Screen as ScreenSchema,
   SCREEN_DEVICES_BY_PLATFORM,
   type Element,
+  type Background,
   type LayoutDirection,
   type Platform,
   type Project as ProjectModel,
@@ -112,6 +113,8 @@ export type CreateScreenInput = ScreenPlacement & {
   direction?: LayoutDirection;
   artboard: { width: number; height: number };
   elements?: Element[];
+  background?: Background;
+  /** Convenience for CLI/import callers that only create solid backgrounds. */
   backgroundColor?: string;
 };
 
@@ -123,7 +126,8 @@ export function createScreen(input: CreateScreenInput): Screen {
     locale: input.locale,
     direction: input.direction ?? "ltr",
     artboard: input.artboard,
-    background: { type: "solid" as const, color: input.backgroundColor ?? "#101827" },
+    background: input.background
+      ?? { type: "solid" as const, color: input.backgroundColor ?? "#101827" },
     elements: input.elements ?? [],
   };
   if (input.platform === "apple") {

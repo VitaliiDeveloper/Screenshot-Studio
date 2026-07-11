@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v6 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v7 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -136,13 +136,13 @@ Multiple elements show read-only aggregate bounds and batch lock/unlock, hide/sh
 actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
-Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
+Fields marked *(target)* are not in the current schema yet — the inspector exposes them only once
 the schema gains them (future phases). Everything else is as built.
 
 - **No selection** → active **artboard** properties: a read-only exact lead master size by default,
   explicit output-set-wide atomic custom-size/reset actions, independent exact-size variants, and background:
-  `solid` today;
-  `gradient | image` *(target)*. Background editing lives here, not in the toolbar.
+  `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
+  fit and opaque fallback/letterbox colour remain explicit. Background editing lives here, not in the toolbar.
 - **`text`** → theme role (`none | heading | body | accent | surface`), content,
   registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;

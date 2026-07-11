@@ -35,7 +35,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "icon-parity-"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Icon parity", schemaVersion: 6 },
+    meta: { name: "Icon parity", schemaVersion: 7 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

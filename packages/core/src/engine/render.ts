@@ -5,7 +5,7 @@ import { assertNever } from "../model/assert-never.js";
 import type { ImageCache, NodeConfig } from "./node-config.js";
 import { getScreen } from "../model/index.js";
 import { projectScreenGroup } from "../model/connected-canvas.js";
-import { elementToNodeConfig } from "./node-config.js";
+import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
 
 /**
  * The single rendering path (docs/architecture.md §2). Both the web /render route and the CLI
@@ -33,7 +33,7 @@ export function renderScreen(
     const group = projectScreenGroup(project, screenId);
     const target = group.find((entry) => entry.screen.id === screenId)!;
     for (const entry of group) {
-      drawBackground(layer, entry.screen, entry.x - target.x, entry.y - target.y);
+      drawBackground(layer, entry.screen, entry.x - target.x, entry.y - target.y, images);
     }
     for (const entry of group) {
       const offset = { x: entry.x - target.x, y: entry.y - target.y };
@@ -43,7 +43,7 @@ export function renderScreen(
       }
     }
   } else {
-    drawBackground(layer, screen, 0, 0);
+    drawBackground(layer, screen, 0, 0, images);
     for (const element of screen.elements) {
       if (!element.visible) continue;
       drawElement(layer, element, images, screen.direction);
@@ -54,11 +54,17 @@ export function renderScreen(
   return stage;
 }
 
-function drawBackground(layer: Konva.Layer, screen: Screen, x: number, y: number): void {
+function drawBackground(
+  layer: Konva.Layer,
+  screen: Screen,
+  x: number,
+  y: number,
+  images: ImageCache,
+): void {
   const { width, height } = screen.artboard;
-  if (screen.background.type === "solid") {
-    layer.add(new Konva.Rect({ x, y, width, height, fill: screen.background.color }));
-  }
+  layer.add(buildNode(
+    backgroundToNodeConfig(screen.background, { x, y, width, height }, images),
+  ) as Konva.Group | Konva.Shape);
 }
 
 function drawElement(

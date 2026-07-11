@@ -17,6 +17,7 @@ export type ResourceDialog =
   | "templates"
   | "screenshot-assets"
   | "image-assets"
+  | "background-assets"
   | "store-badge-assets"
   | "device-frame-assets";
 

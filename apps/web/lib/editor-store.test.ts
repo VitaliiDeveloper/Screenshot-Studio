@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 6 },
+    meta: { name: "T", schemaVersion: 7 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -467,10 +467,12 @@ describe("editorStore screen editors (slice 5)", () => {
     editorStore.getState().load(project());
   });
 
-  it("patchBackground sets the active screen's solid colour", () => {
-    editorStore.getState().patchBackground({ color: "#ABCDEF" });
+  it("setBackground replaces the active screen's strict background", () => {
+    editorStore.getState().setBackground({
+      type: "linear-gradient", from: "#ABCDEF", to: "#123456", angle: 45,
+    });
     const bg = editorStore.getState().project!.screens[0]!.background;
-    expect(bg).toMatchObject({ type: "solid", color: "#ABCDEF" });
+    expect(bg).toEqual({ type: "linear-gradient", from: "#ABCDEF", to: "#123456", angle: 45 });
   });
 
   it("resizeArtboard updates the active root and scales its composition", () => {

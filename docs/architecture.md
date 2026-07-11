@@ -281,6 +281,14 @@ artboard. The editor presents that master size as fixed by default; explicit cus
 every root composition in the output set atomically, while reset fits the set back to the exact lead dimensions. Exact and
 custom state are derived from `store-specs.json`, not duplicated in the schema.
 
+**Artboard backgrounds — schema v7 / Phase 9 Slice 2.** `Background` is a strict discriminated
+union: opaque `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a
+project-relative `image` with deterministic `cover | contain` fit and an opaque fallback/letterbox
+colour. UI and static export both consume `backgroundToNodeConfig`; image assets participate in the
+ordinary project preload cache and retain the same path-containment rules as image elements. The
+renderer paints every background before connected elements and export still strips alpha. v6
+migrates losslessly only when its previously legal solid-only background contract is respected.
+
 ---
 
 ### Store output families

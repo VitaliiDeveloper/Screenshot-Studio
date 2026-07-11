@@ -38,11 +38,11 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v6 shape
+## Enforced v7 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 6 }
+├── meta: { name, appIcon?, schemaVersion: 7 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
@@ -51,7 +51,7 @@ Project
     ├── id, name, platform, device, locale, direction
     ├── variantOf?, storeTargetId?          # paired only on explicit target variants
     ├── artboard: { width, height }
-    ├── background: { type: "solid", color }
+    ├── background: solid | linear-gradient | project image
     └── elements: Element[]               # array order is z-order
 ```
 
@@ -66,6 +66,11 @@ objects from this summary.
 Badges are compositions, not a `badge` element type. Rating and “as seen on” badges are ordinary
 one-level groups of shape/icon/text leaves; official store badges are ordinary contain-fit `image`
 elements. Preserve and edit their literal children like any other group/image.
+
+Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
+an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and
+an opaque fallback/letterbox `color`. Keep background assets inside the project and use the same
+shared render/export path as every element.
 
 `mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
 platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned

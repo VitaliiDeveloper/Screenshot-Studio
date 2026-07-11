@@ -17,7 +17,7 @@ import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
-type AssetElementType = "screenshot" | "image" | "store-badge" | "device-frame";
+type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
 
 function assetUrl(path: string): string {
   return `/api/asset?path=${encodeURIComponent(path)}`;
@@ -55,8 +55,19 @@ export function AssetPickerDialog({
   );
   const isFrame = elementType === "device-frame";
   const isImage = elementType === "image";
+  const isBackground = elementType === "background";
   const isStoreBadge = elementType === "store-badge";
   const insert = (path: string) => {
+    if (isBackground) {
+      mutateAndSave(() => editorStore.getState().setBackground({
+        type: "image",
+        assetUrl: path,
+        fit: "cover",
+        color: "#000000",
+      }));
+      onClose();
+      return;
+    }
     const element = isFrame
       ? createDeviceFrameElement({ assetUrl: path })
       : isStoreBadge
@@ -70,15 +81,17 @@ export function AssetPickerDialog({
 
   return (
     <DialogShell
-      title={isFrame ? "Choose device screenshot" : isStoreBadge ? "Choose store badge asset" : isImage ? "Choose decorative image" : "Choose screenshot asset"}
+      title={isFrame ? "Choose device screenshot" : isBackground ? "Choose background image" : isStoreBadge ? "Choose store badge asset" : isImage ? "Choose decorative image" : "Choose screenshot asset"}
       description={isFrame
         ? "Place a project image inside the existing deterministic iPhone frame."
+        : isBackground
+          ? "Use an existing project image as this output's artboard background."
         : isStoreBadge
           ? "Insert an official store badge image from this project."
           : isImage
           ? "Insert an existing project asset as a decorative image element."
           : "Insert an existing project image as a screenshot element."}
-      ariaLabel={isFrame ? "Device frame asset picker" : isStoreBadge ? "Store badge asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
+      ariaLabel={isFrame ? "Device frame asset picker" : isBackground ? "Background asset picker" : isStoreBadge ? "Store badge asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
       closeLabel="Close asset picker"
       onClose={onClose}
       widthClass="max-w-4xl"

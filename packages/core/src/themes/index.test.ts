@@ -5,7 +5,7 @@ import { applyTheme, Theme } from "./index.js";
 
 function project(): Project {
   return {
-    meta: { name: "Theme", schemaVersion: 6 },
+    meta: { name: "Theme", schemaVersion: 7 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

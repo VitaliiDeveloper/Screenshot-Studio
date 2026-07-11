@@ -106,7 +106,7 @@ describe("Phase 4 multi-locale bundle export", () => {
 
   it("exports a newly created watchOS output through the shared alpha-free path", async () => {
     const source = parseProjectJson(JSON.stringify({
-      meta: { name: "watchOS export", schemaVersion: 6 },
+      meta: { name: "watchOS export", schemaVersion: 7 },
       mode: "isolated",
       platforms: ["apple"],
       locales: ["en"],

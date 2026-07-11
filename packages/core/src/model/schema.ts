@@ -3,16 +3,16 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v6). Narrower than the long-term target in docs/architecture.md §3:
- * solid backgrounds only; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
+ * Enforced project schema (v7). Narrower than the long-term target in docs/architecture.md §3:
+ * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
  * (iphone frames only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
- * live outside the render contract. Gradient backgrounds and badge elements are not
- * implemented yet. Objects are `.strict()` on purpose: the project JSON is the agent contract,
+ * live outside the render contract. Badge elements are deliberately represented as ordinary
+ * groups. Objects are `.strict()` on purpose: the project JSON is the agent contract,
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export const HexColor = z
   .string()
@@ -169,8 +169,34 @@ export const SolidBackground = z
   .strict();
 export type SolidBackground = z.infer<typeof SolidBackground>;
 
-/** Only `solid` in Phase 0; the discriminated union leaves room for gradient/image later. */
-export const Background = z.discriminatedUnion("type", [SolidBackground]);
+export const LinearGradientBackground = z
+  .object({
+    type: z.literal("linear-gradient"),
+    from: HexColor,
+    to: HexColor,
+    /** 0 = left-to-right; 90 = top-to-bottom. */
+    angle: z.number().finite().min(0).max(360).default(0),
+  })
+  .strict();
+export type LinearGradientBackground = z.infer<typeof LinearGradientBackground>;
+
+export const ImageBackground = z
+  .object({
+    type: z.literal("image"),
+    /** Document-relative path served through the project asset route. */
+    assetUrl: z.string().min(1),
+    fit: z.enum(["cover", "contain"]).default("cover"),
+    /** Opaque fallback and contain-mode letterbox colour. */
+    color: HexColor.default("#000000"),
+  })
+  .strict();
+export type ImageBackground = z.infer<typeof ImageBackground>;
+
+export const Background = z.discriminatedUnion("type", [
+  SolidBackground,
+  LinearGradientBackground,
+  ImageBackground,
+]);
 export type Background = z.infer<typeof Background>;
 
 /** Project-relative font file served through the same asset route as screenshots. */

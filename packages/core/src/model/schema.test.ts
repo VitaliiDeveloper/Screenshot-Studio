@@ -125,12 +125,12 @@ describe("parseProject", () => {
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
   });
 
-  it("migrates valid v5 input losslessly to v6", () => {
+  it("migrates valid v5 input losslessly to current", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 5 as typeof SCHEMA_VERSION;
     const before = structuredClone(raw.screens);
     const migrated = migrateToCurrent(raw) as typeof raw;
-    expect(migrated.meta.schemaVersion).toBe(6);
+    expect(migrated.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(migrated.screens).toEqual(before);
   });
 
@@ -139,6 +139,54 @@ describe("parseProject", () => {
     raw.meta.schemaVersion = 5 as typeof SCHEMA_VERSION;
     Object.assign(raw.screens[0]!, { variantOf: "root", storeTargetId: "6.5" });
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("migrates valid solid-background v6 input losslessly to current", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 6 as typeof SCHEMA_VERSION;
+    const before = structuredClone(raw.screens);
+    const migrated = migrateToCurrent(raw) as typeof raw;
+    expect(migrated.screens).toEqual(before);
+    const project = parseProject(migrated);
+    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+
+  it("does not bless a gradient background mislabeled as schema v6", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    (raw.meta as Record<string, unknown>).schemaVersion = 6;
+    const screens = raw.screens as Array<Record<string, unknown>>;
+    screens[0]!.background = {
+      type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 45,
+    };
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("accepts strict linear-gradient and image backgrounds with defaults", () => {
+    const gradient = validProject() as unknown as Record<string, unknown>;
+    const gradientScreen = (gradient.screens as Array<Record<string, unknown>>)[0]!;
+    gradientScreen.background = { type: "linear-gradient", from: "#112233", to: "#AABBCC" };
+    expect(parseProject(gradient).screens[0]!.background).toEqual({
+      type: "linear-gradient", from: "#112233", to: "#AABBCC", angle: 0,
+    });
+
+    const image = validProject() as unknown as Record<string, unknown>;
+    const imageScreen = (image.screens as Array<Record<string, unknown>>)[0]!;
+    imageScreen.background = { type: "image", assetUrl: "assets/background.png" };
+    expect(parseProject(image).screens[0]!.background).toEqual({
+      type: "image", assetUrl: "assets/background.png", fit: "cover", color: "#000000",
+    });
+  });
+
+  it("rejects invalid background values and unknown fields", () => {
+    for (const background of [
+      { type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 361 },
+      { type: "image", assetUrl: "", fit: "cover", color: "#000000" },
+      { type: "solid", color: "#000000", opacity: 0.5 },
+    ]) {
+      const raw = validProject() as unknown as Record<string, unknown>;
+      (raw.screens as Array<Record<string, unknown>>)[0]!.background = background;
+      expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+    }
   });
 
   it("validates root and store-target variant relationships", () => {
