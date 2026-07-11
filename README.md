@@ -134,6 +134,7 @@ smoke-tested from a temporary offline install through exact export; it is not a 
 The optional skill is installable, delegates to the generated guide, and is clean-folder
 smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
 living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
+
 **Phase 7 (advanced editing + baseline completion) — done.** Owner-aware modified-click/marquee
 multi-selection and atomic batch actions ship, followed by a strict v3 one-level group model with
 lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authoring/Layers and the
@@ -142,13 +143,14 @@ parity. Strict v5 trusted built-in vector icons now add editable colour/stroke c
 SVG input. Rating and press-proof badges now use editable ordinary groups, and official store badges
 reuse secure contain-fit project images without a redundant schema type. Living v5 projects prove
 connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
-Phase 6 and Phase 7 complete the planned baseline. Phase 8 stabilization/release readiness is now
-in progress: failure/recovery, cross-environment package proof, and export soak/performance budgets
-plus accessibility/browser coverage and the store/dependency release audit are complete, with the
-`0.1.0` release artifact/candidate documentation now complete as well. Slice 7's local full gate,
-source/packed dogfood, retained candidate, and Linux/macOS/Windows package matrix are green. Phase 8
-is complete with a release-readiness `GO`; no tag, registry publication, GitHub release, or public
-announcement is claimed.
+Phase 6 and Phase 7 complete the planned baseline.
+
+**Phase 8 (stabilization + release readiness) — done; decision: `GO`.** Failure/recovery,
+cross-environment package proof, export soak/performance budgets, accessibility/browser coverage,
+and the store/dependency release audit are complete. The `0.1.0` release artifact and candidate
+documentation are complete, and Slice 7's local full gate, source/packed dogfood, retained candidate,
+and Linux/macOS/Windows package matrix are green. No tag, registry publication, GitHub release, or
+public announcement is claimed.
 
 ## Requirements
 
@@ -279,13 +281,19 @@ pnpm test              # full unit suite
 pnpm test:core         # core unit tests only
 pnpm test:cli          # CLI unit tests only
 pnpm test:web          # web unit tests only
-pnpm test:e2e:parity   # render/font/device parity
+pnpm test:e2e:parity:foundation # base renderer/font/media/RTL/connected parity
+pnpm test:e2e:parity:elements   # group/image/icon/badge parity
 pnpm test:e2e:export   # CLI + UI export paths
-pnpm test:e2e:editor   # editor workflows
-pnpm test:e2e:accessibility # Axe states + Chromium/Firefox/WebKit editor smoke
+pnpm test:e2e:editor:interaction # canvas/panels/inspector/history/snapping
+pnpm test:e2e:editor:workspace   # locale/connected/responsive workspace
+pnpm test:e2e:editor:authoring   # fonts/themes/templates/assets/group authoring
+pnpm test:e2e:accessibility # desktop + compact Axe states
+pnpm test:e2e:browsers # Chromium/Firefox/WebKit editor smoke
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
-pnpm test:e2e:examples # validate, edit, and export the living example projects
+pnpm test:e2e:examples # validate and export the living example projects
+pnpm test:e2e:ci       # 27-case development-branch subset
+pnpm test:e2e:release-surfaces # browsers/package/skill/examples aggregate
 pnpm test:e2e          # full browser gate (phase/PR/release closure)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
 pnpm audit:release     # pack and audit files, runtime deps/licenses, portability, and size
@@ -294,10 +302,11 @@ pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
 pnpm typecheck         # all packages
 ```
 
-The targeted scripts are the normal implementation-loop checks; exact Vitest file paths are
-preferred for a narrower change. `pnpm test:e2e` starts multiple `apps/web` render hosts and
-drives Chromium, so reserve it for shared-contract or closure verification. It requires the
-Playwright browsers from **Requirements** above.
+The leaf scripts are the normal implementation-loop checks; exact Vitest file paths are preferred
+for a narrower change. The unsuffixed parity/editor commands remain aggregates. `pnpm test:e2e`
+starts multiple `apps/web` render hosts and drives every configured browser, so reserve it for
+shared-contract or closure verification. See the human-readable ownership and cost matrix in
+[`docs/testing.md`](docs/testing.md).
 
 ## License
 

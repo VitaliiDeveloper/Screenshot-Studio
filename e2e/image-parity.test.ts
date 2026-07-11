@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { chromium } from "playwright";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { stripAlpha } from "../packages/core/src/export/png.js";
-import { renderScreenToPng } from "../packages/cli/src/render-driver.js";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+import { startWebServer } from "../packages/cli/src/server.js";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
 
-let server: RunningServer;
-let browser: Browser;
+let harness: ParityRenderHarness;
 let directory: string;
 let projectPath: string;
 
@@ -67,13 +70,11 @@ beforeAll(async () => {
     ],
   }));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
-  browser = await chromium.launch();
+  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
 }, 180_000);
 
 afterAll(async () => {
-  await browser?.close();
-  await server?.stop();
+  await closeParityRenderHarness(harness);
   delete process.env.PROJECT_PATH;
   rmSync(directory, { recursive: true, force: true });
 });
@@ -85,14 +86,14 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
 
 describe("Phase 7 decorative image parity", () => {
   it("matches UI/CLI pixels for contain, cover, alpha, groups, and connected crops", async () => {
-    const firstBytes = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath, screenId: "first", pixelRatio: 1, headless: true,
+    const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath, screenId: "first", pixelRatio: 1,
     }));
-    const secondBytes = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath, screenId: "second", pixelRatio: 1, headless: true,
+    const secondBytes = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
     }));
-    const headedSecond = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url, projectPath, screenId: "second", pixelRatio: 1, headless: false,
+    const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
       timeoutMs: 60_000,
     }));
     const first = PNG.sync.read(firstBytes);
@@ -110,8 +111,8 @@ describe("Phase 7 decorative image parity", () => {
     expect(pixelmatch(second.data, headed.data, diff.data, second.width, second.height, { threshold: 0.1 }))
       .toBe(0);
 
-    const page = await browser.newPage({ viewport: { width: 1200, height: 700 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const page = await harness.interactive!.newPage({ viewport: { width: 1200, height: 700 } });
+    await page.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
     const canvas = page.getByTestId("connected-artboards").locator("canvas").first();
     await canvas.waitFor({ state: "visible" });
     const samples = await canvas.evaluate((node: HTMLCanvasElement) => {

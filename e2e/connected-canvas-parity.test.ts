@@ -5,8 +5,12 @@ import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { stripAlpha } from "../packages/core/src/export/png.js";
-import { renderScreenToPng } from "../packages/cli/src/render-driver.js";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+import { startWebServer } from "../packages/cli/src/server.js";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixturePath = resolve(repoRoot, "fixtures/phase-6-connected/app-store-screenshots.json");
@@ -14,14 +18,14 @@ const pixelRatio = 2;
 const target = { width: 1320, height: 2868 };
 const MAX_MISMATCH_FRACTION = 0.001;
 
-let server: RunningServer;
+let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  server = await startWebServer();
+  harness = await startParityRenderHarness(() => startWebServer());
 }, 180_000);
 
 afterAll(async () => {
-  await server?.stop();
+  await closeParityRenderHarness(harness);
 });
 
 function pixel(png: PNG, x: number, y: number): [number, number, number] {
@@ -39,27 +43,24 @@ function mismatch(first: Buffer, second: Buffer): number {
 
 describe("Phase 6 connected crop parity", () => {
   it("matches headed/headless and carries one owner element across both exact screen crops", async () => {
-    const headedSecond = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "connected-second",
       pixelRatio,
-      headless: false,
       timeoutMs: 60_000,
     }));
-    const headlessSecond = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headlessSecond = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "connected-second",
       pixelRatio,
-      headless: true,
     }));
-    const headlessFirst = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headlessFirst = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "connected-first",
       pixelRatio,
-      headless: true,
     }));
 
     for (const bytes of [headedSecond, headlessSecond, headlessFirst]) {

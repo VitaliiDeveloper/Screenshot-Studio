@@ -4,9 +4,13 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
-import { renderScreenToPng } from "../packages/cli/src/render-driver.js";
+import { startWebServer } from "../packages/cli/src/server.js";
 import { inspectPng, stripAlpha } from "../packages/core/src/export/png.js";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixturePath = resolve(repoRoot, "fixtures/phase-4-rtl/app-store-screenshots.json");
@@ -14,14 +18,14 @@ const pixelRatio = 2;
 const target = { width: 1320, height: 2868 };
 const MAX_MISMATCH_FRACTION = 0.001;
 
-let server: RunningServer;
+let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  server = await startWebServer(3131);
+  harness = await startParityRenderHarness(() => startWebServer(3131));
 }, 180_000);
 
 afterAll(async () => {
-  await server?.stop();
+  await closeParityRenderHarness(harness);
 });
 
 function countMismatch(a: Buffer, b: Buffer): number {
@@ -37,20 +41,18 @@ function countMismatch(a: Buffer, b: Buffer): number {
 
 describe("Phase 4 RTL render parity", () => {
   it("renders explicit RTL identically in headed and headless Chromium", async () => {
-    const headed = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headed = stripAlpha(await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "arabic-rtl",
       pixelRatio,
-      headless: false,
       timeoutMs: 60_000,
     }));
-    const headless = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const headless = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "arabic-rtl",
       pixelRatio,
-      headless: true,
     }));
 
     for (const png of [headed, headless]) {
@@ -62,19 +64,17 @@ describe("Phase 4 RTL render parity", () => {
   });
 
   it("proves the stored bidi direction changes mixed Arabic/numeral layout", async () => {
-    const rtl = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const rtl = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "arabic-rtl",
       pixelRatio,
-      headless: true,
     }));
-    const ltr = stripAlpha(await renderScreenToPng({
-      baseUrl: server.url,
+    const ltr = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId: "arabic-ltr",
       pixelRatio,
-      headless: true,
     }));
 
     expect(countMismatch(rtl, ltr)).toBeGreaterThan(500);

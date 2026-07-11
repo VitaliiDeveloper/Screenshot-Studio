@@ -229,8 +229,9 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - Batch independent unit, lint, and package-typecheck commands into one tool turn when possible.
   When a long-running test yields a process/session id, wait with one appropriately long poll
   instead of repeatedly waking the model for short status checks.
-- Use the root targeted scripts (`test:core`, `test:cli`, `test:web`, `test:e2e:parity`,
-  `test:e2e:export`, `test:e2e:editor`) or explicit Vitest file paths during implementation.
+- Use the root targeted scripts (`test:core`, `test:cli`, `test:web`, parity foundation/elements,
+  `test:e2e:export`, and editor interaction/workspace/authoring) or explicit Vitest file paths
+  during implementation. The unsuffixed parity/editor scripts are aggregates, not the default.
   `pnpm test:e2e` is the full browser gate, not the default slice check.
 - Verification scope is defined by the behavioral-risk matrix in `RULES.md`. For a localized
   UI edit, do not default to the full editor E2E group.

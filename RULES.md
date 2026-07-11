@@ -88,8 +88,8 @@ throughput; keep ephemeral measurements in a doc or the PR.
     default; run lint/typecheck only when the edit creates a plausible JSX/TypeScript risk.
   - **Interactive UI** (custom menus, focus/keyboard behavior, drag, responsive panel state)
     gets the smallest exact browser scenario or targeted test-file set covering the changed
-    interaction. Do not run the whole `test:e2e:editor` group for a localized interaction
-    unless shared workspace behavior was changed.
+    interaction. Prefer `test:e2e:editor:interaction`, `:workspace`, or `:authoring`; do not run
+    their `test:e2e:editor` aggregate for a localized interaction.
   - **Business logic, persistence, schema, render, or export behavior** gets the relevant
     targeted unit/integration tests plus an E2E only when the user-visible path needs it.
   - **Phase, PR, or release closure** follows the full-gate rule below.
@@ -100,11 +100,16 @@ throughput; keep ephemeral measurements in a doc or the PR.
   or earlier for broad-impact changes, shared contracts (the Zod schema, `store-specs.json`,
   export parity), build-sensitive config, or when asked. Don't repeat the same full gate after
   a docs-only follow-up; a green immediate CI run may serve as the closure gate when appropriate.
+- Cross-browser, packaged-CLI, optional-skill, and living-example workflows are release-class
+  checks. Run their exact leaf group when that surface changes, or the
+  `test:e2e:release-surfaces` aggregate at release readiness; do not put them in an unrelated
+  implementation loop.
 - Slice specs and plans must name the exact relevant tests. Requiring a full suite needs an
   explicit shared-contract or closure reason, not generic "existing tests stay green" wording.
 - Never treat a missing package script as a successful check. Use the root targeted scripts
   (`test:core`, `test:cli`, `test:web`, `test:e2e:*`) or invoke Vitest with explicit file paths.
-  Add each new e2e file to exactly one targeted e2e group in the root `package.json`.
+  Add each new E2E file to exactly one leaf group in the root `package.json`; aggregate scripts may
+  compose leaf groups but must not repeat their file lists.
 - For bug fixes and behavior changes with a practical test seam, add or run targeted regression
   tests without waiting to be asked. Export/parity changes always get a dimension/visual-diff check.
 - For small or docs-only changes it's fine to skip runtime tests — state that verification was

@@ -28,7 +28,7 @@ the shared browser renderer.
    Do not add text headers to JSON, media, vendored/generated files, lockfiles, or third-party fonts.
 4. Start with the narrow package or E2E command that covers the changed behavior. Run the full
    `pnpm test && pnpm lint && pnpm typecheck && pnpm test:e2e` gate at PR closure when required by
-   `RULES.md`.
+   `RULES.md`. The leaf-group ownership and cost matrix lives in `docs/testing.md`.
 5. Update public documentation when the user-visible behavior or install path changes.
 
 Commit subjects use `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, `chore:`, `style:`, or

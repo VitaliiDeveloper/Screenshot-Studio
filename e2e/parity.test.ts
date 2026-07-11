@@ -5,9 +5,13 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
-import { renderScreenToPng } from "../packages/cli/src/render-driver.js";
+import { startWebServer } from "../packages/cli/src/server.js";
 import { stripAlpha, inspectPng } from "../packages/core/src/export/png.js";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
 
 /**
  * Phase 0 exit gate (docs/roadmap.md §4). Proves, on the hardest parity case (embedded custom
@@ -33,15 +37,15 @@ const target = { width: 1320, height: 2868 };
 const PER_PIXEL_THRESHOLD = 0.1;
 const MAX_MISMATCH_FRACTION = 0.001; // 0.1% of pixels
 
-let server: RunningServer;
+let harness: ParityRenderHarness;
 
 beforeAll(async () => {
   mkdirSync(tmpDir, { recursive: true });
-  server = await startWebServer(3123);
+  harness = await startParityRenderHarness(() => startWebServer(3123));
 }, 180_000);
 
 afterAll(async () => {
-  await server?.stop();
+  await closeParityRenderHarness(harness);
 });
 
 function decode(buf: Buffer): PNG {
@@ -62,20 +66,18 @@ function countMismatch(a: Buffer, b: Buffer): { mismatch: number; total: number 
 
 describe("Phase 0 render/export parity", () => {
   it("headed and headless renders match at the exact target size with no alpha", async () => {
-    const headedRaw = await renderScreenToPng({
-      baseUrl: server.url,
+    const headedRaw = await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId,
       pixelRatio,
-      headless: false,
       timeoutMs: 60_000,
     });
-    const headlessRaw = await renderScreenToPng({
-      baseUrl: server.url,
+    const headlessRaw = await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId,
       pixelRatio,
-      headless: true,
     });
 
     const headed = stripAlpha(headedRaw);
@@ -111,19 +113,17 @@ describe("Phase 0 render/export parity", () => {
     const fallbackPath = resolve(tmpDir, "fallback-project.json");
     writeFileSync(fallbackPath, JSON.stringify(project));
 
-    const custom = await renderScreenToPng({
-      baseUrl: server.url,
+    const custom = await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fixturePath,
       screenId,
       pixelRatio,
-      headless: true,
     });
-    const fallback = await renderScreenToPng({
-      baseUrl: server.url,
+    const fallback = await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
       projectPath: fallbackPath,
       screenId,
       pixelRatio,
-      headless: true,
     });
 
     const { mismatch } = countMismatch(stripAlpha(custom), stripAlpha(fallback));
