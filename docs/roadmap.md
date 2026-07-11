@@ -101,8 +101,10 @@ Carry-ins resolved during Phase 2 (surfaced during the Phase 0/1 readiness revie
   slots itself, the Phase 2 bundle targets **the lead size per device** (6.9″ iPhone, 13″ iPad,
   the Google presets); other accepted sizes stay in `store-specs.json` as opt-in explicit
   targets, never implicit bundle members.
-- **Editable artboard needs store-target validation — resolved in Slice 3.** The inspector now
-  shows exact/proportional/invalid target status and offers explicit exact-size presets.
+- **Editable artboard needs store-target validation — resolved in Slice 3 and tightened during
+  Store Outputs dogfood.** New masters use exact device-family lead dimensions and show them
+  read-only by default. Explicit customization/reset fits the whole composition atomically;
+  exact-size variants remain independent screens.
 - **UI export button — resolved in Slice 3.** The editor exports through `POST /api/export`, which
   reuses the same headless `/render` path and bundle writer as the CLI.
 - **Bulk export must reuse the server + browser + context — resolved in Slice 2.** Bundle export
@@ -170,6 +172,23 @@ Richer existing-type properties, additional frames/platform targets, workflow re
 performance improvements, and further creative capabilities driven by Phase 8 findings and real
 use. This is a direction boundary, not a pre-approved catch-all implementation plan; each expansion
 still needs a scoped design, parity impact, and verification plan.
+
+**Slice 1 — Store output families — done.** Dogfood showed that exact-size variants solved only
+one family at a time and left platform switching hidden behind manual screen creation. Slice 1 adds
+independent App Store iPhone/iPad/macOS/tvOS/watchOS, Google Play Android phone, and Microsoft Store
+Windows desktop output sets. Cross-family copies are fresh-id roots; size variants stay family-local.
+The contract and plan are in
+`docs/specs/2026-07-11-phase9-slice1-store-output-families.md` and
+`docs/plans/2026-07-11-phase9-slice1-store-output-families.md`.
+
+**Post-Phase 8 corrective work — active, independent of release planning.** Confirmed defects and
+misleading workflows found during ordinary dogfood may be fixed before Phase 9 without reopening
+Phase 8 or implying publication. Store target variants were pulled out of the prospective Phase 9
+intake as corrective Slice 1 because the shipped `Set exact` action destructively changed the root
+artboard. The accepted contract is in
+`docs/specs/2026-07-11-store-target-variants-design.md`; its execution plan is in
+`docs/plans/2026-07-11-post-phase8-slice1-store-target-variants.md`. Remaining Phase 9 candidates
+stay optional and evidence-driven rather than forming a mandatory release checklist.
 
 ---
 
@@ -350,6 +369,10 @@ schema and write its own design spec before implementation. Richer existing-type
 (gradient/image backgrounds, text shadow, screenshot crop, additional frame variants, and expanded
 shape styles) remain roadmap-governed Phase 9 expansion candidates; they are not hidden inside the
 new-type slices.
+
+Independent store-target variants are no longer a Phase 9 candidate: corrective Slice 1 owns that
+contract before Phase 9 intake. Phase 9 begins only when another evidence-backed expansion slice is
+explicitly selected; there is no requirement to implement every candidate.
 
 The completed Slice 1–7 contracts and verification checkpoints are recorded in `docs/plans/`, with
 the v3 decision in `docs/specs/2026-07-10-phase7-group-model-design.md` and closure evidence in

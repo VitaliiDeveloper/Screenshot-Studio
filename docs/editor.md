@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v5 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v6 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -139,8 +139,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
 the schema gains them (future phases). Everything else is as built.
 
-- **No selection** → active **artboard** properties: artboard size with store-target status and
-  exact-size presets *(as built)* and background: `solid` today;
+- **No selection** → active **artboard** properties: a read-only exact lead master size by default,
+  explicit output-set-wide atomic custom-size/reset actions, independent exact-size variants, and background:
+  `solid` today;
   `gradient | image` *(target)*. Background editing lives here, not in the toolbar.
 - **`text`** → theme role (`none | heading | body | accent | surface`), content,
   registered font identity picker (`fontFamily` + `weight`), size,
@@ -166,10 +167,16 @@ the schema gains them (future phases). Everything else is as built.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
   saves surface a visible workspace alert; the editor never silently presents a rejected value as
   durable state.
+- **Store outputs** lists App Store iPhone/iPad/macOS/tvOS/watchOS, Google Play Android phone, and
+  Microsoft Store Windows desktop. Creating an output copies the active locale's complete root set
+  with fresh screen/element ids and leaves the source family unchanged. Inside the active output,
+  the lead row remains its root/master; accepted non-lead sizes create or open independent exact
+  variants. Removing a variant preserves its master. No output or target action resizes a root in
+  place.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is
-  shared with CLI export; numbering restarts per exact platform/device/locale group in relative
+  shared with CLI export; numbering restarts per exact platform/device/locale/target group in relative
   project order. The UI export button and `cli export` must meet the Phase 0 parity exit criterion —
   exact target dimensions, no alpha channel, and a visual diff within tolerance (*not*
   byte-identical; PNG metadata/compression may differ). See `architecture.md` §2.

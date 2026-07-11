@@ -63,7 +63,7 @@ for (const path of [
   "examples/rtl-delivery/app-store-screenshots.json",
 ]) {
   const project = JSON.parse(await readFile(join(repoRoot, path), "utf8"));
-  if (project.meta?.schemaVersion !== 5) throw new Error(`Example is not authored as v5: ${path}`);
+  if (project.meta?.schemaVersion !== 6) throw new Error(`Example is not authored as v6: ${path}`);
 }
 
 console.log(`Verified ${requiredFiles.length} community surfaces and public status statements.`);

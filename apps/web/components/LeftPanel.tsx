@@ -208,11 +208,13 @@ export function LeftPanel({
   panel,
   images,
   onClose,
+  onOpenAdd,
   onOpenDialog,
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
   onClose: () => void;
+  onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
 }) {
   const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
@@ -223,7 +225,7 @@ export function LeftPanel({
       {panel === "structure" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <ScreensSection images={images} />
-          <LayersSection />
+          <LayersSection onOpenAdd={onOpenAdd} />
         </div>
       ) : null}
       {panel === "resources" ? (

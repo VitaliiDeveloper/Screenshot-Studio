@@ -60,6 +60,17 @@ export function migrateToCurrent(raw: unknown): unknown {
     if (containsElementType(current, "icon")) return current;
     const currentMeta = current.meta;
     if (!isRecord(currentMeta)) return current;
+    current = {
+      ...current,
+      meta: { ...currentMeta, schemaVersion: 5 },
+    };
+    version = 5;
+  }
+
+  if (version === 5) {
+    if (containsStoreTargetVariant(current)) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
     return {
       ...current,
       meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION },
@@ -67,6 +78,13 @@ export function migrateToCurrent(raw: unknown): unknown {
   }
 
   return raw;
+}
+
+function containsStoreTargetVariant(project: Record<string, unknown>): boolean {
+  if (!Array.isArray(project.screens)) return false;
+  return project.screens.some((screen) => isRecord(screen)
+    && (Object.prototype.hasOwnProperty.call(screen, "variantOf")
+      || Object.prototype.hasOwnProperty.call(screen, "storeTargetId")));
 }
 
 function containsGroupElement(project: Record<string, unknown>): boolean {

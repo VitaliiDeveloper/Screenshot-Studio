@@ -18,7 +18,7 @@ plain `screenshots` spelling above.
 
 ## Source of truth and guardrails
 
-- `app-store-screenshots.json` is the only persisted project state. It is strict v5 JSON; unknown
+- `app-store-screenshots.json` is the only persisted project state. It is strict v6 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to screens, locales, fonts, themes, and imports. Directly
   edit JSON only for literals the CLI does not manage, such as text content and element geometry.
@@ -38,17 +38,18 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v5 shape
+## Enforced v6 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 5 }
+├── meta: { name, appIcon?, schemaVersion: 6 }
 ├── mode: isolated | connected
-├── platforms: ["apple" | "android", …]  # set-equal to screens
+├── platforms: ["apple" | "android" | "windows", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
 ├── fonts: FontAsset[]                    # file-backed project fonts
 └── screens: Screen[]
     ├── id, name, platform, device, locale, direction
+    ├── variantOf?, storeTargetId?          # paired only on explicit target variants
     ├── artboard: { width, height }
     ├── background: { type: "solid", color }
     └── elements: Element[]               # array order is z-order

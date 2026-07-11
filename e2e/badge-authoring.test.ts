@@ -23,7 +23,7 @@ beforeAll(async () => {
   cpSync(imageSource, join(directory, "assets", "store-badge.png"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Badge authoring", schemaVersion: 5 },
+    meta: { name: "Badge authoring", schemaVersion: 6 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

@@ -27,7 +27,7 @@ function scopeProject(mode: Project["mode"]): Project {
     elements: [],
   } as Project["screens"][number]);
   return {
-    meta: { name: "Scope", schemaVersion: 5 },
+    meta: { name: "Scope", schemaVersion: 6 },
     mode,
     platforms: ["apple", "android"],
     locales: ["en"],
@@ -86,5 +86,45 @@ describe("editor workspace helpers", () => {
     const isolated = scopeProject("isolated");
     expect(workspaceScreenScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
       .toEqual(["first", "unrelated", "second"]);
+  });
+
+  it("keeps root artboards and explicit target variants in separate workspace layers", () => {
+    const isolated = scopeProject("isolated");
+    const variant = {
+      ...structuredClone(isolated.screens[0]!),
+      id: "first-65",
+      variantOf: "first",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    };
+    isolated.screens.push(variant);
+    expect(workspaceScreenScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
+      .toEqual(["first", "unrelated", "second"]);
+    expect(workspaceScreenScope(isolated, variant).map((screen) => screen.id))
+      .toEqual(["first-65"]);
+  });
+
+  it("keeps same-target variants from multiple roots together in connected project order", () => {
+    const connected = scopeProject("connected");
+    const firstVariant = {
+      ...structuredClone(connected.screens[0]!),
+      id: "first-65",
+      variantOf: "first",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    };
+    const secondVariant = {
+      ...structuredClone(connected.screens[2]!),
+      id: "second-65",
+      variantOf: "second",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    };
+    connected.screens.push(firstVariant, secondVariant);
+
+    expect(workspaceScreenScope(connected, connected.screens[0]!).map((screen) => screen.id))
+      .toEqual(["first", "second"]);
+    expect(workspaceScreenScope(connected, firstVariant).map((screen) => screen.id))
+      .toEqual(["first-65", "second-65"]);
   });
 });

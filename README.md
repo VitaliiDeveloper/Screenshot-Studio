@@ -71,7 +71,7 @@ Monorepo (pnpm workspaces):
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
 - `fixtures/` — sample projects used by tests and local dev (e.g. `phase-0-sample`).
-- `examples/` — self-contained v5 connected and RTL projects that are validated, edited, and
+- `examples/` — self-contained v6 connected and RTL projects that are validated, edited, and
   exported in the closure suite.
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
@@ -141,7 +141,7 @@ lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authorin
 strict v4 decorative image leaf now ship with secure asset insertion plus contain/cover/alpha
 parity. Strict v5 trusted built-in vector icons now add editable colour/stroke controls without raw
 SVG input. Rating and press-proof badges now use editable ordinary groups, and official store badges
-reuse secure contain-fit project images without a redundant schema type. Living v5 projects prove
+reuse secure contain-fit project images without a redundant schema type. Living v6 projects prove
 connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
 Phase 6 and Phase 7 complete the planned baseline.
 
@@ -151,6 +151,13 @@ and the store/dependency release audit are complete. The `0.1.0` release artifac
 documentation are complete, and Slice 7's local full gate, source/packed dogfood, retained candidate,
 and Linux/macOS/Windows package matrix are green. No tag, registry publication, GitHub release, or
 public announcement is claimed.
+
+**Post-Phase 8 corrective work — complete and independent of release planning.** Schema v6 replaces
+the destructive Store Targets `Set exact` resize with fresh-id, independently editable explicit
+target variants. The master screen stays unchanged; root and variant workspaces/export targets stay
+separate. **Phase 9 Slice 1 is implemented:** Store Outputs now creates independent iPhone, iPad, macOS,
+tvOS, watchOS, Android phone, and Windows desktop screen sets. This expansion is not a release
+dependency.
 
 ## Requirements
 
@@ -222,7 +229,8 @@ pnpm screenshots asset auto-crop assets/icons/product.png --threshold 10 --proje
 pnpm screenshots asset remove-background assets/icons/product.png --background FFFFFF --tolerance 24 --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
-Bundle `export` flags: optional `--platform <apple|android>`, `--device <iphone|ipad|phone>`,
+Bundle `export` flags: optional `--platform <apple|android|windows>`,
+`--device <iphone|ipad|macos|tvos|watchos|phone|desktop>`,
 `--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode uses the
 lead size per device from [store-specs.json](store-specs.json) and writes
 `app-store-screenshots-bundle.zip`. PNGs use
@@ -242,7 +250,7 @@ Locale commands delegate to the same core transformations as the editor. `locale
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
 stored direction changes, and `locale rm` protects the last locale.
 
-An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v5
+An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v6
 guardrails and exact recipes for copy generation, literal layout, locale translation, and local asset
 processing. Init preflights the JSON and both agent control files and refuses to overwrite any of them.
 
@@ -292,9 +300,9 @@ pnpm test:e2e:browsers # Chromium/Firefox/WebKit editor smoke
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
 pnpm test:e2e:examples # validate and export the living example projects
-pnpm test:e2e:ci       # 27-case development-branch subset
+pnpm test:e2e:ci       # targeted browser subset automated on pushes to dev
 pnpm test:e2e:release-surfaces # browsers/package/skill/examples aggregate
-pnpm test:e2e          # full browser gate (phase/PR/release closure)
+pnpm test:e2e          # full browser gate (dev -> main CI only; do not run locally)
 pnpm build:cli-package # assemble the installable CLI + standalone render host
 pnpm audit:release     # pack and audit files, runtime deps/licenses, portability, and size
 pnpm check:release-candidate # audit candidate version, metadata, and public docs
@@ -302,11 +310,11 @@ pnpm check:spdx        # enforce Apache-2.0 headers on authored source files
 pnpm typecheck         # all packages
 ```
 
-The leaf scripts are the normal implementation-loop checks; exact Vitest file paths are preferred
-for a narrower change. The unsuffixed parity/editor commands remain aggregates. `pnpm test:e2e`
-starts multiple `apps/web` render hosts and drives every configured browser, so reserve it for
-shared-contract or closure verification. See the human-readable ownership and cost matrix in
-[`docs/testing.md`](docs/testing.md).
+Unit/package scripts are the normal implementation-loop checks. Run a browser E2E only for a
+specific changed workflow that requires it, preferring an exact Vitest file over a leaf group. The
+unsuffixed parity/editor commands remain aggregates. Do not run `pnpm test:e2e` locally: GitHub CI
+owns the full browser gate for the integration PR from `dev` into `main`. See the ownership and cost
+matrix in [`docs/testing.md`](docs/testing.md).
 
 ## License
 

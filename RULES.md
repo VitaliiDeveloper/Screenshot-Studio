@@ -92,20 +92,27 @@ throughput; keep ephemeral measurements in a doc or the PR.
     their `test:e2e:editor` aggregate for a localized interaction.
   - **Business logic, persistence, schema, render, or export behavior** gets the relevant
     targeted unit/integration tests plus an E2E only when the user-visible path needs it.
-  - **Phase, PR, or release closure** follows the full-gate rule below.
+  - **Integration closure** follows the `dev` → `main` CI rule below.
 - During implementation, run only the exact Vitest files and package typechecks covering the
   changed behavior. At slice completion, run the affected package suite when behavior or a
-  contract changed, plus only the E2E group/file called for by the risk matrix above.
-- Run the full `test` + `lint` + `typecheck` + `test:e2e` gate once at phase/PR/release closure,
-  or earlier for broad-impact changes, shared contracts (the Zod schema, `store-specs.json`,
-  export parity), build-sensitive config, or when asked. Don't repeat the same full gate after
-  a docs-only follow-up; a green immediate CI run may serve as the closure gate when appropriate.
+  contract changed. Run an E2E only when the changed behavior specifically requires a real browser,
+  render host, or packed consumer; prefer one exact file, and use a leaf group only when several
+  files jointly cover that change. Generic regression confidence is not a reason to run E2E during
+  development.
+- Do not run the full `pnpm test:e2e` suite locally during implementation, slice completion, or an
+  ordinary feature PR. GitHub CI owns that full browser gate exclusively for the integration PR
+  from `dev` into `main`. Pushes to `dev` retain the automated targeted E2E subset; local development
+  uses lint, typecheck, unit/package tests, and only explicitly justified exact E2E files.
+- When the `dev` → `main` full browser gate fails, diagnose and rerun only the failing E2E file
+  locally. Push the fix and let CI rerun the complete gate; do not repeatedly run the full suite
+  locally.
 - Cross-browser, packaged-CLI, optional-skill, and living-example workflows are release-class
   checks. Run their exact leaf group when that surface changes, or the
   `test:e2e:release-surfaces` aggregate at release readiness; do not put them in an unrelated
   implementation loop.
-- Slice specs and plans must name the exact relevant tests. Requiring a full suite needs an
-  explicit shared-contract or closure reason, not generic "existing tests stay green" wording.
+- Slice specs and plans must name the exact relevant unit tests and, only when necessary, the exact
+  E2E file or leaf group. They must not require a local full browser suite or use generic "existing
+  tests stay green" wording.
 - Never treat a missing package script as a successful check. Use the root targeted scripts
   (`test:core`, `test:cli`, `test:web`, `test:e2e:*`) or invoke Vitest with explicit file paths.
   Add each new E2E file to exactly one leaf group in the root `package.json`; aggregate scripts may

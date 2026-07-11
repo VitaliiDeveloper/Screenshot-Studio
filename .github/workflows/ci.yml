@@ -43,7 +43,7 @@ jobs:
       - run: pnpm test
 
   e2e-targeted:
-    # Development pushes get the highest-value Chromium contracts without release-only workflows.
+    # Development pushes get the highest-value Chromium contracts without the full browser gate.
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
@@ -64,8 +64,8 @@ jobs:
       - run: xvfb-run -a pnpm test:e2e:ci
 
   e2e-full:
-    # Pull-request closure, main, and explicit release checks retain the complete browser gate.
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    # Browser regression belongs only at the long-lived integration boundary.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -22,7 +22,7 @@ beforeAll(async () => {
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3136);
+  server = await startWebServer(3136, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -38,7 +38,12 @@ function project() {
     screens: Array<{
       id: string;
       name: string;
+      platform: string;
       device: string;
+      locale: string;
+      variantOf?: string;
+      storeTargetId?: string;
+      artboard: { width: number; height: number };
       elements: Array<{ id: string; type: string; x: number; y: number; width: number; height: number }>;
     }>;
   };
@@ -68,6 +73,71 @@ describe("Phase 3.6 editor workspace", () => {
     await expect.poll(() => secondLayers.getByRole("listitem").count()).toBe(secondScreen.elements.length);
     expect(await page.getByRole("button", { name: `Show ${firstScreen.name} layers` }).count()).toBe(0);
     await page.close();
+  });
+
+  it("creates an independent store-target variant without resizing the master", async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const masterBefore = structuredClone(project().screens[0]!);
+    const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
+    const addVariant = targetRow.getByRole("button", { name: "Add variant", exact: true });
+    await expect.poll(() => addVariant.count(), { timeout: 5_000 }).toBe(1);
+    await addVariant.click();
+
+    await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(1);
+    const persisted = project();
+    const masterAfter = persisted.screens.find((screen) => screen.id === masterBefore.id)!;
+    const variant = persisted.screens.find((screen) => screen.storeTargetId === "6.5")!;
+    expect(masterAfter.artboard).toEqual(masterBefore.artboard);
+    expect(masterAfter.elements).toEqual(masterBefore.elements);
+    expect(variant).toMatchObject({
+      variantOf: masterBefore.id,
+      artboard: { width: 1284, height: 2778 },
+    });
+    expect(variant.id).not.toBe(masterBefore.id);
+    expect(variant.elements[0]!.id).not.toBe(masterBefore.elements[0]!.id);
+    expect(await page.getByRole("spinbutton", { name: "Width", exact: true }).count()).toBe(0);
+    expect(await page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(1);
+    await expect.poll(() => targetRow.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await targetRow.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(0);
+    expect(project().screens.find((screen) => screen.id === masterBefore.id)!.artboard).toEqual(masterBefore.artboard);
+    await page.close();
+  });
+
+  it("creates and opens an independent iPad output set without changing iPhone roots", async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const iphoneBefore = structuredClone(project().screens.filter((screen) =>
+      screen.platform === "apple" && screen.device === "iphone" && screen.variantOf === undefined,
+    ));
+    const ipadOutput = page.getByRole("group", { name: "App Store · iPad output", exact: true });
+    const addOutput = ipadOutput.getByRole("button", { name: "Add output", exact: true });
+    await expect.poll(() => addOutput.count(), { timeout: 5_000 }).toBe(1);
+    await addOutput.click();
+
+    await expect.poll(() => project().screens.filter((screen) => screen.device === "ipad").length, { timeout: 10_000 }).toBe(3);
+    const persisted = project();
+    const ipadRoots = persisted.screens.filter((screen) => screen.device === "ipad");
+    expect(ipadRoots.every((screen) =>
+      screen.variantOf === undefined
+      && screen.artboard.width === 2064
+      && screen.artboard.height === 2752
+    )).toBe(true);
+    expect(persisted.screens.filter((screen) => screen.device === "iphone" && screen.variantOf === undefined)).toEqual(iphoneBefore);
+    await expect.poll(() => ipadOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+
+    const iphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
+    await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
+    await expect.poll(() => iphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    await page.close();
+    writeFileSync(projectFile, readFileSync(sample, "utf8"));
   });
 
   it("fits the complete three-screen overview and preserves Space activation on controls", async () => {

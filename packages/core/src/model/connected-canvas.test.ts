@@ -12,7 +12,7 @@ import {
 
 function project(): Project {
   return {
-    meta: { name: "Connected", schemaVersion: 5 },
+    meta: { name: "Connected", schemaVersion: 6 },
     mode: "connected",
     platforms: ["apple", "android"],
     locales: ["en", "fr"],
@@ -53,6 +53,7 @@ describe("connected canvas projection", () => {
     expect(sameScreenGroup(first!, french!)).toBe(false);
     expect(sameScreenGroup(first!, android!)).toBe(false);
     expect(sameScreenGroup(first!, project().screens[2]!)).toBe(true);
+    expect(sameScreenGroup(first!, { ...project().screens[2]!, variantOf: "first", storeTargetId: "6.5" })).toBe(false);
   });
 
   it("projects an interleaved group in project order with cumulative variable widths", () => {

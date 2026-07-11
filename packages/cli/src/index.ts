@@ -11,6 +11,7 @@ import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import {
   buildBundleEntries,
+  leadStoreSizeId,
   parseStoreSpecs,
   safeLocalePathSegment,
   safeStoreSizePathToken,
@@ -107,6 +108,15 @@ export function singleExportFilename(
   return filename;
 }
 
+export function singleExportTargetId(
+  screen: Pick<Screen, "platform" | "device" | "storeTargetId">,
+  explicitSizeId?: string,
+): string {
+  return explicitSizeId
+    ?? screen.storeTargetId
+    ?? leadStoreSizeId(screen.platform, screen.device);
+}
+
 export function resolveImportOptions(args: string[], flags: Record<string, string>): ImportOptions {
   const [inputDir] = args;
   if (!inputDir) throw new Error("Usage: screenshots import <dir>");
@@ -114,7 +124,7 @@ export function resolveImportOptions(args: string[], flags: Record<string, strin
 }
 
 export type ExportMode =
-  | { kind: "single"; screenId: string; sizeId: string }
+  | { kind: "single"; screenId: string; sizeId?: string }
   | { kind: "bundle"; filters: BundleFilters };
 
 export function resolveExportMode(flags: Record<string, string>): ExportMode {
@@ -126,7 +136,7 @@ export function resolveExportMode(flags: Record<string, string>): ExportMode {
     throw new Error("--size requires --screen; bundle exports use each device's lead size");
   }
   if (flags.screen) {
-    return { kind: "single", screenId: flags.screen, sizeId: flags.size ?? "6.9" };
+    return { kind: "single", screenId: flags.screen, sizeId: flags.size };
   }
   return {
     kind: "bundle",
@@ -199,11 +209,11 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
       storeSpecsPath,
       screen.platform,
       screen.device,
-      mode.sizeId,
+      singleExportTargetId(screen, mode.sizeId),
     );
     const outFile = join(outDir, singleExportFilename(screen, target));
 
-    const server = await startWebServer();
+    const server = await startWebServer(undefined, { storeSpecsPath });
     await runWithCleanup(async () => {
       const png = await failWhenServerExits(server, exportScreenToPng({
         baseUrl: server.url,
@@ -220,7 +230,7 @@ async function cmdExport(flags: Record<string, string>): Promise<void> {
 
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   const entries = buildBundleEntries(project, specs, mode.filters);
-  const server = await startWebServer();
+  const server = await startWebServer(undefined, { storeSpecsPath });
   let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
   await runWithCleanup(async () => {
     session = await createRenderBrowserSession();
@@ -248,7 +258,8 @@ async function cmdScreen(args: string[], flags: Record<string, string>): Promise
 
 async function cmdDev(flags: Record<string, string>): Promise<void> {
   const options = resolveDevOptions(flags);
-  const server = await startWebServer(options.port, { projectPath: options.projectPath });
+  const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : DEFAULT_STORE_SPECS;
+  const server = await startWebServer(options.port, { projectPath: options.projectPath, storeSpecsPath });
   console.log(`Editor running at ${server.url}/editor`);
 
   await runWithCleanup(() => Promise.race([

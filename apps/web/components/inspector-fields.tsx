@@ -13,7 +13,7 @@ import { editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 
 export function NumberField({
-  label, value, onChange, step = 1, min, max, integer = false,
+  label, value, onChange, step = 1, min, max, integer = false, layout = "row",
 }: {
   label: string;
   value: number;
@@ -22,6 +22,7 @@ export function NumberField({
   min?: number;
   max?: number;
   integer?: boolean;
+  layout?: "row" | "column";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(String(value));
@@ -41,7 +42,10 @@ export function NumberField({
   }, [value]);
 
   return (
-    <label className="flex items-center justify-between gap-3 text-xs">
+    <label className={layout === "column"
+      ? "flex min-w-0 flex-col gap-1.5 text-xs"
+      : "flex items-center justify-between gap-3 text-xs"}
+    >
       <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
       <input
         ref={inputRef}
@@ -61,7 +65,7 @@ export function NumberField({
           const next = parse(draft);
           if (next === null) setDraft(String(value));
         }}
-        className={`${editorUi.field} w-28 text-right tabular-nums aria-invalid:border-red-400 aria-invalid:ring-2 aria-invalid:ring-red-500/15`}
+        className={`${editorUi.field} ${layout === "column" ? "min-w-0" : "w-28"} text-right tabular-nums aria-invalid:border-red-400 aria-invalid:ring-2 aria-invalid:ring-red-500/15`}
       />
     </label>
   );

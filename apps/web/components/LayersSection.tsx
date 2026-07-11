@@ -13,6 +13,7 @@ import {
   LockOpen,
   MoreHorizontal,
   Pencil,
+  Plus,
   Smartphone,
   Square,
   Sparkles,
@@ -61,7 +62,7 @@ function ElementTypeIcon({ element }: { element: Element }) {
 }
 
 /** Layers list for the active screen. Rendered reversed: top row = front-most = last in array. */
-export function LayersSection() {
+export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedItems = useStore(editorStore, (s) => s.selectedItems);
@@ -121,15 +122,25 @@ export function LayersSection() {
     <section className="pb-3">
       <header className="px-4 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Layers</h2>
-          <span className="text-[10px] font-medium tabular-nums text-slate-600">{rows.length}</span>
+          <h2 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+            Layers
+            <span className="font-medium tabular-nums tracking-normal text-slate-400">{rows.length}</span>
+          </h2>
+          <button
+            type="button"
+            aria-label="Add element"
+            className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-blue-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+            onClick={onOpenAdd}
+          >
+            <Plus size={12} strokeWidth={2} /> Add
+          </button>
         </div>
-        <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
-          {project.mode === "connected" ? (
+        {project.mode === "connected" ? (
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
             <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-600">Owner</span>
-          ) : null}
-          <span data-testid="layers-owner" className="truncate">{screen.name}</span>
-        </p>
+            <span data-testid="layers-owner" className="truncate">{screen.name}</span>
+          </p>
+        ) : null}
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>

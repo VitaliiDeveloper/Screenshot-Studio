@@ -14,7 +14,10 @@ import {
 
 const specs = parseStoreSpecs({
   apple: {
-    iphone: [{ id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" }],
+    iphone: [
+      { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
+      { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
+    ],
     ipad: [{ id: "13", label: "13", width: 2064, height: 2752, orientation: "portrait" }],
   },
   android: {
@@ -24,7 +27,7 @@ const specs = parseStoreSpecs({
 
 function project(): Project {
   return {
-    meta: { name: "Bundle", schemaVersion: 5 },
+    meta: { name: "Bundle", schemaVersion: 6 },
     mode: "isolated",
     platforms: ["apple", "android"],
     locales: ["en", "uk"],
@@ -63,7 +66,11 @@ describe("leadStoreSizeId", () => {
   it("returns the Phase 2 lead target per platform/device", () => {
     expect(leadStoreSizeId("apple", "iphone")).toBe("6.9");
     expect(leadStoreSizeId("apple", "ipad")).toBe("13");
+    expect(leadStoreSizeId("apple", "macos")).toBe("2880x1800");
+    expect(leadStoreSizeId("apple", "tvos")).toBe("4k");
+    expect(leadStoreSizeId("apple", "watchos")).toBe("ultra-3");
     expect(leadStoreSizeId("android", "phone")).toBe("phone-portrait");
+    expect(leadStoreSizeId("windows", "desktop")).toBe("4k");
   });
 
   it("throws for an unsupported pair", () => {
@@ -157,11 +164,39 @@ describe("buildBundleEntries", () => {
     ]);
   });
 
+  it("exports explicit variants against their own target with independent numbering", () => {
+    const source = project();
+    source.screens.push({
+      ...structuredClone(source.screens[0]!),
+      id: "hero-65",
+      variantOf: "hero",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    });
+    const entries = buildBundleEntries(source, specs, { platform: "apple", device: "iphone" });
+    expect(entries.map((entry) => [entry.screen.id, entry.target.id, entry.relativePath])).toEqual([
+      ["hero", "6.9", "apple/iphone/locale-en/01-hero-phone-6.9.png"],
+      ["hero-65", "6.5", "apple/iphone/locale-en/01-hero-phone-6.5.png"],
+    ]);
+    expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
   it("throws if store-specs lacks the schema-supported lead target", () => {
     const broken = parseStoreSpecs({ apple: { iphone: [] }, android: { phone: [] } });
     expect(() => buildBundleEntries(project(), broken, { platform: "apple", device: "iphone" })).toThrow(
       /Unknown size/,
     );
+  });
+
+  it("rejects an explicit variant whose target id is absent from store specs", () => {
+    const source = project();
+    source.screens.push({
+      ...structuredClone(source.screens[0]!),
+      id: "hero-unknown",
+      variantOf: "hero",
+      storeTargetId: "unknown-target",
+    });
+    expect(() => buildBundleEntries(source, specs)).toThrow(/Unknown size.*unknown-target/);
   });
 });
 

@@ -146,12 +146,13 @@ describe("createServerController", () => {
     expect(child.kill).toHaveBeenCalledTimes(1);
   });
 
-  it("passes the project path to the web app when supplied", async () => {
+  it("passes project and store-spec paths to the web app when supplied", async () => {
     const child = new FakeChild();
     const spawn = vi.fn((_cmd: string, _args: string[], _options: unknown) => child as never);
     await createServerController({
       port: 4569,
       projectPath: "/tmp/app-store-screenshots.json",
+      storeSpecsPath: "/opt/screenshot-studio/store-specs.json",
       spawn,
       waitForHttp: vi.fn(async () => undefined),
       timeoutMs: 100,
@@ -159,6 +160,7 @@ describe("createServerController", () => {
 
     const spawnOptions = spawn.mock.calls[0]?.[2] as { env?: Record<string, string> };
     expect(spawnOptions.env?.PROJECT_PATH).toBe("/tmp/app-store-screenshots.json");
+    expect(spawnOptions.env?.STORE_SPECS_PATH).toBe("/opt/screenshot-studio/store-specs.json");
   });
 
   it("kills the child when readiness fails", async () => {

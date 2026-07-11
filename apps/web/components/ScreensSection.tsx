@@ -3,7 +3,7 @@
 
 import dynamic from "next/dynamic";
 import { useStore } from "zustand";
-import { Plus, Trash2 } from "lucide-react";
+import { CornerUpLeft, Plus, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -37,10 +37,15 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   const screens = activeScreen
     ? workspaceScreenScope(project, activeScreen)
     : project.screens.filter((screen) => screen.locale === activeLocale);
-  const localeScreenCount = project.screens.filter((screen) => screen.locale === activeLocale).length;
+  const localeRootScreenCount = project.screens.filter((screen) =>
+    screen.locale === activeLocale && screen.variantOf === undefined,
+  ).length;
+  const activeRoot = activeScreen?.variantOf
+    ? project.screens.find((screen) => screen.id === activeScreen.variantOf)
+    : undefined;
   const scopeLabel = project.mode === "connected" && activeScreen
-    ? `${activeLocale} · ${activeScreen.device}`
-    : activeLocale;
+    ? `${activeLocale} · ${activeScreen.device}${activeScreen.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`
+    : `${activeLocale}${activeScreen?.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`;
   const listLabel = project.mode === "connected" && activeScreen
     ? `Screens for ${activeLocale} ${activeScreen.device} group`
     : `Screens for ${activeLocale}`;
@@ -51,8 +56,12 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   };
 
   const onDelete = (id: string, name: string) => {
-    if (localeScreenCount <= 1) return; // remove a complete locale only through the locale manager
-    if (!window.confirm(`Delete screen "${name}" and all its layers?`)) return;
+    const candidate = project.screens.find((screen) => screen.id === id);
+    if (!candidate) return;
+    if (candidate.variantOf === undefined && localeRootScreenCount <= 1) return;
+    const variants = project.screens.filter((screen) => screen.variantOf === id).length;
+    const suffix = variants > 0 ? ` and ${variants} store target variant${variants === 1 ? "" : "s"}` : "";
+    if (!window.confirm(`Delete screen "${name}"${suffix} and all its layers?`)) return;
     mutateAndSave(() => editorStore.getState().removeScreen(id));
   };
 
@@ -64,10 +73,13 @@ export function ScreensSection({ images }: { images: ImageCache }) {
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">{scopeLabel}</span>
         </div>
         <button
-          onClick={() => mutateAndSave(() => editorStore.getState().addScreen())}
+          onClick={() => activeRoot
+            ? editorStore.getState().selectScreen(activeRoot.id)
+            : mutateAndSave(() => editorStore.getState().addScreen())}
           className={`${editorUi.buttonGhost} text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
         >
-          <Plus size={14} strokeWidth={2} /> Add
+          {activeRoot ? <CornerUpLeft size={14} strokeWidth={2} /> : <Plus size={14} strokeWidth={2} />}
+          {activeRoot ? "Master" : "Add"}
         </button>
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -104,12 +116,12 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 >
                   <span className="block truncate text-xs font-semibold">{s.name}</span>
                   <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-600">
-                    {s.device} · {s.locale} · {s.artboard.width}×{s.artboard.height}
+                    {s.device} · {s.locale}{s.storeTargetId ? ` · ${s.storeTargetId}` : ""} · {s.artboard.width}×{s.artboard.height}
                   </span>
                 </button>
                 <button
                   onClick={() => onDelete(s.id, s.name)}
-                  disabled={localeScreenCount <= 1}
+                  disabled={s.variantOf === undefined && localeRootScreenCount <= 1}
                   aria-label={`Delete ${s.name}`}
                   className={`${editorUi.iconButton} opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus-visible:opacity-100`}
                 >

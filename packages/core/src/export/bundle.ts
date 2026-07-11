@@ -16,8 +16,9 @@ export interface BundleEntry {
 }
 
 const LEAD_SIZE_BY_PLATFORM_DEVICE = {
-  apple: { iphone: "6.9", ipad: "13" },
+  apple: { iphone: "6.9", ipad: "13", macos: "2880x1800", tvos: "4k", watchos: "ultra-3" },
   android: { phone: "phone-portrait" },
+  windows: { desktop: "4k" },
 } as const;
 
 export function leadStoreSizeId(platform: string, device: string): string {
@@ -112,7 +113,7 @@ export function buildBundleEntries(
   specs: StoreSpecs,
   filters: BundleFilters = {},
 ): BundleEntry[] {
-  const counts = new Map<string, Map<string, Map<string, number>>>();
+  const counts = new Map<string, Map<string, Map<string, Map<string, number>>>>();
   return selectBundleScreens(project, filters).map((screen) => {
     let byDevice = counts.get(screen.platform);
     if (!byDevice) {
@@ -124,17 +125,21 @@ export function buildBundleEntries(
       byLocale = new Map();
       byDevice.set(screen.device, byLocale);
     }
-    const groupIndex = byLocale.get(screen.locale) ?? 0;
-    byLocale.set(screen.locale, groupIndex + 1);
-
-    const sizeId = leadStoreSizeId(screen.platform, screen.device);
+    let byTarget = byLocale.get(screen.locale);
+    if (!byTarget) {
+      byTarget = new Map();
+      byLocale.set(screen.locale, byTarget);
+    }
+    const sizeId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+    const groupIndex = byTarget.get(sizeId) ?? 0;
+    byTarget.set(sizeId, groupIndex + 1);
     const target = findStoreSize(specs, screen.platform, screen.device, sizeId);
     return { screen, target, relativePath: bundleRelativePath(screen, target, groupIndex) };
   });
 }
 
 /**
- * Fail before rendering if any bundle entry's artboard cannot scale to its lead target
+ * Fail before rendering if any root/variant artboard cannot scale to its selected target
  * (spec Slice 3). Mirrors the `exportPixelRatio` gate the render loop applies per entry, but
  * up front, so the UI/CLI reject an invalid bundle with a screen-identifying message instead of
  * failing mid-render.

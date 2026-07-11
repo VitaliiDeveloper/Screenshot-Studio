@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 5 },
+    meta: { name: "T", schemaVersion: 6 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -119,6 +119,92 @@ describe("editorStore screens (slice 4)", () => {
     expect(addedEl.id).not.toBe("headline"); // element id regenerated
     expect(addedEl.type === "text" && addedEl.content).toBe("Hello"); // content copied
     expect(editorStore.getState().activeScreenId).toBe(added.id);
+  });
+
+  it("creates, reopens, and removes an independent target variant", () => {
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const created = editorStore.getState();
+    const variant = created.project!.screens.find((screen) => screen.storeTargetId === "6.5")!;
+    expect(variant).toMatchObject({ variantOf: "hero", artboard: { width: 1284, height: 2778 } });
+    expect(created.project!.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
+    expect(created.activeScreenId).toBe(variant.id);
+
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    expect(editorStore.getState().project!.screens.filter((screen) => screen.storeTargetId === "6.5")).toHaveLength(1);
+
+    editorStore.getState().removeStoreTargetVariant("hero", "6.5");
+    expect(editorStore.getState().project!.screens).toHaveLength(2);
+    expect(editorStore.getState().activeScreenId).toBe("hero");
+  });
+
+  it("creates and selects an independent store-output family without changing the source", () => {
+    editorStore.getState().ensureStoreOutputFamily("windows", "desktop", {
+      id: "4k", label: "Windows desktop 4K", width: 3840, height: 2160, orientation: "landscape",
+    });
+    const created = editorStore.getState();
+    const windowsRoots = created.project!.screens.filter((screen) => screen.platform === "windows");
+    expect(windowsRoots).toHaveLength(2);
+    expect(windowsRoots.every((screen) =>
+      screen.device === "desktop"
+      && screen.variantOf === undefined
+      && screen.artboard.width === 3840
+      && screen.artboard.height === 2160
+    )).toBe(true);
+    expect(created.project!.screens.find((screen) => screen.id === "hero")!.artboard).toEqual({ width: 660, height: 1434 });
+    expect(created.activeScreenId).toBe(windowsRoots[0]!.id);
+
+    editorStore.getState().ensureStoreOutputFamily("windows", "desktop", {
+      id: "4k", label: "Windows desktop 4K", width: 3840, height: 2160, orientation: "landscape",
+    });
+    expect(editorStore.getState().project!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
+  });
+
+  it("reorders variants only inside the visible platform/device target layer", () => {
+    const current = editorStore.getState().project!;
+    const heroVariant: Project["screens"][number] = {
+      ...structuredClone(current.screens[0]!),
+      id: "hero-65",
+      platform: "apple",
+      device: "iphone",
+      variantOf: "hero",
+      storeTargetId: "6.5",
+    };
+    const secondVariant: Project["screens"][number] = {
+      ...structuredClone(current.screens[1]!),
+      id: "second-65",
+      platform: "apple",
+      device: "iphone",
+      variantOf: "second",
+      storeTargetId: "6.5",
+    };
+    const ipadRoot: Project["screens"][number] = {
+      ...structuredClone(current.screens[0]!),
+      id: "ipad-root",
+      platform: "apple",
+      device: "ipad",
+    };
+    const ipadVariant: Project["screens"][number] = {
+      ...structuredClone(ipadRoot),
+      id: "ipad-65",
+      platform: "apple",
+      device: "ipad",
+      variantOf: "ipad-root",
+      storeTargetId: "6.5",
+    };
+    editorStore.getState().replaceProject({
+      ...current,
+      screens: [current.screens[0]!, current.screens[1]!, heroVariant, ipadRoot, ipadVariant, secondVariant],
+    });
+
+    editorStore.getState().reorderScreens("hero-65", "second-65");
+
+    expect(editorStore.getState().project!.screens.map((screen) => screen.id)).toEqual([
+      "hero", "second", "second-65", "ipad-root", "ipad-65", "hero-65",
+    ]);
   });
 
   it("removeScreen deletes and reassigns active when the active screen goes", () => {
@@ -387,15 +473,29 @@ describe("editorStore screen editors (slice 5)", () => {
     expect(bg).toMatchObject({ type: "solid", color: "#ABCDEF" });
   });
 
-  it("patchArtboard sets the active screen's dimensions", () => {
-    editorStore.getState().patchArtboard({ width: 720, height: 1560 });
+  it("resizeArtboard updates the active root and scales its composition", () => {
+    editorStore.getState().resizeArtboard({ width: 1320, height: 2868 });
     expect(editorStore.getState().project!.screens[0]!.artboard)
-      .toMatchObject({ width: 720, height: 1560 });
+      .toEqual({ width: 1320, height: 2868 });
+    expect(editorStore.getState().project!.screens[0]!.elements[0])
+      .toMatchObject({ x: 80, y: 200, width: 1160, height: 400, size: 144 });
   });
 
-  it("patchArtboard only touches the active screen", () => {
-    editorStore.getState().patchArtboard({ width: 720 });
-    expect(editorStore.getState().project!.screens[1]!.artboard.width).toBe(660);
+  it("resizeArtboard updates every master screen in the active output set", () => {
+    editorStore.getState().resizeArtboard({ width: 1320, height: 2868 });
+    expect(editorStore.getState().project!.screens[1]!.artboard)
+      .toEqual({ width: 1320, height: 2868 });
+  });
+
+  it("does not let exact store-target variants drift through artboard patches", () => {
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    editorStore.getState().resizeArtboard({ width: 720, height: 1560 });
+    const active = editorStore.getState().project!.screens.find(
+      (screen) => screen.id === editorStore.getState().activeScreenId,
+    );
+    expect(active?.artboard).toEqual({ width: 1284, height: 2778 });
   });
 });
 

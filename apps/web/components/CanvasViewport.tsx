@@ -253,7 +253,7 @@ export function CanvasViewport({
                     >
                       <span className="truncate">{screen.name}</span>
                       <span className="shrink-0 text-[10px] font-normal text-slate-400">
-                        {screen.device} · {screen.locale}
+                        {screen.device} · {screen.locale}{screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}
                       </span>
                     </div>
                   ))}
@@ -277,7 +277,7 @@ export function CanvasViewport({
                     active ? "text-blue-700" : "text-slate-500",
                   )}>
                     <span className="truncate">{screen.name}</span>
-                    <span className="text-[10px] font-normal text-slate-400">{screen.device} · {screen.locale}</span>
+                    <span className="text-[10px] font-normal text-slate-400">{screen.device} · {screen.locale}{screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}</span>
                   </div>
                   <div
                     role={!active && view === "overview" ? "button" : undefined}

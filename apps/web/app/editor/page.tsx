@@ -268,7 +268,13 @@ export default function EditorPage() {
           }}
         />
         {panel ? (
-          <LeftPanel panel={panel} images={images} onClose={() => setPanel(null)} onOpenDialog={setDialog} />
+          <LeftPanel
+            panel={panel}
+            images={images}
+            onClose={() => setPanel(null)}
+            onOpenAdd={() => setPanel("add")}
+            onOpenDialog={setDialog}
+          />
         ) : null}
         <div className="flex min-w-0 flex-1">
           <DynamicCanvasViewport

@@ -26,9 +26,14 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > authoring and shared contain/cover/alpha parity, and the strict v5 trusted built-in vector icon
 > leaf with editable colour/stroke parity. Rating and “as seen on” badges now author as ordinary
 > fresh-id groups, while official store badges reuse contain-fit project images; no redundant badge
-> schema member was added. Current v5 living examples now prove connected image/icon/badge/group
-> crops and keyboard group workflows across LTR/RTL locale groups. This is baseline completion, not
+> schema member was added. Current v6 living examples now prove connected image/icon/badge/group
+> crops and keyboard group workflows across LTR/RTL locale groups. Post-Phase 8 corrective Slice 1
+> adds paired `variantOf`/`storeTargetId` screens so explicit store sizes are independent fresh-id
+> copies and Store Targets never resize a root in place. This is baseline completion, not
 > a public release; release readiness comes only after Phase 8 stabilization.
+> Phase 9 Slice 1 widens Store Outputs to independent iPhone, iPad, macOS, tvOS, watchOS,
+> Android phone, and Windows desktop root sets, with family-local exact-size variants and the
+> same shared render/export path.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
 > contract) — it wins over this summary.
@@ -70,19 +75,21 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v5 only; future schema ideas are not valid project fields.
+against the enforced v6 only; future schema ideas are not valid project fields.
 
-**Current v5 (enforced today):**
+**Current v6 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 5 }
+├── meta: { name, appIcon?, schemaVersion: 6 }
 ├── mode: isolated | connected
-├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
+├── platforms: ["apple" | "android" | "windows", …] # derived manifest: set-equal to screens
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
 ├── fonts: FontAsset[]                     # uploaded / Google file assets under assets/fonts/
 └── screens: Screen[]
-    ├── id, name, platform, device, locale, direction  # direction: ltr | rtl
+    ├── id, name, platform, device, locale, direction  # apple: iphone/ipad/macos/tvos/watchos
+    │                                                  # android: phone; windows: desktop
+    ├── variantOf?, storeTargetId?                     # paired on explicit target variants
     ├── artboard: { width, height }
     ├── background: solid only
     └── elements: Element[]                # z-order = array order
@@ -184,7 +191,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v5 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v6 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 
@@ -213,7 +220,8 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - For each new slice, prefer a short handoff into a fresh thread/session instead of carrying
   the full planning and implementation history forward. A handoff should name the goal, the
   branch/base, the files or directories to inspect, the contracts that must hold, and the
-  targeted verification commands. Reserve the full gate for the conditions in `RULES.md`.
+  targeted verification commands. The full browser gate belongs to `dev` → `main` CI, not a local
+  slice handoff.
 - Use sub-agents only for independent work streams, and give each sub-agent a scoped handoff
   with the minimum relevant files. Do not pass the entire roadmap, all specs, or raw prior
   thread history to every sub-agent.
@@ -232,6 +240,7 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - Use the root targeted scripts (`test:core`, `test:cli`, `test:web`, parity foundation/elements,
   `test:e2e:export`, and editor interaction/workspace/authoring) or explicit Vitest file paths
   during implementation. The unsuffixed parity/editor scripts are aggregates, not the default.
-  `pnpm test:e2e` is the full browser gate, not the default slice check.
+  Do not run `pnpm test:e2e` locally; GitHub CI runs that full browser gate only for the integration
+  PR from `dev` into `main`.
 - Verification scope is defined by the behavioral-risk matrix in `RULES.md`. For a localized
   UI edit, do not default to the full editor E2E group.

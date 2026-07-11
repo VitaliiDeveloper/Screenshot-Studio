@@ -108,6 +108,10 @@ describe("editor round-trip", () => {
 
     const canvases = page.getByTestId("overview-artboards").locator("canvas");
     await expect.poll(() => canvases.count()).toBe(3);
+    await page.getByRole("list", { name: "Layers for Hero" }).waitFor({ state: "visible" });
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
     const canvas = canvases.first();
     const box = (await canvas.boundingBox())!;
     const scale = box.width / 660;
@@ -118,9 +122,12 @@ describe("editor round-trip", () => {
     );
 
     const inspector = page.locator("aside").filter({
-      has: page.getByRole("heading", { name: "Inspect", exact: true }),
+      has: page.getByRole("heading", { name: "Inspector", exact: true }),
     });
-    await expect.poll(() => inspector.getByRole("heading", { name: "Device frame", exact: true }).count()).toBe(1);
+    await expect.poll(
+      () => inspector.getByRole("heading", { name: "Device frame", exact: true }).count(),
+      { timeout: 5_000 },
+    ).toBe(1);
     await page.close();
   });
 

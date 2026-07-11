@@ -1,8 +1,9 @@
 {
   "meta": {
     "name": "Store Launch Demo",
-    "schemaVersion": 1
+    "schemaVersion": 6
   },
+  "mode": "isolated",
   "platforms": [
     "apple"
   ],
@@ -24,6 +25,7 @@
       "id": "hero",
       "name": "Hero",
       "locale": "en",
+      "direction": "ltr",
       "artboard": {
         "width": 660,
         "height": 1434
@@ -131,6 +133,7 @@
       "id": "save-fast",
       "name": "Save Fast",
       "locale": "en",
+      "direction": "ltr",
       "artboard": {
         "width": 660,
         "height": 1434
@@ -238,6 +241,7 @@
       "id": "stay-organized",
       "name": "Stay Organized",
       "locale": "en",
+      "direction": "ltr",
       "artboard": {
         "width": 660,
         "height": 1434

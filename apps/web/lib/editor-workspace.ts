@@ -22,9 +22,18 @@ export type ResourceDialog =
 
 /** Connected workspaces expose one exact group; isolated workspaces retain the locale set. */
 export function workspaceScreenScope(project: Project, activeScreen: Screen): Screen[] {
-  return project.mode === "connected"
-    ? project.screens.filter((screen) => sameScreenGroup(screen, activeScreen))
-    : project.screens.filter((screen) => screen.locale === activeScreen.locale);
+  if (project.mode === "connected") {
+    return project.screens.filter((screen) => sameScreenGroup(screen, activeScreen));
+  }
+  return project.screens.filter((screen) => {
+    if (activeScreen.storeTargetId === undefined) {
+      return screen.locale === activeScreen.locale && screen.storeTargetId === undefined;
+    }
+    return screen.platform === activeScreen.platform
+      && screen.device === activeScreen.device
+      && screen.locale === activeScreen.locale
+      && screen.storeTargetId === activeScreen.storeTargetId;
+  });
 }
 
 export function clampZoom(value: number): number {

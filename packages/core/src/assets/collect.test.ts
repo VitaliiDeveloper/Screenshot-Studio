@@ -5,7 +5,7 @@ import type { Project, Element, LeafElement } from "../model/schema.js";
 
 function project(elements: Element[]): Project {
   return {
-    meta: { name: "T", schemaVersion: 5 },
+    meta: { name: "T", schemaVersion: 6 },
     mode: "isolated",
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{

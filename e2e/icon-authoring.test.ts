@@ -15,7 +15,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "icon-authoring-"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Icon authoring", schemaVersion: 5 },
+    meta: { name: "Icon authoring", schemaVersion: 6 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -56,7 +56,7 @@ describe("Phase 7 icon authoring", () => {
       x: 100, y: 100, width: 160, height: 160,
     });
 
-    const inspector = page.locator("aside").filter({ has: page.getByRole("heading", { name: "Inspect" }) });
+    const inspector = page.locator("aside").filter({ has: page.getByRole("heading", { name: "Inspector" }) });
     await inspector.getByLabel("Icon", { exact: true }).click();
     await page.getByRole("menuitemradio", { name: "heart", exact: true }).click();
     await inspector.getByLabel("Color", { exact: true }).fill("#ff0066");

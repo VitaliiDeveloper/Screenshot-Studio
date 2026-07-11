@@ -3,16 +3,16 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v5). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v6). Narrower than the long-term target in docs/architecture.md §3:
  * solid backgrounds only; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
- * (iphone frames only); platforms apple/{iphone,ipad} and android/phone; fonts uploaded/google
+ * (iphone frames only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
  * live outside the render contract. Gradient backgrounds and badge elements are not
  * implemented yet. Objects are `.strict()` on purpose: the project JSON is the agent contract,
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export const HexColor = z
   .string()
@@ -191,8 +191,9 @@ export type FontAsset = z.infer<typeof FontAsset>;
  * pair is declared in exactly one place. Widen HERE and in store-specs.json in the same change.
  */
 export const SCREEN_DEVICES_BY_PLATFORM = {
-  apple: ["iphone", "ipad"],
+  apple: ["iphone", "ipad", "macos", "tvos", "watchos"],
   android: ["phone"],
+  windows: ["desktop"],
 } as const;
 export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;
 
@@ -203,6 +204,10 @@ const PLATFORM_VALUES = Object.keys(SCREEN_DEVICES_BY_PLATFORM) as [Platform, ..
 const screenBase = {
   id: z.string().min(1),
   name: z.string().min(1),
+  /** Root screen identity for an independently editable explicit store-target variant. */
+  variantOf: z.string().min(1).optional(),
+  /** Exact store-spec id rendered by a variant; absent on root/master screens. */
+  storeTargetId: z.string().min(1).optional(),
   locale: z.string().min(1),
   direction: LayoutDirection.default("ltr"),
   artboard: z
@@ -228,8 +233,16 @@ const AndroidScreen = z
   })
   .strict();
 
+const WindowsScreen = z
+  .object({
+    platform: z.literal("windows"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.windows),
+    ...screenBase,
+  })
+  .strict();
+
 /** `device` is constrained by `platform`; an invalid pair (apple+phone) fails validation. */
-export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen]);
+export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen, WindowsScreen]);
 export type Screen = z.infer<typeof Screen>;
 
 export const Project = z
@@ -304,6 +317,74 @@ export const Project = z
           message: `screen locale "${screen.locale}" is not listed in locales`,
           path: ["screens", index, "locale"],
         });
+      }
+    });
+
+    const screenIds = new Set<string>();
+    proj.screens.forEach((screen, index) => {
+      if (screenIds.has(screen.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate screen id: "${screen.id}"`,
+          path: ["screens", index, "id"],
+        });
+      } else {
+        screenIds.add(screen.id);
+      }
+    });
+
+    const screensById = new Map(proj.screens.map((screen) => [screen.id, screen] as const));
+    const variantKeys = new Set<string>();
+    proj.screens.forEach((screen, index) => {
+      const hasVariantRoot = screen.variantOf !== undefined;
+      const hasStoreTarget = screen.storeTargetId !== undefined;
+      if (hasVariantRoot !== hasStoreTarget) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "variantOf and storeTargetId must be present together",
+          path: ["screens", index],
+        });
+        return;
+      }
+      if (!hasVariantRoot || !screen.variantOf || !screen.storeTargetId) return;
+
+      const root = screensById.get(screen.variantOf);
+      if (!root) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `variant root "${screen.variantOf}" does not exist`,
+          path: ["screens", index, "variantOf"],
+        });
+        return;
+      }
+      if (root.variantOf !== undefined || root.storeTargetId !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `variant root "${screen.variantOf}" must be a root screen`,
+          path: ["screens", index, "variantOf"],
+        });
+      }
+      if (
+        root.platform !== screen.platform
+        || root.device !== screen.device
+        || root.locale !== screen.locale
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "variant platform, device, and locale must match its root screen",
+          path: ["screens", index],
+        });
+      }
+
+      const key = `${screen.variantOf}\u0000${screen.storeTargetId}`;
+      if (variantKeys.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate store target variant "${screen.storeTargetId}" for root "${screen.variantOf}"`,
+          path: ["screens", index, "storeTargetId"],
+        });
+      } else {
+        variantKeys.add(key);
       }
     });
 

@@ -7,8 +7,8 @@ import { Element, SCHEMA_VERSION } from "./schema.js";
 const font = { family: "Inter", weight: 700 };
 
 describe("badge primitive compositions", () => {
-  it("keeps schema v5 and rejects a redundant badge union member", () => {
-    expect(SCHEMA_VERSION).toBe(5);
+  it("keeps the current schema free of a redundant badge union member", () => {
+    expect(SCHEMA_VERSION).toBe(6);
     expect(() => Element.parse({
       id: "badge", type: "badge", x: 0, y: 0, width: 100, height: 40,
     })).toThrow();

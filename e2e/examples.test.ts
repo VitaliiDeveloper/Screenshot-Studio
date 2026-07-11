@@ -51,7 +51,7 @@ describe("Phase 7 living examples", () => {
   for (const example of examples) {
     it(`validates and exports ${example.name}`, async () => {
       const source = await readFile(example.projectPath, "utf8");
-      expect(JSON.parse(source).meta.schemaVersion).toBe(5);
+      expect(JSON.parse(source).meta.schemaVersion).toBe(6);
       const project = parseProjectJson(source);
       const elementTypes = collectElementTypes(project.screens.flatMap(({ elements }) => elements));
       expect([...example.elementTypes].every((type) => elementTypes.has(type))).toBe(true);
