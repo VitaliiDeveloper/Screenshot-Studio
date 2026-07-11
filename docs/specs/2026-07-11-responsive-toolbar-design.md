@@ -11,7 +11,8 @@ Keep the canvas-view switch visually anchored to the browser centre while preser
 - At wider widths, the existing text labels return next to their icons.
 - `Export` follows the same responsive rule: icon only at compact widths and icon plus text at wider widths.
 - `Undo` and `Redo` are hidden at compact widths. Keyboard shortcuts remain available, so hiding the buttons does not remove the actions.
-- The left brand continues to collapse progressively from full project identity to the product icon.
+- The product name `Screenshot Studio` returns from the `md` breakpoint because compact actions leave enough room for it.
+- The project name stays hidden until `xl`; compact widths show the product icon alone and must not render both names.
 - If the viewport becomes too narrow for the centred control and the required right-side actions, secondary right-side controls may collapse before the centred control moves.
 
 ## Component boundary
