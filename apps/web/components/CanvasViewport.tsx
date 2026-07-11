@@ -12,12 +12,17 @@ import {
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { Screen } from "@screenshot-studio/core/model";
 import {
   ARTBOARD_LABEL_HEIGHT,
   CANVAS_PADDING,
   clampZoom,
+  fitArtboardRowsZoom,
   fitArtboardsZoom,
+  groupScreensByOutput,
   OVERVIEW_GAP,
+  OVERVIEW_ROW_GAP,
+  OUTPUT_FAMILY_LABEL_HEIGHT,
   workspaceScreenScope,
   type CanvasPattern,
   type WorkspaceTool,
@@ -32,7 +37,6 @@ const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
   { value: "grid", label: "Grid", icon: Grid3X3 },
   { value: "none", label: "None", icon: SquareDashed },
 ];
-
 export function CanvasViewport({
   images,
   zoom,
@@ -78,14 +82,25 @@ export function CanvasViewport({
     [activeScreen, project, view],
   );
   const connectedOverview = project?.mode === "connected" && view === "overview";
+  const outputRows = useMemo(() => groupScreensByOutput(screens), [screens]);
 
   const contentBounds = useMemo(() => {
     if (screens.length === 0) return { width: 1, height: 1 };
+    if (view === "overview" && !connectedOverview && outputRows.length > 1) {
+      return {
+        width: Math.max(...outputRows.map((row) =>
+          row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0),
+        )),
+        height: outputRows.reduce((sum, row) =>
+          sum + Math.max(...row.screens.map((screen) => screen.artboard.height)),
+        0),
+      };
+    }
     return {
       width: screens.reduce((sum, screen) => sum + screen.artboard.width, 0),
       height: Math.max(...screens.map((screen) => screen.artboard.height)),
     };
-  }, [screens]);
+  }, [connectedOverview, outputRows, screens, view]);
   const contentWidth = contentBounds.width;
   const contentHeight = contentBounds.height;
 
@@ -114,12 +129,29 @@ export function CanvasViewport({
   const fit = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
+    const viewportSize = {
+      width: Math.max(1, viewport.clientWidth - leftInset - rightInset),
+      height: viewport.clientHeight,
+    };
+    if (view === "overview" && !connectedOverview && outputRows.length > 1) {
+      const next = fitArtboardRowsZoom(
+        viewportSize,
+        outputRows.map((row) => row.screens.map((screen) => screen.artboard)),
+        {
+          columnGap: OVERVIEW_GAP,
+          rowGap: OVERVIEW_ROW_GAP,
+          padding: CANVAS_PADDING,
+          labelHeight: ARTBOARD_LABEL_HEIGHT + OUTPUT_FAMILY_LABEL_HEIGHT,
+        },
+      );
+      zoomRef.current = next;
+      onZoomChange(next);
+      requestAnimationFrame(() => viewport.scrollTo({ left: 0, top: 0 }));
+      return;
+    }
     const count = screens.length;
     const next = fitArtboardsZoom(
-      {
-        width: Math.max(1, viewport.clientWidth - leftInset - rightInset),
-        height: viewport.clientHeight,
-      },
+      viewportSize,
       Array.from({ length: count }, (_, index) => ({
         width: index === 0 ? contentWidth : 0,
         height: contentHeight,
@@ -135,7 +167,7 @@ export function CanvasViewport({
     requestAnimationFrame(() => {
       viewport.scrollTo({ left: 0, top: 0 });
     });
-  }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, rightInset, screens.length, view]);
+  }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, outputRows, rightInset, screens.length, view]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -213,6 +245,72 @@ export function CanvasViewport({
     return <section className="min-w-0 flex-1 bg-slate-50" />;
   }
 
+  const renderIsolatedScreen = (screen: Screen) => {
+    const active = screen.id === activeScreenId;
+    const previewWidth = screen.artboard.width * zoom;
+    const metadata = `${screen.device} · ${screen.locale}${screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}`;
+    return (
+      <div
+        key={screen.id}
+        data-testid="artboard-preview-item"
+        className="min-w-0 shrink-0"
+        style={{ width: previewWidth }}
+      >
+        <div className={cx(
+          "mb-2 flex h-5 min-w-0 items-center overflow-hidden text-xs font-medium leading-5",
+          active ? "text-blue-700" : "text-slate-500",
+        )} data-testid="artboard-preview-label">
+          <span
+            data-testid="artboard-preview-name"
+            className="min-w-0 shrink truncate whitespace-nowrap"
+            title={screen.name}
+          >
+            {screen.name}
+          </span>
+        </div>
+        <div
+          role={!active && view === "overview" ? "button" : undefined}
+          tabIndex={!active && view === "overview" ? 0 : undefined}
+          aria-label={!active && view === "overview" ? `Edit ${screen.name}` : undefined}
+          data-screen-id={screen.id}
+          className={cx(
+            "relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)]",
+            active ? "ring-2 ring-blue-600 ring-offset-2 ring-offset-slate-50" : "ring-1 ring-slate-300",
+            !active && view === "overview" && "cursor-pointer transition-shadow hover:shadow-[0_12px_34px_rgba(15,23,42,0.16)]",
+          )}
+          onClick={() => {
+            if (!active && view === "overview") editorStore.getState().selectScreen(screen.id);
+          }}
+          onKeyDown={(event) => {
+            if (!active && view === "overview" && (event.key === "Enter" || event.key === " ")) {
+              event.preventDefault();
+              editorStore.getState().selectScreen(screen.id);
+            }
+          }}
+        >
+          <EditorStage
+            images={images}
+            zoom={zoom}
+            screenId={screen.id}
+            interactive={project.mode === "connected" ? false : active}
+          />
+        </div>
+        <div
+          className="mt-2 flex h-5 min-w-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400"
+          data-testid="artboard-preview-caption"
+        >
+          <span
+            data-testid="artboard-preview-metadata"
+            className="min-w-0 truncate whitespace-nowrap"
+            title={metadata}
+          >
+            {metadata}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section className="relative min-w-0 flex-1 overflow-hidden bg-slate-50" aria-label="Canvas workspace">
       <div
@@ -229,14 +327,17 @@ export function CanvasViewport({
         onPointerCancel={endPan}
       >
         <div
-          className="flex min-h-full w-max min-w-full items-center justify-center py-20"
+          className="flex min-h-full w-max min-w-full py-20"
           style={{
             paddingLeft: CANVAS_PADDING + leftInset,
             paddingRight: CANVAS_PADDING + rightInset,
           }}
         >
           <div
-            className={cx("flex items-start", view === "overview" && !connectedOverview ? "gap-12" : "gap-0")}
+            className={cx(
+              "m-auto",
+              connectedOverview || view === "focus" ? "flex items-start" : "flex flex-col items-start",
+            )}
             data-testid={view === "overview" ? "overview-artboards" : "focus-artboard"}
           >
             {connectedOverview ? (
@@ -268,47 +369,25 @@ export function CanvasViewport({
                   />
                 </div>
               </div>
-            ) : screens.map((screen) => {
-              const active = screen.id === activeScreenId;
-              return (
-                <div key={screen.id} className="shrink-0">
-                  <div className={cx(
-                    "mb-2 flex items-center gap-2 text-xs font-medium",
-                    active ? "text-blue-700" : "text-slate-500",
-                  )}>
-                    <span className="truncate">{screen.name}</span>
-                    <span className="text-[10px] font-normal text-slate-400">{screen.device} · {screen.locale}{screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}</span>
-                  </div>
-                  <div
-                    role={!active && view === "overview" ? "button" : undefined}
-                    tabIndex={!active && view === "overview" ? 0 : undefined}
-                    aria-label={!active && view === "overview" ? `Edit ${screen.name}` : undefined}
-                    data-screen-id={screen.id}
-                    className={cx(
-                      "relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)]",
-                      active ? "ring-2 ring-blue-600 ring-offset-2 ring-offset-slate-50" : "ring-1 ring-slate-300",
-                      !active && view === "overview" && "cursor-pointer transition-shadow hover:shadow-[0_12px_34px_rgba(15,23,42,0.16)]",
-                    )}
-                    onClick={() => {
-                      if (!active && view === "overview") editorStore.getState().selectScreen(screen.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (!active && view === "overview" && (event.key === "Enter" || event.key === " ")) {
-                        event.preventDefault();
-                        editorStore.getState().selectScreen(screen.id);
-                      }
-                    }}
-                  >
-                    <EditorStage
-                      images={images}
-                      zoom={zoom}
-                      screenId={screen.id}
-                      interactive={project.mode === "connected" ? false : active}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            ) : view === "overview" && outputRows.length > 1 ? (
+              <div className="flex flex-col gap-14" data-testid="overview-output-families">
+                {outputRows.map((row) => (
+                  <section key={row.key} aria-label={`${row.label} output row`}>
+                    <div className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                      <span>{row.label}</span>
+                      <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
+                    </div>
+                    <div className="flex items-start gap-12">
+                      {row.screens.map(renderIsolatedScreen)}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className={cx("flex items-start", view === "overview" ? "gap-12" : "gap-0")}>
+                {screens.map(renderIsolatedScreen)}
+              </div>
+            )}
           </div>
         </div>
       </div>

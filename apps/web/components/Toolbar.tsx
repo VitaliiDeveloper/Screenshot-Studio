@@ -67,63 +67,70 @@ export function Toolbar({
 
   return (
     <header className="relative flex min-h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4">
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex shrink-0 items-center gap-2.5">
         <span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20 sm:inline-flex">
           <PanelsTopLeft size={16} strokeWidth={1.9} />
         </span>
-        <span className="hidden text-sm font-semibold tracking-tight text-slate-950 sm:inline">Screenshot Studio</span>
-        <span className="hidden h-5 w-px bg-slate-200 md:block" aria-hidden="true" />
-        <span className="hidden max-w-48 truncate text-xs font-medium text-slate-600 md:inline">{projectName}</span>
+        <span className="hidden whitespace-nowrap text-sm font-semibold tracking-tight text-slate-950 md:inline">Screenshot Studio</span>
+        <span className="hidden h-5 w-px bg-slate-200 xl:block" aria-hidden="true" />
+        <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-slate-600 xl:inline">{projectName}</span>
       </div>
 
-      <div className="mx-auto flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Canvas view">
+      <div
+        className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-slate-50 p-1"
+        aria-label="Canvas view"
+      >
         <button
           type="button"
           aria-label="Focus"
           aria-pressed={view === "focus"}
+          title="Focus"
           className={cx(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 sm:px-3",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
             view === "focus" ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
           )}
           onClick={() => onViewChange("focus")}
         >
-          <Scan size={14} strokeWidth={1.9} /> <span className="hidden sm:inline">Focus</span>
+          <Scan size={14} strokeWidth={1.9} /> <span className="hidden lg:inline">Focus</span>
         </button>
         <button
           type="button"
           aria-label="Overview"
           aria-pressed={view === "overview"}
+          title="Overview"
           className={cx(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 sm:px-3",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
             view === "overview" ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
           )}
           onClick={() => onViewChange("overview")}
         >
-          <LayoutGrid size={14} strokeWidth={1.9} /> <span className="hidden sm:inline">Overview</span>
+          <LayoutGrid size={14} strokeWidth={1.9} /> <span className="hidden lg:inline">Overview</span>
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          aria-label="Undo"
-          title="Undo (⌘Z)"
-          disabled={!canUndo}
-          className={editorUi.iconButton}
-          onClick={() => mutateAndSave(() => editorStore.getState().undo())}
-        >
-          <Undo2 size={15} strokeWidth={1.9} />
-        </button>
-        <button
-          type="button"
-          aria-label="Redo"
-          title="Redo (⇧⌘Z)"
-          disabled={!canRedo}
-          className={editorUi.iconButton}
-          onClick={() => mutateAndSave(() => editorStore.getState().redo())}
-        >
-          <Redo2 size={15} strokeWidth={1.9} />
-        </button>
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <div className="hidden lg:contents">
+          <button
+            type="button"
+            aria-label="Undo"
+            title="Undo (⌘Z)"
+            disabled={!canUndo}
+            className={editorUi.iconButton}
+            onClick={() => mutateAndSave(() => editorStore.getState().undo())}
+          >
+            <Undo2 size={15} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            aria-label="Redo"
+            title="Redo (⇧⌘Z)"
+            disabled={!canRedo}
+            className={editorUi.iconButton}
+            onClick={() => mutateAndSave(() => editorStore.getState().redo())}
+          >
+            <Redo2 size={15} strokeWidth={1.9} />
+          </button>
+        </div>
         <button
           type="button"
           aria-label={`Canvas mode: ${canvasMode}`}
@@ -167,8 +174,8 @@ export function Toolbar({
         >
           <PanelRight size={15} strokeWidth={1.9} /> <span className="hidden lg:inline">Inspect</span>
         </button>
-        <button type="button" aria-label="Export" className={editorUi.buttonPrimary} onClick={() => setExportOpen(true)}>
-          <Download size={15} strokeWidth={2} /> <span className="hidden sm:inline">Export</span>
+        <button type="button" aria-label="Export" title="Export" className={editorUi.buttonPrimary} onClick={() => setExportOpen(true)}>
+          <Download size={15} strokeWidth={2} /> <span className="hidden lg:inline">Export</span>
         </button>
       </div>
 

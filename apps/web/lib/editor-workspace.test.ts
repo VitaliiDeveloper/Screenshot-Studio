@@ -4,9 +4,12 @@ import type { Project } from "@screenshot-studio/core/model";
 import {
   clampZoom,
   filterAddCatalog,
+  fitArtboardRowsZoom,
   fitArtboardsZoom,
   fitZoom,
+  groupScreensByOutput,
   OVERVIEW_GAP,
+  storeOutputLabel,
   workspaceScreenScope,
 } from "./editor-workspace";
 
@@ -42,7 +45,7 @@ function scopeProject(mode: Project["mode"]): Project {
 
 describe("editor workspace helpers", () => {
   it("clamps zoom to the supported viewport range", () => {
-    expect(clampZoom(0.1)).toBe(0.25);
+    expect(clampZoom(0.01)).toBe(0.05);
     expect(clampZoom(1.23456)).toBe(1.235);
     expect(clampZoom(9)).toBe(4);
   });
@@ -55,7 +58,38 @@ describe("editor workspace helpers", () => {
   it("keeps fixed canvas chrome outside the artboard zoom calculation", () => {
     const screens = Array.from({ length: 3 }, () => ({ width: 660, height: 1434 }));
     expect(fitArtboardsZoom({ width: 1400, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.499);
-    expect(fitArtboardsZoom({ width: 120, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.25);
+    expect(fitArtboardsZoom({ width: 120, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.05);
+  });
+
+  it("fits independent output rows across both canvas axes", () => {
+    const rows = [
+      Array.from({ length: 3 }, () => ({ width: 660, height: 1434 })),
+      Array.from({ length: 3 }, () => ({ width: 1032, height: 1376 })),
+    ];
+    expect(fitArtboardRowsZoom(
+      { width: 1400, height: 900 },
+      rows,
+      { columnGap: 48, rowGap: 56, labelHeight: 52 },
+    )).toBe(0.206);
+  });
+
+  it("uses human-readable labels for store output families", () => {
+    expect(storeOutputLabel("apple", "iphone")).toBe("App Store · iPhone");
+    expect(storeOutputLabel("apple", "ipad")).toBe("App Store · iPad");
+    expect(storeOutputLabel("android", "phone")).toBe("Google Play · Android phone");
+  });
+
+  it("groups screens into ordered output-family rows", () => {
+    const project = scopeProject("isolated");
+    const rows = groupScreensByOutput(project.screens);
+    expect(rows.map((row) => row.label)).toEqual([
+      "App Store · iPhone",
+      "Google Play · Android phone",
+    ]);
+    expect(rows.map((row) => row.screens.map((screen) => screen.id))).toEqual([
+      ["first", "second"],
+      ["unrelated"],
+    ]);
   });
 
   it("filters the extensible add catalog by label, group, and hint", () => {

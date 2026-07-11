@@ -3,26 +3,8 @@
 
 import type { Project, Screen } from "@screenshot-studio/core/model";
 import { leadStoreSizeId, type StoreSize, type StoreSpecs } from "@screenshot-studio/core/export";
-
-const PLATFORM_LABELS: Record<string, string> = {
-  apple: "App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-};
-
-const DEVICE_LABELS: Record<string, string> = {
-  iphone: "iPhone",
-  ipad: "iPad",
-  macos: "macOS",
-  tvos: "tvOS",
-  watchos: "watchOS",
-  phone: "Android phone",
-  desktop: "Windows desktop",
-};
-
-function familyLabel(platform: string, device: string): string {
-  return `${PLATFORM_LABELS[platform] ?? platform} · ${DEVICE_LABELS[device] ?? device}`;
-}
+import { storeOutputLabel } from "../lib/editor-workspace";
+import { AddMenu } from "./editor-ui";
 
 /**
  * Store-target navigation never mutates the active artboard. The lead row opens the root/master;
@@ -62,48 +44,80 @@ export function ArtboardTargets({
     return <p className="text-xs text-slate-400">No store targets for {screen.platform}/{screen.device}.</p>;
   }
 
+  const familyRows = families.map(({ platform, device, sizes }) => {
+    const existingRoot = project.screens.find((candidate) =>
+      candidate.variantOf === undefined
+      && candidate.platform === platform
+      && candidate.device === device
+      && candidate.locale === screen.locale,
+    );
+    let familyLeadId: string | undefined;
+    try {
+      familyLeadId = leadStoreSizeId(platform, device);
+    } catch {
+      familyLeadId = undefined;
+    }
+    return {
+      key: `${platform}/${device}`,
+      platform,
+      device,
+      label: storeOutputLabel(platform, device),
+      existingRoot,
+      leadTarget: sizes.find((size) => size.id === familyLeadId) ?? sizes[0],
+    };
+  });
+  const createdFamilies = familyRows.filter((family) => family.existingRoot);
+  const availableFamilies = familyRows.filter((family) => !family.existingRoot && family.leadTarget);
+  const variantsByTargetId = new Map(project.screens
+    .filter((candidate) => candidate.variantOf === rootId && candidate.storeTargetId)
+    .map((candidate) => [candidate.storeTargetId!, candidate]));
+  const createdTargets = targets.filter((target) => target.id === leadId || variantsByTargetId.has(target.id));
+  const availableTargets = targets.filter((target) => target.id !== leadId && !variantsByTargetId.has(target.id));
+
   return (
-    <div className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4">
       <div>
-        <p className="text-xs font-medium text-slate-700">Store outputs</p>
-        <p className="mt-1 text-[10px] leading-4 text-slate-500">Each output is an independent screen set. Sizes inside it are independent variants.</p>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Store outputs</h3>
+          <AddMenu
+            ariaLabel="Add output"
+            menuLabel="Available store outputs"
+            options={availableFamilies.map((family) => ({
+              value: family.key,
+              label: family.label,
+              description: "Create from the current output",
+            }))}
+            onSelect={(key) => {
+              const family = availableFamilies.find((candidate) => candidate.key === key);
+              if (family?.leadTarget) onCreateOutput(family.platform, family.device, family.leadTarget);
+            }}
+          />
+        </div>
+        <p className="mt-1 text-[10px] leading-4 text-slate-500">Independent screen sets with their own size variants.</p>
       </div>
 
       <div className="flex flex-col gap-1.5" aria-label="Store output families">
-        {families.map(({ platform, device, sizes }) => {
+        {createdFamilies.map(({ key, platform, device, label, existingRoot }) => {
           const isCurrentFamily = platform === screen.platform && device === screen.device;
-          const existingRoot = project.screens.find((candidate) =>
-            candidate.variantOf === undefined
-            && candidate.platform === platform
-            && candidate.device === device
-            && candidate.locale === screen.locale,
-          );
-          let familyLeadId: string | undefined;
-          try {
-            familyLeadId = leadStoreSizeId(platform, device);
-          } catch {
-            familyLeadId = undefined;
-          }
-          const leadTarget = sizes.find((size) => size.id === familyLeadId) ?? sizes[0];
           return (
             <div
-              key={`${platform}/${device}`}
+              key={key}
               role="group"
-              aria-label={`${familyLabel(platform, device)} output`}
+              aria-label={`${label} output`}
               className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-xs ${isCurrentFamily ? "border-blue-200 bg-blue-50/70" : "border-slate-100 bg-slate-50/70"}`}
             >
               <span className="min-w-0">
-                <span className="block truncate font-medium text-slate-700">{familyLabel(platform, device)}</span>
-                <span className={`mt-0.5 block text-[10px] ${existingRoot ? "text-emerald-700" : "text-slate-500"}`}>
-                  {isCurrentFamily ? "current output" : existingRoot ? "created" : "not created"}
+                <span className="block truncate font-medium text-slate-700">{label}</span>
+                <span className="mt-0.5 block text-[10px] text-emerald-700">
+                  {isCurrentFamily ? "current output" : "created"}
                 </span>
               </span>
               <button
-                disabled={isCurrentFamily || !leadTarget}
+                disabled={isCurrentFamily}
                 className="min-h-7 shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-                onClick={() => existingRoot ? onOpen(existingRoot.id) : leadTarget && onCreateOutput(platform, device, leadTarget)}
+                onClick={() => existingRoot && onOpen(existingRoot.id)}
               >
-                {isCurrentFamily ? "Current" : existingRoot ? "Open" : "Add output"}
+                {isCurrentFamily ? "Current" : "Open"}
               </button>
             </div>
           );
@@ -111,14 +125,27 @@ export function ArtboardTargets({
       </div>
 
       <div className="border-t border-slate-100 pt-2.5">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-          {familyLabel(screen.platform, screen.device)} sizes
-        </p>
-      {targets.map((target) => {
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            {storeOutputLabel(screen.platform, screen.device)} sizes
+          </p>
+          <AddMenu
+            ariaLabel="Add size"
+            menuLabel={`Available ${storeOutputLabel(screen.platform, screen.device)} sizes`}
+            options={availableTargets.map((target) => ({
+              value: target.id,
+              label: target.label,
+              description: `${target.width} × ${target.height} px`,
+            }))}
+            onSelect={(targetId) => {
+              const target = availableTargets.find((candidate) => candidate.id === targetId);
+              if (target) onCreate(target);
+            }}
+          />
+        </div>
+      {createdTargets.map((target) => {
         const isLead = target.id === leadId;
-        const variant = project.screens.find((candidate) =>
-          candidate.variantOf === rootId && candidate.storeTargetId === target.id,
-        );
+        const variant = variantsByTargetId.get(target.id);
         const targetScreen = isLead ? root : variant;
         const isCurrent = targetScreen?.id === screen.id;
         return (
@@ -136,7 +163,7 @@ export function ArtboardTargets({
               )}
             </span>
             <span className={`w-fit rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 ${targetScreen ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>
-              {isLead ? "master" : targetScreen ? "variant" : "not created"}
+              {isLead ? "master" : "variant"}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
@@ -155,15 +182,15 @@ export function ArtboardTargets({
             <button
               disabled={isCurrent}
               className="min-h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-              onClick={() => targetScreen ? onOpen(targetScreen.id) : onCreate(target)}
+              onClick={() => targetScreen && onOpen(targetScreen.id)}
             >
-              {isCurrent ? "Current" : targetScreen ? "Open" : "Add variant"}
+              {isCurrent ? "Current" : "Open"}
             </button>
           </span>
           </div>
         );
       })}
       </div>
-    </div>
+    </section>
   );
 }

@@ -129,10 +129,11 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
           <button
             type="button"
             aria-label="Add element"
-            className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium text-blue-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+            title="Add element"
+            className={editorUi.compactAddButton}
             onClick={onOpenAdd}
           >
-            <Plus size={12} strokeWidth={2} /> Add
+            <Plus size={14} strokeWidth={2} />
           </button>
         </div>
         {project.mode === "connected" ? (

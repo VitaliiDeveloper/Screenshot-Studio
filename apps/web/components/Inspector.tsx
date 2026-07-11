@@ -499,21 +499,19 @@ export function Inspector({
             )}
           </Section>
           {specs && (
-            <Section title="Store outputs">
-              <ArtboardTargets
-                project={project}
-                screen={screen}
-                specs={specs}
-                onOpen={(screenId) => editorStore.getState().selectScreen(screenId)}
-                onCreateOutput={(platform, device, leadTarget) => mutateAndSave(
-                  () => editorStore.getState().ensureStoreOutputFamily(platform, device, leadTarget),
-                )}
-                onCreate={(target) => mutateAndSave(() => editorStore.getState().ensureStoreTargetVariant(target))}
-                onRemove={(rootScreenId, targetId) => mutateAndSave(
-                  () => editorStore.getState().removeStoreTargetVariant(rootScreenId, targetId),
-                )}
-              />
-            </Section>
+            <ArtboardTargets
+              project={project}
+              screen={screen}
+              specs={specs}
+              onOpen={(screenId) => editorStore.getState().selectScreen(screenId)}
+              onCreateOutput={(platform, device, leadTarget) => mutateAndSave(
+                () => editorStore.getState().ensureStoreOutputFamily(platform, device, leadTarget),
+              )}
+              onCreate={(target) => mutateAndSave(() => editorStore.getState().ensureStoreTargetVariant(target))}
+              onRemove={(rootScreenId, targetId) => mutateAndSave(
+                () => editorStore.getState().removeStoreTargetVariant(rootScreenId, targetId),
+              )}
+            />
           )}
           <Section title="Background">
             <SelectField

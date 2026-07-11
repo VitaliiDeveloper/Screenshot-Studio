@@ -2,6 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Fragment } from "react";
 import { useStore } from "zustand";
 import { CornerUpLeft, Plus, Trash2 } from "lucide-react";
 import {
@@ -12,7 +13,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { workspaceScreenScope } from "../lib/editor-workspace";
+import { storeOutputLabel, workspaceScreenScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
@@ -49,6 +50,8 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   const listLabel = project.mode === "connected" && activeScreen
     ? `Screens for ${activeLocale} ${activeScreen.device} group`
     : `Screens for ${activeLocale}`;
+  const showOutputGroups = project.mode === "isolated"
+    && new Set(screens.map((screen) => `${screen.platform}/${screen.device}`)).size > 1;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -73,25 +76,49 @@ export function ScreensSection({ images }: { images: ImageCache }) {
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">{scopeLabel}</span>
         </div>
         <button
+          type="button"
+          aria-label={activeRoot ? "Return to master" : "Add screen"}
+          title={activeRoot ? "Return to master" : "Add screen"}
           onClick={() => activeRoot
             ? editorStore.getState().selectScreen(activeRoot.id)
             : mutateAndSave(() => editorStore.getState().addScreen())}
-          className={`${editorUi.buttonGhost} text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
+          className={activeRoot
+            ? `${editorUi.buttonGhost} h-6 min-h-6 px-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700`
+            : editorUi.compactAddButton}
         >
           {activeRoot ? <CornerUpLeft size={14} strokeWidth={2} /> : <Plus size={14} strokeWidth={2} />}
-          {activeRoot ? "Master" : "Add"}
+          {activeRoot ? "Master" : null}
         </button>
       </header>
+      {showOutputGroups ? (
+        <p className="border-y border-slate-100 bg-slate-50/80 px-4 py-2 text-[10px] leading-4 text-slate-500">
+          Outputs start as fitted copies and edit independently.
+        </p>
+      ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div role="list" aria-label={listLabel}>
-            {screens.map((s, index) => (
-              <SortableRow
-                key={s.id}
-                id={s.id}
-                role="listitem"
-                className={`min-h-[3.25rem] py-1 ${s.id === activeScreenId ? "bg-blue-50 ring-1 ring-blue-100" : ""}`}
-              >
+            {screens.map((s, index) => {
+              const outputKey = `${s.platform}/${s.device}`;
+              const previous = screens[index - 1];
+              const startsOutput = showOutputGroups
+                && (!previous || `${previous.platform}/${previous.device}` !== outputKey);
+              return (
+                <Fragment key={s.id}>
+                  {startsOutput ? (
+                    <div
+                      role="presentation"
+                      aria-hidden="true"
+                      className="border-b border-slate-100 bg-white px-4 pb-1.5 pt-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500"
+                    >
+                      {storeOutputLabel(s.platform, s.device)}
+                    </div>
+                  ) : null}
+                  <SortableRow
+                    id={s.id}
+                    role="listitem"
+                    className={`min-h-[3.25rem] py-1 ${s.id === activeScreenId ? "bg-blue-50 ring-1 ring-blue-100" : ""}`}
+                  >
                 <span
                   aria-hidden="true"
                   className={`relative inline-flex h-12 w-7 shrink-0 items-center justify-center overflow-visible rounded-md border bg-slate-900 text-white shadow-sm ${
@@ -127,8 +154,10 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                 </button>
-              </SortableRow>
-            ))}
+                  </SortableRow>
+                </Fragment>
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>
