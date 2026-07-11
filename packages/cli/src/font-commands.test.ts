@@ -10,7 +10,7 @@ async function projectFile() {
   const dir = await mkdtemp(join(tmpdir(), "font-command-"));
   const path = join(dir, "app-store-screenshots.json");
   await writeFile(path, JSON.stringify({
-    meta: { name: "Fonts", schemaVersion: 8 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
+    meta: { name: "Fonts", schemaVersion: 9 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   }));
   return { dir, path };

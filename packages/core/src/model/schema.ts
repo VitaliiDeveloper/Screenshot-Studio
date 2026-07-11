@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v8). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v9). Narrower than the long-term target in docs/architecture.md §3:
  * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
  * (iphone frames only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
@@ -12,7 +12,7 @@ import { fontIdentityKey } from "./font-identity.js";
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export const HexColor = z
   .string()
@@ -33,6 +33,28 @@ export const MediaCrop = z.object({
   zoom: z.number().finite().min(1).max(4).default(1),
 }).strict();
 export type MediaCrop = z.infer<typeof MediaCrop>;
+
+export const TextShadow = z.object({
+  color: HexColor,
+  blur: z.number().finite().min(0).max(100).default(0),
+  offsetX: z.number().finite().default(0),
+  offsetY: z.number().finite().default(0),
+  opacity: unitInterval.default(1),
+}).strict();
+export type TextShadow = z.infer<typeof TextShadow>;
+
+export const LinearGradientPaint = z.object({
+  from: HexColor,
+  to: HexColor,
+  angle: z.number().finite().min(0).max(360).default(0),
+}).strict();
+export type LinearGradientPaint = z.infer<typeof LinearGradientPaint>;
+
+export const ShapeStroke = z.object({
+  color: HexColor,
+  width: z.number().finite().positive().max(100),
+}).strict();
+export type ShapeStroke = z.infer<typeof ShapeStroke>;
 
 /** Project-wide authoring/render projection; exact platform/device/locale groups stay independent. */
 export const CanvasMode = z.enum(["isolated", "connected"]);
@@ -71,6 +93,7 @@ export const TextElement = z
     letterSpacing: z.number().default(0),
     align: z.enum(["left", "center", "right"]).default("left"),
     color: HexColor,
+    shadow: TextShadow.optional(),
   })
   .strict();
 export type TextElement = z.infer<typeof TextElement>;
@@ -79,9 +102,11 @@ export const ShapeElement = z
   .object({
     type: z.literal("shape"),
     ...leafBase,
-    kind: z.literal("rect"),
+    kind: z.enum(["rect", "ellipse"]),
     fill: HexColor,
     radius: z.number().min(0).default(0),
+    gradient: LinearGradientPaint.optional(),
+    stroke: ShapeStroke.optional(),
   })
   .strict();
 export type ShapeElement = z.infer<typeof ShapeElement>;

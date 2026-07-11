@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v8 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v9 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -146,7 +146,7 @@ the schema gains them (future phases). Everything else is as built.
 - **`text`** → theme role (`none | heading | body | accent | surface`), content,
   registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;
-  shadow *(target)*.
+  one optional literal shadow (color, blur, offset, opacity).
 - **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; normalized focal-point percentages,
   bounded crop zoom, and reset when fit is cover.
 - **`image`** → assetUrl, fit (contain default or cover), cornerRadius, and the same cover-only crop controls.
@@ -155,9 +155,8 @@ the schema gains them (future phases). Everything else is as built.
   their ordinary child fields, while official store badges use the ordinary image inspector.
 - **`device-frame`** → assetUrl, fit; deviceType (read-only, `iphone` only today); frame color,
   authorable screen slot *(target)*.
-- **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect` today;
-  ellipse/blob *(target)*), fill (solid; gradient *(target)*),
-  radius; stroke *(target)*.
+- **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect | ellipse`),
+  solid fallback or two-stop linear-gradient fill, rect radius, and optional stroke.
 
 ---
 

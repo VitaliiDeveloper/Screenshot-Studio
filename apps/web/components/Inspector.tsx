@@ -387,14 +387,52 @@ export function Inspector({
               <NumberField label="Letter spacing" value={element.letterSpacing} onChange={(letterSpacing) => patch(element.id, { letterSpacing })} />
               <SelectField label="Align" value={element.align} options={["left", "center", "right"] as const} onChange={(align) => patch(element.id, { align })} />
               <ColorField label="Color" value={element.color} onChange={(color) => patch(element.id, { color })} />
+              {element.shadow ? (
+                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <ColorField label="Shadow color" value={element.shadow.color} onChange={(color) => patch(element.id, { shadow: { ...element.shadow!, color } })} />
+                  <NumberField label="Shadow blur" value={element.shadow.blur} min={0} max={100} onChange={(blur) => patch(element.id, { shadow: { ...element.shadow!, blur } })} />
+                  <NumberField label="Shadow X" value={element.shadow.offsetX} onChange={(offsetX) => patch(element.id, { shadow: { ...element.shadow!, offsetX } })} />
+                  <NumberField label="Shadow Y" value={element.shadow.offsetY} onChange={(offsetY) => patch(element.id, { shadow: { ...element.shadow!, offsetY } })} />
+                  <NumberField label="Shadow opacity" value={element.shadow.opacity} min={0} max={1} step={0.05} onChange={(opacity) => patch(element.id, { shadow: { ...element.shadow!, opacity } })} />
+                  <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, { shadow: null })}>Remove shadow</button>
+                </div>
+              ) : (
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, {
+                  shadow: { color: "#000000", blur: 12, offsetX: 0, offsetY: 6, opacity: 0.35 },
+                })}>Add shadow</button>
+              )}
             </Section>
           )}
 
           {element.type === "shape" && (
             <Section title="Shape">
               <ThemeRoleField value={element.role} onChange={(role) => patch(element.id, { role })} />
+              <SelectField label="Kind" value={element.kind} options={["rect", "ellipse"] as const} onChange={(kind) => patch(element.id, { kind })} />
               <ColorField label="Fill" value={element.fill} onChange={(fill) => patch(element.id, { fill })} />
-              <NumberField label="Radius" value={element.radius} min={0} onChange={(radius) => patch(element.id, { radius })} />
+              {element.kind === "rect" ? <NumberField label="Radius" value={element.radius} min={0} onChange={(radius) => patch(element.id, { radius })} /> : null}
+              {element.gradient ? (
+                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <ColorField label="Gradient from" value={element.gradient.from} onChange={(from) => patch(element.id, { gradient: { ...element.gradient!, from } })} />
+                  <ColorField label="Gradient to" value={element.gradient.to} onChange={(to) => patch(element.id, { gradient: { ...element.gradient!, to } })} />
+                  <NumberField label="Gradient angle" value={element.gradient.angle} min={0} max={360} integer onChange={(angle) => patch(element.id, { gradient: { ...element.gradient!, angle } })} />
+                  <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, { gradient: null })}>Use solid fill</button>
+                </div>
+              ) : (
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, {
+                  gradient: { from: element.fill, to: "#000000", angle: 0 },
+                })}>Add gradient</button>
+              )}
+              {element.stroke ? (
+                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <ColorField label="Stroke color" value={element.stroke.color} onChange={(color) => patch(element.id, { stroke: { ...element.stroke!, color } })} />
+                  <NumberField label="Stroke width" value={element.stroke.width} min={0.1} max={100} step={0.5} onChange={(width) => patch(element.id, { stroke: { ...element.stroke!, width } })} />
+                  <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, { stroke: null })}>Remove stroke</button>
+                </div>
+              ) : (
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, {
+                  stroke: { color: "#FFFFFF", width: 4 },
+                })}>Add stroke</button>
+              )}
             </Section>
           )}
 

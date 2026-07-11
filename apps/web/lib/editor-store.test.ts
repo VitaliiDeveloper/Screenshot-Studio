@@ -5,7 +5,7 @@ import type { Project } from "@screenshot-studio/core/model";
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 8 },
+    meta: { name: "T", schemaVersion: 9 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -384,6 +384,31 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     const el = editorStore.getState().project!.screens[0]!.elements
       .find((e) => e.id === "headline")! as { color: string; size: number; align: string; opacity: number };
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
+  });
+
+  it("patches and clears strict text shadow and shape paint", () => {
+    editorStore.getState().patchElement("headline", {
+      shadow: { color: "#000000", blur: 8, offsetX: 1, offsetY: 3, opacity: 0.5 },
+    });
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).toHaveProperty("shadow.blur", 8);
+    editorStore.getState().patchElement("headline", { shadow: null });
+    expect(editorStore.getState().project!.screens[0]!.elements[0]).not.toHaveProperty("shadow");
+
+    editorStore.getState().addElement({
+      id: "styled-shape", type: "shape", x: 0, y: 0, width: 100, height: 80,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      kind: "rect", fill: "#123456", radius: 0,
+    });
+    editorStore.getState().patchElement("styled-shape", {
+      kind: "ellipse",
+      gradient: { from: "#000000", to: "#FFFFFF", angle: 90 },
+      stroke: { color: "#FF00FF", width: 4 },
+    });
+    const shape = editorStore.getState().project!.screens[0]!.elements.find((item) => item.id === "styled-shape");
+    expect(shape).toMatchObject({ kind: "ellipse", gradient: { angle: 90 }, stroke: { width: 4 } });
+    editorStore.getState().patchElement("styled-shape", { gradient: null, stroke: null });
+    expect(editorStore.getState().project!.screens[0]!.elements.find((item) => item.id === "styled-shape"))
+      .not.toHaveProperty("gradient");
   });
 
   it("patches and resets decorative-image crop with the other media fields", () => {

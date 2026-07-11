@@ -358,6 +358,42 @@ describe("getScreen", () => {
   });
 });
 
+describe("Phase 9 styling literals", () => {
+  it("accepts strict bounded text shadow", () => {
+    const text = validProject().screens[0]!.elements[0]!;
+    expect(Element.parse({
+      ...text,
+      shadow: { color: "#000000", blur: 12, offsetX: 2, offsetY: 4, opacity: 0.5 },
+    })).toMatchObject({ shadow: { blur: 12, opacity: 0.5 } });
+    expect(() => Element.parse({
+      ...text,
+      shadow: { color: "#000000", blur: 101, offsetX: 0, offsetY: 0, opacity: 1 },
+    })).toThrow();
+  });
+
+  it("accepts ellipse, gradient, and stroke while rejecting unbounded or unknown paint", () => {
+    const shape = {
+      id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 80,
+      kind: "ellipse", fill: "#123456",
+      gradient: { from: "#000000", to: "#FFFFFF", angle: 45 },
+      stroke: { color: "#FF00FF", width: 4 },
+    };
+    expect(Element.parse(shape)).toMatchObject(shape);
+    expect(() => Element.parse({ ...shape, kind: "blob" })).toThrow();
+    expect(() => Element.parse({ ...shape, stroke: { color: "#FFFFFF", width: 0 } })).toThrow();
+    expect(() => Element.parse({ ...shape, gradient: { ...shape.gradient, stops: [] } })).toThrow();
+  });
+
+  it("does not bless v9 styling fields mislabeled as schema v8", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    (raw.meta as Record<string, unknown>).schemaVersion = 8;
+    const screen = (raw.screens as Array<Record<string, unknown>>)[0]!;
+    const element = (screen.elements as Array<Record<string, unknown>>)[0]!;
+    element.shadow = { color: "#000000", blur: 4, offsetX: 0, offsetY: 2, opacity: 0.5 };
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+});
+
 describe("ScreenshotElement", () => {
   const base = {
     id: "s1", type: "screenshot", x: 0, y: 0, width: 100, height: 200,

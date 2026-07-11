@@ -32,6 +32,9 @@ import {
   type FontAsset,
   type LayoutDirection,
   type MediaCrop,
+  type LinearGradientPaint,
+  type ShapeStroke,
+  type TextShadow,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
@@ -59,8 +62,11 @@ type TextFields = Partial<
     TextElement,
     "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
   >
->;
-type ShapeFields = Partial<Pick<ShapeElement, "fill" | "radius">>;
+> & { shadow?: TextShadow | null };
+type ShapeFields = Partial<Pick<ShapeElement, "kind" | "fill" | "radius">> & {
+  gradient?: LinearGradientPaint | null;
+  stroke?: ShapeStroke | null;
+};
 type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
 type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
 type MediaFields = { crop?: MediaCrop | null };
@@ -122,10 +128,17 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
       if (patch.letterSpacing !== undefined) el.letterSpacing = patch.letterSpacing;
       if (patch.align !== undefined) el.align = patch.align;
       if (patch.color !== undefined) el.color = patch.color;
+      if (patch.shadow === null) delete el.shadow;
+      else if (patch.shadow !== undefined) el.shadow = patch.shadow;
       break;
     case "shape":
       if (patch.fill !== undefined) el.fill = patch.fill;
       if (patch.radius !== undefined) el.radius = patch.radius;
+      if (patch.kind !== undefined) el.kind = patch.kind;
+      if (patch.gradient === null) delete el.gradient;
+      else if (patch.gradient !== undefined) el.gradient = patch.gradient;
+      if (patch.stroke === null) delete el.stroke;
+      else if (patch.stroke !== undefined) el.stroke = patch.stroke;
       break;
     case "screenshot":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;

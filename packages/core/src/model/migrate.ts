@@ -93,10 +93,34 @@ export function migrateToCurrent(raw: unknown): unknown {
     if (containsMediaCrop(current)) return current;
     const currentMeta = current.meta;
     if (!isRecord(currentMeta)) return current;
+    current = { ...current, meta: { ...currentMeta, schemaVersion: 8 } };
+    version = 8;
+  }
+
+  if (version === 8) {
+    if (containsFutureStyling(current)) return current;
+    const currentMeta = current.meta;
+    if (!isRecord(currentMeta)) return current;
     return { ...current, meta: { ...currentMeta, schemaVersion: SCHEMA_VERSION } };
   }
 
   return raw;
+}
+
+function containsFutureStyling(project: Record<string, unknown>): boolean {
+  if (!Array.isArray(project.screens)) return false;
+  return project.screens.some((screen) => isRecord(screen)
+    && Array.isArray(screen.elements)
+    && screen.elements.some(elementContainsFutureStyling));
+}
+
+function elementContainsFutureStyling(element: unknown): boolean {
+  if (!isRecord(element)) return false;
+  if (element.type === "text" && Object.prototype.hasOwnProperty.call(element, "shadow")) return true;
+  if (element.type === "shape" && (element.kind !== "rect"
+    || Object.prototype.hasOwnProperty.call(element, "gradient")
+    || Object.prototype.hasOwnProperty.call(element, "stroke"))) return true;
+  return Array.isArray(element.children) && element.children.some(elementContainsFutureStyling);
 }
 
 function containsMediaCrop(project: Record<string, unknown>): boolean {

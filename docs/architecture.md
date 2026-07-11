@@ -296,6 +296,13 @@ centred at zoom 1, and `contain` preserves but ignores crop state. The element b
 coordinates, export crop, and alpha handling remain unchanged. v7 migrates only when no previously
 invalid crop field appears at any leaf depth.
 
+**Text and shape styling — schema v9 / Phase 9 Slice 4.** Text optionally stores one bounded literal
+shadow. Shape `kind` is `rect | ellipse`, with a solid `fill` fallback plus optional strict two-stop
+linear gradient and literal stroke. The shared mapper emits the same Konva shadow/paint props for
+editor and static export; ellipse uses a logical owner Group so persisted x/y remain top-left during
+drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects. v8
+migration refuses previously invalid styling fields at any leaf depth.
+
 ---
 
 ### Store output families

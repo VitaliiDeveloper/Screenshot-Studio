@@ -38,11 +38,11 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v8 shape
+## Enforced v9 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 8 }
+├── meta: { name, appIcon?, schemaVersion: 9 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
@@ -69,6 +69,8 @@ elements. Preserve and edit their literal children like any other group/image.
 
 Screenshot and decorative-image leaves may store normalized `crop: { x, y, zoom }`: focal `x/y`
 are in `0…1`, zoom is `1…4`, and the literal affects `cover` only. `contain` keeps but ignores it.
+Text may store one literal shadow. Shapes may be rect or ellipse and may add a two-stop linear
+gradient and stroke; do not invent generic effects, paths, or extra stops.
 
 Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
 an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and

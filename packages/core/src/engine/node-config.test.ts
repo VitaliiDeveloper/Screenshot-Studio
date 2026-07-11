@@ -97,12 +97,44 @@ describe("elementToNodeConfig", () => {
     expect(result.config).toMatchObject({ direction: "rtl", align: "right" });
   });
 
+  it("maps strict text shadow literals to Konva props", () => {
+    const result = elementToNodeConfig({
+      ...baseText,
+      shadow: { color: "#000000", blur: 12, offsetX: 3, offsetY: 6, opacity: 0.4 },
+    });
+    expect(result.config).toMatchObject({
+      shadowColor: "#000000", shadowBlur: 12, shadowOffsetX: 3, shadowOffsetY: 6,
+      shadowOpacity: 0.4, shadowEnabled: true,
+    });
+  });
+
   it("maps a shape element to a Konva Rect config", () => {
     const result = elementToNodeConfig(baseShape);
     expect(result.konva).toBe("Rect");
     expect(result.config).toMatchObject({
       id: "s1", x: 0, y: 0, width: 50, height: 40,
       rotation: 0, opacity: 1, fill: "#FF0000", cornerRadius: 8,
+    });
+  });
+
+  it("maps ellipse, gradient, and stroke through one logical group", () => {
+    const result = elementToNodeConfig({
+      ...baseShape,
+      kind: "ellipse",
+      gradient: { from: "#000000", to: "#FFFFFF", angle: 0 },
+      stroke: { color: "#FF00FF", width: 3 },
+    });
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.config).toMatchObject({ id: "s1", x: 0, y: 0, width: 50, height: 40 });
+    expect(result.children[0]).toMatchObject({
+      konva: "Ellipse",
+      config: {
+        x: 25, y: 20, radiusX: 25, radiusY: 20,
+        stroke: "#FF00FF", strokeWidth: 3,
+        fillLinearGradientStartPoint: { x: 0, y: 20 },
+        fillLinearGradientEndPoint: { x: 50, y: 20 },
+        fillLinearGradientColorStops: [0, "#000000", 1, "#FFFFFF"],
+      },
     });
   });
 });

@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type Key } from "react";
 import Konva from "konva";
-import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
+import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import {
   assertNever,
@@ -35,6 +35,8 @@ function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, 
   switch (child.konva) {
     case "Image":
       return <KonvaImage key={key} {...child.config} name={name} listening={listening} />;
+    case "Ellipse":
+      return <Ellipse key={key} {...child.config} name={name} listening={listening} />;
     case "Path":
       return <Path key={key} {...child.config} name={name} listening={listening} />;
     case "Rect":
@@ -512,6 +514,8 @@ export function EditorStage({
                     );
                   case "Image":
                     return <KonvaImage key={element.id} {...nc.config} {...interaction} />;
+                  case "Ellipse":
+                    return <Ellipse key={element.id} {...nc.config} {...interaction} />;
                   case "Path":
                     return <Path key={element.id} {...nc.config} {...interaction} />;
                   case "Group":

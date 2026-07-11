@@ -14,7 +14,7 @@ describe("runInit", () => {
 
     const project = parseProjectJson(await readFile(join(dir, "app-store-screenshots.json"), "utf8"));
     expect(project.meta.name).toBe("Launch Deck");
-    expect(project).toMatchObject({ mode: "isolated", meta: { schemaVersion: 8 } });
+    expect(project).toMatchObject({ mode: "isolated", meta: { schemaVersion: 9 } });
     expect(project.screens).toHaveLength(1);
     expect(project.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
 

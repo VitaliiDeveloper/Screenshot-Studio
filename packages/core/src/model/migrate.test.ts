@@ -94,6 +94,17 @@ describe("migrateToCurrent", () => {
     expect(migrated.screens).toEqual(v7.screens);
   });
 
+  it("migrates a valid v8 document to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v8: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 8 },
+    };
+    const migrated = migrateToCurrent(v8) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v8.screens);
+  });
+
   it("does not reinterpret a mode field that was invalid under strict v1", () => {
     const raw = { ...v1Project(), mode: "connected" };
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);

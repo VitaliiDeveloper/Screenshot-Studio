@@ -75,13 +75,13 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v8 only; future schema ideas are not valid project fields.
+against the enforced v9 only; future schema ideas are not valid project fields.
 
-**Current v8 (enforced today):**
+**Current v9 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 8 }
+├── meta: { name, appIcon?, schemaVersion: 9 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …] # derived manifest: set-equal to screens
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
@@ -102,6 +102,8 @@ Leaf elements may also carry `role?`. Element types today are leaf `text`, `shap
 children.
 Screenshot and decorative-image leaves may carry `crop: { x, y, zoom }`; normalized focal points
 and bounded zoom affect `cover` only, while `contain` deterministically ignores the crop literal.
+Text may carry one strict deterministic shadow. Shapes support rect/ellipse, an optional two-stop
+linear gradient, and an optional literal stroke; arbitrary paths and generic effects remain invalid.
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 

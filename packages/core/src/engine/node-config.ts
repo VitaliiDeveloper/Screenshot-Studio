@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type Konva from "konva";
-import type { Background, Element, LayoutDirection, MediaCrop } from "../model/schema.js";
+import type { Background, Element, LayoutDirection, LinearGradientPaint, MediaCrop } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 import { ICON_PATHS } from "../model/icons.js";
@@ -24,6 +24,7 @@ export type NodeConfig =
   | { konva: "Text"; config: Konva.TextConfig }
   | { konva: "Rect"; config: Konva.RectConfig }
   | { konva: "Image"; config: Konva.ImageConfig }
+  | { konva: "Ellipse"; config: Konva.EllipseConfig }
   | { konva: "Path"; config: Konva.PathConfig }
   | { konva: "Group"; config: Konva.GroupConfig; children: NodeConfig[] };
 
@@ -46,6 +47,26 @@ interface Fit {
   cropY?: number;
   cropWidth?: number;
   cropHeight?: number;
+}
+
+function gradientConfig(gradient: LinearGradientPaint, box: Box) {
+  const radians = gradient.angle * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const halfProjection = (Math.abs(box.width * cos) + Math.abs(box.height * sin)) / 2;
+  const centerX = box.width / 2;
+  const centerY = box.height / 2;
+  return {
+    fillLinearGradientStartPoint: {
+      x: centerX - cos * halfProjection,
+      y: centerY - sin * halfProjection,
+    },
+    fillLinearGradientEndPoint: {
+      x: centerX + cos * halfProjection,
+      y: centerY + sin * halfProjection,
+    },
+    fillLinearGradientColorStops: [0, gradient.from, 1, gradient.to],
+  };
 }
 
 /**
@@ -110,13 +131,6 @@ export function backgroundToNodeConfig(
         config: { x, y, width: box.width, height: box.height, fill: background.color },
       };
     case "linear-gradient": {
-      const radians = background.angle * Math.PI / 180;
-      const cos = Math.cos(radians);
-      const sin = Math.sin(radians);
-      const halfProjection = (Math.abs(box.width * cos) + Math.abs(box.height * sin)) / 2;
-      // Konva gradient points are local to the Rect; the Rect's own x/y positions it on stage.
-      const centerX = box.width / 2;
-      const centerY = box.height / 2;
       return {
         konva: "Rect",
         config: {
@@ -124,15 +138,7 @@ export function backgroundToNodeConfig(
           y,
           width: box.width,
           height: box.height,
-          fillLinearGradientStartPoint: {
-            x: centerX - cos * halfProjection,
-            y: centerY - sin * halfProjection,
-          },
-          fillLinearGradientEndPoint: {
-            x: centerX + cos * halfProjection,
-            y: centerY + sin * halfProjection,
-          },
-          fillLinearGradientColorStops: [0, background.from, 1, background.to],
+          ...gradientConfig(background, box),
         },
       };
     }
@@ -208,20 +214,51 @@ export function elementToNodeConfig(
           align: element.align,
           direction,
           fill: element.color,
+          ...(element.shadow ? {
+            shadowColor: element.shadow.color,
+            shadowBlur: element.shadow.blur,
+            shadowOffsetX: element.shadow.offsetX,
+            shadowOffsetY: element.shadow.offsetY,
+            shadowOpacity: element.shadow.opacity,
+            shadowEnabled: true,
+          } : {}),
         },
       };
 
-    case "shape":
+    case "shape": {
+      const paint = {
+        fill: element.gradient ? undefined : element.fill,
+        ...(element.gradient ? gradientConfig(element.gradient, element) : {}),
+        stroke: element.stroke?.color,
+        strokeWidth: element.stroke?.width,
+      };
+      if (element.kind === "ellipse") {
+        return {
+          konva: "Group",
+          config: { ...common, width: element.width, height: element.height },
+          children: [{
+            konva: "Ellipse",
+            config: {
+              x: element.width / 2,
+              y: element.height / 2,
+              radiusX: element.width / 2,
+              radiusY: element.height / 2,
+              ...paint,
+            },
+          }],
+        };
+      }
       return {
         konva: "Rect",
         config: {
           ...common,
           width: element.width,
           height: element.height,
-          fill: element.fill,
           cornerRadius: element.radius,
+          ...paint,
         },
       };
+    }
 
     case "icon":
       return {
