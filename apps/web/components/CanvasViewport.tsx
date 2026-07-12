@@ -67,6 +67,9 @@ export function CanvasViewport({
   const contentRef = useRef<HTMLDivElement>(null);
   const lastFitLayoutRef = useRef<string | null>(null);
   const previousViewRef = useRef(view);
+  const initialRevealStartedRef = useRef(false);
+  const initialRevealRef = useRef<Animation | null>(null);
+  const initialRevealFrameRef = useRef<number | null>(null);
   const transitionRef = useRef<Animation | null>(null);
   const transitionFrameRef = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
@@ -74,6 +77,7 @@ export function CanvasViewport({
   const [spacePressed, setSpacePressed] = useState(false);
   const [panning, setPanning] = useState(false);
   const [fittedView, setFittedView] = useState<WorkspaceView>(view);
+  const [initialReveal, setInitialReveal] = useState<"pending" | "running" | "idle">("pending");
   const [transitioning, setTransitioning] = useState(false);
 
   useEffect(() => {
@@ -189,6 +193,40 @@ export function CanvasViewport({
   }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, outputRows, rightInset, screens.length, view]);
 
   useLayoutEffect(() => {
+    if (initialRevealStartedRef.current) return;
+    initialRevealStartedRef.current = true;
+
+    // Keep the default zoom invisible, install the first fit, then reveal the settled canvas.
+    fit();
+    setFittedView(view);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setInitialReveal("idle");
+      return;
+    }
+
+    setInitialReveal("running");
+    initialRevealFrameRef.current = requestAnimationFrame(() => {
+      initialRevealFrameRef.current = null;
+      const content = contentRef.current;
+      if (!content) {
+        setInitialReveal("idle");
+        return;
+      }
+      const animation = content.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 180, easing: "ease-out", fill: "forwards" },
+      );
+      initialRevealRef.current = animation;
+      animation.finished.then(() => {
+        if (initialRevealRef.current !== animation) return;
+        initialRevealRef.current = null;
+        animation.cancel();
+        setInitialReveal("idle");
+      }).catch(() => undefined);
+    });
+  }, [fit, view]);
+
+  useLayoutEffect(() => {
     if (previousViewRef.current === view) return;
     previousViewRef.current = view;
 
@@ -226,10 +264,10 @@ export function CanvasViewport({
 
       const animation = content.animate(
         [
-          { opacity: 0.72, transform: view === "overview" ? "scale(1.025)" : "scale(0.975)" },
+          { opacity: 0.88, transform: view === "overview" ? "scale(1.025)" : "scale(0.975)" },
           { opacity: 1, transform: "scale(1)" },
         ],
-        { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+        { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
       );
       transitionRef.current = animation;
       animation.finished.then(() => {
@@ -242,7 +280,9 @@ export function CanvasViewport({
   }, [activeScreenId, fit, view]);
 
   useEffect(() => () => {
+    initialRevealRef.current?.cancel();
     transitionRef.current?.cancel();
+    if (initialRevealFrameRef.current !== null) cancelAnimationFrame(initialRevealFrameRef.current);
     if (transitionFrameRef.current !== null) cancelAnimationFrame(transitionFrameRef.current);
   }, []);
 
@@ -429,6 +469,7 @@ export function CanvasViewport({
         ref={viewportRef}
         data-view={view}
         data-fitted-view={fittedView}
+        data-initial-reveal={initialReveal}
         data-view-transition={transitioning ? "running" : "idle"}
         data-pattern={pattern}
         data-testid="canvas-viewport"
@@ -450,6 +491,7 @@ export function CanvasViewport({
         >
           <div
             ref={contentRef}
+            style={initialReveal === "idle" ? undefined : { opacity: 0 }}
             className={cx(
               "m-auto",
               connectedOverview || view === "focus" ? "flex items-start" : "flex flex-col items-start",

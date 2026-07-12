@@ -319,6 +319,8 @@ describe("Phase 3.6 editor workspace", () => {
     await page.waitForSelector("canvas");
 
     const viewport = page.getByTestId("canvas-viewport");
+    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("running");
+    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("idle");
     const expectSettledView = async (expectedView: "focus" | "overview") => {
       await expect.poll(() => viewport.getAttribute("data-view")).toBe(expectedView);
       await expect.poll(() => viewport.getAttribute("data-fitted-view")).toBe(expectedView);
@@ -328,6 +330,10 @@ describe("Phase 3.6 editor workspace", () => {
     await page.getByRole("button", { name: "Focus", exact: true }).click();
     await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("running");
     expect(await viewport.getAttribute("data-fitted-view")).toBe("focus");
+    await expect.poll(() => viewport.evaluate((element) => {
+      const content = element.querySelector('[data-testid="focus-artboard"]');
+      return content?.getAnimations()[0]?.effect?.getTiming().duration ?? null;
+    })).toBe(320);
     await expectSettledView("focus");
 
     await page.getByRole("button", { name: "Overview", exact: true }).click();
