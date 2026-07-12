@@ -220,6 +220,7 @@ export function CanvasViewport({
       animation.finished.then(() => {
         if (initialRevealRef.current !== animation) return;
         initialRevealRef.current = null;
+        animation.commitStyles();
         animation.cancel();
         setInitialReveal("idle");
       }).catch(() => undefined);

@@ -320,7 +320,25 @@ describe("Phase 3.6 editor workspace", () => {
 
     const viewport = page.getByTestId("canvas-viewport");
     await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("running");
+    const revealCleanupMinimumOpacity = viewport.evaluate(async (element) => {
+      const content = element.querySelector<HTMLElement>('[data-testid="overview-artboards"]');
+      if (!content) return 0;
+      let reachedFinalOpacity = false;
+      let minimumOpacity = 1;
+      let settledFrames = 0;
+      while (settledFrames < 2) {
+        await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+        const opacity = Number.parseFloat(getComputedStyle(content).opacity);
+        if (opacity >= 0.99) reachedFinalOpacity = true;
+        if (reachedFinalOpacity) minimumOpacity = Math.min(minimumOpacity, opacity);
+        settledFrames = element.getAttribute("data-initial-reveal") === "idle"
+          ? settledFrames + 1
+          : 0;
+      }
+      return minimumOpacity;
+    });
     await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("idle");
+    expect(await revealCleanupMinimumOpacity).toBeGreaterThanOrEqual(0.99);
     const expectSettledView = async (expectedView: "focus" | "overview") => {
       await expect.poll(() => viewport.getAttribute("data-view")).toBe(expectedView);
       await expect.poll(() => viewport.getAttribute("data-fitted-view")).toBe(expectedView);
