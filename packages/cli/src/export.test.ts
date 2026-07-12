@@ -6,7 +6,7 @@ import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { inspectPng } from "@screenshot-studio/core/export";
-import { exportBundle } from "./export.js";
+import { exportBundle, writeBundleOutputs, type RenderedBundleEntry } from "./export.js";
 import { renderStoreReadyPng } from "./store-ready-png.js";
 
 function pngBytes(): Buffer {
@@ -59,6 +59,15 @@ describe("renderStoreReadyPng", () => {
       target: { width: 2, height: 2 },
       render: vi.fn(async () => pngBytes()),
     })).rejects.toThrow(/Export dimension mismatch: got 1×1, expected 2×2/);
+  });
+});
+
+describe("public export module", () => {
+  it("retains the bundle publisher function and entry type", () => {
+    const renderedEntry: RenderedBundleEntry = { entry: entries[0]!, png: pngBytes() };
+
+    expect(writeBundleOutputs).toBeTypeOf("function");
+    expect(renderedEntry.entry).toBe(entries[0]);
   });
 });
 

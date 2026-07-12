@@ -15,6 +15,8 @@ import { renderScreenToPng, type RenderBrowserSession } from "./render-driver.js
 import { renderStoreReadyPng } from "./store-ready-png.js";
 import { writeBundleOutputs, type RenderedBundleEntry } from "./bundle-publisher.js";
 
+export { writeBundleOutputs, type RenderedBundleEntry };
+
 /**
  * Export orchestration (Node side). Renders a screen through the served web renderer, then does
  * the store post-processing that must happen off-canvas: strip alpha (stores reject
