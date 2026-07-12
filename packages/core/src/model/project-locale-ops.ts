@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: Apache-2.0
+import {
+  Project,
+  Screen as ScreenSchema,
+  type LayoutDirection,
+  type Project as ProjectModel,
+  type Screen,
+} from "./schema.js";
+import { mirrorElement } from "./element-tree.js";
+import { recomputeManifests } from "./project-manifest.js";
+import { cloneScreenWithFreshIds } from "./project-screen-ops.js";
+
+/** Clone every screen in one locale as an independent target set, preserving source order. */
+export function cloneLocaleSet(
+  project: ProjectModel,
+  sourceLocale: string,
+  targetLocale: string,
+  targetDirection?: LayoutDirection,
+): ProjectModel {
+  if (!targetLocale.trim()) throw new Error("Target locale must not be empty");
+
+  const sourceScreens = project.screens.filter((screen) => screen.locale === sourceLocale);
+  if (sourceScreens.length === 0) throw new Error(`Unknown source locale "${sourceLocale}"`);
+  if (project.locales.includes(targetLocale)) {
+    throw new Error(`Locale "${targetLocale}" already exists`);
+  }
+
+  const direction = targetDirection ?? sourceScreens[0]!.direction ?? "ltr";
+  const rootIdMap = new Map<string, string>();
+  const copies = sourceScreens.map((source) => {
+    const copy = cloneScreenWithFreshIds(source);
+    if (source.variantOf === undefined) rootIdMap.set(source.id, copy.id);
+    return copy;
+  }).map((copy, index) => {
+    const source = sourceScreens[index]!;
+    const variantOf = source.variantOf ? rootIdMap.get(source.variantOf) : undefined;
+    if (source.variantOf && !variantOf) throw new Error(`Missing cloned root "${source.variantOf}"`);
+    const localized = ScreenSchema.parse({ ...copy, name: source.name, locale: targetLocale });
+    return setScreenDirection(
+      ScreenSchema.parse({ ...localized, ...(variantOf ? { variantOf } : {}) }),
+      direction,
+    );
+  });
+
+  return recomputeManifests({
+    ...project,
+    screens: [...project.screens, ...copies],
+  });
+}
+
+/** Remove an entire locale set without deleting any shared project assets. */
+export function removeLocaleSet(project: ProjectModel, locale: string): ProjectModel {
+  if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+  if (project.locales.length === 1) throw new Error("Cannot remove the last locale");
+
+  return recomputeManifests({
+    ...project,
+    screens: project.screens.filter((screen) => screen.locale !== locale),
+  });
+}
+
+/** Materialize a screen's opposite horizontal placement without reflecting media pixels. */
+export function setScreenDirection(screen: Screen, direction: LayoutDirection): Screen {
+  const currentDirection = screen.direction ?? "ltr";
+  if (currentDirection === direction) return ScreenSchema.parse(screen);
+
+  const elements = screen.elements.map((element) => mirrorElement(element, screen.artboard.width));
+
+  return ScreenSchema.parse({ ...screen, direction, elements });
+}
+
+/** Change every screen in a locale together so the locale set keeps one direction. */
+export function setLocaleDirection(
+  project: ProjectModel,
+  locale: string,
+  direction: LayoutDirection,
+): ProjectModel {
+  if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+  if (project.screens
+    .filter((screen) => screen.locale === locale)
+    .every((screen) => screen.direction === direction)) return project;
+
+  const screens = project.screens.map((screen) =>
+    screen.locale === locale ? setScreenDirection(screen, direction) : screen,
+  );
+  return Project.parse({ ...project, screens });
+}

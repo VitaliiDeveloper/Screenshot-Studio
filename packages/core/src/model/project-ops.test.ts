@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Project } from "./schema.js";
 import { isScreenPlacement as isScreenPlacementFromModel } from "./index.js";
@@ -60,6 +61,29 @@ function sampleProject(): Project {
 }
 
 describe("project-ops", () => {
+  it("keeps the project-ops compatibility surface", () => {
+    expect(typeof slugify).toBe("function");
+    expect(typeof isScreenPlacement).toBe("function");
+    expect(typeof ensureStoreOutputFamily).toBe("function");
+    expect(typeof setLocaleDirection).toBe("function");
+  });
+
+  it("keeps project-ops as the declarative compatibility barrel", () => {
+    const source = readFileSync(new URL("./project-ops.ts", import.meta.url), "utf8");
+    const reexports = [...source.matchAll(/export \* from "(.+)";/g)]
+      .map((match) => match[1]);
+
+    expect(reexports).toEqual([
+      "./project-manifest.js",
+      "./project-font-ops.js",
+      "./project-screen-ops.js",
+      "./project-artboard-ops.js",
+      "./project-output-ops.js",
+      "./project-locale-ops.js",
+    ]);
+    expect(source).not.toMatch(/\bfunction\b/);
+  });
+
   it("slugify and uniqueId produce stable free ids", () => {
     expect(slugify("Hello World")).toBe("hello-world");
     expect(uniqueId("hero", sampleProject().screens)).toBe("hero-2");
