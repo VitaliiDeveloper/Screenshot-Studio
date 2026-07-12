@@ -1,7 +1,7 @@
 # Phase 7 Slice 6 — Badge primitives
 
 Status: complete. Representation decision ratified in
-`docs/specs/2026-07-11-phase7-badge-primitives-design.md`.
+`docs/archive/specs/2026-07-11-phase7-badge-primitives-design.md`.
 
 ## Goal
 

@@ -1,7 +1,7 @@
 # Phase 7 Slice 4 — Decorative image element
 
 Status: complete. Contract ratified in
-`docs/specs/2026-07-10-phase7-decorative-image-design.md`.
+`docs/archive/specs/2026-07-10-phase7-decorative-image-design.md`.
 
 ## Goal
 

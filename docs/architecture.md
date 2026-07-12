@@ -4,7 +4,7 @@ How the system is built and the contracts everything agrees on: tech stack, core
 split, render/export parity, data model & schema, store export spec, fonts, the management
 interface (CLI + conventions + `AGENTS.md`), and design guardrails.
 
-Version 0.7, 11 July 2026.
+Version 1.0, 12 July 2026.
 
 ---
 
@@ -17,8 +17,8 @@ Version 0.7, 11 July 2026.
 | Styling | Tailwind CSS | Speed, consistency |
 | Components | Shared local workbench primitives + Lucide | Inspector, dialogs, selects, menus, tooltips |
 | State | Zustand (+ Immer) | Light editor store with bounded project history and transient workspace state |
-| Export (UI) | `Stage.toDataURL({ pixelRatio })` + JSZip | Exact-size PNGs, zip bundle |
-| Export (CLI / headless) | **Playwright** (recommended) renders the same web stage | Pixel parity with the UI by construction — see §2 |
+| Export (UI) | `POST /api/export` delegates to CLI bundle orchestration | Exact-size PNGs, zip bundle |
+| Export (CLI / headless) | **Playwright** renders the same web stage | Pixel parity with the UI by construction — see §2 |
 | Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
 | Screen reorder | dnd-kit | Reordering screens in the sidebar |
 | Schema & validation | **Zod** | Versioning, migrations, a strict validator (the AI contract) |
@@ -30,7 +30,7 @@ Version 0.7, 11 July 2026.
 
 ## 2. Architecture: core + shell, and the parity decision
 
-Monorepo (pnpm workspaces or Turborepo) with a clear boundary. The split is for modularity,
+The pnpm-workspace monorepo has a clear boundary. The split is for modularity,
 testability, and ease of contributions — not for monetization.
 
 ```
@@ -74,23 +74,16 @@ Ships with `LocalFileStorageAdapter` (writes JSON + assets to disk, like the ref
 
 ### Render / export parity — the #1 technical risk
 
-The claim "one JSON renders identically in UI and CLI" is **not free** and must be proven,
-not assumed. In the browser Konva draws on a real `<canvas>`. For headless/CLI export there
-are two paths:
+The renderer decision is complete: UI and CLI exports both use the same browser Konva stage.
+`core` owns schema, project, and export orchestration; the CLI launches the packaged web renderer
+in Playwright and never substitutes a `node-canvas`/Cairo path. This keeps text, fonts, assets,
+backgrounds, effects, and connected crops on one implementation at the accepted cost of a heavier
+CLI artifact.
 
-- **A — Headless browser (Playwright) renders the same web stage (recommended).** Parity is
-  guaranteed *by construction* because it is literally the same rendering code and font stack;
-  `core` handles schema/project/export orchestration and hands the pixel rendering to the web
-  renderer. Cost: a heavier dependency for the CLI.
-- **B — `node-canvas` (Cairo) + Konva.** Lighter, but parity is *not* guaranteed — Cairo
-  differs from the browser in text rendering, font hinting, and layout, so the UI and CLI
-  outputs would drift (text most of all) and need constant chasing.
-
-**Decision: pursue A.** Make this the Phase 0 spike (see roadmap.md). The exit criterion is
-*not* byte-identical output — PNG metadata and compression can differ on identical images.
-Instead: from the same project JSON, the UI export button and `cli export` produce a PNG with
-**exact target dimensions, no alpha channel, and a visual diff within tolerance**. Until that
-holds, building the editor on top is premature.
+Parity is verified by exact target dimensions, an opaque output, and a visual diff within
+tolerance. Byte identity is not required because equivalent PNGs may differ in metadata or
+compression. New render-affecting fields must extend the shared mapper and its parity coverage;
+adding a second renderer is outside the architecture.
 
 ---
 
@@ -117,17 +110,22 @@ Project
     └── elements: Element[]                # z-order = array order
 ```
 
-**Element types** — a shared base (`id, type, x, y, width, height, rotation, opacity,
-locked, visible, role?`) plus type-specific fields:
+**Element types** — all elements share `id`, `type`, `x`, `y`, `width`, `height`, `rotation`,
+`opacity`, `locked`, `visible`, and optional display `name`. Leaf elements additionally allow the
+optional baked-theme `role`; groups do not. The strict v10 members are:
 
 - `text` — content, fontFamily, size, weight, lineHeight, letterSpacing, align, color, shadow
 - `screenshot` — assetUrl, fit (cover/contain), crop, cornerRadius
-- `device-frame` — deviceType (iphone/ipad/android-phone/tablet), frame color, screen slot
-- `shape` — rect / ellipse / blob, fill (solid/gradient), stroke, radius
+- `device-frame` — assetUrl, fit, and a trusted `iphone | android-phone | tablet | desktop | tv | watch` preset
+- `shape` — `rect | ellipse`, solid fallback fill, optional two-stop gradient, optional stroke, radius
 - `group` — one non-clipping level of existing leaf elements in local coordinates
 - `icon` — trusted built-in id, editable colour/stroke, core-owned normalised SVG path
 - badge compositions — ordinary shape/icon/text groups for rating/press proof; ordinary images for official store badges
-- `image` — arbitrary project-local decorative raster, contain/cover, cornerRadius
+- `image` — project-local decorative raster, contain/cover, optional crop, cornerRadius
+
+**Background types** are the strict `solid`, `linear-gradient`, and project-relative `image`
+members. There are no arbitrary CSS paints, generic effects, blobs, author-defined frame slots,
+frame colours, nested groups, or `badge` element member in v10.
 
 **Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
 `applyTheme(project, theme)` rewrites the existing literal text/shape fields selected by an
@@ -167,7 +165,8 @@ optional fields such as `role` keep the current version; structural changes requ
 
 **Connected canvas — v2 render/export contract (Phase 6 Slice 1).** `Project.mode` is one explicit
 project-level `isolated | connected` choice. Valid v1 input migrates without pixel changes to v2
-`isolated`. In connected mode, screens with the same exact `platform/device/locale` form a gapless,
+`isolated`. In connected mode, screens with the same exact platform, device, locale, and
+store-target identity form a gapless,
 top-aligned strip in project order; each origin is the cumulative width of earlier group screens.
 Elements remain in their owner screen with owner-local coordinates. The shared renderer paints all
 group backgrounds first, then visible elements by screen order and element-array order, translated
@@ -208,7 +207,7 @@ centred `cover` crop, alpha-preserving composition, and the screenshot missing-a
 v3 migrates losslessly only when it does not already contain the previously invalid image type.
 
 **Connected workspace hardening — Phase 6 Slice 7.** One `workspaceScreenScope` derivation feeds
-Overview/Fit and Screens: exact platform/device/locale group in connected mode, active locale in
+Overview/Fit and Screens: exact platform/device/locale/store-target group in connected mode, active locale in
 isolated mode. Connected reorder rewrites only the visible group's existing project-array slots;
 unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
 memoization compares every exact-group screen reference and projected order because a neighbour's
@@ -322,9 +321,9 @@ operations are idempotent: an existing output or size is opened instead of dupli
 
 ## 4. Store export spec
 
-Design at each platform's largest size, export by scaling down. UI export uses
-`Stage.toDataURL` with the right `pixelRatio`; CLI export uses the same `core` through the
-Phase 0 renderer. Both write bundle entries as
+Design at each platform's largest size, export by scaling down. The editor's export API delegates to
+the CLI bundle orchestration. Both surfaces drive the shared `/render` stage, which calls
+`Stage.toDataURL` with the right `pixelRatio`, and write bundle entries as
 `platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
 the exact free-form identifier, filtering remains exact against the stored string, and `NN`
 restarts inside each platform/device/locale/target group while preserving that group's relative
@@ -343,7 +342,7 @@ sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4
 artboard cannot be scaled to all of them without distortion — `exportPixelRatio` rejects
 aspect-ratio mismatches by design. Bundles therefore target **one lead size per device**
 (Apple down-scales the lead size to smaller slots itself); the other accepted sizes remain
-available as explicit opt-in targets. See roadmap.md §3 (Phase 2 carry-ins).
+available as explicit opt-in targets.
 
 **Store sizes are data, not hardcode.** They live in **`store-specs.json`** with Vitest tests
 asserting export output dimensions. Apple and Google change these over time, and Google in
@@ -404,9 +403,9 @@ requests happen server-side only when a font is added; canvas render and export 
 **System fonts are intentionally rejected.** They are not embedded in the project, vary by
 machine and OS, and therefore break render/export parity by construction.
 
-**Fonts are tied to the parity risk.** Text is where renderers diverge most, so minimal font
-embedding and loading ship *with the export spike* (Phase 0–2), even though the font-management
-UI comes later (Phase 3). The renderer chosen in §2 must load the embedded fonts identically.
+**Fonts are tied to the parity risk.** Text is where renderers diverge most, so every registered
+font is loaded through the same file-backed browser path before either UI or CLI rendering is
+declared ready.
 
 ---
 

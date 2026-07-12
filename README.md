@@ -56,7 +56,7 @@ It only discovers or initializes a project and then follows the generated projec
 
 - [docs/vision.md](docs/vision.md) — strategy, positioning, license, distribution _(changes rarely)_
 - [docs/architecture.md](docs/architecture.md) — stack, core/shell, data model, render/export parity, CLI & conventions _(the technical contract)_
-- [docs/roadmap.md](docs/roadmap.md) — MVP scope, phased plan, technical risks, exit criteria _(changes often)_
+- [docs/roadmap.md](docs/roadmap.md) — current phase status, durable sequencing boundaries, and evidence map
 - [docs/releasing.md](docs/releasing.md) — candidate install/upgrade/uninstall, limitations, and maintainer checklist
 
 ## Project structure
@@ -75,7 +75,8 @@ Monorepo (pnpm workspaces):
   exported in the closure suite.
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
-- `docs/` — vision, architecture, roadmap, and per-slice design specs/plans.
+- `docs/` — current vision/architecture/contracts, retained closure evidence, and an indexed archive
+  of completed implementation plans and superseded slice designs.
 - `store-specs.json` — Apple/Google export sizes (data, not hardcoded).
 
 A screenshots *project* (the JSON file a user edits, as opposed to this repo) has its own

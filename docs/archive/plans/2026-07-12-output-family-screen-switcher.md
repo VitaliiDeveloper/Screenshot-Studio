@@ -209,7 +209,7 @@ Confirm the diff contains the plan, selector component, Screens integration, and
 - [x] **Step 3: Commit the implementation**
 
 ```bash
-git add docs/plans/2026-07-12-output-family-screen-switcher.md \
+git add docs/archive/plans/2026-07-12-output-family-screen-switcher.md \
   apps/web/components/OutputFamilySwitcher.tsx \
   apps/web/components/ScreensSection.tsx \
   e2e/editor-workspace.test.ts

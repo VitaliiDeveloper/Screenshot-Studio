@@ -95,7 +95,7 @@ import type Konva from "konva";
 import type { Element } from "../model/schema.js";
 
 /**
- * The single element→Konva-props map (docs/specs/2026-07-04-phase1-slice1-...): both the static
+ * The single element→Konva-props map (docs/archive/specs/2026-07-04-phase1-slice1-...): both the static
  * export renderer (`renderScreen`) and the interactive editor stage build nodes from this exact
  * output, so UI and CLI can never render an element two different ways. Pure and side-effect free
  * — it maps document props to visual props only. Interaction props (draggable, listeners) are the
