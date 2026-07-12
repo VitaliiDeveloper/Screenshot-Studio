@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeEach } from "vitest";
 import { editorStore } from "./editor-store.js";
-import type { Project } from "@screenshot-studio/core/model";
+import { applyElementPatch, type ElementPatchFor } from "./editor-element-patch.js";
+import {
+  createSelectedElementIndex,
+  forEachSelectedElement,
+} from "./editor-selection-mutations.js";
+import type { IconElement, Project, ShapeElement, TextElement } from "@screenshot-studio/core/model";
+
+const validShapePatch: ElementPatchFor<"shape"> = { fill: "#123456" };
+// @ts-expect-error text elements do not expose shape fill
+const invalidTextPatch: ElementPatchFor<"text"> = { fill: "#123456" };
+// @ts-expect-error icon elements do not expose media crop
+const invalidIconPatch: ElementPatchFor<"icon"> = { crop: { x: 0.5, y: 0.5, zoom: 1 } };
+void [validShapePatch, invalidTextPatch, invalidIconPatch];
 
 function project(): Project {
   return {
@@ -92,6 +104,28 @@ describe("editorStore", () => {
     });
     expect(state.project!.screens[0]!.elements[0]!.x).toBe(40);
     expect(state.project!.screens[1]!.elements[0]!.x).toBe(333);
+  });
+
+  it("applies valid type-specific patches at the typed boundary", () => {
+    const text = structuredClone(project().screens[0]!.elements[0]!) as TextElement;
+    const shape: ShapeElement = {
+      id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      kind: "rect", fill: "#000000", radius: 0,
+    };
+    const icon: IconElement = {
+      id: "icon", type: "icon", x: 0, y: 0, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      icon: "star", color: "#000000", strokeWidth: 2,
+    };
+
+    applyElementPatch(text, { content: "Updated" });
+    applyElementPatch(shape, { fill: "#123456" });
+    applyElementPatch(icon, { icon: "heart" });
+
+    expect(text.content).toBe("Updated");
+    expect(shape.fill).toBe("#123456");
+    expect(icon.icon).toBe("heart");
   });
 });
 
@@ -683,6 +717,45 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
     editorStore.getState().select("headline", "hero", "toggle");
     expect(editorStore.getState().selectedItems).toEqual([
       { screenId: "second", elementId: "headline" },
+    ]);
+  });
+
+  it("indexes structured selections by owner screen", () => {
+    const index = createSelectedElementIndex([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "hero", elementId: "nested" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+
+    expect([...index.get("hero")!]).toEqual(["headline", "nested"]);
+    expect([...index.get("second")!]).toEqual(["headline"]);
+  });
+
+  it("traverses selected top-level elements and group children with owner disambiguation", () => {
+    const fixture = structuredClone(editorStore.getState().project!);
+    const child = structuredClone(fixture.screens[0]!.elements[0]!) as TextElement;
+    child.id = "nested";
+    fixture.screens[0]!.elements.push({
+      id: "hero-group", type: "group", x: 0, y: 0, width: 580, height: 200,
+      rotation: 0, opacity: 1, locked: false, visible: true, children: [child],
+    });
+    const secondChild = structuredClone(child);
+    fixture.screens[1]!.elements.push({
+      id: "second-group", type: "group", x: 0, y: 0, width: 580, height: 200,
+      rotation: 0, opacity: 1, locked: false, visible: true, children: [secondChild],
+    });
+
+    const visited: string[] = [];
+    forEachSelectedElement(fixture, [
+      { screenId: "hero", elementId: "nested" },
+      { screenId: "second", elementId: "headline" },
+    ], ({ screen, element, parent }) => {
+      visited.push(`${screen.id}:${parent?.id ?? "root"}:${element.id}`);
+    });
+
+    expect(visited).toEqual([
+      "hero:hero-group:nested",
+      "second:root:headline",
     ]);
   });
 

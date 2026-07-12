@@ -14,7 +14,6 @@ import {
   removeStoreTargetVariant as removeStoreTargetVariantCore,
   removeLocaleSet as removeLocaleSetCore,
   resizeStoreOutputArtboards,
-  resizeGroupUniform,
   sameScreenGroup,
   setCanvasMode as setCanvasModeCore,
   setLocaleDirection as setLocaleDirectionCore,
@@ -23,19 +22,8 @@ import {
   type Background,
   type Project,
   type Element,
-  type TextElement,
-  type ShapeElement,
-  type ScreenshotElement,
-  type ImageElement,
-  type IconElement,
-  type DeviceFrameElement,
   type FontAsset,
   type LayoutDirection,
-  type MediaCrop,
-  type LinearGradientPaint,
-  type ShapeStroke,
-  type TextShadow,
-  type ThemeRole,
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
 import {
@@ -44,6 +32,18 @@ import {
   toggleSelection,
   type SelectionRef,
 } from "./editor-selection.js";
+import {
+  applyElementPatch,
+  type ElementPatch,
+} from "./editor-element-patch.js";
+import { forEachSelectedElement } from "./editor-selection-mutations.js";
+
+export {
+  applyElementPatch,
+  type CommonElementPatch,
+  type ElementPatch,
+  type ElementPatchFor,
+} from "./editor-element-patch.js";
 
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
@@ -51,123 +51,6 @@ import {
  * the day-0 requirement (roadmap.md §1) now used by bounded undo/redo history.
  * The store is the only writer of project state; the canvas dispatches actions, never mutates.
  */
-
-/** Geometry / layer metadata shared by every element type. */
-export type CommonElementPatch = Partial<
-  Pick<Element, "x" | "y" | "width" | "height" | "rotation" | "opacity" | "locked" | "visible" | "name">
-> & { role?: ThemeRole | null };
-
-type TextFields = Partial<
-  Pick<
-    TextElement,
-    "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
-  >
-> & { shadow?: TextShadow | null };
-type ShapeFields = Partial<Pick<ShapeElement, "kind" | "fill" | "radius">> & {
-  gradient?: LinearGradientPaint | null;
-  stroke?: ShapeStroke | null;
-};
-type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
-type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
-type MediaFields = { crop?: MediaCrop | null };
-type IconFields = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
-type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit" | "deviceType">>;
-
-/**
- * Call-site convenience: common fields plus optional type-specific fields.
- * Runtime apply only writes keys valid for the live element's `type` — a `fill` on a text
- * element is ignored, never Object.assigned onto the wrong shape.
- */
-export type ElementPatch = CommonElementPatch &
-  TextFields &
-  ShapeFields &
-  ScreenshotFields &
-  ImageFields &
-  MediaFields &
-  IconFields &
-  DeviceFrameFields;
-
-function applyCommonPatch(el: Element, patch: CommonElementPatch): void {
-  if (patch.x !== undefined) el.x = patch.x;
-  if (patch.y !== undefined) el.y = patch.y;
-  if (patch.width !== undefined) el.width = patch.width;
-  if (patch.height !== undefined) el.height = patch.height;
-  if (patch.rotation !== undefined) el.rotation = patch.rotation;
-  if (patch.opacity !== undefined) el.opacity = patch.opacity;
-  if (patch.locked !== undefined) el.locked = patch.locked;
-  if (patch.visible !== undefined) el.visible = patch.visible;
-  if (patch.name !== undefined) el.name = patch.name;
-  if (patch.role !== undefined && (el.type === "text" || el.type === "shape")) {
-    if (patch.role === null) delete el.role;
-    else el.role = patch.role;
-  }
-}
-
-/** Apply only fields legal for this element's type (no blind Object.assign). */
-export function applyElementPatch(el: Element, patch: ElementPatch): void {
-  if (el.type === "group" && (patch.width !== undefined || patch.height !== undefined)) {
-    const scale = patch.width !== undefined
-      ? patch.width / el.width
-      : patch.height! / el.height;
-    const resized = resizeGroupUniform(
-      el,
-      patch.width ?? el.width * scale,
-      patch.height ?? el.height * scale,
-    );
-    el.children = resized.children;
-    patch = { ...patch, width: resized.width, height: resized.height };
-  }
-  applyCommonPatch(el, patch);
-  switch (el.type) {
-    case "text":
-      if (patch.content !== undefined) el.content = patch.content;
-      if (patch.fontFamily !== undefined) el.fontFamily = patch.fontFamily;
-      if (patch.size !== undefined) el.size = patch.size;
-      if (patch.weight !== undefined) el.weight = patch.weight;
-      if (patch.lineHeight !== undefined) el.lineHeight = patch.lineHeight;
-      if (patch.letterSpacing !== undefined) el.letterSpacing = patch.letterSpacing;
-      if (patch.align !== undefined) el.align = patch.align;
-      if (patch.color !== undefined) el.color = patch.color;
-      if (patch.shadow === null) delete el.shadow;
-      else if (patch.shadow !== undefined) el.shadow = patch.shadow;
-      break;
-    case "shape":
-      if (patch.fill !== undefined) el.fill = patch.fill;
-      if (patch.radius !== undefined) el.radius = patch.radius;
-      if (patch.kind !== undefined) el.kind = patch.kind;
-      if (patch.gradient === null) delete el.gradient;
-      else if (patch.gradient !== undefined) el.gradient = patch.gradient;
-      if (patch.stroke === null) delete el.stroke;
-      else if (patch.stroke !== undefined) el.stroke = patch.stroke;
-      break;
-    case "screenshot":
-      if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
-      if (patch.fit !== undefined) el.fit = patch.fit;
-      if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
-      if (patch.crop === null) delete el.crop;
-      else if (patch.crop !== undefined) el.crop = patch.crop;
-      break;
-    case "image":
-      if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
-      if (patch.fit !== undefined) el.fit = patch.fit;
-      if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
-      if (patch.crop === null) delete el.crop;
-      else if (patch.crop !== undefined) el.crop = patch.crop;
-      break;
-    case "icon":
-      if (patch.icon !== undefined) el.icon = patch.icon;
-      if (patch.color !== undefined) el.color = patch.color;
-      if (patch.strokeWidth !== undefined) el.strokeWidth = patch.strokeWidth;
-      break;
-    case "device-frame":
-      if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
-      if (patch.fit !== undefined) el.fit = patch.fit;
-      if (patch.deviceType !== undefined) el.deviceType = patch.deviceType;
-      break;
-    case "group":
-      break;
-  }
-}
 
 export interface EditorState {
   project: Project | null;
@@ -314,83 +197,52 @@ export const editorStore = createStore<EditorState>((set) => ({
   moveSelected: (delta) =>
     set((state) => {
       if (!state.project || state.selectedItems.length === 0 || (delta.x === 0 && delta.y === 0)) return state;
-      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
       const project = produce(state.project, (draft) => {
-        for (const screen of draft.screens) {
-          for (const element of screen.elements) {
-            if (selectedKeys.has(`${screen.id}\u0000${element.id}`) && !element.locked) {
-              element.x += delta.x;
-              element.y += delta.y;
-            } else if (element.type === "group" && !element.locked) {
-              for (const child of element.children) {
-                if (!child.locked && selectedKeys.has(`${screen.id}\u0000${child.id}`)) {
-                  child.x += delta.x;
-                  child.y += delta.y;
-                }
-              }
-            }
-          }
-        }
+        forEachSelectedElement(draft, state.selectedItems, ({ element, parent }) => {
+          if (element.locked || parent?.locked) return;
+          element.x += delta.x;
+          element.y += delta.y;
+        });
       });
       return recordProjectChange(state, project);
     }),
   removeSelected: () =>
     set((state) => {
       if (!state.project || state.selectedItems.length === 0) return state;
-      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
       const project = produce(state.project, (draft) => {
-        for (const screen of draft.screens) {
-          for (let elementIndex = screen.elements.length - 1; elementIndex >= 0; elementIndex -= 1) {
-            const element = screen.elements[elementIndex]!;
-            if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) {
-              screen.elements.splice(elementIndex, 1);
-              continue;
-            }
-            if (element.type !== "group") continue;
-            for (let childIndex = element.children.length - 1; childIndex >= 0; childIndex -= 1) {
-              if (selectedKeys.has(`${screen.id}\u0000${element.children[childIndex]!.id}`)) {
-                element.children.splice(childIndex, 1);
-              }
-            }
-            if (element.children.length === 0) screen.elements.splice(elementIndex, 1);
+        forEachSelectedElement(draft, state.selectedItems, ({
+          screen,
+          parent,
+          elementIndex,
+          childIndex,
+        }) => {
+          if (!parent) {
+            screen.elements.splice(elementIndex, 1);
+            return;
           }
-        }
+          parent.children.splice(childIndex!, 1);
+          if (parent.children.length === 0) screen.elements.splice(elementIndex, 1);
+        });
       });
       return recordProjectChange(state, project, null, { selectedItems: [] });
     }),
   setSelectedLocked: (locked) =>
     set((state) => {
       if (!state.project || state.selectedItems.length === 0) return state;
-      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
       const project = produce(state.project, (draft) => {
-        for (const screen of draft.screens) {
-          for (const element of screen.elements) {
-            if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) element.locked = locked;
-            if (element.type === "group") {
-              for (const child of element.children) {
-                if (selectedKeys.has(`${screen.id}\u0000${child.id}`)) child.locked = locked;
-              }
-            }
-          }
-        }
+        forEachSelectedElement(draft, state.selectedItems, ({ element }) => {
+          element.locked = locked;
+        });
       });
       return recordProjectChange(state, project);
     }),
   setSelectedVisible: (visible) =>
     set((state) => {
       if (!state.project || state.selectedItems.length === 0) return state;
-      const selectedKeys = new Set(state.selectedItems.map((item) => `${item.screenId}\u0000${item.elementId}`));
       const project = produce(state.project, (draft) => {
-        for (const screen of draft.screens) {
-          for (const element of screen.elements) {
-            if (selectedKeys.has(`${screen.id}\u0000${element.id}`)) element.visible = visible;
-            if (element.type === "group") {
-              for (const child of element.children) {
-                if (selectedKeys.has(`${screen.id}\u0000${child.id}`)) child.visible = visible;
-              }
-            }
-          }
-        }
+        forEachSelectedElement(draft, state.selectedItems, ({ element }) => {
+          element.visible = visible;
+        });
       });
       return recordProjectChange(state, project, null, visible ? {} : { selectedItems: [] });
     }),
