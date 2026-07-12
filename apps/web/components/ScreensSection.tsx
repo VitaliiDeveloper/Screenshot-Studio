@@ -2,8 +2,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import { useStore } from "zustand";
-import { CornerUpLeft, Plus, Trash2 } from "lucide-react";
+import { CornerUpLeft, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -16,7 +17,8 @@ import { groupScreensByOutput, workspaceScreenScope } from "../lib/editor-worksp
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
-import { editorUi, MenuSelect } from "./editor-ui";
+import { AddMenu, editorUi, MenuSelect } from "./editor-ui";
+import type { ResourceDialog } from "../lib/editor-workspace";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
@@ -24,13 +26,43 @@ const DynamicScreenThumbnail = dynamic(
 );
 
 /** Active connected group (or isolated locale): select, scoped reorder, duplicate-add, and delete. */
-export function ScreensSection({ images }: { images: ImageCache }) {
+export function ScreensSection({
+  images,
+  onOpenDialog,
+}: {
+  images: ImageCache;
+  onOpenDialog: (dialog: ResourceDialog) => void;
+}) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
+  const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  useEffect(() => {
+    if (!activeScreenId) return;
+    const id = requestAnimationFrame(() => {
+      const list = screenListRef.current;
+      if (!list) return;
+      const activeButton = Array.from(
+        list.querySelectorAll<HTMLButtonElement>("button[data-screen-id]"),
+      ).find((button) => button.dataset.screenId === activeScreenId);
+      const row = activeButton?.closest<HTMLElement>("[role='listitem']");
+      if (!row) return;
+
+      const listRect = list.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const fullyVisible = rowRect.top >= listRect.top && rowRect.bottom <= listRect.bottom;
+      if (fullyVisible) return;
+
+      list.scrollTo({
+        top: list.scrollTop + rowRect.top - listRect.top - (list.clientHeight - rowRect.height) / 2,
+        behavior: "smooth",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [activeScreenId]);
   if (!project) return null;
   const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
   const activeLocale = activeScreen?.locale ?? project.locales[0]!;
@@ -78,28 +110,46 @@ export function ScreensSection({ images }: { images: ImageCache }) {
 
   return (
     <section className="border-b border-slate-200 pb-2">
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="flex items-center justify-between px-3 py-3">
         <div className="flex items-center gap-2">
           <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">{scopeLabel}</span>
         </div>
-        <button
-          type="button"
-          aria-label={activeRoot ? "Return to master" : "Add screen"}
-          title={activeRoot ? "Return to master" : "Add screen"}
-          onClick={() => activeRoot
-            ? editorStore.getState().selectScreen(activeRoot.id)
-            : mutateAndSave(() => editorStore.getState().addScreen())}
-          className={activeRoot
-            ? `${editorUi.buttonGhost} h-6 min-h-6 px-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700`
-            : editorUi.compactAddButton}
-        >
-          {activeRoot ? <CornerUpLeft size={14} strokeWidth={2} /> : <Plus size={14} strokeWidth={2} />}
-          {activeRoot ? "Master" : null}
-        </button>
+        {activeRoot ? (
+          <button
+            type="button"
+            aria-label="Return to master"
+            title="Return to master"
+            onClick={() => editorStore.getState().selectScreen(activeRoot.id)}
+            className={`${editorUi.buttonGhost} h-6 min-h-6 px-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
+          >
+            <CornerUpLeft size={14} strokeWidth={2} />
+            Master
+          </button>
+        ) : (
+          <AddMenu
+            ariaLabel="Add screen"
+            menuLabel="Add screen options"
+            options={[
+              { value: "duplicate", label: "Duplicate current", description: "Copy the current screen and its layers" },
+              { value: "blank", label: "Blank screen", description: "Keep this output size with no layers" },
+              { value: "template", label: "From template", description: "Create from a project template" },
+            ]}
+            onSelect={(action) => {
+              if (action === "template") {
+                onOpenDialog("templates");
+                return;
+              }
+              mutateAndSave(() => {
+                if (action === "blank") editorStore.getState().addBlankScreen();
+                else editorStore.getState().addScreen();
+              });
+            }}
+          />
+        )}
       </header>
       {showOutputSwitcher ? (
-        <div className="border-y border-slate-100 bg-slate-50/40">
+        <div className="border-y border-slate-200/70 bg-slate-50/80 px-3 py-2">
           <MenuSelect
             ariaLabel={`Output family for ${activeLocale}`}
             menuLabel={`Output family options for ${activeLocale}`}
@@ -122,7 +172,12 @@ export function ScreensSection({ images }: { images: ImageCache }) {
       ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={visibleScreens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div role="list" aria-label={listLabel}>
+          <div
+            ref={screenListRef}
+            role="list"
+            aria-label={listLabel}
+            className="max-h-64 overflow-y-auto overscroll-contain pt-2 [scrollbar-gutter:stable]"
+          >
             {visibleScreens.map((s, index) => (
               <SortableRow
                 key={s.id}

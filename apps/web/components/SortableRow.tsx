@@ -39,7 +39,7 @@ export function SortableRow({
       role={role}
       aria-level={ariaLevel}
       className={cx(
-        "group mx-2 my-0.5 flex min-h-9 items-center gap-1 rounded-lg px-1.5 transition-colors hover:bg-slate-50",
+        "group mx-3 my-0.5 flex min-h-9 items-center gap-1 rounded-lg px-1.5 transition-colors hover:bg-slate-50",
         className,
       )}
     >

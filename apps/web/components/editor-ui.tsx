@@ -17,6 +17,7 @@ export const editorUi = {
   buttonGhost: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
   buttonDanger: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-medium text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
   iconButton: `inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
+  compactIconButton: `inline-flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
   compactAddButton: `inline-flex size-6 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
   field: `h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 shadow-sm transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15`,
   textarea: `w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 shadow-sm transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15`,
@@ -248,16 +249,18 @@ export function MenuSelect<T extends string>({
         className={cx(
           "group flex w-full items-center gap-2 transition-all",
           breadcrumb
-            ? "rounded-none border-0 bg-transparent shadow-none hover:bg-slate-100/70 hover:text-slate-700"
+            ? "rounded-md border-0 bg-transparent text-slate-500 shadow-none hover:text-slate-600"
             : "rounded-lg border border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
           compact
-            ? "h-7 px-2 text-[10px] font-normal text-slate-500"
+            ? breadcrumb
+              ? "min-h-7 px-1 py-1 font-normal"
+              : "h-7 px-2 text-[10px] font-normal text-slate-500"
             : "h-8 px-2.5 text-xs text-slate-800",
           breadcrumb
             ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
             : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
           open && (breadcrumb
-            ? "bg-slate-100/80 text-slate-700"
+            ? "bg-transparent text-slate-600 shadow-none"
             : "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10"),
           triggerClassName,
         )}
@@ -273,7 +276,12 @@ export function MenuSelect<T extends string>({
             <ActiveIcon size={14} strokeWidth={1.8} />
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-left">{activeOption.triggerLabel ?? activeOption.label}</span>
+        <span className={cx(
+          "min-w-0 flex-1 truncate text-left",
+          breadcrumb && "text-[11px] font-normal leading-4 text-slate-500",
+        )}>
+          {activeOption.triggerLabel ?? activeOption.label}
+        </span>
         <ChevronDown size={14} strokeWidth={1.9} className={cx("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -282,10 +290,15 @@ export function MenuSelect<T extends string>({
           id={menuId}
           role="menu"
           aria-label={menuLabel}
+          data-placement={openUpward ? "top" : "bottom"}
           className={cx(
-            "absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/12",
-            compact ? "p-1" : "p-1.5",
-            openUpward ? "bottom-full mb-1" : "top-full mt-1",
+            "menu-select-surface absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/12",
+            compact
+              ? breadcrumb
+                ? "flex flex-col border-slate-200/80 bg-white/95 p-1.5 shadow-slate-950/10"
+                : "p-1"
+              : "p-1.5",
+            openUpward ? "bottom-full mb-2" : "top-full mt-2",
             menuClassName,
           )}
           onKeyDown={(event) => {
@@ -315,12 +328,20 @@ export function MenuSelect<T extends string>({
                 aria-checked={selected}
                 data-menu-select-value={option.value}
                 className={cx(
-                  "flex w-full items-center gap-2 px-2 text-left transition-colors",
+                  "flex w-full items-center gap-2 text-left transition-colors",
                   compact
-                    ? "h-8 rounded-none border-b border-slate-100 text-[11px] font-normal last:border-b-0"
-                    : "h-9 rounded-lg text-xs font-medium",
+                    ? breadcrumb
+                      ? "min-h-9 border-b border-slate-100 px-2.5 py-1.5 text-[11px] font-normal leading-4 last:border-b-0"
+                      : "h-8 rounded-none border-b border-slate-100 px-2 text-[11px] font-normal last:border-b-0"
+                    : "h-9 rounded-lg px-2 text-xs font-medium",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60",
-                  selected ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                  selected
+                    ? breadcrumb
+                      ? "bg-blue-50/70 text-blue-600"
+                      : "bg-blue-50 text-blue-700"
+                    : breadcrumb
+                      ? "text-slate-500 hover:bg-slate-50/90 hover:text-slate-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
                 onClick={() => {
                   onChange(option.value);
@@ -336,7 +357,12 @@ export function MenuSelect<T extends string>({
                     <OptionIcon size={14} strokeWidth={1.8} />
                   </span>
                 ) : null}
-                <span className="flex-1 truncate">{option.label}</span>
+                <span className={cx(
+                  "flex-1 truncate",
+                  breadcrumb && "text-[11px] font-normal leading-4",
+                )}>
+                  {option.label}
+                </span>
                 <Check size={14} strokeWidth={2.2} className={cx("text-blue-600", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
               </button>
             );

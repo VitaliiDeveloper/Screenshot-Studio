@@ -63,6 +63,7 @@ export function CanvasViewport({
   const project = useStore(editorStore, (state) => state.project);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const lastFitLayoutRef = useRef<string | null>(null);
   const zoomRef = useRef(zoom);
   const panRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
@@ -103,6 +104,17 @@ export function CanvasViewport({
   }, [connectedOverview, outputRows, screens, view]);
   const contentWidth = contentBounds.width;
   const contentHeight = contentBounds.height;
+  const fitLayoutKey = useMemo(() => JSON.stringify({
+    view,
+    connectedOverview,
+    leftInset,
+    rightInset,
+    rows: outputRows.map((row) => row.screens.map((screen) => [
+      screen.id,
+      screen.artboard.width,
+      screen.artboard.height,
+    ])),
+  }), [connectedOverview, leftInset, outputRows, rightInset, view]);
 
   const zoomAt = useCallback((nextValue: number, clientX?: number, clientY?: number) => {
     const viewport = viewportRef.current;
@@ -237,9 +249,43 @@ export function CanvasViewport({
   };
 
   useEffect(() => {
+    if (lastFitLayoutRef.current === fitLayoutKey) return;
+    lastFitLayoutRef.current = fitLayoutKey;
     const id = requestAnimationFrame(fit);
     return () => cancelAnimationFrame(id);
-  }, [fit, view]);
+  }, [fit, fitLayoutKey]);
+
+  useEffect(() => {
+    if (view !== "overview" || !activeScreenId) return;
+    const id = requestAnimationFrame(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      const target = Array.from(
+        viewport.querySelectorAll<HTMLElement>("[data-artboard-screen-id]"),
+      ).find((element) => element.dataset.artboardScreenId === activeScreenId);
+      if (!target) return;
+
+      const viewportRect = viewport.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const visibleLeft = viewportRect.left + leftInset;
+      const visibleRight = viewportRect.right - rightInset;
+      const fullyVisible = targetRect.left >= visibleLeft
+        && targetRect.right <= visibleRight
+        && targetRect.top >= viewportRect.top
+        && targetRect.bottom <= viewportRect.bottom;
+      if (fullyVisible) return;
+
+      const visibleWidth = Math.max(1, viewport.clientWidth - leftInset - rightInset);
+      const targetCenterX = viewport.scrollLeft + targetRect.left - viewportRect.left + targetRect.width / 2;
+      const targetCenterY = viewport.scrollTop + targetRect.top - viewportRect.top + targetRect.height / 2;
+      viewport.scrollTo({
+        left: targetCenterX - leftInset - visibleWidth / 2,
+        top: targetCenterY - viewport.clientHeight / 2,
+        behavior: "smooth",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [activeScreenId, leftInset, rightInset, view]);
 
   if (!project || screens.length === 0) {
     return <section className="min-w-0 flex-1 bg-slate-50" />;
@@ -253,6 +299,7 @@ export function CanvasViewport({
       <div
         key={screen.id}
         data-testid="artboard-preview-item"
+        data-artboard-screen-id={screen.id}
         className="min-w-0 shrink-0"
         style={{ width: previewWidth }}
       >

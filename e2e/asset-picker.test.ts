@@ -44,7 +44,7 @@ describe("Project asset picker", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
 
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "Screenshot", exact: true }).click();
     const screenshotDialog = page.getByRole("dialog", { name: "Screenshot asset picker" });
     await screenshotDialog.waitFor({ state: "visible" });

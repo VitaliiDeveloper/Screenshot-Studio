@@ -120,7 +120,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
 
   return (
     <section className="pb-3">
-      <header className="px-4 py-3">
+      <header className="px-3 py-3">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
             Layers
@@ -154,7 +154,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 id={el.id}
                 role="listitem"
                 className={cx(
-                  "relative mx-2 pr-1",
+                  "relative pr-1",
                   selected ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
                 )}
               >

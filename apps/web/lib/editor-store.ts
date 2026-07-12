@@ -195,6 +195,7 @@ export interface EditorState {
   reorderScreens: (fromId: string, toId: string) => void;
   setCanvasMode: (mode: CanvasMode) => void;
   addScreen: () => void;
+  addBlankScreen: () => void;
   removeScreen: (id: string) => void;
   ensureStoreOutputFamily: (platform: string, device: string, leadTarget: StoreSize) => void;
   ensureStoreTargetVariant: (target: StoreSize) => void;
@@ -531,6 +532,32 @@ export const editorStore = createStore<EditorState>((set) => ({
       });
       return recordProjectChange(state, project, null, {
         activeScreenId: copy.id,
+        selectedItems: [],
+      });
+    }),
+  addBlankScreen: () =>
+    set((state) => {
+      if (!state.project) return state;
+      const active =
+        state.project.screens.find((screen) => screen.id === state.activeScreenId) ??
+        state.project.screens[0];
+      if (!active) return state;
+      const source = active.variantOf
+        ? state.project.screens.find((screen) => screen.id === active.variantOf) ?? active
+        : active;
+      const cloned = structuredClone(source);
+      const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...added } = {
+        ...cloned,
+        id: crypto.randomUUID(),
+        name: "Untitled",
+        elements: [],
+      };
+      const project = recomputeManifests({
+        ...state.project,
+        screens: [...state.project.screens, added],
+      });
+      return recordProjectChange(state, project, null, {
+        activeScreenId: added.id,
         selectedItems: [],
       });
     }),

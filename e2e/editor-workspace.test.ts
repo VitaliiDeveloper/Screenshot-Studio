@@ -156,15 +156,38 @@ describe("Phase 3.6 editor workspace", () => {
     const outputFamily = page.getByRole("button", { name: "Output family for en", exact: true });
     await expect.poll(() => outputFamily.count()).toBe(1);
     expect(await outputFamily.textContent()).toContain("App Store / iPad · 3 screens");
+    const outputFamilySurface = await outputFamily.evaluate((element) => {
+      const triggerStyle = getComputedStyle(element);
+      const surfaceStyle = getComputedStyle(element.parentElement?.parentElement ?? element);
+      return {
+        triggerBackground: triggerStyle.backgroundColor,
+        triggerFontSize: getComputedStyle(element.querySelector("span") ?? element).fontSize,
+        surfaceBackground: surfaceStyle.backgroundColor,
+        paddingTop: surfaceStyle.paddingTop,
+        paddingBottom: surfaceStyle.paddingBottom,
+      };
+    });
+    expect(outputFamilySurface.triggerBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(outputFamilySurface.triggerFontSize).toBe("11px");
+    expect(outputFamilySurface.surfaceBackground).not.toBe("rgba(0, 0, 0, 0)");
+    expect(outputFamilySurface.paddingTop).toBe(outputFamilySurface.paddingBottom);
 
     await outputFamily.click();
     const outputOptions = page.getByRole("menu", { name: "Output family options for en", exact: true });
     await expect.poll(() => outputOptions.getByRole("menuitemradio").count()).toBe(2);
+    expect(await outputOptions.evaluate((element) => getComputedStyle(element).animationName)).toBe("menu-select-in");
+    expect(await outputOptions.getByRole("menuitemradio").first().evaluate((element) => element.getBoundingClientRect().height))
+      .toBeGreaterThanOrEqual(40);
+    expect(await outputOptions.getByRole("menuitemradio").first().evaluate((element) =>
+      getComputedStyle(element.querySelector("span") ?? element).fontSize,
+    )).toBe("11px");
     expect(await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true })
       .getAttribute("aria-checked")).toBe("true");
 
     const ipadScreens = page.getByRole("list", { name: "Screens for en · App Store · iPad", exact: true });
     await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
+    expect(await ipadScreens.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+    expect(await ipadScreens.evaluate((element) => getComputedStyle(element).maxHeight)).toBe("256px");
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
     await outputOptions.getByRole("menuitemradio", { name: "App Store · iPhone · 3", exact: true }).click();
@@ -305,7 +328,7 @@ describe("Phase 3.6 editor workspace", () => {
     await expect.poll(() => page.getByTestId("overview-artboards").locator("canvas").count()).toBe(baseScreenCount + 2);
 
     // The creation catalog inserts schema-valid elements through the existing persistence path.
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     const activeIndex = project().screens.length - 1;
     const activeBefore = project().screens[activeIndex]!.elements.length;
     await page.getByRole("button", { name: "+ Shape" }).click();

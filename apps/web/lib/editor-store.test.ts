@@ -121,6 +121,22 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().activeScreenId).toBe(added.id);
   });
 
+  it("addBlankScreen keeps the active output settings without copying layers", () => {
+    editorStore.getState().addBlankScreen();
+    const screens = editorStore.getState().project!.screens;
+    const added = screens[screens.length - 1]!;
+    expect(added).toMatchObject({
+      name: "Untitled",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      artboard: { width: 660, height: 1434 },
+      elements: [],
+    });
+    expect(added.id).not.toBe("hero");
+    expect(editorStore.getState().activeScreenId).toBe(added.id);
+  });
+
   it("creates, reopens, and removes an independent target variant", () => {
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",

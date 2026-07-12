@@ -64,7 +64,7 @@ describe("representative cross-browser editor smoke", () => {
 
         const priorCount = secondScreen.elements.length;
         const priorShapeCount = secondScreen.elements.filter((element) => element.type === "shape").length;
-        await page.getByRole("button", { name: "Add panel", exact: true }).click();
+        await page.getByRole("button", { name: "Add element", exact: true }).click();
         await page.getByRole("button", { name: "+ Shape", exact: true }).click();
         await expect.poll(async () => {
           const current = JSON.parse(await readFile(projectPath, "utf8")) as ProjectFile;

@@ -92,7 +92,7 @@ describe("inspector + toolbar", () => {
     await page.waitForSelector("canvas");
 
     const before = elements().length;
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "+ Shape" }).click();
 
     // The inserted shape is appended AND selected, so the inspector shows its Transform section.

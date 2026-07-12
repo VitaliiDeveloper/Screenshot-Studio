@@ -234,7 +234,8 @@ export default function EditorPage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.key !== "Escape" || dialog || localeDialogOpen) return;
-      if (panel) setPanel(null);
+      if (panel === "add") setPanel("structure");
+      else if (panel) setPanel(null);
       else if (layout.overlay && inspectorOpen) setInspectorOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -271,7 +272,7 @@ export default function EditorPage() {
           <LeftPanel
             panel={panel}
             images={images}
-            onClose={() => setPanel(null)}
+            onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
           />

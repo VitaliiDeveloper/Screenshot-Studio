@@ -142,7 +142,7 @@ describe("Phase 4 locale workspace", () => {
     expect(localeScreens("en")[0]!.elements.find((element) => element.name === "Hero headline")?.content).toBe("Ship it");
 
     const activeBeforeInsert = localeScreens("ar")[0]!.elements.length;
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "+ Text", exact: true }).click();
     await expect.poll(() => localeScreens("ar")[0]!.elements.length, { timeout: 10_000 }).toBe(activeBeforeInsert + 1);
     expect(localeScreens("ar")[0]!.elements.at(-1)).toMatchObject({ type: "text", align: "right" });

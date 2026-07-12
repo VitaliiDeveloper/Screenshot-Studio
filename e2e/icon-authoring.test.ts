@@ -48,7 +48,7 @@ describe("Phase 7 icon authoring", () => {
   it("inserts a trusted icon, edits its literals, and reloads persisted state", async () => {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "Icon", exact: true }).click();
     await expect.poll(() => elements().length).toBe(1);
     expect(elements()[0]).toMatchObject({
