@@ -30,9 +30,16 @@ describe("marquee selection model", () => {
     expect(marqueeHasMoved({ x: 0, y: 0 }, { x: 1.6, y: 0 }, 2)).toBe(true);
   });
 
-  it("converts stage pointers to connected document coordinates", () => {
+  it("keeps pointer coordinates in stage space when a crop offset exists", () => {
     const stage = { getPointerPosition: () => ({ x: 25, y: 40 }), scaleX: () => 0.5 };
-    expect(stagePointerPosition(stage as never, -100)).toEqual({ x: 150, y: 80 });
+    expect(stagePointerPosition(stage as never)).toEqual({ x: 50, y: 80 });
+    expect(resolveMarqueeSelection({
+      bounds: marqueeBounds({ x: 5, y: 5 }, { x: 35, y: 40 }),
+      projections: [{ screen: screen("second", [shape("second-shape", 10)]), x: 100, y: 0 }],
+      baseX: -100,
+      initial: [],
+      toggle: false,
+    })).toEqual([{ screenId: "second", elementId: "second-shape" }]);
   });
 
   it("resolves visible owner-aware hits and modifier toggles", () => {

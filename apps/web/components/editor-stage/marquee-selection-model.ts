@@ -16,13 +16,10 @@ export interface Rect {
   maxY: number;
 }
 
-export function stagePointerPosition(
-  stage: Konva.Stage,
-  baseX: number,
-): ClientPoint | null {
+export function stagePointerPosition(stage: Konva.Stage): ClientPoint | null {
   const point = stage.getPointerPosition();
   const zoom = stage.scaleX();
-  return point ? { x: point.x / zoom - baseX, y: point.y / zoom } : null;
+  return point ? { x: point.x / zoom, y: point.y / zoom } : null;
 }
 
 export function marqueeBounds(start: ClientPoint, current: ClientPoint): Rect {
