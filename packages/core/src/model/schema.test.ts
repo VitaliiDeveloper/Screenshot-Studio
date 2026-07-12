@@ -123,6 +123,51 @@ describe("Project validation issue contracts", () => {
 
     expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual(expected);
   });
+
+  it("preserves issue order across project validators", () => {
+    const project = validProject();
+    project.platforms = ["apple", "apple"];
+    project.locales = ["en", "en"];
+    project.screens.push({
+      ...structuredClone(project.screens[0]!),
+      id: "s2",
+      variantOf: "s1",
+      direction: "rtl",
+    } as never);
+    project.screens[0]!.elements.push({
+      ...structuredClone(project.screens[0]!.elements[0]!),
+      id: "t1",
+    });
+    setRawFonts(project, [
+      { family: "Inter", source: "uploaded", path: "assets/fonts/inter-a.ttf", weight: 400 },
+      { family: "Inter", source: "google", path: "assets/fonts/inter-b.ttf", weight: 400 },
+    ]);
+
+    const result = Project.safeParse(project);
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected project validation to fail");
+
+    expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual([
+      { message: "platforms must not contain duplicates", path: ["platforms"] },
+      { message: "locales must not contain duplicates", path: ["locales"] },
+      {
+        message: "variantOf and storeTargetId must be present together",
+        path: ["screens", 1],
+      },
+      {
+        message: 'all screens in locale "en" must use direction "ltr"',
+        path: ["screens", 1, "direction"],
+      },
+      {
+        message: 'duplicate element id within screen: "t1"',
+        path: ["screens", 0, "elements", 1, "id"],
+      },
+      {
+        message: 'duplicate font family and weight: "Inter" 400',
+        path: ["fonts", 1],
+      },
+    ]);
+  });
 });
 
 describe("parseProject", () => {
