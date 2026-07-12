@@ -313,6 +313,58 @@ describe("Phase 3.6 editor workspace", () => {
     await page.close();
   });
 
+  it("transitions between fitted Focus and Overview without a stale zoom frame", async () => {
+    const page = await browser.newPage({ viewport: { width: 651, height: 998 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const viewport = page.getByTestId("canvas-viewport");
+    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("running");
+    const revealCleanupMinimumOpacity = viewport.evaluate(async (element) => {
+      const content = element.querySelector<HTMLElement>('[data-testid="overview-artboards"]');
+      if (!content) return 0;
+      let reachedFinalOpacity = false;
+      let minimumOpacity = 1;
+      let settledFrames = 0;
+      while (settledFrames < 2) {
+        await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+        const opacity = Number.parseFloat(getComputedStyle(content).opacity);
+        if (opacity >= 0.99) reachedFinalOpacity = true;
+        if (reachedFinalOpacity) minimumOpacity = Math.min(minimumOpacity, opacity);
+        settledFrames = element.getAttribute("data-initial-reveal") === "idle"
+          ? settledFrames + 1
+          : 0;
+      }
+      return minimumOpacity;
+    });
+    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("idle");
+    expect(await revealCleanupMinimumOpacity).toBeGreaterThanOrEqual(0.99);
+    const expectSettledView = async (expectedView: "focus" | "overview") => {
+      await expect.poll(() => viewport.getAttribute("data-view")).toBe(expectedView);
+      await expect.poll(() => viewport.getAttribute("data-fitted-view")).toBe(expectedView);
+      await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
+    };
+
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("running");
+    expect(await viewport.getAttribute("data-fitted-view")).toBe("focus");
+    await expect.poll(() => viewport.evaluate((element) => {
+      const content = element.querySelector('[data-testid="focus-artboard"]');
+      return content?.getAnimations()[0]?.effect?.getTiming().duration ?? null;
+    })).toBe(320);
+    await expectSettledView("focus");
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await expectSettledView("focus");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    expect(await viewport.getAttribute("data-view-transition")).toBe("idle");
+    await expectSettledView("overview");
+    await page.close();
+  });
+
   it("supports overview, extensible add, canvas patterns, zoom, and hand pan", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
