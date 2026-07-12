@@ -138,8 +138,10 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 - **No selection** → active **artboard** properties: a read-only exact lead master size by default,
   explicit output-set-wide atomic custom-size/reset actions, independent exact-size variants, and background:
   `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
-  fit and fallback/letterbox colour remain explicit. Background colours may include alpha; final
-  store export flattens the composed PNG to an opaque output. Background editing lives here, not in the toolbar.
+  fit and fallback/letterbox colour remain explicit. Project JSON may contain schema-valid
+  eight-digit colours with alpha, while the current native `<input type="color">` picker authors
+  six-digit opaque colours and provides no alpha editing. Final store export flattens the composed
+  PNG to an opaque output. Background editing lives here, not in the toolbar.
 - **`text`** → theme role (`none | heading | body | accent | surface`), content,
   registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;
