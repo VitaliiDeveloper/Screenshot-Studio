@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useStore } from "zustand";
-import { createShapeElement, createTextElement, parseProject } from "@screenshot-studio/core/model";
-import { registerProjectFonts } from "@screenshot-studio/core/fonts";
-import { collectImageUrls, loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
-import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type {
   CanvasPattern,
   ResourceDialog,
@@ -25,8 +21,9 @@ import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
 import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
 import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
 import { AssetPickerDialog } from "../../components/AssetPickerDialog";
-import { mutateAndSave } from "../../lib/mutate-and-save";
 import { flushScheduledSave } from "../../lib/debounced-save";
+import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
+import { useEditorResources } from "./editor-resources";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
@@ -34,14 +31,11 @@ const DynamicCanvasViewport = dynamic(
   { ssr: false },
 );
 
-const resolveAsset = (assetUrl: string) => `/api/asset?path=${encodeURIComponent(assetUrl)}`;
 const SIDE_PANEL_WIDTH = 288;
 const NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID = "screenshot-studio-next-devtools-alignment";
 
 export default function EditorPage() {
-  const [error, setError] = useState<string | null>(null);
-  const [images, setImages] = useState<ImageCache | null>(null);
-  const [specs, setSpecs] = useState<StoreSpecs | null>(null);
+  const { error, images, specs } = useEditorResources();
   const [zoom, setZoom] = useState(0.5);
   const [view, setView] = useState<WorkspaceView>("overview");
   const [tool, setTool] = useState<WorkspaceTool>("select");
@@ -51,9 +45,6 @@ export default function EditorPage() {
   const [dialog, setDialog] = useState<ResourceDialog | null>(null);
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
-  const assetSignature = useStore(editorStore, (state) =>
-    state.project ? collectImageUrls(state.project).sort().join("\n") : "",
-  );
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
 
@@ -116,131 +107,23 @@ export default function EditorPage() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/project");
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.error ?? "Failed to load project");
-        const project = parseProject(body);
-        const [, cache] = await Promise.all([
-          registerProjectFonts(project.fonts, resolveAsset), // fonts + images before first paint (parity)
-          loadProjectImages(project, resolveAsset),
-        ]);
-        editorStore.getState().load(project);
-        setImages(cache);
-        const specsRes = await fetch("/api/store-specs");
-        if (specsRes.ok) setSpecs(await specsRes.json());
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!images || !assetSignature) return;
-    const project = editorStore.getState().project;
-    if (!project) return;
-    const missing = collectImageUrls(project).filter((assetUrl) => !images.has(assetUrl));
-    if (missing.length === 0) return;
-    let cancelled = false;
-    void loadProjectImages(project, resolveAsset).then((loaded) => {
-      if (cancelled) return;
-      setImages((current) => {
-        if (!current) return loaded;
-        const next = new Map(current);
-        let changed = false;
-        for (const assetUrl of missing) {
-          const image = loaded.get(assetUrl);
-          if (image) {
-            next.set(assetUrl, image);
-            changed = true;
-          }
-        }
-        return changed ? next : current;
-      });
-    });
-    return () => { cancelled = true; };
-  }, [assetSignature, images]);
-
-  useEffect(() => {
     const onPageHide = () => { void flushScheduledSave().catch(() => undefined); };
     window.addEventListener("pagehide", onPageHide);
     return () => window.removeEventListener("pagehide", onPageHide);
   }, []);
 
-  useEffect(() => {
-    const isInteractive = (target: EventTarget | null) => {
-      if (!(target instanceof Element)) return false;
-      return Boolean(target.closest("input, textarea, select, button, a, [role='dialog'], [contenteditable='true']"));
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || isInteractive(event.target) || document.querySelector("[role='dialog'][aria-modal='true']")) return;
-      const key = event.key.toLowerCase();
-      const modifier = event.metaKey || event.ctrlKey;
-      if (modifier && key === "z") {
-        const state = editorStore.getState();
-        const redo = event.shiftKey;
-        if (redo ? state.historyFuture.length === 0 : state.historyPast.length === 0) return;
-        event.preventDefault();
-        mutateAndSave(() => redo ? editorStore.getState().redo() : editorStore.getState().undo());
-        return;
-      }
-      if (event.ctrlKey && key === "y") {
-        if (editorStore.getState().historyFuture.length === 0) return;
-        event.preventDefault();
-        mutateAndSave(() => editorStore.getState().redo());
-        return;
-      }
-      if (modifier && key === "g") {
-        event.preventDefault();
-        mutateAndSave(() => event.shiftKey
-          ? editorStore.getState().ungroupSelected()
-          : editorStore.getState().groupSelected());
-        return;
-      }
-      if (modifier && key === "d") {
-        if (editorStore.getState().selectedItems.length === 0) return;
-        event.preventDefault();
-        mutateAndSave(() => editorStore.getState().duplicateSelected());
-        return;
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key === "/") {
-        event.preventDefault();
-        setDialog("templates");
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === "Delete" || event.key === "Backspace") {
-        if (editorStore.getState().selectedItems.length === 0) return;
-        event.preventDefault();
-        mutateAndSave(() => editorStore.getState().removeSelected());
-      } else if (key === "t") {
-        event.preventDefault();
-        const state = editorStore.getState();
-        const font = state.project?.fonts[0];
-        const direction = state.project?.screens
-          .find((screen) => screen.id === state.activeScreenId)?.direction;
-        if (!font) setDialog("fonts");
-        else mutateAndSave(() => editorStore.getState().addElement(createTextElement({ font, direction })));
-      } else if (key === "r") {
-        event.preventDefault();
-        mutateAndSave(() => editorStore.getState().addElement(createShapeElement()));
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== "Escape" || dialog || localeDialogOpen) return;
-      if (panel === "add") setPanel("structure");
-      else if (panel) setPanel(null);
-      else if (layout.overlay && inspectorOpen) setInspectorOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dialog, inspectorOpen, layout.overlay, localeDialogOpen, panel]);
+  const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
+  const closeInspector = useCallback(() => setInspectorOpen(false), []);
+  useEditorKeyboardRouting(openDialog);
+  useEditorEscapeRouting({
+    dialog,
+    localeDialogOpen,
+    panel,
+    overlay: layout.overlay,
+    inspectorOpen,
+    setPanel,
+    closeInspector,
+  });
 
   if (error) return <main className="grid h-dvh place-items-center whitespace-pre-wrap p-6 text-sm text-red-600">{error}</main>;
   if (!images) return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;

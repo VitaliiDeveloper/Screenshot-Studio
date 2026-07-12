@@ -1,29 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type Key } from "react";
+import { useRef, useState, type CSSProperties, type Key } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import {
   assertNever,
-  projectScreenGroup,
   rotatedElementBounds,
   type Element,
-  type Screen,
 } from "@screenshot-studio/core/model";
 import { backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
-import {
-  boundsIntersect,
-  isSelected,
-  primarySelection,
-  toggleSelection,
-  type SelectionRef,
-} from "../lib/editor-selection";
+import { boundsIntersect, isSelected, toggleSelection, type SelectionRef } from "../lib/editor-selection";
 import { snapElementDrag, type SnapGuide } from "../lib/editor-snapping";
 import { mutateAndSave } from "../lib/mutate-and-save";
+import { deriveStageModel, type StageEditingText } from "./editor-stage/stage-model";
+import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
 
 /**
  * Interactive canvas over the same elementToNodeConfig map used by export. Isolated mode renders
@@ -54,27 +48,11 @@ function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, 
   }
 }
 
-function nodeSelectionKey(screenId: string, elementId: string): string {
-  return `${screenId}\u0000${elementId}`;
-}
-
 interface MarqueeState {
   start: { x: number; y: number };
   current: { x: number; y: number };
   initial: SelectionRef[];
   toggle: boolean;
-}
-
-interface EditingText {
-  screenId: string;
-  id: string;
-  value: string;
-}
-
-interface StageProjection {
-  screen: Screen;
-  x: number;
-  y: number;
 }
 
 export function EditorStage({
@@ -94,9 +72,6 @@ export function EditorStage({
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const requestedScreenId = screenId ?? activeScreenId;
-  const requestedScreen = requestedScreenId
-    ? project?.screens.find((candidate) => candidate.id === requestedScreenId)
-    : undefined;
 
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
@@ -104,64 +79,38 @@ export function EditorStage({
   const verticalGuideRef = useRef<Konva.Line>(null);
   const horizontalGuideRef = useRef<Konva.Line>(null);
   const marqueeMovedRef = useRef(false);
-  const [editing, setEditing] = useState<EditingText | null>(null);
+  const [editing, setEditing] = useState<StageEditingText | null>(null);
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const endingEditRef = useRef(false);
 
-  let projections: StageProjection[] = [];
-  let baseX = 0;
-  let stageWidth = requestedScreen?.artboard.width ?? 0;
-  let stageHeight = requestedScreen?.artboard.height ?? 0;
-  if (project && requestedScreen) {
-    if (project.mode === "connected") {
-      projections = projectScreenGroup(project, requestedScreen.id);
-      const target = projections.find((entry) => entry.screen.id === requestedScreen.id)!;
-      if (connectedOverview) {
-        const last = projections.at(-1)!;
-        stageWidth = last.x + last.screen.artboard.width;
-        stageHeight = Math.max(...projections.map((entry) => entry.screen.artboard.height));
-      } else {
-        baseX = -target.x;
-      }
-    } else {
-      projections = [{ screen: requestedScreen, x: 0, y: 0 }];
-    }
-  }
+  const {
+    requestedScreen,
+    projections,
+    baseX,
+    stageWidth,
+    stageHeight,
+    canEdit,
+    selectedElement,
+    editingProjection,
+    editingElement,
+  } = deriveStageModel({
+    project,
+    requestedScreenId,
+    activeScreenId,
+    selectedItems,
+    editing,
+    interactive,
+    connectedOverview,
+  });
 
-  const canEdit = Boolean(
-    project
-    && requestedScreen
-    && interactive
-    && (project.mode === "connected" ? connectedOverview : requestedScreen.id === activeScreenId),
-  );
-  const primary = primarySelection(selectedItems);
-  const selectedProjection = primary
-    ? projections.find((entry) => entry.screen.id === primary.screenId)
-    : undefined;
-  const selectedElement = canEdit && primary && selectedProjection
-    ? selectedProjection.screen.elements.find((element) => element.id === primary.elementId)
-    : undefined;
-  const editingProjection = editing
-    ? projections.find((entry) => entry.screen.id === editing.screenId)
-    : undefined;
-  const editingElement = editing && canEdit
-    ? editingProjection?.screen.elements.find(
-      (element) => element.id === editing.id && element.type === "text",
-    )
-    : undefined;
-
-  useEffect(() => {
-    const transformer = trRef.current;
-    if (!transformer) return;
-    const nodes = canEdit && !editingElement
-      ? selectedItems
-        .map((selection) => nodeRefs.current.get(nodeSelectionKey(selection.screenId, selection.elementId)))
-        .filter((node): node is Konva.Node => Boolean(node))
-      : [];
-    transformer.nodes(nodes);
-    transformer.forceUpdate();
-    transformer.getLayer()?.batchDraw();
-  }, [canEdit, editingElement, project, selectedItems]);
+  useTransformerSelection({
+    transformerRef: trRef,
+    nodeRefs,
+    canEdit,
+    editingText: Boolean(editingElement),
+    project,
+    selectedItems,
+  });
 
   if (!project || !requestedScreen || projections.length === 0) return null;
 
