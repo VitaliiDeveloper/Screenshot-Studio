@@ -2,19 +2,28 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { Screen } from "@screenshot-studio/core/model";
 import {
+  ARTBOARD_LABEL_HEIGHT,
   CANVAS_PADDING,
+  clampZoom,
+  fitArtboardRowsZoom,
+  fitArtboardsZoom,
   groupScreensByOutput,
+  OVERVIEW_GAP,
+  OVERVIEW_ROW_GAP,
+  OUTPUT_FAMILY_LABEL_HEIGHT,
   workspaceScreenScope,
   type CanvasPattern,
   type WorkspaceTool,
@@ -22,9 +31,6 @@ import {
 } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
-import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
-import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
-import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
 import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
@@ -67,9 +73,16 @@ export function CanvasViewport({
   const transitionRef = useRef<Animation | null>(null);
   const transitionFrameRef = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
+  const panRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const [spacePressed, setSpacePressed] = useState(false);
+  const [panning, setPanning] = useState(false);
   const [fittedView, setFittedView] = useState<WorkspaceView>(view);
   const [initialReveal, setInitialReveal] = useState<"pending" | "running" | "idle">("pending");
   const [transitioning, setTransitioning] = useState(false);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
   const screens = useMemo(
@@ -82,26 +95,102 @@ export function CanvasViewport({
   );
   const connectedOverview = project?.mode === "connected" && view === "overview";
   const outputRows = useMemo(() => groupScreensByOutput(screens), [screens]);
-  const { contentWidth, contentHeight, fitLayoutKey, fit } = useCanvasViewportMetrics({
-    viewportRef,
-    zoomRef,
-    screens,
-    outputRows,
+
+  const contentBounds = useMemo(() => {
+    if (screens.length === 0) return { width: 1, height: 1 };
+    if (view === "overview" && !connectedOverview && outputRows.length > 1) {
+      return {
+        width: Math.max(...outputRows.map((row) =>
+          row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0),
+        )),
+        height: outputRows.reduce((sum, row) =>
+          sum + Math.max(...row.screens.map((screen) => screen.artboard.height)),
+        0),
+      };
+    }
+    return {
+      width: screens.reduce((sum, screen) => sum + screen.artboard.width, 0),
+      height: Math.max(...screens.map((screen) => screen.artboard.height)),
+    };
+  }, [connectedOverview, outputRows, screens, view]);
+  const contentWidth = contentBounds.width;
+  const contentHeight = contentBounds.height;
+  const fitLayoutKey = useMemo(() => JSON.stringify({
     view,
     connectedOverview,
     leftInset,
     rightInset,
-    onZoomChange,
-  });
-  const { spacePressed, panning, zoomAt, pointerHandlers } = useCanvasPanZoom({
-    viewportRef,
-    zoomRef,
-    zoom,
-    tool,
-    leftInset,
-    rightInset,
-    onZoomChange,
-  });
+    rows: outputRows.map((row) => row.screens.map((screen) => [
+      screen.id,
+      screen.artboard.width,
+      screen.artboard.height,
+    ])),
+  }), [connectedOverview, leftInset, outputRows, rightInset, view]);
+
+  const zoomAt = useCallback((nextValue: number, clientX?: number, clientY?: number) => {
+    const viewport = viewportRef.current;
+    const previous = zoomRef.current;
+    const next = clampZoom(nextValue);
+    if (!viewport || next === previous) return;
+
+    const rect = viewport.getBoundingClientRect();
+    const visibleWidth = Math.max(1, viewport.clientWidth - leftInset - rightInset);
+    const localX = clientX === undefined ? leftInset + visibleWidth / 2 : clientX - rect.left;
+    const localY = clientY === undefined ? viewport.clientHeight / 2 : clientY - rect.top;
+    const anchorX = viewport.scrollLeft + localX;
+    const anchorY = viewport.scrollTop + localY;
+    const ratio = next / previous;
+
+    zoomRef.current = next;
+    onZoomChange(next);
+    requestAnimationFrame(() => {
+      viewport.scrollLeft = anchorX * ratio - localX;
+      viewport.scrollTop = anchorY * ratio - localY;
+    });
+  }, [leftInset, onZoomChange, rightInset]);
+
+  const fit = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const viewportSize = {
+      width: Math.max(1, viewport.clientWidth - leftInset - rightInset),
+      height: viewport.clientHeight,
+    };
+    if (view === "overview" && !connectedOverview && outputRows.length > 1) {
+      const next = fitArtboardRowsZoom(
+        viewportSize,
+        outputRows.map((row) => row.screens.map((screen) => screen.artboard)),
+        {
+          columnGap: OVERVIEW_GAP,
+          rowGap: OVERVIEW_ROW_GAP,
+          padding: CANVAS_PADDING,
+          labelHeight: ARTBOARD_LABEL_HEIGHT + OUTPUT_FAMILY_LABEL_HEIGHT,
+        },
+      );
+      zoomRef.current = next;
+      onZoomChange(next);
+      requestAnimationFrame(() => viewport.scrollTo({ left: 0, top: 0 }));
+      return;
+    }
+    const count = screens.length;
+    const next = fitArtboardsZoom(
+      viewportSize,
+      Array.from({ length: count }, (_, index) => ({
+        width: index === 0 ? contentWidth : 0,
+        height: contentHeight,
+      })),
+      {
+        gap: view === "overview" && !connectedOverview ? OVERVIEW_GAP : 0,
+        padding: CANVAS_PADDING,
+        labelHeight: ARTBOARD_LABEL_HEIGHT,
+      },
+    );
+    zoomRef.current = next;
+    onZoomChange(next);
+    requestAnimationFrame(() => {
+      viewport.scrollTo({ left: 0, top: 0 });
+    });
+  }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, outputRows, rightInset, screens.length, view]);
 
   useLayoutEffect(() => {
     if (initialRevealStartedRef.current) return;
@@ -199,6 +288,73 @@ export function CanvasViewport({
     if (initialRevealFrameRef.current !== null) cancelAnimationFrame(initialRevealFrameRef.current);
     if (transitionFrameRef.current !== null) cancelAnimationFrame(transitionFrameRef.current);
   }, []);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      zoomAt(zoomRef.current * Math.exp(-event.deltaY * 0.002), event.clientX, event.clientY);
+    };
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, [zoomAt]);
+
+  useEffect(() => {
+    const isInteractive = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false;
+      return Boolean(target.closest(
+        "button, a, input, textarea, select, summary, [role='button'], [role='menuitem'], [contenteditable='true']",
+      ));
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || isInteractive(event.target)) return;
+      event.preventDefault();
+      setSpacePressed(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") setSpacePressed(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
+  const beginPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current;
+    if (!viewport || (tool !== "hand" && !spacePressed)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    viewport.setPointerCapture(event.pointerId);
+    panRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    };
+    setPanning(true);
+  };
+
+  const continuePan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current;
+    const pan = panRef.current;
+    if (!viewport || !pan || pan.pointerId !== event.pointerId) return;
+    viewport.scrollLeft = pan.left - (event.clientX - pan.x);
+    viewport.scrollTop = pan.top - (event.clientY - pan.y);
+  };
+
+  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current;
+    if (panRef.current?.pointerId !== event.pointerId) return;
+    panRef.current = null;
+    setPanning(false);
+    if (viewport?.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+  };
 
   useEffect(() => {
     if (lastFitLayoutRef.current === fitLayoutKey) return;
@@ -312,18 +468,22 @@ export function CanvasViewport({
 
   return (
     <section className="relative min-w-0 flex-1 overflow-hidden bg-slate-50" aria-label="Canvas workspace">
-      <CanvasSurface
-        viewportRef={viewportRef}
-        pattern={pattern}
-        contentWidth={contentWidth}
-        contentHeight={contentHeight}
-        pointerHandlers={pointerHandlers}
-        view={view}
-        fittedView={fittedView}
-        initialReveal={initialReveal}
-        transitioning={transitioning}
-        panning={panning}
-        canPan={tool === "hand" || spacePressed}
+      <div
+        ref={viewportRef}
+        data-view={view}
+        data-fitted-view={fittedView}
+        data-initial-reveal={initialReveal}
+        data-view-transition={transitioning ? "running" : "idle"}
+        data-pattern={pattern}
+        data-testid="canvas-viewport"
+        className={cx(
+          "workspace-canvas absolute inset-0 overflow-auto overscroll-contain",
+          panning ? "cursor-grabbing select-none" : tool === "hand" || spacePressed ? "cursor-grab" : "cursor-default",
+        )}
+        onPointerDownCapture={beginPan}
+        onPointerMove={continuePan}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
       >
         <div
           className="flex min-h-full w-max min-w-full py-20"
@@ -391,7 +551,7 @@ export function CanvasViewport({
             )}
           </div>
         </div>
-      </CanvasSurface>
+      </div>
 
       {!controlsHidden ? (
         <div className="absolute top-3 z-30" style={{ right: rightInset + 12 }}>
