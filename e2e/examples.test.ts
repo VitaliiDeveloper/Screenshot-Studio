@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseProjectJson } from "../packages/core/src/model/index.js";
+import { parseProjectJson, SCHEMA_VERSION, elementLeaves } from "../packages/core/src/model/index.js";
 import { inspectPng } from "../packages/core/src/export/index.js";
 import { exportScreenToPng, resolveTarget } from "../packages/cli/src/export.js";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
@@ -47,14 +47,23 @@ afterAll(async () => {
   await server?.stop();
 });
 
-describe("Phase 7 living examples", () => {
+describe("Phase 9 living examples", () => {
   for (const example of examples) {
     it(`validates and exports ${example.name}`, async () => {
       const source = await readFile(example.projectPath, "utf8");
-      expect(JSON.parse(source).meta.schemaVersion).toBe(5);
+      expect(JSON.parse(source).meta.schemaVersion).toBe(SCHEMA_VERSION);
       const project = parseProjectJson(source);
       const elementTypes = collectElementTypes(project.screens.flatMap(({ elements }) => elements));
       expect([...example.elementTypes].every((type) => elementTypes.has(type))).toBe(true);
+      const leaves = project.screens.flatMap(({ elements }) => elements.flatMap(elementLeaves));
+      expect(project.screens.some(({ background }) => background.type === "linear-gradient")).toBe(true);
+      expect(leaves.some((leaf) => leaf.type === "text" && leaf.shadow)).toBe(true);
+      expect(leaves.some((leaf) => leaf.type === "shape" && leaf.kind === "ellipse" && leaf.gradient)).toBe(true);
+      if (example.name === "connected launch") {
+        expect(project.screens.some(({ background }) => background.type === "image")).toBe(true);
+        expect(leaves.some((leaf) => (leaf.type === "image" || leaf.type === "screenshot") && leaf.crop)).toBe(true);
+        expect(leaves.some((leaf) => leaf.type === "device-frame" && leaf.deviceType === "tablet")).toBe(true);
+      }
       if (example.name === "RTL delivery") {
         expect(project.mode).toBe("connected");
         expect(project.screens.filter(({ locale }) => locale === "en")).toHaveLength(2);

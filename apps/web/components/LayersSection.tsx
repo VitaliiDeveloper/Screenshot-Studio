@@ -13,6 +13,7 @@ import {
   LockOpen,
   MoreHorizontal,
   Pencil,
+  Plus,
   Smartphone,
   Square,
   Sparkles,
@@ -61,7 +62,7 @@ function ElementTypeIcon({ element }: { element: Element }) {
 }
 
 /** Layers list for the active screen. Rendered reversed: top row = front-most = last in array. */
-export function LayersSection() {
+export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedItems = useStore(editorStore, (s) => s.selectedItems);
@@ -119,17 +120,28 @@ export function LayersSection() {
 
   return (
     <section className="pb-3">
-      <header className="px-4 py-3">
+      <header className="px-3 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Layers</h2>
-          <span className="text-[10px] font-medium tabular-nums text-slate-600">{rows.length}</span>
+          <h2 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+            Layers
+            <span className="font-medium tabular-nums tracking-normal text-slate-400">{rows.length}</span>
+          </h2>
+          <button
+            type="button"
+            aria-label="Add element"
+            title="Add element"
+            className={editorUi.compactAddButton}
+            onClick={onOpenAdd}
+          >
+            <Plus size={14} strokeWidth={2} />
+          </button>
         </div>
-        <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
-          {project.mode === "connected" ? (
+        {project.mode === "connected" ? (
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
             <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-600">Owner</span>
-          ) : null}
-          <span data-testid="layers-owner" className="truncate">{screen.name}</span>
-        </p>
+            <span data-testid="layers-owner" className="truncate">{screen.name}</span>
+          </p>
+        ) : null}
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>
@@ -142,7 +154,7 @@ export function LayersSection() {
                 id={el.id}
                 role="listitem"
                 className={cx(
-                  "relative mx-2 pr-1",
+                  "relative pr-1",
                   selected ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
                 )}
               >

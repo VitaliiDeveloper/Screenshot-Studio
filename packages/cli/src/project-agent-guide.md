@@ -18,7 +18,7 @@ plain `screenshots` spelling above.
 
 ## Source of truth and guardrails
 
-- `app-store-screenshots.json` is the only persisted project state. It is strict v5 JSON; unknown
+- `app-store-screenshots.json` is the only persisted project state. It is strict v10 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to screens, locales, fonts, themes, and imports. Directly
   edit JSON only for literals the CLI does not manage, such as text content and element geometry.
@@ -38,19 +38,20 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v5 shape
+## Enforced v10 shape
 
 ```text
 Project
-├── meta: { name, appIcon?, schemaVersion: 5 }
+├── meta: { name, appIcon?, schemaVersion: 10 }
 ├── mode: isolated | connected
-├── platforms: ["apple" | "android", …]  # set-equal to screens
+├── platforms: ["apple" | "android" | "windows", …]  # set-equal to screens
 ├── locales: ["en", …]                   # duplicate-free, set-equal to screens
 ├── fonts: FontAsset[]                    # file-backed project fonts
 └── screens: Screen[]
     ├── id, name, platform, device, locale, direction
+    ├── variantOf?, storeTargetId?          # paired only on explicit target variants
     ├── artboard: { width, height }
-    ├── background: { type: "solid", color }
+    ├── background: solid | linear-gradient | project image
     └── elements: Element[]               # array order is z-order
 ```
 
@@ -65,6 +66,18 @@ objects from this summary.
 Badges are compositions, not a `badge` element type. Rating and “as seen on” badges are ordinary
 one-level groups of shape/icon/text leaves; official store badges are ordinary contain-fit `image`
 elements. Preserve and edit their literal children like any other group/image.
+
+Screenshot and decorative-image leaves may store normalized `crop: { x, y, zoom }`: focal `x/y`
+are in `0…1`, zoom is `1…4`, and the literal affects `cover` only. `contain` keeps but ignores it.
+Text may store one literal shadow. Shapes may be rect or ellipse and may add a two-stop linear
+gradient and stroke; do not invent generic effects, paths, or extra stops.
+Device frames use only `iphone | android-phone | tablet | desktop | tv | watch`; the shared core
+owns their vector bezel/slot geometry and render never downloads vendor artwork.
+
+Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
+an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and
+an opaque fallback/letterbox `color`. Keep background assets inside the project and use the same
+shared render/export path as every element.
 
 `mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
 platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned

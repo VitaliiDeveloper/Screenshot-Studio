@@ -5,7 +5,7 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 5 }, mode: "connected", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 10 }, mode: "connected", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   };
@@ -39,6 +39,16 @@ describe("createScreenFromTemplate", () => {
     expect(result.project.mode).toBe("connected");
     expect(result.project.platforms).toEqual(["apple", "android"]);
     expect(result.project.locales).toEqual(["en", "uk"]);
+  });
+
+  it("preserves structured backgrounds instead of flattening them", () => {
+    const gradient: Template = {
+      ...template,
+      background: { type: "linear-gradient", from: "#112233", to: "#AABBCC", angle: 35 },
+    };
+    expect(createScreenFromTemplate(project(), gradient, "en").screen.background).toEqual(
+      gradient.background,
+    );
   });
 
   it("bakes LTR template geometry for an existing RTL locale", () => {

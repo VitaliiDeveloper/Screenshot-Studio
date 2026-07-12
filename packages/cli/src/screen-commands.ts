@@ -85,8 +85,12 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
 export function formatScreenList(project: ProjectModel): string {
   return project.screens
     .map(
-      (screen, index) =>
-        `${index + 1} ${screen.id} ${screen.platform}/${screen.device} ${screen.locale} ${screen.name}`,
+      (screen, index) => {
+        const variant = screen.variantOf
+          ? ` target=${screen.storeTargetId} variant-of=${screen.variantOf}`
+          : "";
+        return `${index + 1} ${screen.id} ${screen.platform}/${screen.device} ${screen.locale} ${screen.name}${variant}`;
+      },
     )
     .join("\n");
 }

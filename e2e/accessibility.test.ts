@@ -44,6 +44,11 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
 }
 
 async function openPanel(page: Page, name: "Add panel" | "Structure panel"): Promise<void> {
+  if (name === "Add panel") {
+    await openPanel(page, "Structure panel");
+    await page.getByRole("button", { name: "Add element", exact: true }).click();
+    return;
+  }
   const button = page.getByRole("button", { name, exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
 }

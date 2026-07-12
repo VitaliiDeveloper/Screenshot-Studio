@@ -44,7 +44,7 @@ describe("Project asset picker", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
 
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "Screenshot", exact: true }).click();
     const screenshotDialog = page.getByRole("dialog", { name: "Screenshot asset picker" });
     await screenshotDialog.waitFor({ state: "visible" });
@@ -89,10 +89,18 @@ describe("Project asset picker", () => {
     await page.getByRole("menuitemradio", { name: "cover", exact: true }).click();
     await page.getByLabel("Corner radius", { exact: true }).fill("24");
     await page.getByLabel("Corner radius", { exact: true }).blur();
+    await page.getByLabel("Focal X %", { exact: true }).fill("25");
+    await page.getByLabel("Focal X %", { exact: true }).blur();
+    await page.getByLabel("Focal Y %", { exact: true }).fill("75");
+    await page.getByLabel("Focal Y %", { exact: true }).blur();
+    await page.getByLabel("Crop zoom", { exact: true }).fill("2");
+    await page.getByLabel("Crop zoom", { exact: true }).blur();
     await expect.poll(() => project().screens[0].elements.at(-1).cornerRadius).toBe(24);
-    expect(project().screens[0].elements.at(-1).fit).toBe("cover");
+    expect(project().screens[0].elements.at(-1)).toMatchObject({
+      fit: "cover", crop: { x: 0.25, y: 0.75, zoom: 2 },
+    });
 
-    await page.getByRole("button", { name: "iPhone Device Frame", exact: true }).click();
+    await page.getByRole("button", { name: "Device Frame", exact: true }).click();
     const frameDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
@@ -109,6 +117,12 @@ describe("Project asset picker", () => {
       height: 650,
     });
     expect(project().screens[1].elements).toHaveLength(1);
+
+    await page.getByLabel("Frame preset", { exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "desktop", exact: true }).click();
+    await expect.poll(() => project().screens[0].elements.at(-1)).toMatchObject({
+      deviceType: "desktop", width: 300, height: 187.5,
+    });
 
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });

@@ -43,13 +43,56 @@ function elements(): Array<{ id: string; type: string; width: number; opacity: n
 }
 
 describe("inspector + toolbar", () => {
+  it("keeps the view switch centred and applies one compact toolbar breakpoint", async () => {
+    const page = await browser.newPage({ viewport: { width: 828, height: 998 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const viewSwitch = page.getByLabel("Canvas view");
+    const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
+    const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
+    const exportLabel = page.getByRole("button", { name: "Export" }).locator("span");
+    const productName = page.getByText("Screenshot Studio", { exact: true });
+    const projectName = page.getByText("Store Launch Demo", { exact: true });
+
+    expect(await productName.isVisible()).toBe(true);
+    expect(await projectName.isVisible()).toBe(false);
+    expect(await focusLabel.isVisible()).toBe(false);
+    expect(await overviewLabel.isVisible()).toBe(false);
+    expect(await exportLabel.isVisible()).toBe(false);
+    expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(false);
+    expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(false);
+
+    const compactBox = await viewSwitch.boundingBox();
+    expect(compactBox).not.toBeNull();
+    expect(compactBox!.x + compactBox!.width / 2).toBeCloseTo(828 / 2, 0);
+
+    await page.setViewportSize({ width: 640, height: 900 });
+    expect(await productName.isVisible()).toBe(false);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await productName.isVisible()).toBe(true);
+    expect(await projectName.isVisible()).toBe(true);
+    expect(await focusLabel.isVisible()).toBe(true);
+    expect(await overviewLabel.isVisible()).toBe(true);
+    expect(await exportLabel.isVisible()).toBe(true);
+    expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
+    expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
+
+    const desktopBox = await viewSwitch.boundingBox();
+    expect(desktopBox).not.toBeNull();
+    expect(desktopBox!.x + desktopBox!.width / 2).toBeCloseTo(1440 / 2, 0);
+
+    await page.close();
+  });
+
   it("inserting a shape and editing its width persist to disk", async () => {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
     const before = elements().length;
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "+ Shape" }).click();
 
     // The inserted shape is appended AND selected, so the inspector shows its Transform section.

@@ -6,7 +6,6 @@ import {
   Hand,
   Layers3,
   MousePointer2,
-  Plus,
 } from "lucide-react";
 import type { WorkspacePanel, WorkspaceTool } from "../lib/editor-workspace";
 import { cx } from "./editor-ui";
@@ -79,19 +78,6 @@ export function ToolRail({
         <Boxes size={18} strokeWidth={1.9} />
       </button>
 
-      <button
-        type="button"
-        aria-label="Add panel"
-        aria-pressed={panel === "add"}
-        className={cx(
-          panelClass(panel === "add"),
-          "mt-2",
-          panel !== "add" && "bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800",
-        )}
-        onClick={() => onPanelToggle("add")}
-      >
-        <Plus size={20} strokeWidth={2} />
-      </button>
     </nav>
   );
 }

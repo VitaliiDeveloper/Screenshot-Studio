@@ -3,6 +3,19 @@
 All notable user-facing changes are recorded here. The project follows Semantic Versioning once a
 candidate is published.
 
+## [Unreleased]
+
+### Added
+
+- Schema v10 product expansion: independent output families, gradient/project-image backgrounds,
+  media focal crop/zoom, text shadow, ellipse/gradient/stroke shapes, and trusted frame presets.
+- Phase 9 living-example, renderer parity, authoring, accessibility, and packed performance evidence.
+
+### Changed
+
+- Consolidated five new browser harnesses into two ownership suites to retain coverage with less
+  repeated Next.js/Playwright startup work.
+
 ## [0.1.0] - 2026-07-11 (release candidate)
 
 This version is a dry-run candidate. It has not been tagged, published to npm, or announced as a

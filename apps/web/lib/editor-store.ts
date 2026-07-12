@@ -4,17 +4,23 @@ import { produce } from "immer";
 import {
   cloneLocaleSet as cloneLocaleSetCore,
   cloneScreenWithFreshIds,
+  ensureStoreOutputFamily as ensureStoreOutputFamilyCore,
+  ensureStoreTargetVariant as ensureStoreTargetVariantCore,
   duplicateElement as duplicateElementCore,
   findElementLocation,
   groupElements as groupElementsCore,
   recomputeManifests,
+  removeScreenFromProject as removeScreenFromProjectCore,
+  removeStoreTargetVariant as removeStoreTargetVariantCore,
   removeLocaleSet as removeLocaleSetCore,
+  resizeStoreOutputArtboards,
   resizeGroupUniform,
   sameScreenGroup,
   setCanvasMode as setCanvasModeCore,
   setLocaleDirection as setLocaleDirectionCore,
   ungroupElement as ungroupElementCore,
   type CanvasMode,
+  type Background,
   type Project,
   type Element,
   type TextElement,
@@ -25,8 +31,13 @@ import {
   type DeviceFrameElement,
   type FontAsset,
   type LayoutDirection,
+  type MediaCrop,
+  type LinearGradientPaint,
+  type ShapeStroke,
+  type TextShadow,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
+import type { StoreSize } from "@screenshot-studio/core/export";
 import {
   primarySelection,
   reconcileSelection,
@@ -51,12 +62,16 @@ type TextFields = Partial<
     TextElement,
     "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
   >
->;
-type ShapeFields = Partial<Pick<ShapeElement, "fill" | "radius">>;
+> & { shadow?: TextShadow | null };
+type ShapeFields = Partial<Pick<ShapeElement, "kind" | "fill" | "radius">> & {
+  gradient?: LinearGradientPaint | null;
+  stroke?: ShapeStroke | null;
+};
 type ScreenshotFields = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">>;
 type ImageFields = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">>;
+type MediaFields = { crop?: MediaCrop | null };
 type IconFields = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
-type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit">>;
+type DeviceFrameFields = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit" | "deviceType">>;
 
 /**
  * Call-site convenience: common fields plus optional type-specific fields.
@@ -68,6 +83,7 @@ export type ElementPatch = CommonElementPatch &
   ShapeFields &
   ScreenshotFields &
   ImageFields &
+  MediaFields &
   IconFields &
   DeviceFrameFields;
 
@@ -112,20 +128,31 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
       if (patch.letterSpacing !== undefined) el.letterSpacing = patch.letterSpacing;
       if (patch.align !== undefined) el.align = patch.align;
       if (patch.color !== undefined) el.color = patch.color;
+      if (patch.shadow === null) delete el.shadow;
+      else if (patch.shadow !== undefined) el.shadow = patch.shadow;
       break;
     case "shape":
       if (patch.fill !== undefined) el.fill = patch.fill;
       if (patch.radius !== undefined) el.radius = patch.radius;
+      if (patch.kind !== undefined) el.kind = patch.kind;
+      if (patch.gradient === null) delete el.gradient;
+      else if (patch.gradient !== undefined) el.gradient = patch.gradient;
+      if (patch.stroke === null) delete el.stroke;
+      else if (patch.stroke !== undefined) el.stroke = patch.stroke;
       break;
     case "screenshot":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
       if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      if (patch.crop === null) delete el.crop;
+      else if (patch.crop !== undefined) el.crop = patch.crop;
       break;
     case "image":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
       if (patch.cornerRadius !== undefined) el.cornerRadius = patch.cornerRadius;
+      if (patch.crop === null) delete el.crop;
+      else if (patch.crop !== undefined) el.crop = patch.crop;
       break;
     case "icon":
       if (patch.icon !== undefined) el.icon = patch.icon;
@@ -135,6 +162,7 @@ export function applyElementPatch(el: Element, patch: ElementPatch): void {
     case "device-frame":
       if (patch.assetUrl !== undefined) el.assetUrl = patch.assetUrl;
       if (patch.fit !== undefined) el.fit = patch.fit;
+      if (patch.deviceType !== undefined) el.deviceType = patch.deviceType;
       break;
     case "group":
       break;
@@ -167,15 +195,19 @@ export interface EditorState {
   reorderScreens: (fromId: string, toId: string) => void;
   setCanvasMode: (mode: CanvasMode) => void;
   addScreen: () => void;
+  addBlankScreen: () => void;
   removeScreen: (id: string) => void;
+  ensureStoreOutputFamily: (platform: string, device: string, leadTarget: StoreSize) => void;
+  ensureStoreTargetVariant: (target: StoreSize) => void;
+  removeStoreTargetVariant: (rootScreenId: string, storeTargetId: string) => void;
   addLocale: (sourceLocale: string, targetLocale: string, direction: LayoutDirection) => void;
   setLocaleDirection: (locale: string, direction: LayoutDirection) => void;
   removeLocale: (locale: string) => void;
   reorderElements: (from: number, to: number) => void;
   removeElement: (id: string, screenId?: string) => void;
   addElement: (element: Element) => void;
-  patchBackground: (patch: { color: string }) => void;
-  patchArtboard: (patch: { width?: number; height?: number }) => void;
+  setBackground: (background: Background) => void;
+  resizeArtboard: (size: { width: number; height: number }) => void;
   replaceFonts: (fonts: FontAsset[]) => void;
   replaceProject: (project: Project) => void;
   endHistoryGroup: () => void;
@@ -457,7 +489,10 @@ export const editorStore = createStore<EditorState>((set) => ({
       if (!fromScreen || !toScreen) return state;
       const inScope = state.project.mode === "connected"
         ? (screen: typeof fromScreen) => sameScreenGroup(screen, fromScreen)
-        : (screen: typeof fromScreen) => screen.locale === fromScreen.locale;
+        : (screen: typeof fromScreen) => screen.locale === fromScreen.locale
+          && screen.platform === fromScreen.platform
+          && screen.device === fromScreen.device
+          && screen.storeTargetId === fromScreen.storeTargetId;
       if (!inScope(toScreen)) return state;
       const project = produce(state.project, (draft) => {
         const indices = draft.screens
@@ -486,38 +521,109 @@ export const editorStore = createStore<EditorState>((set) => ({
         state.project.screens.find((s) => s.id === state.activeScreenId) ??
         state.project.screens[0];
       if (!active) return state;
-      const copy = cloneScreenWithFreshIds(active);
+      const source = active.variantOf
+        ? state.project.screens.find((screen) => screen.id === active.variantOf) ?? active
+        : active;
+      const cloned = cloneScreenWithFreshIds(source);
+      const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...copy } = cloned;
       const project = recomputeManifests({
         ...state.project,
-        screens: [...state.project.screens, copy],
+        screens: [...state.project.screens, copy as typeof cloned],
       });
       return recordProjectChange(state, project, null, {
         activeScreenId: copy.id,
         selectedItems: [],
       });
     }),
+  addBlankScreen: () =>
+    set((state) => {
+      if (!state.project) return state;
+      const active =
+        state.project.screens.find((screen) => screen.id === state.activeScreenId) ??
+        state.project.screens[0];
+      if (!active) return state;
+      const source = active.variantOf
+        ? state.project.screens.find((screen) => screen.id === active.variantOf) ?? active
+        : active;
+      const cloned = structuredClone(source);
+      const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...added } = {
+        ...cloned,
+        id: crypto.randomUUID(),
+        name: "Untitled",
+        elements: [],
+      };
+      const project = recomputeManifests({
+        ...state.project,
+        screens: [...state.project.screens, added],
+      });
+      return recordProjectChange(state, project, null, {
+        activeScreenId: added.id,
+        selectedItems: [],
+      });
+    }),
   removeScreen: (id) =>
     set((state) => {
-      if (!state.project || state.project.screens.length <= 1) return state;
+      if (!state.project) return state;
       const idx = state.project.screens.findIndex((s) => s.id === id);
       if (idx === -1) return state;
       const removed = state.project.screens[idx]!;
-      const localeScreens = state.project.screens
-        .filter((screen) => screen.locale === removed.locale);
-      if (localeScreens.length <= 1) return state;
-      const localeIndex = localeScreens.findIndex((screen) => screen.id === id);
-      const screens = state.project.screens.filter((s) => s.id !== id);
-      const project = recomputeManifests({ ...state.project, screens });
-      const wasActive = state.activeScreenId === id;
-      const sameLocale = project.screens.filter((screen) => screen.locale === removed.locale);
+      const localeRootScreens = state.project.screens.filter((screen) =>
+        screen.variantOf === undefined && screen.locale === removed.locale,
+      );
+      if (removed.variantOf === undefined && localeRootScreens.length <= 1) return state;
+      const removedIds = new Set([id, ...state.project.screens
+        .filter((screen) => screen.variantOf === id)
+        .map((screen) => screen.id)]);
+      const project = removeScreenFromProjectCore(state.project, id);
+      const wasActive = state.activeScreenId ? removedIds.has(state.activeScreenId) : false;
       const activeScreenId = wasActive
-        ? (sameLocale[Math.min(localeIndex, sameLocale.length - 1)]
+        ? (project.screens.find((screen) =>
+          screen.locale === removed.locale && screen.storeTargetId === removed.storeTargetId,
+        ) ?? project.screens.find((screen) => screen.locale === removed.locale)
           ?? project.screens[Math.min(idx, project.screens.length - 1)])!.id
         : state.activeScreenId;
-      const selectedItems = state.selectedItems.filter((item) => item.screenId !== id);
+      const selectedItems = state.selectedItems.filter((item) => !removedIds.has(item.screenId));
       return recordProjectChange(state, project, null, {
         activeScreenId,
         selectedItems: reconcileSelection(project, activeScreenId, selectedItems),
+      });
+    }),
+  ensureStoreOutputFamily: (platform, device, leadTarget) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const result = ensureStoreOutputFamilyCore(
+        state.project,
+        state.activeScreenId,
+        platform,
+        device,
+        leadTarget,
+      );
+      return recordProjectChange(state, result.project, null, {
+        activeScreenId: result.firstScreen.id,
+        selectedItems: [],
+      });
+    }),
+  ensureStoreTargetVariant: (target) =>
+    set((state) => {
+      if (!state.project || !state.activeScreenId) return state;
+      const result = ensureStoreTargetVariantCore(state.project, state.activeScreenId, target);
+      return recordProjectChange(state, result.project, null, {
+        activeScreenId: result.variant.id,
+        selectedItems: [],
+      });
+    }),
+  removeStoreTargetVariant: (rootScreenId, storeTargetId) =>
+    set((state) => {
+      if (!state.project) return state;
+      const variant = state.project.screens.find((screen) =>
+        screen.variantOf === rootScreenId && screen.storeTargetId === storeTargetId,
+      );
+      if (!variant) return state;
+      const project = removeStoreTargetVariantCore(state.project, rootScreenId, storeTargetId);
+      const activeScreenId = state.activeScreenId === variant.id ? rootScreenId : state.activeScreenId;
+      return recordProjectChange(state, project, null, {
+        activeScreenId,
+        selectedItems: state.selectedItems.filter((item) => item.screenId !== variant.id),
       });
     }),
   addLocale: (sourceLocale, targetLocale, direction) =>
@@ -598,23 +704,22 @@ export const editorStore = createStore<EditorState>((set) => ({
         selectedItems: [{ screenId: state.activeScreenId, elementId: element.id }],
       });
     }),
-  patchBackground: (patch) =>
+  setBackground: (background) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
       const project = produce(state.project, (draft) => {
         const screen = draft.screens.find((s) => s.id === state.activeScreenId);
-        if (screen && screen.background.type === "solid") Object.assign(screen.background, patch);
+        if (screen) screen.background = background;
       });
       return recordProjectChange(state, project, `background:${state.activeScreenId}`);
     }),
-  patchArtboard: (patch) =>
+  resizeArtboard: (size) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const project = produce(state.project, (draft) => {
-        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
-        if (screen) Object.assign(screen.artboard, patch);
-      });
-      return recordProjectChange(state, project, `artboard:${state.activeScreenId}`);
+      const active = state.project.screens.find((screen) => screen.id === state.activeScreenId);
+      if (!active || active.storeTargetId !== undefined) return state;
+      const project = resizeStoreOutputArtboards(state.project, active.id, size);
+      return recordProjectChange(state, project);
     }),
   replaceFonts: (fonts) =>
     set((state) => {

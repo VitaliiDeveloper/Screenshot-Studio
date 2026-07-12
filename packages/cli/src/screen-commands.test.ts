@@ -26,7 +26,7 @@ const specs = parseStoreSpecs({
 
 function sampleProject(): Project {
   return {
-    meta: { name: "CLI Project", schemaVersion: 5 },
+    meta: { name: "CLI Project", schemaVersion: 10 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -93,8 +93,16 @@ describe("screen commands", () => {
   });
 
   it("formats screens in export order", () => {
-    expect(formatScreenList(sampleProject())).toBe(
-      "1 hero apple/iphone en Hero\n2 details apple/iphone en Details",
+    const source = sampleProject();
+    source.screens.push({
+      ...structuredClone(source.screens[0]!),
+      id: "hero-65",
+      variantOf: "hero",
+      storeTargetId: "6.5",
+    });
+    expect(formatScreenList(source)).toBe(
+      "1 hero apple/iphone en Hero\n2 details apple/iphone en Details\n"
+      + "3 hero-65 apple/iphone en Hero target=6.5 variant-of=hero",
     );
   });
 

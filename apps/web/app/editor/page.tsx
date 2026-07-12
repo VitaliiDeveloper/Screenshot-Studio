@@ -234,7 +234,8 @@ export default function EditorPage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.key !== "Escape" || dialog || localeDialogOpen) return;
-      if (panel) setPanel(null);
+      if (panel === "add") setPanel("structure");
+      else if (panel) setPanel(null);
       else if (layout.overlay && inspectorOpen) setInspectorOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -268,7 +269,13 @@ export default function EditorPage() {
           }}
         />
         {panel ? (
-          <LeftPanel panel={panel} images={images} onClose={() => setPanel(null)} onOpenDialog={setDialog} />
+          <LeftPanel
+            panel={panel}
+            images={images}
+            onClose={() => setPanel(panel === "add" ? "structure" : null)}
+            onOpenAdd={() => setPanel("add")}
+            onOpenDialog={setDialog}
+          />
         ) : null}
         <div className="flex min-w-0 flex-1">
           <DynamicCanvasViewport
@@ -286,7 +293,11 @@ export default function EditorPage() {
         </div>
         {inspectorOpen ? (
           <div className="absolute inset-y-0 right-0 z-30 shrink-0 xl:static">
-            <Inspector specs={specs} onClose={() => setInspectorOpen(false)} />
+            <Inspector
+              specs={specs}
+              onOpenBackgroundAsset={() => setDialog("background-assets")}
+              onClose={() => setInspectorOpen(false)}
+            />
           </div>
         ) : null}
       </div>
@@ -303,6 +314,9 @@ export default function EditorPage() {
       ) : null}
       {dialog === "image-assets" ? (
         <AssetPickerDialog elementType="image" onClose={() => setDialog(null)} />
+      ) : null}
+      {dialog === "background-assets" ? (
+        <AssetPickerDialog elementType="background" onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "store-badge-assets" ? (
         <AssetPickerDialog elementType="store-badge" onClose={() => setDialog(null)} />

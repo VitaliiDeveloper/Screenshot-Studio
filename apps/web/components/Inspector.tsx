@@ -1,10 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { useState } from "react";
 import { useStore } from "zustand";
 import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
-import { findElementLocation, getScreen, ICON_IDS } from "@screenshot-studio/core/model";
-import type { StoreSpecs } from "@screenshot-studio/core/export";
+import {
+  findElementLocation,
+  getScreen,
+  ICON_IDS,
+  DEVICE_FRAME_IDS,
+  DEVICE_FRAME_SPECS,
+  type Background,
+  type ImageElement,
+  type Screen,
+  type ScreenshotElement,
+} from "@screenshot-studio/core/model";
+import {
+  artboardTargetStatus,
+  leadStoreSizeId,
+  type ArtboardTargetStatus,
+  type StoreSize,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import { primarySelection, selectionBounds } from "../lib/editor-selection";
 import { mutateAndSave, mutateAndScheduleSave } from "../lib/mutate-and-save";
@@ -29,12 +46,8 @@ function patch(id: string, p: ElementPatch) {
   mutateAndScheduleSave(() => editorStore.getState().patchElement(id, p));
 }
 
-function editArtboard(patch: { width?: number; height?: number }) {
-  mutateAndScheduleSave(() => editorStore.getState().patchArtboard(patch));
-}
-
-function editBackground(color: string) {
-  mutateAndScheduleSave(() => editorStore.getState().patchBackground({ color }));
+function editBackground(background: Background) {
+  mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -46,12 +59,133 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function MediaCropFields({
+  element,
+  onChange,
+}: {
+  element: ScreenshotElement | ImageElement;
+  onChange: (patch: ElementPatch) => void;
+}) {
+  if (element.fit !== "cover") return null;
+  const crop = element.crop ?? { x: 0.5, y: 0.5, zoom: 1 };
+  return (
+    <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>
+      <NumberField label="Focal X %" value={crop.x * 100} min={0} max={100} integer onChange={(x) => onChange({ crop: { ...crop, x: x / 100 } })} />
+      <NumberField label="Focal Y %" value={crop.y * 100} min={0} max={100} integer onChange={(y) => onChange({ crop: { ...crop, y: y / 100 } })} />
+      <NumberField label="Crop zoom" value={crop.zoom} min={1} max={4} step={0.1} onChange={(zoom) => onChange({ crop: { ...crop, zoom } })} />
+      {element.crop ? (
+        <button type="button" className={editorUi.buttonSecondary} onClick={() => onChange({ crop: null })}>
+          Reset crop
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function MasterArtboardEditor({
+  screen,
+  leadTarget,
+  leadStatus,
+}: {
+  screen: Screen;
+  leadTarget: StoreSize | undefined;
+  leadStatus: ArtboardTargetStatus | undefined;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [width, setWidth] = useState(screen.artboard.width);
+  const [height, setHeight] = useState(screen.artboard.height);
+
+  const draftStatus = leadTarget ? artboardTargetStatus({ width, height }, leadTarget) : undefined;
+  const isExactLead = leadStatus?.kind === "exact";
+  const resize = (size: { width: number; height: number }) => {
+    mutateAndSave(() => editorStore.getState().resizeArtboard(size));
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-slate-500">Custom size</span>
+          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Explicit override</span>
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
+          <NumberField label="W" value={width} min={1} integer layout="column" onChange={setWidth} />
+          <span className="pb-2 text-xs text-slate-400" aria-hidden="true">×</span>
+          <NumberField label="H" value={height} min={1} integer layout="column" onChange={setHeight} />
+          <span className="pb-2 text-[10px] text-slate-400">px</span>
+        </div>
+        <p className={`text-[10px] leading-4 ${draftStatus?.kind === "invalid" ? "text-red-600" : "text-slate-500"}`}>
+          {draftStatus?.kind === "invalid"
+            ? "Custom dimensions must keep the lead target aspect ratio."
+            : "Apply resizes every master screen in this output and fits each composition."}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button className={editorUi.buttonSecondary} onClick={() => setEditing(false)}>Cancel</button>
+          <button
+            className={editorUi.buttonPrimary}
+            disabled={draftStatus?.kind === "invalid" || (width === screen.artboard.width && height === screen.artboard.height)}
+            onClick={() => resize({ width, height })}
+          >
+            Apply size
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-slate-500">Master size</span>
+        <span role="group" aria-label="Master size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
+          <button
+            type="button"
+            aria-label="Use fixed lead size"
+            aria-pressed={isExactLead}
+            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${isExactLead ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
+            onClick={() => leadTarget && !isExactLead && resize({ width: leadTarget.width, height: leadTarget.height })}
+          >
+            <span className="text-xs leading-none">Fixed</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Customize master size"
+            aria-pressed={!isExactLead}
+            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${!isExactLead ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
+            onClick={() => {
+              setWidth(screen.artboard.width);
+              setHeight(screen.artboard.height);
+              setEditing(true);
+            }}
+          >
+            <span className="text-xs leading-none">Custom</span>
+          </button>
+        </span>
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
+        {screen.artboard.width} × {screen.artboard.height} px
+      </div>
+      <p className="text-[10px] leading-4 text-slate-500">
+        {isExactLead && leadTarget
+          ? `Fixed to the ${leadTarget.label} size for this output.`
+          : leadStatus?.kind === "proportional" && leadTarget
+            ? `Explicit custom scale for ${leadTarget.label}.`
+            : "This custom size does not match the output's lead aspect ratio."}
+      </p>
+    </div>
+  );
+}
+
 export function Inspector({
   specs,
+  onOpenBackgroundAsset,
   onClose,
   className,
 }: {
   specs: StoreSpecs | null;
+  onOpenBackgroundAsset?: () => void;
   onClose?: () => void;
   className?: string;
 }) {
@@ -62,9 +196,21 @@ export function Inspector({
   if (!project || !activeScreenId) return <aside className={cx("w-72 shrink-0 border-l border-slate-200 bg-white", className)} />;
   const primary = primarySelection(selectedItems);
   const screen = getScreen(project, selectedItems.length === 1 && primary ? primary.screenId : activeScreenId);
+  const background = screen.background;
   const element = selectedItems.length === 1 && primary
     ? findElementLocation(screen, primary.elementId)?.element
     : undefined;
+  const leadTarget = specs
+    ? (() => {
+        try {
+          const leadId = leadStoreSizeId(screen.platform, screen.device);
+          return specs[screen.platform]?.[screen.device]?.find((target) => target.id === leadId);
+        } catch {
+          return undefined;
+        }
+      })()
+    : undefined;
+  const leadStatus = leadTarget ? artboardTargetStatus(screen.artboard, leadTarget) : undefined;
   const aggregate = selectedItems.length > 1
     ? selectionBounds(project, activeScreenId, selectedItems)
     : null;
@@ -95,9 +241,9 @@ export function Inspector({
     }}>
       <header className="sticky top-0 z-10 flex min-h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight text-slate-950">Inspect</h2>
+          <h2 className="text-sm font-semibold tracking-tight text-slate-950">Inspector</h2>
           <p className="text-[10px] text-slate-600">
-            {selectedItems.length > 1 ? `${selectedItems.length} elements` : element ? element.type : screen.name}
+            {selectedItems.length > 1 ? `${selectedItems.length} elements` : element ? `${element.type} element` : "Screen settings"}
           </p>
         </div>
         {onClose ? (
@@ -243,14 +389,52 @@ export function Inspector({
               <NumberField label="Letter spacing" value={element.letterSpacing} onChange={(letterSpacing) => patch(element.id, { letterSpacing })} />
               <SelectField label="Align" value={element.align} options={["left", "center", "right"] as const} onChange={(align) => patch(element.id, { align })} />
               <ColorField label="Color" value={element.color} onChange={(color) => patch(element.id, { color })} />
+              {element.shadow ? (
+                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <ColorField label="Shadow color" value={element.shadow.color} onChange={(color) => patch(element.id, { shadow: { ...element.shadow!, color } })} />
+                  <NumberField label="Shadow blur" value={element.shadow.blur} min={0} max={100} onChange={(blur) => patch(element.id, { shadow: { ...element.shadow!, blur } })} />
+                  <NumberField label="Shadow X" value={element.shadow.offsetX} onChange={(offsetX) => patch(element.id, { shadow: { ...element.shadow!, offsetX } })} />
+                  <NumberField label="Shadow Y" value={element.shadow.offsetY} onChange={(offsetY) => patch(element.id, { shadow: { ...element.shadow!, offsetY } })} />
+                  <NumberField label="Shadow opacity" value={element.shadow.opacity} min={0} max={1} step={0.05} onChange={(opacity) => patch(element.id, { shadow: { ...element.shadow!, opacity } })} />
+                  <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, { shadow: null })}>Remove shadow</button>
+                </div>
+              ) : (
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, {
+                  shadow: { color: "#000000", blur: 12, offsetX: 0, offsetY: 6, opacity: 0.35 },
+                })}>Add shadow</button>
+              )}
             </Section>
           )}
 
           {element.type === "shape" && (
             <Section title="Shape">
               <ThemeRoleField value={element.role} onChange={(role) => patch(element.id, { role })} />
+              <SelectField label="Kind" value={element.kind} options={["rect", "ellipse"] as const} onChange={(kind) => patch(element.id, { kind })} />
               <ColorField label="Fill" value={element.fill} onChange={(fill) => patch(element.id, { fill })} />
-              <NumberField label="Radius" value={element.radius} min={0} onChange={(radius) => patch(element.id, { radius })} />
+              {element.kind === "rect" ? <NumberField label="Radius" value={element.radius} min={0} onChange={(radius) => patch(element.id, { radius })} /> : null}
+              {element.gradient ? (
+                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <ColorField label="Gradient from" value={element.gradient.from} onChange={(from) => patch(element.id, { gradient: { ...element.gradient!, from } })} />
+                  <ColorField label="Gradient to" value={element.gradient.to} onChange={(to) => patch(element.id, { gradient: { ...element.gradient!, to } })} />
+                  <NumberField label="Gradient angle" value={element.gradient.angle} min={0} max={360} integer onChange={(angle) => patch(element.id, { gradient: { ...element.gradient!, angle } })} />
+                  <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, { gradient: null })}>Use solid fill</button>
+                </div>
+              ) : (
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, {
+                  gradient: { from: element.fill, to: "#000000", angle: 0 },
+                })}>Add gradient</button>
+              )}
+              {element.stroke ? (
+                <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                  <ColorField label="Stroke color" value={element.stroke.color} onChange={(color) => patch(element.id, { stroke: { ...element.stroke!, color } })} />
+                  <NumberField label="Stroke width" value={element.stroke.width} min={0.1} max={100} step={0.5} onChange={(width) => patch(element.id, { stroke: { ...element.stroke!, width } })} />
+                  <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, { stroke: null })}>Remove stroke</button>
+                </div>
+              ) : (
+                <button type="button" className={editorUi.buttonSecondary} onClick={() => patch(element.id, {
+                  stroke: { color: "#FFFFFF", width: 4 },
+                })}>Add stroke</button>
+              )}
             </Section>
           )}
 
@@ -259,6 +443,7 @@ export function Inspector({
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
               <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => patch(element.id, { cornerRadius })} />
+              <MediaCropFields element={element} onChange={(change) => patch(element.id, change)} />
             </Section>
           )}
 
@@ -267,6 +452,7 @@ export function Inspector({
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
               <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => patch(element.id, { cornerRadius })} />
+              <MediaCropFields element={element} onChange={(change) => patch(element.id, change)} />
             </Section>
           )}
 
@@ -282,33 +468,123 @@ export function Inspector({
             <Section title="Device frame">
               <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => patch(element.id, { assetUrl })} />
               <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patch(element.id, { fit })} />
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-slate-500">Device</span>
-                <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">{element.deviceType}</span>
-              </div>
+              <SelectField label="Frame preset" value={element.deviceType} options={DEVICE_FRAME_IDS} onChange={(deviceType) => patch(element.id, {
+                deviceType,
+                height: element.width / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
+              })} />
             </Section>
           )}
         </>
       ) : (
         <>
           <Section title="Artboard">
-            <NumberField label="Width" value={screen.artboard.width} min={1} integer onChange={(width) => editArtboard({ width })} />
-            <NumberField label="Height" value={screen.artboard.height} min={1} integer onChange={(height) => editArtboard({ height })} />
+            {screen.storeTargetId ? (
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-slate-500">Target size</span>
+                  <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">Exact target</span>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
+                  {screen.artboard.width} × {screen.artboard.height} px
+                </div>
+                <p className="text-[10px] leading-4 text-slate-500">This variant uses fixed Store Target dimensions.</p>
+              </div>
+            ) : (
+              <MasterArtboardEditor
+                key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
+                screen={screen}
+                leadTarget={leadTarget}
+                leadStatus={leadStatus}
+              />
+            )}
           </Section>
           {specs && (
-            <Section title="Store targets">
-              <ArtboardTargets
-                screen={screen}
-                specs={specs}
-                onSetExact={(width, height) => editArtboard({ width, height })}
+            <ArtboardTargets
+              project={project}
+              screen={screen}
+              specs={specs}
+              onOpen={(screenId) => editorStore.getState().selectScreen(screenId)}
+              onCreateOutput={(platform, device, leadTarget) => mutateAndSave(
+                () => editorStore.getState().ensureStoreOutputFamily(platform, device, leadTarget),
+              )}
+              onCreate={(target) => mutateAndSave(() => editorStore.getState().ensureStoreTargetVariant(target))}
+              onRemove={(rootScreenId, targetId) => mutateAndSave(
+                () => editorStore.getState().removeStoreTargetVariant(rootScreenId, targetId),
+              )}
+            />
+          )}
+          <Section title="Background">
+            <SelectField
+              label="Type"
+              value={background.type}
+              options={["solid", "linear-gradient", "image"] as const}
+              onChange={(type) => {
+                const baseColor = background.type === "solid"
+                  ? background.color
+                  : background.type === "linear-gradient"
+                    ? background.from
+                    : background.color;
+                if (type === "solid") editBackground({ type, color: baseColor });
+                else if (type === "linear-gradient") {
+                  editBackground({ type, from: baseColor, to: "#000000", angle: 0 });
+                } else if (background.type !== "image") {
+                  onOpenBackgroundAsset?.();
+                }
+              }}
+            />
+            {background.type === "solid" ? (
+              <ColorField
+                label="Color"
+                value={background.color}
+                onChange={(color) => editBackground({ ...background, color })}
               />
-            </Section>
-          )}
-          {screen.background.type === "solid" && (
-            <Section title="Background">
-              <ColorField label="Color" value={screen.background.color} onChange={editBackground} />
-            </Section>
-          )}
+            ) : background.type === "linear-gradient" ? (
+              <>
+                <ColorField
+                  label="From"
+                  value={background.from}
+                  onChange={(from) => editBackground({ ...background, from })}
+                />
+                <ColorField
+                  label="To"
+                  value={background.to}
+                  onChange={(to) => editBackground({ ...background, to })}
+                />
+                <NumberField
+                  label="Angle"
+                  value={background.angle}
+                  min={0}
+                  max={360}
+                  integer
+                  onChange={(angle) => editBackground({ ...background, angle })}
+                />
+              </>
+            ) : (
+              <>
+                <TextField
+                  label="Asset URL"
+                  value={background.assetUrl}
+                  onChange={(assetUrl) => editBackground({ ...background, assetUrl })}
+                />
+                <SelectField
+                  label="Fit"
+                  value={background.fit}
+                  options={["cover", "contain"] as const}
+                  onChange={(fit) => editBackground({ ...background, fit })}
+                />
+                <ColorField
+                  label="Fallback"
+                  value={background.color}
+                  onChange={(color) => editBackground({ ...background, color })}
+                />
+                {onOpenBackgroundAsset ? (
+                  <button type="button" className={editorUi.buttonSecondary} onClick={onOpenBackgroundAsset}>
+                    Choose project image
+                  </button>
+                ) : null}
+              </>
+            )}
+          </Section>
         </>
       )}
     </aside>

@@ -47,7 +47,7 @@ screenshot-studio/
 │   └── cli/             # CLI: init, dev, screen, locale, font, theme, import, export
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
-├── examples/            # self-contained v5 connected and RTL living projects
+├── examples/            # self-contained current-schema connected and RTL living projects
 ├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
 └── skills/
     └── screenshot-studio/ # optional discovery/bootstrap skill for use outside the repo
@@ -105,11 +105,13 @@ silently).
 Project
 ├── meta: { name, appIcon, schemaVersion }
 ├── mode: isolated | connected
-├── platforms: ["apple", "android"]
+├── platforms: ["apple", "android", "windows"]
 ├── locales: ["en", "de", "ar"]            # derived from screens
 ├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
 └── screens: Screen[]
     ├── id, name, platform, device, locale, direction
+    │   # apple: iphone/ipad/macos/tvos/watchos; android: phone; windows: desktop
+    ├── variantOf?, storeTargetId?          # paired only for non-lead sizes in one family
     ├── artboard: { width, height }        # slide size
     ├── background: Background              # solid | gradient | image
     └── elements: Element[]                # z-order = array order
@@ -268,7 +270,55 @@ closure browser gate edits a copied example through accessible named controls an
 group/duplicate/ungroup/undo shortcuts, reloads the persisted result, and exports exact alpha-free
 store PNGs. This closes the planned Phase 6/7 baseline, not the Phase 8 release-readiness gate.
 
+**Independent store targets — schema v6 / post-Phase 8 corrective Slice 1.** Root screens omit
+`variantOf` and `storeTargetId`. An explicit target copy stores both fields, points directly to its
+root, matches the root platform/device/locale, and renders through the same flat `Screen` contract.
+Creation fits a fresh-id copy into the exact store artboard and never mutates the root. Workspace
+projection includes `storeTargetId` in the group identity so root and variant canvases cannot be
+stitched together. Bundle export uses the lead target for roots and each explicit variant's own
+target id, with numbering restarted per target. New roots use their device family's exact lead
+artboard. The editor presents that master size as fixed by default; explicit customization resizes
+every root composition in the output set atomically, while reset fits the set back to the exact lead dimensions. Exact and
+custom state are derived from `store-specs.json`, not duplicated in the schema.
+
+**Artboard backgrounds — schema v7 / Phase 9 Slice 2.** `Background` is a strict discriminated
+union: opaque `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a
+project-relative `image` with deterministic `cover | contain` fit and an opaque fallback/letterbox
+colour. UI and static export both consume `backgroundToNodeConfig`; image assets participate in the
+ordinary project preload cache and retain the same path-containment rules as image elements. The
+renderer paints every background before connected elements and export still strips alpha. v6
+migrates losslessly only when its previously legal solid-only background contract is respected.
+
+**Media crop controls — schema v8 / Phase 9 Slice 3.** Screenshot and decorative-image leaves may
+store `crop: { x, y, zoom }`, where focal coordinates are normalized `0…1` and zoom is bounded
+`1…4`. The shared object-fit mapper derives a clamped source window for `cover`; missing crop is
+centred at zoom 1, and `contain` preserves but ignores crop state. The element box, connected owner
+coordinates, export crop, and alpha handling remain unchanged. v7 migrates only when no previously
+invalid crop field appears at any leaf depth.
+
+**Text and shape styling — schema v9 / Phase 9 Slice 4.** Text optionally stores one bounded literal
+shadow. Shape `kind` is `rect | ellipse`, with a solid `fill` fallback plus optional strict two-stop
+linear gradient and literal stroke. The shared mapper emits the same Konva shadow/paint props for
+editor and static export; ellipse uses a logical owner Group so persisted x/y remain top-left during
+drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects. v8
+migration refuses previously invalid styling fields at any leaf depth.
+
+**Built-in frame presets — schema v10 / Phase 9 Slice 5.** The existing `device-frame` leaf selects
+one core-owned `iphone | android-phone | tablet | desktop | tv | watch` preset. Each supplies
+normalized outer aspect, bezel, screen-slot, corner, and optional notch geometry rendered with
+native Konva primitives; the project screenshot remains the only asset. Preset switching preserves
+width and fits height to the canonical outer aspect. v9 migration accepts only its prior iPhone
+literal and refuses mislabeled future presets at any leaf depth.
+
 ---
+
+### Store output families
+
+Each exact `platform/device/locale` root set is an independently editable output. Creating another
+family clones every root screen in the active locale with fresh screen and element ids, fits the
+copy to that family's lead target, and never mutates or links it back to the source family. Accepted
+non-lead sizes remain `variantOf`/`storeTargetId` variants of a root inside the same family. Both
+operations are idempotent: an existing output or size is opened instead of duplicated.
 
 ## 4. Store export spec
 
@@ -277,8 +327,8 @@ Design at each platform's largest size, export by scaling down. UI export uses
 Phase 0 renderer. Both write bundle entries as
 `platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
 the exact free-form identifier, filtering remains exact against the stored string, and `NN`
-restarts inside each platform/device/locale group while preserving that group's relative project
-order. The complete filesystem/ZIP batch is validated for containment and duplicate paths before
+restarts inside each platform/device/locale/target group while preserving that group's relative
+project order. The complete filesystem/ZIP batch is validated for containment and duplicate paths before
 any output is written; existing symlinked ancestors/files are rejected and final files use
 no-follow opens. Re-running export deliberately replaces regular files at the same generated
 destinations; only in-batch collisions and redirecting filesystem objects are rejected.
@@ -314,6 +364,11 @@ Google requires 24-bit PNG or JPEG with no transparency.
 | 6.3″ | 1206 × 2622 |
 | 6.1″ | 1125 × 2436 |
 | iPad 13″ | 2064 × 2752 |
+| iPad 12.9″ | 2048 × 2732 |
+| iPad 11″ | 1668 × 2420 |
+| macOS (lead) | 2880 × 1800 |
+| tvOS (lead) | 3840 × 2160 |
+| watchOS (lead) | 422 × 514 |
 
 Landscape swaps the dimensions (e.g. 2868×1320). Apple scales down to smaller slots itself.
 
@@ -324,14 +379,15 @@ side 320–3840 px, max ratio 2:1; any size in range is valid):
 |--------|--------|
 | Phone portrait | 1080 × 1920 |
 | Phone landscape | 1920 × 1080 |
-| 7″ tablet | 1200 × 1920 |
-| 10″ tablet | 1600 × 2560 |
-| Feature graphic | 1024 × 500 (exact) |
+
+**Microsoft Store** — explicit desktop presets, with 3840×2160 as this project's lead output and
+1366×768 as the smallest stored preset. Microsoft accepts 1366×768 or larger desktop screenshots.
 
 Android frames are CSS/Konva-rendered; iPhone uses a bezel mockup.
 
 Sources: [Apple — Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications),
-[Google Play — Add preview assets](https://support.google.com/googleplay/android-developer/answer/9866151).
+[Google Play — Add preview assets](https://support.google.com/googleplay/android-developer/answer/9866151),
+[Microsoft Store — Screenshots and images](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images).
 
 ---
 
@@ -393,7 +449,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v5
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v10
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

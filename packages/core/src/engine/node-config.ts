@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type Konva from "konva";
-import type { Element, LayoutDirection } from "../model/schema.js";
+import type { Background, Element, LayoutDirection, LinearGradientPaint, MediaCrop } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 import { ICON_PATHS } from "../model/icons.js";
@@ -24,12 +24,18 @@ export type NodeConfig =
   | { konva: "Text"; config: Konva.TextConfig }
   | { konva: "Rect"; config: Konva.RectConfig }
   | { konva: "Image"; config: Konva.ImageConfig }
+  | { konva: "Ellipse"; config: Konva.EllipseConfig }
   | { konva: "Path"; config: Konva.PathConfig }
   | { konva: "Group"; config: Konva.GroupConfig; children: NodeConfig[] };
 
 interface Box {
   width: number;
   height: number;
+}
+
+interface PositionedBox extends Box {
+  x?: number;
+  y?: number;
 }
 
 interface Fit {
@@ -43,11 +49,36 @@ interface Fit {
   cropHeight?: number;
 }
 
+function gradientConfig(gradient: LinearGradientPaint, box: Box) {
+  const radians = gradient.angle * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const halfProjection = (Math.abs(box.width * cos) + Math.abs(box.height * sin)) / 2;
+  const centerX = box.width / 2;
+  const centerY = box.height / 2;
+  return {
+    fillLinearGradientStartPoint: {
+      x: centerX - cos * halfProjection,
+      y: centerY - sin * halfProjection,
+    },
+    fillLinearGradientEndPoint: {
+      x: centerX + cos * halfProjection,
+      y: centerY + sin * halfProjection,
+    },
+    fillLinearGradientColorStops: [0, gradient.from, 1, gradient.to],
+  };
+}
+
 /**
  * object-fit for a decoded image inside a box, RELATIVE to the box's (0,0). Shared by `screenshot`
  * (box = the element) and `device-frame` (box = the screen slot). Pure.
  */
-function computeImageFit(image: HTMLImageElement, box: Box, fit: "cover" | "contain"): Fit {
+function computeImageFit(
+  image: HTMLImageElement,
+  box: Box,
+  fit: "cover" | "contain",
+  crop?: MediaCrop,
+): Fit {
   if (fit === "contain") {
     const scale = Math.min(box.width / image.width, box.height / image.height);
     const drawW = image.width * scale;
@@ -66,16 +97,89 @@ function computeImageFit(image: HTMLImageElement, box: Box, fit: "cover" | "cont
     cropWidth = image.height * boxRatio;
     cropHeight = image.height;
   }
+  const zoom = crop?.zoom ?? 1;
+  cropWidth /= zoom;
+  cropHeight /= zoom;
+  const focalX = (crop?.x ?? 0.5) * image.width;
+  const focalY = (crop?.y ?? 0.5) * image.height;
+  const cropX = Math.min(image.width - cropWidth, Math.max(0, focalX - cropWidth / 2));
+  const cropY = Math.min(image.height - cropHeight, Math.max(0, focalY - cropHeight / 2));
   return {
     x: 0,
     y: 0,
     width: box.width,
     height: box.height,
-    cropX: (image.width - cropWidth) / 2,
-    cropY: (image.height - cropHeight) / 2,
+    cropX,
+    cropY,
     cropWidth,
     cropHeight,
   };
+}
+
+/** Shared artboard-background mapping for the interactive and static renderers. */
+export function backgroundToNodeConfig(
+  background: Background,
+  box: PositionedBox,
+  images?: ImageCache,
+): NodeConfig {
+  const x = box.x ?? 0;
+  const y = box.y ?? 0;
+  switch (background.type) {
+    case "solid":
+      return {
+        konva: "Rect",
+        config: { x, y, width: box.width, height: box.height, fill: background.color },
+      };
+    case "linear-gradient": {
+      return {
+        konva: "Rect",
+        config: {
+          x,
+          y,
+          width: box.width,
+          height: box.height,
+          ...gradientConfig(background, box),
+        },
+      };
+    }
+    case "image": {
+      const image = images?.get(background.assetUrl);
+      const base: NodeConfig = {
+        konva: "Rect",
+        config: { x: 0, y: 0, width: box.width, height: box.height, fill: background.color },
+      };
+      if (!image) {
+        return {
+          konva: "Rect",
+          config: { x, y, width: box.width, height: box.height, fill: background.color },
+        };
+      }
+      const fit = computeImageFit(image, box, background.fit);
+      return {
+        konva: "Group",
+        config: { x, y, width: box.width, height: box.height },
+        children: [
+          base,
+          {
+            konva: "Image",
+            config: {
+              x: fit.x,
+              y: fit.y,
+              width: fit.width,
+              height: fit.height,
+              image,
+              cropX: fit.cropX,
+              cropY: fit.cropY,
+              cropWidth: fit.cropWidth,
+              cropHeight: fit.cropHeight,
+            },
+          },
+        ],
+      };
+    }
+    default:
+      return assertNever(background);
+  }
 }
 
 export function elementToNodeConfig(
@@ -110,20 +214,51 @@ export function elementToNodeConfig(
           align: element.align,
           direction,
           fill: element.color,
+          ...(element.shadow ? {
+            shadowColor: element.shadow.color,
+            shadowBlur: element.shadow.blur,
+            shadowOffsetX: element.shadow.offsetX,
+            shadowOffsetY: element.shadow.offsetY,
+            shadowOpacity: element.shadow.opacity,
+            shadowEnabled: true,
+          } : {}),
         },
       };
 
-    case "shape":
+    case "shape": {
+      const paint = {
+        fill: element.gradient ? undefined : element.fill,
+        ...(element.gradient ? gradientConfig(element.gradient, element) : {}),
+        stroke: element.stroke?.color,
+        strokeWidth: element.stroke?.width,
+      };
+      if (element.kind === "ellipse") {
+        return {
+          konva: "Group",
+          config: { ...common, width: element.width, height: element.height },
+          children: [{
+            konva: "Ellipse",
+            config: {
+              x: element.width / 2,
+              y: element.height / 2,
+              radiusX: element.width / 2,
+              radiusY: element.height / 2,
+              ...paint,
+            },
+          }],
+        };
+      }
       return {
         konva: "Rect",
         config: {
           ...common,
           width: element.width,
           height: element.height,
-          fill: element.fill,
           cornerRadius: element.radius,
+          ...paint,
         },
       };
+    }
 
     case "icon":
       return {
@@ -168,7 +303,12 @@ export function elementToNodeConfig(
           },
         };
       }
-      const fit = computeImageFit(image, { width: element.width, height: element.height }, element.fit);
+      const fit = computeImageFit(
+        image,
+        { width: element.width, height: element.height },
+        element.fit,
+        element.crop,
+      );
       return {
         konva: "Group",
         config: { ...common, width: element.width, height: element.height },
@@ -261,19 +401,21 @@ export function elementToNodeConfig(
         });
       }
 
-      const notchW = spec.notch.widthFrac * W;
-      const notchH = spec.notch.heightFrac * H;
-      children.push({
-        konva: "Rect",
-        config: {
-          x: (W - notchW) / 2,
-          y: spec.notch.topFrac * H,
-          width: notchW,
-          height: notchH,
-          fill: spec.bezelColor,
-          cornerRadius: notchH / 2,
-        },
-      });
+      if (spec.notch) {
+        const notchW = spec.notch.widthFrac * W;
+        const notchH = spec.notch.heightFrac * H;
+        children.push({
+          konva: "Rect",
+          config: {
+            x: (W - notchW) / 2,
+            y: spec.notch.topFrac * H,
+            width: notchW,
+            height: notchH,
+            fill: spec.bezelColor,
+            cornerRadius: notchH / 2,
+          },
+        });
+      }
 
       return { konva: "Group", config: { ...common, width: W, height: H }, children };
     }

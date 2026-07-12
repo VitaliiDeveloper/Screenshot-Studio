@@ -61,6 +61,61 @@ describe("migrateToCurrent", () => {
     expect(migrated.screens).toEqual(v4.screens);
   });
 
+  it("migrates a valid v5 document through v6 to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v5: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 5 },
+    };
+    const migrated = migrateToCurrent(v5) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v5.screens);
+  });
+
+  it("migrates a valid solid-background v6 document to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v6: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 6 },
+    };
+    const migrated = migrateToCurrent(v6) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v6.screens);
+  });
+
+  it("migrates a valid v7 document to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v7: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 7 },
+    };
+    const migrated = migrateToCurrent(v7) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v7.screens);
+  });
+
+  it("migrates a valid v8 document to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v8: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 8 },
+    };
+    const migrated = migrateToCurrent(v8) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v8.screens);
+  });
+
+  it("migrates a valid iPhone-only v9 document to current without changing screens", () => {
+    const current = migrateToCurrent(v1Project()) as Record<string, unknown>;
+    const v9: Record<string, unknown> = {
+      ...current,
+      meta: { ...(current.meta as Record<string, unknown>), schemaVersion: 9 },
+    };
+    const migrated = migrateToCurrent(v9) as Record<string, unknown>;
+    expect((migrated.meta as Record<string, unknown>).schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(v9.screens);
+  });
+
   it("does not reinterpret a mode field that was invalid under strict v1", () => {
     const raw = { ...v1Project(), mode: "connected" };
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
@@ -68,7 +123,7 @@ describe("migrateToCurrent", () => {
 
   it("leaves malformed and future-version input for strict validation", () => {
     expect(migrateToCurrent(null)).toBeNull();
-    expect(() => parseProject({ ...v1Project(), meta: { name: "Future", schemaVersion: 99 } }))
+    expect(() => parseProject({ ...v1Project(), meta: { name: "Future", schemaVersion: 109 } }))
       .toThrow(ProjectValidationError);
   });
 });

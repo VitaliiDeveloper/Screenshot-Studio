@@ -26,9 +26,10 @@ the shared browser renderer.
 2. Keep the patch to one concern and add the smallest practical regression test.
 3. Add `SPDX-License-Identifier: Apache-2.0` to new authored `.ts`, `.tsx`, and `.mjs` source files.
    Do not add text headers to JSON, media, vendored/generated files, lockfiles, or third-party fonts.
-4. Start with the narrow package or E2E command that covers the changed behavior. Run the full
-   `pnpm test && pnpm lint && pnpm typecheck && pnpm test:e2e` gate at PR closure when required by
-   `RULES.md`. The leaf-group ownership and cost matrix lives in `docs/testing.md`.
+4. Start with the narrow package test that covers the changed behavior. Add or run an exact E2E
+   file only when that behavior requires a real browser, render host, or packed consumer. Do not run
+   the full browser suite locally; CI owns `pnpm test:e2e` for the integration PR from `dev` into
+   `main`. The leaf-group ownership and cost matrix lives in `docs/testing.md`.
 5. Update public documentation when the user-visible behavior or install path changes.
 
 Commit subjects use `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, `chore:`, `style:`, or

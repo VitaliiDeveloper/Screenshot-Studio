@@ -2,13 +2,12 @@
 import { describe, expect, it } from "vitest";
 import { createBadgePrimitive } from "./badge-primitives.js";
 import { mirrorElement } from "./element-tree.js";
-import { Element, SCHEMA_VERSION } from "./schema.js";
+import { Element } from "./schema.js";
 
 const font = { family: "Inter", weight: 700 };
 
 describe("badge primitive compositions", () => {
-  it("keeps schema v5 and rejects a redundant badge union member", () => {
-    expect(SCHEMA_VERSION).toBe(5);
+  it("keeps the current schema free of a redundant badge union member", () => {
     expect(() => Element.parse({
       id: "badge", type: "badge", x: 0, y: 0, width: 100, height: 40,
     })).toThrow();

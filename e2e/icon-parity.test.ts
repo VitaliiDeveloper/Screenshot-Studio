@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { stripAlpha } from "../packages/core/src/export/png.js";
+import { SCHEMA_VERSION } from "../packages/core/src/model/schema.js";
 import { startWebServer } from "../packages/cli/src/server.js";
 import {
   closeParityRenderHarness,
@@ -35,7 +36,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "icon-parity-"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Icon parity", schemaVersion: 5 },
+    meta: { name: "Icon parity", schemaVersion: 10 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -77,7 +78,7 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
 
 describe("Phase 7 trusted icon parity", () => {
   it("matches headed/headless exact crops and carries a grouped vector across owners", async () => {
-    expect(JSON.parse(readFileSync(projectPath, "utf8")).meta.schemaVersion).toBe(5);
+    expect(JSON.parse(readFileSync(projectPath, "utf8")).meta.schemaVersion).toBe(SCHEMA_VERSION);
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url, projectPath, screenId: "first", pixelRatio: 1,
     }));

@@ -55,7 +55,7 @@ Uninstalling the CLI does not remove projects, exported files, or Playwright's s
 - Only the presets present in `store-specs.json` are supported. Additional Apple accepted sizes and
   Google device classes remain future work.
 - Groups are one level, do not clip children, and cannot nest. Backgrounds remain solid, and project
-  JSON accepts only the strict v5 element/property surface.
+  JSON accepts only the strict v10 element/property surface.
 - Fonts must be registered as project assets. Export rejects machine-dependent fallback fonts.
 - Background removal handles edge-connected flat or near-uniform colours; it is not semantic
   segmentation for complex photographs.
@@ -70,12 +70,13 @@ Uninstalling the CLI does not remove projects, exported files, or Playwright's s
    and the intended tag agree.
 2. Install with `pnpm install --frozen-lockfile`; do not regenerate dependency resolutions during
    candidate closure.
-3. Run `pnpm check:release-candidate`, `pnpm test:e2e:package`, and the full Slice 7 closure commands
-   recorded in `docs/release-readiness.md`.
+3. Run `pnpm check:release-candidate`, `pnpm test:e2e:package`, and the non-browser release checks
+   recorded in `docs/release-readiness.md`. Do not duplicate the full browser suite locally.
 4. Generate the retained tarball, record its SHA-256 and size, and install that exact file into a
    clean temporary consumer for source/packed living-project dogfood.
-5. Push the candidate commit only with owner approval, then require the package matrix on that exact
-   SHA to pass Ubuntu/macOS/Windows Node 22 and Ubuntu Node 24.
+5. Push the candidate commit only with owner approval. Require the `dev` → `main` integration PR's
+   full browser CI gate and the package matrix on that exact SHA to pass Ubuntu/macOS/Windows Node 22
+   and Ubuntu Node 24.
 6. Review `THIRD_PARTY_NOTICES.md`, direct/runtime dependency licenses, the dated Apple/Google audit,
    `SECURITY.md`, and every known limitation above.
 7. Confirm control of the `@screenshot-studio` npm scope, registry authentication, public access,

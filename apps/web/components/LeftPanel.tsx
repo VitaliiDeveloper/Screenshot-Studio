@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "zustand";
 import {
+  ArrowLeft,
   Box,
   BadgeCheck,
   Frame,
@@ -47,12 +48,26 @@ const catalogIcons = {
   components: Box,
 } as const;
 
-function PanelHeader({ title, onClose }: { title: string; onClose: () => void }) {
+function PanelHeader({
+  title,
+  onClose,
+  backLabel,
+}: {
+  title: string;
+  onClose: () => void;
+  backLabel?: string;
+}) {
   return (
-    <header className="flex min-h-14 items-center justify-between border-b border-slate-200 px-4">
+    <header className="flex min-h-14 items-center justify-between border-b border-slate-200 px-3">
       <h2 className="text-sm font-semibold tracking-tight text-slate-950">{title}</h2>
-      <button type="button" aria-label={`Close ${title.toLowerCase()} panel`} className={editorUi.iconButton} onClick={onClose}>
-        <X size={16} strokeWidth={1.9} />
+      <button
+        type="button"
+        aria-label={backLabel ?? `Close ${title.toLowerCase()} panel`}
+        title={backLabel}
+        className={editorUi.compactIconButton}
+        onClick={onClose}
+      >
+        {backLabel ? <ArrowLeft size={16} strokeWidth={1.9} /> : <X size={16} strokeWidth={1.9} />}
       </button>
     </header>
   );
@@ -208,22 +223,24 @@ export function LeftPanel({
   panel,
   images,
   onClose,
+  onOpenAdd,
   onOpenDialog,
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
   onClose: () => void;
+  onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
 }) {
   const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
 
   return (
     <aside className="absolute inset-y-0 left-14 z-30 flex w-[min(18rem,calc(100vw-3.5rem))] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:static xl:w-72 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
-      <PanelHeader title={title} onClose={onClose} />
+      <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
       {panel === "structure" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <ScreensSection images={images} />
-          <LayersSection />
+          <ScreensSection images={images} onOpenDialog={onOpenDialog} />
+          <LayersSection onOpenAdd={onOpenAdd} />
         </div>
       ) : null}
       {panel === "resources" ? (

@@ -14,7 +14,7 @@ import { resolveProjectPath } from "../../../lib/project-path.js";
 import { resolveStoreSpecsPath } from "../../../lib/store-specs-path.js";
 
 /**
- * UI export (spec Slice 3). Writes the same lead-size bundle + zip the CLI writes, from the same
+ * UI export writes the same lead-size roots plus opt-in exact variants that the CLI writes, from the same
  * on-disk project JSON, through the same headless /render path — but reuses THIS Next host as the
  * render host (decision 4): one browser session, `baseUrl` = request origin, no spawned server.
  * All pre-render validation runs before the browser launches, so bad input fails fast as 422.

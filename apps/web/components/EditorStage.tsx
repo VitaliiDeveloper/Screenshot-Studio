@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type Key } from "react";
 import Konva from "konva";
-import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
+import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import {
   assertNever,
@@ -12,7 +12,7 @@ import {
   type Element,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
+import { backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type ElementPatch } from "../lib/editor-store";
 import {
@@ -31,20 +31,22 @@ import { mutateAndSave } from "../lib/mutate-and-save";
  * screen-local element coordinates without changing persisted ownership or geometry. Connected
  * Focus uses the same projection with the active artboard as a non-interactive exact crop preview.
  */
-function renderNodeConfigChild(child: NodeConfig, key: number, listening: boolean) {
+function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
   switch (child.konva) {
     case "Image":
-      return <KonvaImage key={key} {...child.config} listening={listening} />;
+      return <KonvaImage key={key} {...child.config} name={name} listening={listening} />;
+    case "Ellipse":
+      return <Ellipse key={key} {...child.config} name={name} listening={listening} />;
     case "Path":
-      return <Path key={key} {...child.config} listening={listening} />;
+      return <Path key={key} {...child.config} name={name} listening={listening} />;
     case "Rect":
-      return <Rect key={key} {...child.config} listening={listening} />;
+      return <Rect key={key} {...child.config} name={name} listening={listening} />;
     case "Text":
-      return <Text key={key} {...child.config} listening={listening} />;
+      return <Text key={key} {...child.config} name={name} listening={listening} />;
     case "Group":
       return (
-        <Group key={key} {...child.config} listening={listening}>
-          {child.children.map((nested, index) => renderNodeConfigChild(nested, index, listening))}
+        <Group key={key} {...child.config} name={name} listening={listening}>
+          {child.children.map((nested, index) => renderNodeConfigChild(nested, index, listening, name))}
         </Group>
       );
     default:
@@ -445,23 +447,29 @@ export function EditorStage({
         onMouseUp={finishMarquee}
       >
         <Layer>
-          {projections.map(({ screen, x, y }) => screen.background.type === "solid" ? (
-            <Rect
+          {projections.map(({ screen, x, y }) => (
+            <Group
               key={`background-${screen.id}`}
-              x={x + baseX}
-              y={y}
-              width={screen.artboard.width}
-              height={screen.artboard.height}
-              fill={screen.background.color}
-              name="artboard-background"
               listening={canEdit}
               onClick={(event) => {
                 if (marqueeMovedRef.current || selectionModifier(event)) return;
                 editorStore.getState().selectScreen(screen.id);
               }}
               onTap={() => editorStore.getState().selectScreen(screen.id)}
-            />
-          ) : null)}
+            >
+              {renderNodeConfigChild(
+                backgroundToNodeConfig(screen.background, {
+                  x: x + baseX,
+                  y,
+                  width: screen.artboard.width,
+                  height: screen.artboard.height,
+                }, images),
+                screen.id,
+                canEdit,
+                "artboard-background",
+              )}
+            </Group>
+          ))}
 
           {projections.map(({ screen, x, y }) => (
             <Group key={`owner-${screen.id}`} x={x + baseX} y={y}>
@@ -506,6 +514,8 @@ export function EditorStage({
                     );
                   case "Image":
                     return <KonvaImage key={element.id} {...nc.config} {...interaction} />;
+                  case "Ellipse":
+                    return <Ellipse key={element.id} {...nc.config} {...interaction} />;
                   case "Path":
                     return <Path key={element.id} {...nc.config} {...interaction} />;
                   case "Group":

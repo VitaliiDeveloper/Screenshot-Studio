@@ -4,7 +4,8 @@ import { defineConfig } from "vitest/config";
 /**
  * Browser tests run real Next.js servers + Chromium, so they stay separate from the fast unit
  * suite (`vitest.config.ts`). Targeted groups cover parity, export, and editor workflows; the
- * unfiltered config is the full phase/PR/release gate.
+ * the full phase/PR/release gate composes those groups in separate processes so mutable env,
+ * browser, and Next.js runtime state cannot leak across unrelated areas.
  */
 export default defineConfig({
   test: {

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { collectImageUrls } from "./index.js";
-import type { Project, Element, LeafElement } from "../model/schema.js";
+import type { Background, Project, Element, LeafElement } from "../model/schema.js";
 
-function project(elements: Element[]): Project {
+function project(elements: Element[], background: Background = { type: "solid", color: "#000000" }): Project {
   return {
-    meta: { name: "T", schemaVersion: 5 },
+    meta: { name: "T", schemaVersion: 10 },
     mode: "isolated",
     platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{
       id: "s", name: "S", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
       artboard: { width: 660, height: 1434 },
-      background: { type: "solid", color: "#000000" },
+      background,
       elements,
     }],
   };
@@ -53,6 +53,14 @@ describe("collectImageUrls", () => {
 
   it("returns empty when there are no image-bearing elements", () => {
     expect(collectImageUrls(project([]))).toEqual([]);
+  });
+
+  it("includes and deduplicates image-background assets", () => {
+    const background: Background = {
+      type: "image", assetUrl: "background.png", fit: "cover", color: "#000000",
+    };
+    expect(collectImageUrls(project([image("same", "background.png")], background)))
+      .toEqual(["background.png"]);
   });
 
   it("collects image-bearing leaves inside a persisted group", () => {

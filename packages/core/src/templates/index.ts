@@ -77,7 +77,7 @@ export function createScreenFromTemplate(
     name: template.name,
     locale,
     artboard: template.artboard,
-    backgroundColor: template.background.color,
+    background: template.background,
     elements,
   };
   const nextProject = template.platform === "apple"

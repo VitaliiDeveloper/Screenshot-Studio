@@ -17,7 +17,8 @@ export interface ProjectedScreen {
 export function sameScreenGroup(first: Screen, second: Screen): boolean {
   return first.platform === second.platform
     && first.device === second.device
-    && first.locale === second.locale;
+    && first.locale === second.locale
+    && first.storeTargetId === second.storeTargetId;
 }
 
 /**

@@ -23,7 +23,7 @@ beforeAll(async () => {
   cpSync(imageSource, join(directory, "assets", "store-badge.png"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Badge authoring", schemaVersion: 5 },
+    meta: { name: "Badge authoring", schemaVersion: 10 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],
@@ -61,7 +61,7 @@ describe("Phase 7 badge authoring", () => {
   it("guards missing fonts and inserts editable grouped and official-image badges", async () => {
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "Rating badge", exact: true }).click();
     await page.getByRole("dialog", { name: "Font manager" }).waitFor({ state: "visible" });
     expect(elements()).toHaveLength(0);
@@ -73,7 +73,7 @@ describe("Phase 7 badge authoring", () => {
     }];
     writeFileSync(projectPath, JSON.stringify(persisted));
     await page.reload({ waitUntil: "load" });
-    await page.getByRole("button", { name: "Add panel" }).click();
+    await page.getByRole("button", { name: "Add element" }).click();
 
     await page.getByRole("button", { name: "Rating badge", exact: true }).click();
     await expect.poll(() => elements().length).toBe(1);

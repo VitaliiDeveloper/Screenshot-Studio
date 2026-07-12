@@ -13,19 +13,21 @@ import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
  * to "all"), one pending state, inline errors. It saves the current project first so /render and
  * the export route read exactly what the user sees, then downloads the zip the route returns.
  */
-type Platform = "all" | "apple" | "android";
-type Device = "all" | "iphone" | "ipad" | "phone";
-
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
-  const [platform, setPlatform] = useState<Platform>("all");
-  const [device, setDevice] = useState<Device>("all");
+  const [platform, setPlatform] = useState("all");
+  const [device, setDevice] = useState("all");
   const [locale, setLocale] = useState<string>("all");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneDir, setDoneDir] = useState<string | null>(null);
 
   if (!open || !project) return null;
+
+  const platforms = Array.from(new Set(project.screens.map((screen) => screen.platform)));
+  const devices = Array.from(new Set(project.screens
+    .filter((screen) => platform === "all" || screen.platform === platform)
+    .map((screen) => screen.device)));
 
   const runExport = async () => {
     setPending(true);
@@ -78,8 +80,11 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <MenuSelect
             ariaLabel="Platform"
             value={platform}
-            options={[{ value: "all", label: "all" }, { value: "apple", label: "apple" }, { value: "android", label: "android" }]}
-            onChange={setPlatform}
+            options={[{ value: "all", label: "all" }, ...platforms.map((value) => ({ value, label: value }))]}
+            onChange={(value) => {
+              setPlatform(value);
+              setDevice("all");
+            }}
             className="w-40"
           />
         </label>
@@ -89,7 +94,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <MenuSelect
             ariaLabel="Device"
             value={device}
-            options={[{ value: "all", label: "all" }, { value: "iphone", label: "iphone" }, { value: "ipad", label: "ipad" }, { value: "phone", label: "phone" }]}
+            options={[{ value: "all", label: "all" }, ...devices.map((value) => ({ value, label: value }))]}
             onChange={setDevice}
             className="w-40"
           />

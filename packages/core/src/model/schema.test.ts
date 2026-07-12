@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { parseProject, ProjectValidationError, getScreen, SCHEMA_VERSION, Element, Screen } from "./index.js";
+import { parseProject, migrateToCurrent, ProjectValidationError, getScreen, SCHEMA_VERSION, Element, Screen } from "./index.js";
 
 function validProject() {
   return {
@@ -56,20 +56,20 @@ describe("parseProject", () => {
     expect(parseProject(raw).mode).toBe("connected");
   });
 
-  it("migrates valid v1 input sequentially to isolated v5", () => {
+  it("migrates valid v1 input sequentially to isolated current schema", () => {
     const raw = validProject() as Record<string, unknown>;
     delete raw.mode;
     (raw.meta as Record<string, unknown>).schemaVersion = 1;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(5);
+    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(project.mode).toBe("isolated");
   });
 
-  it("migrates valid v2 input losslessly through v3/v4 to v5", () => {
+  it("migrates valid v2 input losslessly to current schema", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(5);
+    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text", content: "Hello" });
   });
 
@@ -86,11 +86,11 @@ describe("parseProject", () => {
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
-  it("migrates valid v3 input losslessly through v4 to v5", () => {
+  it("migrates valid v3 input losslessly to current schema", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(5);
+    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
   });
 
@@ -117,12 +117,125 @@ describe("parseProject", () => {
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
-  it("migrates valid v4 input losslessly to v5", () => {
+  it("migrates valid v4 input losslessly to current schema", () => {
     const raw = validProject();
     raw.meta.schemaVersion = 4 as typeof SCHEMA_VERSION;
     const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(5);
+    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
+  });
+
+  it("migrates valid v5 input losslessly to current", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 5 as typeof SCHEMA_VERSION;
+    const before = structuredClone(raw.screens);
+    const migrated = migrateToCurrent(raw) as typeof raw;
+    expect(migrated.meta.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.screens).toEqual(before);
+  });
+
+  it("does not bless v6 variant fields mislabeled as schema v5", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 5 as typeof SCHEMA_VERSION;
+    Object.assign(raw.screens[0]!, { variantOf: "root", storeTargetId: "6.5" });
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("migrates valid solid-background v6 input losslessly to current", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 6 as typeof SCHEMA_VERSION;
+    const before = structuredClone(raw.screens);
+    const migrated = migrateToCurrent(raw) as typeof raw;
+    expect(migrated.screens).toEqual(before);
+    const project = parseProject(migrated);
+    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+
+  it("does not bless a gradient background mislabeled as schema v6", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    (raw.meta as Record<string, unknown>).schemaVersion = 6;
+    const screens = raw.screens as Array<Record<string, unknown>>;
+    screens[0]!.background = {
+      type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 45,
+    };
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("migrates valid v7 input and rejects crop fields mislabeled as v7", () => {
+    const valid = validProject();
+    valid.meta.schemaVersion = 7 as typeof SCHEMA_VERSION;
+    expect(parseProject(valid).meta.schemaVersion).toBe(SCHEMA_VERSION);
+
+    const mislabeled = validProject() as unknown as Record<string, unknown>;
+    (mislabeled.meta as Record<string, unknown>).schemaVersion = 7;
+    const screen = (mislabeled.screens as Array<Record<string, unknown>>)[0]!;
+    const element = (screen.elements as Array<Record<string, unknown>>)[0]!;
+    Object.assign(element, {
+      type: "screenshot", assetUrl: "assets/shot.png", fit: "cover", crop: { x: 0.2, y: 0.8, zoom: 2 },
+    });
+    delete element.content;
+    delete element.fontFamily;
+    delete element.size;
+    delete element.color;
+    expect(() => parseProject(mislabeled)).toThrow(ProjectValidationError);
+  });
+
+  it("accepts strict linear-gradient and image backgrounds with defaults", () => {
+    const gradient = validProject() as unknown as Record<string, unknown>;
+    const gradientScreen = (gradient.screens as Array<Record<string, unknown>>)[0]!;
+    gradientScreen.background = { type: "linear-gradient", from: "#112233", to: "#AABBCC" };
+    expect(parseProject(gradient).screens[0]!.background).toEqual({
+      type: "linear-gradient", from: "#112233", to: "#AABBCC", angle: 0,
+    });
+
+    const image = validProject() as unknown as Record<string, unknown>;
+    const imageScreen = (image.screens as Array<Record<string, unknown>>)[0]!;
+    imageScreen.background = { type: "image", assetUrl: "assets/background.png" };
+    expect(parseProject(image).screens[0]!.background).toEqual({
+      type: "image", assetUrl: "assets/background.png", fit: "cover", color: "#000000",
+    });
+  });
+
+  it("rejects invalid background values and unknown fields", () => {
+    for (const background of [
+      { type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 361 },
+      { type: "image", assetUrl: "", fit: "cover", color: "#000000" },
+      { type: "solid", color: "#000000", opacity: 0.5 },
+    ]) {
+      const raw = validProject() as unknown as Record<string, unknown>;
+      (raw.screens as Array<Record<string, unknown>>)[0]!.background = background;
+      expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+    }
+  });
+
+  it("validates root and store-target variant relationships", () => {
+    const raw = validProject();
+    const variant = structuredClone(raw.screens[0]!);
+    variant.id = "hero-65";
+    variant.artboard = { width: 1284, height: 2778 };
+    Object.assign(variant, {
+      variantOf: raw.screens[0]!.id,
+      storeTargetId: "6.5",
+    });
+    raw.screens.push(variant);
+    expect(parseProject(raw).screens[1]).toMatchObject({
+      variantOf: raw.screens[0]!.id,
+      storeTargetId: "6.5",
+    });
+
+    const missingTarget = structuredClone(raw);
+    delete (missingTarget.screens[1]! as unknown as Record<string, unknown>).storeTargetId;
+    expect(() => parseProject(missingTarget)).toThrow(/variantOf and storeTargetId/);
+
+    const duplicate = structuredClone(raw);
+    duplicate.screens.push({ ...structuredClone(duplicate.screens[1]!), id: "hero-65-copy" });
+    expect(() => parseProject(duplicate)).toThrow(/duplicate store target variant/);
+  });
+
+  it("rejects duplicate screen ids before resolving variant references", () => {
+    const raw = validProject();
+    raw.screens.push(structuredClone(raw.screens[0]!));
+    expect(() => parseProject(raw)).toThrow(/duplicate screen id/);
   });
 
   it("does not bless top-level or grouped icons mislabeled as schema v4", () => {
@@ -245,6 +358,42 @@ describe("getScreen", () => {
   });
 });
 
+describe("Phase 9 styling literals", () => {
+  it("accepts strict bounded text shadow", () => {
+    const text = validProject().screens[0]!.elements[0]!;
+    expect(Element.parse({
+      ...text,
+      shadow: { color: "#000000", blur: 12, offsetX: 2, offsetY: 4, opacity: 0.5 },
+    })).toMatchObject({ shadow: { blur: 12, opacity: 0.5 } });
+    expect(() => Element.parse({
+      ...text,
+      shadow: { color: "#000000", blur: 101, offsetX: 0, offsetY: 0, opacity: 1 },
+    })).toThrow();
+  });
+
+  it("accepts ellipse, gradient, and stroke while rejecting unbounded or unknown paint", () => {
+    const shape = {
+      id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 80,
+      kind: "ellipse", fill: "#123456",
+      gradient: { from: "#000000", to: "#FFFFFF", angle: 45 },
+      stroke: { color: "#FF00FF", width: 4 },
+    };
+    expect(Element.parse(shape)).toMatchObject(shape);
+    expect(() => Element.parse({ ...shape, kind: "blob" })).toThrow();
+    expect(() => Element.parse({ ...shape, stroke: { color: "#FFFFFF", width: 0 } })).toThrow();
+    expect(() => Element.parse({ ...shape, gradient: { ...shape.gradient, stops: [] } })).toThrow();
+  });
+
+  it("does not bless v9 styling fields mislabeled as schema v8", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    (raw.meta as Record<string, unknown>).schemaVersion = 8;
+    const screen = (raw.screens as Array<Record<string, unknown>>)[0]!;
+    const element = (screen.elements as Array<Record<string, unknown>>)[0]!;
+    element.shadow = { color: "#000000", blur: 4, offsetX: 0, offsetY: 2, opacity: 0.5 };
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+});
+
 describe("ScreenshotElement", () => {
   const base = {
     id: "s1", type: "screenshot", x: 0, y: 0, width: 100, height: 200,
@@ -259,6 +408,17 @@ describe("ScreenshotElement", () => {
   it("accepts fit contain and a corner radius", () => {
     expect(Element.parse({ ...base, fit: "contain", cornerRadius: 24 }))
       .toMatchObject({ fit: "contain", cornerRadius: 24 });
+  });
+
+  it("accepts bounded normalized crop and applies crop defaults", () => {
+    expect(Element.parse({ ...base, crop: {} })).toMatchObject({
+      crop: { x: 0.5, y: 0.5, zoom: 1 },
+    });
+    expect(Element.parse({ ...base, crop: { x: 0, y: 1, zoom: 4 } })).toMatchObject({
+      crop: { x: 0, y: 1, zoom: 4 },
+    });
+    expect(() => Element.parse({ ...base, crop: { x: -0.1, y: 0.5, zoom: 1 } })).toThrow();
+    expect(() => Element.parse({ ...base, crop: { x: 0.5, y: 0.5, zoom: 4.1 } })).toThrow();
   });
 
   it("rejects an unknown fit", () => {
@@ -293,7 +453,7 @@ describe("ImageElement (schema v4)", () => {
     expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
     expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
     expect(() => Element.parse({ ...base, cornerRadius: -1 })).toThrow();
-    expect(() => Element.parse({ ...base, crop: {} })).toThrow();
+    expect(() => Element.parse({ ...base, bogus: true })).toThrow();
   });
 });
 
@@ -338,6 +498,20 @@ describe("DeviceFrameElement", () => {
 
   it("rejects an unknown deviceType", () => {
     expect(() => Element.parse({ ...base, deviceType: "android" })).toThrow();
+  });
+
+  it("accepts every trusted built-in frame preset", () => {
+    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const) {
+      expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
+    }
+  });
+
+  it("does not bless non-iPhone presets mislabeled as schema v9", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    (raw.meta as Record<string, unknown>).schemaVersion = 9;
+    const screen = (raw.screens as Array<Record<string, unknown>>)[0]!;
+    screen.elements = [{ ...base, deviceType: "tablet" }];
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
   it("rejects an unknown fit", () => {
@@ -475,6 +649,20 @@ describe("Project.platforms manifest", () => {
 
   it("accepts an android/phone project", () => {
     expect(() => parseProject(androidProject())).not.toThrow();
+  });
+
+  it.each([
+    ["apple", "ipad"],
+    ["apple", "macos"],
+    ["apple", "tvos"],
+    ["apple", "watchos"],
+    ["windows", "desktop"],
+  ] as const)("accepts %s/%s projects", (platform, device) => {
+    const project = validProject();
+    project.platforms = [platform];
+    project.screens[0]!.platform = platform;
+    project.screens[0]!.device = device;
+    expect(() => parseProject(project)).not.toThrow();
   });
 
   it("rejects a duplicate platform", () => {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { elementToNodeConfig, type ImageCache } from "./node-config.js";
+import { backgroundToNodeConfig, elementToNodeConfig, type ImageCache } from "./node-config.js";
 import { ICON_PATHS } from "../model/icons.js";
 import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, IconElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
 
@@ -16,6 +16,67 @@ const baseShape: ShapeElement = {
   rotation: 0, opacity: 1, locked: false, visible: true,
   kind: "rect", fill: "#FF0000", radius: 8,
 };
+
+describe("backgroundToNodeConfig", () => {
+  it("maps solid and translated gradients with local deterministic points", () => {
+    expect(backgroundToNodeConfig(
+      { type: "solid", color: "#112233" },
+      { x: 300, y: 40, width: 200, height: 100 },
+    )).toMatchObject({
+      konva: "Rect", config: { x: 300, y: 40, width: 200, height: 100, fill: "#112233" },
+    });
+
+    const gradient = backgroundToNodeConfig(
+      { type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 0 },
+      { x: 300, y: 40, width: 200, height: 100 },
+    );
+    expect(gradient).toMatchObject({
+      konva: "Rect",
+      config: {
+        x: 300, y: 40, width: 200, height: 100,
+        fillLinearGradientStartPoint: { x: 0, y: 50 },
+        fillLinearGradientEndPoint: { x: 200, y: 50 },
+        fillLinearGradientColorStops: [0, "#000000", 1, "#FFFFFF"],
+      },
+    });
+  });
+
+  it("maps image contain/cover and returns the opaque fallback before preload", () => {
+    const image = { width: 400, height: 400 } as unknown as HTMLImageElement;
+    const background = {
+      type: "image" as const, assetUrl: "background.png", fit: "contain" as const, color: "#123456",
+    };
+    const missing = backgroundToNodeConfig(background, { x: 20, y: 30, width: 200, height: 100 });
+    expect(missing).toMatchObject({
+      konva: "Rect", config: { x: 20, y: 30, width: 200, height: 100, fill: "#123456" },
+    });
+
+    const contain = backgroundToNodeConfig(
+      background,
+      { x: 20, y: 30, width: 200, height: 100 },
+      new Map([["background.png", image]]),
+    );
+    if (contain.konva !== "Group") throw new Error("expected Group");
+    expect(contain.config).toMatchObject({ x: 20, y: 30, width: 200, height: 100 });
+    expect(contain.children[0]).toMatchObject({
+      konva: "Rect", config: { x: 0, y: 0, width: 200, height: 100, fill: "#123456" },
+    });
+    expect(contain.children[1]).toMatchObject({
+      konva: "Image", config: { x: 50, y: 0, width: 100, height: 100, image },
+    });
+
+    const cover = backgroundToNodeConfig(
+      { ...background, fit: "cover" },
+      { width: 200, height: 100 },
+      new Map([["background.png", image]]),
+    );
+    if (cover.konva !== "Group") throw new Error("expected Group");
+    expect(cover.children[1]).toMatchObject({
+      konva: "Image",
+      config: { width: 200, height: 100, cropX: 0, cropY: 100, cropWidth: 400, cropHeight: 200 },
+    });
+  });
+});
 
 describe("elementToNodeConfig", () => {
   it("maps a text element to a Konva Text config", () => {
@@ -36,12 +97,44 @@ describe("elementToNodeConfig", () => {
     expect(result.config).toMatchObject({ direction: "rtl", align: "right" });
   });
 
+  it("maps strict text shadow literals to Konva props", () => {
+    const result = elementToNodeConfig({
+      ...baseText,
+      shadow: { color: "#000000", blur: 12, offsetX: 3, offsetY: 6, opacity: 0.4 },
+    });
+    expect(result.config).toMatchObject({
+      shadowColor: "#000000", shadowBlur: 12, shadowOffsetX: 3, shadowOffsetY: 6,
+      shadowOpacity: 0.4, shadowEnabled: true,
+    });
+  });
+
   it("maps a shape element to a Konva Rect config", () => {
     const result = elementToNodeConfig(baseShape);
     expect(result.konva).toBe("Rect");
     expect(result.config).toMatchObject({
       id: "s1", x: 0, y: 0, width: 50, height: 40,
       rotation: 0, opacity: 1, fill: "#FF0000", cornerRadius: 8,
+    });
+  });
+
+  it("maps ellipse, gradient, and stroke through one logical group", () => {
+    const result = elementToNodeConfig({
+      ...baseShape,
+      kind: "ellipse",
+      gradient: { from: "#000000", to: "#FFFFFF", angle: 0 },
+      stroke: { color: "#FF00FF", width: 3 },
+    });
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.config).toMatchObject({ id: "s1", x: 0, y: 0, width: 50, height: 40 });
+    expect(result.children[0]).toMatchObject({
+      konva: "Ellipse",
+      config: {
+        x: 25, y: 20, radiusX: 25, radiusY: 20,
+        stroke: "#FF00FF", strokeWidth: 3,
+        fillLinearGradientStartPoint: { x: 0, y: 20 },
+        fillLinearGradientEndPoint: { x: 50, y: 20 },
+        fillLinearGradientColorStops: [0, "#000000", 1, "#FFFFFF"],
+      },
     });
   });
 });
@@ -131,6 +224,26 @@ describe("elementToNodeConfig — screenshot", () => {
     expect((result.children[1]!.config as Record<string, unknown>).cropWidth).toBeUndefined();
   });
 
+  it("applies normalized focal point and zoom only to cover", () => {
+    const cropped = elementToNodeConfig({
+      ...shot,
+      crop: { x: 1, y: 0, zoom: 2 },
+    }, { images: cache });
+    if (cropped.konva !== "Group") throw new Error("expected Group");
+    expect(cropped.children[1]!.config).toMatchObject({
+      cropX: 200, cropY: 0, cropWidth: 200, cropHeight: 100,
+    });
+
+    const contained = elementToNodeConfig({
+      ...shot,
+      fit: "contain",
+      crop: { x: 1, y: 0, zoom: 4 },
+    }, { images: cache });
+    if (contained.konva !== "Group") throw new Error("expected Group");
+    expect(contained.children[1]!.config).toMatchObject({ x: 50, y: 0, width: 100, height: 100 });
+    expect((contained.children[1]!.config as Record<string, unknown>).cropWidth).toBeUndefined();
+  });
+
   it("maps a missing image to a grey placeholder rect", () => {
     const result = elementToNodeConfig(shot, { images: new Map() });
     expect(result.konva).toBe("Rect");
@@ -179,6 +292,17 @@ describe("elementToNodeConfig — device-frame", () => {
     const result = elementToNodeConfig(frame, { images: frameCache });
     expect(result.konva).toBe("Group");
     expect(result.config).toMatchObject({ id: "df1", x: 100, y: 50, width: 1000, height: 1000 });
+  });
+
+  it("maps every trusted preset, with notch only where specified", () => {
+    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const) {
+      const result = elementToNodeConfig({ ...frame, deviceType }, { images: frameCache });
+      if (result.konva !== "Group") throw new Error("expected Group");
+      expect(result.children[0]).toMatchObject({ konva: "Rect" });
+      expect(result.children[1]).toMatchObject({ konva: "Rect", config: { fill: "#000000" } });
+      expect(result.children[2]).toMatchObject({ konva: "Image", config: { image: frameStub } });
+      expect(result.children).toHaveLength(deviceType === "iphone" || deviceType === "android-phone" ? 4 : 3);
+    }
   });
 
   it("composits body, slot background, clipped content image, and notch (box-local)", () => {

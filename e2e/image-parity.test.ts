@@ -32,10 +32,17 @@ function transparentFixture(): Buffer {
   return PNG.sync.write(png);
 }
 
-const image = (id: string, x: number, y: number, fit: "contain" | "cover") => ({
+const image = (
+  id: string,
+  x: number,
+  y: number,
+  fit: "contain" | "cover",
+  crop?: { x: number; y: number; zoom: number },
+) => ({
   id, type: "image", x, y, width: 100, height: 100, rotation: 0,
   opacity: 1, locked: false, visible: true,
   assetUrl: "assets/decor.png", fit, cornerRadius: 0,
+  ...(crop ? { crop } : {}),
 });
 
 beforeAll(async () => {
@@ -44,7 +51,7 @@ beforeAll(async () => {
   writeFileSync(join(directory, "assets", "decor.png"), transparentFixture());
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Image parity", schemaVersion: 5 },
+    meta: { name: "Image parity", schemaVersion: 10 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -65,7 +72,7 @@ beforeAll(async () => {
       {
         id: "second", name: "Second", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 200, height: 200 }, background: { type: "solid", color: "#00FF00" },
-        elements: [image("cover", 20, 20, "cover")],
+        elements: [image("cover", 20, 20, "cover", { x: 0, y: 0.5, zoom: 2 })],
       },
     ],
   }));
@@ -102,7 +109,7 @@ describe("Phase 7 decorative image parity", () => {
     expect(rgb(first, 30, 30)).toEqual([0, 0, 255]);
     expect(rgb(first, 30, 60)).toEqual([255, 0, 0]);
     expect(rgb(second, 30, 60)).toEqual([255, 0, 0]);
-    expect(rgb(second, 100, 60)).toEqual([0, 255, 0]);
+    expect(rgb(second, 100, 60)).toEqual([255, 0, 0]);
     expect(rgb(first, 170, 150)).toEqual([255, 0, 0]);
     expect(rgb(second, 30, 150)).toEqual([0, 255, 0]);
 
@@ -136,7 +143,7 @@ describe("Phase 7 decorative image parity", () => {
       containMargin: [0, 0, 255],
       containRed: [255, 0, 0],
       coverRed: [255, 0, 0],
-      coverAlpha: [0, 255, 0],
+      coverAlpha: [255, 0, 0],
       groupedRed: [255, 0, 0],
       groupedAlpha: [0, 255, 0],
     });

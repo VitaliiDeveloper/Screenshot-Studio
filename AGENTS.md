@@ -8,7 +8,7 @@ agent needs to generate copy, lay out slides, and translate locales — no skill
 Before starting any task, read and apply the repository-wide workflow rules in
 [`RULES.md`](RULES.md); Codex does not expand `@file` imports inside `AGENTS.md`.
 
-> **Status: implementation and verification are complete through Phase 8. Slices 1–7, the full local release-candidate gate, sustained source/packed dogfood, and the Linux/macOS/Windows package matrix are green. Candidate 0.1.0 has an explicit release-readiness GO; no tag, registry publication, GitHub release, or announcement is implied.**
+> **Status: implementation and verification are complete through finite Phase 9. Phase 8's candidate evidence and Phase 9's release-independent expansion closure are green. No tag, registry publication, GitHub release, or announcement is implied.**
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
@@ -26,9 +26,14 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > authoring and shared contain/cover/alpha parity, and the strict v5 trusted built-in vector icon
 > leaf with editable colour/stroke parity. Rating and “as seen on” badges now author as ordinary
 > fresh-id groups, while official store badges reuse contain-fit project images; no redundant badge
-> schema member was added. Current v5 living examples now prove connected image/icon/badge/group
-> crops and keyboard group workflows across LTR/RTL locale groups. This is baseline completion, not
+> schema member was added. Current living examples prove connected image/icon/badge/group
+> crops and keyboard group workflows across LTR/RTL locale groups. Post-Phase 8 corrective Slice 1
+> adds paired `variantOf`/`storeTargetId` screens so explicit store sizes are independent fresh-id
+> copies and Store Targets never resize a root in place. This is baseline completion, not
 > a public release; release readiness comes only after Phase 8 stabilization.
+> Phase 9 adds independent output families, strict background/media/style literals, trusted frame
+> presets, current-schema living examples, and measured browser/export closure through the same
+> shared render path. Publication remains a separate explicitly authorized workflow.
 > Read only docs directly relevant to the active task; do not scan all of `docs/` by default. When in
 > doubt, follow `docs/architecture.md` (the technical
 > contract) — it wins over this summary.
@@ -70,29 +75,36 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v5 only; future schema ideas are not valid project fields.
+against the enforced v10 only; future schema ideas are not valid project fields.
 
-**Current v5 (enforced today):**
+**Current v10 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 5 }
+├── meta: { name, appIcon?, schemaVersion: 10 }
 ├── mode: isolated | connected
-├── platforms: ["apple" | "android", …]    # derived manifest: set-equal to the screens' platforms
+├── platforms: ["apple" | "android" | "windows", …] # derived manifest: set-equal to screens
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
 ├── fonts: FontAsset[]                     # uploaded / Google file assets under assets/fonts/
 └── screens: Screen[]
-    ├── id, name, platform, device, locale, direction  # direction: ltr | rtl
+    ├── id, name, platform, device, locale, direction  # apple: iphone/ipad/macos/tvos/watchos
+    │                                                  # android: phone; windows: desktop
+    ├── variantOf?, storeTargetId?                     # paired on explicit target variants
     ├── artboard: { width, height }
-    ├── background: solid only
+    ├── background: solid | linear-gradient | project image
     └── elements: Element[]                # z-order = array order
 ```
 
 Element transform base: `id, type, x, y, width, height, rotation, opacity, locked, visible, name?`.
 Leaf elements may also carry `role?`. Element types today are leaf `text`, `shape` (rect),
-`screenshot`, decorative `image`, trusted built-in vector `icon`, `device-frame` (iphone), plus one-level `group` with
+`screenshot`, decorative `image`, trusted built-in vector `icon`, trusted built-in `device-frame`, plus one-level `group` with
 `children: LeafElement[]` in group-local coordinates. Groups cannot nest and do not clip their
 children.
+Screenshot and decorative-image leaves may carry `crop: { x, y, zoom }`; normalized focal points
+and bounded zoom affect `cover` only, while `contain` deterministically ignores the crop literal.
+Text may carry one strict deterministic shadow. Shapes support rect/ellipse, an optional two-stop
+linear gradient, and an optional literal stroke; arbitrary paths and generic effects remain invalid.
+Device frames select only from the core-owned phone/tablet/desktop/TV/watch preset registry.
 There is deliberately **no `themes` key**: definitions live in `themes/*.json` and are baked
 into literal element fields by `theme set`; the strict project validator rejects a `themes` key.
 
@@ -109,7 +121,7 @@ Connected Overview is one editable
 gapless strip for the active exact group; owner-aware selection keeps duplicate ids unambiguous and
 stores transforms in owner-local coordinates. Focus is a non-interactive exact crop preview.
 
-Future schema work is roadmap-governed. Do not add new background/element types, per-element RTL
+Future schema work is roadmap-governed. Do not add background/element types beyond the enforced unions, per-element RTL
 fields, nested groups, clipping/scale state, or other canvas fields until the enforced schema and
 architecture widen.
 
@@ -184,7 +196,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v5 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v10 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 
@@ -213,7 +225,8 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - For each new slice, prefer a short handoff into a fresh thread/session instead of carrying
   the full planning and implementation history forward. A handoff should name the goal, the
   branch/base, the files or directories to inspect, the contracts that must hold, and the
-  targeted verification commands. Reserve the full gate for the conditions in `RULES.md`.
+  targeted verification commands. The full browser gate belongs to `dev` → `main` CI, not a local
+  slice handoff.
 - Use sub-agents only for independent work streams, and give each sub-agent a scoped handoff
   with the minimum relevant files. Do not pass the entire roadmap, all specs, or raw prior
   thread history to every sub-agent.
@@ -232,6 +245,7 @@ This repo has detailed docs and long-running phase work. Keep context narrow:
 - Use the root targeted scripts (`test:core`, `test:cli`, `test:web`, parity foundation/elements,
   `test:e2e:export`, and editor interaction/workspace/authoring) or explicit Vitest file paths
   during implementation. The unsuffixed parity/editor scripts are aggregates, not the default.
-  `pnpm test:e2e` is the full browser gate, not the default slice check.
+  Do not run `pnpm test:e2e` locally; GitHub CI runs that full browser gate only for the integration
+  PR from `dev` into `main`.
 - Verification scope is defined by the behavioral-risk matrix in `RULES.md`. For a localized
   UI edit, do not default to the full editor E2E group.

@@ -1,6 +1,6 @@
 # Example projects
 
-These projects are small, editable v5 documents and living authoring/export fixtures:
+These projects are small, editable v6 documents and living authoring/export fixtures:
 
 - `connected-launch` — a three-screen English iPhone launch deck in connected mode. Its shapes and
   decorative image deliberately cross screen boundaries, while trusted icons and an editable

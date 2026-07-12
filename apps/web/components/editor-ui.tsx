@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, FolderOpen, X, type LucideIcon } from "lucide-react";
+import { Check, ChevronDown, FolderOpen, Plus, X, type LucideIcon } from "lucide-react";
 
 export function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -17,13 +17,148 @@ export const editorUi = {
   buttonGhost: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
   buttonDanger: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-medium text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
   iconButton: `inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
+  compactIconButton: `inline-flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
+  compactAddButton: `inline-flex size-6 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
   field: `h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 shadow-sm transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15`,
   textarea: `w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 shadow-sm transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15`,
 };
 
+export type AddMenuOption<T extends string> = {
+  value: T;
+  label: string;
+  description?: string;
+};
+
+/** Shared compact add menu for section-level creation actions. */
+export function AddMenu<T extends string>({
+  ariaLabel,
+  menuLabel = `${ariaLabel} options`,
+  options,
+  onSelect,
+  menuClassName,
+}: {
+  ariaLabel: string;
+  menuLabel?: string;
+  options: readonly AddMenuOption<T>[];
+  onSelect: (value: T) => void;
+  menuClassName?: string;
+}) {
+  const menuId = useId();
+  const controlRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const estimatedMenuHeight = options.length * 44 + 10;
+        setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight && rect.top > window.innerHeight - rect.bottom);
+      }
+      controlRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
+    });
+    const onPointerDown = (event: PointerEvent) => {
+      if (!controlRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, options.length]);
+
+  return (
+    <div
+      ref={controlRef}
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={ariaLabel}
+        title={ariaLabel}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        disabled={options.length === 0}
+        className={editorUi.compactAddButton}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          setOpen(true);
+        }}
+      >
+        <Plus size={14} strokeWidth={2} aria-hidden="true" />
+      </button>
+
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={menuLabel}
+          className={cx(
+            "absolute right-0 z-40 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/10",
+            openUpward ? "bottom-full mb-1" : "top-full mt-1",
+            menuClassName,
+          )}
+          onKeyDown={(event) => {
+            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+            const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']"));
+            if (items.length === 0) return;
+            event.preventDefault();
+            const current = items.indexOf(document.activeElement as HTMLButtonElement);
+            const next = event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? items.length - 1
+                : event.key === "ArrowDown"
+                  ? (current + 1 + items.length) % items.length
+                  : (current - 1 + items.length) % items.length;
+            items[next]?.focus();
+          }}
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitem"
+              aria-label={option.label}
+              className="flex min-h-11 w-full flex-col justify-center border-b border-slate-100 px-2.5 py-1.5 text-left font-normal leading-4 text-slate-600 transition-colors last:border-b-0 hover:bg-slate-50/80 hover:text-slate-800 focus-visible:relative focus-visible:z-10 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
+              onClick={() => {
+                onSelect(option.value);
+                setOpen(false);
+                requestAnimationFrame(() => triggerRef.current?.focus());
+              }}
+            >
+              <span className="truncate text-[11px] font-normal leading-4">{option.label}</span>
+              {option.description ? <span className="truncate text-[10px] font-normal leading-4 text-slate-400">{option.description}</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export type MenuSelectOption<T extends string> = {
   value: T;
   label: string;
+  triggerLabel?: string;
   icon?: LucideIcon;
 };
 
@@ -38,6 +173,8 @@ export function MenuSelect<T extends string>({
   triggerClassName,
   menuClassName,
   showSelectedIcon = false,
+  density = "default",
+  appearance = "field",
 }: {
   ariaLabel: string;
   menuLabel?: string;
@@ -48,6 +185,8 @@ export function MenuSelect<T extends string>({
   triggerClassName?: string;
   menuClassName?: string;
   showSelectedIcon?: boolean;
+  density?: "default" | "compact";
+  appearance?: "field" | "breadcrumb";
 }) {
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
@@ -56,6 +195,8 @@ export function MenuSelect<T extends string>({
   const [openUpward, setOpenUpward] = useState(false);
   const activeOption = options.find((option) => option.value === value) ?? options[0];
   const ActiveIcon = activeOption?.icon;
+  const compact = density === "compact";
+  const breadcrumb = appearance === "breadcrumb";
 
   useEffect(() => {
     if (!open) return;
@@ -106,10 +247,21 @@ export function MenuSelect<T extends string>({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={cx(
-          "group flex h-8 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 shadow-sm transition-all",
-          "hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
-          open && "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10",
+          "group flex w-full items-center gap-2 transition-all",
+          breadcrumb
+            ? "rounded-md border-0 bg-transparent text-slate-500 shadow-none hover:text-slate-600"
+            : "rounded-lg border border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
+          compact
+            ? breadcrumb
+              ? "min-h-7 px-1 py-1 font-normal"
+              : "h-7 px-2 text-[10px] font-normal text-slate-500"
+            : "h-8 px-2.5 text-xs text-slate-800",
+          breadcrumb
+            ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
+            : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
+          open && (breadcrumb
+            ? "bg-transparent text-slate-600 shadow-none"
+            : "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10"),
           triggerClassName,
         )}
         onClick={() => setOpen((current) => !current)}
@@ -124,7 +276,12 @@ export function MenuSelect<T extends string>({
             <ActiveIcon size={14} strokeWidth={1.8} />
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-left">{activeOption.label}</span>
+        <span className={cx(
+          "min-w-0 flex-1 truncate text-left",
+          breadcrumb && "text-[11px] font-normal leading-4 text-slate-500",
+        )}>
+          {activeOption.triggerLabel ?? activeOption.label}
+        </span>
         <ChevronDown size={14} strokeWidth={1.9} className={cx("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -133,9 +290,15 @@ export function MenuSelect<T extends string>({
           id={menuId}
           role="menu"
           aria-label={menuLabel}
+          data-placement={openUpward ? "top" : "bottom"}
           className={cx(
-            "absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-950/12",
-            openUpward ? "bottom-full mb-1" : "top-full mt-1",
+            "menu-select-surface absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/12",
+            compact
+              ? breadcrumb
+                ? "flex flex-col border-slate-200/80 bg-white/95 p-1.5 shadow-slate-950/10"
+                : "p-1"
+              : "p-1.5",
+            openUpward ? "bottom-full mb-2" : "top-full mt-2",
             menuClassName,
           )}
           onKeyDown={(event) => {
@@ -165,9 +328,20 @@ export function MenuSelect<T extends string>({
                 aria-checked={selected}
                 data-menu-select-value={option.value}
                 className={cx(
-                  "flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-xs font-medium transition-colors",
+                  "flex w-full items-center gap-2 text-left transition-colors",
+                  compact
+                    ? breadcrumb
+                      ? "min-h-9 border-b border-slate-100 px-2.5 py-1.5 text-[11px] font-normal leading-4 last:border-b-0"
+                      : "h-8 rounded-none border-b border-slate-100 px-2 text-[11px] font-normal last:border-b-0"
+                    : "h-9 rounded-lg px-2 text-xs font-medium",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60",
-                  selected ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                  selected
+                    ? breadcrumb
+                      ? "bg-blue-50/70 text-blue-600"
+                      : "bg-blue-50 text-blue-700"
+                    : breadcrumb
+                      ? "text-slate-500 hover:bg-slate-50/90 hover:text-slate-700"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
                 onClick={() => {
                   onChange(option.value);
@@ -183,7 +357,12 @@ export function MenuSelect<T extends string>({
                     <OptionIcon size={14} strokeWidth={1.8} />
                   </span>
                 ) : null}
-                <span className="flex-1 truncate">{option.label}</span>
+                <span className={cx(
+                  "flex-1 truncate",
+                  breadcrumb && "text-[11px] font-normal leading-4",
+                )}>
+                  {option.label}
+                </span>
                 <Check size={14} strokeWidth={2.2} className={cx("text-blue-600", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
               </button>
             );

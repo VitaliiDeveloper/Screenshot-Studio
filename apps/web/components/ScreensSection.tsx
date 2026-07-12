@@ -2,8 +2,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import { useStore } from "zustand";
-import { Plus, Trash2 } from "lucide-react";
+import { CornerUpLeft, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -12,11 +13,12 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { workspaceScreenScope } from "../lib/editor-workspace";
+import { groupScreensByOutput, workspaceScreenScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
-import { editorUi } from "./editor-ui";
+import { AddMenu, editorUi, MenuSelect } from "./editor-ui";
+import type { ResourceDialog } from "../lib/editor-workspace";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
@@ -24,26 +26,72 @@ const DynamicScreenThumbnail = dynamic(
 );
 
 /** Active connected group (or isolated locale): select, scoped reorder, duplicate-add, and delete. */
-export function ScreensSection({ images }: { images: ImageCache }) {
+export function ScreensSection({
+  images,
+  onOpenDialog,
+}: {
+  images: ImageCache;
+  onOpenDialog: (dialog: ResourceDialog) => void;
+}) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
+  const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  useEffect(() => {
+    if (!activeScreenId) return;
+    const id = requestAnimationFrame(() => {
+      const list = screenListRef.current;
+      if (!list) return;
+      const activeButton = Array.from(
+        list.querySelectorAll<HTMLButtonElement>("button[data-screen-id]"),
+      ).find((button) => button.dataset.screenId === activeScreenId);
+      const row = activeButton?.closest<HTMLElement>("[role='listitem']");
+      if (!row) return;
+
+      const listRect = list.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const fullyVisible = rowRect.top >= listRect.top && rowRect.bottom <= listRect.bottom;
+      if (fullyVisible) return;
+
+      list.scrollTo({
+        top: list.scrollTop + rowRect.top - listRect.top - (list.clientHeight - rowRect.height) / 2,
+        behavior: "smooth",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [activeScreenId]);
   if (!project) return null;
   const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
   const activeLocale = activeScreen?.locale ?? project.locales[0]!;
   const screens = activeScreen
     ? workspaceScreenScope(project, activeScreen)
     : project.screens.filter((screen) => screen.locale === activeLocale);
-  const localeScreenCount = project.screens.filter((screen) => screen.locale === activeLocale).length;
+  const localeRootScreenCount = project.screens.filter((screen) =>
+    screen.locale === activeLocale && screen.variantOf === undefined,
+  ).length;
+  const activeRoot = activeScreen?.variantOf
+    ? project.screens.find((screen) => screen.id === activeScreen.variantOf)
+    : undefined;
   const scopeLabel = project.mode === "connected" && activeScreen
-    ? `${activeLocale} · ${activeScreen.device}`
-    : activeLocale;
-  const listLabel = project.mode === "connected" && activeScreen
-    ? `Screens for ${activeLocale} ${activeScreen.device} group`
-    : `Screens for ${activeLocale}`;
+    ? `${activeLocale} · ${activeScreen.device}${activeScreen.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`
+    : `${activeLocale}${activeScreen?.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`;
+  const outputRows = project.mode === "isolated" && activeScreen && activeScreen.variantOf === undefined
+    ? groupScreensByOutput(screens)
+    : [];
+  const activeOutputKey = activeScreen ? `${activeScreen.platform}/${activeScreen.device}` : "";
+  const showOutputSwitcher = outputRows.length > 1;
+  const visibleOutput = showOutputSwitcher
+    ? outputRows.find((row) => row.key === activeOutputKey) ?? outputRows[0]!
+    : undefined;
+  const visibleScreens = visibleOutput?.screens ?? screens;
+  const listLabel = visibleOutput
+    ? `Screens for ${activeLocale} · ${visibleOutput.label}`
+    : project.mode === "connected" && activeScreen
+      ? `Screens for ${activeLocale} ${activeScreen.device} group`
+      : `Screens for ${activeLocale}`;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -51,29 +99,86 @@ export function ScreensSection({ images }: { images: ImageCache }) {
   };
 
   const onDelete = (id: string, name: string) => {
-    if (localeScreenCount <= 1) return; // remove a complete locale only through the locale manager
-    if (!window.confirm(`Delete screen "${name}" and all its layers?`)) return;
+    const candidate = project.screens.find((screen) => screen.id === id);
+    if (!candidate) return;
+    if (candidate.variantOf === undefined && localeRootScreenCount <= 1) return;
+    const variants = project.screens.filter((screen) => screen.variantOf === id).length;
+    const suffix = variants > 0 ? ` and ${variants} store target variant${variants === 1 ? "" : "s"}` : "";
+    if (!window.confirm(`Delete screen "${name}"${suffix} and all its layers?`)) return;
     mutateAndSave(() => editorStore.getState().removeScreen(id));
   };
 
   return (
     <section className="border-b border-slate-200 pb-2">
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="flex items-center justify-between px-3 py-3">
         <div className="flex items-center gap-2">
           <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">{scopeLabel}</span>
         </div>
-        <button
-          onClick={() => mutateAndSave(() => editorStore.getState().addScreen())}
-          className={`${editorUi.buttonGhost} text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
-        >
-          <Plus size={14} strokeWidth={2} /> Add
-        </button>
+        {activeRoot ? (
+          <button
+            type="button"
+            aria-label="Return to master"
+            title="Return to master"
+            onClick={() => editorStore.getState().selectScreen(activeRoot.id)}
+            className={`${editorUi.buttonGhost} h-6 min-h-6 px-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
+          >
+            <CornerUpLeft size={14} strokeWidth={2} />
+            Master
+          </button>
+        ) : (
+          <AddMenu
+            ariaLabel="Add screen"
+            menuLabel="Add screen options"
+            options={[
+              { value: "duplicate", label: "Duplicate current", description: "Copy the current screen and its layers" },
+              { value: "blank", label: "Blank screen", description: "Keep this output size with no layers" },
+              { value: "template", label: "From template", description: "Create from a project template" },
+            ]}
+            onSelect={(action) => {
+              if (action === "template") {
+                onOpenDialog("templates");
+                return;
+              }
+              mutateAndSave(() => {
+                if (action === "blank") editorStore.getState().addBlankScreen();
+                else editorStore.getState().addScreen();
+              });
+            }}
+          />
+        )}
       </header>
+      {showOutputSwitcher ? (
+        <div className="border-y border-slate-200/70 bg-slate-50/80 px-3 py-2">
+          <MenuSelect
+            ariaLabel={`Output family for ${activeLocale}`}
+            menuLabel={`Output family options for ${activeLocale}`}
+            value={activeOutputKey}
+            options={outputRows.map((row) => ({
+              value: row.key,
+              label: `${row.label} · ${row.screens.length}`,
+              triggerLabel: `${row.label.replace(" · ", " / ")} · ${row.screens.length} ${row.screens.length === 1 ? "screen" : "screens"}`,
+            }))}
+            onChange={(outputKey) => {
+              const output = outputRows.find((row) => row.key === outputKey);
+              if (output) editorStore.getState().selectScreen(output.screens[0]!.id);
+            }}
+            density="compact"
+            appearance="breadcrumb"
+            className="w-full"
+            menuClassName="w-full"
+          />
+        </div>
+      ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div role="list" aria-label={listLabel}>
-            {screens.map((s, index) => (
+        <SortableContext items={visibleScreens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+          <div
+            ref={screenListRef}
+            role="list"
+            aria-label={listLabel}
+            className="max-h-64 overflow-y-auto overscroll-contain pt-2 [scrollbar-gutter:stable]"
+          >
+            {visibleScreens.map((s, index) => (
               <SortableRow
                 key={s.id}
                 id={s.id}
@@ -104,12 +209,12 @@ export function ScreensSection({ images }: { images: ImageCache }) {
                 >
                   <span className="block truncate text-xs font-semibold">{s.name}</span>
                   <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-600">
-                    {s.device} · {s.locale} · {s.artboard.width}×{s.artboard.height}
+                    {s.device} · {s.locale}{s.storeTargetId ? ` · ${s.storeTargetId}` : ""} · {s.artboard.width}×{s.artboard.height}
                   </span>
                 </button>
                 <button
                   onClick={() => onDelete(s.id, s.name)}
-                  disabled={localeScreenCount <= 1}
+                  disabled={s.variantOf === undefined && localeRootScreenCount <= 1}
                   aria-label={`Delete ${s.name}`}
                   className={`${editorUi.iconButton} opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus-visible:opacity-100`}
                 >

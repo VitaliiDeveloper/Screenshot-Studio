@@ -233,6 +233,7 @@ export async function resolveServerPort(port?: number): Promise<number> {
 export interface ServerControllerOptions {
   port?: number;
   projectPath?: string;
+  storeSpecsPath?: string;
   timeoutMs?: number;
   spawn?: SpawnFn;
   waitForHttp?: WaitForHttpFn;
@@ -262,6 +263,7 @@ function lifecycleErrors(primary: unknown, cleanup: unknown): AggregateError {
 export async function createServerController({
   port,
   projectPath,
+  storeSpecsPath,
   timeoutMs = 120_000,
   spawn = nodeSpawn,
   waitForHttp: wait = waitForHttp,
@@ -276,6 +278,7 @@ export async function createServerController({
       ...process.env,
       ...host.env,
       ...(projectPath ? { PROJECT_PATH: projectPath } : {}),
+      ...(storeSpecsPath ? { STORE_SPECS_PATH: storeSpecsPath } : {}),
     },
   });
 
@@ -334,7 +337,12 @@ export async function createServerController({
 
 export async function startWebServer(
   port?: number,
-  options: { projectPath?: string; timeoutMs?: number } = {},
+  options: { projectPath?: string; storeSpecsPath?: string; timeoutMs?: number } = {},
 ): Promise<RunningServer> {
-  return createServerController({ port, projectPath: options.projectPath, timeoutMs: options.timeoutMs });
+  return createServerController({
+    port,
+    projectPath: options.projectPath,
+    storeSpecsPath: options.storeSpecsPath,
+    timeoutMs: options.timeoutMs,
+  });
 }

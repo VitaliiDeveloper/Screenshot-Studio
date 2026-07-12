@@ -3,16 +3,16 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v5). Narrower than the long-term target in docs/architecture.md §3:
- * solid backgrounds only; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
- * (iphone frames only); platforms apple/{iphone,ipad} and android/phone; fonts uploaded/google
+ * Enforced project schema (v10). Narrower than the long-term target in docs/architecture.md §3:
+ * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
+ * (trusted built-in frame presets only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
- * live outside the render contract. Gradient backgrounds and badge elements are not
- * implemented yet. Objects are `.strict()` on purpose: the project JSON is the agent contract,
+ * live outside the render contract. Badge elements are deliberately represented as ordinary
+ * groups. Objects are `.strict()` on purpose: the project JSON is the agent contract,
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 10;
 
 export const HexColor = z
   .string()
@@ -26,6 +26,35 @@ export type ThemeRole = z.infer<typeof ThemeRole>;
 
 export const LayoutDirection = z.enum(["ltr", "rtl"]);
 export type LayoutDirection = z.infer<typeof LayoutDirection>;
+
+export const MediaCrop = z.object({
+  x: unitInterval.default(0.5),
+  y: unitInterval.default(0.5),
+  zoom: z.number().finite().min(1).max(4).default(1),
+}).strict();
+export type MediaCrop = z.infer<typeof MediaCrop>;
+
+export const TextShadow = z.object({
+  color: HexColor,
+  blur: z.number().finite().min(0).max(100).default(0),
+  offsetX: z.number().finite().default(0),
+  offsetY: z.number().finite().default(0),
+  opacity: unitInterval.default(1),
+}).strict();
+export type TextShadow = z.infer<typeof TextShadow>;
+
+export const LinearGradientPaint = z.object({
+  from: HexColor,
+  to: HexColor,
+  angle: z.number().finite().min(0).max(360).default(0),
+}).strict();
+export type LinearGradientPaint = z.infer<typeof LinearGradientPaint>;
+
+export const ShapeStroke = z.object({
+  color: HexColor,
+  width: z.number().finite().positive().max(100),
+}).strict();
+export type ShapeStroke = z.infer<typeof ShapeStroke>;
 
 /** Project-wide authoring/render projection; exact platform/device/locale groups stay independent. */
 export const CanvasMode = z.enum(["isolated", "connected"]);
@@ -64,6 +93,7 @@ export const TextElement = z
     letterSpacing: z.number().default(0),
     align: z.enum(["left", "center", "right"]).default("left"),
     color: HexColor,
+    shadow: TextShadow.optional(),
   })
   .strict();
 export type TextElement = z.infer<typeof TextElement>;
@@ -72,9 +102,11 @@ export const ShapeElement = z
   .object({
     type: z.literal("shape"),
     ...leafBase,
-    kind: z.literal("rect"),
+    kind: z.enum(["rect", "ellipse"]),
     fill: HexColor,
     radius: z.number().min(0).default(0),
+    gradient: LinearGradientPaint.optional(),
+    stroke: ShapeStroke.optional(),
   })
   .strict();
 export type ShapeElement = z.infer<typeof ShapeElement>;
@@ -87,6 +119,7 @@ export const ScreenshotElement = z
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("cover"),
     cornerRadius: z.number().min(0).default(0),
+    crop: MediaCrop.optional(),
   })
   .strict();
 export type ScreenshotElement = z.infer<typeof ScreenshotElement>;
@@ -99,6 +132,7 @@ export const ImageElement = z
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("contain"),
     cornerRadius: z.number().min(0).default(0),
+    crop: MediaCrop.optional(),
   })
   .strict();
 export type ImageElement = z.infer<typeof ImageElement>;
@@ -118,11 +152,15 @@ export const IconElement = z
   .strict();
 export type IconElement = z.infer<typeof IconElement>;
 
+export const DEVICE_FRAME_IDS = ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const;
+export const DeviceFrameId = z.enum(DEVICE_FRAME_IDS);
+export type DeviceFrameId = z.infer<typeof DeviceFrameId>;
+
 export const DeviceFrameElement = z
   .object({
     type: z.literal("device-frame"),
     ...leafBase,
-    deviceType: z.literal("iphone"),
+    deviceType: DeviceFrameId,
     /** Document-relative path to the screenshot placed in the frame's screen slot. */
     assetUrl: z.string().min(1),
     fit: z.enum(["cover", "contain"]).default("cover"),
@@ -169,8 +207,34 @@ export const SolidBackground = z
   .strict();
 export type SolidBackground = z.infer<typeof SolidBackground>;
 
-/** Only `solid` in Phase 0; the discriminated union leaves room for gradient/image later. */
-export const Background = z.discriminatedUnion("type", [SolidBackground]);
+export const LinearGradientBackground = z
+  .object({
+    type: z.literal("linear-gradient"),
+    from: HexColor,
+    to: HexColor,
+    /** 0 = left-to-right; 90 = top-to-bottom. */
+    angle: z.number().finite().min(0).max(360).default(0),
+  })
+  .strict();
+export type LinearGradientBackground = z.infer<typeof LinearGradientBackground>;
+
+export const ImageBackground = z
+  .object({
+    type: z.literal("image"),
+    /** Document-relative path served through the project asset route. */
+    assetUrl: z.string().min(1),
+    fit: z.enum(["cover", "contain"]).default("cover"),
+    /** Opaque fallback and contain-mode letterbox colour. */
+    color: HexColor.default("#000000"),
+  })
+  .strict();
+export type ImageBackground = z.infer<typeof ImageBackground>;
+
+export const Background = z.discriminatedUnion("type", [
+  SolidBackground,
+  LinearGradientBackground,
+  ImageBackground,
+]);
 export type Background = z.infer<typeof Background>;
 
 /** Project-relative font file served through the same asset route as screenshots. */
@@ -191,8 +255,9 @@ export type FontAsset = z.infer<typeof FontAsset>;
  * pair is declared in exactly one place. Widen HERE and in store-specs.json in the same change.
  */
 export const SCREEN_DEVICES_BY_PLATFORM = {
-  apple: ["iphone", "ipad"],
+  apple: ["iphone", "ipad", "macos", "tvos", "watchos"],
   android: ["phone"],
+  windows: ["desktop"],
 } as const;
 export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;
 
@@ -203,6 +268,10 @@ const PLATFORM_VALUES = Object.keys(SCREEN_DEVICES_BY_PLATFORM) as [Platform, ..
 const screenBase = {
   id: z.string().min(1),
   name: z.string().min(1),
+  /** Root screen identity for an independently editable explicit store-target variant. */
+  variantOf: z.string().min(1).optional(),
+  /** Exact store-spec id rendered by a variant; absent on root/master screens. */
+  storeTargetId: z.string().min(1).optional(),
   locale: z.string().min(1),
   direction: LayoutDirection.default("ltr"),
   artboard: z
@@ -228,8 +297,16 @@ const AndroidScreen = z
   })
   .strict();
 
+const WindowsScreen = z
+  .object({
+    platform: z.literal("windows"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.windows),
+    ...screenBase,
+  })
+  .strict();
+
 /** `device` is constrained by `platform`; an invalid pair (apple+phone) fails validation. */
-export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen]);
+export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen, WindowsScreen]);
 export type Screen = z.infer<typeof Screen>;
 
 export const Project = z
@@ -304,6 +381,74 @@ export const Project = z
           message: `screen locale "${screen.locale}" is not listed in locales`,
           path: ["screens", index, "locale"],
         });
+      }
+    });
+
+    const screenIds = new Set<string>();
+    proj.screens.forEach((screen, index) => {
+      if (screenIds.has(screen.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate screen id: "${screen.id}"`,
+          path: ["screens", index, "id"],
+        });
+      } else {
+        screenIds.add(screen.id);
+      }
+    });
+
+    const screensById = new Map(proj.screens.map((screen) => [screen.id, screen] as const));
+    const variantKeys = new Set<string>();
+    proj.screens.forEach((screen, index) => {
+      const hasVariantRoot = screen.variantOf !== undefined;
+      const hasStoreTarget = screen.storeTargetId !== undefined;
+      if (hasVariantRoot !== hasStoreTarget) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "variantOf and storeTargetId must be present together",
+          path: ["screens", index],
+        });
+        return;
+      }
+      if (!hasVariantRoot || !screen.variantOf || !screen.storeTargetId) return;
+
+      const root = screensById.get(screen.variantOf);
+      if (!root) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `variant root "${screen.variantOf}" does not exist`,
+          path: ["screens", index, "variantOf"],
+        });
+        return;
+      }
+      if (root.variantOf !== undefined || root.storeTargetId !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `variant root "${screen.variantOf}" must be a root screen`,
+          path: ["screens", index, "variantOf"],
+        });
+      }
+      if (
+        root.platform !== screen.platform
+        || root.device !== screen.device
+        || root.locale !== screen.locale
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "variant platform, device, and locale must match its root screen",
+          path: ["screens", index],
+        });
+      }
+
+      const key = `${screen.variantOf}\u0000${screen.storeTargetId}`;
+      if (variantKeys.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `duplicate store target variant "${screen.storeTargetId}" for root "${screen.variantOf}"`,
+          path: ["screens", index, "storeTargetId"],
+        });
+      } else {
+        variantKeys.add(key);
       }
     });
 

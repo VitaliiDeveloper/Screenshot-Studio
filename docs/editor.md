@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v5 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v10 project stores `mode: isolated | connected`. Isolated behavior
   remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -94,7 +94,7 @@ shelf is open at a time; clicking its active rail item collapses it.
   lock, visibility, and deletion; top-level drag reorder remains group-atomic.
 - **Resources:** opens existing Fonts, Themes, and Templates dialogs.
 - **Add:** searchable, data-driven groups (`Basic`, `Media`, `Frames`, `Library`). Text and Shape
-  and trusted built-in Icon insert immediately. Screenshot, decorative Image, and iPhone Device Frame open the project image
+  and trusted built-in Icon insert immediately. Screenshot, decorative Image, and Device Frame open the project image
   picker. Templates opens the existing library. Adding a
   future type extends catalog metadata and an action rather than restructuring the workbench.
   Library also inserts editable grouped Rating and As seen on badges when a registered font exists;
@@ -136,26 +136,28 @@ Multiple elements show read-only aggregate bounds and batch lock/unlock, hide/sh
 actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
-Fields marked *(target)* are not in the v1 schema yet — the inspector exposes them only once
+Fields marked *(target)* are not in the current schema yet — the inspector exposes them only once
 the schema gains them (future phases). Everything else is as built.
 
-- **No selection** → active **artboard** properties: artboard size with store-target status and
-  exact-size presets *(as built)* and background: `solid` today;
-  `gradient | image` *(target)*. Background editing lives here, not in the toolbar.
+- **No selection** → active **artboard** properties: a read-only exact lead master size by default,
+  explicit output-set-wide atomic custom-size/reset actions, independent exact-size variants, and background:
+  `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
+  fit and opaque fallback/letterbox colour remain explicit. Background editing lives here, not in the toolbar.
 - **`text`** → theme role (`none | heading | body | accent | surface`), content,
   registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;
-  shadow *(target)*.
-- **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; crop *(target)*.
-- **`image`** → assetUrl, fit (contain default or centred cover crop), cornerRadius.
+  one optional literal shadow (color, blur, offset, opacity).
+- **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; normalized focal-point percentages,
+  bounded crop zoom, and reset when fit is cover.
+- **`image`** → assetUrl, fit (contain default or cover), cornerRadius, and the same cover-only crop controls.
 - **`icon`** → trusted built-in id (`check | heart | sparkles | star`), color, strokeWidth.
 - **Badge compositions** → no dedicated inspector/schema type; grouped rating/press badges expose
   their ordinary child fields, while official store badges use the ordinary image inspector.
-- **`device-frame`** → assetUrl, fit; deviceType (read-only, `iphone` only today); frame color,
-  authorable screen slot *(target)*.
-- **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect` today;
-  ellipse/blob *(target)*), fill (solid; gradient *(target)*),
-  radius; stroke *(target)*.
+- **`device-frame`** → assetUrl, fit, and trusted preset (`iphone | android-phone | tablet | desktop |
+  tv | watch`). Switching preset fits the outer box to its canonical aspect ratio; frame color and
+  author-defined screen slot remain outside the contract.
+- **`shape`** → theme role (`none | heading | body | accent | surface`), kind (`rect | ellipse`),
+  solid fallback or two-stop linear-gradient fill, rect radius, and optional stroke.
 
 ---
 
@@ -166,10 +168,16 @@ the schema gains them (future phases). Everything else is as built.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
   saves surface a visible workspace alert; the editor never silently presents a rejected value as
   durable state.
+- **Store outputs** lists App Store iPhone/iPad/macOS/tvOS/watchOS, Google Play Android phone, and
+  Microsoft Store Windows desktop. Creating an output copies the active locale's complete root set
+  with fresh screen/element ids and leaves the source family unchanged. Inside the active output,
+  the lead row remains its root/master; accepted non-lead sizes create or open independent exact
+  variants. Removing a variant preserves its master. No output or target action resizes a root in
+  place.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is
-  shared with CLI export; numbering restarts per exact platform/device/locale group in relative
+  shared with CLI export; numbering restarts per exact platform/device/locale/target group in relative
   project order. The UI export button and `cli export` must meet the Phase 0 parity exit criterion —
   exact target dimensions, no alpha channel, and a visual diff within tolerance (*not*
   byte-identical; PNG metadata/compression may differ). See `architecture.md` §2.

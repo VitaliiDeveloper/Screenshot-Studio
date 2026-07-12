@@ -20,7 +20,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "group-authoring-"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Group authoring", schemaVersion: 5 },
+    meta: { name: "Group authoring", schemaVersion: 10 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
@@ -106,10 +106,18 @@ describe("Phase 7 group authoring", () => {
     await rename.press("Enter");
     await expect.poll(() => firstElements()[0]?.name).toBe("Hero cluster");
 
-    await layers.getByRole("button", { name: "Green", exact: true }).click();
-    await page.getByText("shape", { exact: true }).waitFor({ state: "visible" });
-    await page.getByLabel("Fill", { exact: true }).fill("#112233");
-    await page.getByLabel("Fill", { exact: true }).blur();
+    const greenLayer = layers.getByRole("button", { name: "Green", exact: true });
+    const fillField = page.getByLabel("Fill", { exact: true });
+    await greenLayer.click();
+    try {
+      await fillField.waitFor({ state: "visible", timeout: 2_000 });
+    } catch {
+      // A save-triggered Layers rerender can replace the button immediately after the first click.
+      await greenLayer.click();
+      await fillField.waitFor({ state: "visible" });
+    }
+    await fillField.fill("#112233");
+    await fillField.blur();
     await expect.poll(() => firstElements()[0]?.children?.[1]?.fill).toBe("#112233");
 
     const renamedLayer = layers.getByRole("button", { name: "Hero cluster", exact: true });
