@@ -17,9 +17,9 @@ updated to their archived locations.
   results are part of the Phase 8 `GO`, a phase-closure ledger, or another active evidence chain.
 - A design stays outside when production source cites it for a non-obvious invariant or current
   documentation still uses it as the authoritative phase-level contract.
-- The ignored `docs/superpowers/` workspace contains local planning artifacts. The active moderate
-  cleanup design and plan, and the other ignored local artifacts, are intentionally not moved or
-  classified as tracked archive content.
+- The tracked `docs/superpowers/` workspace retains the active moderate cleanup design and plan
+  outside this archive until the cleanup closes. They are intentionally not classified as completed
+  or superseded history yet.
 
 ## Archived groups
 
