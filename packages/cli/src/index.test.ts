@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import { assertProjectFontsResolved } from "@screenshot-studio/core/model";
+import { COMMAND_FLAG_SPECS, parseCommandFlags } from "./command-flags.js";
 import {
   positionalArgs,
   resolveDevOptions,
@@ -9,6 +10,48 @@ import {
   singleExportFilename,
   singleExportTargetId,
 } from "./index.js";
+
+describe("parseCommandFlags", () => {
+  it("parses positional arguments plus declared value and boolean options", () => {
+    expect(parseCommandFlags(
+      ["add", "--project", "deck.json", "--verbose"],
+      { value: ["project"], boolean: ["verbose"] },
+    )).toEqual({
+      args: ["add"],
+      flags: { project: "deck.json", verbose: "true" },
+    });
+  });
+
+  it("rejects an unknown option", () => {
+    expect(() => parseCommandFlags(["--wat"], { value: [], boolean: [] }))
+      .toThrow(/Unknown option --wat/);
+  });
+
+  it("rejects a missing option value", () => {
+    expect(() => parseCommandFlags(
+      ["--project", "--verbose"],
+      { value: ["project"], boolean: ["verbose"] },
+    )).toThrow(/--project requires a value/);
+  });
+
+  it.each([
+    ["init", ["dir", "name"]],
+    ["export", ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale"]],
+    ["screen", ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to"]],
+    ["dev", ["project", "store-specs", "port"]],
+    ["import", ["project"]],
+    ["font", ["project", "weight", "google", "family"]],
+    ["theme", ["project"]],
+    ["locale", ["project", "from", "direction", "to"]],
+    ["asset", ["project", "threshold", "background", "tolerance"]],
+    ["canvas", ["project"]],
+  ] as const)("retains every supported %s option", (command, options) => {
+    const argv = options.flatMap((option) => [`--${option}`, `${option}-value`]);
+    expect(parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]).flags).toEqual(
+      Object.fromEntries(options.map((option) => [option, `${option}-value`])),
+    );
+  });
+});
 
 describe("positionalArgs", () => {
   it("keeps subcommands and skips flag values", () => {
@@ -67,6 +110,19 @@ describe("resolveExportMode", () => {
 
   it("rejects screen mixed with bundle filters", () => {
     expect(() => resolveExportMode({ screen: "hero", platform: "apple" })).toThrow(/cannot be combined/);
+  });
+
+  it("rejects an unknown platform filter", () => {
+    expect(() => resolveExportMode({ platform: "ios" })).toThrow(/Unsupported platform filter: ios/);
+  });
+
+  it("rejects an unknown device filter", () => {
+    expect(() => resolveExportMode({ device: "tablet" })).toThrow(/Unsupported device filter: tablet/);
+  });
+
+  it("rejects a device that does not belong to the selected platform", () => {
+    expect(() => resolveExportMode({ platform: "android", device: "iphone" }))
+      .toThrow(/Unsupported platform\/device filter pair: android\/iphone/);
   });
 });
 

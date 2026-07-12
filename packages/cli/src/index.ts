@@ -21,7 +21,9 @@ import {
 import {
   assertProjectFontsResolved,
   getScreen,
+  parseScreenPlacement,
   parseProjectJson,
+  SCREEN_DEVICES_BY_PLATFORM,
   type Screen,
 } from "@screenshot-studio/core/model";
 import { resolveProjectPath } from "./project-io.js";
@@ -32,6 +34,7 @@ import { runThemeCommand } from "./theme-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { runAssetCommand } from "./asset-commands.js";
 import { runCanvasCommand } from "./canvas-commands.js";
+import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
 
 /**
  * `screenshots` CLI — project setup, export, deterministic asset processing, and the shipped
@@ -44,24 +47,6 @@ const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packagedStoreSpecs = join(packageRoot, "runtime", "store-specs.json");
 const sourceStoreSpecs = resolve(packageRoot, "../../store-specs.json");
 const DEFAULT_STORE_SPECS = existsSync(packagedStoreSpecs) ? packagedStoreSpecs : sourceStoreSpecs;
-
-function parseFlags(argv: string[]): Record<string, string> {
-  const flags: Record<string, string> = {};
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    if (arg.startsWith("--")) {
-      const key = arg.slice(2);
-      const next = argv[i + 1];
-      if (next && !next.startsWith("--")) {
-        flags[key] = next;
-        i++;
-      } else {
-        flags[key] = "true";
-      }
-    }
-  }
-  return flags;
-}
 
 export function positionalArgs(argv: string[]): string[] {
   const args: string[] = [];
@@ -127,6 +112,16 @@ export type ExportMode =
   | { kind: "single"; screenId: string; sizeId?: string }
   | { kind: "bundle"; filters: BundleFilters };
 
+const SUPPORTED_DEVICES = new Set<string>(Object.values(SCREEN_DEVICES_BY_PLATFORM).flat());
+
+function isSupportedPlatform(value: string): value is Screen["platform"] {
+  return Object.hasOwn(SCREEN_DEVICES_BY_PLATFORM, value);
+}
+
+function isSupportedDevice(value: string): value is Screen["device"] {
+  return SUPPORTED_DEVICES.has(value);
+}
+
 export function resolveExportMode(flags: Record<string, string>): ExportMode {
   const hasBundleFilter = Boolean(flags.platform || flags.device || flags.locale);
   if (flags.screen && hasBundleFilter) {
@@ -138,11 +133,28 @@ export function resolveExportMode(flags: Record<string, string>): ExportMode {
   if (flags.screen) {
     return { kind: "single", screenId: flags.screen, sizeId: flags.size };
   }
+  let platform: Screen["platform"] | undefined;
+  if (flags.platform) {
+    if (!isSupportedPlatform(flags.platform)) {
+      throw new Error(`Unsupported platform filter: ${flags.platform}`);
+    }
+    platform = flags.platform;
+  }
+  let device: Screen["device"] | undefined;
+  if (flags.device) {
+    if (!isSupportedDevice(flags.device)) {
+      throw new Error(`Unsupported device filter: ${flags.device}`);
+    }
+    device = flags.device;
+  }
+  if (platform && device && !parseScreenPlacement(platform, device)) {
+    throw new Error(`Unsupported platform/device filter pair: ${platform}/${device}`);
+  }
   return {
     kind: "bundle",
     filters: {
-      platform: flags.platform as BundleFilters["platform"],
-      device: flags.device as BundleFilters["device"],
+      platform,
+      device,
       locale: flags.locale,
     },
   };
@@ -302,8 +314,11 @@ async function cmdCanvas(args: string[], flags: Record<string, string>): Promise
 
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
-  const flags = parseFlags(rest);
-  const args = positionalArgs(rest);
+  if (!isCliCommand(command)) {
+    console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|canvas> [flags]`);
+    process.exit(1);
+  }
+  const { flags, args } = parseCommandFlags(rest, COMMAND_FLAG_SPECS[command]);
   switch (command) {
     case "init":
       await cmdInit(flags);
@@ -335,9 +350,6 @@ async function main(): Promise<void> {
     case "canvas":
       await cmdCanvas(args, flags);
       break;
-    default:
-      console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|canvas> [flags]`);
-      process.exit(1);
   }
 }
 

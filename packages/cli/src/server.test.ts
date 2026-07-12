@@ -7,10 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import {
   createServerController,
-  extractWebArchive,
-  materializeSharpRuntime,
   resolveServerPort,
 } from "./server.js";
+import {
+  extractWebArchive,
+  materializeSharpRuntime,
+  preparePackagedRenderHost,
+} from "./packaged-render-host.js";
 
 class FakeChild extends EventEmitter {
   exitCode: number | null = null;
@@ -78,6 +81,38 @@ describe("extractWebArchive", () => {
 
     await expect(extractWebArchive(archivePath, join(directory, "extracted")))
       .rejects.toThrow(/Unsafe packaged render-host link/);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("rejects an archive entry whose original path escapes the extracted host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-path-escape-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file("../outside.txt", "outside");
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await expect(extractWebArchive(archivePath, join(directory, "extracted")))
+      .rejects.toThrow(/Unsafe packaged render-host path/);
+    await rm(directory, { recursive: true, force: true });
+  });
+});
+
+describe("preparePackagedRenderHost", () => {
+  it("validates and prepares an extracted standalone host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-preparation-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file("apps/web/server.js", "server");
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+    const materialize = vi.fn(async () => [] as string[]);
+
+    const host = await preparePackagedRenderHost(4789, archivePath, materialize);
+
+    expect(host.command).toBe(process.execPath);
+    expect(host.args[0]).toMatch(/apps\/web\/server\.js$/);
+    expect(host.env).toMatchObject({ NODE_ENV: "production", PORT: "4789", HOSTNAME: "127.0.0.1" });
+    expect(materialize).toHaveBeenCalledTimes(1);
+    await host.cleanup();
     await rm(directory, { recursive: true, force: true });
   });
 });
