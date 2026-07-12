@@ -16,7 +16,7 @@ export interface Rect {
   maxY: number;
 }
 
-export function stagePointerPosition(stage: Konva.Stage): ClientPoint | null {
+export function stagePointerPosition(stage: Konva.Stage, _baseX: number): ClientPoint | null {
   const point = stage.getPointerPosition();
   const zoom = stage.scaleX();
   return point ? { x: point.x / zoom, y: point.y / zoom } : null;

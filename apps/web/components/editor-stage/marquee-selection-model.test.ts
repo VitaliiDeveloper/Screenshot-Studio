@@ -32,7 +32,7 @@ describe("marquee selection model", () => {
 
   it("keeps pointer coordinates in stage space when a crop offset exists", () => {
     const stage = { getPointerPosition: () => ({ x: 25, y: 40 }), scaleX: () => 0.5 };
-    expect(stagePointerPosition(stage as never)).toEqual({ x: 50, y: 80 });
+    expect(stagePointerPosition(stage as never, -100)).toEqual({ x: 50, y: 80 });
     expect(resolveMarqueeSelection({
       bounds: marqueeBounds({ x: 5, y: 5 }, { x: 35, y: 40 }),
       projections: [{ screen: screen("second", [shape("second-shape", 10)]), x: 100, y: 0 }],
