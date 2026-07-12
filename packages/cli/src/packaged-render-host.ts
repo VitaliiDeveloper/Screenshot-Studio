@@ -97,6 +97,15 @@ function isWithin(root: string, target: string): boolean {
 /** Extract the trusted build-time standalone host without accepting archive path traversal. */
 export async function extractWebArchive(archivePath: string, destination: string): Promise<void> {
   const archive = await JSZip.loadAsync(await readFile(archivePath));
+  for (const entry of Object.values(archive.files)) {
+    const originalName = entry.unsafeOriginalName ?? entry.name;
+    if (
+      !isWithin(destination, resolve(destination, originalName))
+      || !isWithin(destination, resolve(destination, entry.name))
+    ) {
+      throw new Error(`Unsafe packaged render-host path "${originalName}"`);
+    }
+  }
   const manifestEntry = archive.file(packageLinksManifest);
   const manifest = manifestEntry
     ? JSON.parse(await manifestEntry.async("string")) as { version?: unknown; links?: unknown }
@@ -107,12 +116,7 @@ export async function extractWebArchive(archivePath: string, destination: string
   const links = manifest.links as PackageLink[];
   for (const entry of Object.values(archive.files)) {
     if (entry.name === packageLinksManifest) continue;
-    const originalName = entry.unsafeOriginalName ?? entry.name;
-    const originalTarget = resolve(destination, originalName);
     const target = resolve(destination, entry.name);
-    if (!isWithin(destination, originalTarget) || !isWithin(destination, target)) {
-      throw new Error(`Unsafe packaged render-host path "${originalName}"`);
-    }
     if (entry.dir) {
       await mkdir(target, { recursive: true });
       continue;

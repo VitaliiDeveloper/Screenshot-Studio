@@ -95,6 +95,22 @@ describe("extractWebArchive", () => {
       .rejects.toThrow(/Unsafe packaged render-host path/);
     await rm(directory, { recursive: true, force: true });
   });
+
+  it("rejects a link manifest whose original archive path escapes the extracted host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-manifest-path-escape-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file(
+      "../.screenshot-studio-links.json",
+      JSON.stringify({ version: 1, links: [] }),
+      { createFolders: false },
+    );
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await expect(extractWebArchive(archivePath, join(directory, "extracted")))
+      .rejects.toThrow(/Unsafe packaged render-host path/);
+    await rm(directory, { recursive: true, force: true });
+  });
 });
 
 describe("preparePackagedRenderHost", () => {
