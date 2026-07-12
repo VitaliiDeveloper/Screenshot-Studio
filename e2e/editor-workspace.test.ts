@@ -313,6 +313,34 @@ describe("Phase 3.6 editor workspace", () => {
     await page.close();
   });
 
+  it("transitions between fitted Focus and Overview without a stale zoom frame", async () => {
+    const page = await browser.newPage({ viewport: { width: 651, height: 998 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const viewport = page.getByTestId("canvas-viewport");
+    const expectSettledView = async (expectedView: "focus" | "overview") => {
+      await expect.poll(() => viewport.getAttribute("data-view")).toBe(expectedView);
+      await expect.poll(() => viewport.getAttribute("data-fitted-view")).toBe(expectedView);
+      await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
+    };
+
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("running");
+    expect(await viewport.getAttribute("data-fitted-view")).toBe("focus");
+    await expectSettledView("focus");
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await expectSettledView("focus");
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    expect(await viewport.getAttribute("data-view-transition")).toBe("idle");
+    await expectSettledView("overview");
+    await page.close();
+  });
+
   it("supports overview, extensible add, canvas patterns, zoom, and hand pan", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
