@@ -172,7 +172,7 @@ Elements remain in their owner screen with owner-local coordinates. The shared r
 group backgrounds first, then visible elements by screen order and element-array order, translated
 against the requested screen origin. `renderScreen` still returns a stage at exactly the requested
 artboard dimensions, so the stage itself is the precise UI/CLI export crop — there is no stitched
-PNG or post-export slicing path. Phase 6 Slice 3 adds one gapless editable group stage on the same
+PNG or post-export slicing path. The editor uses one gapless editable group stage on the same
 `elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
 screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
 non-interactive crop. The toolbar exposes project mode and guarded conversion feedback; successful
@@ -281,11 +281,12 @@ every root composition in the output set atomically, while reset fits the set ba
 custom state are derived from `store-specs.json`, not duplicated in the schema.
 
 **Artboard backgrounds — schema v7 / Phase 9 Slice 2.** `Background` is a strict discriminated
-union: opaque `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a
-project-relative `image` with deterministic `cover | contain` fit and an opaque fallback/letterbox
-colour. UI and static export both consume `backgroundToNodeConfig`; image assets participate in the
-ordinary project preload cache and retain the same path-containment rules as image elements. The
-renderer paints every background before connected elements and export still strips alpha. v6
+union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
+`image` with deterministic `cover | contain` fit and a fallback/letterbox colour. Background colour
+literals use `HexColor` and may include alpha. UI and static export both consume
+`backgroundToNodeConfig`; image assets participate in the ordinary project preload cache and retain
+the same path-containment rules as image elements. The renderer paints every background before
+connected elements, and final store export flattens the composed PNG by stripping alpha. v6
 migrates losslessly only when its previously legal solid-only background contract is respected.
 
 **Media crop controls — schema v8 / Phase 9 Slice 3.** Screenshot and decorative-image leaves may
@@ -382,7 +383,9 @@ side 320–3840 px, max ratio 2:1; any size in range is valid):
 **Microsoft Store** — explicit desktop presets, with 3840×2160 as this project's lead output and
 1366×768 as the smallest stored preset. Microsoft accepts 1366×768 or larger desktop screenshots.
 
-Android frames are CSS/Konva-rendered; iPhone uses a bezel mockup.
+Device frames select one of six core-owned presets: `iphone`, `android-phone`, `tablet`, `desktop`,
+`tv`, or `watch`. The shared renderer builds each bezel, screen slot, corner treatment, and
+optional notch from native Konva primitives; the project-local screenshot is the only frame asset.
 
 Sources: [Apple — Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications),
 [Google Play — Add preview assets](https://support.google.com/googleplay/android-developer/answer/9866151),
@@ -396,7 +399,7 @@ Two optional file-backed sources: **Google Fonts** and **custom upload**. Both m
 project-relative files under `assets/fonts/` (`.ttf/.otf/.woff/.woff2`) and are served through
 the same local `/api/asset` route as screenshots. `FontAsset.source` records provenance
 (`google` or `uploaded`); render/export code loads bytes through an injected `path -> URL`
-resolver and the browser `FontFace` API. `opentype.js` is reserved for previews and metrics.
+resolver and the browser `FontFace` API.
 CLI commands and the local editor's `/api/fonts` route share one Node ingest service. Google
 requests happen server-side only when a font is added; canvas render and export remain offline.
 
