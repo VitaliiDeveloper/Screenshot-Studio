@@ -5,8 +5,8 @@ import { SCHEMA_VERSION, type Project } from "@screenshot-studio/core/model";
 
 /**
  * `screenshots init` — scaffold the project file, agent instructions, and standard directories.
- * The minimal project is valid immediately, while its project-local guide documents the Phase 5
- * copy, literal-layout, and translation workflows without adding persisted agent state.
+ * The minimal project is valid immediately, while its project-local guide documents copy,
+ * literal-layout, and translation workflows without adding persisted agent state.
  */
 
 const STANDARD_DIRS = [

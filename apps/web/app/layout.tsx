@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "Screenshot Studio",
-  description: "Phase 0 render host",
+  description: "App store screenshot editor and shared render host",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

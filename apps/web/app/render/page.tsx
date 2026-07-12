@@ -7,8 +7,8 @@ import { RenderStage } from "./RenderStage";
 /**
  * Headless render host (docs/editor.md §5, spec §5). One dev-only route, no editor chrome.
  * This is the single served artifact the CLI export AND the parity harness both point at, so
- * UI and CLI share one rendering path (docs/architecture.md §2). The Phase 1 export button must
- * later reuse <RenderStage>, never a parallel react-konva tree.
+ * UI and CLI share one rendering path (docs/architecture.md §2). RenderStage remains the shared
+ * react-konva tree for interactive previews, parity checks, and export.
  *
  * The project is read from disk by path (`?project=`) and validated with the same `core` loader
  * the CLI uses. Arbitrary local file read is acceptable here: the product is a local, self-hosted

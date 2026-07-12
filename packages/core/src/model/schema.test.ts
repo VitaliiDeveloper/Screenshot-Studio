@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { parseProject, migrateToCurrent, ProjectValidationError, getScreen, SCHEMA_VERSION, Element, Screen } from "./index.js";
+import { parseProject, migrateToCurrent, ProjectValidationError, getScreen, SCHEMA_VERSION, Element, Project, Screen } from "./index.js";
 
 function validProject() {
   return {
@@ -40,6 +40,90 @@ function validProject() {
 function setRawFonts(project: ReturnType<typeof validProject>, fonts: unknown[]) {
   (project as { fonts: unknown[] }).fonts = fonts;
 }
+
+describe("Project validation issue contracts", () => {
+  const cases = [
+    {
+      category: "platform manifest",
+      mutate(project: ReturnType<typeof validProject>) {
+        project.platforms = ["apple", "apple"];
+      },
+      expected: [{ message: "platforms must not contain duplicates", path: ["platforms"] }],
+    },
+    {
+      category: "locale manifest",
+      mutate(project: ReturnType<typeof validProject>) {
+        project.locales = ["en", "en"];
+      },
+      expected: [{ message: "locales must not contain duplicates", path: ["locales"] }],
+    },
+    {
+      category: "screen variants",
+      mutate(project: ReturnType<typeof validProject>) {
+        project.screens.push({
+          ...structuredClone(project.screens[0]!),
+          id: "s2",
+          variantOf: "s1",
+        } as never);
+      },
+      expected: [{
+        message: "variantOf and storeTargetId must be present together",
+        path: ["screens", 1],
+      }],
+    },
+    {
+      category: "locale direction",
+      mutate(project: ReturnType<typeof validProject>) {
+        project.screens.push({
+          ...structuredClone(project.screens[0]!),
+          id: "s2",
+          direction: "rtl",
+        } as never);
+      },
+      expected: [{
+        message: 'all screens in locale "en" must use direction "ltr"',
+        path: ["screens", 1, "direction"],
+      }],
+    },
+    {
+      category: "element ids",
+      mutate(project: ReturnType<typeof validProject>) {
+        project.screens[0]!.elements.push({
+          ...structuredClone(project.screens[0]!.elements[0]!),
+          id: "t1",
+        });
+      },
+      expected: [{
+        message: 'duplicate element id within screen: "t1"',
+        path: ["screens", 0, "elements", 1, "id"],
+      }],
+    },
+    {
+      category: "font identities",
+      mutate(project: ReturnType<typeof validProject>) {
+        setRawFonts(project, [
+          { family: "Inter", source: "uploaded", path: "assets/fonts/inter-a.ttf", weight: 400 },
+          { family: "Inter", source: "google", path: "assets/fonts/inter-b.ttf", weight: 400 },
+        ]);
+      },
+      expected: [{
+        message: 'duplicate font family and weight: "Inter" 400',
+        path: ["fonts", 1],
+      }],
+    },
+  ];
+
+  it.each(cases)("preserves $category issue messages and paths", ({ mutate, expected }) => {
+    const project = validProject();
+    mutate(project);
+
+    const result = Project.safeParse(project);
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected project validation to fail");
+
+    expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual(expected);
+  });
+});
 
 describe("parseProject", () => {
   it("accepts a valid project and applies element defaults", () => {
