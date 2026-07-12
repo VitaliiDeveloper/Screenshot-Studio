@@ -13,18 +13,11 @@ export interface StageProjection {
   y: number;
 }
 
-export interface StageEditingText {
-  screenId: string;
-  id: string;
-  value: string;
-}
-
 export function deriveStageModel({
   project,
   requestedScreenId,
   activeScreenId,
   selectedItems,
-  editing,
   interactive,
   connectedOverview,
 }: {
@@ -32,7 +25,6 @@ export function deriveStageModel({
   requestedScreenId: string | null | undefined;
   activeScreenId: string | null;
   selectedItems: readonly SelectionRef[];
-  editing: StageEditingText | null;
   interactive: boolean;
   connectedOverview: boolean;
 }) {
@@ -73,17 +65,6 @@ export function deriveStageModel({
   const selectedElement: Element | undefined = canEdit && primary && selectedProjection
     ? selectedProjection.screen.elements.find((element) => element.id === primary.elementId)
     : undefined;
-  const editingProjection = editing
-    ? projections.find((entry) => entry.screen.id === editing.screenId)
-    : undefined;
-  const editingElement = editing && canEdit
-    ? editingProjection?.screen.elements.find(
-      (element): element is Extract<Element, { type: "text" }> => (
-        element.id === editing.id && element.type === "text"
-      ),
-    )
-    : undefined;
-
   return {
     requestedScreen,
     projections,
@@ -92,7 +73,5 @@ export function deriveStageModel({
     stageHeight,
     canEdit,
     selectedElement,
-    editingProjection,
-    editingElement,
   };
 }

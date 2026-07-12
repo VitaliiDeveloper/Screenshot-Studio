@@ -51,7 +51,6 @@ describe("stage model", () => {
       requestedScreenId: "first",
       activeScreenId: "first",
       selectedItems: [{ screenId: "second", elementId: "text-second" }],
-      editing: { screenId: "second", id: "text-second", value: "draft" },
       interactive: true,
       connectedOverview: true,
     });
@@ -65,7 +64,6 @@ describe("stage model", () => {
     expect(model.baseX).toBe(0);
     expect(model.canEdit).toBe(true);
     expect(model.selectedElement?.id).toBe("text-second");
-    expect(model.editingElement?.id).toBe("text-second");
   });
 
   it("projects connected focus onto the requested crop without enabling editing", () => {
@@ -74,7 +72,6 @@ describe("stage model", () => {
       requestedScreenId: "second",
       activeScreenId: "second",
       selectedItems: [],
-      editing: null,
       interactive: true,
       connectedOverview: false,
     });
@@ -91,7 +88,6 @@ describe("stage model", () => {
       requestedScreenId: "first",
       activeScreenId: "first",
       selectedItems: [{ screenId: "first", elementId: "text-first" }],
-      editing: null,
       interactive: true,
       connectedOverview: false,
     });

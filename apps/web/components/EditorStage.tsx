@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useRef, useState, type CSSProperties, type Key } from "react";
+import { useRef, type Key } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
 import {
   assertNever,
-  rotatedElementBounds,
   type Element,
 } from "@screenshot-studio/core/model";
 import { backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, type CommonElementPatch } from "../lib/editor-store";
-import { boundsIntersect, isSelected, toggleSelection, type SelectionRef } from "../lib/editor-selection";
-import { snapElementDrag, type SnapGuide } from "../lib/editor-snapping";
+import { isSelected } from "../lib/editor-selection";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { deriveStageModel, type StageEditingText } from "./editor-stage/stage-model";
+import { deriveStageModel } from "./editor-stage/stage-model";
+import { useElementTransform } from "./editor-stage/use-element-transform";
+import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
+import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
 import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
 
 /**
@@ -48,13 +49,6 @@ function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, 
   }
 }
 
-interface MarqueeState {
-  start: { x: number; y: number };
-  current: { x: number; y: number };
-  initial: SelectionRef[];
-  toggle: boolean;
-}
-
 export function EditorStage({
   images,
   zoom = 1,
@@ -76,12 +70,6 @@ export function EditorStage({
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const verticalGuideRef = useRef<Konva.Line>(null);
-  const horizontalGuideRef = useRef<Konva.Line>(null);
-  const marqueeMovedRef = useRef(false);
-  const [editing, setEditing] = useState<StageEditingText | null>(null);
-  const [marquee, setMarquee] = useState<MarqueeState | null>(null);
-  const endingEditRef = useRef(false);
 
   const {
     requestedScreen,
@@ -91,28 +79,14 @@ export function EditorStage({
     stageHeight,
     canEdit,
     selectedElement,
-    editingProjection,
-    editingElement,
   } = deriveStageModel({
     project,
     requestedScreenId,
     activeScreenId,
     selectedItems,
-    editing,
     interactive,
     connectedOverview,
   });
-
-  useTransformerSelection({
-    transformerRef: trRef,
-    nodeRefs,
-    canEdit,
-    editingText: Boolean(editingElement),
-    project,
-    selectedItems,
-  });
-
-  if (!project || !requestedScreen || projections.length === 0) return null;
 
   const commit = (ownerScreenId: string, element: Element, patch: CommonElementPatch) => {
     mutateAndSave(() => editorStore.getState().patchElement({
@@ -130,145 +104,76 @@ export function EditorStage({
       ?.elements.find((element) => element.id === id);
   };
 
-  const showSnapGuides = (guides: readonly SnapGuide[]) => {
-    const vertical = guides.find((guide) => guide.axis === "x");
-    const horizontal = guides.find((guide) => guide.axis === "y");
-    const verticalNode = verticalGuideRef.current;
-    const horizontalNode = horizontalGuideRef.current;
-    if (verticalNode) {
-      verticalNode.points([vertical?.position ?? 0, 0, vertical?.position ?? 0, stageHeight]);
-      verticalNode.visible(Boolean(vertical));
-    }
-    if (horizontalNode) {
-      horizontalNode.points([0, horizontal?.position ?? 0, stageWidth, horizontal?.position ?? 0]);
-      horizontalNode.visible(Boolean(horizontal));
-    }
-    const wrapper = wrapperRef.current;
-    if (wrapper) {
-      if (vertical) wrapper.dataset.snapGuideX = String(vertical.position);
-      else delete wrapper.dataset.snapGuideX;
-      if (horizontal) wrapper.dataset.snapGuideY = String(horizontal.position);
-      else delete wrapper.dataset.snapGuideY;
-    }
-    verticalNode?.getLayer()?.batchDraw();
-  };
+  const {
+    verticalGuideRef,
+    horizontalGuideRef,
+    onDragMove,
+    onDragEnd,
+    onTransformEnd,
+  } = useElementTransform({
+    projections,
+    selectedItems,
+    zoom,
+    stageSize: { width: stageWidth, height: stageHeight },
+    nodeRefs,
+    transformerRef: trRef,
+    wrapperRef,
+    getLiveElement: liveElement,
+    patchElement: commit,
+    moveSelected: (delta) => mutateAndSave(() => editorStore.getState().moveSelected(delta)),
+  });
 
-  const clearSnapGuides = () => showSnapGuides([]);
+  const {
+    marquee,
+    movedRef: marqueeMovedRef,
+    selectionModifier,
+    hasMoved: marqueeHasMoved,
+    bounds: currentMarqueeBounds,
+    onMouseDown: beginMarquee,
+    onMouseMove: updateMarquee,
+    onMouseUp: finishMarquee,
+  } = useMarqueeSelection({
+    canEdit,
+    zoom,
+    projections,
+    baseX,
+    selectedItems,
+    setSelection: (items) => editorStore.getState().setSelection(items),
+  });
 
-  const onDragMove = (ownerScreenId: string, id: string) => (
-    event: Konva.KonvaEventObject<DragEvent>,
-  ) => {
-    const element = liveElement(ownerScreenId, id);
-    if (!element || element.locked) return;
-    const candidate = { screenId: ownerScreenId, elementId: id };
-    if (selectedItems.length > 1 && isSelected(selectedItems, candidate)) {
-      clearSnapGuides();
-      const delta = { x: event.target.x() - element.x, y: event.target.y() - element.y };
-      for (const selection of selectedItems) {
-        if (selection.screenId === ownerScreenId && selection.elementId === id) continue;
-        const selected = liveElement(selection.screenId, selection.elementId);
-        const node = nodeRefs.current.get(nodeSelectionKey(selection.screenId, selection.elementId));
-        if (selected && node && !selected.locked) node.position({ x: selected.x + delta.x, y: selected.y + delta.y });
-      }
-      event.target.getLayer()?.batchDraw();
-      return;
-    }
-    const result = snapElementDrag({
-      element,
-      ownerScreenId,
-      position: { x: event.target.x(), y: event.target.y() },
-      projections,
-      stage: { width: stageWidth, height: stageHeight },
-      zoom,
-    });
-    event.target.position(result.position);
-    showSnapGuides(result.guides);
-  };
+  const {
+    editing,
+    editingProjection,
+    editingElement,
+    style: editingStyle,
+    beginTextEditing,
+    finishEditing,
+    setValue: setEditingValue,
+  } = useInlineTextEditing({
+    projections,
+    baseX,
+    zoom,
+    canEdit,
+    getLiveElement: liveElement,
+    selectElement: (screen, element) => editorStore.getState().select(element, screen),
+    commitText: (screen, element, value) => mutateAndSave(() => editorStore.getState().patchElement({
+      id: element,
+      type: "text",
+      patch: { content: value },
+      screenId: screen,
+    })),
+  });
 
-  const onDragEnd = (ownerScreenId: string, id: string) => (
-    event: Konva.KonvaEventObject<DragEvent>,
-  ) => {
-    clearSnapGuides();
-    const element = liveElement(ownerScreenId, id);
-    if (!element || element.locked) return;
-    if (selectedItems.length > 1 && isSelected(selectedItems, { screenId: ownerScreenId, elementId: id })) {
-      const delta = { x: event.target.x() - element.x, y: event.target.y() - element.y };
-      mutateAndSave(() => editorStore.getState().moveSelected(delta));
-      return;
-    }
-    commit(ownerScreenId, element, { x: event.target.x(), y: event.target.y() });
-  };
+  useTransformerSelection({
+    transformerRef: trRef,
+    nodeRefs,
+    canEdit,
+    editingText: Boolean(editingElement),
+    project,
+    selectedItems,
+  });
 
-  const onTransformEnd = (ownerScreenId: string, id: string) => (
-    event: Konva.KonvaEventObject<Event>,
-  ) => {
-    clearSnapGuides();
-    const node = event.target;
-    const element = liveElement(ownerScreenId, id);
-    if (!element || element.locked) {
-      node.position({ x: element?.x ?? node.x(), y: element?.y ?? node.y() });
-      node.rotation(element?.rotation ?? node.rotation());
-      node.width(element?.width ?? node.width());
-      node.height(element?.height ?? node.height());
-      node.scale({ x: 1, y: 1 });
-      trRef.current?.forceUpdate();
-      node.getLayer()?.batchDraw();
-      return;
-    }
-    const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
-    node.scale({ x: 1, y: 1 });
-    const dimensions = element.type === "group"
-      ? (() => {
-          const scale = Math.max(
-            5 / element.width,
-            5 / element.height,
-            (Math.abs(scaleX) + Math.abs(scaleY)) / 2,
-          );
-          return { width: element.width * scale, height: element.height * scale };
-        })()
-      : {
-          width: Math.max(5, node.width() * scaleX),
-          height: Math.max(5, node.height() * scaleY),
-        };
-    commit(ownerScreenId, element, {
-      x: node.x(),
-      y: node.y(),
-      rotation: node.rotation(),
-      ...dimensions,
-    });
-  };
-
-  const finishEditing = (save: boolean) => {
-    if (!editing || endingEditRef.current) return;
-    endingEditRef.current = true;
-    if (save && !liveElement(editing.screenId, editing.id)?.locked) {
-      mutateAndSave(() => editorStore.getState().patchElement({
-        id: editing.id,
-        type: "text",
-        patch: { content: editing.value },
-        screenId: editing.screenId,
-      }));
-    }
-    setEditing(null);
-    queueMicrotask(() => { endingEditRef.current = false; });
-  };
-
-  const beginTextEditing = (
-    ownerScreenId: string,
-    element: Extract<Element, { type: "text" }>,
-    value: string,
-  ) => {
-    if (!canEdit || element.locked) return;
-    endingEditRef.current = false;
-    editorStore.getState().select(element.id, ownerScreenId);
-    setEditing({ screenId: ownerScreenId, id: element.id, value });
-  };
-
-  const selectionModifier = (event: Konva.KonvaEventObject<Event>) => {
-    const native = event.evt as MouseEvent;
-    return native.shiftKey || native.metaKey || native.ctrlKey;
-  };
+  if (!project || !requestedScreen || projections.length === 0) return null;
 
   const selectElement = (event: Konva.KonvaEventObject<Event>, screenId: string, elementId: string) => {
     const candidate = { screenId, elementId };
@@ -294,97 +199,6 @@ export function EditorStage({
       state.select(elementId, screenId, "replace");
     }
   };
-
-  const pointerPosition = (stage: Konva.Stage) => {
-    const point = stage.getPointerPosition();
-    return point ? { x: point.x / zoom, y: point.y / zoom } : null;
-  };
-
-  const marqueeBounds = (value: MarqueeState) => ({
-    minX: Math.min(value.start.x, value.current.x),
-    minY: Math.min(value.start.y, value.current.y),
-    maxX: Math.max(value.start.x, value.current.x),
-    maxY: Math.max(value.start.y, value.current.y),
-  });
-
-  const marqueeHasMoved = (value: MarqueeState) =>
-    Math.hypot(value.current.x - value.start.x, value.current.y - value.start.y) >= 3 / zoom;
-
-  const beginMarquee = (event: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!canEdit) return;
-    const stage = event.target.getStage();
-    const blank = event.target === stage || event.target.name() === "artboard-background";
-    if (!stage || !blank) return;
-    const point = pointerPosition(stage);
-    if (!point) return;
-    marqueeMovedRef.current = false;
-    setMarquee({
-      start: point,
-      current: point,
-      initial: [...selectedItems],
-      toggle: selectionModifier(event),
-    });
-  };
-
-  const updateMarquee = (event: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!marquee) return;
-    const stage = event.target.getStage();
-    if (!stage) return;
-    const point = pointerPosition(stage);
-    if (!point) return;
-    const moved = marqueeHasMoved({ ...marquee, current: point });
-    if (moved) marqueeMovedRef.current = true;
-    setMarquee({ ...marquee, current: point });
-  };
-
-  const finishMarquee = () => {
-    if (!marquee) return;
-    if (marqueeMovedRef.current) {
-      const area = marqueeBounds(marquee);
-      const hits: SelectionRef[] = [];
-      for (const projection of projections) {
-        for (const element of projection.screen.elements) {
-          if (!element.visible) continue;
-          const local = rotatedElementBounds(element);
-          const bounds = {
-            minX: local.minX + projection.x + baseX,
-            minY: local.minY + projection.y,
-            maxX: local.maxX + projection.x + baseX,
-            maxY: local.maxY + projection.y,
-          };
-          if (boundsIntersect(area, bounds)) {
-            hits.push({ screenId: projection.screen.id, elementId: element.id });
-          }
-        }
-      }
-      const next = marquee.toggle
-        ? hits.reduce((items, hit) => toggleSelection(items, hit), marquee.initial)
-        : hits;
-      editorStore.getState().setSelection(next);
-    }
-    setMarquee(null);
-    window.setTimeout(() => { marqueeMovedRef.current = false; }, 0);
-  };
-
-  const editingStyle: CSSProperties | undefined = editingElement?.type === "text" && editingProjection
-    ? {
-      left: (editingProjection.x + baseX + editingElement.x) * zoom,
-      top: (editingProjection.y + editingElement.y) * zoom,
-      width: editingElement.width * zoom,
-      height: editingElement.height * zoom,
-      transform: `rotate(${editingElement.rotation}deg)`,
-      transformOrigin: "top left",
-      fontFamily: `"${editingElement.fontFamily}"`,
-      fontSize: editingElement.size * zoom,
-      fontWeight: editingElement.weight,
-      lineHeight: editingElement.lineHeight,
-      letterSpacing: editingElement.letterSpacing * zoom,
-      textAlign: editingElement.align,
-      direction: editingProjection.screen.direction,
-      color: editingElement.color,
-      opacity: editingElement.opacity,
-    }
-    : undefined;
 
   return (
     <div
@@ -541,8 +355,8 @@ export function EditorStage({
             />
           ) : null}
 
-          {canEdit && marquee && marqueeHasMoved(marquee) ? (() => {
-            const bounds = marqueeBounds(marquee);
+          {canEdit && marquee && marqueeHasMoved(marquee) && currentMarqueeBounds ? (() => {
+            const bounds = currentMarqueeBounds;
             return (
               <Rect
                 data-testid="selection-marquee"
@@ -567,7 +381,7 @@ export function EditorStage({
           dir={editingProjection.screen.direction}
           aria-label={`Edit ${editingElement.name ?? "text"}`}
           value={editing.value}
-          onChange={(event) => setEditing({ ...editing, value: event.target.value })}
+          onChange={(event) => setEditingValue(event.target.value)}
           onBlur={() => finishEditing(true)}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
