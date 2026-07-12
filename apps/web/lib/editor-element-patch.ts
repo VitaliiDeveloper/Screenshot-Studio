@@ -51,6 +51,10 @@ interface ElementPatchByType {
 
 export type ElementPatchFor<T extends Element["type"]> = ElementPatchByType[T];
 export type ElementPatch = ElementPatchFor<Element["type"]>;
+export type ElementPatchRequest<T extends Element["type"] = Element["type"]> = {
+  type: T;
+  patch: ElementPatchFor<NoInfer<T>>;
+};
 
 type ElementFor<T extends Element["type"]> = Extract<Element, { type: T }>;
 
@@ -159,4 +163,14 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
     default:
       return assertNever(element);
   }
+}
+
+/** Apply only after the caller-supplied discriminant matches the live element. */
+export function applyMatchingElementPatch<T extends Element["type"]>(
+  element: Element,
+  request: ElementPatchRequest<T>,
+): boolean {
+  if (element.type !== request.type) return false;
+  applyElementPatch(element as ElementFor<T>, request.patch);
+  return true;
 }

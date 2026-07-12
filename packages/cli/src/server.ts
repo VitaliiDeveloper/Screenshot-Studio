@@ -3,6 +3,13 @@ import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { prepareRenderHost, type PreparedRenderHost } from "./packaged-render-host.js";
 
+export {
+  extractWebArchive,
+  materializeSharpRuntime,
+  prepareRenderHost,
+  type PreparedRenderHost,
+} from "./packaged-render-host.js";
+
 /**
  * Starts either the source-checkout Next dev host or the packaged standalone host and resolves only
  * once it answers HTTP. Export and parity still drive the exact same web renderer in both modes.

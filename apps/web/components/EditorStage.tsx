@@ -12,7 +12,7 @@ import {
 } from "@screenshot-studio/core/model";
 import { backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { editorStore, type ElementPatch } from "../lib/editor-store";
+import { editorStore, type CommonElementPatch } from "../lib/editor-store";
 import { boundsIntersect, isSelected, toggleSelection, type SelectionRef } from "../lib/editor-selection";
 import { snapElementDrag, type SnapGuide } from "../lib/editor-snapping";
 import { mutateAndSave } from "../lib/mutate-and-save";
@@ -114,8 +114,13 @@ export function EditorStage({
 
   if (!project || !requestedScreen || projections.length === 0) return null;
 
-  const commit = (ownerScreenId: string, id: string, patch: ElementPatch) => {
-    mutateAndSave(() => editorStore.getState().patchElement(id, patch, ownerScreenId));
+  const commit = (ownerScreenId: string, element: Element, patch: CommonElementPatch) => {
+    mutateAndSave(() => editorStore.getState().patchElement({
+      id: element.id,
+      type: element.type,
+      patch,
+      screenId: ownerScreenId,
+    }));
   };
 
   const liveElement = (ownerScreenId: string, id: string): Element | undefined => {
@@ -191,7 +196,7 @@ export function EditorStage({
       mutateAndSave(() => editorStore.getState().moveSelected(delta));
       return;
     }
-    commit(ownerScreenId, id, { x: event.target.x(), y: event.target.y() });
+    commit(ownerScreenId, element, { x: event.target.x(), y: event.target.y() });
   };
 
   const onTransformEnd = (ownerScreenId: string, id: string) => (
@@ -226,7 +231,7 @@ export function EditorStage({
           width: Math.max(5, node.width() * scaleX),
           height: Math.max(5, node.height() * scaleY),
         };
-    commit(ownerScreenId, id, {
+    commit(ownerScreenId, element, {
       x: node.x(),
       y: node.y(),
       rotation: node.rotation(),
@@ -238,7 +243,12 @@ export function EditorStage({
     if (!editing || endingEditRef.current) return;
     endingEditRef.current = true;
     if (save && !liveElement(editing.screenId, editing.id)?.locked) {
-      commit(editing.screenId, editing.id, { content: editing.value });
+      mutateAndSave(() => editorStore.getState().patchElement({
+        id: editing.id,
+        type: "text",
+        patch: { content: editing.value },
+        screenId: editing.screenId,
+      }));
     }
     setEditing(null);
     queueMicrotask(() => { endingEditRef.current = false; });

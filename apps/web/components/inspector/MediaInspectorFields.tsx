@@ -2,7 +2,7 @@
 "use client";
 
 import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
-import type { ElementPatch } from "../../lib/editor-store";
+import type { ElementPatchFor } from "../../lib/editor-store";
 import { editorUi } from "../editor-ui";
 import { NumberField, SelectField, TextField } from "../inspector-fields";
 import { mediaInspectorModel } from "./media-inspector-model";
@@ -12,7 +12,7 @@ export function MediaInspectorFields({
   onChange,
 }: {
   element: ScreenshotElement | ImageElement;
-  onChange: (patch: ElementPatch) => void;
+  onChange: (patch: ElementPatchFor<"screenshot"> | ElementPatchFor<"image">) => void;
 }) {
   const { crop, showCrop, canResetCrop } = mediaInspectorModel(element);
   return (

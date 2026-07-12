@@ -102,6 +102,11 @@ export function parseScreenPlacement(platform: string, device: string): ScreenPl
   return devices.includes(device) ? ({ platform: typedPlatform, device } as ScreenPlacement) : null;
 }
 
+/** @deprecated Prefer `parseScreenPlacement` when the validated pair is needed. */
+export function isScreenPlacement(platform: string, device: string): boolean {
+  return parseScreenPlacement(platform, device) !== null;
+}
+
 export type CreateScreenInput = ScreenPlacement & {
   id?: string;
   name?: string;

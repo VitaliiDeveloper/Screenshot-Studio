@@ -4,7 +4,8 @@
 import { useStore } from "zustand";
 import { Combine, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
 import { artboardTargetStatus, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
-import { editorStore, type ElementPatch } from "../lib/editor-store";
+import type { Element } from "@screenshot-studio/core/model";
+import { editorStore, type ElementPatchFor } from "../lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "../lib/mutate-and-save";
 import { flushScheduledSave } from "../lib/debounced-save";
 import { NumberField } from "./inspector-fields";
@@ -14,8 +15,12 @@ import { InspectorSection as Section } from "./inspector/InspectorSection";
 import { ScreenInspectorSections } from "./inspector/ScreenInspectorSections";
 import { deriveInspectorSelection } from "./inspector/inspector-selection-model";
 
-function patch(id: string, change: ElementPatch) {
-  mutateAndScheduleSave(() => editorStore.getState().patchElement(id, change));
+function patch<T extends Element["type"]>(
+  id: string,
+  type: T,
+  change: ElementPatchFor<NoInfer<T>>,
+) {
+  mutateAndScheduleSave(() => editorStore.getState().patchElement({ id, type, patch: change }));
 }
 
 /** Composition entry point for selection, element, and active-screen inspector sections. */
@@ -144,15 +149,15 @@ export function Inspector({
       ) : element ? (
         <>
           <Section title="Transform">
-            <NumberField label="X" value={element.x} onChange={(x) => patch(element.id, { x })} />
-            <NumberField label="Y" value={element.y} onChange={(y) => patch(element.id, { y })} />
+            <NumberField label="X" value={element.x} onChange={(x) => patch(element.id, element.type, { x })} />
+            <NumberField label="Y" value={element.y} onChange={(y) => patch(element.id, element.type, { y })} />
             {element.type === "group" ? (
               <>
                 <NumberField
                   label="Width"
                   value={element.width}
                   min={1}
-                  onChange={(width) => patch(element.id, {
+                  onChange={(width) => patch(element.id, element.type, {
                     width,
                     height: element.height * width / element.width,
                   })}
@@ -161,7 +166,7 @@ export function Inspector({
                   label="Height"
                   value={element.height}
                   min={1}
-                  onChange={(height) => patch(element.id, {
+                  onChange={(height) => patch(element.id, element.type, {
                     width: element.width * height / element.height,
                     height,
                   })}
@@ -169,14 +174,20 @@ export function Inspector({
               </>
             ) : (
               <>
-                <NumberField label="Width" value={element.width} min={1} onChange={(width) => patch(element.id, { width })} />
-                <NumberField label="Height" value={element.height} min={1} onChange={(height) => patch(element.id, { height })} />
+                <NumberField label="Width" value={element.width} min={1} onChange={(width) => patch(element.id, element.type, { width })} />
+                <NumberField label="Height" value={element.height} min={1} onChange={(height) => patch(element.id, element.type, { height })} />
               </>
             )}
-            <NumberField label="Rotation" value={element.rotation} onChange={(rotation) => patch(element.id, { rotation })} />
-            <NumberField label="Opacity" value={element.opacity} min={0} max={1} step={0.1} onChange={(opacity) => patch(element.id, { opacity })} />
+            <NumberField label="Rotation" value={element.rotation} onChange={(rotation) => patch(element.id, element.type, { rotation })} />
+            <NumberField label="Opacity" value={element.opacity} min={0} max={1} step={0.1} onChange={(opacity) => patch(element.id, element.type, { opacity })} />
           </Section>
-          <ElementTypeInspectorSections element={element} fonts={project.fonts} onPatch={patch} />
+          <ElementTypeInspectorSections
+            element={element}
+            fonts={project.fonts}
+            onPatch={patch}
+            onDuplicate={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
+            onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
+          />
         </>
       ) : (
         <ScreenInspectorSections

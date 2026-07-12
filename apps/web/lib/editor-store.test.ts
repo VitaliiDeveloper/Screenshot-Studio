@@ -15,6 +15,31 @@ const invalidTextPatch: ElementPatchFor<"text"> = { fill: "#123456" };
 const invalidIconPatch: ElementPatchFor<"icon"> = { crop: { x: 0.5, y: 0.5, zoom: 1 } };
 void [validShapePatch, invalidTextPatch, invalidIconPatch];
 
+if (false) {
+  // @ts-expect-error the primary store action rejects shape fields for a text request
+  editorStore.getState().patchElement({ id: "headline", type: "text", patch: { fill: "#123456" } });
+}
+
+function patchText(id: string, patch: ElementPatchFor<"text">, screenId?: string) {
+  editorStore.getState().patchElement({ id, type: "text", patch, screenId });
+}
+
+function patchShape(id: string, patch: ElementPatchFor<"shape">, screenId?: string) {
+  editorStore.getState().patchElement({ id, type: "shape", patch, screenId });
+}
+
+function patchImage(id: string, patch: ElementPatchFor<"image">, screenId?: string) {
+  editorStore.getState().patchElement({ id, type: "image", patch, screenId });
+}
+
+function patchIcon(id: string, patch: ElementPatchFor<"icon">, screenId?: string) {
+  editorStore.getState().patchElement({ id, type: "icon", patch, screenId });
+}
+
+function patchGroup(id: string, patch: ElementPatchFor<"group">, screenId?: string) {
+  editorStore.getState().patchElement({ id, type: "group", patch, screenId });
+}
+
 function project(): Project {
   return {
     meta: { name: "T", schemaVersion: 10 },
@@ -66,11 +91,26 @@ describe("editorStore", () => {
   it("patchElement updates geometry immutably (new project reference)", () => {
     editorStore.getState().load(project());
     const before = editorStore.getState().project!;
-    editorStore.getState().patchElement("headline", { x: 123, y: 456 });
+    patchText("headline", { x: 123, y: 456 });
     const after = editorStore.getState().project!;
     expect(after).not.toBe(before); // new reference — patch, not in-place mutation
     expect(after.screens[0]!.elements[0]!).toMatchObject({ x: 123, y: 456 });
     expect(before.screens[0]!.elements[0]!.x).toBe(40); // original untouched
+  });
+
+  it("patchElement ignores a request whose type does not match the located element", () => {
+    editorStore.getState().load(project());
+    const before = editorStore.getState();
+
+    editorStore.getState().patchElement({
+      id: "headline",
+      type: "shape",
+      patch: { fill: "#123456" },
+    });
+
+    const after = editorStore.getState();
+    expect(after.project).toBe(before.project);
+    expect(after.historyPast).toEqual(before.historyPast);
   });
 
   it("patchElement scopes duplicate ids to the active screen", () => {
@@ -81,7 +121,7 @@ describe("editorStore", () => {
     duplicateIds.screens[1]!.elements = [duplicate];
     editorStore.getState().load(duplicateIds);
 
-    editorStore.getState().patchElement("headline", { x: 222 });
+    patchText("headline", { x: 222 });
 
     expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(222);
     expect(editorStore.getState().project!.screens[1]!.elements[0]!.x).toBe(40);
@@ -95,7 +135,7 @@ describe("editorStore", () => {
     editorStore.getState().load(connected);
 
     editorStore.getState().select("headline", "second");
-    editorStore.getState().patchElement("headline", { x: 333 });
+    patchText("headline", { x: 333 });
 
     const state = editorStore.getState();
     expect(state).toMatchObject({
@@ -402,7 +442,7 @@ describe("editorStore elements (slice 4)", () => {
   });
 
   it("patchElement can set locked, visible and name", () => {
-    editorStore.getState().patchElement("headline", { locked: true, visible: false, name: "Big" });
+    patchText("headline", { locked: true, visible: false, name: "Big" });
     const el = editorStore.getState().project!.screens[0]!.elements
       .find((e) => e.id === "headline")!;
     expect(el).toMatchObject({ locked: true, visible: false, name: "Big" });
@@ -428,7 +468,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
   });
 
   it("patchElement can set type-specific fields", () => {
-    editorStore.getState().patchElement("headline", {
+    patchText("headline", {
       color: "#123456", size: 99, align: "center", opacity: 0.5,
     });
     const el = editorStore.getState().project!.screens[0]!.elements
@@ -437,11 +477,11 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
   });
 
   it("patches and clears strict text shadow and shape paint", () => {
-    editorStore.getState().patchElement("headline", {
+    patchText("headline", {
       shadow: { color: "#000000", blur: 8, offsetX: 1, offsetY: 3, opacity: 0.5 },
     });
     expect(editorStore.getState().project!.screens[0]!.elements[0]).toHaveProperty("shadow.blur", 8);
-    editorStore.getState().patchElement("headline", { shadow: null });
+    patchText("headline", { shadow: null });
     expect(editorStore.getState().project!.screens[0]!.elements[0]).not.toHaveProperty("shadow");
 
     editorStore.getState().addElement({
@@ -449,14 +489,14 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       rotation: 0, opacity: 1, locked: false, visible: true,
       kind: "rect", fill: "#123456", radius: 0,
     });
-    editorStore.getState().patchElement("styled-shape", {
+    patchShape("styled-shape", {
       kind: "ellipse",
       gradient: { from: "#000000", to: "#FFFFFF", angle: 90 },
       stroke: { color: "#FF00FF", width: 4 },
     });
     const shape = editorStore.getState().project!.screens[0]!.elements.find((item) => item.id === "styled-shape");
     expect(shape).toMatchObject({ kind: "ellipse", gradient: { angle: 90 }, stroke: { width: 4 } });
-    editorStore.getState().patchElement("styled-shape", { gradient: null, stroke: null });
+    patchShape("styled-shape", { gradient: null, stroke: null });
     expect(editorStore.getState().project!.screens[0]!.elements.find((item) => item.id === "styled-shape"))
       .not.toHaveProperty("gradient");
   });
@@ -467,7 +507,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       rotation: 0, opacity: 1, locked: false, visible: true,
       assetUrl: "assets/old.png", fit: "contain", cornerRadius: 0,
     });
-    editorStore.getState().patchElement("decor", {
+    patchImage("decor", {
       assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
       crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
@@ -475,7 +515,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       type: "image", assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
       crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
-    editorStore.getState().patchElement("decor", { crop: null });
+    patchImage("decor", { crop: null });
     expect(editorStore.getState().project!.screens[0]!.elements.at(-1))
       .not.toHaveProperty("crop");
   });
@@ -486,7 +526,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       rotation: 0, opacity: 1, locked: false, visible: true,
       icon: "star", color: "#3B82F6", strokeWidth: 2,
     });
-    editorStore.getState().patchElement("icon", {
+    patchIcon("icon", {
       icon: "heart", color: "#FF0000", strokeWidth: 5,
     });
     expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
@@ -495,7 +535,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
   });
 
   it("applies a font family and weight in one project patch", () => {
-    editorStore.getState().patchElement("headline", { fontFamily: "Inter", weight: 700 });
+    patchText("headline", { fontFamily: "Inter", weight: 700 });
     const element = editorStore.getState().project!.screens[0]!.elements[0]!;
     expect(element).toMatchObject({ fontFamily: "Inter", weight: 700 });
   });
@@ -510,20 +550,21 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
   });
 
   it("patchElement ignores fields that do not belong to the element type", () => {
-    editorStore.getState().patchElement("headline", {
+    const text = structuredClone(editorStore.getState().project!.screens[0]!.elements
+      .find((element) => element.id === "headline"));
+    if (!text || text.type !== "text") throw new Error("expected text fixture");
+    applyElementPatch(text, {
       color: "#abcdef",
       fill: "#ff0000", // shape-only — must not land on text
-    });
-    const el = editorStore.getState().project!.screens[0]!.elements
-      .find((e) => e.id === "headline")!;
-    expect(el).toMatchObject({ type: "text", color: "#abcdef" });
-    expect(el).not.toHaveProperty("fill");
+    } as ElementPatchFor<"text">);
+    expect(text).toMatchObject({ type: "text", color: "#abcdef" });
+    expect(text).not.toHaveProperty("fill");
   });
 
   it("sets and clears an optional theme role", () => {
-    editorStore.getState().patchElement("headline", { role: "heading" });
+    patchText("headline", { role: "heading" });
     expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ role: "heading" });
-    editorStore.getState().patchElement("headline", { role: null });
+    patchText("headline", { role: null });
     expect(editorStore.getState().project!.screens[0]!.elements[0]).not.toHaveProperty("role");
   });
 
@@ -587,8 +628,8 @@ describe("editorStore history (phase 6 slice 4)", () => {
   });
 
   it("coalesces consecutive element patches and supports undo/redo", () => {
-    editorStore.getState().patchElement("headline", { x: 120 });
-    editorStore.getState().patchElement("headline", { x: 240 });
+    patchText("headline", { x: 120 });
+    patchText("headline", { x: 240 });
     expect(editorStore.getState().historyPast).toHaveLength(1);
 
     editorStore.getState().undo();
@@ -600,9 +641,9 @@ describe("editorStore history (phase 6 slice 4)", () => {
   });
 
   it("starts a new undo step after an explicit history boundary", () => {
-    editorStore.getState().patchElement("headline", { x: 120 });
+    patchText("headline", { x: 120 });
     editorStore.getState().endHistoryGroup();
-    editorStore.getState().patchElement("headline", { y: 220 });
+    patchText("headline", { y: 220 });
     expect(editorStore.getState().historyPast).toHaveLength(2);
 
     editorStore.getState().undo();
@@ -610,15 +651,15 @@ describe("editorStore history (phase 6 slice 4)", () => {
   });
 
   it("clears redo after a new mutation and resets history on load/replace", () => {
-    editorStore.getState().patchElement("headline", { x: 120 });
+    patchText("headline", { x: 120 });
     editorStore.getState().undo();
     expect(editorStore.getState().historyFuture).toHaveLength(1);
-    editorStore.getState().patchElement("headline", { y: 220 });
+    patchText("headline", { y: 220 });
     expect(editorStore.getState().historyFuture).toHaveLength(0);
 
     editorStore.getState().load(project());
     expect(editorStore.getState().historyPast).toHaveLength(0);
-    editorStore.getState().patchElement("headline", { x: 300 });
+    patchText("headline", { x: 300 });
     editorStore.getState().replaceProject(structuredClone(editorStore.getState().project!));
     expect(editorStore.getState()).toMatchObject({ historyPast: [], historyFuture: [] });
   });
@@ -630,7 +671,7 @@ describe("editorStore history (phase 6 slice 4)", () => {
 
     editorStore.getState().selectScreen("hero");
     for (let index = 0; index < 60; index += 1) {
-      editorStore.getState().patchElement("headline", { x: index });
+      patchText("headline", { x: index });
       editorStore.getState().endHistoryGroup();
     }
     expect(editorStore.getState().historyPast).toHaveLength(50);
@@ -871,7 +912,7 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
       { screenId: "hero", elementId: "card" },
     ]);
     editorStore.getState().groupSelected();
-    editorStore.getState().patchElement("card", { fill: "#FF0000", x: 25 }, "hero");
+    patchShape("card", { fill: "#FF0000", x: 25 }, "hero");
 
     const group = editorStore.getState().project!.screens[0]!.elements[0]!;
     expect(group.type === "group" && group.children[1]).toMatchObject({ fill: "#FF0000", x: 25 });
@@ -891,7 +932,7 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
     if (group.type !== "group") throw new Error("expected group");
     const before = structuredClone(group);
 
-    editorStore.getState().patchElement(group.id, { width: group.width * 2 }, "hero");
+    patchGroup(group.id, { width: group.width * 2 }, "hero");
 
     const resized = editorStore.getState().project!.screens[0]!.elements[0]!;
     if (resized.type !== "group") throw new Error("expected group");
@@ -923,7 +964,7 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
     expect(copy).toMatchObject({ x: original.x + 20, y: original.y + 20 });
     expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: copy.id }]);
 
-    editorStore.getState().patchElement(copy.id, { rotation: 30, opacity: 0.5 }, "hero");
+    patchGroup(copy.id, { rotation: 30, opacity: 0.5 }, "hero");
     editorStore.getState().ungroupSelected();
     const ungrouped = editorStore.getState().project!.screens[0]!.elements.slice(1);
     expect(ungrouped).toHaveLength(2);

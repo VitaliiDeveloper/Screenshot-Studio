@@ -7,7 +7,11 @@ import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import {
   createServerController,
+  extractWebArchive as extractWebArchiveFromServer,
+  materializeSharpRuntime as materializeSharpRuntimeFromServer,
+  prepareRenderHost as prepareRenderHostFromServer,
   resolveServerPort,
+  type PreparedRenderHost as PreparedRenderHostFromServer,
 } from "./server.js";
 import {
   extractWebArchive,
@@ -25,6 +29,16 @@ class FakeChild extends EventEmitter {
     return true;
   });
 }
+
+describe("server compatibility exports", () => {
+  it("retains packaged render-host helpers on the server module", () => {
+    const prepared: PreparedRenderHostFromServer | undefined = undefined;
+    expect(prepared).toBeUndefined();
+    expect(extractWebArchiveFromServer).toBe(extractWebArchive);
+    expect(materializeSharpRuntimeFromServer).toBe(materializeSharpRuntime);
+    expect(prepareRenderHostFromServer).toBeTypeOf("function");
+  });
+});
 
 describe("resolveServerPort", () => {
   it("uses an explicit port unchanged", async () => {

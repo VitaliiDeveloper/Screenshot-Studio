@@ -33,8 +33,8 @@ import {
   type SelectionRef,
 } from "./editor-selection.js";
 import {
-  applyElementPatch,
-  type ElementPatch,
+  applyMatchingElementPatch,
+  type ElementPatchRequest,
 } from "./editor-element-patch.js";
 import { forEachSelectedElement } from "./editor-selection-mutations.js";
 
@@ -43,7 +43,11 @@ export {
   type CommonElementPatch,
   type ElementPatch,
   type ElementPatchFor,
+  type ElementPatchRequest,
 } from "./editor-element-patch.js";
+
+export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
+  ElementPatchRequest<T> & { id: string; screenId?: string };
 
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
@@ -65,7 +69,7 @@ export interface EditorState {
   setSaveState: (status: EditorState["saveStatus"], error?: string | null) => void;
   select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
   setSelection: (items: SelectionRef[]) => void;
-  patchElement: (id: string, patch: ElementPatch, screenId?: string) => void;
+  patchElement: <T extends Element["type"]>(request: PatchElementRequest<T>) => void;
   moveSelected: (delta: { x: number; y: number }) => void;
   removeSelected: () => void;
   setSelectedLocked: (locked: boolean) => void;
@@ -179,7 +183,7 @@ export const editorStore = createStore<EditorState>((set) => ({
       historyGroupKey: null,
     };
   }),
-  patchElement: (id, patch, screenId) =>
+  patchElement: ({ id, type, patch, screenId }) =>
     set((state) => {
       if (!state.project) return state;
       const primary = primarySelection(state.selectedItems);
@@ -190,7 +194,7 @@ export const editorStore = createStore<EditorState>((set) => ({
       const project = produce(state.project, (draft) => {
         const screen = draft.screens.find((candidate) => candidate.id === ownerScreenId);
         const location = screen ? findElementLocation(screen, id) : null;
-        if (location) applyElementPatch(location.element, patch);
+        if (location) applyMatchingElementPatch(location.element, { type, patch });
       });
       return recordProjectChange(state, project, `element:${ownerScreenId}:${id}`);
     }),

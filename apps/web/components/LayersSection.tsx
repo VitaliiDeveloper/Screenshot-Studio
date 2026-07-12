@@ -30,7 +30,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
-import { editorStore, type ElementPatch } from "../lib/editor-store";
+import { editorStore, type CommonElementPatch } from "../lib/editor-store";
 import { isSelected } from "../lib/editor-selection";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "../lib/panel-helpers";
@@ -115,8 +115,13 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
     );
   };
 
-  const patch = (id: string, p: ElementPatch) =>
-    mutateAndSave(() => editorStore.getState().patchElement(id, p, activeScreenId));
+  const patch = (element: Element, p: CommonElementPatch) =>
+    mutateAndSave(() => editorStore.getState().patchElement({
+      id: element.id,
+      type: element.type,
+      patch: p,
+      screenId: activeScreenId,
+    }));
 
   return (
     <section className="pb-3">
@@ -164,9 +169,9 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     autoFocus
                     value={renaming.value}
                     onChange={(ev) => setRenaming({ id: el.id, value: ev.target.value })}
-                    onBlur={() => { patch(el.id, { name: renaming.value }); setRenaming(null); }}
+                    onBlur={() => { patch(el, { name: renaming.value }); setRenaming(null); }}
                     onKeyDown={(ev) => {
-                      if (ev.key === "Enter") { patch(el.id, { name: renaming.value }); setRenaming(null); }
+                      if (ev.key === "Enter") { patch(el, { name: renaming.value }); setRenaming(null); }
                       if (ev.key === "Escape") setRenaming(null);
                     }}
                     className="h-8 min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2 text-xs outline-none ring-2 ring-blue-500/15"
@@ -281,7 +286,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       type="button"
                       role="menuitem"
                       onClick={() => {
-                        patch(el.id, { visible: !el.visible });
+                        patch(el, { visible: !el.visible });
                         setOpenActionsId(null);
                       }}
                       aria-label={el.visible ? "Hide layer" : "Show layer"}
@@ -294,7 +299,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       type="button"
                       role="menuitem"
                       onClick={() => {
-                        patch(el.id, { locked: !el.locked });
+                        patch(el, { locked: !el.locked });
                         setOpenActionsId(null);
                       }}
                       aria-label={el.locked ? "Unlock layer" : "Lock layer"}
@@ -349,7 +354,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       type="button"
                       className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
                       aria-label={child.locked ? `Unlock ${elementLabel(child)}` : `Lock ${elementLabel(child)}`}
-                      onClick={() => patch(child.id, { locked: !child.locked })}
+                      onClick={() => patch(child, { locked: !child.locked })}
                     >
                       {child.locked ? <Lock size={12} /> : <LockOpen size={12} />}
                     </button>
@@ -357,7 +362,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       type="button"
                       className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
                       aria-label={child.visible ? `Hide ${elementLabel(child)}` : `Show ${elementLabel(child)}`}
-                      onClick={() => patch(child.id, { visible: !child.visible })}
+                      onClick={() => patch(child, { visible: !child.visible })}
                     >
                       {child.visible ? <Eye size={12} /> : <EyeOff size={12} />}
                     </button>
