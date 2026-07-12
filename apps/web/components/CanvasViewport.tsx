@@ -4,6 +4,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -63,11 +64,17 @@ export function CanvasViewport({
   const project = useStore(editorStore, (state) => state.project);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const lastFitLayoutRef = useRef<string | null>(null);
+  const previousViewRef = useRef(view);
+  const transitionRef = useRef<Animation | null>(null);
+  const transitionFrameRef = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
   const panRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [panning, setPanning] = useState(false);
+  const [fittedView, setFittedView] = useState<WorkspaceView>(view);
+  const [transitioning, setTransitioning] = useState(false);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -180,6 +187,64 @@ export function CanvasViewport({
       viewport.scrollTo({ left: 0, top: 0 });
     });
   }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, outputRows, rightInset, screens.length, view]);
+
+  useLayoutEffect(() => {
+    if (previousViewRef.current === view) return;
+    previousViewRef.current = view;
+
+    transitionRef.current?.cancel();
+    transitionRef.current = null;
+    if (transitionFrameRef.current !== null) cancelAnimationFrame(transitionFrameRef.current);
+    transitionFrameRef.current = null;
+
+    // Install the destination fit during layout so the stale source zoom is never painted.
+    fit();
+    setFittedView(view);
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setTransitioning(false);
+      return;
+    }
+
+    setTransitioning(true);
+    transitionFrameRef.current = requestAnimationFrame(() => {
+      transitionFrameRef.current = null;
+      const content = contentRef.current;
+      if (!content) {
+        setTransitioning(false);
+        return;
+      }
+
+      const activeArtboard = content.querySelector<HTMLElement>(`[data-artboard-screen-id="${CSS.escape(activeScreenId ?? "")}"]`);
+      if (activeArtboard) {
+        const contentRect = content.getBoundingClientRect();
+        const artboardRect = activeArtboard.getBoundingClientRect();
+        content.style.transformOrigin = `${artboardRect.left - contentRect.left + artboardRect.width / 2}px ${artboardRect.top - contentRect.top + artboardRect.height / 2}px`;
+      } else {
+        content.style.transformOrigin = "center center";
+      }
+
+      const animation = content.animate(
+        [
+          { opacity: 0.72, transform: view === "overview" ? "scale(1.025)" : "scale(0.975)" },
+          { opacity: 1, transform: "scale(1)" },
+        ],
+        { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+      );
+      transitionRef.current = animation;
+      animation.finished.then(() => {
+        if (transitionRef.current !== animation) return;
+        transitionRef.current = null;
+        content.style.removeProperty("transform-origin");
+        setTransitioning(false);
+      }).catch(() => undefined);
+    });
+  }, [activeScreenId, fit, view]);
+
+  useEffect(() => () => {
+    transitionRef.current?.cancel();
+    if (transitionFrameRef.current !== null) cancelAnimationFrame(transitionFrameRef.current);
+  }, []);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -362,6 +427,9 @@ export function CanvasViewport({
     <section className="relative min-w-0 flex-1 overflow-hidden bg-slate-50" aria-label="Canvas workspace">
       <div
         ref={viewportRef}
+        data-view={view}
+        data-fitted-view={fittedView}
+        data-view-transition={transitioning ? "running" : "idle"}
         data-pattern={pattern}
         data-testid="canvas-viewport"
         className={cx(
@@ -381,6 +449,7 @@ export function CanvasViewport({
           }}
         >
           <div
+            ref={contentRef}
             className={cx(
               "m-auto",
               connectedOverview || view === "focus" ? "flex items-start" : "flex flex-col items-start",
