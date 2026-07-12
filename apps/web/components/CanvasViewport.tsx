@@ -200,13 +200,16 @@ export function CanvasViewport({
     fit();
     setFittedView(view);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setInitialReveal("idle");
+      initialRevealFrameRef.current = requestAnimationFrame(() => {
+        initialRevealFrameRef.current = null;
+        setInitialReveal("idle");
+      });
       return;
     }
 
-    setInitialReveal("running");
     initialRevealFrameRef.current = requestAnimationFrame(() => {
       initialRevealFrameRef.current = null;
+      setInitialReveal("running");
       const content = contentRef.current;
       if (!content) {
         setInitialReveal("idle");
@@ -241,13 +244,12 @@ export function CanvasViewport({
     setFittedView(view);
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setTransitioning(false);
       return;
     }
 
-    setTransitioning(true);
     transitionFrameRef.current = requestAnimationFrame(() => {
       transitionFrameRef.current = null;
+      setTransitioning(true);
       const content = contentRef.current;
       if (!content) {
         setTransitioning(false);
