@@ -54,8 +54,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    console.error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|canvas> [flags]`);
-    process.exit(1);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|canvas> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);

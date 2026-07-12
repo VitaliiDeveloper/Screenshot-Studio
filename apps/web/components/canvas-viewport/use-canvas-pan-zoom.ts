@@ -126,6 +126,16 @@ export function useCanvasPanZoom({
     };
   }, []);
 
+  const endPan = useCallback<NonNullable<PointerHandlers["onPointerUp"]>>((event) => {
+    const viewport = viewportRef.current;
+    if (panRef.current?.pointerId !== event.pointerId) return;
+    panRef.current = null;
+    setPanning(false);
+    if (viewport?.hasPointerCapture(event.pointerId)) {
+      viewport.releasePointerCapture(event.pointerId);
+    }
+  }, [viewportRef]);
+
   const pointerHandlers: PointerHandlers = {
     onPointerDownCapture: (event) => {
       const viewport = viewportRef.current;
@@ -149,24 +159,8 @@ export function useCanvasPanZoom({
       viewport.scrollLeft = pan.left - (event.clientX - pan.x);
       viewport.scrollTop = pan.top - (event.clientY - pan.y);
     },
-    onPointerUp: (event) => {
-      const viewport = viewportRef.current;
-      if (panRef.current?.pointerId !== event.pointerId) return;
-      panRef.current = null;
-      setPanning(false);
-      if (viewport?.hasPointerCapture(event.pointerId)) {
-        viewport.releasePointerCapture(event.pointerId);
-      }
-    },
-    onPointerCancel: (event) => {
-      const viewport = viewportRef.current;
-      if (panRef.current?.pointerId !== event.pointerId) return;
-      panRef.current = null;
-      setPanning(false);
-      if (viewport?.hasPointerCapture(event.pointerId)) {
-        viewport.releasePointerCapture(event.pointerId);
-      }
-    },
+    onPointerUp: endPan,
+    onPointerCancel: endPan,
   };
 
   return { spacePressed, panning, zoomAt, pointerHandlers };
