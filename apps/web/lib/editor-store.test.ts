@@ -15,10 +15,8 @@ const invalidTextPatch: ElementPatchFor<"text"> = { fill: "#123456" };
 const invalidIconPatch: ElementPatchFor<"icon"> = { crop: { x: 0.5, y: 0.5, zoom: 1 } };
 void [validShapePatch, invalidTextPatch, invalidIconPatch];
 
-if (false) {
-  // @ts-expect-error the primary store action rejects shape fields for a text request
-  editorStore.getState().patchElement({ id: "headline", type: "text", patch: { fill: "#123456" } });
-}
+// @ts-expect-error the primary store action rejects shape fields for a text request
+editorStore.getState().patchElement({ id: "headline", type: "text", patch: { fill: "#123456" } });
 
 function patchText(id: string, patch: ElementPatchFor<"text">, screenId?: string) {
   editorStore.getState().patchElement({ id, type: "text", patch, screenId });
