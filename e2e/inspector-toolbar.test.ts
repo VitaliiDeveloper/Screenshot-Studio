@@ -48,7 +48,6 @@ describe("inspector + toolbar", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
-    const viewSwitch = page.getByLabel("Canvas view");
     const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
     const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
     const exportLabel = page.getByRole("button", { name: "Export" }).locator("span");
