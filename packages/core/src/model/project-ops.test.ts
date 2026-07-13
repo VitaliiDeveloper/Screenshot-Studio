@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Project } from "./schema.js";
+import { isScreenPlacement as isScreenPlacementFromModel } from "./index.js";
 import {
   addScreenToProject,
   cloneLocaleSet,
@@ -10,6 +11,7 @@ import {
   findUnresolvedFonts,
   assertProjectFontsResolved,
   formatUnresolvedFontsError,
+  isScreenPlacement,
   parseScreenPlacement,
   recomputeManifests,
   removeScreenFromProject,
@@ -72,6 +74,12 @@ describe("project-ops", () => {
     expect(parseScreenPlacement("apple", "watchos")).toEqual({ platform: "apple", device: "watchos" });
     expect(parseScreenPlacement("windows", "desktop")).toEqual({ platform: "windows", device: "desktop" });
     expect(parseScreenPlacement("windows", "iphone")).toBeNull();
+  });
+
+  it("isScreenPlacement preserves the boolean compatibility API", () => {
+    expect(isScreenPlacement("apple", "iphone")).toBe(true);
+    expect(isScreenPlacement("apple", "phone")).toBe(false);
+    expect(isScreenPlacementFromModel).toBe(isScreenPlacement);
   });
 
   it("addScreenToProject appends and recomputes manifests", () => {

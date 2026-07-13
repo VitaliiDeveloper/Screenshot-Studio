@@ -148,10 +148,12 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
 
   const apply = (font: FontAsset) => {
     if (!selectedText) return;
-    mutateAndSave(() => editorStore.getState().patchElement(selectedText.id, {
-      fontFamily: font.family,
-      weight: font.weight,
-    }, primary?.screenId ?? activeScreenId));
+    mutateAndSave(() => editorStore.getState().patchElement({
+      id: selectedText.id,
+      type: "text",
+      patch: { fontFamily: font.family, weight: font.weight },
+      screenId: primary?.screenId ?? activeScreenId,
+    }));
   };
 
   return (

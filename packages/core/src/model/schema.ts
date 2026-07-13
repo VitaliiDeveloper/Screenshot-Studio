@@ -71,7 +71,7 @@ const transformBase = {
   opacity: unitInterval.default(1),
   locked: z.boolean().default(false),
   visible: z.boolean().default(true),
-  /** Layers-panel display label (slice 4). Metadata only — never rendered/exported. */
+  /** Optional Layers-panel display label. Metadata only — never rendered/exported. */
   name: z.string().optional(),
 };
 
@@ -309,7 +309,7 @@ const WindowsScreen = z
 export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen, WindowsScreen]);
 export type Screen = z.infer<typeof Screen>;
 
-export const Project = z
+const ProjectObject = z
   .object({
     meta: z
       .object({
@@ -324,184 +324,213 @@ export const Project = z
     fonts: z.array(FontAsset).default([]),
     screens: z.array(Screen).min(1),
   })
-  .strict()
-  // `platforms` is a derived manifest: no duplicates, and its set equals the set of platforms
-  // the screens actually use (not a declared superset). See the Slice 1 spec.
-  .superRefine((proj, ctx) => {
-    if (new Set(proj.platforms).size !== proj.platforms.length) {
+  .strict();
+
+type ProjectShape = z.infer<typeof ProjectObject>;
+
+function validateDerivedManifest<T extends string>(
+  declaredValues: readonly T[],
+  usedValues: readonly T[],
+  ctx: z.RefinementCtx,
+  options: {
+    duplicateMessage: string;
+    manifestPath: "platforms" | "locales";
+    unusedMessage: (value: T) => string;
+    undeclaredMessage: (value: T) => string;
+    screenField: "platform" | "locale";
+  },
+): void {
+  if (new Set(declaredValues).size !== declaredValues.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: options.duplicateMessage,
+      path: [options.manifestPath],
+    });
+  }
+
+  const declared = new Set(declaredValues);
+  const used = new Set(usedValues);
+  for (const value of declared) {
+    if (!used.has(value)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "platforms must not contain duplicates",
-        path: ["platforms"],
+        message: options.unusedMessage(value),
+        path: [options.manifestPath],
       });
     }
-    const declared = new Set(proj.platforms);
-    const used = new Set(proj.screens.map((s) => s.platform));
-    for (const p of declared) {
-      if (!used.has(p)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `platform "${p}" is declared but no screen uses it`,
-          path: ["platforms"],
-        });
-      }
-    }
-    proj.screens.forEach((s, i) => {
-      if (!declared.has(s.platform)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `screen platform "${s.platform}" is not listed in platforms`,
-          path: ["screens", i, "platform"],
-        });
-      }
-    });
-
-    if (new Set(proj.locales).size !== proj.locales.length) {
+  }
+  usedValues.forEach((value, index) => {
+    if (!declared.has(value)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "locales must not contain duplicates",
-        path: ["locales"],
+        message: options.undeclaredMessage(value),
+        path: ["screens", index, options.screenField],
       });
     }
-    const declaredLocales = new Set(proj.locales);
-    const usedLocales = new Set(proj.screens.map((screen) => screen.locale));
-    for (const locale of declaredLocales) {
-      if (!usedLocales.has(locale)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `locale "${locale}" is declared but no screen uses it`,
-          path: ["locales"],
-        });
-      }
-    }
-    proj.screens.forEach((screen, index) => {
-      if (!declaredLocales.has(screen.locale)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `screen locale "${screen.locale}" is not listed in locales`,
-          path: ["screens", index, "locale"],
-        });
-      }
-    });
+  });
+}
 
-    const screenIds = new Set<string>();
-    proj.screens.forEach((screen, index) => {
-      if (screenIds.has(screen.id)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `duplicate screen id: "${screen.id}"`,
-          path: ["screens", index, "id"],
-        });
-      } else {
-        screenIds.add(screen.id);
-      }
-    });
+function validateManifests(proj: ProjectShape, ctx: z.RefinementCtx): void {
+  validateDerivedManifest(
+    proj.platforms,
+    proj.screens.map((screen) => screen.platform),
+    ctx,
+    {
+      duplicateMessage: "platforms must not contain duplicates",
+      manifestPath: "platforms",
+      unusedMessage: (platform) => `platform "${platform}" is declared but no screen uses it`,
+      undeclaredMessage: (platform) => `screen platform "${platform}" is not listed in platforms`,
+      screenField: "platform",
+    },
+  );
+  validateDerivedManifest(
+    proj.locales,
+    proj.screens.map((screen) => screen.locale),
+    ctx,
+    {
+      duplicateMessage: "locales must not contain duplicates",
+      manifestPath: "locales",
+      unusedMessage: (locale) => `locale "${locale}" is declared but no screen uses it`,
+      undeclaredMessage: (locale) => `screen locale "${locale}" is not listed in locales`,
+      screenField: "locale",
+    },
+  );
+}
 
-    const screensById = new Map(proj.screens.map((screen) => [screen.id, screen] as const));
-    const variantKeys = new Set<string>();
-    proj.screens.forEach((screen, index) => {
-      const hasVariantRoot = screen.variantOf !== undefined;
-      const hasStoreTarget = screen.storeTargetId !== undefined;
-      if (hasVariantRoot !== hasStoreTarget) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "variantOf and storeTargetId must be present together",
-          path: ["screens", index],
-        });
-        return;
-      }
-      if (!hasVariantRoot || !screen.variantOf || !screen.storeTargetId) return;
-
-      const root = screensById.get(screen.variantOf);
-      if (!root) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `variant root "${screen.variantOf}" does not exist`,
-          path: ["screens", index, "variantOf"],
-        });
-        return;
-      }
-      if (root.variantOf !== undefined || root.storeTargetId !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `variant root "${screen.variantOf}" must be a root screen`,
-          path: ["screens", index, "variantOf"],
-        });
-      }
-      if (
-        root.platform !== screen.platform
-        || root.device !== screen.device
-        || root.locale !== screen.locale
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "variant platform, device, and locale must match its root screen",
-          path: ["screens", index],
-        });
-      }
-
-      const key = `${screen.variantOf}\u0000${screen.storeTargetId}`;
-      if (variantKeys.has(key)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `duplicate store target variant "${screen.storeTargetId}" for root "${screen.variantOf}"`,
-          path: ["screens", index, "storeTargetId"],
-        });
-      } else {
-        variantKeys.add(key);
-      }
-    });
-
-    const directionByLocale = new Map<string, LayoutDirection>();
-    proj.screens.forEach((screen, index) => {
-      const direction = directionByLocale.get(screen.locale);
-      if (direction !== undefined && direction !== screen.direction) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `all screens in locale "${screen.locale}" must use direction "${direction}"`,
-          path: ["screens", index, "direction"],
-        });
-      } else {
-        directionByLocale.set(screen.locale, screen.direction);
-      }
-    });
-
-    proj.screens.forEach((screen, screenIndex) => {
-      const ids = new Set<string>();
-      const register = (id: string, path: (string | number)[]) => {
-        if (ids.has(id)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `duplicate element id within screen: "${id}"`,
-            path: ["screens", screenIndex, ...path, "id"],
-          });
-        } else {
-          ids.add(id);
-        }
-      };
-      screen.elements.forEach((element, elementIndex) => {
-        register(element.id, ["elements", elementIndex]);
-        if (element.type === "group") {
-          element.children.forEach((child, childIndex) => {
-            register(child.id, ["elements", elementIndex, "children", childIndex]);
-          });
-        }
+function validateVariants(proj: ProjectShape, ctx: z.RefinementCtx): void {
+  const screenIds = new Set<string>();
+  proj.screens.forEach((screen, index) => {
+    if (screenIds.has(screen.id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `duplicate screen id: "${screen.id}"`,
+        path: ["screens", index, "id"],
       });
-    });
+    } else {
+      screenIds.add(screen.id);
+    }
+  });
 
-    const fontIdentityIndexes = new Map<string, number>();
-    proj.fonts.forEach((font, i) => {
-      const key = fontIdentityKey(font);
-      const existingIndex = fontIdentityIndexes.get(key);
-      if (existingIndex !== undefined) {
+  const screensById = new Map(proj.screens.map((screen) => [screen.id, screen] as const));
+  const variantKeys = new Set<string>();
+  proj.screens.forEach((screen, index) => {
+    const hasVariantRoot = screen.variantOf !== undefined;
+    const hasStoreTarget = screen.storeTargetId !== undefined;
+    if (hasVariantRoot !== hasStoreTarget) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "variantOf and storeTargetId must be present together",
+        path: ["screens", index],
+      });
+      return;
+    }
+    if (!hasVariantRoot || !screen.variantOf || !screen.storeTargetId) return;
+
+    const root = screensById.get(screen.variantOf);
+    if (!root) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `variant root "${screen.variantOf}" does not exist`,
+        path: ["screens", index, "variantOf"],
+      });
+      return;
+    }
+    if (root.variantOf !== undefined || root.storeTargetId !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `variant root "${screen.variantOf}" must be a root screen`,
+        path: ["screens", index, "variantOf"],
+      });
+    }
+    if (
+      root.platform !== screen.platform
+      || root.device !== screen.device
+      || root.locale !== screen.locale
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "variant platform, device, and locale must match its root screen",
+        path: ["screens", index],
+      });
+    }
+
+    const key = `${screen.variantOf}\u0000${screen.storeTargetId}`;
+    if (variantKeys.has(key)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `duplicate store target variant "${screen.storeTargetId}" for root "${screen.variantOf}"`,
+        path: ["screens", index, "storeTargetId"],
+      });
+    } else {
+      variantKeys.add(key);
+    }
+  });
+}
+
+function validateLocaleDirections(proj: ProjectShape, ctx: z.RefinementCtx): void {
+  const directionByLocale = new Map<string, LayoutDirection>();
+  proj.screens.forEach((screen, index) => {
+    const direction = directionByLocale.get(screen.locale);
+    if (direction !== undefined && direction !== screen.direction) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `all screens in locale "${screen.locale}" must use direction "${direction}"`,
+        path: ["screens", index, "direction"],
+      });
+    } else {
+      directionByLocale.set(screen.locale, screen.direction);
+    }
+  });
+}
+
+function validateElementIds(proj: ProjectShape, ctx: z.RefinementCtx): void {
+  proj.screens.forEach((screen, screenIndex) => {
+    const ids = new Set<string>();
+    const register = (id: string, path: (string | number)[]) => {
+      if (ids.has(id)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `duplicate font family and weight: "${font.family}" ${font.weight}`,
-          path: ["fonts", i],
+          message: `duplicate element id within screen: "${id}"`,
+          path: ["screens", screenIndex, ...path, "id"],
         });
       } else {
-        fontIdentityIndexes.set(key, i);
+        ids.add(id);
+      }
+    };
+    screen.elements.forEach((element, elementIndex) => {
+      register(element.id, ["elements", elementIndex]);
+      if (element.type === "group") {
+        element.children.forEach((child, childIndex) => {
+          register(child.id, ["elements", elementIndex, "children", childIndex]);
+        });
       }
     });
   });
+}
+
+function validateFontIdentities(proj: ProjectShape, ctx: z.RefinementCtx): void {
+  const fontIdentityIndexes = new Map<string, number>();
+  proj.fonts.forEach((font, i) => {
+    const key = fontIdentityKey(font);
+    const existingIndex = fontIdentityIndexes.get(key);
+    if (existingIndex !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `duplicate font family and weight: "${font.family}" ${font.weight}`,
+        path: ["fonts", i],
+      });
+    } else {
+      fontIdentityIndexes.set(key, i);
+    }
+  });
+}
+
+/** Strict v10 project contract with derived manifests and cross-object identities validated. */
+export const Project = ProjectObject.superRefine((proj, ctx) => {
+  validateManifests(proj, ctx);
+  validateVariants(proj, ctx);
+  validateLocaleDirections(proj, ctx);
+  validateElementIds(proj, ctx);
+  validateFontIdentities(proj, ctx);
+});
 export type Project = z.infer<typeof Project>;

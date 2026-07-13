@@ -50,12 +50,14 @@ Uninstalling the CLI does not remove projects, exported files, or Playwright's s
 
 - Export is intentionally Chromium-only. Firefox and WebKit are representative editor smoke
   targets, not alternate pixel-parity renderers.
-- The candidate supports Node.js 22.13+ on Linux, macOS, and Windows; the final current-SHA package
-  matrix is a Phase 8 Slice 7 gate.
+- The candidate supports Node.js 22.13+ on Linux, macOS, and Windows. The retained candidate's
+  package matrix passed on Ubuntu, macOS, and Windows at Node 22 plus Ubuntu at Node 24.
 - Only the presets present in `store-specs.json` are supported. Additional Apple accepted sizes and
   Google device classes remain future work.
-- Groups are one level, do not clip children, and cannot nest. Backgrounds remain solid, and project
-  JSON accepts only the strict v10 element/property surface.
+- Groups are one level, do not clip children, and cannot nest. Backgrounds are strict solid,
+  two-stop linear-gradient, or project-image literals whose colours may include schema-valid alpha;
+  final store export is flattened to an opaque PNG. Project JSON accepts only the strict v10
+  element/property surface.
 - Fonts must be registered as project assets. Export rejects machine-dependent fallback fonts.
 - Background removal handles edge-connected flat or near-uniform colours; it is not semantic
   segmentation for complex photographs.
@@ -81,8 +83,8 @@ Uninstalling the CLI does not remove projects, exported files, or Playwright's s
    `SECURITY.md`, and every known limitation above.
 7. Confirm control of the `@screenshot-studio` npm scope, registry authentication, public access,
    release notes, and rollback/deprecation procedure. Candidate checks do not prove those accounts.
-8. Record an explicit Slice 7 `GO` with no blocker before creating `v0.1.0`, a GitHub release, or an
-   npm publication.
+8. Confirm the retained Phase 8 `GO` still applies to the exact candidate SHA before creating
+   `v0.1.0`, a GitHub release, or an npm publication; rerun any gate invalidated by later changes.
 9. Tagging, release creation, registry authentication, `npm publish`, and announcements each require
    explicit owner authorization. A green candidate does not grant it.
 

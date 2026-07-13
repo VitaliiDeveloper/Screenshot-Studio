@@ -3,14 +3,11 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 1.0, 11 July 2026.
+Version 2.0, 12 July 2026.
 
-> **Status: Phase 1, the Phase 3 font/theme/template surfaces, Phase 3.5/3.6 workspace work, Phase 4 locale/RTL, the complete Phase 6 connected authoring foundation, and all Phase 7 multi-selection/group/image/icon/badge authoring and closure work are implemented.**
-> (see `roadmap.md` §3a/§3c/§3e/§3g and `docs/specs/`).
-> This spec now records both the **as-built** editor and the remaining **target** surface.
-> Deltas ratified during the slices are marked *(as built / deferred)* inline; where this spec
-> and a slice spec disagree, the slice spec — being the ratified decision — wins for what
-> shipped, and this spec wins for what is still to build.
+> **Status: this document describes the as-built strict v10 editor after finite Phase 9 closure.**
+> Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
+> widen together.
 
 ---
 
@@ -28,8 +25,8 @@ Version 1.0, 11 July 2026.
 └────┴──────────────┴────────────────────────────┴──────────────┘
 ```
 
-Panels and dialogs use plain Tailwind plus shared local workbench primitives *(as built — a
-package-level design system remains YAGNI until a second UI consumer exists)*. Icons use Lucide;
+Panels and dialogs use plain Tailwind plus shared local workbench primitives; a package-level
+design system remains YAGNI until a second UI consumer exists. Icons use Lucide;
 the canvas remains Konva/react-konva.
 Region responsibilities are kept distinct: the **top bar** holds project/view/export actions, the
 **tool rail** chooses interaction/context, the **context shelf** holds structure/resources/add,
@@ -43,17 +40,18 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
 
 ## 2. Canvas
 
-- *(as built in Phase 3.6 and narrowed in Phase 4)* `Focus` shows one active screen; `Overview`
-  lays every screen in the active locale left-to-right in export order on one shared scroll/zoom
-  viewport. Overview is presentation only: each screen remains an isolated artboard and exactly
-  one screen is active/editable.
+- `Focus` shows the active screen's exact crop. In isolated mode, `Overview` lays every root output
+  family for the active locale in its own row; in connected mode, it shows the active exact
+  platform/device/locale/target group as one gapless editable strip. Exactly one screen remains the
+  active owner for insertion and owner-scoped Layers.
 - Zoom supports controls, reset-to-100%, and Fit over `25%…400%`. `Ctrl`/`Cmd` + wheel and Mac
   trackpad pinch zoom around the pointer. Hand mode or holding Space enables drag-pan; ordinary
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
 - **Canvas mode.** The enforced v10 project stores `mode: isolated | connected`. Isolated behavior
-  remains as built. Connected Overview is one gapless editable exact platform/device/locale strip;
+  remains unchanged. Connected Overview is one gapless editable exact
+  platform/device/locale/store-target strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
 - **Selection & transform.** Click selects an element; a Konva `Transformer` provides
@@ -105,18 +103,19 @@ shelf is open at a time; clicking its active rail item collapses it.
 ## 4. Top bar & adding elements
 
 - Element entries in the Add shelf insert at a deterministic active-screen origin
-  (insert-on-click, not drag-to-draw — simpler). *(as built)* `text` and `shape` insert directly;
+  (insert-on-click, not drag-to-draw — simpler). `text` and `shape` insert directly;
   `screenshot` and `device-frame` choose a PNG/JPEG/WebP under project-local `assets/` or
   `screenshots/`, then insert through the existing factories and shared image cache. Discovery and
   serving reject traversal and symlink escapes. The picker does not upload or mutate files. The
   decorative `image` element inserts from the same secure project asset picker.
 - Zoom controls live on the canvas rather than in the top bar; Fit is implemented.
 - Export button opens a dialog (platform / device / locale) and produces **the same result as the
-  CLI `export`** — one export path, not two. *(as built in Phase 2 Slice 3)*
+  CLI `export`** — one export path, not two.
 - The locale selector switches complete sets. Its manager clones a source set, chooses explicit
   LTR/RTL direction, mirrors an existing set with confirmation, and removes all screens for a
   locale while protecting the final locale.
-- In connected mode, Overview, Fit, and Screens share the active exact platform/device/locale
+- In connected mode, Overview, Fit, and Screens share the active exact
+  platform/device/locale/store-target
   group. Reorder changes only that group's project slots; unrelated same-locale groups keep their
   indices. Thumbnails depend on the full group because neighbour-owned pixels may enter a crop.
   Layers labels and follows the active owner screen. The toolbar's mode control surfaces guarded
@@ -136,20 +135,21 @@ Multiple elements show read-only aggregate bounds and batch lock/unlock, hide/sh
 actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
-Fields marked *(target)* are not in the current schema yet — the inspector exposes them only once
-the schema gains them (future phases). Everything else is as built.
-
 - **No selection** → active **artboard** properties: a read-only exact lead master size by default,
   explicit output-set-wide atomic custom-size/reset actions, independent exact-size variants, and background:
   `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
-  fit and opaque fallback/letterbox colour remain explicit. Background editing lives here, not in the toolbar.
+  fit and fallback/letterbox colour remain explicit. Project JSON may contain schema-valid
+  eight-digit colours with alpha, while the current native `<input type="color">` picker authors
+  six-digit opaque colours and provides no alpha editing. Final store export flattens the composed
+  PNG to an opaque output. Background editing lives here, not in the toolbar.
 - **`text`** → theme role (`none | heading | body | accent | surface`), content,
   registered font identity picker (`fontFamily` + `weight`), size,
   lineHeight, letterSpacing, align, color;
   one optional literal shadow (color, blur, offset, opacity).
-- **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; normalized focal-point percentages,
-  bounded crop zoom, and reset when fit is cover.
-- **`image`** → assetUrl, fit (contain default or cover), cornerRadius, and the same cover-only crop controls.
+- **`screenshot`** → assetUrl, fit (cover/contain), cornerRadius; when fit is cover, normalized
+  focal-point percentages, bounded crop zoom, and reset. Contain preserves but deterministically
+  ignores the persisted crop literal.
+- **`image`** → assetUrl, fit (contain default or cover), cornerRadius, and the same crop behavior.
 - **`icon`** → trusted built-in id (`check | heart | sparkles | star`), color, strokeWidth.
 - **Badge compositions** → no dedicated inspector/schema type; grouped rating/press badges expose
   their ordinary child fields, while official store badges use the ordinary image inspector.
@@ -178,7 +178,7 @@ the schema gains them (future phases). Everything else is as built.
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is
   shared with CLI export; numbering restarts per exact platform/device/locale/target group in relative
-  project order. The UI export button and `cli export` must meet the Phase 0 parity exit criterion —
+  project order. The UI export button and `cli export` meet the parity contract —
   exact target dimensions, no alpha channel, and a visual diff within tolerance (*not*
   byte-identical; PNG metadata/compression may differ). See `architecture.md` §2.
 - **Font management** opens from Resources: upload or materialize a Google Font, preview/list
@@ -194,7 +194,7 @@ the schema gains them (future phases). Everything else is as built.
 
 ## 7. States
 
-- **Empty** (new project) → a call-to-action to add the first screen.
+- **Empty artboard** → Add remains available for creating the first element on the existing screen.
 - **Missing asset** → a visible placeholder on the canvas; never crash or block the rest of the screen.
 - **Invalid JSON on load** → a blocking error surfacing the validator message; never fail silently.
 - **Save failure** → the local edit remains visible but a workspace alert names the failed durable
@@ -202,41 +202,11 @@ the schema gains them (future phases). Everything else is as built.
 
 ---
 
-## 8. Deliberately out of the MVP
+## 8. Deliberate boundaries
 
-Held back to protect the thin slice (aligned with `roadmap.md`):
-
-- **Snapping / smart guides — shipped in Phase 6 Slice 5.** Single-element drag aligns
-  rotation-aware bounds to active group/artboard and visible element edges/centres in isolated or
-  connected space. The threshold stays six screen pixels at every zoom; at most one guide per axis
-  is drawn as transient Konva chrome and only the final owner-local position is persisted.
-- **Undo/redo UI — shipped in Phase 6 Slice 4.** The editor keeps up to 50 project snapshots,
-  coalesces consecutive edits to one element or screen surface, exposes toolbar and standard
-  keyboard controls, persists every undo/redo through the normal save path, and resets history on
-  load or external project replacement. Selection and viewport state never enter history.
-- **Multi-select — shipped in Phase 7 Slice 1.** Composite owner-aware modified-click and marquee
-  selection supports aggregate movement and atomic batch actions without persisting workspace
-  state.
-- **Group authoring — shipped in Phase 7 Slice 3.** Same-owner top-level leaves group into the
-  parity-proven v3 contract. Layers exposes child inspection; keyboard group/ungroup/duplicate,
-  uniform group resize, and all group lifecycle actions persist through normal history/save.
-  Slice 7 exposes these shortcuts through accessible control metadata and dogfoods them across
-  connected LTR/RTL locale groups.
-- **Automatic translation.** Complete locale sets and explicit RTL layouts ship in Phase 4;
-  translation assistance remains Phase 5.
-- **Connected canvas** (elements crossing artboards, crop export) — **Phase 6**. This is the
-  project's primary scope-creep risk and directly compounds the render/export parity risk that
-  Phase 0 must retire first. Not before Phase 0 passes.
-- **New creative primitives** — decorative `image`, trusted `icon`, and ordinary group/image badge
-  compositions shipped in Phase 7 Slices 4–6.
-
----
-
-## 9. Open assumptions — resolved
-
-The Phase 0 spike and the Phase 1 slices settled the assumptions this section used to hold:
-
-- **Font / text inspector (§5) — confirmed.** The parity gate held through Slices 1–5, so the
-  full text surface (`content`, `fontFamily`, `size`, `weight`, `lineHeight`, `letterSpacing`,
-  `align`, `color`) is exposed as built. `shadow` stays *(target)* until the schema gains it —
-  when it does, it re-runs the parity gate like any render-affecting field.
+- Groups have one child level, do not clip, and cannot nest.
+- Multi-selection supports aggregate movement and atomic actions, not aggregate resize/rotation.
+- Automatic translation is an agent-assisted project workflow, not a provider-backed editor feature.
+- Project assets are selected from local files; the picker does not upload, fetch, rename, or delete.
+- Only strict v10 background, element, crop, shadow, gradient, stroke, and frame literals are
+  authorable. New primitives or generic effects require an explicit schema and parity change.

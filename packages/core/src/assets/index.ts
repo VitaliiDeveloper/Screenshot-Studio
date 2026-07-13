@@ -4,10 +4,10 @@ import { elementLeaves } from "../model/element-tree.js";
 import type { ImageCache } from "../engine/node-config.js";
 
 /**
- * Browser-side image preloading — the asset analog of core/fonts (docs/architecture.md §5). Text
- * was the Phase 0 parity race; images are the Slice 2 race: the render must not be screenshotted
- * until every image has DECODED, or the headless export captures a blank frame. Callers MUST await
- * loadProjectImages before rendering and before setting window.__stageReady.
+ * Browser-side image preloading — the asset analog of core/fonts (docs/architecture.md §5). The
+ * render must not be captured until every image has decoded, or headless export can capture a
+ * blank frame. Callers must await loadProjectImages before rendering and before setting
+ * window.__stageReady.
  *
  * `core` stays network-agnostic: the host injects `resolve` (assetUrl -> a loadable, same-origin
  * URL). A failed asset is simply absent from the cache — the map renders a placeholder, the render

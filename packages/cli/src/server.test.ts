@@ -7,10 +7,17 @@ import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import {
   createServerController,
+  extractWebArchive as extractWebArchiveFromServer,
+  materializeSharpRuntime as materializeSharpRuntimeFromServer,
+  prepareRenderHost as prepareRenderHostFromServer,
+  resolveServerPort,
+  type PreparedRenderHost as PreparedRenderHostFromServer,
+} from "./server.js";
+import {
   extractWebArchive,
   materializeSharpRuntime,
-  resolveServerPort,
-} from "./server.js";
+  preparePackagedRenderHost,
+} from "./packaged-render-host.js";
 
 class FakeChild extends EventEmitter {
   exitCode: number | null = null;
@@ -22,6 +29,16 @@ class FakeChild extends EventEmitter {
     return true;
   });
 }
+
+describe("server compatibility exports", () => {
+  it("retains packaged render-host helpers on the server module", () => {
+    const prepared: PreparedRenderHostFromServer | undefined = undefined;
+    expect(prepared).toBeUndefined();
+    expect(extractWebArchiveFromServer).toBe(extractWebArchive);
+    expect(materializeSharpRuntimeFromServer).toBe(materializeSharpRuntime);
+    expect(prepareRenderHostFromServer).toBeTypeOf("function");
+  });
+});
 
 describe("resolveServerPort", () => {
   it("uses an explicit port unchanged", async () => {
@@ -78,6 +95,54 @@ describe("extractWebArchive", () => {
 
     await expect(extractWebArchive(archivePath, join(directory, "extracted")))
       .rejects.toThrow(/Unsafe packaged render-host link/);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("rejects an archive entry whose original path escapes the extracted host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-path-escape-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file("../outside.txt", "outside");
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await expect(extractWebArchive(archivePath, join(directory, "extracted")))
+      .rejects.toThrow(/Unsafe packaged render-host path/);
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("rejects a link manifest whose original archive path escapes the extracted host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-manifest-path-escape-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file(
+      "../.screenshot-studio-links.json",
+      JSON.stringify({ version: 1, links: [] }),
+      { createFolders: false },
+    );
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+
+    await expect(extractWebArchive(archivePath, join(directory, "extracted")))
+      .rejects.toThrow(/Unsafe packaged render-host path/);
+    await rm(directory, { recursive: true, force: true });
+  });
+});
+
+describe("preparePackagedRenderHost", () => {
+  it("validates and prepares an extracted standalone host", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "render-host-preparation-"));
+    const archivePath = join(directory, "web.zip");
+    const archive = new JSZip();
+    archive.file("apps/web/server.js", "server");
+    await writeFile(archivePath, await archive.generateAsync({ type: "nodebuffer" }));
+    const materialize = vi.fn(async () => [] as string[]);
+
+    const host = await preparePackagedRenderHost(4789, archivePath, materialize);
+
+    expect(host.command).toBe(process.execPath);
+    expect(host.args[0]).toMatch(/apps\/web\/server\.js$/);
+    expect(host.env).toMatchObject({ NODE_ENV: "production", PORT: "4789", HOSTNAME: "127.0.0.1" });
+    expect(materialize).toHaveBeenCalledTimes(1);
+    await host.cleanup();
     await rm(directory, { recursive: true, force: true });
   });
 });
