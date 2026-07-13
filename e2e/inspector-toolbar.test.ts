@@ -43,7 +43,7 @@ function elements(): Array<{ id: string; type: string; width: number; opacity: n
 }
 
 describe("inspector + toolbar", () => {
-  it("keeps the view switch centred and applies one compact toolbar breakpoint", async () => {
+  it("anchors the view switch between the toolbar sides without overlap", async () => {
     const page = await browser.newPage({ viewport: { width: 828, height: 998 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
@@ -63,9 +63,29 @@ describe("inspector + toolbar", () => {
     expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(false);
     expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(false);
 
-    const compactBox = await viewSwitch.boundingBox();
-    expect(compactBox).not.toBeNull();
-    expect(compactBox!.x + compactBox!.width / 2).toBeCloseTo(828 / 2, 0);
+    const expectAnchoredLayout = async (width: number) => {
+      await page.setViewportSize({ width, height: 900 });
+      const geometry = await page.locator("header").evaluate((header) => {
+        const left = header.firstElementChild!.getBoundingClientRect();
+        const center = header.querySelector('[aria-label="Canvas view"]')!.getBoundingClientRect();
+        const right = header.querySelector('[aria-label="Export"]')!.parentElement!.getBoundingClientRect();
+        return {
+          leftRight: left.right,
+          centerLeft: center.left,
+          center: center.left + center.width / 2,
+          centerRight: center.right,
+          availableCenter: left.right + (right.left - left.right) / 2,
+          rightLeft: right.left,
+        };
+      });
+
+      expect(geometry.centerLeft).toBeGreaterThanOrEqual(geometry.leftRight);
+      expect(geometry.centerRight).toBeLessThanOrEqual(geometry.rightLeft);
+      expect(geometry.center).toBeCloseTo(geometry.availableCenter, 0);
+    };
+
+    await expectAnchoredLayout(320);
+    await expectAnchoredLayout(828);
 
     await page.setViewportSize({ width: 640, height: 900 });
     expect(await productName.isVisible()).toBe(false);
@@ -79,9 +99,9 @@ describe("inspector + toolbar", () => {
     expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
     expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
 
-    const desktopBox = await viewSwitch.boundingBox();
-    expect(desktopBox).not.toBeNull();
-    expect(desktopBox!.x + desktopBox!.width / 2).toBeCloseTo(1440 / 2, 0);
+    for (const width of [1024, 1100, 1152, 1280, 1440]) {
+      await expectAnchoredLayout(width);
+    }
 
     await page.close();
   });

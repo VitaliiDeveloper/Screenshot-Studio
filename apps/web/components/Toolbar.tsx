@@ -66,8 +66,8 @@ export function Toolbar({
   }, [modeError]);
 
   return (
-    <header className="relative flex min-h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4">
-      <div className="flex shrink-0 items-center gap-2.5">
+    <header className="relative grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4">
+      <div className="flex min-w-0 items-center gap-2.5">
         <span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20 sm:inline-flex">
           <PanelsTopLeft size={16} strokeWidth={1.9} />
         </span>
@@ -77,7 +77,7 @@ export function Toolbar({
       </div>
 
       <div
-        className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-slate-50 p-1"
+        className="flex items-center justify-self-center rounded-xl border border-slate-200 bg-slate-50 p-1"
         aria-label="Canvas view"
       >
         <button
@@ -108,7 +108,7 @@ export function Toolbar({
         </button>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5 justify-self-end">
         <div className="hidden lg:contents">
           <button
             type="button"
@@ -157,7 +157,7 @@ export function Toolbar({
             value={activeLocale}
             options={localeOptions}
             onChange={(locale) => editorStore.getState().selectLocale(locale)}
-            className="w-16 sm:w-24"
+            className="w-14 sm:w-24"
             triggerClassName="h-8 px-2 font-semibold"
             menuClassName="w-32"
           />
