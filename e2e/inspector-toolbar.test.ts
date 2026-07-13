@@ -43,12 +43,11 @@ function elements(): Array<{ id: string; type: string; width: number; opacity: n
 }
 
 describe("inspector + toolbar", () => {
-  it("keeps the view switch centred and applies one compact toolbar breakpoint", async () => {
+  it("centres the view switch when content fits and falls back without overlap", async () => {
     const page = await browser.newPage({ viewport: { width: 828, height: 998 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
-    const viewSwitch = page.getByLabel("Canvas view");
     const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
     const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
     const exportLabel = page.getByRole("button", { name: "Export" }).locator("span");
@@ -63,9 +62,32 @@ describe("inspector + toolbar", () => {
     expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(false);
     expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(false);
 
-    const compactBox = await viewSwitch.boundingBox();
-    expect(compactBox).not.toBeNull();
-    expect(compactBox!.x + compactBox!.width / 2).toBeCloseTo(828 / 2, 0);
+    const measureToolbar = async (width: number) => {
+      await page.setViewportSize({ width, height: 900 });
+      return page.locator("header").evaluate((header) => {
+        const left = header.firstElementChild!.getBoundingClientRect();
+        const center = header.querySelector('[aria-label="Canvas view"]')!.getBoundingClientRect();
+        const right = header.querySelector('[aria-label="Export"]')!.parentElement!.getBoundingClientRect();
+        return {
+          viewportCenter: window.innerWidth / 2,
+          leftRight: left.right,
+          centerLeft: center.left,
+          center: center.left + center.width / 2,
+          centerRight: center.right,
+          availableCenter: left.right + (right.left - left.right) / 2,
+          rightLeft: right.left,
+        };
+      });
+    };
+
+    const expectNoOverlap = async (width: number) => {
+      const geometry = await measureToolbar(width);
+      expect(geometry.centerLeft).toBeGreaterThanOrEqual(geometry.leftRight);
+      expect(geometry.centerRight).toBeLessThanOrEqual(geometry.rightLeft);
+    };
+
+    await expectNoOverlap(320);
+    await expectNoOverlap(828);
 
     await page.setViewportSize({ width: 640, height: 900 });
     expect(await productName.isVisible()).toBe(false);
@@ -79,9 +101,21 @@ describe("inspector + toolbar", () => {
     expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
     expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
 
-    const desktopBox = await viewSwitch.boundingBox();
-    expect(desktopBox).not.toBeNull();
-    expect(desktopBox!.x + desktopBox!.width / 2).toBeCloseTo(1440 / 2, 0);
+    for (const width of [630, 959, 1024, 1100, 1152, 1280, 1440]) {
+      await expectNoOverlap(width);
+    }
+
+    for (const width of [630, 828, 959, 1152, 1280, 1440]) {
+      const geometry = await measureToolbar(width);
+      expect(geometry.center).toBeCloseTo(geometry.viewportCenter, 0);
+    }
+
+    await page.setViewportSize({ width: 630, height: 900 });
+    const localeMetrics = await page.getByRole("button", { name: "Active locale: en" }).evaluate((trigger) => {
+      const label = trigger.querySelector("span")!;
+      return { text: label.textContent, clipped: label.scrollWidth > label.clientWidth };
+    });
+    expect(localeMetrics).toEqual({ text: "en", clipped: false });
 
     await page.close();
   });
