@@ -25,7 +25,7 @@ export function ScreenPreviewTitle({
   return (
     <div
       className={cx(
-        "mb-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-xs font-medium leading-5",
+        "mb-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[11px] font-semibold leading-5",
         active ? "text-blue-700" : "text-slate-500",
       )}
       data-testid="artboard-preview-label"
