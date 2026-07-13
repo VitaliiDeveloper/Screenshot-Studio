@@ -20,6 +20,7 @@ import {
 } from "@screenshot-studio/core/model";
 import { closeAll, failWhenServerExits, runWithCleanup } from "./cli-runtime.js";
 import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
+import { resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { startWebServer } from "./server.js";
 
@@ -93,7 +94,7 @@ export async function runExportCommand(
   flags: Record<string, string>,
   defaultStoreSpecsPath: string,
 ): Promise<void> {
-  const projectPath = resolve(flags.project ?? "app-store-screenshots.json");
+  const projectPath = resolveProjectPath(flags);
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
   const outDir = flags.out ? resolve(flags.out) : join(dirname(projectPath), "export");
   const mode = resolveExportMode(flags);

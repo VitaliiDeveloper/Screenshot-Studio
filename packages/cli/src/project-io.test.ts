@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import {
+  DEFAULT_PROJECT_FILENAME,
+  loadProjectFile,
+  resolveProjectPath,
+  writeProjectFile,
+} from "./project-io.js";
 
 function sampleProject(): Project {
   return {
@@ -30,6 +35,11 @@ function sampleProject(): Project {
 }
 
 describe("project IO", () => {
+  it("resolves the canonical project filename by default", () => {
+    expect(DEFAULT_PROJECT_FILENAME).toBe("app-store-screenshots.json");
+    expect(resolveProjectPath({})).toBe(resolve(DEFAULT_PROJECT_FILENAME));
+  });
+
   it("loads a strict project JSON file", async () => {
     const dir = await mkdtemp(join(tmpdir(), "screenshot-studio-project-io-"));
     const projectPath = join(dir, "app-store-screenshots.json");
