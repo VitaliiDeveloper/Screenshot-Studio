@@ -11,7 +11,7 @@ import {
   OVERVIEW_GAP,
   OVERVIEW_ROW_GAP,
   OUTPUT_FAMILY_LABEL_HEIGHT,
-  type WorkspaceOverviewRow,
+  type WorkspaceOutputFamily,
   type WorkspaceView,
 } from "../../lib/editor-workspace";
 
@@ -19,7 +19,7 @@ export interface CanvasViewportMetricsInput {
   viewportRef: RefObject<HTMLDivElement | null>;
   zoomRef: MutableRefObject<number>;
   screens: readonly Screen[];
-  outputRows: readonly WorkspaceOverviewRow[];
+  outputRows: readonly WorkspaceOutputFamily[];
   view: WorkspaceView;
   connected: boolean;
   leftInset: number;

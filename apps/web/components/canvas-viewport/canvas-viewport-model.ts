@@ -18,8 +18,6 @@ export function nextAnchoredScroll(input: {
   anchor: ClientPoint;
   previousZoom: number;
   nextZoom: number;
-  leftInset: number;
-  rightInset: number;
 }): { scrollLeft: number; scrollTop: number } {
   const ratio = input.nextZoom / input.previousZoom;
   return {

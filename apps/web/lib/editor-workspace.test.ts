@@ -6,7 +6,6 @@ import {
   filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
-  fitZoom,
   groupScreensByOutput,
   OVERVIEW_GAP,
   storeOutputLabel,
@@ -49,11 +48,6 @@ describe("editor workspace helpers", () => {
     expect(clampZoom(0.01)).toBe(0.05);
     expect(clampZoom(1.23456)).toBe(1.235);
     expect(clampZoom(9)).toBe(4);
-  });
-
-  it("fits content inside the viewport with stable padding", () => {
-    expect(fitZoom({ width: 1400, height: 900 }, { width: 660, height: 1434 })).toBe(0.471);
-    expect(fitZoom({ width: 0, height: 900 }, { width: 660, height: 1434 })).toBe(1);
   });
 
   it("keeps fixed canvas chrome outside the artboard zoom calculation", () => {
@@ -134,7 +128,7 @@ describe("editor workspace helpers", () => {
     const connected = scopeProject("connected");
     const rows = workspaceOverviewRows(connected, connected.screens[0]!);
 
-    expect(rows.map((row) => [row.key, row.active, row.screens.map((screen) => screen.id)]))
+    expect(rows.map((row) => [row.key, row.editing, row.screens.map((screen) => screen.id)]))
       .toEqual([
         ["apple/iphone", true, ["first", "second"]],
         ["android/phone", false, ["unrelated"]],
@@ -179,7 +173,7 @@ describe("editor workspace helpers", () => {
     expect(rows[1]).toMatchObject({
       key: "android/phone",
       label: "Google Play · Android phone · phone-lead",
-      active: false,
+      editing: false,
     });
     expect(rows[1]!.screens.map((screen) => screen.id)).toEqual(["android-target"]);
   });

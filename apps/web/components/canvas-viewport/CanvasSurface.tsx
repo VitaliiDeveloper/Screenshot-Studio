@@ -16,8 +16,6 @@ type PointerHandlers = Pick<
 export function CanvasSurface({
   viewportRef,
   pattern,
-  contentWidth,
-  contentHeight,
   pointerHandlers,
   view,
   fittedView,
@@ -29,8 +27,6 @@ export function CanvasSurface({
 }: {
   viewportRef: RefObject<HTMLDivElement | null>;
   pattern: CanvasPattern;
-  contentWidth: number;
-  contentHeight: number;
   pointerHandlers: PointerHandlers;
   view: WorkspaceView;
   fittedView: WorkspaceView;
@@ -40,11 +36,6 @@ export function CanvasSurface({
   canPan: boolean;
   children: ReactNode;
 }) {
-  // Keep the surface contract aligned with the measured workspace even though layout remains
-  // content-driven; fit owns the dimensions and the DOM structure stays unchanged.
-  void contentWidth;
-  void contentHeight;
-
   return (
     <div
       ref={viewportRef}

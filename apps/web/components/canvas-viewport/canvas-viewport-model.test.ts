@@ -16,8 +16,6 @@ describe("canvas viewport model", () => {
       anchor: { x: 240, y: 180 },
       previousZoom: 1,
       nextZoom: 2,
-      leftInset: 48,
-      rightInset: 0,
     });
 
     expect(result.scrollLeft).toBe(480);

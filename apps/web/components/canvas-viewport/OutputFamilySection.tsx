@@ -3,7 +3,7 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import { cx } from "../editor-ui/styles.js";
 
-export function OutputFamilyRow({
+export function OutputFamilySection({
   label,
   editing,
   artworkWidth,

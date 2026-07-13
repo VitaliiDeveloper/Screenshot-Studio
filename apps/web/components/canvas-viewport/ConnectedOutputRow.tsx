@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import type { WorkspaceOverviewRow } from "../../lib/editor-workspace";
+import type { WorkspaceOutputFamily } from "../../lib/editor-workspace";
 import { EditorStage } from "../EditorStage";
-import { OutputFamilyRow } from "./OutputFamilyRow";
+import { OutputFamilySection } from "./OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";
 
 export function ConnectedOutputRow({
@@ -11,17 +11,15 @@ export function ConnectedOutputRow({
   activeScreenId,
   images,
   zoom,
-  interactive,
   onActivate,
 }: {
-  row: WorkspaceOverviewRow;
+  row: WorkspaceOutputFamily;
   activeScreenId: string | null;
   images: ImageCache;
   zoom: number;
-  interactive: boolean;
   onActivate: (screenId: string) => void;
 }) {
-  const stageScreenId = interactive
+  const stageScreenId = row.editing
     && activeScreenId
     && row.screens.some((screen) => screen.id === activeScreenId)
     ? activeScreenId
@@ -29,16 +27,16 @@ export function ConnectedOutputRow({
   const artworkWidth = row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0) * zoom;
 
   return (
-    <OutputFamilyRow
+    <OutputFamilySection
       label={row.label}
-      editing={interactive}
+      editing={row.editing}
       artworkWidth={artworkWidth}
       activationLabel={`Edit ${row.label} connected row`}
       onActivate={() => onActivate(row.screens[0]!.id)}
     >
       <div
         className="w-fit"
-        data-testid={interactive ? "connected-artboards" : undefined}
+        data-testid={row.editing ? "connected-artboards" : undefined}
       >
         <div className="flex">
           {row.screens.map((screen) => (
@@ -49,7 +47,7 @@ export function ConnectedOutputRow({
             >
               <ScreenPreviewTitle
                 screen={screen}
-                active={interactive && screen.id === activeScreenId}
+                active={row.editing && screen.id === activeScreenId}
               />
             </div>
           ))}
@@ -60,7 +58,7 @@ export function ConnectedOutputRow({
             zoom={zoom}
             screenId={stageScreenId}
             connectedOverview
-            interactive={interactive}
+            interactive={row.editing}
           />
         </div>
         <div className="flex">
@@ -73,6 +71,6 @@ export function ConnectedOutputRow({
           ))}
         </div>
       </div>
-    </OutputFamilyRow>
+    </OutputFamilySection>
   );
 }

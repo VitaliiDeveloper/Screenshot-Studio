@@ -17,6 +17,8 @@ import {
   type ClientPoint,
 } from "./canvas-viewport-model";
 
+const WHEEL_ZOOM_SENSITIVITY = 0.002;
+
 export interface CanvasPanZoomInput {
   viewportRef: RefObject<HTMLDivElement | null>;
   zoomRef: MutableRefObject<number>;
@@ -76,8 +78,6 @@ export function useCanvasPanZoom({
       anchor,
       previousZoom: previous,
       nextZoom: next,
-      leftInset,
-      rightInset,
     });
 
     zoomRef.current = next;
@@ -95,7 +95,7 @@ export function useCanvasPanZoom({
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       zoomAt(
-        zoomRef.current * Math.exp(-event.deltaY * 0.002),
+        zoomRef.current * Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY),
         { x: event.clientX, y: event.clientY },
       );
     };

@@ -52,7 +52,7 @@ export function useMarqueeSelection({
     const stage = event.target.getStage();
     const blank = event.target === stage || event.target.name() === "artboard-background";
     if (!stage || !blank) return;
-    const point = stagePointerPosition(stage, baseX);
+    const point = stagePointerPosition(stage);
     if (!point) return;
     movedRef.current = false;
     setMarquee({
@@ -67,7 +67,7 @@ export function useMarqueeSelection({
     if (!marquee) return;
     const stage = event.target.getStage();
     if (!stage) return;
-    const point = stagePointerPosition(stage, baseX);
+    const point = stagePointerPosition(stage);
     if (!point) return;
     if (marqueeHasMoved(marquee.start, point, zoom)) movedRef.current = true;
     setMarquee({ ...marquee, current: point });

@@ -16,7 +16,9 @@ export interface Rect {
   maxY: number;
 }
 
-export function stagePointerPosition(stage: Konva.Stage, _baseX: number): ClientPoint | null {
+const MARQUEE_DRAG_THRESHOLD_PX = 3;
+
+export function stagePointerPosition(stage: Konva.Stage): ClientPoint | null {
   const point = stage.getPointerPosition();
   const zoom = stage.scaleX();
   return point ? { x: point.x / zoom, y: point.y / zoom } : null;
@@ -32,7 +34,7 @@ export function marqueeBounds(start: ClientPoint, current: ClientPoint): Rect {
 }
 
 export function marqueeHasMoved(start: ClientPoint, current: ClientPoint, zoom: number): boolean {
-  return Math.hypot(current.x - start.x, current.y - start.y) >= 3 / zoom;
+  return Math.hypot(current.x - start.x, current.y - start.y) >= MARQUEE_DRAG_THRESHOLD_PX / zoom;
 }
 
 export interface ResolveMarqueeSelectionInput {

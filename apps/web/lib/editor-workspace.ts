@@ -44,14 +44,14 @@ export function storeOutputLabel(platform: string, device: string): string {
   return `${PLATFORM_LABELS[platform] ?? platform} · ${DEVICE_LABELS[device] ?? device}`;
 }
 
-export interface OutputFamilyRow {
+export interface OutputFamily {
   key: string;
   label: string;
   screens: Screen[];
 }
 
-export interface WorkspaceOverviewRow extends OutputFamilyRow {
-  active: boolean;
+export interface WorkspaceOutputFamily extends OutputFamily {
+  editing: boolean;
 }
 
 function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
@@ -59,9 +59,9 @@ function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
 }
 
 /** Preserve project order while separating independent output families into canvas rows. */
-export function groupScreensByOutput(screens: readonly Screen[]): OutputFamilyRow[] {
-  const rows: OutputFamilyRow[] = [];
-  const byKey = new Map<string, OutputFamilyRow>();
+export function groupScreensByOutput(screens: readonly Screen[]): OutputFamily[] {
+  const rows: OutputFamily[] = [];
+  const byKey = new Map<string, OutputFamily>();
   for (const screen of screens) {
     const key = `${screen.platform}/${screen.device}`;
     let row = byKey.get(key);
@@ -95,7 +95,7 @@ export function workspaceEditingScope(project: Project, activeScreen: Screen): S
 export function workspaceOverviewRows(
   project: Project,
   activeScreen: Screen,
-): WorkspaceOverviewRow[] {
+): WorkspaceOutputFamily[] {
   const families = new Map<string, Screen[]>();
   for (const screen of project.screens) {
     if (screen.locale !== activeScreen.locale) continue;
@@ -107,10 +107,10 @@ export function workspaceOverviewRows(
 
   const activeKey = outputFamilyKey(activeScreen);
   return Array.from(families, ([key, familyScreens]) => {
-    const active = key === activeKey;
+    const editing = key === activeKey;
     const roots = familyScreens.filter((screen) => screen.storeTargetId === undefined);
-    const anchor = active ? activeScreen : roots[0] ?? familyScreens[0]!;
-    const screens = active || roots.length === 0
+    const anchor = editing ? activeScreen : roots[0] ?? familyScreens[0]!;
+    const screens = editing || roots.length === 0
       ? project.screens.filter((screen) => sameScreenGroup(screen, anchor))
       : roots;
     const targetId = screens[0]?.storeTargetId;
@@ -120,27 +120,13 @@ export function workspaceOverviewRows(
       key,
       label: targetId ? `${familyLabel} · ${targetId}` : familyLabel,
       screens,
-      active,
+      editing,
     };
   });
 }
 
 export function clampZoom(value: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(3))));
-}
-
-export function fitZoom(
-  viewport: { width: number; height: number },
-  content: { width: number; height: number },
-  padding = 112,
-): number {
-  if (viewport.width <= 0 || viewport.height <= 0 || content.width <= 0 || content.height <= 0) {
-    return 1;
-  }
-  return clampZoom(Math.min(
-    (viewport.width - padding * 2) / content.width,
-    (viewport.height - padding * 2) / content.height,
-  ));
 }
 
 /**

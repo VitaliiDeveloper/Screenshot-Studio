@@ -24,7 +24,7 @@ import { editorStore } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
 import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
-import { OutputFamilyRow } from "./canvas-viewport/OutputFamilyRow";
+import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
 import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
 import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
@@ -294,8 +294,6 @@ export function CanvasViewport({
       <CanvasSurface
         viewportRef={viewportRef}
         pattern={pattern}
-        contentWidth={contentWidth}
-        contentHeight={contentHeight}
         pointerHandlers={pointerHandlers}
         view={view}
         fittedView={fittedView}
@@ -329,15 +327,14 @@ export function CanvasViewport({
                     activeScreenId={activeScreenId}
                     images={images}
                     zoom={zoom}
-                    interactive={row.active}
                     onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
                 ) : (
-                  <OutputFamilyRow key={row.key} label={row.label} editing={row.active}>
+                  <OutputFamilySection key={row.key} label={row.label} editing={row.editing}>
                     <div className="flex items-start gap-12">
                       {row.screens.map(renderIsolatedScreen)}
                     </div>
-                  </OutputFamilyRow>
+                  </OutputFamilySection>
                 ))}
               </div>
             ) : (
