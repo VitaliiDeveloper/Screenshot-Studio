@@ -90,6 +90,10 @@ describe("Phase 6 connected workspace hardening", () => {
     await page.getByRole("list", { name: "Screens for en ipad group" }).waitFor({ state: "visible" });
     await expect.poll(() => page.getByTestId("layers-owner").textContent()).toBe("Unrelated");
     await page.getByText("540 × 960 px", { exact: true }).waitFor({ state: "visible" });
+    const ipadConnected = page.getByTestId("connected-artboards");
+    const ipadConnectedBox = (await ipadConnected.boundingBox())!;
+    const ipadStageBox = (await ipadConnected.getByTestId("editor-stage").boundingBox())!;
+    expect(ipadConnectedBox.width).toBeCloseTo(ipadStageBox.width, 1);
     expect(readFileSync(projectPath, "utf8")).toBe(jsonBeforeNavigation);
 
     await page.getByRole("button", { name: "Focus", exact: true }).click();

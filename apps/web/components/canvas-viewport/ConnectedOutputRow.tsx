@@ -44,7 +44,7 @@ export function ConnectedOutputRow({
       data-testid="connected-output-row"
       data-editing={interactive ? "true" : "false"}
       className={cx(
-        "shrink-0 rounded-xl",
+        "w-fit shrink-0 self-start rounded-xl",
         interactive && "ring-2 ring-blue-500/30 ring-offset-8 ring-offset-slate-50",
         !interactive && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
       )}
@@ -60,7 +60,10 @@ export function ConnectedOutputRow({
         ) : null}
         <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
       </header>
-      <div data-testid={interactive ? "connected-artboards" : undefined}>
+      <div
+        className="w-fit"
+        data-testid={interactive ? "connected-artboards" : undefined}
+      >
         <div className="flex">
           {row.screens.map((screen) => (
             <div
