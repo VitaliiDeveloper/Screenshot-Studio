@@ -155,53 +155,36 @@ describe("Phase 3.6 editor workspace", () => {
     const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
 
-    const outputFamily = page.getByRole("button", { name: "Output family for en", exact: true });
-    await expect.poll(() => outputFamily.count()).toBe(1);
-    expect(await outputFamily.textContent()).toContain("App Store / iPad · 3 screens");
-    const outputFamilySurface = await outputFamily.evaluate((element) => {
-      const triggerStyle = getComputedStyle(element);
-      const surfaceStyle = getComputedStyle(element.parentElement?.parentElement ?? element);
-      return {
-        triggerBackground: triggerStyle.backgroundColor,
-        triggerFontSize: getComputedStyle(element.querySelector("span") ?? element).fontSize,
-        surfaceBackground: surfaceStyle.backgroundColor,
-        paddingTop: surfaceStyle.paddingTop,
-        paddingBottom: surfaceStyle.paddingBottom,
-      };
+    expect(await page.getByRole("button", { name: "Output family for en", exact: true }).count()).toBe(0);
+    const outputScope = page.getByRole("button", {
+      name: "Open Store Outputs for en ipad",
+      exact: true,
     });
-    expect(outputFamilySurface.triggerBackground).toBe("rgba(0, 0, 0, 0)");
-    expect(outputFamilySurface.triggerFontSize).toBe("11px");
-    expect(outputFamilySurface.surfaceBackground).not.toBe("rgba(0, 0, 0, 0)");
-    expect(outputFamilySurface.paddingTop).toBe(outputFamilySurface.paddingBottom);
+    await expect.poll(() => outputScope.count()).toBe(1);
 
-    await outputFamily.click();
-    const outputOptions = page.getByRole("menu", { name: "Output family options for en", exact: true });
-    await expect.poll(() => outputOptions.getByRole("menuitemradio").count()).toBe(2);
-    expect(await outputOptions.evaluate((element) => getComputedStyle(element).animationName)).toBe("menu-select-in");
-    expect(await outputOptions.getByRole("menuitemradio").first().evaluate((element) => element.getBoundingClientRect().height))
-      .toBeGreaterThanOrEqual(40);
-    expect(await outputOptions.getByRole("menuitemradio").first().evaluate((element) =>
-      getComputedStyle(element.querySelector("span") ?? element).fontSize,
-    )).toBe("11px");
-    expect(await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true })
-      .getAttribute("aria-checked")).toBe("true");
+    await page.getByRole("button", { name: "Close inspector", exact: true }).click();
+    expect(await page.getByTestId("store-outputs-section").count()).toBe(0);
+    await outputScope.click();
+    const storeOutputs = page.getByTestId("store-outputs-section");
+    await storeOutputs.waitFor({ state: "visible" });
+    await expect.poll(() => storeOutputs.getByText("Store outputs", { exact: true }).count()).toBe(1);
 
-    const ipadScreens = page.getByRole("list", { name: "Screens for en · App Store · iPad", exact: true });
+    const ipadScreens = page.getByRole("list", { name: "Screens for en", exact: true });
     await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
     expect(await ipadScreens.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
     expect(await ipadScreens.evaluate((element) => getComputedStyle(element).maxHeight)).toBe("256px");
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
-    await outputOptions.getByRole("menuitemradio", { name: "App Store · iPhone · 3", exact: true }).click();
-    const iphoneScreens = page.getByRole("list", { name: "Screens for en · App Store · iPhone", exact: true });
+    const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
+    await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
+    const iphoneScreens = page.getByRole("list", { name: "Screens for en", exact: true });
     await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
-    expect(await outputFamily.textContent()).toContain("App Store / iPhone · 3 screens");
+    expect(await page.getByRole("button", { name: "Hero · ipad", exact: true }).count()).toBe(0);
     expect(await page.getByTestId("overview-output-families").getByRole("region").count()).toBe(2);
 
-    await outputFamily.click();
-    await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true }).click();
+    await ipadOutput.getByRole("button", { name: "Open", exact: true }).click();
 
     const iphoneRow = page.getByRole("region", { name: "App Store · iPhone output row", exact: true });
     const ipadRow = page.getByRole("region", { name: "App Store · iPad output row", exact: true });
@@ -281,9 +264,9 @@ describe("Phase 3.6 editor workspace", () => {
       return Math.max(...tops) - Math.min(...tops) < 1;
     })).toBe(true);
 
-    const iphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
-    await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
-    await expect.poll(() => iphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    const finalIphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
+    await finalIphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
+    await expect.poll(() => finalIphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
     await page.close();
     writeWorkspaceBaseline();
   });
