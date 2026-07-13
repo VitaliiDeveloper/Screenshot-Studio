@@ -114,14 +114,6 @@ export default function EditorPage() {
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
-  const openOutputs = useCallback(() => {
-    setInspectorOpen(true);
-    if (layout.compact) setPanel(null);
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>('[data-testid="store-outputs-section"]')
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [layout.compact]);
   useEditorKeyboardRouting(openDialog);
   useEditorEscapeRouting({
     dialog,
@@ -166,7 +158,6 @@ export default function EditorPage() {
             onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
-            onOpenOutputs={openOutputs}
           />
         ) : null}
         <div className="flex min-w-0 flex-1">

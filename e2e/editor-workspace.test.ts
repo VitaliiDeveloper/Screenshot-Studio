@@ -156,12 +156,7 @@ describe("Phase 3.6 editor workspace", () => {
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
 
     expect(await page.getByRole("button", { name: "Output family for en", exact: true }).count()).toBe(0);
-    const outputScope = page.getByRole("button", {
-      name: "Open Store Outputs for en ipad",
-      exact: true,
-    });
-    await expect.poll(() => outputScope.count()).toBe(1);
-    expect(await outputScope.textContent()).toBe("en · ipad");
+    expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
 
     const outputRows = page.getByTestId("overview-output-row");
     await expect.poll(() => outputRows.count()).toBe(2);
@@ -175,7 +170,7 @@ describe("Phase 3.6 editor workspace", () => {
 
     await page.getByRole("button", { name: "Close inspector", exact: true }).click();
     expect(await page.getByTestId("store-outputs-section").count()).toBe(0);
-    await outputScope.click();
+    await page.getByRole("button", { name: "Inspect", exact: true }).click();
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
     await expect.poll(() => storeOutputs.getByText("Store outputs", { exact: true }).count()).toBe(1);
@@ -462,7 +457,7 @@ describe("Phase 3.6 editor workspace", () => {
     await page.close();
   });
 
-  it("opens Store Outputs from compact Structure within the Inspector viewport", async () => {
+  it("keeps compact Structure free of output navigation and opens outputs through Inspect", async () => {
     const page = await browser.newPage({ viewport: { width: 720, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
@@ -474,11 +469,8 @@ describe("Phase 3.6 editor workspace", () => {
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
     expect(await inspect.getAttribute("aria-pressed")).toBe("false");
 
-    const outputScope = page.getByRole("button", {
-      name: "Open Store Outputs for en iphone",
-      exact: true,
-    });
-    await outputScope.click();
+    expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
+    await inspect.click();
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     await expect.poll(() => inspect.getAttribute("aria-pressed")).toBe("true");
 

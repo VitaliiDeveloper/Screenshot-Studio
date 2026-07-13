@@ -85,11 +85,7 @@ describe("Phase 6 connected workspace hardening", () => {
     const inactiveRows = page.locator('[data-testid="overview-output-row"][data-editing="false"]');
     expect(await inactiveRows.count()).toBe(1);
     expect(await inactiveRows.getByText("Editing", { exact: true }).count()).toBe(0);
-    const outputScope = page.getByRole("button", {
-      name: "Open Store Outputs for en iphone",
-      exact: true,
-    });
-    expect(await outputScope.textContent()).toBe("en · iphone");
+    expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
 
     const jsonBeforeNavigation = readFileSync(projectPath, "utf8");
     const iphonePixelsBefore = await iphoneRow.locator("canvas").first()

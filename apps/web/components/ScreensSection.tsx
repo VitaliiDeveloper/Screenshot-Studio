@@ -30,11 +30,9 @@ const DynamicScreenThumbnail = dynamic(
 export function ScreensSection({
   images,
   onOpenDialog,
-  onOpenOutputs,
 }: {
   images: ImageCache;
   onOpenDialog: (dialog: ResourceDialog) => void;
-  onOpenOutputs: () => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
@@ -79,8 +77,9 @@ export function ScreensSection({
   const activeRoot = activeScreen?.variantOf
     ? project.screens.find((screen) => screen.id === activeScreen.variantOf)
     : undefined;
-  const scopeLabel = activeScreen ? `${activeLocale} · ${activeScreen.device}` : activeLocale;
-  const listLabel = activeScreen ? `Screens for ${scopeLabel}` : `Screens for ${activeLocale}`;
+  const listLabel = activeScreen
+    ? `Screens for ${activeLocale} · ${activeScreen.device}`
+    : `Screens for ${activeLocale}`;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -100,21 +99,7 @@ export function ScreensSection({
   return (
     <section className="border-b border-slate-200 pb-2">
       <header className="flex items-center justify-between px-3 py-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
-          {activeScreen ? (
-            <button
-              type="button"
-              aria-label={`Open Store Outputs for ${activeLocale} ${activeScreen.device}`}
-              onClick={onOpenOutputs}
-              className="min-h-6 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-            >
-              {scopeLabel}
-            </button>
-          ) : (
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">{scopeLabel}</span>
-          )}
-        </div>
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
         {activeRoot ? (
           <button
             type="button"

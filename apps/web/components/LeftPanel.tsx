@@ -225,14 +225,12 @@ export function LeftPanel({
   onClose,
   onOpenAdd,
   onOpenDialog,
-  onOpenOutputs,
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
   onClose: () => void;
   onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
-  onOpenOutputs: () => void;
 }) {
   const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
 
@@ -241,7 +239,7 @@ export function LeftPanel({
       <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
       {panel === "structure" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <ScreensSection images={images} onOpenDialog={onOpenDialog} onOpenOutputs={onOpenOutputs} />
+          <ScreensSection images={images} onOpenDialog={onOpenDialog} />
           <LayersSection onOpenAdd={onOpenAdd} />
         </div>
       ) : null}
