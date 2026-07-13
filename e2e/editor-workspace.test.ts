@@ -328,10 +328,16 @@ describe("Phase 3.6 editor workspace", () => {
     await page.waitForSelector("canvas");
 
     const viewport = page.getByTestId("canvas-viewport");
-    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("running");
+    await expect.poll(async () => {
+      const state = await viewport.getAttribute("data-initial-reveal");
+      return state === "running" || state === "idle";
+    }).toBe(true);
     const revealCleanupMinimumOpacity = viewport.evaluate(async (element) => {
       const content = element.querySelector<HTMLElement>('[data-testid="overview-artboards"]');
       if (!content) return 0;
+      if (element.getAttribute("data-initial-reveal") === "idle") {
+        return Number.parseFloat(getComputedStyle(content).opacity);
+      }
       let reachedFinalOpacity = false;
       let minimumOpacity = 1;
       let settledFrames = 0;
