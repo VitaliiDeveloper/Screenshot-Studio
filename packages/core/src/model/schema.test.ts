@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { parseProject, migrateToCurrent, ProjectValidationError, getScreen, SCHEMA_VERSION, Element, Project, Screen } from "./index.js";
+import {
+  DEFAULT_FONT_WEIGHT,
+  Element,
+  FONT_WEIGHT_MAX,
+  FONT_WEIGHT_MIN,
+  FONT_WEIGHT_STEP,
+  FontWeight,
+  getScreen,
+  migrateToCurrent,
+  parseProject,
+  Project,
+  ProjectValidationError,
+  SCHEMA_VERSION,
+  Screen,
+} from "./index.js";
 
 function validProject() {
   return {
@@ -411,6 +425,21 @@ describe("parseProject", () => {
     const bad = validProject();
     bad.screens = [];
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
+  });
+});
+
+describe("FontWeight", () => {
+  it("publishes one bounded default contract for every consumer", () => {
+    expect(FONT_WEIGHT_MIN).toBe(100);
+    expect(FONT_WEIGHT_MAX).toBe(900);
+    expect(FONT_WEIGHT_STEP).toBe(100);
+    expect(DEFAULT_FONT_WEIGHT).toBe(400);
+    expect(FontWeight.parse(undefined)).toBe(DEFAULT_FONT_WEIGHT);
+    expect(FontWeight.parse(FONT_WEIGHT_MIN)).toBe(FONT_WEIGHT_MIN);
+    expect(FontWeight.parse(FONT_WEIGHT_MAX)).toBe(FONT_WEIGHT_MAX);
+    expect(FontWeight.safeParse(FONT_WEIGHT_MIN - 1).success).toBe(false);
+    expect(FontWeight.safeParse(FONT_WEIGHT_MAX + 1).success).toBe(false);
+    expect(FontWeight.safeParse(450.5).success).toBe(false);
   });
 });
 

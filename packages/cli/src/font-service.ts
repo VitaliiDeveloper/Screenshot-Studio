@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { access, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
-import { slugify, type FontAsset, type Project as ProjectModel } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_FONT_WEIGHT,
+  FONT_WEIGHT_MAX,
+  FONT_WEIGHT_MIN,
+  slugify,
+  type FontAsset,
+  type Project as ProjectModel,
+} from "@screenshot-studio/core/model";
 import { loadProjectFile, writeProjectFile } from "./project-io.js";
 
 const SUPPORTED_EXTENSIONS = new Set([".ttf", ".otf", ".woff", ".woff2"]);
@@ -46,9 +53,9 @@ export async function loadFontProject(projectPath: string): Promise<ProjectModel
 }
 
 export function fontWeight(value: unknown): number {
-  const weight = Number(value ?? 400);
-  if (!Number.isInteger(weight) || weight < 100 || weight > 900) {
-    throw new FontValidationError("weight must be an integer from 100 through 900");
+  const weight = Number(value ?? DEFAULT_FONT_WEIGHT);
+  if (!Number.isInteger(weight) || weight < FONT_WEIGHT_MIN || weight > FONT_WEIGHT_MAX) {
+    throw new FontValidationError(`weight must be an integer from ${FONT_WEIGHT_MIN} through ${FONT_WEIGHT_MAX}`);
   }
   return weight;
 }

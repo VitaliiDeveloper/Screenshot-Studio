@@ -13,6 +13,17 @@ import { fontIdentityKey } from "./font-identity.js";
  */
 
 export const SCHEMA_VERSION = 10;
+export const FONT_WEIGHT_MIN = 100;
+export const FONT_WEIGHT_MAX = 900;
+export const FONT_WEIGHT_STEP = 100;
+export const DEFAULT_FONT_WEIGHT = 400;
+
+export const FontWeight = z
+  .number()
+  .int()
+  .min(FONT_WEIGHT_MIN)
+  .max(FONT_WEIGHT_MAX)
+  .default(DEFAULT_FONT_WEIGHT);
 
 export const HexColor = z
   .string()
@@ -88,7 +99,7 @@ export const TextElement = z
     content: z.string(),
     fontFamily: z.string().min(1),
     size: z.number().positive(),
-    weight: z.number().int().min(100).max(900).default(400),
+    weight: FontWeight,
     lineHeight: z.number().positive().default(1.2),
     letterSpacing: z.number().default(0),
     align: z.enum(["left", "center", "right"]).default("left"),
@@ -244,7 +255,7 @@ export const FontAsset = z
     source: z.enum(["uploaded", "google"]),
     /** Project-relative path to the font file, e.g. assets/fonts/inter-400.ttf. */
     path: z.string().min(1),
-    weight: z.number().int().min(100).max(900).default(400),
+    weight: FontWeight,
   })
   .strict();
 export type FontAsset = z.infer<typeof FontAsset>;
