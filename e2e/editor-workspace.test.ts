@@ -305,6 +305,15 @@ describe("Phase 3.6 editor workspace", () => {
       expect(metadataBox.y).toBeGreaterThanOrEqual(box.y + box.height);
     }
 
+    const secondScreen = project().screens[1]!;
+    const inactiveArtboard = page.getByRole("button", { name: `Edit ${secondScreen.name}`, exact: true });
+    await inactiveArtboard.focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => page.getByRole("button", {
+      name: `${secondScreen.name} · ${secondScreen.device}`,
+      exact: true,
+    }).getAttribute("aria-current")).toBe("true");
+
     const focus = page.getByRole("button", { name: "Focus", exact: true });
     await focus.focus();
     await page.keyboard.press("Space");
@@ -450,6 +459,44 @@ describe("Phase 3.6 editor workspace", () => {
 
     await zoomControls.getByRole("button", { name: "Fit" }).click();
     await expect.poll(async () => Number.parseInt((await percent.textContent()) ?? "100", 10)).toBeLessThan(100);
+    await page.close();
+  });
+
+  it("opens Store Outputs from compact Structure within the Inspector viewport", async () => {
+    const page = await browser.newPage({ viewport: { width: 720, height: 900 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const structure = page.getByRole("button", { name: "Structure panel", exact: true });
+    const inspect = page.getByRole("button", { name: "Inspect", exact: true });
+    await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
+    await structure.click();
+    await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
+    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+
+    const outputScope = page.getByRole("button", {
+      name: "Open Store Outputs for en iphone",
+      exact: true,
+    });
+    await outputScope.click();
+    await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
+    await expect.poll(() => inspect.getAttribute("aria-pressed")).toBe("true");
+
+    const storeOutputs = page.getByTestId("store-outputs-section");
+    await storeOutputs.waitFor({ state: "visible" });
+    const inspector = page.getByRole("heading", { name: "Inspector", exact: true })
+      .locator("xpath=ancestor::aside");
+    await expect.poll(async () => {
+      const [inspectorBox, storeOutputsBox] = await Promise.all([
+        inspector.boundingBox(),
+        storeOutputs.boundingBox(),
+      ]);
+      return inspectorBox !== null
+        && storeOutputsBox !== null
+        && storeOutputsBox.y >= inspectorBox.y
+        && storeOutputsBox.y + storeOutputsBox.height <= inspectorBox.y + inspectorBox.height;
+    }, { timeout: 5_000 }).toBe(true);
+
     await page.close();
   });
 
