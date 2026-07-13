@@ -3,6 +3,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Plus } from "lucide-react";
+import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx, editorUi } from "./styles.js";
 
 export type AddMenuOption<T extends string> = {
@@ -28,16 +29,22 @@ export function AddMenu<T extends string>({
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const estimatedMenuHeight = options.length * 44 + 10;
-        setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight && rect.top > window.innerHeight - rect.bottom);
+      const triggerRect = triggerRef.current?.getBoundingClientRect();
+      const menuRect = menuRef.current?.getBoundingClientRect();
+      if (triggerRect && menuRect) {
+        setOpenUpward(shouldOpenMenuUpward({
+          triggerTop: triggerRect.top,
+          triggerBottom: triggerRect.bottom,
+          menuHeight: menuRect.height,
+          viewportHeight: window.innerHeight,
+        }));
       }
       controlRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
     });
@@ -90,6 +97,7 @@ export function AddMenu<T extends string>({
 
       {open ? (
         <div
+          ref={menuRef}
           id={menuId}
           role="menu"
           aria-label={menuLabel}
@@ -99,19 +107,7 @@ export function AddMenu<T extends string>({
             menuClassName,
           )}
           onKeyDown={(event) => {
-            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-            const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']"));
-            if (items.length === 0) return;
-            event.preventDefault();
-            const current = items.indexOf(document.activeElement as HTMLButtonElement);
-            const next = event.key === "Home"
-              ? 0
-              : event.key === "End"
-                ? items.length - 1
-                : event.key === "ArrowDown"
-                  ? (current + 1 + items.length) % items.length
-                  : (current - 1 + items.length) % items.length;
-            items[next]?.focus();
+            handleMenuKeyboardNavigation(event, "[role='menuitem']");
           }}
         >
           {options.map((option) => (

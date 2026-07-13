@@ -3,6 +3,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
+import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx } from "./styles.js";
 
 export type MenuSelectOption<T extends string> = {
@@ -41,6 +42,7 @@ export function MenuSelect<T extends string>({
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const activeOption = options.find((option) => option.value === value) ?? options[0];
@@ -51,10 +53,15 @@ export function MenuSelect<T extends string>({
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const estimatedMenuHeight = options.length * 36 + 12;
-        setOpenUpward(window.innerHeight - rect.bottom < estimatedMenuHeight && rect.top > window.innerHeight - rect.bottom);
+      const triggerRect = triggerRef.current?.getBoundingClientRect();
+      const menuRect = menuRef.current?.getBoundingClientRect();
+      if (triggerRect && menuRect) {
+        setOpenUpward(shouldOpenMenuUpward({
+          triggerTop: triggerRect.top,
+          triggerBottom: triggerRect.bottom,
+          menuHeight: menuRect.height,
+          viewportHeight: window.innerHeight,
+        }));
       }
       Array.from(controlRef.current?.querySelectorAll<HTMLButtonElement>("[data-menu-select-value]") ?? [])
         .find((option) => option.dataset.menuSelectValue === value)
@@ -137,6 +144,7 @@ export function MenuSelect<T extends string>({
 
       {open ? (
         <div
+          ref={menuRef}
           id={menuId}
           role="menu"
           aria-label={menuLabel}
@@ -152,19 +160,7 @@ export function MenuSelect<T extends string>({
             menuClassName,
           )}
           onKeyDown={(event) => {
-            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-            const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitemradio']"));
-            if (items.length === 0) return;
-            event.preventDefault();
-            const current = items.indexOf(document.activeElement as HTMLButtonElement);
-            const next = event.key === "Home"
-              ? 0
-              : event.key === "End"
-                ? items.length - 1
-                : event.key === "ArrowDown"
-                  ? (current + 1 + items.length) % items.length
-                  : (current - 1 + items.length) % items.length;
-            items[next]?.focus();
+            handleMenuKeyboardNavigation(event, "[role='menuitemradio']");
           }}
         >
           {options.map((option) => {
