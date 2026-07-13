@@ -23,6 +23,7 @@ import {
 import { editorStore } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
+import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
 import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
 import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
 import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
@@ -246,7 +247,6 @@ export function CanvasViewport({
   const renderIsolatedScreen = (screen: Screen) => {
     const active = screen.id === activeScreenId;
     const previewWidth = screen.artboard.width * zoom;
-    const metadata = `${screen.device} · ${screen.locale}${screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}`;
     return (
       <div
         key={screen.id}
@@ -255,18 +255,7 @@ export function CanvasViewport({
         className="min-w-0 shrink-0"
         style={{ width: previewWidth }}
       >
-        <div className={cx(
-          "mb-2 flex h-5 min-w-0 items-center overflow-hidden text-xs font-medium leading-5",
-          active ? "text-blue-700" : "text-slate-500",
-        )} data-testid="artboard-preview-label">
-          <span
-            data-testid="artboard-preview-name"
-            className="min-w-0 shrink truncate whitespace-nowrap"
-            title={screen.name}
-          >
-            {screen.name}
-          </span>
-        </div>
+        <ScreenPreviewTitle screen={screen} active={active} />
         <div
           role={!active && view === "overview" ? "button" : undefined}
           tabIndex={!active && view === "overview" ? 0 : undefined}
@@ -294,18 +283,7 @@ export function CanvasViewport({
             interactive={project.mode === "connected" ? false : active}
           />
         </div>
-        <div
-          className="mt-2 flex h-5 min-w-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400"
-          data-testid="artboard-preview-caption"
-        >
-          <span
-            data-testid="artboard-preview-metadata"
-            className="min-w-0 truncate whitespace-nowrap"
-            title={metadata}
-          >
-            {metadata}
-          </span>
-        </div>
+        <ScreenPreviewMetadata screen={screen} />
       </div>
     );
   };
@@ -343,21 +321,14 @@ export function CanvasViewport({
           >
             {connectedOverview ? (
               <div className="shrink-0" data-testid="connected-artboards">
-                <div className="mb-2 flex text-xs font-medium">
+                <div className="flex">
                   {screens.map((screen) => (
-                    <div
+                    <ScreenPreviewTitle
                       key={screen.id}
-                      className={cx(
-                        "flex shrink-0 items-center gap-2 px-1",
-                        screen.id === activeScreenId ? "text-blue-700" : "text-slate-500",
-                      )}
-                      style={{ width: screen.artboard.width * zoom }}
-                    >
-                      <span className="truncate">{screen.name}</span>
-                      <span className="shrink-0 text-[10px] font-normal text-slate-400">
-                        {screen.device} · {screen.locale}{screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}
-                      </span>
-                    </div>
+                      screen={screen}
+                      active={screen.id === activeScreenId}
+                      width={screen.artboard.width * zoom}
+                    />
                   ))}
                 </div>
                 <div className="relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
@@ -368,6 +339,15 @@ export function CanvasViewport({
                     connectedOverview
                     interactive
                   />
+                </div>
+                <div className="flex">
+                  {screens.map((screen) => (
+                    <ScreenPreviewMetadata
+                      key={screen.id}
+                      screen={screen}
+                      width={screen.artboard.width * zoom}
+                    />
+                  ))}
                 </div>
               </div>
             ) : view === "overview" && outputRows.length > 1 ? (

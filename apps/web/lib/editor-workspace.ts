@@ -4,7 +4,8 @@ import { sameScreenGroup, type Project, type Screen } from "@screenshot-studio/c
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
 export const CANVAS_PADDING = 80;
-export const ARTBOARD_LABEL_HEIGHT = 24;
+// Fixed CSS chrome around every preview: 20px title + two 8px gaps + 20px metadata.
+export const ARTBOARD_LABEL_HEIGHT = 56;
 export const OVERVIEW_GAP = 48;
 export const OVERVIEW_ROW_GAP = 56;
 export const OUTPUT_FAMILY_LABEL_HEIGHT = 28;

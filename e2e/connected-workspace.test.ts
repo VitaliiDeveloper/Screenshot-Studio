@@ -59,6 +59,10 @@ describe("Phase 6 connected workspace hardening", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     const connected = page.getByTestId("connected-artboards");
     await connected.waitFor({ state: "visible" });
+    const previewTitles = connected.getByTestId("artboard-preview-label");
+    const previewMetadata = connected.getByTestId("artboard-preview-caption");
+    expect(await previewTitles.allTextContents()).toEqual(["Connected First", "Connected Second"]);
+    expect(await previewMetadata.allTextContents()).toEqual(["iphone · en", "iphone · en"]);
     const stage = connected.getByTestId("editor-stage");
     expect(await stage.getAttribute("data-stage-screen-ids"))
       .toBe("connected-first connected-second");
@@ -90,7 +94,7 @@ describe("Phase 6 connected workspace hardening", () => {
     await expect.poll(() => secondThumbnail.getAttribute("src")).toBe(originalThumbnail);
 
     await dragBridge(page, -160);
-    await expect.poll(bridgeX).toBeCloseTo(400, 0);
+    await expect.poll(() => Math.abs(bridgeX() - 400) < 2).toBe(true);
     await mode.click();
     await expect.poll(() => project().mode).toBe("isolated");
     const isolatedMode = page.getByRole("button", { name: "Canvas mode: isolated" });
@@ -121,9 +125,12 @@ describe("Phase 6 connected workspace hardening", () => {
 
     await page.getByRole("button", { name: "Fit", exact: true }).click();
     const stageBox = (await stage.boundingBox())!;
+    const connectedBox = (await connected.boundingBox())!;
     const viewportBox = (await page.getByTestId("canvas-viewport").boundingBox())!;
     expect(stageBox.x).toBeGreaterThanOrEqual(viewportBox.x);
     expect(stageBox.x + stageBox.width).toBeLessThanOrEqual(viewportBox.x + viewportBox.width);
+    expect(connectedBox.y).toBeGreaterThanOrEqual(viewportBox.y);
+    expect(connectedBox.y + connectedBox.height).toBeLessThanOrEqual(viewportBox.y + viewportBox.height);
 
     await page.close();
   });

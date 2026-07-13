@@ -18,6 +18,7 @@ let projectFile: string;
 
 function writeWorkspaceBaseline(): void {
   const baseline = JSON.parse(readFileSync(sample, "utf8")) as {
+    mode: "isolated" | "connected";
     platforms: string[];
     screens: Array<{ platform: string; device: string; variantOf?: string; storeTargetId?: string }>;
   };
@@ -27,6 +28,7 @@ function writeWorkspaceBaseline(): void {
     && screen.variantOf === undefined
     && screen.storeTargetId === undefined,
   );
+  baseline.mode = "isolated";
   baseline.platforms = ["apple"];
   writeFileSync(projectFile, `${JSON.stringify(baseline, null, 2)}\n`);
 }
@@ -296,10 +298,17 @@ describe("Phase 3.6 editor workspace", () => {
     const viewportBox = (await page.getByTestId("canvas-viewport").boundingBox())!;
     const artboards = page.getByTestId("overview-artboards").locator("[data-screen-id]");
     await expect.poll(() => artboards.count()).toBe(3);
+    const previewItems = page.getByTestId("artboard-preview-item");
+    expect(await previewItems.count()).toBe(3);
     for (let index = 0; index < 3; index += 1) {
       const box = (await artboards.nth(index).boundingBox())!;
+      const item = previewItems.nth(index);
+      const titleBox = (await item.getByTestId("artboard-preview-label").boundingBox())!;
+      const metadataBox = (await item.getByTestId("artboard-preview-caption").boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(viewportBox.x + 68);
       expect(box.x + box.width).toBeLessThanOrEqual(viewportBox.x + viewportBox.width - 68);
+      expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(box.y);
+      expect(metadataBox.y).toBeGreaterThanOrEqual(box.y + box.height);
     }
 
     const focus = page.getByRole("button", { name: "Focus", exact: true });

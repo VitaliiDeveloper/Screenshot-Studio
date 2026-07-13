@@ -57,7 +57,7 @@ describe("editor workspace helpers", () => {
 
   it("keeps fixed canvas chrome outside the artboard zoom calculation", () => {
     const screens = Array.from({ length: 3 }, () => ({ width: 660, height: 1434 }));
-    expect(fitArtboardsZoom({ width: 1400, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.499);
+    expect(fitArtboardsZoom({ width: 1400, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.477);
     expect(fitArtboardsZoom({ width: 120, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.05);
   });
 
