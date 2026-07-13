@@ -26,7 +26,7 @@ const DynamicScreenThumbnail = dynamic(
   { ssr: false },
 );
 
-/** Active connected group (or isolated locale): select, scoped reorder, duplicate-add, and delete. */
+/** Active exact output group: select, scoped reorder, duplicate-add, and delete. */
 export function ScreensSection({
   images,
   onOpenDialog,
@@ -79,12 +79,8 @@ export function ScreensSection({
   const activeRoot = activeScreen?.variantOf
     ? project.screens.find((screen) => screen.id === activeScreen.variantOf)
     : undefined;
-  const scopeLabel = project.mode === "connected" && activeScreen
-    ? `${activeLocale} · ${activeScreen.device}${activeScreen.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`
-    : `${activeLocale}${activeScreen?.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`;
-  const listLabel = project.mode === "connected" && activeScreen
-      ? `Screens for ${activeLocale} ${activeScreen.device} group`
-      : `Screens for ${activeLocale}`;
+  const scopeLabel = activeScreen ? `${activeLocale} · ${activeScreen.device}` : activeLocale;
+  const listLabel = activeScreen ? `Screens for ${scopeLabel}` : `Screens for ${activeLocale}`;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;

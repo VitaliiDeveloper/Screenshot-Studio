@@ -161,6 +161,17 @@ describe("Phase 3.6 editor workspace", () => {
       exact: true,
     });
     await expect.poll(() => outputScope.count()).toBe(1);
+    expect(await outputScope.textContent()).toBe("en · ipad");
+
+    const outputRows = page.getByTestId("overview-output-row");
+    await expect.poll(() => outputRows.count()).toBe(2);
+    expect(await page.locator('[data-testid="overview-output-row"][data-editing="true"]').count()).toBe(1);
+    const activeOutputRow = outputRows.filter({ hasText: "App Store · iPad" });
+    expect(await activeOutputRow.getAttribute("data-editing")).toBe("true");
+    expect(await activeOutputRow.getByText("Editing", { exact: true }).count()).toBe(1);
+    const inactiveOutputRows = page.locator('[data-testid="overview-output-row"][data-editing="false"]');
+    expect(await inactiveOutputRows.count()).toBe(1);
+    expect(await inactiveOutputRows.getByText("Editing", { exact: true }).count()).toBe(0);
 
     await page.getByRole("button", { name: "Close inspector", exact: true }).click();
     expect(await page.getByTestId("store-outputs-section").count()).toBe(0);
@@ -169,7 +180,7 @@ describe("Phase 3.6 editor workspace", () => {
     await storeOutputs.waitFor({ state: "visible" });
     await expect.poll(() => storeOutputs.getByText("Store outputs", { exact: true }).count()).toBe(1);
 
-    const ipadScreens = page.getByRole("list", { name: "Screens for en", exact: true });
+    const ipadScreens = page.getByRole("list", { name: "Screens for en · ipad", exact: true });
     await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
     expect(await ipadScreens.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
     expect(await ipadScreens.evaluate((element) => getComputedStyle(element).maxHeight)).toBe("256px");
@@ -177,7 +188,7 @@ describe("Phase 3.6 editor workspace", () => {
 
     const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
     await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
-    const iphoneScreens = page.getByRole("list", { name: "Screens for en", exact: true });
+    const iphoneScreens = page.getByRole("list", { name: "Screens for en · iphone", exact: true });
     await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");

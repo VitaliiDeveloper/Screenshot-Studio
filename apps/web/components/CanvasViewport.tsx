@@ -24,6 +24,7 @@ import { editorStore } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
 import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
+import { OutputFamilyRow } from "./canvas-viewport/OutputFamilyRow";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
 import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
 import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
@@ -332,15 +333,11 @@ export function CanvasViewport({
                     onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
                 ) : (
-                  <section key={row.key} aria-label={`${row.label} output row`}>
-                    <div className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      <span>{row.label}</span>
-                      <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
-                    </div>
+                  <OutputFamilyRow key={row.key} label={row.label} editing={row.active}>
                     <div className="flex items-start gap-12">
                       {row.screens.map(renderIsolatedScreen)}
                     </div>
-                  </section>
+                  </OutputFamilyRow>
                 ))}
               </div>
             ) : (

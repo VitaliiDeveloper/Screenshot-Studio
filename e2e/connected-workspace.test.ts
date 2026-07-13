@@ -71,15 +71,25 @@ describe("Phase 6 connected workspace hardening", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     const connected = page.getByTestId("connected-artboards");
     await connected.waitFor({ state: "visible" });
-    const rows = page.getByTestId("connected-output-row");
+    const rows = page.getByTestId("overview-output-row");
     await expect.poll(() => rows.count()).toBe(2);
     const iphoneRow = rows.filter({ hasText: "App Store · iPhone" });
     const ipadRowButton = page.getByRole("button", {
       name: "Edit App Store · iPad connected row",
       exact: true,
     });
+    expect(await page.locator('[data-testid="overview-output-row"][data-editing="true"]').count()).toBe(1);
     expect(await iphoneRow.getAttribute("data-editing")).toBe("true");
+    expect(await iphoneRow.getByText("Editing", { exact: true }).count()).toBe(1);
     expect(await ipadRowButton.getAttribute("data-editing")).toBe("false");
+    const inactiveRows = page.locator('[data-testid="overview-output-row"][data-editing="false"]');
+    expect(await inactiveRows.count()).toBe(1);
+    expect(await inactiveRows.getByText("Editing", { exact: true }).count()).toBe(0);
+    const outputScope = page.getByRole("button", {
+      name: "Open Store Outputs for en iphone",
+      exact: true,
+    });
+    expect(await outputScope.textContent()).toBe("en · iphone");
 
     const jsonBeforeNavigation = readFileSync(projectPath, "utf8");
     const iphonePixelsBefore = await iphoneRow.locator("canvas").first()
@@ -87,7 +97,7 @@ describe("Phase 6 connected workspace hardening", () => {
     await ipadRowButton.click();
     const ipadRow = rows.filter({ hasText: "App Store · iPad" });
     await expect.poll(() => ipadRow.getAttribute("data-editing")).toBe("true");
-    await page.getByRole("list", { name: "Screens for en ipad group" }).waitFor({ state: "visible" });
+    await page.getByRole("list", { name: "Screens for en · ipad" }).waitFor({ state: "visible" });
     await expect.poll(() => page.getByTestId("layers-owner").textContent()).toBe("Unrelated");
     await page.getByText("540 × 960 px", { exact: true }).waitFor({ state: "visible" });
     const ipadConnected = page.getByTestId("connected-artboards");
@@ -129,7 +139,7 @@ describe("Phase 6 connected workspace hardening", () => {
     expect(await stage.getAttribute("data-stage-screen-ids"))
       .toBe("connected-first connected-second");
 
-    const screens = page.getByRole("list", { name: "Screens for en iphone group" });
+    const screens = page.getByRole("list", { name: "Screens for en · iphone" });
     await screens.waitFor({ state: "visible" });
     expect(await screens.getByRole("listitem").count()).toBe(2);
     expect(await page.getByRole("button", { name: "Unrelated · phone", exact: true }).count()).toBe(0);
@@ -207,7 +217,7 @@ describe("Phase 6 connected workspace hardening", () => {
     });
     await ipadRow.focus();
     await page.keyboard.press("Enter");
-    const ipadOutputRow = page.getByTestId("connected-output-row").filter({ hasText: "App Store · iPad" });
+    const ipadOutputRow = page.getByTestId("overview-output-row").filter({ hasText: "App Store · iPad" });
     await expect.poll(() => ipadOutputRow.getAttribute("data-editing")).toBe("true");
     expect(await page.getByTestId("connected-artboards").getByTestId("editor-stage")
       .getAttribute("data-stage-screen-ids")).toBe("unrelated");
@@ -218,7 +228,7 @@ describe("Phase 6 connected workspace hardening", () => {
     });
     await iphoneRow.focus();
     await page.keyboard.press("Space");
-    const iphoneOutputRow = page.getByTestId("connected-output-row").filter({ hasText: "App Store · iPhone" });
+    const iphoneOutputRow = page.getByTestId("overview-output-row").filter({ hasText: "App Store · iPhone" });
     await expect.poll(() => iphoneOutputRow.getAttribute("data-editing")).toBe("true");
     expect(await page.getByTestId("connected-artboards").getByTestId("editor-stage")
       .getAttribute("data-stage-screen-ids")).toBe("connected-first connected-second");
@@ -241,7 +251,7 @@ describe("Phase 6 connected workspace hardening", () => {
     await page.keyboard.press("Space");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
     expect(await inspect.getAttribute("aria-pressed")).toBe("false");
-    await page.getByRole("list", { name: "Screens for en iphone group" }).waitFor({ state: "visible" });
+    await page.getByRole("list", { name: "Screens for en · iphone" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

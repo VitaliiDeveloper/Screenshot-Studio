@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { KeyboardEvent } from "react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { WorkspaceOverviewRow } from "../../lib/editor-workspace";
-import { cx } from "../editor-ui";
 import { EditorStage } from "../EditorStage";
+import { OutputFamilyRow } from "./OutputFamilyRow";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";
 
 export function ConnectedOutputRow({
@@ -27,39 +26,14 @@ export function ConnectedOutputRow({
     && row.screens.some((screen) => screen.id === activeScreenId)
     ? activeScreenId
     : row.screens[0]!.id;
-  const activate = () => {
-    if (!interactive) onActivate(row.screens[0]!.id);
-  };
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (interactive || (event.key !== "Enter" && event.key !== " ")) return;
-    event.preventDefault();
-    activate();
-  };
 
   return (
-    <section
-      aria-label={interactive ? `${row.label} output row` : `Edit ${row.label} connected row`}
-      role={interactive ? undefined : "button"}
-      tabIndex={interactive ? undefined : 0}
-      data-testid="connected-output-row"
-      data-editing={interactive ? "true" : "false"}
-      className={cx(
-        "w-fit shrink-0 self-start rounded-xl",
-        interactive && "ring-2 ring-blue-500/30 ring-offset-8 ring-offset-slate-50",
-        !interactive && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-      )}
-      onClick={activate}
-      onKeyDown={onKeyDown}
+    <OutputFamilyRow
+      label={row.label}
+      editing={interactive}
+      activationLabel={`Edit ${row.label} connected row`}
+      onActivate={() => onActivate(row.screens[0]!.id)}
     >
-      <header className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        <span>{row.label}</span>
-        {interactive ? (
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
-            Editing
-          </span>
-        ) : null}
-        <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
-      </header>
       <div
         className="w-fit"
         data-testid={interactive ? "connected-artboards" : undefined}
@@ -97,6 +71,6 @@ export function ConnectedOutputRow({
           ))}
         </div>
       </div>
-    </section>
+    </OutputFamilyRow>
   );
 }
