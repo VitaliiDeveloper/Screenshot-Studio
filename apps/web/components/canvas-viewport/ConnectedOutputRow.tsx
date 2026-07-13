@@ -26,11 +26,13 @@ export function ConnectedOutputRow({
     && row.screens.some((screen) => screen.id === activeScreenId)
     ? activeScreenId
     : row.screens[0]!.id;
+  const artworkWidth = row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0) * zoom;
 
   return (
     <OutputFamilyRow
       label={row.label}
       editing={interactive}
+      artworkWidth={artworkWidth}
       activationLabel={`Edit ${row.label} connected row`}
       onActivate={() => onActivate(row.screens[0]!.id)}
     >

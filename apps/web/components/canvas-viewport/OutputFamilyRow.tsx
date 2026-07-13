@@ -6,12 +6,14 @@ import { cx } from "../editor-ui/styles.js";
 export function OutputFamilyRow({
   label,
   editing,
+  artworkWidth,
   activationLabel,
   onActivate,
   children,
 }: {
   label: string;
   editing: boolean;
+  artworkWidth?: number;
   activationLabel?: string;
   onActivate?: () => void;
   children: ReactNode;
@@ -33,6 +35,7 @@ export function OutputFamilyRow({
       tabIndex={activatable ? 0 : undefined}
       data-testid="overview-output-row"
       data-editing={editing ? "true" : "false"}
+      style={artworkWidth === undefined ? undefined : { width: artworkWidth }}
       className={cx(
         "w-fit shrink-0 self-start rounded-xl",
         editing && "ring-2 ring-blue-500/30 ring-offset-8 ring-offset-slate-50",
@@ -41,14 +44,20 @@ export function OutputFamilyRow({
       onClick={activate}
       onKeyDown={onKeyDown}
     >
-      <header className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        <span>{label}</span>
+      <header className={cx(
+        "mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500",
+        artworkWidth !== undefined && "min-w-0 overflow-hidden",
+      )}>
+        <span className={artworkWidth === undefined ? undefined : "min-w-0 truncate"}>{label}</span>
         {editing ? (
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
+          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
             Editing
           </span>
         ) : null}
-        <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
+        <span
+          className={cx("h-px flex-1 bg-slate-200", artworkWidth === undefined ? "min-w-12" : "min-w-0")}
+          aria-hidden="true"
+        />
       </header>
       {children}
     </section>

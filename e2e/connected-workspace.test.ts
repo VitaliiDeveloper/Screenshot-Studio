@@ -103,7 +103,9 @@ describe("Phase 6 connected workspace hardening", () => {
     const ipadConnected = page.getByTestId("connected-artboards");
     const ipadConnectedBox = (await ipadConnected.boundingBox())!;
     const ipadStageBox = (await ipadConnected.getByTestId("editor-stage").boundingBox())!;
+    const ipadRowBox = (await ipadRow.boundingBox())!;
     expect(ipadConnectedBox.width).toBeCloseTo(ipadStageBox.width, 1);
+    expect(ipadRowBox.width).toBeCloseTo(ipadConnectedBox.width, 1);
     expect(readFileSync(projectPath, "utf8")).toBe(jsonBeforeNavigation);
 
     await page.getByRole("button", { name: "Focus", exact: true }).click();
