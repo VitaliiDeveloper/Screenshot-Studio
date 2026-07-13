@@ -387,10 +387,14 @@ describe("Phase 3.6 editor workspace", () => {
 
     // Overview is a projection of every isolated screen in export order.
     const screenAdd = page.getByRole("button", { name: "Add screen", exact: true });
+    const duplicateCurrent = page.getByRole("menu", { name: "Add screen options", exact: true })
+      .getByRole("menuitem", { name: "Duplicate current", exact: true });
     const baseScreenCount = project().screens.length;
     await screenAdd.click();
+    await duplicateCurrent.click();
     await expect.poll(() => project().screens.length, { timeout: 10_000 }).toBe(baseScreenCount + 1);
     await screenAdd.click();
+    await duplicateCurrent.click();
     await expect.poll(() => project().screens.length, { timeout: 10_000 }).toBe(baseScreenCount + 2);
     await expect.poll(() => page.getByTestId("overview-artboards").locator("canvas").count()).toBe(baseScreenCount + 2);
 
