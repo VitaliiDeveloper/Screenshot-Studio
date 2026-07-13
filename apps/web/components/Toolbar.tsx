@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   Download,
@@ -38,6 +38,11 @@ export function Toolbar({
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [modeError, setModeError] = useState<string | null>(null);
+  const [centerViewSwitch, setCenterViewSwitch] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const viewSwitchRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
   const locales = useStore(editorStore, (state) => state.project?.locales ?? EMPTY_LOCALES);
   const activeLocale = useStore(editorStore, (state) =>
@@ -65,9 +70,46 @@ export function Toolbar({
     return () => document.removeEventListener("keydown", dismiss, true);
   }, [modeError]);
 
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const left = leftRef.current;
+    const viewSwitch = viewSwitchRef.current;
+    const right = rightRef.current;
+    if (!header || !left || !viewSwitch || !right) return;
+
+    const sync = () => {
+      const style = getComputedStyle(header);
+      const horizontalPadding = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+      const columnGap = Number.parseFloat(style.columnGap) || 0;
+      const availableSideWidth = Math.max(
+        0,
+        (header.clientWidth - horizontalPadding - viewSwitch.offsetWidth - columnGap * 2) / 2,
+      );
+      const next = left.scrollWidth <= availableSideWidth && right.scrollWidth <= availableSideWidth;
+      setCenterViewSwitch((current) => current === next ? current : next);
+    };
+
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(header);
+    observer.observe(left);
+    observer.observe(viewSwitch);
+    observer.observe(right);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <header className="relative grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <header
+      ref={headerRef}
+      data-layout={centerViewSwitch ? "centered" : "anchored"}
+      className={cx(
+        "relative grid min-h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4",
+        centerViewSwitch
+          ? "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+          : "grid-cols-[auto_minmax(0,1fr)_auto]",
+      )}
+    >
+      <div ref={leftRef} className="flex min-w-0 items-center gap-2.5 justify-self-start">
         <span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20 sm:inline-flex">
           <PanelsTopLeft size={16} strokeWidth={1.9} />
         </span>
@@ -77,6 +119,7 @@ export function Toolbar({
       </div>
 
       <div
+        ref={viewSwitchRef}
         className="flex items-center justify-self-center rounded-xl border border-slate-200 bg-slate-50 p-1"
         aria-label="Canvas view"
       >
@@ -108,7 +151,7 @@ export function Toolbar({
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 justify-self-end">
+      <div ref={rightRef} className="flex shrink-0 items-center gap-1 justify-self-end sm:gap-1.5">
         <div className="hidden lg:contents">
           <button
             type="button"
@@ -157,7 +200,7 @@ export function Toolbar({
             value={activeLocale}
             options={localeOptions}
             onChange={(locale) => editorStore.getState().selectLocale(locale)}
-            className="w-14 sm:w-24"
+            className="w-fit min-w-16 max-w-24"
             triggerClassName="h-8 px-2 font-semibold"
             menuClassName="w-32"
           />
