@@ -71,8 +71,8 @@ describe("Phase 6 connected workspace hardening", () => {
     const mode = page.getByRole("button", { name: "Canvas mode: connected" });
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
     await mode.click();
-    const modeError = page.getByRole("alert").filter({ hasText: "Cannot switch to isolated" });
-    await expect.poll(() => modeError.textContent(), { timeout: 5_000 }).toContain("crosses its owner artboard");
+    const modeError = page.getByRole("alert").filter({ hasText: "Can't switch to isolated canvas yet" });
+    await expect.poll(() => modeError.textContent(), { timeout: 5_000 }).toContain("screen boundaries");
     expect(project().mode).toBe("connected");
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
     await page.getByRole("button", { name: "Dismiss canvas mode error" }).click();
@@ -93,8 +93,19 @@ describe("Phase 6 connected workspace hardening", () => {
     await expect.poll(bridgeX).toBeCloseTo(400, 0);
     await mode.click();
     await expect.poll(() => project().mode).toBe("isolated");
-    await expect.poll(() => page.getByRole("button", { name: "Canvas mode: isolated" }).count()).toBe(1);
+    const isolatedMode = page.getByRole("button", { name: "Canvas mode: isolated" });
+    await expect.poll(() => isolatedMode.count()).toBe(1);
     await expect.poll(() => page.getByTestId("connected-artboards").count()).toBe(0);
+
+    await isolatedMode.click();
+    const connectedModeDialog = page.getByRole("dialog", { name: "Switch to connected canvas?" });
+    await connectedModeDialog.waitFor({ state: "visible" });
+    expect(project().mode).toBe("isolated");
+    await connectedModeDialog.getByRole("button", { name: "Switch to connected", exact: true }).click();
+    await expect.poll(() => project().mode).toBe("connected");
+
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => project().mode).toBe("isolated");
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(() => project().mode).toBe("connected");
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
@@ -129,7 +140,7 @@ describe("Phase 6 connected workspace hardening", () => {
     const mode = page.getByRole("button", { name: "Canvas mode: connected" });
     await mode.focus();
     await page.keyboard.press("Enter");
-    const modeError = page.getByRole("alert").filter({ hasText: "Cannot switch to isolated" });
+    const modeError = page.getByRole("alert").filter({ hasText: "Can't switch to isolated canvas yet" });
     await modeError.waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await expect.poll(() => modeError.count()).toBe(0);

@@ -15,10 +15,11 @@ import {
   Undo2,
   X,
 } from "lucide-react";
+import { findOwnerOverflows } from "@screenshot-studio/core/model";
 import type { WorkspaceView } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
-import { cx, editorUi, MenuSelect } from "./editor-ui";
+import { cx, DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import { mutateAndSave } from "../lib/mutate-and-save";
 
 const EMPTY_LOCALES: string[] = [];
@@ -37,6 +38,7 @@ export function Toolbar({
   onOpenLocales: () => void;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [connectPromptOpen, setConnectPromptOpen] = useState(false);
   const [modeError, setModeError] = useState<string | null>(null);
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
   const locales = useStore(editorStore, (state) => state.project?.locales ?? EMPTY_LOCALES);
@@ -139,12 +141,19 @@ export function Toolbar({
           className={cx(editorUi.iconButton, canvasMode === "connected" && "bg-blue-50 text-blue-700")}
           onClick={() => {
             setModeError(null);
+            if (canvasMode === "isolated") {
+              setConnectPromptOpen(true);
+              return;
+            }
             try {
-              mutateAndSave(() => editorStore.getState().setCanvasMode(
-                canvasMode === "connected" ? "isolated" : "connected",
-              ));
-            } catch (error) {
-              setModeError((error as Error).message);
+              mutateAndSave(() => editorStore.getState().setCanvasMode("isolated"));
+            } catch {
+              const currentProject = editorStore.getState().project;
+              const overflowCount = currentProject ? findOwnerOverflows(currentProject).length : 0;
+              const subject = overflowCount === 1 ? "visible element extends" : `${overflowCount} visible elements extend`;
+              setModeError(
+                `Can't switch to isolated canvas yet. ${subject} beyond its screen boundaries. Move or resize ${overflowCount === 1 ? "it" : "them"} so each fits inside its own screen, then try again.`,
+              );
             }
           }}
         >
@@ -186,6 +195,35 @@ export function Toolbar({
             <X size={14} strokeWidth={1.9} />
           </button>
         </div>
+      ) : null}
+
+      {connectPromptOpen ? (
+        <DialogShell
+          title="Switch to connected canvas?"
+          description="Connected canvas lets artwork continue across adjacent screens."
+          widthClass="max-w-md"
+          onClose={() => setConnectPromptOpen(false)}
+        >
+          <p className="text-sm leading-6 text-slate-600">
+            This changes the whole project. Artwork outside a screen becomes visible on its neighbours.
+            You can switch back to isolated canvas only after every visible element fits inside its own screen.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" className={editorUi.buttonSecondary} onClick={() => setConnectPromptOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={editorUi.buttonPrimary}
+              onClick={() => {
+                mutateAndSave(() => editorStore.getState().setCanvasMode("connected"));
+                setConnectPromptOpen(false);
+              }}
+            >
+              Switch to connected
+            </button>
+          </div>
+        </DialogShell>
       ) : null}
 
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
