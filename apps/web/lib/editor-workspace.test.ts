@@ -62,16 +62,22 @@ describe("editor workspace helpers", () => {
     expect(fitArtboardsZoom({ width: 120, height: 900 }, screens, { gap: OVERVIEW_GAP })).toBe(0.05);
   });
 
-  it("fits independent output rows across both canvas axes", () => {
+  it("fits isolated and gapless connected output rows across both canvas axes", () => {
     const rows = [
       Array.from({ length: 3 }, () => ({ width: 660, height: 1434 })),
       Array.from({ length: 3 }, () => ({ width: 1032, height: 1376 })),
     ];
+
     expect(fitArtboardRowsZoom(
       { width: 1400, height: 900 },
       rows,
-      { columnGap: 48, rowGap: 56, labelHeight: 52 },
-    )).toBe(0.206);
+      { columnGap: 48, rowGap: 56, labelHeight: 84 },
+    )).toBe(0.184);
+    expect(fitArtboardRowsZoom(
+      { width: 1400, height: 900 },
+      rows,
+      { columnGap: 0, rowGap: 56, labelHeight: 84 },
+    )).toBe(0.184);
   });
 
   it("uses human-readable labels for store output families", () => {

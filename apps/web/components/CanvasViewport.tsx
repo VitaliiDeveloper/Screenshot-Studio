@@ -14,8 +14,8 @@ import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { Screen } from "@screenshot-studio/core/model";
 import {
   CANVAS_PADDING,
-  groupScreensByOutput,
   workspaceEditingScope,
+  workspaceOverviewRows,
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
@@ -23,6 +23,7 @@ import {
 import { editorStore } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
+import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
 import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
 import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
@@ -73,23 +74,22 @@ export function CanvasViewport({
   const [transitioning, setTransitioning] = useState(false);
 
   const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
-  const screens = useMemo(
-    () => {
-      if (!project || !activeScreen) return [];
-      if (view !== "overview") return [activeScreen];
-      return workspaceEditingScope(project, activeScreen);
-    },
-    [activeScreen, project, view],
-  );
-  const connectedOverview = project?.mode === "connected" && view === "overview";
-  const outputRows = useMemo(() => groupScreensByOutput(screens), [screens]);
+  const editingScreens = useMemo(() => {
+    if (!project || !activeScreen) return [];
+    return workspaceEditingScope(project, activeScreen);
+  }, [activeScreen, project]);
+  const outputRows = useMemo(() => {
+    if (!project || !activeScreen || view !== "overview") return [];
+    return workspaceOverviewRows(project, activeScreen);
+  }, [activeScreen, project, view]);
+  const screens = view === "focus" && activeScreen ? [activeScreen] : editingScreens;
   const { contentWidth, contentHeight, fitLayoutKey, fit } = useCanvasViewportMetrics({
     viewportRef,
     zoomRef,
     screens,
     outputRows,
     view,
-    connectedOverview,
+    connected: project?.mode === "connected",
     leftInset,
     rightInset,
     onZoomChange,
@@ -315,44 +315,23 @@ export function CanvasViewport({
             style={initialReveal === "idle" ? undefined : { opacity: 0 }}
             className={cx(
               "m-auto",
-              connectedOverview || view === "focus" ? "flex items-start" : "flex flex-col items-start",
+              view === "focus" ? "flex items-start" : "flex flex-col items-start",
             )}
             data-testid={view === "overview" ? "overview-artboards" : "focus-artboard"}
           >
-            {connectedOverview ? (
-              <div className="shrink-0" data-testid="connected-artboards">
-                <div className="flex">
-                  {screens.map((screen) => (
-                    <ScreenPreviewTitle
-                      key={screen.id}
-                      screen={screen}
-                      active={screen.id === activeScreenId}
-                      width={screen.artboard.width * zoom}
-                    />
-                  ))}
-                </div>
-                <div className="relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
-                  <EditorStage
+            {view === "overview" ? (
+              <div className="flex flex-col gap-14" data-testid="overview-output-families">
+                {outputRows.map((row) => project.mode === "connected" ? (
+                  <ConnectedOutputRow
+                    key={row.key}
+                    row={row}
+                    activeScreenId={activeScreenId}
                     images={images}
                     zoom={zoom}
-                    screenId={activeScreenId ?? undefined}
-                    connectedOverview
-                    interactive
+                    interactive={row.active}
+                    onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
-                </div>
-                <div className="flex">
-                  {screens.map((screen) => (
-                    <ScreenPreviewMetadata
-                      key={screen.id}
-                      screen={screen}
-                      width={screen.artboard.width * zoom}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : view === "overview" && outputRows.length > 1 ? (
-              <div className="flex flex-col gap-14" data-testid="overview-output-families">
-                {outputRows.map((row) => (
+                ) : (
                   <section key={row.key} aria-label={`${row.label} output row`}>
                     <div className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                       <span>{row.label}</span>
@@ -365,7 +344,7 @@ export function CanvasViewport({
                 ))}
               </div>
             ) : (
-              <div className={cx("flex items-start", view === "overview" ? "gap-12" : "gap-0")}>
+              <div className="flex items-start gap-0">
                 {screens.map(renderIsolatedScreen)}
               </div>
             )}
