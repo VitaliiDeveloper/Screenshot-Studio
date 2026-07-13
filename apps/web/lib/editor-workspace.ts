@@ -50,6 +50,14 @@ export interface OutputFamilyRow {
   screens: Screen[];
 }
 
+export interface WorkspaceOverviewRow extends OutputFamilyRow {
+  active: boolean;
+}
+
+function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
+  return `${screen.platform}/${screen.device}`;
+}
+
 /** Preserve project order while separating independent output families into canvas rows. */
 export function groupScreensByOutput(screens: readonly Screen[]): OutputFamilyRow[] {
   const rows: OutputFamilyRow[] = [];
@@ -67,8 +75,8 @@ export function groupScreensByOutput(screens: readonly Screen[]): OutputFamilyRo
   return rows;
 }
 
-/** Connected workspaces expose one exact group; isolated workspaces retain the locale set. */
-export function workspaceScreenScope(project: Project, activeScreen: Screen): Screen[] {
+/** Exact screens that may be selected, reordered, authored, or transformed together. */
+export function workspaceEditingScope(project: Project, activeScreen: Screen): Screen[] {
   if (project.mode === "connected") {
     return project.screens.filter((screen) => sameScreenGroup(screen, activeScreen));
   }
@@ -80,6 +88,40 @@ export function workspaceScreenScope(project: Project, activeScreen: Screen): Sc
       && screen.device === activeScreen.device
       && screen.locale === activeScreen.locale
       && screen.storeTargetId === activeScreen.storeTargetId;
+  });
+}
+
+/** Every output-family row visible in Overview for the active locale. */
+export function workspaceOverviewRows(
+  project: Project,
+  activeScreen: Screen,
+): WorkspaceOverviewRow[] {
+  const families = new Map<string, Screen[]>();
+  for (const screen of project.screens) {
+    if (screen.locale !== activeScreen.locale) continue;
+    const key = outputFamilyKey(screen);
+    const screens = families.get(key) ?? [];
+    screens.push(screen);
+    families.set(key, screens);
+  }
+
+  const activeKey = outputFamilyKey(activeScreen);
+  return Array.from(families, ([key, familyScreens]) => {
+    const active = key === activeKey;
+    const roots = familyScreens.filter((screen) => screen.storeTargetId === undefined);
+    const anchor = active ? activeScreen : roots[0] ?? familyScreens[0]!;
+    const screens = active || roots.length === 0
+      ? project.screens.filter((screen) => sameScreenGroup(screen, anchor))
+      : roots;
+    const targetId = screens[0]?.storeTargetId;
+    const familyLabel = storeOutputLabel(anchor.platform, anchor.device);
+
+    return {
+      key,
+      label: targetId ? `${familyLabel} · ${targetId}` : familyLabel,
+      screens,
+      active,
+    };
   });
 }
 

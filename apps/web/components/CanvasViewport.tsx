@@ -15,7 +15,7 @@ import type { Screen } from "@screenshot-studio/core/model";
 import {
   CANVAS_PADDING,
   groupScreensByOutput,
-  workspaceScreenScope,
+  workspaceEditingScope,
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
@@ -77,7 +77,7 @@ export function CanvasViewport({
     () => {
       if (!project || !activeScreen) return [];
       if (view !== "overview") return [activeScreen];
-      return workspaceScreenScope(project, activeScreen);
+      return workspaceEditingScope(project, activeScreen);
     },
     [activeScreen, project, view],
   );

@@ -10,7 +10,8 @@ import {
   groupScreensByOutput,
   OVERVIEW_GAP,
   storeOutputLabel,
-  workspaceScreenScope,
+  workspaceEditingScope,
+  workspaceOverviewRows,
 } from "./editor-workspace";
 
 function scopeProject(mode: Project["mode"]): Project {
@@ -113,13 +114,80 @@ describe("editor workspace helpers", () => {
     ]);
   });
 
-  it("scopes connected workspaces to the exact group and isolated workspaces to the locale", () => {
+  it("keeps connected editing scope exact and isolated editing scope locale-based", () => {
     const connected = scopeProject("connected");
-    expect(workspaceScreenScope(connected, connected.screens[0]!).map((screen) => screen.id))
+    expect(workspaceEditingScope(connected, connected.screens[0]!).map((screen) => screen.id))
       .toEqual(["first", "second"]);
+
     const isolated = scopeProject("isolated");
-    expect(workspaceScreenScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
+    expect(workspaceEditingScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
       .toEqual(["first", "unrelated", "second"]);
+  });
+
+  it("returns every active-locale output family in stable project order", () => {
+    const connected = scopeProject("connected");
+    const rows = workspaceOverviewRows(connected, connected.screens[0]!);
+
+    expect(rows.map((row) => [row.key, row.active, row.screens.map((screen) => screen.id)]))
+      .toEqual([
+        ["apple/iphone", true, ["first", "second"]],
+        ["android/phone", false, ["unrelated"]],
+      ]);
+  });
+
+  it("substitutes only the active family's exact target group", () => {
+    const connected = scopeProject("connected");
+    const firstVariant = {
+      ...structuredClone(connected.screens[0]!),
+      id: "first-65",
+      variantOf: "first",
+      storeTargetId: "6.5",
+    };
+    const secondVariant = {
+      ...structuredClone(connected.screens[2]!),
+      id: "second-65",
+      variantOf: "second",
+      storeTargetId: "6.5",
+    };
+    connected.screens.push(firstVariant, secondVariant);
+
+    const rows = workspaceOverviewRows(connected, firstVariant);
+    expect(rows.map((row) => [row.label, row.screens.map((screen) => screen.id)]))
+      .toEqual([
+        ["App Store · iPhone · 6.5", ["first-65", "second-65"]],
+        ["Google Play · Android phone", ["unrelated"]],
+      ]);
+  });
+
+  it("falls back to the first exact group for a variant-only family", () => {
+    const connected = scopeProject("connected");
+    const variantOnly = {
+      ...structuredClone(connected.screens[1]!),
+      id: "android-target",
+      variantOf: "missing-root",
+      storeTargetId: "phone-lead",
+    };
+    connected.screens.splice(1, 1, variantOnly);
+
+    const rows = workspaceOverviewRows(connected, connected.screens[0]!);
+    expect(rows[1]).toMatchObject({
+      key: "android/phone",
+      label: "Google Play · Android phone · phone-lead",
+      active: false,
+    });
+    expect(rows[1]!.screens.map((screen) => screen.id)).toEqual(["android-target"]);
+  });
+
+  it("never mixes row platform, device, locale, or target identity", () => {
+    const connected = scopeProject("connected");
+    const rows = workspaceOverviewRows(connected, connected.screens[0]!);
+
+    for (const row of rows) {
+      const identities = new Set(row.screens.map((screen) =>
+        `${screen.platform}/${screen.device}/${screen.locale}/${screen.storeTargetId ?? "root"}`,
+      ));
+      expect(identities.size).toBe(1);
+    }
   });
 
   it("keeps root artboards and explicit target variants in separate workspace layers", () => {
@@ -132,9 +200,9 @@ describe("editor workspace helpers", () => {
       artboard: { width: 1284, height: 2778 },
     };
     isolated.screens.push(variant);
-    expect(workspaceScreenScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
+    expect(workspaceEditingScope(isolated, isolated.screens[0]!).map((screen) => screen.id))
       .toEqual(["first", "unrelated", "second"]);
-    expect(workspaceScreenScope(isolated, variant).map((screen) => screen.id))
+    expect(workspaceEditingScope(isolated, variant).map((screen) => screen.id))
       .toEqual(["first-65"]);
   });
 
@@ -156,9 +224,9 @@ describe("editor workspace helpers", () => {
     };
     connected.screens.push(firstVariant, secondVariant);
 
-    expect(workspaceScreenScope(connected, connected.screens[0]!).map((screen) => screen.id))
+    expect(workspaceEditingScope(connected, connected.screens[0]!).map((screen) => screen.id))
       .toEqual(["first", "second"]);
-    expect(workspaceScreenScope(connected, firstVariant).map((screen) => screen.id))
+    expect(workspaceEditingScope(connected, firstVariant).map((screen) => screen.id))
       .toEqual(["first-65", "second-65"]);
   });
 });

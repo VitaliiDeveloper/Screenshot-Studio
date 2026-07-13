@@ -13,7 +13,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { groupScreensByOutput, workspaceScreenScope } from "../lib/editor-workspace";
+import { groupScreensByOutput, workspaceEditingScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
@@ -67,7 +67,7 @@ export function ScreensSection({
   const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
   const activeLocale = activeScreen?.locale ?? project.locales[0]!;
   const screens = activeScreen
-    ? workspaceScreenScope(project, activeScreen)
+    ? workspaceEditingScope(project, activeScreen)
     : project.screens.filter((screen) => screen.locale === activeLocale);
   const localeRootScreenCount = project.screens.filter((screen) =>
     screen.locale === activeLocale && screen.variantOf === undefined,
