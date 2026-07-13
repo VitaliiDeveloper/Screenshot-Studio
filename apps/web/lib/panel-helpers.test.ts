@@ -10,6 +10,17 @@ describe("elementLabel", () => {
     expect(elementLabel({ type: "device-frame" })).toBe("Device frame");
     expect(elementLabel({ type: "text", name: "   " })).toBe("Text");
   });
+  it.each([
+    ["text", "Text"],
+    ["shape", "Shape"],
+    ["screenshot", "Screenshot"],
+    ["image", "Image"],
+    ["icon", "Icon"],
+    ["device-frame", "Device frame"],
+    ["group", "Group"],
+  ] as const)("labels the current %s element type", (type, label) => {
+    expect(elementLabel({ type })).toBe(label);
+  });
 });
 
 describe("viewToArrayIndex (reversed layers list)", () => {
