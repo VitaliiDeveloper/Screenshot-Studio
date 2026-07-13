@@ -181,7 +181,7 @@ export function MenuSelect<T extends string>({
                   "flex w-full items-center gap-2 text-left transition-colors",
                   compact
                     ? breadcrumb
-                      ? "min-h-9 border-b border-slate-100 px-2.5 py-1.5 text-[11px] font-normal leading-4 last:border-b-0"
+                      ? "min-h-11 border-b border-slate-100 px-2.5 py-1.5 text-[11px] font-normal leading-4 last:border-b-0"
                       : "h-8 rounded-none border-b border-slate-100 px-2 text-[11px] font-normal last:border-b-0"
                     : "h-9 rounded-lg px-2 text-xs font-medium",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60",
