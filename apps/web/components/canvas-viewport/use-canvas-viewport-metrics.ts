@@ -38,8 +38,6 @@ export function useCanvasViewportMetrics({
   rightInset,
   onZoomChange,
 }: CanvasViewportMetricsInput): {
-  contentWidth: number;
-  contentHeight: number;
   fitLayoutKey: string;
   fit: () => void;
 } {
@@ -121,5 +119,5 @@ export function useCanvasViewportMetrics({
     });
   }, [connected, contentHeight, contentWidth, leftInset, onZoomChange, outputRows, rightInset, screens.length, view, viewportRef, zoomRef]);
 
-  return { contentWidth, contentHeight, fitLayoutKey, fit };
+  return { fitLayoutKey, fit };
 }

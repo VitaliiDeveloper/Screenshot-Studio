@@ -84,7 +84,7 @@ export function CanvasViewport({
     return workspaceOverviewRows(project, activeScreen);
   }, [activeScreen, project, view]);
   const screens = view === "focus" && activeScreen ? [activeScreen] : editingScreens;
-  const { contentWidth, contentHeight, fitLayoutKey, fit } = useCanvasViewportMetrics({
+  const { fitLayoutKey, fit } = useCanvasViewportMetrics({
     viewportRef,
     zoomRef,
     screens,
