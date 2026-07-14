@@ -298,7 +298,7 @@ describe("project-ops", () => {
     expect(again.project).toBe(result.project);
   });
 
-  it("creates new watchOS output families with 3x custom masters", () => {
+  it("creates new watchOS output families with 3.5x custom masters", () => {
     const source = sampleProject();
     const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
       id: "ultra-3", width: 422, height: 514,
@@ -313,8 +313,8 @@ describe("project-ops", () => {
     expect(watchRoots).toHaveLength(2);
     expect(watchRoots.every((screen) =>
       screen.storeTargetId === undefined
-      && screen.artboard.width === 1266
-      && screen.artboard.height === 1542
+      && screen.artboard.width === 1477
+      && screen.artboard.height === 1799
     )).toBe(true);
     expect(source.screens.map((screen) => screen.artboard)).toEqual([
       { width: 1320, height: 2868 },
@@ -336,7 +336,16 @@ describe("project-ops", () => {
       id: "custom-watch-lead", width: 400, height: 500,
     });
 
-    expect(result.firstScreen.artboard).toEqual({ width: 1200, height: 1500 });
+    expect(result.firstScreen.artboard).toEqual({ width: 1400, height: 1750 });
+  });
+
+  it("rejects watchOS lead dimensions that cannot produce an integer 3.5x master", () => {
+    const source = sampleProject();
+
+    expect(() => ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+      id: "fractional-watch-lead", width: 401, height: 501,
+    })).toThrow(/derived artboard must use integer dimensions/);
+    expect(source.screens).toHaveLength(2);
   });
 
   it("reopens an existing fixed watchOS family without resizing it", () => {

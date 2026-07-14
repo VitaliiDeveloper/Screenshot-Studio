@@ -255,7 +255,7 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().project!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
   });
 
-  it("creates and selects a watchOS family with 3x custom masters", () => {
+  it("creates and selects a watchOS family with 3.5x custom masters", () => {
     editorStore.getState().ensureStoreOutputFamily("apple", "watchos", {
       id: "ultra-3",
       label: "Apple Watch Ultra 3 (lead)",
@@ -270,7 +270,7 @@ describe("editorStore screens (slice 4)", () => {
     );
     expect(watchRoots).toHaveLength(2);
     expect(watchRoots.every((screen) =>
-      screen.artboard.width === 1266 && screen.artboard.height === 1542
+      screen.artboard.width === 1477 && screen.artboard.height === 1799
     )).toBe(true);
     expect(state.activeScreenId).toBe(watchRoots[0]!.id);
     expect(state.project!.screens.find((screen) => screen.id === "hero")!.artboard)

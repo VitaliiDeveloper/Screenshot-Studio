@@ -46,7 +46,7 @@ function sourceProject(): Project {
 }
 
 describe("ScreenInspectorSections watchOS master status", () => {
-  it("shows a newly created 3x watchOS master as Custom", () => {
+  it("shows a newly created 3.5x watchOS master as Custom", () => {
     const result = ensureStoreOutputFamily(
       sourceProject(),
       "iphone-root",
@@ -67,7 +67,7 @@ describe("ScreenInspectorSections watchOS master status", () => {
     expect(markup).toContain(
       'aria-label="Customize master size" aria-pressed="true"',
     );
-    expect(markup).toContain("1266 × 1542 px");
+    expect(markup).toContain("1477 × 1799 px");
     expect(markup).toContain("Explicit custom scale for Apple Watch Ultra 3 (lead).");
   });
 });

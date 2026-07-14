@@ -153,7 +153,7 @@ describe("Phase 4 multi-locale bundle export", () => {
       device: "watchos",
       variantOf: undefined,
       storeTargetId: undefined,
-      artboard: { width: 1266, height: 1542 },
+      artboard: { width: 1477, height: 1799 },
     });
     const exactReference = {
       ...structuredClone(source.screens[0]!),

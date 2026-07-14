@@ -289,8 +289,9 @@ projection includes `storeTargetId` in the group identity so root and variant ca
 stitched together. Bundle export uses the lead target for roots and each explicit variant's own
 target id, with numbering restarted per target. New roots use their device family's exact lead
 artboard. Newly created editor-driven `apple/watchos` output families are the deliberate exception:
-core derives a 3× authoring master by multiplying the `store-specs.json` lead target, so the current
-422 × 514 lead creates a 1266 × 1542 root without persisting another target dimension. The editor
+core derives a 3.5× authoring master by multiplying the `store-specs.json` lead target, so the current
+422 × 514 lead creates a 1477 × 1799 root without persisting another target dimension. Core rejects
+a lead whose scaled dimensions are fractional instead of rounding and distorting its ratio. The editor
 therefore presents new watchOS masters as custom by default; ordinary exact masters remain fixed by
 default. Explicit customization and reset still resize every root composition in the output set
 atomically, while reset fits the set back to the exact lead dimensions. Exact and custom state are
@@ -334,7 +335,7 @@ Each exact `platform/device/locale` root set is an independently editable output
 family clones every root screen in the active locale with fresh screen and element ids, fits the
 copy to that family's core-derived master artboard, and never mutates or links it back to the source
 family. The master normally equals the lead target; editor-created `apple/watchos` families use the
-3× proportional master described above. Accepted non-lead sizes remain
+3.5× proportional master described above. Accepted non-lead sizes remain
 `variantOf`/`storeTargetId` variants of a root inside the same family. Both operations are
 idempotent: an existing output or size is opened unchanged instead of duplicated.
 

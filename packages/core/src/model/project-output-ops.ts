@@ -18,7 +18,7 @@ export interface StoreTargetDimensions {
   height: number;
 }
 
-const WATCHOS_AUTHORING_MASTER_SCALE = 3;
+const WATCHOS_AUTHORING_MASTER_SCALE = 3.5;
 
 /**
  * New output families author at their lead store size by default. watchOS uses a larger editor
@@ -32,10 +32,18 @@ function deriveInitialAuthoringArtboard(
     return { width: leadTarget.width, height: leadTarget.height };
   }
 
-  return {
+  const artboard = {
     width: leadTarget.width * WATCHOS_AUTHORING_MASTER_SCALE,
     height: leadTarget.height * WATCHOS_AUTHORING_MASTER_SCALE,
   };
+  if (!Number.isInteger(artboard.width) || !Number.isInteger(artboard.height)) {
+    throw new Error(
+      `Cannot derive a ${WATCHOS_AUTHORING_MASTER_SCALE}x watchOS authoring master from lead target `
+      + `"${leadTarget.width}x${leadTarget.height}": derived artboard must use integer dimensions`,
+    );
+  }
+
+  return artboard;
 }
 
 /** Resize every root/master in one store output set; size variants remain independent. */

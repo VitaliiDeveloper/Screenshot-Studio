@@ -139,7 +139,7 @@ actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
 - **No selection** → active **artboard** properties: an exact lead master shown as fixed by default,
-  except newly created editor-driven watchOS output families, whose proportional 3× authoring
+  except newly created editor-driven watchOS output families, whose proportional 3.5× authoring
   masters are shown as custom. The section retains explicit output-set-wide atomic custom-size/reset
   actions, independent exact-size variants, and background:
   `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
@@ -177,7 +177,7 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 - **Store outputs** lists App Store iPhone/iPad/macOS/tvOS/watchOS, Google Play Android phone, and
   Microsoft Store Windows desktop. Creating an output copies the active locale's complete root set
   with fresh screen/element ids and leaves the source family unchanged. New watchOS output families
-  use a core-derived 1266 × 1542 custom master from the 422 × 514 lead target; other families keep
+  use a core-derived 1477 × 1799 custom master from the 422 × 514 lead target; other families keep
   their exact lead masters. Inside the active output, the lead row remains its root/master; accepted
   non-lead sizes create independent exact variants without leaving the current canvas context, and
   each variant remains available to open explicitly. Removing a variant preserves its master.
