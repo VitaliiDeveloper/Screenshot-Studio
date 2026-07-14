@@ -242,6 +242,59 @@ describe("project-ops", () => {
     expect(again.project).toBe(result.project);
   });
 
+  it("creates new watchOS output families with 3x custom masters", () => {
+    const source = sampleProject();
+    const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+
+    const watchRoots = result.project.screens.filter((screen) =>
+      screen.platform === "apple"
+      && screen.device === "watchos"
+      && screen.variantOf === undefined,
+    );
+    expect(result.created).toBe(true);
+    expect(watchRoots).toHaveLength(2);
+    expect(watchRoots.every((screen) =>
+      screen.storeTargetId === undefined
+      && screen.artboard.width === 1266
+      && screen.artboard.height === 1542
+    )).toBe(true);
+    expect(source.screens.map((screen) => screen.artboard)).toEqual([
+      { width: 1320, height: 2868 },
+      { width: 1320, height: 2868 },
+    ]);
+
+    const variant = ensureStoreTargetVariant(result.project, watchRoots[0]!.id, {
+      id: "ultra-2", width: 410, height: 502,
+    }).variant;
+    expect(variant).toMatchObject({
+      variantOf: watchRoots[0]!.id,
+      storeTargetId: "ultra-2",
+      artboard: { width: 410, height: 502 },
+    });
+  });
+
+  it("reopens an existing fixed watchOS family without resizing it", () => {
+    const source = sampleProject();
+    source.screens.push({
+      ...structuredClone(source.screens[0]!),
+      id: "existing-watch",
+      device: "watchos",
+      artboard: { width: 422, height: 514 },
+      elements: [],
+    });
+
+    const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.project).toBe(source);
+    expect(result.firstScreen.id).toBe("existing-watch");
+    expect(result.firstScreen.artboard).toEqual({ width: 422, height: 514 });
+  });
+
   it("removes one target variant and cascades variants when their root is removed", () => {
     const first = ensureStoreTargetVariant(sampleProject(), "hero", {
       id: "6.5", width: 1284, height: 2778,

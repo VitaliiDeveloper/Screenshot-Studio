@@ -127,6 +127,13 @@ describe("Phase 4 multi-locale bundle export", () => {
     const target = specs.apple?.watchos?.find((candidate) => candidate.id === "ultra-3");
     expect(target).toBeDefined();
     const result = ensureStoreOutputFamily(source, source.screens[0]!.id, "apple", "watchos", target!);
+    expect(result.firstScreen).toMatchObject({
+      platform: "apple",
+      device: "watchos",
+      variantOf: undefined,
+      storeTargetId: undefined,
+      artboard: { width: 1266, height: 1542 },
+    });
     const entry = buildBundleEntries(result.project, specs, {})
       .find((candidate) => candidate.screen.id === result.firstScreen.id);
     expect(entry).toMatchObject({

@@ -18,6 +18,21 @@ export interface StoreTargetDimensions {
   height: number;
 }
 
+const WATCHOS_MASTER_SCALE = 3;
+
+function storeOutputMasterArtboard(
+  placement: Pick<Screen, "platform" | "device">,
+  leadTarget: StoreTargetDimensions,
+): { width: number; height: number } {
+  const scale = placement.platform === "apple" && placement.device === "watchos"
+    ? WATCHOS_MASTER_SCALE
+    : 1;
+  return {
+    width: leadTarget.width * scale,
+    height: leadTarget.height * scale,
+  };
+}
+
 /** Resize every root/master in one store output set; size variants remain independent. */
 export function resizeStoreOutputArtboards(
   project: ProjectModel,
@@ -58,7 +73,7 @@ export interface StoreOutputFamilyResult {
 
 /**
  * Create one independent platform/device output set for the source locale. Every root screen in
- * the source family is copied with fresh ids and fitted to the destination lead artboard; size
+ * the source family is copied with fresh ids and fitted to the destination master artboard; size
  * variants remain family-local and are deliberately not copied.
  */
 export function ensureStoreOutputFamily(
@@ -95,6 +110,7 @@ export function ensureStoreOutputFamily(
   );
   if (sourceRoots.length === 0) throw new Error(`No source output screens for "${sourceRootId}"`);
 
+  const masterArtboard = storeOutputMasterArtboard(placement, leadTarget);
   const copies = sourceRoots.map((root) => {
     const copy = cloneScreenWithFreshIds(root);
     return ScreenSchema.parse({
@@ -103,8 +119,8 @@ export function ensureStoreOutputFamily(
       name: root.name,
       variantOf: undefined,
       storeTargetId: undefined,
-      artboard: { width: leadTarget.width, height: leadTarget.height },
-      elements: fitElementsToArtboard(copy.elements, root.artboard, leadTarget),
+      artboard: masterArtboard,
+      elements: fitElementsToArtboard(copy.elements, root.artboard, masterArtboard),
     });
   });
   const next = recomputeManifests({ ...project, screens: [...project.screens, ...copies] });

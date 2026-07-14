@@ -251,6 +251,28 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().project!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
   });
 
+  it("creates and selects a watchOS family with 3x custom masters", () => {
+    editorStore.getState().ensureStoreOutputFamily("apple", "watchos", {
+      id: "ultra-3",
+      label: "Apple Watch Ultra 3 (lead)",
+      width: 422,
+      height: 514,
+      orientation: "portrait",
+    });
+
+    const state = editorStore.getState();
+    const watchRoots = state.project!.screens.filter((screen) =>
+      screen.device === "watchos" && screen.variantOf === undefined,
+    );
+    expect(watchRoots).toHaveLength(2);
+    expect(watchRoots.every((screen) =>
+      screen.artboard.width === 1266 && screen.artboard.height === 1542
+    )).toBe(true);
+    expect(state.activeScreenId).toBe(watchRoots[0]!.id);
+    expect(state.project!.screens.find((screen) => screen.id === "hero")!.artboard)
+      .toEqual({ width: 660, height: 1434 });
+  });
+
   it("reorders variants only inside the visible platform/device target layer", () => {
     const current = editorStore.getState().project!;
     const heroVariant: Project["screens"][number] = {
