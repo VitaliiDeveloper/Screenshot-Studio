@@ -20,8 +20,10 @@ async function projectFiles(directory: string): Promise<string[]> {
 describe("tracked project fixtures", () => {
   it("all validate directly against the complete strict schema", async () => {
     const failures: string[] = [];
+    const paths = await projectFiles(fixturesRoot);
+    expect(paths.length).toBeGreaterThan(0);
 
-    for (const path of await projectFiles(fixturesRoot)) {
+    for (const path of paths) {
       const raw: unknown = JSON.parse(await readFile(path, "utf8"));
       const result = Project.safeParse(raw);
       if (!result.success) {

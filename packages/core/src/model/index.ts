@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Project, type Project as ProjectType } from "./schema.js";
+import { Project, SCHEMA_VERSION, type Project as ProjectType } from "./schema.js";
 
 export * from "./schema.js";
 export * from "./device-frames.js";
@@ -36,8 +36,10 @@ export function parseProject(raw: unknown): ProjectType {
   const schemaVersion = meta && typeof meta === "object" && !Array.isArray(meta)
     ? (meta as Record<string, unknown>).schemaVersion
     : undefined;
-  if (typeof schemaVersion === "number" && Number.isFinite(schemaVersion) && schemaVersion !== 1) {
-    const message = `Unsupported project schema version ${schemaVersion}. This build accepts version 1 only.`;
+  if (typeof schemaVersion === "number"
+    && Number.isFinite(schemaVersion)
+    && schemaVersion !== SCHEMA_VERSION) {
+    const message = `Unsupported project schema version ${schemaVersion}. This build accepts version ${SCHEMA_VERSION} only.`;
     throw new ProjectValidationError(message, "");
   }
 
