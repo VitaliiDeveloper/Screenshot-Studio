@@ -2,21 +2,9 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
 import {
-  cloneLocaleSet as cloneLocaleSetCore,
-  cloneScreenWithFreshIds,
-  ensureStoreOutputFamily as ensureStoreOutputFamilyCore,
-  ensureStoreTargetVariant as ensureStoreTargetVariantCore,
   duplicateElement as duplicateElementCore,
   findElementLocation,
   groupElements as groupElementsCore,
-  recomputeManifests,
-  removeScreenFromProject as removeScreenFromProjectCore,
-  removeStoreTargetVariant as removeStoreTargetVariantCore,
-  removeLocaleSet as removeLocaleSetCore,
-  resizeStoreOutputArtboards,
-  sameScreenGroup,
-  setCanvasMode as setCanvasModeCore,
-  setLocaleDirection as setLocaleDirectionCore,
   ungroupElement as ungroupElementCore,
   type CanvasMode,
   type Background,
@@ -37,6 +25,33 @@ import {
   type ElementPatchRequest,
 } from "./editor-element-patch.js";
 import { forEachSelectedElement } from "./editor-selection-mutations.js";
+import {
+  recordProjectChange,
+  redoProjectChange,
+  selectionForProject,
+  undoProjectChange,
+} from "./editor-history.js";
+import {
+  appendBlankScreen,
+  appendClonedScreen,
+  appendScreenElement,
+  removeProjectScreen,
+  removeScreenElement,
+  reorderProjectScreens,
+  reorderScreenElements,
+  replaceProjectFonts,
+  resizeProjectArtboards,
+  setScreenBackground,
+} from "./editor-screen-mutations.js";
+import {
+  changeCanvasMode,
+  changeProjectLocaleDirection,
+  cloneProjectLocale,
+  createStoreOutputFamily,
+  createStoreTargetVariant,
+  deleteProjectLocale,
+  deleteStoreTargetVariant,
+} from "./editor-project-actions.js";
 
 export {
   applyElementPatch,
@@ -100,45 +115,6 @@ export interface EditorState {
   endHistoryGroup: () => void;
   undo: () => void;
   redo: () => void;
-}
-
-/** In-place array move for Immer drafts (arrayMove returns a new array; drafts want mutation). */
-function moveInPlace<T>(arr: T[], from: number, to: number): void {
-  if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return;
-  const [item] = arr.splice(from, 1);
-  arr.splice(to, 0, item as T);
-}
-
-const HISTORY_LIMIT = 50;
-
-function recordProjectChange(
-  state: EditorState,
-  project: Project,
-  historyGroupKey: string | null = null,
-  extra: Partial<EditorState> = {},
-): EditorState | Partial<EditorState> {
-  if (!state.project || project === state.project) return state;
-  const continuesGroup = historyGroupKey !== null && state.historyGroupKey === historyGroupKey;
-  const historyPast = continuesGroup
-    ? state.historyPast
-    : [...state.historyPast, state.project].slice(-HISTORY_LIMIT);
-  return {
-    project,
-    historyPast,
-    historyFuture: [],
-    historyGroupKey,
-    ...extra,
-  };
-}
-
-function selectionForProject(state: EditorState, project: Project) {
-  const activeScreenId = project.screens.some((screen) => screen.id === state.activeScreenId)
-    ? state.activeScreenId
-    : project.screens[0]?.id ?? null;
-  return {
-    activeScreenId,
-    selectedItems: reconcileSelection(project, activeScreenId, state.selectedItems),
-  };
 }
 
 export const editorStore = createStore<EditorState>((set) => ({
@@ -339,248 +315,144 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   reorderScreens: (fromId, toId) =>
     set((state) => {
-      if (!state.project || fromId === toId) return state;
-      const fromScreen = state.project.screens.find((screen) => screen.id === fromId);
-      const toScreen = state.project.screens.find((screen) => screen.id === toId);
-      if (!fromScreen || !toScreen) return state;
-      const inScope = state.project.mode === "connected"
-        ? (screen: typeof fromScreen) => sameScreenGroup(screen, fromScreen)
-        : (screen: typeof fromScreen) => screen.locale === fromScreen.locale
-          && screen.platform === fromScreen.platform
-          && screen.device === fromScreen.device
-          && screen.storeTargetId === fromScreen.storeTargetId;
-      if (!inScope(toScreen)) return state;
-      const project = produce(state.project, (draft) => {
-        const indices = draft.screens
-          .map((screen, index) => inScope(screen) ? index : -1)
-          .filter((index) => index >= 0);
-        const screens = indices.map((index) => draft.screens[index]!);
-        const from = screens.findIndex((screen) => screen.id === fromId);
-        const to = screens.findIndex((screen) => screen.id === toId);
-        moveInPlace(screens, from, to);
-        indices.forEach((index, position) => { draft.screens[index] = screens[position]!; });
-      });
-      return recordProjectChange(state, project);
+      if (!state.project) return state;
+      return recordProjectChange(state, reorderProjectScreens(state.project, fromId, toId));
     }),
   setCanvasMode: (mode) =>
     set((state) => {
       if (!state.project) return state;
-      const project = setCanvasModeCore(state.project, mode);
-      return recordProjectChange(state, project, null, {
-        selectedItems: reconcileSelection(project, state.activeScreenId, state.selectedItems),
-      });
+      const result = changeCanvasMode(
+        state.project,
+        state.activeScreenId,
+        state.selectedItems,
+        mode,
+      );
+      return recordProjectChange(state, result.project, null, result);
     }),
   addScreen: () =>
     set((state) => {
       if (!state.project) return state;
-      const active =
-        state.project.screens.find((s) => s.id === state.activeScreenId) ??
-        state.project.screens[0];
-      if (!active) return state;
-      const source = active.variantOf
-        ? state.project.screens.find((screen) => screen.id === active.variantOf) ?? active
-        : active;
-      const cloned = cloneScreenWithFreshIds(source);
-      const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...copy } = cloned;
-      const project = recomputeManifests({
-        ...state.project,
-        screens: [...state.project.screens, copy as typeof cloned],
-      });
-      return recordProjectChange(state, project, null, {
-        activeScreenId: copy.id,
-        selectedItems: [],
-      });
+      const result = appendClonedScreen(state.project, state.activeScreenId);
+      return recordProjectChange(state, result.project, null, result);
     }),
   addBlankScreen: () =>
     set((state) => {
       if (!state.project) return state;
-      const active =
-        state.project.screens.find((screen) => screen.id === state.activeScreenId) ??
-        state.project.screens[0];
-      if (!active) return state;
-      const source = active.variantOf
-        ? state.project.screens.find((screen) => screen.id === active.variantOf) ?? active
-        : active;
-      const cloned = structuredClone(source);
-      const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...added } = {
-        ...cloned,
-        id: crypto.randomUUID(),
-        name: "Untitled",
-        elements: [],
-      };
-      const project = recomputeManifests({
-        ...state.project,
-        screens: [...state.project.screens, added],
-      });
-      return recordProjectChange(state, project, null, {
-        activeScreenId: added.id,
-        selectedItems: [],
-      });
+      const result = appendBlankScreen(state.project, state.activeScreenId);
+      return recordProjectChange(state, result.project, null, result);
     }),
   removeScreen: (id) =>
     set((state) => {
       if (!state.project) return state;
-      const idx = state.project.screens.findIndex((s) => s.id === id);
-      if (idx === -1) return state;
-      const removed = state.project.screens[idx]!;
-      const localeRootScreens = state.project.screens.filter((screen) =>
-        screen.variantOf === undefined && screen.locale === removed.locale,
+      const result = removeProjectScreen(
+        state.project,
+        id,
+        state.activeScreenId,
+        state.selectedItems,
       );
-      if (removed.variantOf === undefined && localeRootScreens.length <= 1) return state;
-      const removedIds = new Set([id, ...state.project.screens
-        .filter((screen) => screen.variantOf === id)
-        .map((screen) => screen.id)]);
-      const project = removeScreenFromProjectCore(state.project, id);
-      const wasActive = state.activeScreenId ? removedIds.has(state.activeScreenId) : false;
-      const activeScreenId = wasActive
-        ? (project.screens.find((screen) =>
-          screen.locale === removed.locale && screen.storeTargetId === removed.storeTargetId,
-        ) ?? project.screens.find((screen) => screen.locale === removed.locale)
-          ?? project.screens[Math.min(idx, project.screens.length - 1)])!.id
-        : state.activeScreenId;
-      const selectedItems = state.selectedItems.filter((item) => !removedIds.has(item.screenId));
-      return recordProjectChange(state, project, null, {
-        activeScreenId,
-        selectedItems: reconcileSelection(project, activeScreenId, selectedItems),
-      });
+      return recordProjectChange(state, result.project, null, result);
     }),
   ensureStoreOutputFamily: (platform, device, leadTarget) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const result = ensureStoreOutputFamilyCore(
+      const result = createStoreOutputFamily(
         state.project,
         state.activeScreenId,
         platform,
         device,
         leadTarget,
       );
-      return recordProjectChange(state, result.project, null, {
-        activeScreenId: result.firstScreen.id,
-        selectedItems: [],
-      });
+      return recordProjectChange(state, result.project, null, result);
     }),
   ensureStoreTargetVariant: (target) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const result = ensureStoreTargetVariantCore(state.project, state.activeScreenId, target);
-      return recordProjectChange(state, result.project, null, {
-        activeScreenId: result.variant.id,
-        selectedItems: [],
-      });
+      const result = createStoreTargetVariant(state.project, state.activeScreenId, target);
+      return recordProjectChange(state, result.project, null, result);
     }),
   removeStoreTargetVariant: (rootScreenId, storeTargetId) =>
     set((state) => {
       if (!state.project) return state;
-      const variant = state.project.screens.find((screen) =>
-        screen.variantOf === rootScreenId && screen.storeTargetId === storeTargetId,
+      const result = deleteStoreTargetVariant(
+        state.project,
+        state.activeScreenId,
+        state.selectedItems,
+        rootScreenId,
+        storeTargetId,
       );
-      if (!variant) return state;
-      const project = removeStoreTargetVariantCore(state.project, rootScreenId, storeTargetId);
-      const activeScreenId = state.activeScreenId === variant.id ? rootScreenId : state.activeScreenId;
-      return recordProjectChange(state, project, null, {
-        activeScreenId,
-        selectedItems: state.selectedItems.filter((item) => item.screenId !== variant.id),
-      });
+      return recordProjectChange(state, result.project, null, result);
     }),
   addLocale: (sourceLocale, targetLocale, direction) =>
     set((state) => {
       if (!state.project) return state;
-      const project = cloneLocaleSetCore(state.project, sourceLocale, targetLocale, direction);
-      const activeScreenId = project.screens.find((screen) => screen.locale === targetLocale)!.id;
-      return recordProjectChange(state, project, null, {
-        activeScreenId,
-        selectedItems: [],
-      });
+      const result = cloneProjectLocale(state.project, sourceLocale, targetLocale, direction);
+      return recordProjectChange(state, result.project, null, result);
     }),
   setLocaleDirection: (locale, direction) =>
     set((state) => {
       if (!state.project) return state;
       return recordProjectChange(
         state,
-        setLocaleDirectionCore(state.project, locale, direction),
+        changeProjectLocaleDirection(state.project, locale, direction),
       );
     }),
   removeLocale: (locale) =>
     set((state) => {
       if (!state.project) return state;
-      const activeScreen = state.project.screens.find((screen) => screen.id === state.activeScreenId);
-      const project = removeLocaleSetCore(state.project, locale);
-      if (activeScreen?.locale !== locale) return recordProjectChange(state, project);
-      return recordProjectChange(state, project, null, {
-        activeScreenId: project.screens[0]!.id,
-        selectedItems: [],
-      });
+      const result = deleteProjectLocale(
+        state.project,
+        state.activeScreenId,
+        locale,
+      );
+      return recordProjectChange(state, result.project, null, result);
     }),
   reorderElements: (from, to) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const project = produce(state.project, (draft) => {
-        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
-        if (screen) moveInPlace(screen.elements, from, to);
-      });
-      return recordProjectChange(state, project);
+      return recordProjectChange(
+        state,
+        reorderScreenElements(state.project, state.activeScreenId, from, to),
+      );
     }),
   removeElement: (id, screenId) =>
     set((state) => {
       if (!state.project) return state;
-      const primary = primarySelection(state.selectedItems);
-      const ownerScreenId = screenId
-        ?? (primary?.elementId === id ? primary.screenId : null)
-        ?? state.activeScreenId;
-      if (!ownerScreenId) return state;
-      const project = produce(state.project, (draft) => {
-        const screen = draft.screens.find((s) => s.id === ownerScreenId);
-        if (!screen) return;
-        for (let elementIndex = screen.elements.length - 1; elementIndex >= 0; elementIndex -= 1) {
-          const element = screen.elements[elementIndex]!;
-          if (element.id === id) {
-            screen.elements.splice(elementIndex, 1);
-            continue;
-          }
-          if (element.type !== "group") continue;
-          const childIndex = element.children.findIndex((child) => child.id === id);
-          if (childIndex >= 0) element.children.splice(childIndex, 1);
-          if (element.children.length === 0) screen.elements.splice(elementIndex, 1);
-        }
-      });
-      return recordProjectChange(state, project, null, {
-        selectedItems: state.selectedItems.filter(
-          (item) => item.screenId !== ownerScreenId || item.elementId !== id,
-        ),
-      });
+      const result = removeScreenElement(
+        state.project,
+        state.activeScreenId,
+        state.selectedItems,
+        id,
+        screenId,
+      );
+      return recordProjectChange(state, result.project, null, result);
     }),
   addElement: (element) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const project = produce(state.project, (draft) => {
-        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
-        if (screen) screen.elements.push(element);
-      });
-      return recordProjectChange(state, project, null, {
-        selectedItems: [{ screenId: state.activeScreenId, elementId: element.id }],
-      });
+      const result = appendScreenElement(state.project, state.activeScreenId, element);
+      return recordProjectChange(state, result.project, null, result);
     }),
   setBackground: (background) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const project = produce(state.project, (draft) => {
-        const screen = draft.screens.find((s) => s.id === state.activeScreenId);
-        if (screen) screen.background = background;
-      });
-      return recordProjectChange(state, project, `background:${state.activeScreenId}`);
+      return recordProjectChange(
+        state,
+        setScreenBackground(state.project, state.activeScreenId, background),
+        `background:${state.activeScreenId}`,
+      );
     }),
   resizeArtboard: (size) =>
     set((state) => {
       if (!state.project || !state.activeScreenId) return state;
-      const active = state.project.screens.find((screen) => screen.id === state.activeScreenId);
-      if (!active || active.storeTargetId !== undefined) return state;
-      const project = resizeStoreOutputArtboards(state.project, active.id, size);
-      return recordProjectChange(state, project);
+      return recordProjectChange(
+        state,
+        resizeProjectArtboards(state.project, state.activeScreenId, size),
+      );
     }),
   replaceFonts: (fonts) =>
     set((state) => {
       if (!state.project) return state;
-      return recordProjectChange(state, { ...state.project, fonts });
+      return recordProjectChange(state, replaceProjectFonts(state.project, fonts));
     }),
   replaceProject: (project) =>
     set((state) => {
@@ -593,28 +465,6 @@ export const editorStore = createStore<EditorState>((set) => ({
       };
     }),
   endHistoryGroup: () => set({ historyGroupKey: null }),
-  undo: () =>
-    set((state) => {
-      if (!state.project || state.historyPast.length === 0) return state;
-      const project = state.historyPast.at(-1)!;
-      return {
-        project,
-        ...selectionForProject(state, project),
-        historyPast: state.historyPast.slice(0, -1),
-        historyFuture: [state.project, ...state.historyFuture].slice(0, HISTORY_LIMIT),
-        historyGroupKey: null,
-      };
-    }),
-  redo: () =>
-    set((state) => {
-      if (!state.project || state.historyFuture.length === 0) return state;
-      const [project, ...historyFuture] = state.historyFuture;
-      return {
-        project: project!,
-        ...selectionForProject(state, project!),
-        historyPast: [...state.historyPast, state.project].slice(-HISTORY_LIMIT),
-        historyFuture,
-        historyGroupKey: null,
-      };
-    }),
+  undo: () => set((state) => undoProjectChange(state)),
+  redo: () => set((state) => redoProjectChange(state)),
 }));

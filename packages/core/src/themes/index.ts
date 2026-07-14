@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from "zod";
 import {
+  FontWeight,
   HexColor,
   Project,
   THEME_ROLES,
@@ -12,7 +13,7 @@ import { mapElementLeaves } from "../model/element-tree.js";
 const ThemeFont = z
   .object({
     family: z.string().min(1),
-    weight: z.number().int().min(100).max(900).default(400),
+    weight: FontWeight,
   })
   .strict();
 

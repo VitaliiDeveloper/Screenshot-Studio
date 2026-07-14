@@ -18,6 +18,7 @@ let projectFile: string;
 
 function writeWorkspaceBaseline(): void {
   const baseline = JSON.parse(readFileSync(sample, "utf8")) as {
+    mode: "isolated" | "connected";
     platforms: string[];
     screens: Array<{ platform: string; device: string; variantOf?: string; storeTargetId?: string }>;
   };
@@ -27,6 +28,7 @@ function writeWorkspaceBaseline(): void {
     && screen.variantOf === undefined
     && screen.storeTargetId === undefined,
   );
+  baseline.mode = "isolated";
   baseline.platforms = ["apple"];
   writeFileSync(projectFile, `${JSON.stringify(baseline, null, 2)}\n`);
 }
@@ -153,53 +155,42 @@ describe("Phase 3.6 editor workspace", () => {
     const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
 
-    const outputFamily = page.getByRole("button", { name: "Output family for en", exact: true });
-    await expect.poll(() => outputFamily.count()).toBe(1);
-    expect(await outputFamily.textContent()).toContain("App Store / iPad · 3 screens");
-    const outputFamilySurface = await outputFamily.evaluate((element) => {
-      const triggerStyle = getComputedStyle(element);
-      const surfaceStyle = getComputedStyle(element.parentElement?.parentElement ?? element);
-      return {
-        triggerBackground: triggerStyle.backgroundColor,
-        triggerFontSize: getComputedStyle(element.querySelector("span") ?? element).fontSize,
-        surfaceBackground: surfaceStyle.backgroundColor,
-        paddingTop: surfaceStyle.paddingTop,
-        paddingBottom: surfaceStyle.paddingBottom,
-      };
-    });
-    expect(outputFamilySurface.triggerBackground).toBe("rgba(0, 0, 0, 0)");
-    expect(outputFamilySurface.triggerFontSize).toBe("11px");
-    expect(outputFamilySurface.surfaceBackground).not.toBe("rgba(0, 0, 0, 0)");
-    expect(outputFamilySurface.paddingTop).toBe(outputFamilySurface.paddingBottom);
+    expect(await page.getByRole("button", { name: "Output family for en", exact: true }).count()).toBe(0);
+    expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
 
-    await outputFamily.click();
-    const outputOptions = page.getByRole("menu", { name: "Output family options for en", exact: true });
-    await expect.poll(() => outputOptions.getByRole("menuitemradio").count()).toBe(2);
-    expect(await outputOptions.evaluate((element) => getComputedStyle(element).animationName)).toBe("menu-select-in");
-    expect(await outputOptions.getByRole("menuitemradio").first().evaluate((element) => element.getBoundingClientRect().height))
-      .toBeGreaterThanOrEqual(40);
-    expect(await outputOptions.getByRole("menuitemradio").first().evaluate((element) =>
-      getComputedStyle(element.querySelector("span") ?? element).fontSize,
-    )).toBe("11px");
-    expect(await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true })
-      .getAttribute("aria-checked")).toBe("true");
+    const outputRows = page.getByTestId("overview-output-row");
+    await expect.poll(() => outputRows.count()).toBe(2);
+    expect(await page.locator('[data-testid="overview-output-row"][data-editing="true"]').count()).toBe(1);
+    const activeOutputRow = outputRows.filter({ hasText: "App Store · iPad" });
+    expect(await activeOutputRow.getAttribute("data-editing")).toBe("true");
+    expect(await activeOutputRow.getByText("Editing", { exact: true }).count()).toBe(1);
+    const inactiveOutputRows = page.locator('[data-testid="overview-output-row"][data-editing="false"]');
+    expect(await inactiveOutputRows.count()).toBe(1);
+    expect(await inactiveOutputRows.getByText("Editing", { exact: true }).count()).toBe(0);
 
-    const ipadScreens = page.getByRole("list", { name: "Screens for en · App Store · iPad", exact: true });
+    await page.getByRole("button", { name: "Close inspector", exact: true }).click();
+    expect(await page.getByTestId("store-outputs-section").count()).toBe(0);
+    await page.getByRole("button", { name: "Inspect", exact: true }).click();
+    const storeOutputs = page.getByTestId("store-outputs-section");
+    await storeOutputs.waitFor({ state: "visible" });
+    await expect.poll(() => storeOutputs.getByText("Store outputs", { exact: true }).count()).toBe(1);
+
+    const ipadScreens = page.getByRole("list", { name: "Screens for en · ipad", exact: true });
     await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
     expect(await ipadScreens.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
     expect(await ipadScreens.evaluate((element) => getComputedStyle(element).maxHeight)).toBe("256px");
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
-    await outputOptions.getByRole("menuitemradio", { name: "App Store · iPhone · 3", exact: true }).click();
-    const iphoneScreens = page.getByRole("list", { name: "Screens for en · App Store · iPhone", exact: true });
+    const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
+    await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
+    const iphoneScreens = page.getByRole("list", { name: "Screens for en · iphone", exact: true });
     await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
-    expect(await outputFamily.textContent()).toContain("App Store / iPhone · 3 screens");
+    expect(await page.getByRole("button", { name: "Hero · ipad", exact: true }).count()).toBe(0);
     expect(await page.getByTestId("overview-output-families").getByRole("region").count()).toBe(2);
 
-    await outputFamily.click();
-    await outputOptions.getByRole("menuitemradio", { name: "App Store · iPad · 3", exact: true }).click();
+    await ipadOutput.getByRole("button", { name: "Open", exact: true }).click();
 
     const iphoneRow = page.getByRole("region", { name: "App Store · iPhone output row", exact: true });
     const ipadRow = page.getByRole("region", { name: "App Store · iPad output row", exact: true });
@@ -279,9 +270,9 @@ describe("Phase 3.6 editor workspace", () => {
       return Math.max(...tops) - Math.min(...tops) < 1;
     })).toBe(true);
 
-    const iphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
-    await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
-    await expect.poll(() => iphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    const finalIphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
+    await finalIphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
+    await expect.poll(() => finalIphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
     await page.close();
     writeWorkspaceBaseline();
   });
@@ -296,11 +287,27 @@ describe("Phase 3.6 editor workspace", () => {
     const viewportBox = (await page.getByTestId("canvas-viewport").boundingBox())!;
     const artboards = page.getByTestId("overview-artboards").locator("[data-screen-id]");
     await expect.poll(() => artboards.count()).toBe(3);
+    const previewItems = page.getByTestId("artboard-preview-item");
+    expect(await previewItems.count()).toBe(3);
     for (let index = 0; index < 3; index += 1) {
       const box = (await artboards.nth(index).boundingBox())!;
+      const item = previewItems.nth(index);
+      const titleBox = (await item.getByTestId("artboard-preview-label").boundingBox())!;
+      const metadataBox = (await item.getByTestId("artboard-preview-caption").boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(viewportBox.x + 68);
       expect(box.x + box.width).toBeLessThanOrEqual(viewportBox.x + viewportBox.width - 68);
+      expect(titleBox.y + titleBox.height).toBeLessThanOrEqual(box.y);
+      expect(metadataBox.y).toBeGreaterThanOrEqual(box.y + box.height);
     }
+
+    const secondScreen = project().screens[1]!;
+    const inactiveArtboard = page.getByRole("button", { name: `Edit ${secondScreen.name}`, exact: true });
+    await inactiveArtboard.focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => page.getByRole("button", {
+      name: `${secondScreen.name} · ${secondScreen.device}`,
+      exact: true,
+    }).getAttribute("aria-current")).toBe("true");
 
     const focus = page.getByRole("button", { name: "Focus", exact: true });
     await focus.focus();
@@ -319,10 +326,16 @@ describe("Phase 3.6 editor workspace", () => {
     await page.waitForSelector("canvas");
 
     const viewport = page.getByTestId("canvas-viewport");
-    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("running");
+    await expect.poll(async () => {
+      const state = await viewport.getAttribute("data-initial-reveal");
+      return state === "running" || state === "idle";
+    }).toBe(true);
     const revealCleanupMinimumOpacity = viewport.evaluate(async (element) => {
       const content = element.querySelector<HTMLElement>('[data-testid="overview-artboards"]');
       if (!content) return 0;
+      if (element.getAttribute("data-initial-reveal") === "idle") {
+        return Number.parseFloat(getComputedStyle(content).opacity);
+      }
       let reachedFinalOpacity = false;
       let minimumOpacity = 1;
       let settledFrames = 0;
@@ -372,10 +385,14 @@ describe("Phase 3.6 editor workspace", () => {
 
     // Overview is a projection of every isolated screen in export order.
     const screenAdd = page.getByRole("button", { name: "Add screen", exact: true });
+    const duplicateCurrent = page.getByRole("menu", { name: "Add screen options", exact: true })
+      .getByRole("menuitem", { name: "Duplicate current", exact: true });
     const baseScreenCount = project().screens.length;
     await screenAdd.click();
+    await duplicateCurrent.click();
     await expect.poll(() => project().screens.length, { timeout: 10_000 }).toBe(baseScreenCount + 1);
     await screenAdd.click();
+    await duplicateCurrent.click();
     await expect.poll(() => project().screens.length, { timeout: 10_000 }).toBe(baseScreenCount + 2);
     await expect.poll(() => page.getByTestId("overview-artboards").locator("canvas").count()).toBe(baseScreenCount + 2);
 
@@ -437,6 +454,41 @@ describe("Phase 3.6 editor workspace", () => {
 
     await zoomControls.getByRole("button", { name: "Fit" }).click();
     await expect.poll(async () => Number.parseInt((await percent.textContent()) ?? "100", 10)).toBeLessThan(100);
+    await page.close();
+  });
+
+  it("keeps compact Structure free of output navigation and opens outputs through Inspect", async () => {
+    const page = await browser.newPage({ viewport: { width: 720, height: 900 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+
+    const structure = page.getByRole("button", { name: "Structure panel", exact: true });
+    const inspect = page.getByRole("button", { name: "Inspect", exact: true });
+    await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
+    await structure.click();
+    await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
+    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+
+    expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
+    await inspect.click();
+    await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
+    await expect.poll(() => inspect.getAttribute("aria-pressed")).toBe("true");
+
+    const storeOutputs = page.getByTestId("store-outputs-section");
+    await storeOutputs.waitFor({ state: "visible" });
+    const inspector = page.getByRole("heading", { name: "Inspector", exact: true })
+      .locator("xpath=ancestor::aside");
+    await expect.poll(async () => {
+      const [inspectorBox, storeOutputsBox] = await Promise.all([
+        inspector.boundingBox(),
+        storeOutputs.boundingBox(),
+      ]);
+      return inspectorBox !== null
+        && storeOutputsBox !== null
+        && storeOutputsBox.y >= inspectorBox.y
+        && storeOutputsBox.y + storeOutputsBox.height <= inspectorBox.y + inspectorBox.height;
+    }, { timeout: 5_000 }).toBe(true);
+
     await page.close();
   });
 

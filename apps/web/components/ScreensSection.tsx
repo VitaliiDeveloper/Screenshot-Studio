@@ -13,11 +13,12 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { groupScreensByOutput, workspaceScreenScope } from "../lib/editor-workspace";
+import { sameScreenGroup } from "@screenshot-studio/core/model";
+import { workspaceEditingScope } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
-import { AddMenu, editorUi, MenuSelect } from "./editor-ui";
+import { AddMenu, editorUi } from "./editor-ui";
 import type { ResourceDialog } from "../lib/editor-workspace";
 
 const DynamicScreenThumbnail = dynamic(
@@ -25,7 +26,7 @@ const DynamicScreenThumbnail = dynamic(
   { ssr: false },
 );
 
-/** Active connected group (or isolated locale): select, scoped reorder, duplicate-add, and delete. */
+/** Active exact output group: select, scoped reorder, duplicate-add, and delete. */
 export function ScreensSection({
   images,
   onOpenDialog,
@@ -67,7 +68,8 @@ export function ScreensSection({
   const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
   const activeLocale = activeScreen?.locale ?? project.locales[0]!;
   const screens = activeScreen
-    ? workspaceScreenScope(project, activeScreen)
+    ? workspaceEditingScope(project, activeScreen)
+      .filter((screen) => sameScreenGroup(screen, activeScreen))
     : project.screens.filter((screen) => screen.locale === activeLocale);
   const localeRootScreenCount = project.screens.filter((screen) =>
     screen.locale === activeLocale && screen.variantOf === undefined,
@@ -75,23 +77,9 @@ export function ScreensSection({
   const activeRoot = activeScreen?.variantOf
     ? project.screens.find((screen) => screen.id === activeScreen.variantOf)
     : undefined;
-  const scopeLabel = project.mode === "connected" && activeScreen
-    ? `${activeLocale} · ${activeScreen.device}${activeScreen.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`
-    : `${activeLocale}${activeScreen?.storeTargetId ? ` · ${activeScreen.storeTargetId}` : ""}`;
-  const outputRows = project.mode === "isolated" && activeScreen && activeScreen.variantOf === undefined
-    ? groupScreensByOutput(screens)
-    : [];
-  const activeOutputKey = activeScreen ? `${activeScreen.platform}/${activeScreen.device}` : "";
-  const showOutputSwitcher = outputRows.length > 1;
-  const visibleOutput = showOutputSwitcher
-    ? outputRows.find((row) => row.key === activeOutputKey) ?? outputRows[0]!
-    : undefined;
-  const visibleScreens = visibleOutput?.screens ?? screens;
-  const listLabel = visibleOutput
-    ? `Screens for ${activeLocale} · ${visibleOutput.label}`
-    : project.mode === "connected" && activeScreen
-      ? `Screens for ${activeLocale} ${activeScreen.device} group`
-      : `Screens for ${activeLocale}`;
+  const listLabel = activeScreen
+    ? `Screens for ${activeLocale} · ${activeScreen.device}`
+    : `Screens for ${activeLocale}`;
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -111,10 +99,7 @@ export function ScreensSection({
   return (
     <section className="border-b border-slate-200 pb-2">
       <header className="flex items-center justify-between px-3 py-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">{scopeLabel}</span>
-        </div>
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
         {activeRoot ? (
           <button
             type="button"
@@ -148,37 +133,15 @@ export function ScreensSection({
           />
         )}
       </header>
-      {showOutputSwitcher ? (
-        <div className="border-y border-slate-200/70 bg-slate-50/80 px-3 py-2">
-          <MenuSelect
-            ariaLabel={`Output family for ${activeLocale}`}
-            menuLabel={`Output family options for ${activeLocale}`}
-            value={activeOutputKey}
-            options={outputRows.map((row) => ({
-              value: row.key,
-              label: `${row.label} · ${row.screens.length}`,
-              triggerLabel: `${row.label.replace(" · ", " / ")} · ${row.screens.length} ${row.screens.length === 1 ? "screen" : "screens"}`,
-            }))}
-            onChange={(outputKey) => {
-              const output = outputRows.find((row) => row.key === outputKey);
-              if (output) editorStore.getState().selectScreen(output.screens[0]!.id);
-            }}
-            density="compact"
-            appearance="breadcrumb"
-            className="w-full"
-            menuClassName="w-full"
-          />
-        </div>
-      ) : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={visibleScreens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div
             ref={screenListRef}
             role="list"
             aria-label={listLabel}
             className="max-h-64 overflow-y-auto overscroll-contain pt-2 [scrollbar-gutter:stable]"
           >
-            {visibleScreens.map((s, index) => (
+            {screens.map((s, index) => (
               <SortableRow
                 key={s.id}
                 id={s.id}

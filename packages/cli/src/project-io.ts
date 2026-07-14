@@ -3,8 +3,10 @@ import { dirname, resolve } from "node:path";
 import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import { LocalFileStorageAdapter } from "@screenshot-studio/core/storage";
 
+export const DEFAULT_PROJECT_FILENAME = "app-store-screenshots.json";
+
 export function resolveProjectPath(flags: Record<string, string>): string {
-  return resolve(flags.project ?? "app-store-screenshots.json");
+  return resolve(flags.project ?? DEFAULT_PROJECT_FILENAME);
 }
 
 function adapterFor(projectPath: string): LocalFileStorageAdapter {

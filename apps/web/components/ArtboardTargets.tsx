@@ -75,7 +75,10 @@ export function ArtboardTargets({
   const availableTargets = targets.filter((target) => target.id !== leadId && !variantsByTargetId.has(target.id));
 
   return (
-    <section className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4">
+    <section
+      data-testid="store-outputs-section"
+      className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4"
+    >
       <div>
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Store outputs</h3>

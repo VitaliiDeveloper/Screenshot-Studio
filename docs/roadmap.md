@@ -77,10 +77,3 @@ and geometry contract.
 
 The individual Phase 8 slice records remain in `docs/plans/` because they contain dated package,
 performance, accessibility, store, license, and candidate evidence supporting the retained `GO`.
-
-## Historical implementation records
-
-Completed task-by-task plans and superseded implementation designs are retained under the
-[documentation archive](archive/README.md). They explain how the current system was built, but they
-are not the current product contract and must not override the schema, architecture, editor,
-testing, release, or evidence documents linked above.

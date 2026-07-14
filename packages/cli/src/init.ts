@@ -2,6 +2,7 @@
 import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SCHEMA_VERSION, type Project } from "@screenshot-studio/core/model";
+import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
 
 /**
  * `screenshots init` — scaffold the project file, agent instructions, and standard directories.
@@ -18,10 +19,9 @@ const STANDARD_DIRS = [
   "export",
 ];
 
-const PROJECT_FILE = "app-store-screenshots.json";
 const AGENT_GUIDE_FILE = "AGENTS.md";
 const CLAUDE_GUIDE_FILE = "CLAUDE.md";
-const CONTROL_FILES = [PROJECT_FILE, AGENT_GUIDE_FILE, CLAUDE_GUIDE_FILE];
+const CONTROL_FILES = [DEFAULT_PROJECT_FILENAME, AGENT_GUIDE_FILE, CLAUDE_GUIDE_FILE];
 const CLAUDE_GUIDE = `# CLAUDE.md
 
 Follow the project workflow and schema instructions in \`AGENTS.md\`.
@@ -76,7 +76,7 @@ export async function runInit(cwd: string, projectName = "My App Screenshots"): 
 
   await Promise.all([
     writeFile(
-      join(cwd, PROJECT_FILE),
+      join(cwd, DEFAULT_PROJECT_FILENAME),
       `${JSON.stringify(starterProject(projectName), null, 2)}\n`,
       { encoding: "utf8", flag: "wx" },
     ),

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
-import type { Project as ProjectModel } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_FONT_WEIGHT,
+  FONT_WEIGHT_MAX,
+  FONT_WEIGHT_MIN,
+  type Project as ProjectModel,
+} from "@screenshot-studio/core/model";
 import { loadProjectFile } from "./project-io.js";
 import {
   addGoogleFont,
@@ -20,9 +25,9 @@ export type FontCommandDependencies = FontServiceDependencies;
 
 function flagWeight(flags: Record<string, string>): number {
   try {
-    return fontWeight(flags.weight ?? "400");
+    return fontWeight(flags.weight ?? String(DEFAULT_FONT_WEIGHT));
   } catch {
-    throw new Error("--weight must be an integer from 100 through 900");
+    throw new Error(`--weight must be an integer from ${FONT_WEIGHT_MIN} through ${FONT_WEIGHT_MAX}`);
   }
 }
 

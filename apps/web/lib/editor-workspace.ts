@@ -4,7 +4,8 @@ import { sameScreenGroup, type Project, type Screen } from "@screenshot-studio/c
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
 export const CANVAS_PADDING = 80;
-export const ARTBOARD_LABEL_HEIGHT = 24;
+// Fixed CSS chrome around every preview: 20px title + two 8px gaps + 20px metadata.
+export const ARTBOARD_LABEL_HEIGHT = 56;
 export const OVERVIEW_GAP = 48;
 export const OVERVIEW_ROW_GAP = 56;
 export const OUTPUT_FAMILY_LABEL_HEIGHT = 28;
@@ -43,16 +44,24 @@ export function storeOutputLabel(platform: string, device: string): string {
   return `${PLATFORM_LABELS[platform] ?? platform} · ${DEVICE_LABELS[device] ?? device}`;
 }
 
-export interface OutputFamilyRow {
+export interface OutputFamily {
   key: string;
   label: string;
   screens: Screen[];
 }
 
+export interface WorkspaceOutputFamily extends OutputFamily {
+  editing: boolean;
+}
+
+function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
+  return `${screen.platform}/${screen.device}`;
+}
+
 /** Preserve project order while separating independent output families into canvas rows. */
-export function groupScreensByOutput(screens: readonly Screen[]): OutputFamilyRow[] {
-  const rows: OutputFamilyRow[] = [];
-  const byKey = new Map<string, OutputFamilyRow>();
+export function groupScreensByOutput(screens: readonly Screen[]): OutputFamily[] {
+  const rows: OutputFamily[] = [];
+  const byKey = new Map<string, OutputFamily>();
   for (const screen of screens) {
     const key = `${screen.platform}/${screen.device}`;
     let row = byKey.get(key);
@@ -66,8 +75,8 @@ export function groupScreensByOutput(screens: readonly Screen[]): OutputFamilyRo
   return rows;
 }
 
-/** Connected workspaces expose one exact group; isolated workspaces retain the locale set. */
-export function workspaceScreenScope(project: Project, activeScreen: Screen): Screen[] {
+/** Exact screens that may be selected, reordered, authored, or transformed together. */
+export function workspaceEditingScope(project: Project, activeScreen: Screen): Screen[] {
   if (project.mode === "connected") {
     return project.screens.filter((screen) => sameScreenGroup(screen, activeScreen));
   }
@@ -82,22 +91,42 @@ export function workspaceScreenScope(project: Project, activeScreen: Screen): Sc
   });
 }
 
-export function clampZoom(value: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(3))));
+/** Every output-family row visible in Overview for the active locale. */
+export function workspaceOverviewRows(
+  project: Project,
+  activeScreen: Screen,
+): WorkspaceOutputFamily[] {
+  const families = new Map<string, Screen[]>();
+  for (const screen of project.screens) {
+    if (screen.locale !== activeScreen.locale) continue;
+    const key = outputFamilyKey(screen);
+    const screens = families.get(key) ?? [];
+    screens.push(screen);
+    families.set(key, screens);
+  }
+
+  const activeKey = outputFamilyKey(activeScreen);
+  return Array.from(families, ([key, familyScreens]) => {
+    const editing = key === activeKey;
+    const roots = familyScreens.filter((screen) => screen.storeTargetId === undefined);
+    const anchor = editing ? activeScreen : roots[0] ?? familyScreens[0]!;
+    const screens = editing || roots.length === 0
+      ? project.screens.filter((screen) => sameScreenGroup(screen, anchor))
+      : roots;
+    const targetId = screens[0]?.storeTargetId;
+    const familyLabel = storeOutputLabel(anchor.platform, anchor.device);
+
+    return {
+      key,
+      label: targetId ? `${familyLabel} · ${targetId}` : familyLabel,
+      screens,
+      editing,
+    };
+  });
 }
 
-export function fitZoom(
-  viewport: { width: number; height: number },
-  content: { width: number; height: number },
-  padding = 112,
-): number {
-  if (viewport.width <= 0 || viewport.height <= 0 || content.width <= 0 || content.height <= 0) {
-    return 1;
-  }
-  return clampZoom(Math.min(
-    (viewport.width - padding * 2) / content.width,
-    (viewport.height - padding * 2) / content.height,
-  ));
+export function clampZoom(value: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(3))));
 }
 
 /**

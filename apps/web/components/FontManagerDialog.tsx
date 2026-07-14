@@ -4,7 +4,19 @@
 import { useRef, useState } from "react";
 import { useStore } from "zustand";
 import { CloudDownload, Type, Upload } from "lucide-react";
-import { elementLeaves, findElementLocation, fontIdentityKey, getScreen, parseProject, type FontAsset, type Project } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_FONT_WEIGHT,
+  elementLeaves,
+  findElementLocation,
+  FONT_WEIGHT_MAX,
+  FONT_WEIGHT_MIN,
+  FONT_WEIGHT_STEP,
+  fontIdentityKey,
+  getScreen,
+  parseProject,
+  type FontAsset,
+  type Project,
+} from "@screenshot-studio/core/model";
 import { registerFont } from "@screenshot-studio/core/fonts";
 import { editorStore } from "../lib/editor-store";
 import { primarySelection } from "../lib/editor-selection";
@@ -38,9 +50,9 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadFamily, setUploadFamily] = useState("");
-  const [uploadWeight, setUploadWeight] = useState(400);
+  const [uploadWeight, setUploadWeight] = useState(DEFAULT_FONT_WEIGHT);
   const [googleFamily, setGoogleFamily] = useState("");
-  const [googleWeight, setGoogleWeight] = useState(400);
+  const [googleWeight, setGoogleWeight] = useState(DEFAULT_FONT_WEIGHT);
   const [pending, setPending] = useState<PendingAction>(null);
   const [error, setError] = useState<string | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
@@ -186,7 +198,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
               </span>
             </label>
             <input aria-label="Upload font family" placeholder="Family" value={uploadFamily} onChange={(event) => setUploadFamily(event.target.value)} className={editorUi.field} />
-            <input aria-label="Upload font weight" type="number" min={100} max={900} step={100} value={uploadWeight} onChange={(event) => setUploadWeight(Number(event.target.value))} className={editorUi.field} />
+            <input aria-label="Upload font weight" type="number" min={FONT_WEIGHT_MIN} max={FONT_WEIGHT_MAX} step={FONT_WEIGHT_STEP} value={uploadWeight} onChange={(event) => setUploadWeight(Number(event.target.value))} className={editorUi.field} />
             <button className={editorUi.buttonPrimary} disabled={pending !== null || !uploadFile || !uploadFamily.trim()} onClick={addUpload}>
               {pending === "upload" ? "Adding…" : "Add uploaded font"}
             </button>
@@ -199,7 +211,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
             </div>
             <p className="text-xs leading-5 text-slate-500">Downloaded once and stored in the project. Rendering stays offline.</p>
             <input aria-label="Google font family" placeholder="Family, e.g. Inter" value={googleFamily} onChange={(event) => setGoogleFamily(event.target.value)} className={editorUi.field} />
-            <input aria-label="Google font weight" type="number" min={100} max={900} step={100} value={googleWeight} onChange={(event) => setGoogleWeight(Number(event.target.value))} className={editorUi.field} />
+            <input aria-label="Google font weight" type="number" min={FONT_WEIGHT_MIN} max={FONT_WEIGHT_MAX} step={FONT_WEIGHT_STEP} value={googleWeight} onChange={(event) => setGoogleWeight(Number(event.target.value))} className={editorUi.field} />
             <button className={editorUi.buttonPrimary} disabled={pending !== null || !googleFamily.trim()} onClick={addGoogle}>
               {pending === "google" ? "Adding…" : "Add Google font"}
             </button>

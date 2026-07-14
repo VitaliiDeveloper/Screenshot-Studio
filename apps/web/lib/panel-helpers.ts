@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
+import type { Element } from "@screenshot-studio/core/model";
+
 /** Human-readable fallback labels for the layers panel (name overrides these). */
-const TYPE_LABELS: Record<string, string> = {
+const TYPE_LABELS = {
   text: "Text",
   shape: "Shape",
   screenshot: "Screenshot",
   "device-frame": "Device frame",
   group: "Group",
   icon: "Icon",
-  badge: "Badge",
   image: "Image",
-};
+} satisfies Record<Element["type"], string>;
 
 /** The row label for a layer: its name if set, otherwise a human type label. */
-export function elementLabel(el: { type: string; name?: string }): string {
+export function elementLabel(el: Pick<Element, "type" | "name">): string {
   const trimmed = el.name?.trim();
-  return trimmed ? trimmed : (TYPE_LABELS[el.type] ?? el.type);
+  return trimmed ? trimmed : TYPE_LABELS[el.type];
 }
 
 /**

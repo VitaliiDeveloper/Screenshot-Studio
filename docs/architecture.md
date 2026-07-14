@@ -206,9 +206,15 @@ project replacement. Schema v4 adds `image` with non-cropping `contain` default,
 centred `cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder;
 v3 migrates losslessly only when it does not already contain the previously invalid image type.
 
-**Connected workspace hardening — Phase 6 Slice 7.** One `workspaceScreenScope` derivation feeds
-Overview/Fit and Screens: exact platform/device/locale/store-target group in connected mode, active locale in
-isolated mode. Connected reorder rewrites only the visible group's existing project-array slots;
+**Connected workspace hardening — Phase 6 Slice 7.** Workspace derivation has two explicit
+contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
+transforms with one exact platform/device/locale/store-target group in connected mode; isolated
+mode retains its locale/root or exact target layer. `workspaceOverviewRows` presents every output
+family for the active locale in stable project order. In connected mode each row remains an
+independent exact group, only the active row is editable, and activating a preview row changes
+transient screen selection without history or persistence. Overview Fit measures every row while
+keeping output headers and per-screen title/metadata chrome in fixed CSS pixels.
+Connected reorder rewrites only the visible group's existing project-array slots;
 unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
 memoization compares every exact-group screen reference and projected order because a neighbour's
 element can change the requested crop, while unrelated groups remain memoized. The toolbar mode

@@ -2,35 +2,32 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { Screen } from "@screenshot-studio/core/model";
 import {
-  ARTBOARD_LABEL_HEIGHT,
   CANVAS_PADDING,
-  clampZoom,
-  fitArtboardRowsZoom,
-  fitArtboardsZoom,
-  groupScreensByOutput,
-  OVERVIEW_GAP,
-  OVERVIEW_ROW_GAP,
-  OUTPUT_FAMILY_LABEL_HEIGHT,
-  workspaceScreenScope,
+  workspaceEditingScope,
+  workspaceOverviewRows,
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
 } from "../lib/editor-workspace";
 import { editorStore } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
+import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
+import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
+import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
+import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
+import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
+import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
 import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
@@ -73,124 +70,40 @@ export function CanvasViewport({
   const transitionRef = useRef<Animation | null>(null);
   const transitionFrameRef = useRef<number | null>(null);
   const zoomRef = useRef(zoom);
-  const panRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
-  const [spacePressed, setSpacePressed] = useState(false);
-  const [panning, setPanning] = useState(false);
   const [fittedView, setFittedView] = useState<WorkspaceView>(view);
   const [initialReveal, setInitialReveal] = useState<"pending" | "running" | "idle">("pending");
   const [transitioning, setTransitioning] = useState(false);
 
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
-
   const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
-  const screens = useMemo(
-    () => {
-      if (!project || !activeScreen) return [];
-      if (view !== "overview") return [activeScreen];
-      return workspaceScreenScope(project, activeScreen);
-    },
-    [activeScreen, project, view],
-  );
-  const connectedOverview = project?.mode === "connected" && view === "overview";
-  const outputRows = useMemo(() => groupScreensByOutput(screens), [screens]);
-
-  const contentBounds = useMemo(() => {
-    if (screens.length === 0) return { width: 1, height: 1 };
-    if (view === "overview" && !connectedOverview && outputRows.length > 1) {
-      return {
-        width: Math.max(...outputRows.map((row) =>
-          row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0),
-        )),
-        height: outputRows.reduce((sum, row) =>
-          sum + Math.max(...row.screens.map((screen) => screen.artboard.height)),
-        0),
-      };
-    }
-    return {
-      width: screens.reduce((sum, screen) => sum + screen.artboard.width, 0),
-      height: Math.max(...screens.map((screen) => screen.artboard.height)),
-    };
-  }, [connectedOverview, outputRows, screens, view]);
-  const contentWidth = contentBounds.width;
-  const contentHeight = contentBounds.height;
-  const fitLayoutKey = useMemo(() => JSON.stringify({
+  const editingScreens = useMemo(() => {
+    if (!project || !activeScreen) return [];
+    return workspaceEditingScope(project, activeScreen);
+  }, [activeScreen, project]);
+  const outputRows = useMemo(() => {
+    if (!project || !activeScreen || view !== "overview") return [];
+    return workspaceOverviewRows(project, activeScreen);
+  }, [activeScreen, project, view]);
+  const screens = view === "focus" && activeScreen ? [activeScreen] : editingScreens;
+  const { fitLayoutKey, fit } = useCanvasViewportMetrics({
+    viewportRef,
+    zoomRef,
+    screens,
+    outputRows,
     view,
-    connectedOverview,
+    connected: project?.mode === "connected",
     leftInset,
     rightInset,
-    rows: outputRows.map((row) => row.screens.map((screen) => [
-      screen.id,
-      screen.artboard.width,
-      screen.artboard.height,
-    ])),
-  }), [connectedOverview, leftInset, outputRows, rightInset, view]);
-
-  const zoomAt = useCallback((nextValue: number, clientX?: number, clientY?: number) => {
-    const viewport = viewportRef.current;
-    const previous = zoomRef.current;
-    const next = clampZoom(nextValue);
-    if (!viewport || next === previous) return;
-
-    const rect = viewport.getBoundingClientRect();
-    const visibleWidth = Math.max(1, viewport.clientWidth - leftInset - rightInset);
-    const localX = clientX === undefined ? leftInset + visibleWidth / 2 : clientX - rect.left;
-    const localY = clientY === undefined ? viewport.clientHeight / 2 : clientY - rect.top;
-    const anchorX = viewport.scrollLeft + localX;
-    const anchorY = viewport.scrollTop + localY;
-    const ratio = next / previous;
-
-    zoomRef.current = next;
-    onZoomChange(next);
-    requestAnimationFrame(() => {
-      viewport.scrollLeft = anchorX * ratio - localX;
-      viewport.scrollTop = anchorY * ratio - localY;
-    });
-  }, [leftInset, onZoomChange, rightInset]);
-
-  const fit = useCallback(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const viewportSize = {
-      width: Math.max(1, viewport.clientWidth - leftInset - rightInset),
-      height: viewport.clientHeight,
-    };
-    if (view === "overview" && !connectedOverview && outputRows.length > 1) {
-      const next = fitArtboardRowsZoom(
-        viewportSize,
-        outputRows.map((row) => row.screens.map((screen) => screen.artboard)),
-        {
-          columnGap: OVERVIEW_GAP,
-          rowGap: OVERVIEW_ROW_GAP,
-          padding: CANVAS_PADDING,
-          labelHeight: ARTBOARD_LABEL_HEIGHT + OUTPUT_FAMILY_LABEL_HEIGHT,
-        },
-      );
-      zoomRef.current = next;
-      onZoomChange(next);
-      requestAnimationFrame(() => viewport.scrollTo({ left: 0, top: 0 }));
-      return;
-    }
-    const count = screens.length;
-    const next = fitArtboardsZoom(
-      viewportSize,
-      Array.from({ length: count }, (_, index) => ({
-        width: index === 0 ? contentWidth : 0,
-        height: contentHeight,
-      })),
-      {
-        gap: view === "overview" && !connectedOverview ? OVERVIEW_GAP : 0,
-        padding: CANVAS_PADDING,
-        labelHeight: ARTBOARD_LABEL_HEIGHT,
-      },
-    );
-    zoomRef.current = next;
-    onZoomChange(next);
-    requestAnimationFrame(() => {
-      viewport.scrollTo({ left: 0, top: 0 });
-    });
-  }, [connectedOverview, contentHeight, contentWidth, leftInset, onZoomChange, outputRows, rightInset, screens.length, view]);
+    onZoomChange,
+  });
+  const { spacePressed, panning, zoomAt, pointerHandlers } = useCanvasPanZoom({
+    viewportRef,
+    zoomRef,
+    zoom,
+    tool,
+    leftInset,
+    rightInset,
+    onZoomChange,
+  });
 
   useLayoutEffect(() => {
     if (initialRevealStartedRef.current) return;
@@ -290,73 +203,6 @@ export function CanvasViewport({
   }, []);
 
   useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
-      event.preventDefault();
-      zoomAt(zoomRef.current * Math.exp(-event.deltaY * 0.002), event.clientX, event.clientY);
-    };
-    viewport.addEventListener("wheel", onWheel, { passive: false });
-    return () => viewport.removeEventListener("wheel", onWheel);
-  }, [zoomAt]);
-
-  useEffect(() => {
-    const isInteractive = (target: EventTarget | null) => {
-      if (!(target instanceof Element)) return false;
-      return Boolean(target.closest(
-        "button, a, input, textarea, select, summary, [role='button'], [role='menuitem'], [contenteditable='true']",
-      ));
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || isInteractive(event.target)) return;
-      event.preventDefault();
-      setSpacePressed(true);
-    };
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") setSpacePressed(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, []);
-
-  const beginPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const viewport = viewportRef.current;
-    if (!viewport || (tool !== "hand" && !spacePressed)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    viewport.setPointerCapture(event.pointerId);
-    panRef.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      left: viewport.scrollLeft,
-      top: viewport.scrollTop,
-    };
-    setPanning(true);
-  };
-
-  const continuePan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const viewport = viewportRef.current;
-    const pan = panRef.current;
-    if (!viewport || !pan || pan.pointerId !== event.pointerId) return;
-    viewport.scrollLeft = pan.left - (event.clientX - pan.x);
-    viewport.scrollTop = pan.top - (event.clientY - pan.y);
-  };
-
-  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const viewport = viewportRef.current;
-    if (panRef.current?.pointerId !== event.pointerId) return;
-    panRef.current = null;
-    setPanning(false);
-    if (viewport?.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
-  };
-
-  useEffect(() => {
     if (lastFitLayoutRef.current === fitLayoutKey) return;
     lastFitLayoutRef.current = fitLayoutKey;
     const id = requestAnimationFrame(fit);
@@ -402,7 +248,6 @@ export function CanvasViewport({
   const renderIsolatedScreen = (screen: Screen) => {
     const active = screen.id === activeScreenId;
     const previewWidth = screen.artboard.width * zoom;
-    const metadata = `${screen.device} · ${screen.locale}${screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}`;
     return (
       <div
         key={screen.id}
@@ -411,18 +256,7 @@ export function CanvasViewport({
         className="min-w-0 shrink-0"
         style={{ width: previewWidth }}
       >
-        <div className={cx(
-          "mb-2 flex h-5 min-w-0 items-center overflow-hidden text-xs font-medium leading-5",
-          active ? "text-blue-700" : "text-slate-500",
-        )} data-testid="artboard-preview-label">
-          <span
-            data-testid="artboard-preview-name"
-            className="min-w-0 shrink truncate whitespace-nowrap"
-            title={screen.name}
-          >
-            {screen.name}
-          </span>
-        </div>
+        <ScreenPreviewTitle screen={screen} active={active} />
         <div
           role={!active && view === "overview" ? "button" : undefined}
           tabIndex={!active && view === "overview" ? 0 : undefined}
@@ -450,40 +284,23 @@ export function CanvasViewport({
             interactive={project.mode === "connected" ? false : active}
           />
         </div>
-        <div
-          className="mt-2 flex h-5 min-w-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400"
-          data-testid="artboard-preview-caption"
-        >
-          <span
-            data-testid="artboard-preview-metadata"
-            className="min-w-0 truncate whitespace-nowrap"
-            title={metadata}
-          >
-            {metadata}
-          </span>
-        </div>
+        <ScreenPreviewMetadata screen={screen} />
       </div>
     );
   };
 
   return (
     <section className="relative min-w-0 flex-1 overflow-hidden bg-slate-50" aria-label="Canvas workspace">
-      <div
-        ref={viewportRef}
-        data-view={view}
-        data-fitted-view={fittedView}
-        data-initial-reveal={initialReveal}
-        data-view-transition={transitioning ? "running" : "idle"}
-        data-pattern={pattern}
-        data-testid="canvas-viewport"
-        className={cx(
-          "workspace-canvas absolute inset-0 overflow-auto overscroll-contain",
-          panning ? "cursor-grabbing select-none" : tool === "hand" || spacePressed ? "cursor-grab" : "cursor-default",
-        )}
-        onPointerDownCapture={beginPan}
-        onPointerMove={continuePan}
-        onPointerUp={endPan}
-        onPointerCancel={endPan}
+      <CanvasSurface
+        viewportRef={viewportRef}
+        pattern={pattern}
+        pointerHandlers={pointerHandlers}
+        view={view}
+        fittedView={fittedView}
+        initialReveal={initialReveal}
+        transitioning={transitioning}
+        panning={panning}
+        canPan={tool === "hand" || spacePressed}
       >
         <div
           className="flex min-h-full w-max min-w-full py-20"
@@ -497,61 +314,37 @@ export function CanvasViewport({
             style={initialReveal === "idle" ? undefined : { opacity: 0 }}
             className={cx(
               "m-auto",
-              connectedOverview || view === "focus" ? "flex items-start" : "flex flex-col items-start",
+              view === "focus" ? "flex items-start" : "flex flex-col items-start",
             )}
             data-testid={view === "overview" ? "overview-artboards" : "focus-artboard"}
           >
-            {connectedOverview ? (
-              <div className="shrink-0" data-testid="connected-artboards">
-                <div className="mb-2 flex text-xs font-medium">
-                  {screens.map((screen) => (
-                    <div
-                      key={screen.id}
-                      className={cx(
-                        "flex shrink-0 items-center gap-2 px-1",
-                        screen.id === activeScreenId ? "text-blue-700" : "text-slate-500",
-                      )}
-                      style={{ width: screen.artboard.width * zoom }}
-                    >
-                      <span className="truncate">{screen.name}</span>
-                      <span className="shrink-0 text-[10px] font-normal text-slate-400">
-                        {screen.device} · {screen.locale}{screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
-                  <EditorStage
+            {view === "overview" ? (
+              <div className="flex flex-col gap-14" data-testid="overview-output-families">
+                {outputRows.map((row) => project.mode === "connected" ? (
+                  <ConnectedOutputRow
+                    key={row.key}
+                    row={row}
+                    activeScreenId={activeScreenId}
                     images={images}
                     zoom={zoom}
-                    screenId={activeScreenId ?? undefined}
-                    connectedOverview
-                    interactive
+                    onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
-                </div>
-              </div>
-            ) : view === "overview" && outputRows.length > 1 ? (
-              <div className="flex flex-col gap-14" data-testid="overview-output-families">
-                {outputRows.map((row) => (
-                  <section key={row.key} aria-label={`${row.label} output row`}>
-                    <div className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                      <span>{row.label}</span>
-                      <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
-                    </div>
+                ) : (
+                  <OutputFamilySection key={row.key} label={row.label} editing={row.editing}>
                     <div className="flex items-start gap-12">
                       {row.screens.map(renderIsolatedScreen)}
                     </div>
-                  </section>
+                  </OutputFamilySection>
                 ))}
               </div>
             ) : (
-              <div className={cx("flex items-start", view === "overview" ? "gap-12" : "gap-0")}>
+              <div className="flex items-start gap-0">
                 {screens.map(renderIsolatedScreen)}
               </div>
             )}
           </div>
         </div>
-      </div>
+      </CanvasSurface>
 
       {!controlsHidden ? (
         <div className="absolute top-3 z-30" style={{ right: rightInset + 12 }}>

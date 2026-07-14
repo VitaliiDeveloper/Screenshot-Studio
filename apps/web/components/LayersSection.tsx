@@ -36,6 +36,7 @@ import { mutateAndSave } from "../lib/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "../lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
 import { cx, editorUi } from "./editor-ui";
+import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 
 const elementIcons: Partial<Record<Element["type"], LucideIcon>> = {
   text: Type,
@@ -68,6 +69,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
   const selectedItems = useStore(editorStore, (s) => s.selectedItems);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);
+  const [openActionsUpward, setOpenActionsUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const sensors = useSensors(
@@ -78,6 +80,16 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
   useEffect(() => {
     if (!openActionsId) return;
     const frame = requestAnimationFrame(() => {
+      const triggerRect = actionButtonRefs.current.get(openActionsId)?.getBoundingClientRect();
+      const menuRect = menuRef.current?.getBoundingClientRect();
+      if (triggerRect && menuRect) {
+        setOpenActionsUpward(shouldOpenMenuUpward({
+          triggerTop: triggerRect.top,
+          triggerBottom: triggerRect.bottom,
+          menuHeight: menuRect.height,
+          viewportHeight: window.innerHeight,
+        }));
+      }
       menuRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']")?.focus();
     });
     const onPointerDown = (event: PointerEvent) => {
@@ -151,7 +163,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>
           <div role="list" aria-label={`Layers for ${screen.name}`}>
-            {rows.map((el, rowIndex) => {
+            {rows.map((el) => {
               const selected = isSelected(selectedItems, { screenId: activeScreenId, elementId: el.id });
               return (
               <Fragment key={el.id}>
@@ -210,7 +222,10 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     "size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
                     openActionsId === el.id ? "bg-white text-slate-700 opacity-100 shadow-sm" : "",
                   )}
-                  onClick={() => setOpenActionsId((current) => current === el.id ? null : el.id)}
+                  onClick={() => {
+                    setOpenActionsUpward(false);
+                    setOpenActionsId((current) => current === el.id ? null : el.id);
+                  }}
                 >
                   <MoreHorizontal size={14} strokeWidth={1.9} />
                 </button>
@@ -221,22 +236,10 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     aria-label={`${elementLabel(el)} actions`}
                     className={cx(
                       "absolute right-1 z-30 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/10",
-                      rowIndex >= rows.length - 2 ? "bottom-8" : "top-8",
+                      openActionsUpward ? "bottom-8" : "top-8",
                     )}
                     onKeyDown={(event) => {
-                      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-                      const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']"));
-                      if (items.length === 0) return;
-                      event.preventDefault();
-                      const current = items.indexOf(document.activeElement as HTMLButtonElement);
-                      const next = event.key === "Home"
-                        ? 0
-                        : event.key === "End"
-                          ? items.length - 1
-                          : event.key === "ArrowDown"
-                            ? (current + 1 + items.length) % items.length
-                            : (current - 1 + items.length) % items.length;
-                      items[next]?.focus();
+                      handleMenuKeyboardNavigation(event, "[role='menuitem']");
                     }}
                   >
                     <button
