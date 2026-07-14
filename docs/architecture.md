@@ -283,9 +283,13 @@ Creation fits a fresh-id copy into the exact store artboard and never mutates th
 projection includes `storeTargetId` in the group identity so root and variant canvases cannot be
 stitched together. Bundle export uses the lead target for roots and each explicit variant's own
 target id, with numbering restarted per target. New roots use their device family's exact lead
-artboard. The editor presents that master size as fixed by default; explicit customization resizes
-every root composition in the output set atomically, while reset fits the set back to the exact lead dimensions. Exact and
-custom state are derived from `store-specs.json`, not duplicated in the schema.
+artboard. Newly created editor-driven `apple/watchos` output families are the deliberate exception:
+core derives a 3× authoring master by multiplying the `store-specs.json` lead target, so the current
+422 × 514 lead creates a 1266 × 1542 root without persisting another target dimension. The editor
+therefore presents new watchOS masters as custom by default; ordinary exact masters remain fixed by
+default. Explicit customization and reset still resize every root composition in the output set
+atomically, while reset fits the set back to the exact lead dimensions. Exact and custom state are
+derived from `store-specs.json`, not duplicated in the schema. Existing roots are opened unchanged.
 
 **Artboard backgrounds.** `Background` is a strict discriminated
 union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
@@ -319,9 +323,11 @@ width and fits height to the canonical outer aspect.
 
 Each exact `platform/device/locale` root set is an independently editable output. Creating another
 family clones every root screen in the active locale with fresh screen and element ids, fits the
-copy to that family's lead target, and never mutates or links it back to the source family. Accepted
-non-lead sizes remain `variantOf`/`storeTargetId` variants of a root inside the same family. Both
-operations are idempotent: an existing output or size is opened instead of duplicated.
+copy to that family's core-derived master artboard, and never mutates or links it back to the source
+family. The master normally equals the lead target; editor-created `apple/watchos` families use the
+3× proportional master described above. Accepted non-lead sizes remain
+`variantOf`/`storeTargetId` variants of a root inside the same family. Both operations are
+idempotent: an existing output or size is opened unchanged instead of duplicated.
 
 ## 4. Store export spec
 
