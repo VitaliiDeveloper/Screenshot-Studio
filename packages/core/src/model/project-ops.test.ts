@@ -280,6 +280,7 @@ describe("project-ops", () => {
     source.screens.push({
       ...structuredClone(source.screens[0]!),
       id: "existing-watch",
+      platform: "apple",
       device: "watchos",
       artboard: { width: 422, height: 514 },
       elements: [],
