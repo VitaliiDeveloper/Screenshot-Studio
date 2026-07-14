@@ -213,10 +213,15 @@ project replacement. The `image` leaf has a non-cropping `contain` default, dete
 contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
 transforms with one exact platform/device/locale/store-target group in connected mode; isolated
 mode retains its locale/root or exact target layer. `workspaceOverviewRows` presents every output
-family for the active locale in stable project order. In connected mode each row remains an
-independent exact group, only the active row is editable, and activating a preview row changes
-transient screen selection without history or persistence. Overview Fit measures every row while
-keeping output headers and per-screen title/metadata chrome in fixed CSS pixels.
+family for the active locale in stable project order. Isolated families render as one output
+container whose master and explicit targets remain separate size rows; the active family owns the
+outer highlight and the active exact row owns the `Editing` marker. Variant rows repeat the output
+label as a contextual breadcrumb, append the exact size, and carry a `Variant` marker; the lead row
+remains consolidated into the family header with its `Master` marker. Connected families keep one
+independent exact group and substitute the active target for its family row. Activating a preview
+row changes transient screen selection without history or persistence.
+Overview Fit measures every row while keeping output headers and per-screen title/metadata chrome
+in fixed CSS pixels.
 Connected reorder rewrites only the visible group's existing project-array slots;
 unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
 memoization compares every exact-group screen reference and projected order because a neighbour's

@@ -163,6 +163,7 @@ export default function EditorPage() {
         <div className="flex min-w-0 flex-1">
           <DynamicCanvasViewport
             images={images}
+            specs={specs}
             zoom={zoom}
             view={view}
             tool={tool}

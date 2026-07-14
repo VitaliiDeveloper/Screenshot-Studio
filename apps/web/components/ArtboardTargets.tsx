@@ -160,7 +160,7 @@ export function ArtboardTargets({
           >
           <span className="flex min-w-0 flex-col gap-1">
             <span className="truncate font-medium text-slate-700">
-              {target.label}
+              <span>{isLead ? target.label.replace(/\s+\(lead\)$/i, "") : target.label}</span>
               {isLead && (
                 <span className="ml-1 rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">lead</span>
               )}
