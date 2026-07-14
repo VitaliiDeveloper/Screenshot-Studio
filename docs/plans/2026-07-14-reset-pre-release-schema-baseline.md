@@ -122,4 +122,4 @@
 - [x] Run exact browser files: `rtl-parity`, `bundle-export`, `ui-export`, `screenshot-parity`, `device-frame-parity`, `parity`, `connected-canvas-parity`, and `group-parity` through `vitest.e2e.config.ts`.
 - [x] Re-run stale-reference searches and inspect each remaining historical match.
 - [x] Review `rtk git diff --stat`, `rtk git diff`, and sample semantic equivalence evidence.
-- [ ] Push `codex/reset-schema-baseline` and open a draft PR against the live resolved base branch with commits, checks, risks, and publication non-goals documented.
+- [x] Push `codex/reset-schema-baseline` and open a draft PR against the live resolved base branch with commits, checks, risks, and publication non-goals documented.
