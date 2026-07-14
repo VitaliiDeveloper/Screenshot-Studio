@@ -18,18 +18,23 @@ export interface StoreTargetDimensions {
   height: number;
 }
 
-const WATCHOS_MASTER_SCALE = 3;
+const WATCHOS_AUTHORING_MASTER_SCALE = 3;
 
-function storeOutputMasterArtboard(
+/**
+ * New output families author at their lead store size by default. watchOS uses a larger editor
+ * master; the shared export path still renders it to the exact target dimensions.
+ */
+function deriveInitialAuthoringArtboard(
   placement: Pick<Screen, "platform" | "device">,
   leadTarget: StoreTargetDimensions,
 ): { width: number; height: number } {
-  const scale = placement.platform === "apple" && placement.device === "watchos"
-    ? WATCHOS_MASTER_SCALE
-    : 1;
+  if (placement.platform !== "apple" || placement.device !== "watchos") {
+    return { width: leadTarget.width, height: leadTarget.height };
+  }
+
   return {
-    width: leadTarget.width * scale,
-    height: leadTarget.height * scale,
+    width: leadTarget.width * WATCHOS_AUTHORING_MASTER_SCALE,
+    height: leadTarget.height * WATCHOS_AUTHORING_MASTER_SCALE,
   };
 }
 
@@ -110,7 +115,7 @@ export function ensureStoreOutputFamily(
   );
   if (sourceRoots.length === 0) throw new Error(`No source output screens for "${sourceRootId}"`);
 
-  const masterArtboard = storeOutputMasterArtboard(placement, leadTarget);
+  const masterArtboard = deriveInitialAuthoringArtboard(placement, leadTarget);
   const copies = sourceRoots.map((root) => {
     const copy = cloneScreenWithFreshIds(root);
     return ScreenSchema.parse({
