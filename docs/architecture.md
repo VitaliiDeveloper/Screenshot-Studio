@@ -289,7 +289,11 @@ core derives a 3× authoring master by multiplying the `store-specs.json` lead t
 therefore presents new watchOS masters as custom by default; ordinary exact masters remain fixed by
 default. Explicit customization and reset still resize every root composition in the output set
 atomically, while reset fits the set back to the exact lead dimensions. Exact and custom state are
-derived from `store-specs.json`, not duplicated in the schema. Existing roots are opened unchanged.
+derived from `store-specs.json`, not duplicated in the schema. Artboard fitting scales pixel-valued
+visual metrics alongside geometry—including text-shadow blur and offsets, shape-stroke width, and
+corner radii—so proportional authoring masters preserve their appearance at exact export sizes.
+Scaling fails atomically instead of clamping when a bounded visual metric would exceed the strict
+schema. Existing roots are opened unchanged.
 
 **Artboard backgrounds.** `Background` is a strict discriminated
 union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
