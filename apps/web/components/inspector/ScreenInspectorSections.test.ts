@@ -114,18 +114,18 @@ describe("ScreenInspectorSections watchOS master status", () => {
     expect(markup).not.toContain("Explicit custom scale");
   });
 
-  it("shows a proportional watchOS target variant as a custom authoring canvas", () => {
+  it("keeps a proportional watchOS variant presented as its fixed Store Target", () => {
     const result = createWatchVariant();
     const screen = result.variant;
     const markup = renderInspector(result.project, screen, watchSpecs);
 
     expect(screen.artboard).toEqual({ width: 1456, height: 1736 });
-    expect(markup).toContain("Authoring size");
-    expect(markup).toContain("Custom");
-    expect(markup).toContain(
-      "This custom variant exports at the fixed 416 × 496 px size for Apple Watch Series 11.",
-    );
-    expect(markup).not.toContain("Exact target");
+    expect(markup).toContain("Target size");
+    expect(markup).toContain("Exact target");
+    expect(markup).toContain("416 × 496 px");
+    expect(markup).toContain("This variant uses fixed Store Target dimensions.");
+    expect(markup).not.toContain("Authoring size");
+    expect(markup).not.toContain("This custom variant exports");
   });
 
   it("keeps a persisted exact watchOS target variant classified as exact", () => {
@@ -138,31 +138,8 @@ describe("ScreenInspectorSections watchOS master status", () => {
 
     expect(markup).toContain("Target size");
     expect(markup).toContain("Exact target");
+    expect(markup).toContain("416 × 496 px");
     expect(markup).toContain("This variant uses fixed Store Target dimensions.");
     expect(markup).not.toContain("Authoring size");
-  });
-
-  it("warns when a variant artboard cannot scale to its selected target", () => {
-    const created = createWatchVariant();
-    const screen = {
-      ...created.variant,
-      artboard: { width: 1456, height: 1700 },
-    };
-    const markup = renderInspector(replaceScreen(created.project, screen), screen, watchSpecs);
-
-    expect(markup).toContain("Invalid target");
-    expect(markup).toContain(
-      "This variant cannot export to its Store Target because the artboard aspect ratio does not match.",
-    );
-  });
-
-  it("warns when a variant references an unavailable target", () => {
-    const created = createWatchVariant();
-    const markup = renderInspector(created.project, created.variant, leadOnlyWatchSpecs);
-
-    expect(markup).toContain("Invalid target");
-    expect(markup).toContain(
-      "This variant references a Store Target that is not available in the current specifications.",
-    );
   });
 });

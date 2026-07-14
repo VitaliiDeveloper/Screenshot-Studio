@@ -295,8 +295,9 @@ exception: core derives each 3.5× authoring artboard by multiplying its selecte
 `store-specs.json` target. The current 422 × 514 lead creates a 1477 × 1799 root, while the
 416 × 496 Series 11 target creates a 1456 × 1736 variant; neither duplicates exact target
 dimensions in persisted metadata. Core rejects a target whose scaled dimensions are fractional
-instead of rounding and distorting its ratio. The editor therefore presents new watchOS roots and
-variants as custom by default; ordinary exact canvases remain fixed by default. Explicit
+instead of rounding and distorting its ratio. The editor presents new watchOS roots as custom by
+default. Target variants retain their fixed-target, non-switchable Inspector presentation and show
+the exact export dimensions even when their persisted authoring artboard is proportional. Explicit
 customization and reset still resize every root composition in the output set
 atomically, while reset fits the set back to the exact lead dimensions. Exact and custom state are
 derived from `store-specs.json`, not duplicated in the schema. Artboard fitting scales pixel-valued
