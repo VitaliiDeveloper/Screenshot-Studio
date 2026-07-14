@@ -107,7 +107,7 @@ async function installPackedCli(workspace) {
 async function createProject(destination, locales) {
   const project = JSON.parse(await readFile(join(livingProject, "app-store-screenshots.json"), "utf8"));
   const sourceScreens = project.screens;
-  project.meta.name = `Phase 8 ${locales.length === 1 ? "Repeat" : "Large"} Soak`;
+  project.meta.name = `Export ${locales.length === 1 ? "Repeat" : "Large"} Soak`;
   project.locales = locales;
   project.screens = locales.flatMap((locale) => sourceScreens.map((source) => ({
     ...JSON.parse(JSON.stringify(source)),

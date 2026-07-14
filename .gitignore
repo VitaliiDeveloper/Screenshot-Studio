@@ -50,6 +50,7 @@ packages/cli/package/
 # Agent planning artifacts (local, not the curated docs/ contract)
 docs/superpowers/
 docs/archive/superpowers/
+.superpowers/
 .worktrees/
 
 # E2E scratch (parity harness temp renders)

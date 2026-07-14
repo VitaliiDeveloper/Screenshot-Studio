@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 2.0, 12 July 2026.
 
-> **Status: this document describes the as-built strict v1 editor after finite Phase 9 closure.**
+> **Status: this document describes the current as-built strict v1 editor.**
 > Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
 > widen together.
 

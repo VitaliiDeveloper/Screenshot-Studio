@@ -14,7 +14,7 @@ import {
 } from "./support/parity-render-harness.js";
 
 /**
- * Phase 0 exit gate (docs/roadmap.md §4). Proves, on the hardest parity case (embedded custom
+ * Foundational render/export parity gate. Proves, on the hardest parity case (embedded custom
  * font), that:
  *   1. the pipeline yields a PNG at the exact store target size,
  *   2. with no alpha channel,

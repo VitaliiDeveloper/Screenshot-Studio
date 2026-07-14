@@ -7,8 +7,6 @@ export to exact store sizes — driven by the same `core` from both a web UI and
 The project state lives in a single git-trackable JSON file, so decks are versionable,
 reproducible, automatable in CI, and give an AI agent a clean contract to work against.
 
-![Screenshot Studio editor showing a connected three-screen launch deck](docs/assets/editor-demo.gif)
-
 ## Quick start
 
 ```bash
@@ -54,10 +52,8 @@ It only discovers or initializes a project and then follows the generated projec
 
 ## Documentation
 
-- [docs/vision.md](docs/vision.md) — strategy, positioning, license, distribution _(changes rarely)_
 - [docs/architecture.md](docs/architecture.md) — stack, core/shell, data model, render/export parity, CLI & conventions _(the technical contract)_
-- [docs/roadmap.md](docs/roadmap.md) — current phase status, durable sequencing boundaries, and evidence map
-- [docs/releasing.md](docs/releasing.md) — candidate install/upgrade/uninstall, limitations, and maintainer checklist
+- [docs/releasing.md](docs/releasing.md) — candidate verification, publication boundary, upgrade, and uninstall
 
 ## Project structure
 
@@ -75,96 +71,37 @@ Monorepo (pnpm workspaces):
   exported in the closure suite.
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
-- `docs/` — current vision/architecture/contracts, retained closure evidence, and an indexed archive
-  of completed implementation plans and superseded slice designs.
+- `docs/` — current architecture, operational guides, and tracked product contracts.
 - `store-specs.json` — Apple/Google export sizes (data, not hardcoded).
 
 A screenshots *project* (the JSON file a user edits, as opposed to this repo) has its own
-layout — see [AGENTS.md § Repo conventions](AGENTS.md#repo-conventions-the-api).
+layout — see [the management-interface contract](docs/architecture.md).
 
-## Status
+## Current capabilities
 
-**Phase 0 (render/export parity spike) — done.** One project JSON renders to a pixel-correct
-PNG from the same web renderer used by both the browser and the CLI, verified on the hardest
-case (an embedded custom font).
+- **One strict project document.** A complete strict schema v1 JSON file owns project metadata, output
+  families, locales, fonts, screens, backgrounds, elements, groups, crop/style literals, and store
+  target variants. Historical internal development formats are intentionally unsupported.
+- **One UI/CLI renderer.** The editor, previews, exact exports, bundles, and packaged CLI all use the
+  same Konva stage through the Chromium render host. Store PNGs are exact-size and opaque.
+- **Visual authoring.** The responsive workbench supports Focus and Overview, isolated or connected
+  canvases, owner-aware multi-selection, one-level groups, Layers, history, snapping/guides, zoom,
+  inline text editing, and schema-bounded inspectors.
+- **Complete element surface.** Text, shapes, screenshots, decorative images, trusted vector icons,
+  trusted device frames, editable badge groups, solid/gradient/project-image backgrounds, media
+  crop controls, text shadow, shape gradients, and strokes share render/export parity.
+- **Reusable project resources.** File-backed custom and Google fonts, baked themes, templates,
+  secure project assets, local auto-crop, and flat/near-uniform background removal work through the
+  editor and CLI without adding provider-dependent project state.
+- **Store and locale workflows.** Independent Apple, Android, and Windows output families, explicit
+  fresh-id store target variants, complete locale sets, baked RTL layout, and collision-safe
+  platform/device/locale bundles are supported.
+- **CLI and agent workflows.** The installable `screenshots` CLI manages projects, screens, imports,
+  fonts, themes, locales, canvas mode, local assets, and exports. Generated project-local agent
+  guidance and the optional thin skill operate on the same strict JSON and CLI contract.
 
-**Phase 1 (web editor) — done.** The interactive `/editor` canvas covers `text`, `shape`,
-`screenshot`, and `device-frame` elements over a shared render path, with select / move /
-resize / rotate, inline text edit, a screens + layers left panel (reorder, lock, hide, rename),
-a per-type inspector (plus solid/linear-gradient/project-image artboard backgrounds), and a toolbar
-(insert-on-click for `text`/`shape`, zoom).
-
-**Phase 2 (verified export) — done.** CLI and UI export both use the same headless `/render`
-path, produce exact lead-size bundles with no alpha channel, and write zip output. The CLI also
-ships `dev`, `import`, and `screen add/list/rm/reorder` for dogfooding end-to-end project
-workflows. See [docs/roadmap.md](docs/roadmap.md).
-
-**Phase 3 (fonts, themes, templates) — done.** File-backed custom/Google font ingest and
-editor management are shipped. The strict baked theme model, `theme set` CLI, editor role picker,
-Themes dialog, and project-local template library are shipped.
-
-**Phase 3.5 (editor UI polish) — done.** The editor now uses a consistent creative-workbench shell:
-grouped actions, clearer panels and inspector fields, one dialog system, real icons, actionable
-resource empty states, and visible keyboard focus. No schema, renderer, or persistence behavior changed.
-
-**Phase 3.6 (editor workspace foundation) — done.** The editor now has Focus and isolated-artboard
-Overview modes, a compact tool rail with collapsible Structure/Resources/Add shelves, a searchable
-creation catalog, pointer-centred wheel/pinch zoom, Hand/Space pan, Fit, `Dots | Grid | None`, and a
-responsive inspector/canvas layout. Closure QA also hardens live viewport changes, locked elements,
-inline text editing, contain-image transforms, schema-bounded Inspector input, save errors, and
-keyboard behavior. The bundled sample is a realistic three-screen launch deck.
-
-**Phase 4 (locales and RTL) — done.** Complete locale-set core/CLI/editor workflows, explicit baked
-RTL render parity, collision-safe multi-locale bundle paths, and per-platform/device/locale store-slot
-numbering are shipped.
-
-**Phase 5 (agent workflows and local image processing) — done.** `screenshots init` creates
-non-overwriting project-local `AGENTS.md` / `CLAUDE.md` instructions with copy, baked auto-layout,
-locale-translation, and asset-processing recipes. Local auto-crop and honest flat/near-uniform
-background removal write new PNGs without touching source assets or project JSON. The generated
-workflow and both commands are dogfooded, and the full closure gate passes.
-
-**Phase 6 (connected canvas and completion foundations) — done.** Connected UI/CLI crop parity,
-lifecycle-safe operations,
-guarded canvas-mode CLI, gapless owner-aware connected authoring, and bounded persisted undo/redo.
-Zoom-correct connected-space snapping, ephemeral smart guides, and safe project-local insertion of
-existing screenshot/device-frame elements now ship as well. The connected workspace now keeps
-mode control, exact-group Screens/Overview/Fit, owner Layers, thumbnails, history, and compact
-keyboard behavior coherent. A built installable CLI now packages the same Next render host and is
-smoke-tested from a temporary offline install through exact export; it is not a registry release.
-The optional skill is installable, delegates to the generated guide, and is clean-folder
-smoke-tested without an implicit network fetch. The real editor GIF, contribution/license surfaces,
-living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
-
-**Phase 7 (advanced editing + baseline completion) — done.** Owner-aware modified-click/marquee
-multi-selection and atomic batch actions ship, followed by a strict one-level group model with
-shared UI/CLI connected-crop parity. Group authoring/Layers and the strict decorative image leaf
-ship with secure asset insertion plus contain/cover/alpha parity. Trusted built-in vector icons
-add editable colour/stroke controls without raw
-SVG input. Rating and press-proof badges now use editable ordinary groups, and official store badges
-reuse secure contain-fit project images without a redundant schema type. Living v1 projects prove
-connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
-Phase 6 and Phase 7 complete the planned baseline.
-
-**Phase 8 (stabilization + release readiness) — done; decision: `GO`.** Failure/recovery,
-cross-environment package proof, export soak/performance budgets, accessibility/browser coverage,
-and the store/dependency release audit are complete. The `0.1.0` release artifact and candidate
-documentation are complete, and Slice 7's local full gate, source/packed dogfood, retained candidate,
-and Linux/macOS/Windows package matrix are green. No tag, registry publication, GitHub release, or
-public announcement is claimed.
-
-**Post-Phase 8 corrective work — complete and independent of release planning.** Corrective work
-replaced the destructive Store Targets `Set exact` resize with fresh-id, independently editable explicit
-target variants. The master screen stays unchanged; root and variant workspaces/export targets stay
-separate. **Phase 9 Slice 1 is implemented:** Store Outputs now creates independent iPhone, iPad, macOS,
-tvOS, watchOS, Android phone, and Windows desktop screen sets. This expansion is not a release
-dependency.
-
-**Phase 9 (finite product expansion) — done.** Independent output families, strict gradient/image
-backgrounds, media focal crop/zoom, text and shape styling, and trusted phone/tablet/desktop/TV/watch
-frame presets ship through strict schema v1 and the same UI/CLI renderer. Living examples, consolidated
-browser ownership, accessibility, and packed export budgets are green. This completion is not a
-release, tag, publication, or announcement; see `docs/phase9-closure.md`.
+Version `0.1.0` remains an unpublished dry-run candidate. Building or verifying it does not create
+an npm publication, Git tag, GitHub release, or announcement; see [docs/releasing.md](docs/releasing.md).
 
 ## Requirements
 

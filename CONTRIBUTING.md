@@ -16,13 +16,13 @@ pnpm exec playwright install chromium chromium-headless-shell
 pnpm dev
 ```
 
-Before changing the project, read `AGENTS.md`, `RULES.md`, and only the architecture/roadmap section
-relevant to your change. Keep project JSON inside the enforced schema and keep UI and CLI pixels on
-the shared browser renderer.
+Before changing the project, read `AGENTS.md`, `RULES.md`, and only the architecture or tracked
+contract section relevant to your change. Keep project JSON inside the enforced schema and keep UI
+and CLI pixels on the shared browser renderer.
 
 ## Make a change
 
-1. Open an issue for behavior that changes schema, renderer, export, or roadmap scope.
+1. Open an issue for behavior that changes the schema, renderer, export, or documented product contract.
 2. Keep the patch to one concern and add the smallest practical regression test.
 3. Add `SPDX-License-Identifier: Apache-2.0` to new authored `.ts`, `.tsx`, and `.mjs` source files.
    Do not add text headers to JSON, media, vendored/generated files, lockfiles, or third-party fonts.

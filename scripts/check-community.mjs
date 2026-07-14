@@ -10,10 +10,8 @@ const requiredFiles = [
   "LICENSE",
   "NOTICE",
   "CONTRIBUTING.md",
-  "CHANGELOG.md",
   "SECURITY.md",
   "docs/releasing.md",
-  "docs/assets/editor-demo.gif",
   "examples/README.md",
   "examples/connected-launch/app-store-screenshots.json",
   "examples/rtl-delivery/app-store-screenshots.json",
@@ -30,25 +28,39 @@ for (const path of requiredFiles) {
 }
 
 const readme = await readFile(join(repoRoot, "README.md"), "utf8");
-assertIncludes(readme, "docs/assets/editor-demo.gif", "README demo");
 assertIncludes(readme, "https://github.com/VitaliiDeveloper/Screenshot-Studio.git", "README source install");
 assertIncludes(readme, "it is not a registry release", "README release status");
-assertIncludes(readme, "Phase 6 and Phase 7 complete the planned baseline", "README baseline status");
-assertIncludes(
-  readme,
-  "Phase 8 (stabilization + release readiness) — done; decision: `GO`.",
-  "README Phase 8 status",
-);
-if (readme.includes("Phase 8 stabilization/release readiness is now\nin progress")) {
-  throw new Error("README still reports Phase 8 as in progress");
+assertIncludes(readme, "A code-first, open-source editor", "README product positioning");
+assertIncludes(readme, "## Current capabilities", "README current capabilities");
+assertIncludes(readme, "strict schema v1", "README current schema status");
+for (const legacyDoc of [
+  "docs/roadmap.md",
+  "docs/vision.md",
+  "docs/release-readiness.md",
+  "docs/phase9-closure.md",
+]) {
+  if (readme.includes(legacyDoc)) throw new Error(`README still links legacy documentation: ${legacyDoc}`);
 }
 assertIncludes(readme, "screenshot-studio-cli-0.1.0.tgz", "README candidate artifact");
 
-const changelog = await readFile(join(repoRoot, "CHANGELOG.md"), "utf8");
-assertIncludes(changelog, "## [0.1.0] - 2026-07-11 (release candidate)", "candidate changelog");
+for (const path of [
+  "README.md",
+  "AGENTS.md",
+  "RULES.md",
+  "docs/architecture.md",
+  "docs/editor.md",
+  "docs/testing.md",
+  "docs/releasing.md",
+]) {
+  const source = await readFile(join(repoRoot, path), "utf8");
+  if (/\b(?:post-)?phase\s+\d/i.test(source)) {
+    throw new Error(`Current contract documentation still uses a numbered phase model: ${path}`);
+  }
+}
 
 const security = await readFile(join(repoRoot, "SECURITY.md"), "utf8");
 assertIncludes(security, "security/advisories/new", "private vulnerability reporting");
+assertIncludes(security, "Current `main` branch", "current supported security surface");
 
 const releasing = await readFile(join(repoRoot, "docs/releasing.md"), "utf8");
 assertIncludes(releasing, "requires explicit owner authorization", "release authorization boundary");

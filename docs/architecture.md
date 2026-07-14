@@ -2,7 +2,7 @@
 
 How the system is built and the contracts everything agrees on: tech stack, core/shell
 split, render/export parity, data model & schema, store export spec, fonts, the management
-interface (CLI + conventions + `AGENTS.md`), and design guardrails.
+interface (CLI + conventions + generated project guidance), and design guardrails.
 
 Version 1.0, 12 July 2026.
 
@@ -48,13 +48,14 @@ screenshot-studio/
 ├── apps/
 │   └── web/             # Next.js: self-hosted editor
 ├── examples/            # self-contained current-schema connected and RTL living projects
-├── AGENTS.md            # instructions for the CLI agent (conventions, schema, commands)
+├── AGENTS.md            # concise contributor-agent entry point and source routing
 └── skills/
     └── screenshot-studio/ # optional discovery/bootstrap skill for use outside the repo
 ```
 
-CLI and `AGENTS.md` are the primary management interface (for humans and agents). `cli`
-uses `core` for schema, project state, and export orchestration, but delegates the actual
+The CLI and generated project-local `AGENTS.md` are the primary management interface for humans
+and agents. The CLI uses `core` for schema, project state, and export orchestration, but delegates
+the actual
 pixel rendering to the web renderer running in a headless browser (see §2) — so UI and CLI
 share one rendering path, not two.
 
@@ -166,7 +167,7 @@ development shapes or mutate the caller's object. Unsupported numeric versions r
 version error, while missing or invalid versions fail strict validation. Compatibility migrations
 will be introduced only after a published project format creates a supported upgrade boundary.
 
-**Connected canvas — render/export contract (Phase 6 Slice 1).** `Project.mode` is one explicit
+**Connected canvas — render/export contract.** `Project.mode` is one explicit
 project-level `isolated | connected` choice. In connected mode, screens with the same exact
 platform, device, locale, and
 store-target identity form a gapless,
@@ -181,7 +182,7 @@ screen/element selection disambiguates duplicate ids, and Focus reuses the proje
 non-interactive crop. The toolbar exposes project mode and guarded conversion feedback; successful
 changes travel through ordinary history/save.
 
-**Editor history — Phase 6 Slice 4.** The Zustand store keeps at most 50 prior project snapshots in
+**Editor history.** The Zustand store keeps at most 50 prior project snapshots in
 memory. Consecutive patches for the same owner element, background, or artboard coalesce until an
 explicit interaction boundary; structural mutations remain separate steps. Undo and redo preserve
 only still-valid active/selected ids, clear the opposite branch after a new mutation, and travel
@@ -189,7 +190,7 @@ through the same durable project save path as ordinary edits. Loading a project 
 after an external durable-resource operation resets history. Selection, viewport, dialogs, save
 status, and guide chrome are transient and never enter project history or JSON.
 
-**Editor snapping — Phase 6 Slice 5.** One dragged element derives rotation-aware bounds in the
+**Editor snapping.** One dragged element derives rotation-aware bounds in the
 active stage coordinate space. Candidate anchors come from the connected group bounds, each active
 artboard, and visible non-zero-opacity elements; exact ties prefer element, then artboard, then
 group targets in stable project order. The logical tolerance is `6 / zoom`, keeping the interaction
@@ -198,7 +199,7 @@ coordinate. Vertical/horizontal guides are non-listening Konva lines updated thr
 drag, cleared before persistence, and absent from the store, project schema, static renderer, and
 export.
 
-**Editor asset discovery — Phase 6 Slice 6 / Phase 7 Slice 4.** `/api/assets` recursively lists regular PNG, JPEG,
+**Editor asset discovery.** `/api/assets` recursively lists regular PNG, JPEG,
 and WebP files only under the project-root `assets/` and `screenshots/` directories, skips hidden
 entries and symlinks, and returns stable portable relative paths. The Add picker creates the
 `screenshot`, decorative `image`, and `device-frame` schema members through core factories; insertion uses
@@ -208,7 +209,7 @@ reading image or font bytes. The picker performs no upload, copy, delete, rename
 project replacement. The `image` leaf has a non-cropping `contain` default, deterministic centred
 `cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder.
 
-**Connected workspace hardening — Phase 6 Slice 7.** Workspace derivation has two explicit
+**Connected workspace behavior.** Workspace derivation has two explicit
 contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
 transforms with one exact platform/device/locale/store-target group in connected mode; isolated
 mode retains its locale/root or exact target layer. `workspaceOverviewRows` presents every output
@@ -225,7 +226,7 @@ successful changes through bounded history and durable save. Desktop and compact
 composes mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
 keyboard dismissal without persisting workspace chrome.
 
-**Editor multi-selection — Phase 7 Slice 1.** Selection is an ephemeral ordered set of composite
+**Editor multi-selection.** Selection is an ephemeral ordered set of composite
 `{ screenId, elementId }` identities; its last member is the primary single-item target. Modified
 click and rotation-aware marquee acquisition operate only inside the editable active screen or
 connected exact group. Aggregate translation adds one stage-space delta to each unlocked member's
@@ -234,7 +235,7 @@ visibility are likewise atomic. Multi-resize/rotate and snapping remain outside 
 contract. Selection is reconciled across screen/mode/load/undo boundaries
 but never enters project JSON, render/export input, or history snapshots.
 
-**Persisted groups — Phase 7 Slice 2.** `Element` is `LeafElement | GroupElement`,
+**Persisted groups.** `Element` is `LeafElement | GroupElement`,
 where a group owns a non-empty, non-nested `children: LeafElement[]` array in local coordinates.
 The group occupies one top-level z-order slot; child array order is internal z-order. Group
 translation/rotation/opacity compose through the ordinary recursive `NodeConfig` tree, while
@@ -243,7 +244,7 @@ overflow participates in the connected→isolated loss guard, and exact screen s
 the only export crop. Fonts, assets, themes, templates, cloning, and RTL all traverse group leaves
 through shared core helpers.
 
-**Group authoring — Phase 7 Slice 3.** Grouping requires at least two top-level leaves from one
+**Group authoring.** Grouping requires at least two top-level leaves from one
 owner screen, rejects cross-owner/nested input, inserts one group at the frontmost selected slot,
 and converts its children to rotation-aware aggregate-bound-local coordinates. Groups transform as
 one top-level node; uniform resize bakes scale into every child geometry and dimensional leaf field.
@@ -254,14 +255,14 @@ interaction selects the group; owner-scoped Layers exposes one indented child le
 and child property actions. Group, ungroup, duplicate, and all group/child edits use the ordinary
 bounded history and durable-save path.
 
-**Trusted vector icons — Phase 7 Slice 5.** `icon` stores only one stable id from the
+**Trusted vector icons.** `icon` stores only one stable id from the
 core-owned `check | heart | sparkles | star` registry plus literal colour and positive stroke width.
 The registry supplies normalised `24×24` path data to the shared NodeConfig mapper, which returns a
 logical Group and Konva Path with screen-pixel stroke semantics. Static/UI/CLI rendering never parse
 project SVG/XML or use a font glyph. Add inserts a default star and Inspector edits the id, colour,
 and stroke; arbitrary SVG import remains outside the contract.
 
-**Badge primitives — Phase 7 Slice 6.** Badges add no render-state union member.
+**Badge primitives.** Badges add no render-state union member.
 Core factories return fresh-id ordinary groups for rating (shape + star icon + editable registered-
 font text) and “as seen on” (shape + sparkles icon + editable registered-font text). The editor
 refuses those insertions without a registered font. Official store badges are named contain-fit
@@ -269,13 +270,13 @@ decorative images selected through the existing secure asset picker. After inser
 selection, child inspection, transforms, duplication, ungrouping, themes, RTL, history, save, and
 export remain the existing contracts; `type: "badge"` is invalid.
 
-**Baseline closure — Phase 7 Slice 7.** The self-contained current-schema living projects exercise connected
+**Living examples and closure checks.** The self-contained current-schema living projects exercise connected
 image overflow, trusted icons, ordinary badge groups, and two-screen LTR/RTL locale groups. The
 closure browser gate edits a copied example through accessible named controls and the documented
 group/duplicate/ungroup/undo shortcuts, reloads the persisted result, and exports exact alpha-free
-store PNGs. This closes the planned Phase 6/7 baseline, not the Phase 8 release-readiness gate.
+store PNGs. These examples validate the current baseline but do not authorize publication.
 
-**Independent store targets — post-Phase 8 corrective Slice 1.** Root screens omit
+**Independent store targets.** Root screens omit
 `variantOf` and `storeTargetId`. An explicit target copy stores both fields, points directly to its
 root, matches the root platform/device/locale, and renders through the same flat `Screen` contract.
 Creation fits a fresh-id copy into the exact store artboard and never mutates the root. Workspace
@@ -286,7 +287,7 @@ artboard. The editor presents that master size as fixed by default; explicit cus
 every root composition in the output set atomically, while reset fits the set back to the exact lead dimensions. Exact and
 custom state are derived from `store-specs.json`, not duplicated in the schema.
 
-**Artboard backgrounds — Phase 9 Slice 2.** `Background` is a strict discriminated
+**Artboard backgrounds.** `Background` is a strict discriminated
 union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
 `image` with deterministic `cover | contain` fit and a fallback/letterbox colour. Background colour
 literals use `HexColor` and may include alpha. UI and static export both consume
@@ -294,19 +295,19 @@ literals use `HexColor` and may include alpha. UI and static export both consume
 the same path-containment rules as image elements. The renderer paints every background before
 connected elements, and final store export flattens the composed PNG by stripping alpha.
 
-**Media crop controls — Phase 9 Slice 3.** Screenshot and decorative-image leaves may
+**Media crop controls.** Screenshot and decorative-image leaves may
 store `crop: { x, y, zoom }`, where focal coordinates are normalized `0…1` and zoom is bounded
 `1…4`. The shared object-fit mapper derives a clamped source window for `cover`; missing crop is
 centred at zoom 1, and `contain` preserves but ignores crop state. The element box, connected owner
 coordinates, export crop, and alpha handling remain unchanged.
 
-**Text and shape styling — Phase 9 Slice 4.** Text optionally stores one bounded literal
+**Text and shape styling.** Text optionally stores one bounded literal
 shadow. Shape `kind` is `rect | ellipse`, with a solid `fill` fallback plus optional strict two-stop
 linear gradient and literal stroke. The shared mapper emits the same Konva shadow/paint props for
 editor and static export; ellipse uses a logical owner Group so persisted x/y remain top-left during
 drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects.
 
-**Built-in frame presets — Phase 9 Slice 5.** The existing `device-frame` leaf selects
+**Built-in frame presets.** The existing `device-frame` leaf selects
 one core-owned `iphone | android-phone | tablet | desktop | tv | watch` preset. Each supplies
 normalized outer aspect, bezel, screen-slot, corner, and optional notch geometry rendered with
 native Konva primitives; the project screenshot remains the only asset. Preset switching preserves
@@ -414,7 +415,7 @@ declared ready.
 
 ---
 
-## 6. Management interface: conventions + CLI + AGENTS.md
+## 6. Management interface: conventions + CLI + generated project guidance
 
 The substance of the product is repo conventions and a CLI, not a packaged skill. The agent
 works through them directly; the skill stays an optional thin installer for use outside the repo.
@@ -424,7 +425,7 @@ works through them directly; the skill stays an optional thin installer for use 
 ```
 my-app-screenshots/
 ├── app-store-screenshots.json     # source of truth (project)
-├── AGENTS.md / CLAUDE.md          # instructions for the CLI agent
+├── AGENTS.md / CLAUDE.md          # generated project-local agent guidance
 ├── screenshots/                   # source captures
 │   ├── apple/{iphone,ipad}/{locale}/NN.png
 │   └── android/phone/{locale}/NN.png
@@ -451,14 +452,14 @@ my-app-screenshots/
 | `import <dir>` | Ingest raw captures by directory convention |
 | `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
 
-**`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
+**Generated `AGENTS.md` / `CLAUDE.md` — project-local guidance.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
 overwrite either. Any CLI agent that opens the project learns the directory structure, strict v1
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic
 flat-background removal run locally through Sharp, write under `assets/processed/`, and never enter
-render/export. Source contributors invoke `pnpm screenshots`; Phase 6 Slice 8 also builds one
+render/export. Source contributors invoke `pnpm screenshots`; the packaged distribution also builds one
 installable `@screenshot-studio/cli` artifact whose Node 22 ESM bin bundles CLI/core code and whose
 runtime carries `store-specs.json`, the generated guide, and the prebuilt shared web host; the
 artifact also retains the repository `LICENSE` and `NOTICE`. The host
@@ -479,7 +480,7 @@ release claim.
 
 ---
 
-## 7. Design guardrails (baked into AGENTS.md)
+## 7. Design guardrails (baked into generated project guidance)
 
 - Screenshots are ads, not documentation.
 - Each slide sells one clear user outcome.

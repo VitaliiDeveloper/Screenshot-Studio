@@ -6,12 +6,12 @@ import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
 import { ICON_PATHS } from "../model/icons.js";
 
 /**
- * The single element→Konva-props map (docs/specs/2026-07-04-phase1-slice3-device-frame-design.md §1):
- * both the static export renderer (`renderScreen`) and the interactive editor stage build nodes from
- * this exact output. Pure and synchronous — it LOOKS images up in a preloaded `images` cache, it never
- * loads one, so the sync contract holds for both render paths. A `device-frame` returns a `Group` of
- * native shapes + the clipped content image; interaction props (draggable, listeners) are the editor's
- * concern and are added by the caller, never here.
+ * The single element→Konva-props map: both the static export renderer (`renderScreen`) and the
+ * interactive editor stage build nodes from this exact output. Pure and synchronous — it LOOKS
+ * images up in a preloaded `images` cache, it never loads one, so the sync contract holds for both
+ * render paths. A `device-frame` returns a `Group` of native shapes + the clipped content image;
+ * interaction props (draggable, listeners) are the editor's concern and are added by the caller,
+ * never here.
  */
 export type ImageCache = Map<string, HTMLImageElement>;
 
