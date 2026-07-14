@@ -70,8 +70,8 @@ Monorepo (pnpm workspaces):
 - `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
   `/api/asset` routes that back both.
-- `fixtures/` — sample projects used by tests and local dev (e.g. `phase-0-sample`).
-- `examples/` — self-contained v10 connected and RTL projects that are validated, edited, and
+- `fixtures/` — sample projects used by tests and local dev (e.g. `sample` and behavior-named regressions).
+- `examples/` — self-contained v1 connected and RTL projects that are validated, edited, and
   exported in the closure suite.
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
@@ -124,8 +124,8 @@ locale-translation, and asset-processing recipes. Local auto-crop and honest fla
 background removal write new PNGs without touching source assets or project JSON. The generated
 workflow and both commands are dogfooded, and the full closure gate passes.
 
-**Phase 6 (connected canvas and completion foundations) — done.** Schema v2, lossless v1 migration,
-connected UI/CLI crop parity, lifecycle-safe operations,
+**Phase 6 (connected canvas and completion foundations) — done.** Connected UI/CLI crop parity,
+lifecycle-safe operations,
 guarded canvas-mode CLI, gapless owner-aware connected authoring, and bounded persisted undo/redo.
 Zoom-correct connected-space snapping, ephemeral smart guides, and safe project-local insertion of
 existing screenshot/device-frame elements now ship as well. The connected workspace now keeps
@@ -137,12 +137,12 @@ smoke-tested without an implicit network fetch. The real editor GIF, contributio
 living connected/RTL examples, and enforced SPDX policy complete the Phase 6 community foundation.
 
 **Phase 7 (advanced editing + baseline completion) — done.** Owner-aware modified-click/marquee
-multi-selection and atomic batch actions ship, followed by a strict v3 one-level group model with
-lossless v1/v2 migration and shared UI/CLI connected-crop parity. Group authoring/Layers and the
-strict v4 decorative image leaf now ship with secure asset insertion plus contain/cover/alpha
-parity. Strict v5 trusted built-in vector icons now add editable colour/stroke controls without raw
+multi-selection and atomic batch actions ship, followed by a strict one-level group model with
+shared UI/CLI connected-crop parity. Group authoring/Layers and the strict decorative image leaf
+ship with secure asset insertion plus contain/cover/alpha parity. Trusted built-in vector icons
+add editable colour/stroke controls without raw
 SVG input. Rating and press-proof badges now use editable ordinary groups, and official store badges
-reuse secure contain-fit project images without a redundant schema type. Living v10 projects prove
+reuse secure contain-fit project images without a redundant schema type. Living v1 projects prove
 connected image/icon/badge/group crops plus keyboard group workflows across LTR/RTL locale groups.
 Phase 6 and Phase 7 complete the planned baseline.
 
@@ -153,8 +153,8 @@ documentation are complete, and Slice 7's local full gate, source/packed dogfood
 and Linux/macOS/Windows package matrix are green. No tag, registry publication, GitHub release, or
 public announcement is claimed.
 
-**Post-Phase 8 corrective work — complete and independent of release planning.** Schema v6 introduced
-the destructive Store Targets `Set exact` resize with fresh-id, independently editable explicit
+**Post-Phase 8 corrective work — complete and independent of release planning.** Corrective work
+replaced the destructive Store Targets `Set exact` resize with fresh-id, independently editable explicit
 target variants. The master screen stays unchanged; root and variant workspaces/export targets stay
 separate. **Phase 9 Slice 1 is implemented:** Store Outputs now creates independent iPhone, iPad, macOS,
 tvOS, watchOS, Android phone, and Windows desktop screen sets. This expansion is not a release
@@ -162,7 +162,7 @@ dependency.
 
 **Phase 9 (finite product expansion) — done.** Independent output families, strict gradient/image
 backgrounds, media focal crop/zoom, text and shape styling, and trusted phone/tablet/desktop/TV/watch
-frame presets ship through schema v10 and the same UI/CLI renderer. Living examples, consolidated
+frame presets ship through strict schema v1 and the same UI/CLI renderer. Living examples, consolidated
 browser ownership, accessibility, and packed export budgets are green. This completion is not a
 release, tag, publication, or announcement; see `docs/phase9-closure.md`.
 
@@ -257,7 +257,7 @@ Locale commands delegate to the same core transformations as the editor. `locale
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
 stored direction changes, and `locale rm` protects the last locale.
 
-An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v10
+An initialized project's `AGENTS.md` is the self-contained agent workflow: it documents strict v1
 guardrails and exact recipes for copy generation, literal layout, locale translation, and local asset
 processing. Init preflights the JSON and both agent control files and refuses to overwrite any of them.
 
@@ -273,7 +273,7 @@ semantic object/person segmentation for complex scenes.
 editor through the CLI and prints the selected local URL.
 
 Without `PROJECT_PATH` the editor opens the committed sample
-(`fixtures/phase-0-sample/app-store-screenshots.json`) — fine for a first look, but the
+(`fixtures/sample/app-store-screenshots.json`) — fine for a first look, but the
 editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before real edits,
 or `git checkout` the fixture afterwards.
 

@@ -21,7 +21,7 @@ Version 1.0, 12 July 2026.
 | Export (CLI / headless) | **Playwright** renders the same web stage | Pixel parity with the UI by construction — see §2 |
 | Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
 | Screen reorder | dnd-kit | Reordering screens in the sidebar |
-| Schema & validation | **Zod** | Versioning, migrations, a strict validator (the AI contract) |
+| Schema & validation | **Zod** | One explicit version and a strict validator (the AI contract) |
 | Specs & tests | **`store-specs.json` + Vitest** | Store sizes as data, not hardcode; export dimension tests |
 
 **Requirements:** Node.js 22.13+ and pnpm 11.10.0 (through Corepack).
@@ -37,7 +37,7 @@ testability, and ease of contributions — not for monetization.
 screenshot-studio/
 ├── packages/
 │   ├── core/            # framework-agnostic core
-│   │   ├── model/       # types, project schema, migrations (Zod)
+│   │   ├── model/       # types and strict project schema (Zod)
 │   │   ├── engine/      # Konva render, elements, transforms
 │   │   ├── export/      # render to exact sizes, zip bundle
 │   │   ├── fonts/       # font load/registration + embedding
@@ -90,7 +90,7 @@ adding a second renderer is outside the architecture.
 ## 3. Data model & schema
 
 A single JSON file is the source of truth — git-trackable and reproducible. A **strict Zod
-schema + validator** is foundational: it underpins determinism, migrations, and the AI
+schema + validator** is foundational: it underpins determinism and the AI
 contract (the agent edits this JSON, so it must be impossible to write an invalid one
 silently).
 
@@ -112,7 +112,7 @@ Project
 
 **Element types** — all elements share `id`, `type`, `x`, `y`, `width`, `height`, `rotation`,
 `opacity`, `locked`, `visible`, and optional display `name`. Leaf elements additionally allow the
-optional baked-theme `role`; groups do not. The strict v10 members are:
+optional baked-theme `role`; groups do not. The strict v1 members are:
 
 - `text` — content, fontFamily, size, weight, lineHeight, letterSpacing, align, color, shadow
 - `screenshot` — assetUrl, fit (cover/contain), crop, cornerRadius
@@ -125,7 +125,7 @@ optional baked-theme `role`; groups do not. The strict v10 members are:
 
 **Background types** are the strict `solid`, `linear-gradient`, and project-relative `image`
 members. There are no arbitrary CSS paints, generic effects, blobs, author-defined frame slots,
-frame colours, nested groups, or `badge` element member in v10.
+frame colours, nested groups, or `badge` element member in v1.
 
 **Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
 `applyTheme(project, theme)` rewrites the existing literal text/shape fields selected by an
@@ -152,7 +152,7 @@ without disturbing another locale's relative order. The locale manager delegates
 and removal to the same pure core operations used by the CLI. Editor chrome remains LTR.
 
 **RTL direction is explicit, not inferred from locale.** Every screen stores
-`direction: "ltr" | "rtl"` (legacy v1 files migrate to v2 isolated and default to `ltr`), and all screens in one locale
+`direction: "ltr" | "rtl"` (omitted values receive the strict schema's `ltr` default), and all screens in one locale
 must agree. Changing direction bakes horizontal placement (`x' = artboard.width - x - width`) and
 physical `left ↔ right` text alignment into JSON while preserving media pixels and rotation. The
 shared `elementToNodeConfig(element, { images, direction })` mapper sends the stored direction to
@@ -160,12 +160,15 @@ Konva text in both the editor and headless renderer; geometry is never mirrored 
 Inline editors inherit the screen direction, and new text uses physical right alignment in RTL.
 Templates remain LTR-authored inputs and are baked once when instantiated into an RTL locale.
 
-**Versioning.** `schemaVersion` + pure migration functions `v1→v2→…` run on load. Additive,
-optional fields such as `role` keep the current version; structural changes require a migration.
+**Versioning.** The complete current document is the first supported pre-release format and stores
+`schemaVersion: 1`. `parseProject()` validates raw input directly; it does not migrate internal
+development shapes or mutate the caller's object. Unsupported numeric versions receive a dedicated
+version error, while missing or invalid versions fail strict validation. Compatibility migrations
+will be introduced only after a published project format creates a supported upgrade boundary.
 
-**Connected canvas — v2 render/export contract (Phase 6 Slice 1).** `Project.mode` is one explicit
-project-level `isolated | connected` choice. Valid v1 input migrates without pixel changes to v2
-`isolated`. In connected mode, screens with the same exact platform, device, locale, and
+**Connected canvas — render/export contract (Phase 6 Slice 1).** `Project.mode` is one explicit
+project-level `isolated | connected` choice. In connected mode, screens with the same exact
+platform, device, locale, and
 store-target identity form a gapless,
 top-aligned strip in project order; each origin is the cumulative width of earlier group screens.
 Elements remain in their owner screen with owner-local coordinates. The shared renderer paints all
@@ -202,9 +205,8 @@ entries and symlinks, and returns stable portable relative paths. The Add picker
 the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
 the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
 reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
-project replacement. Schema v4 adds `image` with non-cropping `contain` default, deterministic
-centred `cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder;
-v3 migrates losslessly only when it does not already contain the previously invalid image type.
+project replacement. The `image` leaf has a non-cropping `contain` default, deterministic centred
+`cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder.
 
 **Connected workspace hardening — Phase 6 Slice 7.** Workspace derivation has two explicit
 contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
@@ -232,15 +234,14 @@ visibility are likewise atomic. Multi-resize/rotate and snapping remain outside 
 contract. Selection is reconciled across screen/mode/load/undo boundaries
 but never enters project JSON, render/export input, or history snapshots.
 
-**Persisted groups — schema v3 / Phase 7 Slice 2.** `Element` is `LeafElement | GroupElement`,
+**Persisted groups — Phase 7 Slice 2.** `Element` is `LeafElement | GroupElement`,
 where a group owns a non-empty, non-nested `children: LeafElement[]` array in local coordinates.
 The group occupies one top-level z-order slot; child array order is internal z-order. Group
 translation/rotation/opacity compose through the ordinary recursive `NodeConfig` tree, while
 `width/height` are authoring bounds and introduce neither runtime scale nor clipping. Visible child
 overflow participates in the connected→isolated loss guard, and exact screen stage dimensions remain
-the only export crop. v1 migrates through isolated v2 and v2 migrates losslessly to v3 by version
-bump; fonts, assets, themes, templates, cloning, and RTL all traverse group leaves through shared
-core helpers.
+the only export crop. Fonts, assets, themes, templates, cloning, and RTL all traverse group leaves
+through shared core helpers.
 
 **Group authoring — Phase 7 Slice 3.** Grouping requires at least two top-level leaves from one
 owner screen, rejects cross-owner/nested input, inserts one group at the frontmost selected slot,
@@ -253,15 +254,14 @@ interaction selects the group; owner-scoped Layers exposes one indented child le
 and child property actions. Group, ungroup, duplicate, and all group/child edits use the ordinary
 bounded history and durable-save path.
 
-**Trusted vector icons — schema v5 / Phase 7 Slice 5.** `icon` stores only one stable id from the
+**Trusted vector icons — Phase 7 Slice 5.** `icon` stores only one stable id from the
 core-owned `check | heart | sparkles | star` registry plus literal colour and positive stroke width.
 The registry supplies normalised `24×24` path data to the shared NodeConfig mapper, which returns a
 logical Group and Konva Path with screen-pixel stroke semantics. Static/UI/CLI rendering never parse
 project SVG/XML or use a font glyph. Add inserts a default star and Inspector edits the id, colour,
-and stroke. v4 migrates losslessly only when the previously invalid icon type does not appear at any
-tree depth; arbitrary SVG import remains outside the contract.
+and stroke; arbitrary SVG import remains outside the contract.
 
-**Badge primitives — Phase 7 Slice 6.** Badges add no render-state union member and keep schema v5.
+**Badge primitives — Phase 7 Slice 6.** Badges add no render-state union member.
 Core factories return fresh-id ordinary groups for rating (shape + star icon + editable registered-
 font text) and “as seen on” (shape + sparkles icon + editable registered-font text). The editor
 refuses those insertions without a registered font. Official store badges are named contain-fit
@@ -269,13 +269,13 @@ decorative images selected through the existing secure asset picker. After inser
 selection, child inspection, transforms, duplication, ungrouping, themes, RTL, history, save, and
 export remain the existing contracts; `type: "badge"` is invalid.
 
-**Baseline closure — Phase 7 Slice 7.** The self-contained v5 living projects exercise connected
+**Baseline closure — Phase 7 Slice 7.** The self-contained current-schema living projects exercise connected
 image overflow, trusted icons, ordinary badge groups, and two-screen LTR/RTL locale groups. The
 closure browser gate edits a copied example through accessible named controls and the documented
 group/duplicate/ungroup/undo shortcuts, reloads the persisted result, and exports exact alpha-free
 store PNGs. This closes the planned Phase 6/7 baseline, not the Phase 8 release-readiness gate.
 
-**Independent store targets — schema v6 / post-Phase 8 corrective Slice 1.** Root screens omit
+**Independent store targets — post-Phase 8 corrective Slice 1.** Root screens omit
 `variantOf` and `storeTargetId`. An explicit target copy stores both fields, points directly to its
 root, matches the root platform/device/locale, and renders through the same flat `Screen` contract.
 Creation fits a fresh-id copy into the exact store artboard and never mutates the root. Workspace
@@ -286,35 +286,31 @@ artboard. The editor presents that master size as fixed by default; explicit cus
 every root composition in the output set atomically, while reset fits the set back to the exact lead dimensions. Exact and
 custom state are derived from `store-specs.json`, not duplicated in the schema.
 
-**Artboard backgrounds — schema v7 / Phase 9 Slice 2.** `Background` is a strict discriminated
+**Artboard backgrounds — Phase 9 Slice 2.** `Background` is a strict discriminated
 union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
 `image` with deterministic `cover | contain` fit and a fallback/letterbox colour. Background colour
 literals use `HexColor` and may include alpha. UI and static export both consume
 `backgroundToNodeConfig`; image assets participate in the ordinary project preload cache and retain
 the same path-containment rules as image elements. The renderer paints every background before
-connected elements, and final store export flattens the composed PNG by stripping alpha. v6
-migrates losslessly only when its previously legal solid-only background contract is respected.
+connected elements, and final store export flattens the composed PNG by stripping alpha.
 
-**Media crop controls — schema v8 / Phase 9 Slice 3.** Screenshot and decorative-image leaves may
+**Media crop controls — Phase 9 Slice 3.** Screenshot and decorative-image leaves may
 store `crop: { x, y, zoom }`, where focal coordinates are normalized `0…1` and zoom is bounded
 `1…4`. The shared object-fit mapper derives a clamped source window for `cover`; missing crop is
 centred at zoom 1, and `contain` preserves but ignores crop state. The element box, connected owner
-coordinates, export crop, and alpha handling remain unchanged. v7 migrates only when no previously
-invalid crop field appears at any leaf depth.
+coordinates, export crop, and alpha handling remain unchanged.
 
-**Text and shape styling — schema v9 / Phase 9 Slice 4.** Text optionally stores one bounded literal
+**Text and shape styling — Phase 9 Slice 4.** Text optionally stores one bounded literal
 shadow. Shape `kind` is `rect | ellipse`, with a solid `fill` fallback plus optional strict two-stop
 linear gradient and literal stroke. The shared mapper emits the same Konva shadow/paint props for
 editor and static export; ellipse uses a logical owner Group so persisted x/y remain top-left during
-drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects. v8
-migration refuses previously invalid styling fields at any leaf depth.
+drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects.
 
-**Built-in frame presets — schema v10 / Phase 9 Slice 5.** The existing `device-frame` leaf selects
+**Built-in frame presets — Phase 9 Slice 5.** The existing `device-frame` leaf selects
 one core-owned `iphone | android-phone | tablet | desktop | tv | watch` preset. Each supplies
 normalized outer aspect, bezel, screen-slot, corner, and optional notch geometry rendered with
 native Konva primitives; the project screenshot remains the only asset. Preset switching preserves
-width and fits height to the canonical outer aspect. v9 migration accepts only its prior iPhone
-literal and refuses mislabeled future presets at any leaf depth.
+width and fits height to the canonical outer aspect.
 
 ---
 
@@ -457,7 +453,7 @@ my-app-screenshots/
 
 **`AGENTS.md` / `CLAUDE.md` — the skill replacement inside the repo.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v10
+overwrite either. Any CLI agent that opens the project learns the directory structure, strict v1
 schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
 locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
 and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic

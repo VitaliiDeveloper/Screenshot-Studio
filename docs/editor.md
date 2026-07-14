@@ -5,7 +5,7 @@ save/load/export, and what is deliberately out of scope.
 
 Version 2.0, 12 July 2026.
 
-> **Status: this document describes the as-built strict v10 editor after finite Phase 9 closure.**
+> **Status: this document describes the as-built strict v1 editor after finite Phase 9 closure.**
 > Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
 > widen together.
 
@@ -49,7 +49,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v10 project stores `mode: isolated | connected`. Isolated behavior
+- **Canvas mode.** The enforced v1 project stores `mode: isolated | connected`. Isolated behavior
   remains unchanged. Connected Overview is one gapless editable exact
   platform/device/locale/store-target strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
@@ -164,7 +164,8 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 ## 6. Save / load / export
 
 - **Save / load** read and write `app-store-screenshots.json` through the `core` `StorageAdapter`.
-  Load runs strict Zod validation and pure `v1→v2→…` migrations.
+  Load validates the raw complete v1 document directly through the strict Zod schema. Historical
+  internal development formats are unsupported and are not rewritten on load.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
   saves surface a visible workspace alert; the editor never silently presents a rejected value as
   durable state.
@@ -208,5 +209,5 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 - Multi-selection supports aggregate movement and atomic actions, not aggregate resize/rotation.
 - Automatic translation is an agent-assisted project workflow, not a provider-backed editor feature.
 - Project assets are selected from local files; the picker does not upload, fetch, rename, or delete.
-- Only strict v10 background, element, crop, shadow, gradient, stroke, and frame literals are
+- Only strict v1 background, element, crop, shadow, gradient, stroke, and frame literals are
   authorable. New primitives or generic effects require an explicit schema and parity change.

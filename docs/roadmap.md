@@ -6,7 +6,7 @@ Version 2.0, 12 July 2026.
 ## Current status
 
 Implementation and verification are complete through the finite Phase 9 scope. The enforced
-project contract is strict schema v10. Phase 8's retained candidate evidence is green and records a
+project contract is strict schema v1. Phase 8's retained candidate evidence is green and records a
 `GO — release ready` decision; Phase 9's release-independent expansion closure is also green.
 
 This is baseline and candidate completion, not publication. No Git tag, npm registry publication,
@@ -31,7 +31,8 @@ GitHub release, or announcement is implied or authorized by this document.
 - **One render path.** UI and CLI render the same Konva stage in Chromium. A lighter second renderer
   is not an optimization option because it would reopen parity.
 - **Strict schema first.** New persisted or render-affecting behavior starts with an explicit schema,
-  migration, shared-renderer, and parity contract. Future ideas are not valid v10 fields.
+  shared-renderer, and parity contract. Future ideas are not valid v1 fields. Compatibility
+  migrations begin only after a published project format creates a supported upgrade boundary.
 - **Store targets are independent.** Root/master screens are never resized in place by output or
   exact-target creation. Explicit non-lead sizes use paired `variantOf`/`storeTargetId` screens.
 - **Connected ownership stays local.** Elements remain owned by one screen in owner-local
@@ -47,7 +48,7 @@ GitHub release, or announcement is implied or authorized by this document.
 
 ## Current contracts
 
-- [Architecture and strict v10 technical contract](architecture.md)
+- [Architecture and strict v1 technical contract](architecture.md)
 - [As-built editor contract](editor.md)
 - [CLI and project workflow](../AGENTS.md)
 - [Testing policy](testing.md)

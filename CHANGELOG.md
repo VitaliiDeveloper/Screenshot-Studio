@@ -7,12 +7,14 @@ candidate is published.
 
 ### Added
 
-- Schema v10 product expansion: independent output families, gradient/project-image backgrounds,
+- Complete project-surface expansion: independent output families, gradient/project-image backgrounds,
   media focal crop/zoom, text shadow, ellipse/gradient/stroke shapes, and trusted frame presets.
 - Phase 9 living-example, renderer parity, authoring, accessibility, and packed performance evidence.
 
 ### Changed
 
+- Reset the unpublished project format to one complete strict schema v1 baseline, removed internal
+  development migrations, and renamed active fixtures by behavior.
 - Consolidated five new browser harnesses into two ownership suites to retain coverage with less
   repeated Next.js/Playwright startup work.
 

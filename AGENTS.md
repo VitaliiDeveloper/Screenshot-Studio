@@ -12,7 +12,7 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > The shared render/export core, CLI management surface, fonts/themes/templates, and responsive
 > locale/RTL editor and collision-safe multi-locale export are built. New projects receive
 > copy/layout/translation/asset recipes, and deterministic local auto-crop plus flat-background
-> removal are shipped and closure-verified. The v2 connected document and precise shared-renderer
+> removal are shipped and closure-verified. The connected document and precise shared-renderer
 > crop contract, guarded lifecycle/CLI mode changes, gapless connected authoring, bounded persisted
 > undo/redo, zoom-correct connected-space snapping/guides, and safe project-asset insertion for the
 > existing screenshot/device-frame types, the group-scoped connected workspace, and the installable
@@ -20,10 +20,10 @@ Before starting any task, read and apply the repository-wide workflow rules in
 > generated project guidance, are verified. The real editor GIF, contribution/license surfaces,
 > living examples, and scoped SPDX policy close Phase 6. Phase 6 and Phase 7 together close the
 > planned baseline. Phase 7 has owner-aware modified-click/marquee multi-selection and atomic batch
-> movement/actions plus a strict v3 one-level group model with lossless v1/v2 migration, recursive
+> movement/actions plus a strict one-level group model, recursive
 > traversal, shared UI/CLI connected-crop parity, and owner-aware group authoring with nested Layers
-> inspection and uniform transforms, the strict v4 decorative image leaf with secure asset
-> authoring and shared contain/cover/alpha parity, and the strict v5 trusted built-in vector icon
+> inspection and uniform transforms, the strict decorative image leaf with secure asset
+> authoring and shared contain/cover/alpha parity, and the strict trusted built-in vector icon
 > leaf with editable colour/stroke parity. Rating and “as seen on” badges now author as ordinary
 > fresh-id groups, while official store badges reuse contain-fit project images; no redundant badge
 > schema member was added. Current living examples prove connected image/icon/badge/group
@@ -75,13 +75,13 @@ my-app-screenshots/
 
 The **enforced** schema lives in `packages/core/src/model/schema.ts` and is `.strict()`:
 an unknown key or out-of-range value fails loudly. When writing or editing project JSON, write
-against the enforced v10 only; future schema ideas are not valid project fields.
+against the enforced v1 only; future schema ideas are not valid project fields.
 
-**Current v10 (enforced today):**
+**Current v1 (enforced today):**
 
 ```
 Project
-├── meta: { name, appIcon?, schemaVersion: 10 }
+├── meta: { name, appIcon?, schemaVersion: 1 }
 ├── mode: isolated | connected
 ├── platforms: ["apple" | "android" | "windows", …] # derived manifest: set-equal to screens
 ├── locales: ["en", …]                     # free-form, duplicate-free derived manifest
@@ -115,8 +115,8 @@ Direction changes bake horizontal placement/alignment into JSON; they never refl
 `Project.mode` is project-wide. In `connected` mode, each exact `platform/device/locale` group is a
 gapless, top-aligned horizontal strip in project order. Elements remain owned by a screen and keep
 owner-local coordinates; the shared renderer projects every group screen, paints all backgrounds
-first, then elements by screen/array order, and returns the requested screen's exact crop. Valid v1
-and v2 projects load through lossless sequential migration to v3; v1 defaults to `isolated`.
+first, then elements by screen/array order, and returns the requested screen's exact crop. Projects
+must provide the complete current v1 shape; historical internal development formats are unsupported.
 Connected Overview is one editable
 gapless strip for the active exact group; owner-aware selection keeps duplicate ids unambiguous and
 stores transforms in owner-local coordinates. Focus is a non-interactive exact crop preview.
@@ -196,7 +196,7 @@ screen direction, and the last screen in a locale is removed only through the gu
 `screenshots init` also writes a self-contained project-user `AGENTS.md` and a small `CLAUDE.md`
 forwarder, refusing to overwrite either. The canonical generated guide is
 `packages/cli/src/project-agent-guide.md`; it teaches copy generation, baked literal auto-layout,
-locale translation, and explicit local asset processing through the shipped CLI and strict v10 fields.
+locale translation, and explicit local asset processing through the shipped CLI and strict v1 fields.
 Do not duplicate those recipes here or introduce an AI SDK/provider: Phase 5 agent work is
 subscription-backed orchestration over ordinary project JSON.
 

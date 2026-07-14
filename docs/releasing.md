@@ -36,8 +36,10 @@ browser download is per machine/user cache; it is not embedded in the npm tarbal
 ## Upgrade or uninstall
 
 Install a newer reviewed tarball with the same global-add command; pnpm replaces the existing global
-package. Project JSON is not migrated by package installation: back it up in Git and run the new CLI
-against a copy first whenever a future changelog announces a schema change.
+package. This unpublished candidate accepts only the complete strict schema v1 document; historical
+internal development formats are unsupported. Project JSON is not rewritten by package installation:
+back it up in Git and run the new CLI against a copy first whenever a future changelog announces a
+schema change. Compatibility migrations begin only after a published format requires them.
 
 ```bash
 pnpm add --global ./artifacts/screenshot-studio-cli-0.1.0.tgz
@@ -56,7 +58,7 @@ Uninstalling the CLI does not remove projects, exported files, or Playwright's s
   Google device classes remain future work.
 - Groups are one level, do not clip children, and cannot nest. Backgrounds are strict solid,
   two-stop linear-gradient, or project-image literals whose colours may include schema-valid alpha;
-  final store export is flattened to an opaque PNG. Project JSON accepts only the strict v10
+  final store export is flattened to an opaque PNG. Project JSON accepts only the strict v1
   element/property surface.
 - Fonts must be registered as project assets. Export rejects machine-dependent fallback fonts.
 - Background removal handles edge-connected flat or near-uniform colours; it is not semantic

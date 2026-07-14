@@ -536,7 +536,7 @@ function validateFontIdentities(proj: ProjectShape, ctx: z.RefinementCtx): void 
   });
 }
 
-/** Strict v10 project contract with derived manifests and cross-object identities validated. */
+/** Strict v1 project contract with derived manifests and cross-object identities validated. */
 export const Project = ProjectObject.superRefine((proj, ctx) => {
   validateManifests(proj, ctx);
   validateVariants(proj, ctx);

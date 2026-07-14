@@ -38,7 +38,7 @@ plain `screenshots` spelling above.
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
 
-## Enforced v10 shape
+## Enforced v1 shape
 
 ```text
 Project
