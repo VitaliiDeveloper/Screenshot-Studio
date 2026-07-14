@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const sampleRoot = join(repoRoot, "fixtures", "phase-0-sample");
+const sampleRoot = join(repoRoot, "fixtures", "sample");
 const sampleProject = join(sampleRoot, "app-store-screenshots.json");
 const engines: Array<{ name: string; type: BrowserType }> = [
   { name: "Chromium", type: chromium },

@@ -20,7 +20,7 @@ import {
  * (3) the image is live — a missing asset (black slot placeholder) differs by many pixels.
  */
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixtureDir = resolve(repoRoot, "fixtures/slice-3-device-frame");
+const fixtureDir = resolve(repoRoot, "fixtures/regressions/device-frame-parity");
 const fixturePath = resolve(fixtureDir, "app-store-screenshots.json");
 const tmpDir = resolve(repoRoot, "e2e/.tmp");
 const screenId = "framed";

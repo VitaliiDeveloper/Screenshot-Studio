@@ -27,7 +27,7 @@ import {
  */
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-0-sample/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 const tmpDir = resolve(repoRoot, "e2e/.tmp");
 const screenId = "hero";
 const pixelRatio = 2; // 660×1434 artboard → 1320×2868 lead size

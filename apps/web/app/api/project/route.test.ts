@@ -7,6 +7,7 @@ import { GET, PUT } from "./route.js";
 
 const validProject = {
   meta: { name: "T", schemaVersion: 1 },
+  mode: "isolated",
   platforms: ["apple"], locales: ["en"], fonts: [],
   screens: [{
     id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",

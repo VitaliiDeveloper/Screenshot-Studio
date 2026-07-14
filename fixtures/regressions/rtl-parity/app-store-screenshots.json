@@ -3,6 +3,7 @@
     "name": "RTL parity",
     "schemaVersion": 1
   },
+  "mode": "isolated",
   "platforms": [
     "apple"
   ],

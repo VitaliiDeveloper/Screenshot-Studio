@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const imagePath = resolve(repoRoot, "fixtures/phase-0-sample/assets/demo-logistics-app.png");
+const imagePath = resolve(repoRoot, "fixtures/sample/assets/demo-logistics-app.png");
 
 let server: RunningServer;
 let browser: Browser;

@@ -12,8 +12,8 @@ import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js
 import { exportBundle } from "../packages/cli/src/export.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-4-multi-locale/app-store-screenshots.json");
-const storeVariantFixturePath = resolve(repoRoot, "fixtures/phase-0-sample/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/regressions/multi-locale-export/app-store-screenshots.json");
+const storeVariantFixturePath = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 
 const expectedPaths = [
@@ -76,7 +76,7 @@ describe("Phase 4 multi-locale bundle export", () => {
     const projectPath = join(directory, "app-store-screenshots.json");
     const outDir = join(directory, "export");
     await writeFile(projectPath, JSON.stringify(project));
-    await cp(resolve(repoRoot, "fixtures/phase-0-sample/assets"), join(directory, "assets"), { recursive: true });
+    await cp(resolve(repoRoot, "fixtures/sample/assets"), join(directory, "assets"), { recursive: true });
 
     const entry = buildBundleEntries(project, specs, {}).find((candidate) => candidate.screen.id === variant.id);
     expect(entry).toMatchObject({

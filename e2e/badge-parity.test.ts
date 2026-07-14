@@ -17,7 +17,7 @@ import {
 } from "./support/parity-render-harness.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fontSource = resolve(repoRoot, "fixtures/phase-0-sample/assets/fonts/Pacifico-Regular.ttf");
+const fontSource = resolve(repoRoot, "fixtures/sample/assets/fonts/Pacifico-Regular.ttf");
 const MAX_MISMATCH_FRACTION = 0.002;
 
 let harness: ParityRenderHarness;

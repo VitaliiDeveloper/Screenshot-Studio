@@ -1,5 +1,6 @@
 {
   "meta": { "name": "Phase 2 Bundle", "schemaVersion": 1 },
+  "mode": "isolated",
   "platforms": ["apple", "android"],
   "locales": ["en", "uk"],
   "fonts": [],

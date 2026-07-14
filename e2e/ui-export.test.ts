@@ -10,7 +10,7 @@ import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/cor
 import { startWebServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixtureDir = resolve(repoRoot, "fixtures/phase-4-multi-locale");
+const fixtureDir = resolve(repoRoot, "fixtures/regressions/multi-locale-export");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const expectedPaths = [
   "apple/iphone/locale-en/01-english-one-6.9.png",

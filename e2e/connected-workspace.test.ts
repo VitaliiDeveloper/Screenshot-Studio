@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-6-connected/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/regressions/connected-canvas/app-store-screenshots.json");
 
 let server: RunningServer;
 let browser: Browser;

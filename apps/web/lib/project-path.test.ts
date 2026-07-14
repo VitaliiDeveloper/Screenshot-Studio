@@ -29,7 +29,7 @@ describe("resolveProjectPath", () => {
     process.env.INIT_CWD = "/repo-root";
     delete process.env.PROJECT_PATH;
     expect(resolveProjectPath()).toBe(
-      "/repo-root/fixtures/phase-0-sample/app-store-screenshots.json",
+      "/repo-root/fixtures/sample/app-store-screenshots.json",
     );
   });
 });

@@ -12,7 +12,7 @@ import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js
 import { startWebServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-6-connected/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/regressions/connected-canvas/app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const expectedPaths = [
   "apple/iphone/locale-en/01-connected-first-6.9.png",
@@ -32,7 +32,7 @@ describe("Phase 6 connected bundle export", () => {
     const entries = buildBundleEntries(project, specs);
     expect(entries.map((entry) => entry.relativePath)).toEqual(expectedPaths);
 
-    const outDir = await mkdtemp(join(tmpdir(), "phase-6-connected-export-"));
+    const outDir = await mkdtemp(join(tmpdir(), "connected-canvas-export-"));
     const server = await startWebServer();
     const session = await createRenderBrowserSession();
     try {

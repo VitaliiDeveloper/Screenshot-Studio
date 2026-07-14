@@ -20,7 +20,7 @@ import {
  * placeholder) differs by many pixels. Holds only if the readiness gate waits for image decode.
  */
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixtureDir = resolve(repoRoot, "fixtures/slice-2-screenshot");
+const fixtureDir = resolve(repoRoot, "fixtures/regressions/screenshot-parity");
 const fixturePath = resolve(fixtureDir, "app-store-screenshots.json");
 const tmpDir = resolve(repoRoot, "e2e/.tmp");
 const screenId = "shot";

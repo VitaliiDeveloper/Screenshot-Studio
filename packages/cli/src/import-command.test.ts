@@ -39,7 +39,7 @@ describe("importCaptures", () => {
     await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
     await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
     await mkdir(join(inputDir, "android", "tablet-7", "en"), { recursive: true });
-    const png = await readFile(new URL("../../../fixtures/slice-2-screenshot/assets/shot.png", import.meta.url));
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
     const pngInfo = inspectPng(png);
     await writeFile(join(inputDir, "apple", "iphone", "en", "01.png"), png);
     await writeFile(join(inputDir, "android", "tablet-7", "en", "01.png"), png);
@@ -93,7 +93,7 @@ describe("importCaptures", () => {
     });
     await writeFile(projectPath, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
     await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
-    const png = await readFile(new URL("../../../fixtures/slice-2-screenshot/assets/shot.png", import.meta.url));
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
     await writeFile(join(inputDir, "apple", "iphone", "en", "01.png"), png);
 
     await importCaptures({ projectPath, inputDir });

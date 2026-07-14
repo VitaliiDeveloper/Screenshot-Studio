@@ -1,5 +1,6 @@
 {
-  "meta": { "name": "Slice 3 Device Frame", "schemaVersion": 1 },
+  "meta": { "name": "Device Frame Parity", "schemaVersion": 1 },
+  "mode": "isolated",
   "platforms": ["apple"],
   "locales": ["en"],
   "fonts": [],
