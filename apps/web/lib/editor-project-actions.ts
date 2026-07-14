@@ -45,7 +45,7 @@ export function createStoreTargetVariant(
   target: StoreSize,
 ): ProjectMutationResult {
   const result = ensureStoreTargetVariant(project, activeScreenId, target);
-  return { project: result.project, activeScreenId: result.variant.id, selectedItems: [] };
+  return { project: result.project, activeScreenId, selectedItems: [] };
 }
 
 export function deleteStoreTargetVariant(

@@ -11,12 +11,16 @@ import {
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import { leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
 import {
   CANVAS_PADDING,
+  compactStoreSizeLabel,
+  storeOutputLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
   type CanvasPattern,
+  type WorkspaceOutputFamily,
   type WorkspaceTool,
   type WorkspaceView,
 } from "../lib/editor-workspace";
@@ -35,8 +39,73 @@ const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
   { value: "grid", label: "Grid", icon: Grid3X3 },
   { value: "none", label: "None", icon: SquareDashed },
 ];
+
+interface IsolatedOverviewFamily {
+  key: string;
+  label: string;
+  rows: WorkspaceOutputFamily[];
+  editing: boolean;
+}
+
+function groupIsolatedOverviewRows(rows: readonly WorkspaceOutputFamily[]): IsolatedOverviewFamily[] {
+  const families = new Map<string, IsolatedOverviewFamily>();
+  for (const row of rows) {
+    const screen = row.screens[0];
+    if (!screen) continue;
+    const key = `${screen.platform}/${screen.device}`;
+    const family = families.get(key) ?? {
+      key,
+      label: storeOutputLabel(screen.platform, screen.device),
+      rows: [],
+      editing: false,
+    };
+    family.rows.push(row);
+    family.editing ||= row.editing;
+    families.set(key, family);
+  }
+  return Array.from(families.values());
+}
+
+function outputSizeLabel(row: WorkspaceOutputFamily, specs: StoreSpecs | null): string {
+  const screen = row.screens[0];
+  if (!screen) return "Size";
+  let targetId = screen.storeTargetId;
+  if (targetId === undefined) {
+    try {
+      targetId = leadStoreSizeId(screen.platform, screen.device);
+    } catch {
+      return "Master";
+    }
+  }
+  const label = specs?.[screen.platform]?.[screen.device]?.find((target) => target.id === targetId)?.label
+    ?? targetId;
+  return compactStoreSizeLabel(label, screen.device);
+}
+
+function EditingBadge() {
+  return (
+    <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
+      Editing
+    </span>
+  );
+}
+
+function SizeRowHeader({ label, editing }: { label: string; editing: boolean }) {
+  return (
+    <header className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+      <span>{label}</span>
+      <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] tracking-normal text-slate-600">
+        Variant
+      </span>
+      {editing ? <EditingBadge /> : null}
+      <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
+    </header>
+  );
+}
+
 export function CanvasViewport({
   images,
+  specs,
   zoom,
   view,
   tool,
@@ -48,6 +117,7 @@ export function CanvasViewport({
   controlsHidden = false,
 }: {
   images: ImageCache;
+  specs: StoreSpecs | null;
   zoom: number;
   view: WorkspaceView;
   tool: WorkspaceTool;
@@ -83,6 +153,10 @@ export function CanvasViewport({
     if (!project || !activeScreen || view !== "overview") return [];
     return workspaceOverviewRows(project, activeScreen);
   }, [activeScreen, project, view]);
+  const isolatedOutputFamilies = useMemo(
+    () => groupIsolatedOverviewRows(outputRows),
+    [outputRows],
+  );
   const screens = view === "focus" && activeScreen ? [activeScreen] : editingScreens;
   const { fitLayoutKey, fit } = useCanvasViewportMetrics({
     viewportRef,
@@ -320,7 +394,7 @@ export function CanvasViewport({
           >
             {view === "overview" ? (
               <div className="flex flex-col gap-14" data-testid="overview-output-families">
-                {outputRows.map((row) => project.mode === "connected" ? (
+                {project.mode === "connected" ? outputRows.map((row) => (
                   <ConnectedOutputRow
                     key={row.key}
                     row={row}
@@ -329,13 +403,61 @@ export function CanvasViewport({
                     zoom={zoom}
                     onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
-                ) : (
-                  <OutputFamilySection key={row.key} label={row.label} editing={row.editing}>
-                    <div className="flex items-start gap-12">
-                      {row.screens.map(renderIsolatedScreen)}
-                    </div>
-                  </OutputFamilySection>
-                ))}
+                )) : isolatedOutputFamilies.map((family) => {
+                  const masterRow = family.rows.find((row) => row.screens[0]?.storeTargetId === undefined);
+                  const variantRows = family.rows.filter((row) => row !== masterRow);
+                  return (
+                    <OutputFamilySection
+                      key={family.key}
+                      label={family.label}
+                      editing={family.editing}
+                      headerMeta={masterRow ? (
+                        <>
+                          <span className="shrink-0 text-[9px] tracking-normal text-slate-600">
+                            {outputSizeLabel(masterRow, specs)}
+                          </span>
+                          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] tracking-normal text-slate-600">
+                            Master
+                          </span>
+                          {masterRow.editing ? <EditingBadge /> : null}
+                        </>
+                      ) : undefined}
+                      showEditingBadge={false}
+                      testId="overview-output-family"
+                      ariaLabel={`${family.label} output`}
+                    >
+                      <div className="flex flex-col gap-10">
+                        {masterRow ? (
+                          <section
+                            data-testid="overview-size-row"
+                            data-size-kind="master"
+                            data-editing={masterRow.editing ? "true" : "false"}
+                          >
+                            <div className="flex items-start gap-12">
+                              {masterRow.screens.map(renderIsolatedScreen)}
+                            </div>
+                          </section>
+                        ) : null}
+                        {variantRows.map((row) => (
+                          <section
+                            key={row.key}
+                            data-testid="overview-size-row"
+                            data-size-kind="variant"
+                            data-editing={row.editing ? "true" : "false"}
+                          >
+                            <SizeRowHeader
+                              label={`${family.label} · ${outputSizeLabel(row, specs)}`}
+                              editing={row.editing}
+                            />
+                            <div className="flex items-start gap-12">
+                              {row.screens.map(renderIsolatedScreen)}
+                            </div>
+                          </section>
+                        ))}
+                      </div>
+                    </OutputFamilySection>
+                  );
+                })}
               </div>
             ) : (
               <div className="flex items-start gap-0">

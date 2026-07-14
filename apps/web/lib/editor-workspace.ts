@@ -40,8 +40,32 @@ const DEVICE_LABELS: Record<string, string> = {
   desktop: "Windows desktop",
 };
 
+const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
+  iphone: "iPhone",
+  ipad: "iPad",
+  macos: "Mac",
+  tvos: "Apple TV",
+  watchos: "Apple Watch",
+  phone: "Android phone",
+  desktop: "Windows desktop",
+};
+
 export function storeOutputLabel(platform: string, device: string): string {
   return `${PLATFORM_LABELS[platform] ?? platform} · ${DEVICE_LABELS[device] ?? device}`;
+}
+
+/** Remove output-level device copy from a size label while preserving its useful discriminator. */
+export function compactStoreSizeLabel(label: string, device: string): string {
+  const withoutLead = label.replace(/\s+\(lead\)$/i, "");
+  const deviceLabel = STORE_SIZE_DEVICE_LABELS[device];
+  if (!deviceLabel) return withoutLead;
+  if (withoutLead.startsWith(`${deviceLabel} `)) {
+    return withoutLead.slice(deviceLabel.length + 1);
+  }
+  if (withoutLead.endsWith(` ${deviceLabel}`)) {
+    return withoutLead.slice(0, -(deviceLabel.length + 1));
+  }
+  return withoutLead;
 }
 
 export interface OutputFamily {
@@ -91,7 +115,7 @@ export function workspaceEditingScope(project: Project, activeScreen: Screen): S
   });
 }
 
-/** Every output-family row visible in Overview for the active locale. */
+/** Every independent output row visible in Overview for the active locale. */
 export function workspaceOverviewRows(
   project: Project,
   activeScreen: Screen,
@@ -103,6 +127,32 @@ export function workspaceOverviewRows(
     const screens = families.get(key) ?? [];
     screens.push(screen);
     families.set(key, screens);
+  }
+
+  if (project.mode === "isolated") {
+    return Array.from(families).flatMap(([key, familyScreens]) => {
+      const roots = familyScreens.filter((screen) => screen.storeTargetId === undefined);
+      const variantsByTarget = new Map<string, Screen[]>();
+      for (const screen of familyScreens) {
+        if (screen.storeTargetId === undefined) continue;
+        const variants = variantsByTarget.get(screen.storeTargetId) ?? [];
+        variants.push(screen);
+        variantsByTarget.set(screen.storeTargetId, variants);
+      }
+
+      const rows: Array<{ targetId: string | undefined; screens: Screen[] }> = roots.length > 0
+        ? [{ targetId: undefined, screens: roots }]
+        : [];
+      rows.push(...Array.from(variantsByTarget, ([targetId, screens]) => ({ targetId, screens })));
+      const familyLabel = storeOutputLabel(familyScreens[0]!.platform, familyScreens[0]!.device);
+
+      return rows.map(({ targetId, screens }) => ({
+        key: targetId === undefined ? key : `${key}/${targetId}`,
+        label: targetId === undefined ? familyLabel : `${familyLabel} · ${targetId}`,
+        screens,
+        editing: screens.some((screen) => screen.id === activeScreen.id),
+      }));
+    });
   }
 
   const activeKey = outputFamilyKey(activeScreen);

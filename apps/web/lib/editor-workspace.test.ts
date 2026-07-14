@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import {
   clampZoom,
+  compactStoreSizeLabel,
   filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
@@ -78,6 +79,16 @@ describe("editor workspace helpers", () => {
     expect(storeOutputLabel("apple", "iphone")).toBe("App Store · iPhone");
     expect(storeOutputLabel("apple", "ipad")).toBe("App Store · iPad");
     expect(storeOutputLabel("android", "phone")).toBe("Google Play · Android phone");
+  });
+
+  it("keeps only the size discriminator when the output already names the device", () => {
+    expect(compactStoreSizeLabel('6.9" iPhone (lead)', "iphone")).toBe('6.9"');
+    expect(compactStoreSizeLabel('13" iPad (lead)', "ipad")).toBe('13"');
+    expect(compactStoreSizeLabel("Mac 2880×1800 (lead)", "macos")).toBe("2880×1800");
+    expect(compactStoreSizeLabel("Apple TV 4K (lead)", "tvos")).toBe("4K");
+    expect(compactStoreSizeLabel("Apple Watch Ultra 3 (lead)", "watchos")).toBe("Ultra 3");
+    expect(compactStoreSizeLabel("Android phone portrait (lead)", "phone")).toBe("portrait");
+    expect(compactStoreSizeLabel("Windows desktop Full HD", "desktop")).toBe("Full HD");
   });
 
   it("groups screens into ordered output-family rows", () => {
@@ -204,6 +215,26 @@ describe("editor workspace helpers", () => {
       .toEqual(["first", "unrelated", "second"]);
     expect(workspaceEditingScope(isolated, variant).map((screen) => screen.id))
       .toEqual(["first-65"]);
+  });
+
+  it("shows isolated root and exact-target groups as separate overview rows", () => {
+    const isolated = scopeProject("isolated");
+    const variant = {
+      ...structuredClone(isolated.screens[0]!),
+      id: "first-65",
+      variantOf: "first",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    };
+    isolated.screens.push(variant);
+
+    const rows = workspaceOverviewRows(isolated, isolated.screens[0]!);
+    expect(rows.map((row) => [row.label, row.editing, row.screens.map((screen) => screen.id)]))
+      .toEqual([
+        ["App Store · iPhone", true, ["first", "second"]],
+        ["App Store · iPhone · 6.5", false, ["first-65"]],
+        ["Google Play · Android phone", false, ["unrelated"]],
+      ]);
   });
 
   it("keeps same-target variants from multiple roots together in connected project order", () => {

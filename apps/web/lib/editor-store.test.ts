@@ -209,7 +209,7 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().activeScreenId).toBe(added.id);
   });
 
-  it("creates, reopens, and removes an independent target variant", () => {
+  it("creates an independent target variant without leaving the active screen", () => {
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
@@ -217,12 +217,16 @@ describe("editorStore screens (slice 4)", () => {
     const variant = created.project!.screens.find((screen) => screen.storeTargetId === "6.5")!;
     expect(variant).toMatchObject({ variantOf: "hero", artboard: { width: 1284, height: 2778 } });
     expect(created.project!.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
-    expect(created.activeScreenId).toBe(variant.id);
+    expect(created.activeScreenId).toBe("hero");
 
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
     expect(editorStore.getState().project!.screens.filter((screen) => screen.storeTargetId === "6.5")).toHaveLength(1);
+    expect(editorStore.getState().activeScreenId).toBe("hero");
+
+    editorStore.getState().selectScreen(variant.id);
+    expect(editorStore.getState().activeScreenId).toBe(variant.id);
 
     editorStore.getState().removeStoreTargetVariant("hero", "6.5");
     expect(editorStore.getState().project!.screens).toHaveLength(2);
@@ -612,6 +616,10 @@ describe("editorStore screen editors (slice 5)", () => {
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
+    const variant = editorStore.getState().project!.screens.find(
+      (screen) => screen.storeTargetId === "6.5",
+    )!;
+    editorStore.getState().selectScreen(variant.id);
     editorStore.getState().resizeArtboard({ width: 720, height: 1560 });
     const active = editorStore.getState().project!.screens.find(
       (screen) => screen.id === editorStore.getState().activeScreenId,
