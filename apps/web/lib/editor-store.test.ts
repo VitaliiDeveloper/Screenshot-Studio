@@ -40,7 +40,7 @@ function patchGroup(id: string, patch: ElementPatchFor<"group">, screenId?: stri
 
 function project(): Project {
   return {
-    meta: { name: "T", schemaVersion: 10 },
+    meta: { name: "T", schemaVersion: 1 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

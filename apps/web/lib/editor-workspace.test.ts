@@ -30,7 +30,7 @@ function scopeProject(mode: Project["mode"]): Project {
     elements: [],
   } as Project["screens"][number]);
   return {
-    meta: { name: "Scope", schemaVersion: 10 },
+    meta: { name: "Scope", schemaVersion: 1 },
     mode,
     platforms: ["apple", "android"],
     locales: ["en"],

@@ -38,7 +38,7 @@ function screen(id: string, variantOf?: string): Screen {
 }
 
 const project: Project = {
-  meta: { name: "Screens", schemaVersion: 10 },
+  meta: { name: "Screens", schemaVersion: 1 },
   mode: "isolated",
   platforms: ["apple"],
   locales: ["en"],

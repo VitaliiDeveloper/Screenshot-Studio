@@ -26,7 +26,7 @@ const specs = parseStoreSpecs({
 
 function sampleProject(): Project {
   return {
-    meta: { name: "CLI Project", schemaVersion: 10 },
+    meta: { name: "CLI Project", schemaVersion: 1 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

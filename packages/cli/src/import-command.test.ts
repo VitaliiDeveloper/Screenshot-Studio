@@ -10,7 +10,7 @@ import { importCaptures } from "./import-command.js";
 
 function sampleProject(): Project {
   return {
-    meta: { name: "Import Project", schemaVersion: 10 },
+    meta: { name: "Import Project", schemaVersion: 1 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

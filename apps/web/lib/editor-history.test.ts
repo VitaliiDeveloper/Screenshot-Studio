@@ -6,7 +6,7 @@ import { recordProjectChange, redoProjectChange, undoProjectChange } from "./edi
 
 function makeProject(id: string, screenId: string, elementId: string): Project {
   return {
-    meta: { name: id, schemaVersion: 10 },
+    meta: { name: id, schemaVersion: 1 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

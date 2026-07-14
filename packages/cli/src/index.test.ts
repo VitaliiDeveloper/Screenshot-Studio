@@ -161,7 +161,7 @@ describe("singleExportTargetId", () => {
 describe("assertProjectFontsResolved", () => {
   it("blocks export before rendering when text resolves to a system fallback", () => {
     expect(() => assertProjectFontsResolved({
-      meta: { name: "T", schemaVersion: 10 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
+      meta: { name: "T", schemaVersion: 1 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
       screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "title", type: "text", x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1, locked: false, visible: true, content: "Title", fontFamily: "sans-serif", size: 24, weight: 400, lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF" }] }],
     })).toThrow(/unresolved project fonts.*sans-serif/);
   });

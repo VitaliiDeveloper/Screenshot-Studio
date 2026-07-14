@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Project, type Project as ProjectType } from "./schema.js";
-import { migrateToCurrent } from "./migrate.js";
 
 export * from "./schema.js";
 export * from "./device-frames.js";
@@ -13,7 +12,6 @@ export * from "./group-ops.js";
 export * from "./icons.js";
 export * from "./badge-primitives.js";
 export * from "./assert-never.js";
-export { migrateToCurrent } from "./migrate.js";
 
 /** Raised when a project fails schema validation. Carries the human-readable validator report. */
 export class ProjectValidationError extends Error {
@@ -27,13 +25,23 @@ export class ProjectValidationError extends Error {
 }
 
 /**
- * Parse + migrate + strictly validate a raw project object into a typed `Project`.
+ * Strictly validate a raw project object into a typed `Project`.
  * The single load path for both UI and CLI — invalid input throws loudly (editor.md §7),
  * never returns a partially-valid project.
  */
 export function parseProject(raw: unknown): ProjectType {
-  const migrated = migrateToCurrent(raw);
-  const result = Project.safeParse(migrated);
+  const meta = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>).meta
+    : undefined;
+  const schemaVersion = meta && typeof meta === "object" && !Array.isArray(meta)
+    ? (meta as Record<string, unknown>).schemaVersion
+    : undefined;
+  if (typeof schemaVersion === "number" && Number.isFinite(schemaVersion) && schemaVersion !== 1) {
+    const message = `Unsupported project schema version ${schemaVersion}. This build accepts version 1 only.`;
+    throw new ProjectValidationError(message, "");
+  }
+
+  const result = Project.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues
       .map((i) => `  • ${i.path.join(".") || "(root)"}: ${i.message}`)

@@ -8,7 +8,6 @@ import {
   FONT_WEIGHT_STEP,
   FontWeight,
   getScreen,
-  migrateToCurrent,
   parseProject,
   Project,
   ProjectValidationError,
@@ -199,128 +198,45 @@ describe("parseProject", () => {
     expect(parseProject(raw).mode).toBe("connected");
   });
 
-  it("migrates valid v1 input sequentially to isolated current schema", () => {
-    const raw = validProject() as Record<string, unknown>;
+  it("accepts the complete schema v1 project without mutating the raw input", () => {
+    const raw = validProject();
+    raw.meta.schemaVersion = 1 as typeof SCHEMA_VERSION;
+    const before = structuredClone(raw);
+
+    const project = parseProject(raw);
+
+    expect(project.meta.schemaVersion).toBe(1);
+    expect(project.screens[0]!.direction).toBe("ltr");
+    expect(raw).toEqual(before);
+  });
+
+  it.each([2, 10])("rejects unsupported numeric schema version %s with a dedicated error", (version) => {
+    const raw = validProject();
+    raw.meta.schemaVersion = version as typeof SCHEMA_VERSION;
+
+    expect(() => parseProject(raw)).toThrow(
+      `Unsupported project schema version ${version}. This build accepts version 1 only.`,
+    );
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["non-numeric", "1"],
+  ])("rejects a %s schema version through strict validation", (_case, version) => {
+    const raw = validProject() as unknown as Record<string, unknown>;
+    const meta = raw.meta as Record<string, unknown>;
+    if (version === undefined) delete meta.schemaVersion;
+    else meta.schemaVersion = version;
+
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
+  it("does not migrate the historical incomplete v1 structure", () => {
+    const raw = validProject() as unknown as Record<string, unknown>;
     delete raw.mode;
     (raw.meta as Record<string, unknown>).schemaVersion = 1;
-    const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(project.mode).toBe("isolated");
-  });
 
-  it("migrates valid v2 input losslessly to current schema", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
-    const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text", content: "Hello" });
-  });
-
-  it("does not bless a group mislabeled as schema v2", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 2 as typeof SCHEMA_VERSION;
-    raw.screens[0]!.elements = [{
-      id: "group", type: "group", x: 0, y: 0, width: 100, height: 50,
-      children: [{
-        id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 50,
-        kind: "rect", fill: "#FF0000",
-      }],
-    } as never];
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-  });
-
-  it("migrates valid v3 input losslessly to current schema", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
-    const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
-  });
-
-  it("does not bless an image mislabeled as schema v3", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
-    raw.screens[0]!.elements = [{
-      id: "image", type: "image", x: 0, y: 0, width: 100, height: 50,
-      assetUrl: "assets/image.png",
-    } as never];
-    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-  });
-
-  it("does not bless a grouped image mislabeled as schema v3", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 3 as typeof SCHEMA_VERSION;
-    raw.screens[0]!.elements = [{
-      id: "group", type: "group", x: 0, y: 0, width: 100, height: 50,
-      children: [{
-        id: "image", type: "image", x: 0, y: 0, width: 100, height: 50,
-        assetUrl: "assets/image.png",
-      }],
-    } as never];
-    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-  });
-
-  it("migrates valid v4 input losslessly to current schema", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 4 as typeof SCHEMA_VERSION;
-    const project = parseProject(raw);
-    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(project.screens[0]!.elements[0]).toMatchObject({ id: "t1", type: "text" });
-  });
-
-  it("migrates valid v5 input losslessly to current", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 5 as typeof SCHEMA_VERSION;
-    const before = structuredClone(raw.screens);
-    const migrated = migrateToCurrent(raw) as typeof raw;
-    expect(migrated.meta.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(migrated.screens).toEqual(before);
-  });
-
-  it("does not bless v6 variant fields mislabeled as schema v5", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 5 as typeof SCHEMA_VERSION;
-    Object.assign(raw.screens[0]!, { variantOf: "root", storeTargetId: "6.5" });
-    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-  });
-
-  it("migrates valid solid-background v6 input losslessly to current", () => {
-    const raw = validProject();
-    raw.meta.schemaVersion = 6 as typeof SCHEMA_VERSION;
-    const before = structuredClone(raw.screens);
-    const migrated = migrateToCurrent(raw) as typeof raw;
-    expect(migrated.screens).toEqual(before);
-    const project = parseProject(migrated);
-    expect(project.meta.schemaVersion).toBe(SCHEMA_VERSION);
-  });
-
-  it("does not bless a gradient background mislabeled as schema v6", () => {
-    const raw = validProject() as unknown as Record<string, unknown>;
-    (raw.meta as Record<string, unknown>).schemaVersion = 6;
-    const screens = raw.screens as Array<Record<string, unknown>>;
-    screens[0]!.background = {
-      type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 45,
-    };
-    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-  });
-
-  it("migrates valid v7 input and rejects crop fields mislabeled as v7", () => {
-    const valid = validProject();
-    valid.meta.schemaVersion = 7 as typeof SCHEMA_VERSION;
-    expect(parseProject(valid).meta.schemaVersion).toBe(SCHEMA_VERSION);
-
-    const mislabeled = validProject() as unknown as Record<string, unknown>;
-    (mislabeled.meta as Record<string, unknown>).schemaVersion = 7;
-    const screen = (mislabeled.screens as Array<Record<string, unknown>>)[0]!;
-    const element = (screen.elements as Array<Record<string, unknown>>)[0]!;
-    Object.assign(element, {
-      type: "screenshot", assetUrl: "assets/shot.png", fit: "cover", crop: { x: 0.2, y: 0.8, zoom: 2 },
-    });
-    delete element.content;
-    delete element.fontFamily;
-    delete element.size;
-    delete element.color;
-    expect(() => parseProject(mislabeled)).toThrow(ProjectValidationError);
   });
 
   it("accepts strict linear-gradient and image backgrounds with defaults", () => {
@@ -381,31 +297,9 @@ describe("parseProject", () => {
     expect(() => parseProject(raw)).toThrow(/duplicate screen id/);
   });
 
-  it("does not bless top-level or grouped icons mislabeled as schema v4", () => {
-    for (const grouped of [false, true]) {
-      const raw = validProject();
-      raw.meta.schemaVersion = 4 as typeof SCHEMA_VERSION;
-      const icon = {
-        id: "icon", type: "icon", x: 0, y: 0, width: 100, height: 100,
-        icon: "star", color: "#FF0000",
-      };
-      raw.screens[0]!.elements = grouped ? [{
-        id: "group", type: "group", x: 0, y: 0, width: 100, height: 100,
-        children: [icon],
-      } as never] : [icon as never];
-      expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-    }
-  });
-
   it("rejects unknown keys (strict contract)", () => {
     const bad = validProject();
     (bad as Record<string, unknown>).unexpected = true;
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
-  });
-
-  it("rejects a wrong schemaVersion", () => {
-    const bad = validProject();
-    bad.meta.schemaVersion = 99 as unknown as typeof SCHEMA_VERSION;
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
   });
 
@@ -542,14 +436,6 @@ describe("Phase 9 styling literals", () => {
     expect(() => Element.parse({ ...shape, gradient: { ...shape.gradient, stops: [] } })).toThrow();
   });
 
-  it("does not bless v9 styling fields mislabeled as schema v8", () => {
-    const raw = validProject() as unknown as Record<string, unknown>;
-    (raw.meta as Record<string, unknown>).schemaVersion = 8;
-    const screen = (raw.screens as Array<Record<string, unknown>>)[0]!;
-    const element = (screen.elements as Array<Record<string, unknown>>)[0]!;
-    element.shadow = { color: "#000000", blur: 4, offsetX: 0, offsetY: 2, opacity: 0.5 };
-    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
-  });
 });
 
 describe("ScreenshotElement", () => {
@@ -662,14 +548,6 @@ describe("DeviceFrameElement", () => {
     for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const) {
       expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
     }
-  });
-
-  it("does not bless non-iPhone presets mislabeled as schema v9", () => {
-    const raw = validProject() as unknown as Record<string, unknown>;
-    (raw.meta as Record<string, unknown>).schemaVersion = 9;
-    const screen = (raw.screens as Array<Record<string, unknown>>)[0]!;
-    screen.elements = [{ ...base, deviceType: "tablet" }];
-    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
   it("rejects an unknown fit", () => {

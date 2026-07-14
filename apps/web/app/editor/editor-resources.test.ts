@@ -4,7 +4,7 @@ import type { Project } from "@screenshot-studio/core/model";
 import { missingImageUrls } from "./editor-resources";
 
 const project = {
-  meta: { name: "Resources", schemaVersion: 10 },
+  meta: { name: "Resources", schemaVersion: 1 },
   mode: "isolated",
   platforms: ["apple"],
   locales: ["en"],
