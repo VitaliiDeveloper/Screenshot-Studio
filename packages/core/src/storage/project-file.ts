@@ -53,8 +53,8 @@ export function serializeProject(project: ProjectModel): string {
 }
 
 export async function readProjectSnapshot(projectPath: string): Promise<ProjectSnapshot> {
-  const bytes = await readFile(projectPath, "utf8");
-  return { project: parseProjectJson(bytes), revision: projectRevision(bytes) };
+  const bytes = await readFile(projectPath);
+  return { project: parseProjectJson(bytes.toString("utf8")), revision: projectRevision(bytes) };
 }
 
 async function closeHandle(handle: WritableStageHandle): Promise<void> {
