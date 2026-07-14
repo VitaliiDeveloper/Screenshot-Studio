@@ -20,6 +20,11 @@ function editBackground(background: Background) {
   mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
 }
 
+function customMasterExportDescription(target: StoreSize): string {
+  const label = target.label.replace(/ \(lead\)$/u, "");
+  return `This custom master exports at the fixed ${target.width} × ${target.height} px size for ${label}.`;
+}
+
 function MasterArtboardEditor({
   screen,
   leadTarget,
@@ -107,7 +112,7 @@ function MasterArtboardEditor({
         {isExactLead && leadTarget
           ? `Fixed to the ${leadTarget.label} size for this output.`
           : leadStatus?.kind === "proportional" && leadTarget
-            ? `Explicit custom scale for ${leadTarget.label}.`
+            ? customMasterExportDescription(leadTarget)
             : "This custom size does not match the output's lead aspect ratio."}
       </p>
     </div>

@@ -68,6 +68,9 @@ describe("ScreenInspectorSections watchOS master status", () => {
       'aria-label="Customize master size" aria-pressed="true"',
     );
     expect(markup).toContain("1477 × 1799 px");
-    expect(markup).toContain("Explicit custom scale for Apple Watch Ultra 3 (lead).");
+    expect(markup).toContain(
+      "This custom master exports at the fixed 422 × 514 px size for Apple Watch Ultra 3.",
+    );
+    expect(markup).not.toContain("Explicit custom scale");
   });
 });
