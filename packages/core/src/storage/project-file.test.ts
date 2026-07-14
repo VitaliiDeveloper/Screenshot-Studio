@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { constants } from "node:fs";
-import { mkdir, mkdtemp, open, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -65,6 +65,19 @@ describe("project-file", () => {
     });
   });
 
+  it("hashes the original bytes when UTF-8 decoding replaces invalid string data", async () => {
+    const { projectPath } = await workspace("project-snapshot-raw-bytes-");
+    const bytes = Buffer.from(serializeProject(project("Raw X bytes")));
+    const invalidByteIndex = bytes.indexOf("X");
+    bytes[invalidByteIndex] = 0xff;
+    await writeFile(projectPath, bytes);
+
+    await expect(readProjectSnapshot(projectPath)).resolves.toEqual({
+      project: project("Raw � bytes"),
+      revision: createHash("sha256").update(bytes).digest("hex"),
+    });
+  });
+
   it("preserves the old project and cleans its owned stage after a stage write failure", async () => {
     const { directory, projectPath } = await workspace("project-snapshot-write-fail-");
     const before = serializeProject(project("Before"));
@@ -86,6 +99,36 @@ describe("project-file", () => {
 
     expect(await readFile(projectPath, "utf8")).toBe(before);
     expect(remove).toHaveBeenCalledTimes(1);
+    expect(await readdir(directory)).toEqual(["app-store-screenshots.json"]);
+  });
+
+  it("preserves the old project and cleans its owned stage after a stage sync failure", async () => {
+    const { directory, projectPath } = await workspace("project-snapshot-sync-fail-");
+    const before = serializeProject(project("Before"));
+    const stage = join(directory, ".app-store-screenshots.json.sync-failure.tmp");
+    await writeFile(projectPath, before);
+    const remove = vi.fn(async (path: string) => rm(path, { force: true }));
+
+    await expect(writeProjectAtomic(projectPath, project("After"), {
+      randomId: () => "sync-failure",
+      openFile: async (path, flags, mode) => {
+        const handle = await open(path, flags, mode);
+        return {
+          writeFile: (data) => handle.writeFile(data),
+          sync: async () => { throw new Error("stage sync failed"); },
+          close: () => handle.close(),
+        };
+      },
+      remove,
+    })).rejects.toThrow("stage sync failed");
+
+    expect(await readFile(projectPath, "utf8")).toBe(before);
+    await expect(readProjectSnapshot(projectPath)).resolves.toEqual({
+      project: project("Before"),
+      revision: projectRevision(before),
+    });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith(stage);
     expect(await readdir(directory)).toEqual(["app-store-screenshots.json"]);
   });
 
@@ -126,14 +169,20 @@ describe("project-file", () => {
 
   it("never deletes a pre-existing unowned stage when exclusive open fails", async () => {
     const { directory, projectPath } = await workspace("project-snapshot-owned-");
-    await mkdir(directory, { recursive: true });
+    const before = serializeProject(project("Before"));
+    await writeFile(projectPath, before);
     const stage = join(directory, ".app-store-screenshots.json.collision.tmp");
     await writeFile(stage, "sentinel", { flag: "wx" });
 
-    await expect(writeProjectAtomic(projectPath, project(), {
+    await expect(writeProjectAtomic(projectPath, project("After"), {
       randomId: () => "collision",
     })).rejects.toMatchObject({ code: "EEXIST" });
 
+    expect(await readFile(projectPath, "utf8")).toBe(before);
+    await expect(readProjectSnapshot(projectPath)).resolves.toEqual({
+      project: project("Before"),
+      revision: projectRevision(before),
+    });
     expect(await readFile(stage, "utf8")).toBe("sentinel");
   });
 
