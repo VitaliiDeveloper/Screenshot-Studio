@@ -18,28 +18,28 @@ export interface StoreTargetDimensions {
   height: number;
 }
 
-const WATCHOS_AUTHORING_MASTER_SCALE = 3.5;
+const WATCHOS_AUTHORING_SCALE = 3.5;
 
 /**
- * New output families author at their lead store size by default. watchOS uses a larger editor
- * master; the shared export path still renders it to the exact target dimensions.
+ * Store outputs author at their exact target size by default. watchOS uses a larger proportional
+ * canvas; the shared export path still renders it to the exact target dimensions.
  */
-function deriveInitialAuthoringArtboard(
+function deriveAuthoringArtboard(
   placement: Pick<Screen, "platform" | "device">,
-  leadTarget: StoreTargetDimensions,
+  target: StoreTargetDimensions,
 ): { width: number; height: number } {
   if (placement.platform !== "apple" || placement.device !== "watchos") {
-    return { width: leadTarget.width, height: leadTarget.height };
+    return { width: target.width, height: target.height };
   }
 
   const artboard = {
-    width: leadTarget.width * WATCHOS_AUTHORING_MASTER_SCALE,
-    height: leadTarget.height * WATCHOS_AUTHORING_MASTER_SCALE,
+    width: target.width * WATCHOS_AUTHORING_SCALE,
+    height: target.height * WATCHOS_AUTHORING_SCALE,
   };
   if (!Number.isInteger(artboard.width) || !Number.isInteger(artboard.height)) {
     throw new Error(
-      `Cannot derive a ${WATCHOS_AUTHORING_MASTER_SCALE}x watchOS authoring master from lead target `
-      + `"${leadTarget.width}x${leadTarget.height}": derived artboard must use integer dimensions`,
+      `Cannot derive a ${WATCHOS_AUTHORING_SCALE}x watchOS authoring artboard from target `
+      + `"${target.width}x${target.height}": derived artboard must use integer dimensions`,
     );
   }
 
@@ -55,7 +55,7 @@ export function resizeStoreOutputArtboards(
   const source = project.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
   if (source.variantOf !== undefined || source.storeTargetId !== undefined) {
-    throw new Error("Exact store-target variants have fixed artboards");
+    throw new Error("Store-target variants cannot be resized independently");
   }
 
   let next = project;
@@ -123,7 +123,7 @@ export function ensureStoreOutputFamily(
   );
   if (sourceRoots.length === 0) throw new Error(`No source output screens for "${sourceRootId}"`);
 
-  const masterArtboard = deriveInitialAuthoringArtboard(placement, leadTarget);
+  const masterArtboard = deriveAuthoringArtboard(placement, leadTarget);
   const copies = sourceRoots.map((root) => {
     const copy = cloneScreenWithFreshIds(root);
     return ScreenSchema.parse({
@@ -140,7 +140,7 @@ export function ensureStoreOutputFamily(
   return { project: next, firstScreen: copies[0]!, created: true };
 }
 
-/** Create one independent exact-target copy, or return the existing variant idempotently. */
+/** Create one independent target copy, or return the existing variant idempotently. */
 export function ensureStoreTargetVariant(
   project: ProjectModel,
   sourceScreenId: string,
@@ -158,13 +158,14 @@ export function ensureStoreTargetVariant(
   if (existing) return { project, variant: existing, created: false };
 
   const copy = cloneScreenWithFreshIds(root);
+  const variantArtboard = deriveAuthoringArtboard(root, target);
   const variant = ScreenSchema.parse({
     ...copy,
     name: root.name,
     variantOf: root.id,
     storeTargetId: target.id,
-    artboard: { width: target.width, height: target.height },
-    elements: fitElementsToArtboard(copy.elements, root.artboard, target),
+    artboard: variantArtboard,
+    elements: fitElementsToArtboard(copy.elements, root.artboard, variantArtboard),
   });
   const next = recomputeManifests({
     ...project,

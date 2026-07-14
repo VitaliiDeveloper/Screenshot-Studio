@@ -146,7 +146,9 @@ describe("Phase 4 multi-locale bundle export", () => {
     }));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
     const target = specs.apple?.watchos?.find((candidate) => candidate.id === "ultra-3");
+    const series11Target = specs.apple?.watchos?.find((candidate) => candidate.id === "series-11");
     expect(target).toBeDefined();
+    expect(series11Target).toBeDefined();
     const result = ensureStoreOutputFamily(source, source.screens[0]!.id, "apple", "watchos", target!);
     expect(result.firstScreen).toMatchObject({
       platform: "apple",
@@ -154,6 +156,16 @@ describe("Phase 4 multi-locale bundle export", () => {
       variantOf: undefined,
       storeTargetId: undefined,
       artboard: { width: 1477, height: 1799 },
+    });
+    const variantResult = ensureStoreTargetVariant(
+      result.project,
+      result.firstScreen.id,
+      series11Target!,
+    );
+    expect(variantResult.variant).toMatchObject({
+      variantOf: result.firstScreen.id,
+      storeTargetId: "series-11",
+      artboard: { width: 1456, height: 1736 },
     });
     const exactReference = {
       ...structuredClone(source.screens[0]!),
@@ -169,19 +181,25 @@ describe("Phase 4 multi-locale bundle export", () => {
       ),
     };
     const project = parseProjectJson(JSON.stringify({
-      ...result.project,
-      screens: [...result.project.screens, exactReference],
+      ...variantResult.project,
+      screens: [...variantResult.project.screens, exactReference],
     }));
     const entries = buildBundleEntries(project, specs, {});
     const entry = entries
       .find((candidate) => candidate.screen.id === result.firstScreen.id);
     const referenceEntry = entries
       .find((candidate) => candidate.screen.id === exactReference.id);
+    const variantEntry = entries
+      .find((candidate) => candidate.screen.id === variantResult.variant.id);
     expect(entry).toMatchObject({
       target: { id: "ultra-3", width: 422, height: 514 },
       relativePath: "apple/watchos/locale-en/01-hero-ultra-3.png",
     });
     expect(referenceEntry?.relativePath).toBe("apple/watchos/locale-en/02-reference-ultra-3.png");
+    expect(variantEntry).toMatchObject({
+      target: { id: "series-11", width: 416, height: 496 },
+      relativePath: "apple/watchos/locale-en/01-hero-series-11.png",
+    });
 
     const directory = await mkdtemp(join(tmpdir(), "watchos-output-export-"));
     const projectPath = join(directory, "app-store-screenshots.json");
@@ -194,13 +212,16 @@ describe("Phase 4 multi-locale bundle export", () => {
         baseUrl: server.url,
         projectPath,
         outDir,
-        entries: [entry!, referenceEntry!],
+        entries: [entry!, variantEntry!, referenceEntry!],
         renderSession: session,
       });
       const masterBytes = await readFile(join(outDir, entry!.relativePath));
       const referenceBytes = await readFile(join(outDir, referenceEntry!.relativePath));
       expect(inspectPng(masterBytes))
         .toMatchObject({ width: 422, height: 514, hasAlpha: false });
+      const variantBytes = await readFile(join(outDir, variantEntry!.relativePath));
+      expect(inspectPng(variantBytes))
+        .toMatchObject({ width: 416, height: 496, hasAlpha: false });
 
       const masterPng = PNG.sync.read(masterBytes);
       const referencePng = PNG.sync.read(referenceBytes);

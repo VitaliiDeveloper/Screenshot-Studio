@@ -141,7 +141,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 - **No selection** → active **artboard** properties: an exact lead master shown as fixed by default,
   except newly created editor-driven watchOS output families, whose proportional 3.5× authoring
   masters are shown as custom. The section retains explicit output-set-wide atomic custom-size/reset
-  actions, independent exact-size variants, and background:
+  actions, independent target variants, and background. Newly created watchOS target variants use
+  target-derived 3.5× authoring artboards and show their exact export outcome; persisted exact
+  variants remain exact and are not resized:
   `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
   fit and fallback/letterbox colour remain explicit. Project JSON may contain schema-valid
   eight-digit colours with alpha, while the current native `<input type="color">` picker authors
@@ -179,9 +181,11 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   with fresh screen/element ids and leaves the source family unchanged. New watchOS output families
   use a core-derived 1477 × 1799 custom master from the 422 × 514 lead target; other families keep
   their exact lead masters. Inside the active output, the lead row remains its root/master; accepted
-  non-lead sizes create independent exact variants without leaving the current canvas context, and
-  each variant remains available to open explicitly. Removing a variant preserves its master.
-  Existing output families open unchanged, and no output or target action resizes a root in place.
+  non-lead sizes create independent variants without leaving the current canvas context. New
+  watchOS variants use a 3.5× authoring artboard derived from their own exact target—for example,
+  Series 11 authors at 1456 × 1736 and exports at 416 × 496. Each variant remains available to open
+  explicitly, and removing one preserves its master. Existing output families and variants open
+  unchanged, and no output or target action resizes an existing screen in place.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is

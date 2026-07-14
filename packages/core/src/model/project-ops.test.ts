@@ -322,12 +322,12 @@ describe("project-ops", () => {
     ]);
 
     const variant = ensureStoreTargetVariant(result.project, watchRoots[0]!.id, {
-      id: "ultra-2", width: 410, height: 502,
+      id: "series-11", width: 416, height: 496,
     }).variant;
     expect(variant).toMatchObject({
       variantOf: watchRoots[0]!.id,
-      storeTargetId: "ultra-2",
-      artboard: { width: 410, height: 502 },
+      storeTargetId: "series-11",
+      artboard: { width: 1456, height: 1736 },
     });
   });
 
@@ -346,6 +346,18 @@ describe("project-ops", () => {
       id: "fractional-watch-lead", width: 401, height: 501,
     })).toThrow(/derived artboard must use integer dimensions/);
     expect(source.screens).toHaveLength(2);
+  });
+
+  it("rejects watchOS variant dimensions that cannot produce an integer 3.5x artboard", () => {
+    const family = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+    const before = family.project;
+
+    expect(() => ensureStoreTargetVariant(before, family.firstScreen.id, {
+      id: "fractional-watch-target", width: 401, height: 501,
+    })).toThrow(/derived artboard must use integer dimensions/);
+    expect(before.screens).toHaveLength(4);
   });
 
   it("reopens an existing fixed watchOS family without resizing it", () => {

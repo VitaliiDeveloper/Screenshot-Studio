@@ -275,6 +275,18 @@ describe("editorStore screens (slice 4)", () => {
     expect(state.activeScreenId).toBe(watchRoots[0]!.id);
     expect(state.project!.screens.find((screen) => screen.id === "hero")!.artboard)
       .toEqual({ width: 660, height: 1434 });
+
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "series-11",
+      label: "Apple Watch Series 11",
+      width: 416,
+      height: 496,
+      orientation: "portrait",
+    });
+    const variant = editorStore.getState().project!.screens.find((screen) =>
+      screen.variantOf === watchRoots[0]!.id && screen.storeTargetId === "series-11"
+    );
+    expect(variant?.artboard).toEqual({ width: 1456, height: 1736 });
   });
 
   it("reorders variants only inside the visible platform/device target layer", () => {

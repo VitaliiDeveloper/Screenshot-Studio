@@ -20,9 +20,89 @@ function editBackground(background: Background) {
   mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
 }
 
-function customMasterExportDescription(target: StoreSize): string {
+function customArtboardExportDescription(
+  target: StoreSize,
+  kind: "master" | "variant",
+): string {
   const label = target.label.replace(/ \(lead\)$/u, "");
-  return `This custom master exports at the fixed ${target.width} × ${target.height} px size for ${label}.`;
+  return `This custom ${kind} exports at the fixed ${target.width} × ${target.height} px size for ${label}.`;
+}
+
+interface StoreTargetArtboardPresentation {
+  sizeLabel: "Authoring size" | "Target size";
+  badge: "Custom" | "Exact target" | "Invalid target";
+  badgeClass: string;
+  description: string;
+  invalid: boolean;
+}
+
+function storeTargetArtboardPresentation(
+  screen: Screen,
+  target: StoreSize | undefined,
+): StoreTargetArtboardPresentation {
+  if (!target) {
+    return {
+      sizeLabel: "Authoring size",
+      badge: "Invalid target",
+      badgeClass: "bg-red-50 text-red-700",
+      description: "This variant references a Store Target that is not available in the current specifications.",
+      invalid: true,
+    };
+  }
+
+  const status = artboardTargetStatus(screen.artboard, target);
+  if (status.kind === "invalid") {
+    return {
+      sizeLabel: "Authoring size",
+      badge: "Invalid target",
+      badgeClass: "bg-red-50 text-red-700",
+      description: "This variant cannot export to its Store Target because the artboard aspect ratio does not match.",
+      invalid: true,
+    };
+  }
+  if (status.kind === "proportional") {
+    return {
+      sizeLabel: "Authoring size",
+      badge: "Custom",
+      badgeClass: "bg-blue-50 text-blue-700",
+      description: customArtboardExportDescription(target, "variant"),
+      invalid: false,
+    };
+  }
+  return {
+    sizeLabel: "Target size",
+    badge: "Exact target",
+    badgeClass: "bg-emerald-50 text-emerald-700",
+    description: "This variant uses fixed Store Target dimensions.",
+    invalid: false,
+  };
+}
+
+function StoreTargetArtboardSummary({
+  screen,
+  target,
+}: {
+  screen: Screen;
+  target: StoreSize | undefined;
+}) {
+  const presentation = storeTargetArtboardPresentation(screen, target);
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-slate-500">{presentation.sizeLabel}</span>
+        <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${presentation.badgeClass}`}>
+          {presentation.badge}
+        </span>
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
+        {screen.artboard.width} × {screen.artboard.height} px
+      </div>
+      <p className={`text-[10px] leading-4 ${presentation.invalid ? "text-red-600" : "text-slate-500"}`}>
+        {presentation.description}
+      </p>
+    </div>
+  );
 }
 
 function MasterArtboardEditor({
@@ -112,7 +192,7 @@ function MasterArtboardEditor({
         {isExactLead && leadTarget
           ? `Fixed to the ${leadTarget.label} size for this output.`
           : leadStatus?.kind === "proportional" && leadTarget
-            ? customMasterExportDescription(leadTarget)
+            ? customArtboardExportDescription(leadTarget, "master")
             : "This custom size does not match the output's lead aspect ratio."}
       </p>
     </div>
@@ -135,20 +215,14 @@ export function ScreenInspectorSections({
   onOpenBackgroundAsset?: () => void;
 }) {
   const background = screen.background;
+  const storeTarget = screen.storeTargetId
+    ? specs?.[screen.platform]?.[screen.device]?.find((target) => target.id === screen.storeTargetId)
+    : undefined;
   return (
     <>
       <Section title="Artboard">
         {screen.storeTargetId ? (
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-500">Target size</span>
-              <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">Exact target</span>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
-              {screen.artboard.width} × {screen.artboard.height} px
-            </div>
-            <p className="text-[10px] leading-4 text-slate-500">This variant uses fixed Store Target dimensions.</p>
-          </div>
+          <StoreTargetArtboardSummary screen={screen} target={storeTarget} />
         ) : (
           <MasterArtboardEditor
             key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
