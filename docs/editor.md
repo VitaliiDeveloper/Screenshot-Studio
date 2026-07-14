@@ -40,10 +40,13 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
 
 ## 2. Canvas
 
-- `Focus` shows the active screen's exact crop. In isolated mode, `Overview` lays every root output
-  family for the active locale in its own row; in connected mode, it shows the active exact
-  platform/device/locale/target group as one gapless editable strip. Exactly one screen remains the
-  active owner for insertion and owner-scoped Layers.
+- `Focus` shows the active screen's exact crop. In isolated mode, `Overview` gives every output
+  family one shared container with its master and explicit store-target groups in separate size
+  rows. The selected output owns the outer highlight while only the active size row is marked
+  `Editing`. Variant rows repeat the output label with their exact size and a `Variant` marker so
+  each row remains self-describing inside the shared container. In connected mode, Overview shows the active exact platform/device/locale/target group
+  as one gapless editable strip. Exactly one screen remains the active owner for insertion and
+  owner-scoped Layers.
 - Zoom supports controls, reset-to-100%, and Fit over `25%…400%`. `Ctrl`/`Cmd` + wheel and Mac
   trackpad pinch zoom around the pointer. Hand mode or holding Space enables drag-pan; ordinary
   two-axis wheel/trackpad scrolling remains native.
@@ -176,8 +179,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   with fresh screen/element ids and leaves the source family unchanged. New watchOS output families
   use a core-derived 1266 × 1542 custom master from the 422 × 514 lead target; other families keep
   their exact lead masters. Inside the active output, the lead row remains its root/master; accepted
-  non-lead sizes create or open independent exact variants. Removing a variant preserves its master.
-  Existing output families open unchanged, and no target action resizes a root in place.
+  non-lead sizes create independent exact variants without leaving the current canvas context, and
+  each variant remains available to open explicitly. Removing a variant preserves its master.
+  Existing output families open unchanged, and no output or target action resizes a root in place.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is

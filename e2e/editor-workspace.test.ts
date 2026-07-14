@@ -92,7 +92,7 @@ describe("Phase 3.6 editor workspace", () => {
     await page.close();
   });
 
-  it("creates an independent store-target variant without resizing the master", async () => {
+  it("adds an independent store-target row without leaving the master output", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
@@ -115,10 +115,39 @@ describe("Phase 3.6 editor workspace", () => {
     });
     expect(variant.id).not.toBe(masterBefore.id);
     expect(variant.elements[0]!.id).not.toBe(masterBefore.elements[0]!.id);
-    expect(await page.getByRole("spinbutton", { name: "Width", exact: true }).count()).toBe(0);
-    expect(await page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(1);
+    expect(await page.getByText("Master size", { exact: true }).count()).toBe(1);
+    expect(await page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(0);
     const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
-    await expect.poll(() => targetRow.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    const leadTargetRow = page.getByRole("group", { name: '6.9" iPhone (lead) store target', exact: true });
+    await expect.poll(() => targetRow.getByRole("button", { name: "Open", exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('6.9" iPhone', { exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
+
+    const outputFamilies = page.getByTestId("overview-output-family");
+    await expect.poll(() => outputFamilies.count()).toBe(1);
+    const iphoneOutput = outputFamilies.filter({ has: page.getByText("App Store · iPhone", { exact: true }) });
+    expect(await iphoneOutput.getAttribute("data-editing")).toBe("true");
+    const sizeRows = iphoneOutput.getByTestId("overview-size-row");
+    await expect.poll(() => sizeRows.count()).toBe(2);
+    const masterSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="master"]');
+    const variantSizeRow = sizeRows.filter({
+      has: page.getByText('App Store · iPhone · 6.5"', { exact: true }),
+    });
+    expect(await iphoneOutput.getByText('6.9"', { exact: true }).count()).toBe(1);
+    expect(await iphoneOutput.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await masterSizeRow.getAttribute("data-editing")).toBe("true");
+    expect(await variantSizeRow.count()).toBe(1);
+    expect(await variantSizeRow.getAttribute("data-editing")).toBe("false");
+    expect(await variantSizeRow.getByText("Variant", { exact: true }).count()).toBe(1);
+    expect(await iphoneOutput.getByText("Master", { exact: true }).count()).toBe(1);
+
+    await targetRow.getByRole("button", { name: "Open", exact: true }).click();
+    await expect.poll(() => page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(1);
+    expect(await targetRow.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    expect(await iphoneOutput.getAttribute("data-editing")).toBe("true");
+    expect(await masterSizeRow.getAttribute("data-editing")).toBe("false");
+    expect(await variantSizeRow.getAttribute("data-editing")).toBe("true");
+    expect(await variantSizeRow.getByText("Editing", { exact: true }).count()).toBe(1);
 
     page.once("dialog", (dialog) => dialog.accept());
     await targetRow.getByRole("button", { name: "Remove", exact: true }).click();
@@ -158,15 +187,13 @@ describe("Phase 3.6 editor workspace", () => {
     expect(await page.getByRole("button", { name: "Output family for en", exact: true }).count()).toBe(0);
     expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
 
-    const outputRows = page.getByTestId("overview-output-row");
-    await expect.poll(() => outputRows.count()).toBe(2);
-    expect(await page.locator('[data-testid="overview-output-row"][data-editing="true"]').count()).toBe(1);
-    const activeOutputRow = outputRows.filter({ hasText: "App Store · iPad" });
+    const outputFamilies = page.getByTestId("overview-output-family");
+    await expect.poll(() => outputFamilies.count()).toBe(2);
+    expect(await page.locator('[data-testid="overview-output-family"][data-editing="true"]').count()).toBe(1);
+    const activeOutputRow = outputFamilies.filter({ hasText: "App Store · iPad" });
     expect(await activeOutputRow.getAttribute("data-editing")).toBe("true");
-    expect(await activeOutputRow.getByText("Editing", { exact: true }).count()).toBe(1);
-    const inactiveOutputRows = page.locator('[data-testid="overview-output-row"][data-editing="false"]');
+    const inactiveOutputRows = page.locator('[data-testid="overview-output-family"][data-editing="false"]');
     expect(await inactiveOutputRows.count()).toBe(1);
-    expect(await inactiveOutputRows.getByText("Editing", { exact: true }).count()).toBe(0);
 
     await page.getByRole("button", { name: "Close inspector", exact: true }).click();
     expect(await page.getByTestId("store-outputs-section").count()).toBe(0);
@@ -192,8 +219,8 @@ describe("Phase 3.6 editor workspace", () => {
 
     await ipadOutput.getByRole("button", { name: "Open", exact: true }).click();
 
-    const iphoneRow = page.getByRole("region", { name: "App Store · iPhone output row", exact: true });
-    const ipadRow = page.getByRole("region", { name: "App Store · iPad output row", exact: true });
+    const iphoneRow = page.getByRole("region", { name: "App Store · iPhone output", exact: true });
+    const ipadRow = page.getByRole("region", { name: "App Store · iPad output", exact: true });
     const iphoneRowBox = (await iphoneRow.boundingBox())!;
     const ipadRowBox = (await ipadRow.boundingBox())!;
     expect(ipadRowBox.y).toBeGreaterThan(iphoneRowBox.y + iphoneRowBox.height);
@@ -237,7 +264,7 @@ describe("Phase 3.6 editor workspace", () => {
         const canvasRect = canvas?.getBoundingClientRect();
         return {
           id: card.getAttribute("data-screen-id"),
-          row: card.closest("section")?.getAttribute("aria-label") ?? "",
+          row: card.closest('[data-testid="overview-output-family"]')?.getAttribute("aria-label") ?? "",
           cardTop: cardRect.top,
           cardWidth: cardRect.width,
           cardHeight: cardRect.height,

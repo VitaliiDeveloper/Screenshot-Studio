@@ -6,6 +6,10 @@ import { cx } from "../editor-ui/styles.js";
 export function OutputFamilySection({
   label,
   editing,
+  headerMeta,
+  showEditingBadge = true,
+  testId = "overview-output-row",
+  ariaLabel,
   artworkWidth,
   activationLabel,
   onActivate,
@@ -13,6 +17,10 @@ export function OutputFamilySection({
 }: {
   label: string;
   editing: boolean;
+  headerMeta?: ReactNode;
+  showEditingBadge?: boolean;
+  testId?: string;
+  ariaLabel?: string;
   artworkWidth?: number;
   activationLabel?: string;
   onActivate?: () => void;
@@ -30,10 +38,10 @@ export function OutputFamilySection({
 
   return (
     <section
-      aria-label={activatable ? (activationLabel ?? `Edit ${label} output row`) : `${label} output row`}
+      aria-label={ariaLabel ?? (activatable ? (activationLabel ?? `Edit ${label} output row`) : `${label} output row`)}
       role={activatable ? "button" : undefined}
       tabIndex={activatable ? 0 : undefined}
-      data-testid="overview-output-row"
+      data-testid={testId}
       data-editing={editing ? "true" : "false"}
       style={artworkWidth === undefined ? undefined : { width: artworkWidth }}
       className={cx(
@@ -49,7 +57,8 @@ export function OutputFamilySection({
         artworkWidth !== undefined && "min-w-0 overflow-hidden",
       )}>
         <span className={artworkWidth === undefined ? undefined : "min-w-0 truncate"}>{label}</span>
-        {editing ? (
+        {headerMeta}
+        {editing && showEditingBadge ? (
           <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
             Editing
           </span>

@@ -32,13 +32,12 @@ const project: Project = {
 };
 
 describe("editor project actions", () => {
-  it("creating a target variant activates the returned variant and clears selection", () => {
+  it("creating a target variant preserves the active screen and clears selection", () => {
     const result = createStoreTargetVariant(project, rootId, target);
-    expect(result.activeScreenId).toBe(
-      result.project.screens.find((screen: Project["screens"][number]) =>
-        screen.storeTargetId === target.id,
-      )?.id,
-    );
+    expect(result.project.screens.some((screen: Project["screens"][number]) =>
+      screen.storeTargetId === target.id,
+    )).toBe(true);
+    expect(result.activeScreenId).toBe(rootId);
     expect(result.selectedItems).toEqual([]);
   });
 });
