@@ -17,6 +17,8 @@ export const FONT_WEIGHT_MIN = 100;
 export const FONT_WEIGHT_MAX = 900;
 export const FONT_WEIGHT_STEP = 100;
 export const DEFAULT_FONT_WEIGHT = 400;
+export const TEXT_SHADOW_BLUR_MAX = 100;
+export const SHAPE_STROKE_WIDTH_MAX = 100;
 
 export const FontWeight = z
   .number()
@@ -47,7 +49,7 @@ export type MediaCrop = z.infer<typeof MediaCrop>;
 
 export const TextShadow = z.object({
   color: HexColor,
-  blur: z.number().finite().min(0).max(100).default(0),
+  blur: z.number().finite().min(0).max(TEXT_SHADOW_BLUR_MAX).default(0),
   offsetX: z.number().finite().default(0),
   offsetY: z.number().finite().default(0),
   opacity: unitInterval.default(1),
@@ -63,7 +65,7 @@ export type LinearGradientPaint = z.infer<typeof LinearGradientPaint>;
 
 export const ShapeStroke = z.object({
   color: HexColor,
-  width: z.number().finite().positive().max(100),
+  width: z.number().finite().positive().max(SHAPE_STROKE_WIDTH_MAX),
 }).strict();
 export type ShapeStroke = z.infer<typeof ShapeStroke>;
 

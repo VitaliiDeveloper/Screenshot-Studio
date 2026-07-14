@@ -8,9 +8,9 @@ function screen(): Screen {
     id: "owner", name: "Owner", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
     artboard: { width: 400, height: 300 }, background: { type: "solid", color: "#000000" },
     elements: [
-      { id: "red", name: "Red", type: "shape", x: 20, y: 30, width: 40, height: 20, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FF0000", radius: 4 },
+      { id: "red", name: "Red", type: "shape", x: 20, y: 30, width: 40, height: 20, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FF0000", radius: 4, stroke: { color: "#FFFFFF", width: 4 } },
       { id: "between", type: "shape", x: 200, y: 20, width: 20, height: 20, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 },
-      { id: "copy", type: "text", x: 80, y: 50, width: 100, height: 40, rotation: 0, opacity: 0.8, locked: false, visible: true, content: "Copy", fontFamily: "Inter", size: 20, weight: 400, lineHeight: 1.2, letterSpacing: 2, align: "left", color: "#FFFFFF" },
+      { id: "copy", type: "text", x: 80, y: 50, width: 100, height: 40, rotation: 0, opacity: 0.8, locked: false, visible: true, content: "Copy", fontFamily: "Inter", size: 20, weight: 400, lineHeight: 1.2, letterSpacing: 2, align: "left", color: "#FFFFFF", shadow: { color: "#000000", blur: 5, offsetX: 2, offsetY: 3, opacity: 0.5 } },
     ],
   };
 }
@@ -52,9 +52,32 @@ describe("group authoring operations", () => {
     const grouped = groupElements(screen(), ["red", "copy"], () => "group").group;
     const resized = resizeGroupUniform(grouped, 320, 120);
     expect(resized).toMatchObject({ width: 320, height: 120 });
-    expect(resized.children[0]).toMatchObject({ width: 80, height: 40, radius: 8 });
-    expect(resized.children[1]).toMatchObject({ x: 120, y: 40, width: 200, height: 80, size: 40, letterSpacing: 4 });
+    expect(resized.children[0]).toMatchObject({
+      width: 80,
+      height: 40,
+      radius: 8,
+      stroke: { color: "#FFFFFF", width: 8 },
+    });
+    expect(resized.children[1]).toMatchObject({
+      x: 120,
+      y: 40,
+      width: 200,
+      height: 80,
+      size: 40,
+      letterSpacing: 4,
+      shadow: { color: "#000000", blur: 10, offsetX: 4, offsetY: 6, opacity: 0.5 },
+    });
     expect(() => resizeGroupUniform(grouped, 320, 180)).toThrow(/uniformly/);
+  });
+
+  it("rejects group scaling that exceeds bounded visual metrics", () => {
+    const grouped = groupElements(screen(), ["red", "copy"], () => "group").group;
+    const shape = grouped.children[0]!;
+    if (shape.type !== "shape") throw new Error("expected shape");
+    shape.stroke = { color: "#FFFFFF", width: 60 };
+
+    expect(() => resizeGroupUniform(grouped, 320, 120))
+      .toThrow('Cannot scale shape stroke width above 100 for element "red"');
   });
 
   it("scales decorative-image corner radius with grouped geometry", () => {

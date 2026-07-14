@@ -179,6 +179,62 @@ describe("project-ops", () => {
     expect(resized.screens[1]).toBe(source.screens[1]);
   });
 
+  it("scales render-bearing effects with an artboard fit", () => {
+    const source = sampleProject();
+    source.screens[0]!.artboard = { width: 100, height: 100 };
+    source.screens[0]!.elements = [
+      {
+        id: "headline", type: "text", x: 10, y: 10, width: 80, height: 20,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        content: "Hello", fontFamily: "Inter", size: 10, weight: 400,
+        lineHeight: 1.2, letterSpacing: 1, align: "left", color: "#FFFFFF",
+        shadow: { color: "#000000", blur: 12, offsetX: 4, offsetY: -6, opacity: 0.5 },
+      },
+      {
+        id: "group", type: "group", x: 10, y: 40, width: 80, height: 40,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        children: [{
+          id: "card", type: "shape", x: 0, y: 0, width: 80, height: 40,
+          rotation: 0, opacity: 1, locked: false, visible: true,
+          kind: "rect", fill: "#101827", radius: 6,
+          stroke: { color: "#FFFFFF", width: 4 },
+        }],
+      },
+    ];
+
+    const resized = resizeRootArtboard(source, "hero", { width: 200, height: 200 });
+
+    expect(resized.screens[0]!.elements).toMatchObject([
+      {
+        type: "text",
+        shadow: { color: "#000000", blur: 24, offsetX: 8, offsetY: -12, opacity: 0.5 },
+      },
+      {
+        type: "group",
+        children: [{
+          type: "shape",
+          radius: 12,
+          stroke: { color: "#FFFFFF", width: 8 },
+        }],
+      },
+    ]);
+  });
+
+  it("rejects artboard fits that exceed bounded visual metrics", () => {
+    const source = sampleProject();
+    source.screens[0]!.artboard = { width: 100, height: 100 };
+    source.screens[0]!.elements = [{
+      id: "headline", type: "text", x: 10, y: 10, width: 80, height: 20,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      content: "Hello", fontFamily: "Inter", size: 10, weight: 400,
+      lineHeight: 1.2, letterSpacing: 1, align: "left", color: "#FFFFFF",
+      shadow: { color: "#000000", blur: 60, offsetX: 0, offsetY: 4, opacity: 0.5 },
+    }];
+
+    expect(() => resizeRootArtboard(source, "hero", { width: 200, height: 200 }))
+      .toThrow('Cannot scale text shadow blur above 100 for element "headline"');
+  });
+
   it("refuses to resize an exact target variant", () => {
     const withVariant = ensureStoreTargetVariant(sampleProject(), "hero", {
       id: "6.5", width: 1284, height: 2778,
@@ -273,6 +329,14 @@ describe("project-ops", () => {
       storeTargetId: "ultra-2",
       artboard: { width: 410, height: 502 },
     });
+  });
+
+  it("derives watchOS masters from the supplied lead dimensions", () => {
+    const result = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+      id: "custom-watch-lead", width: 400, height: 500,
+    });
+
+    expect(result.firstScreen.artboard).toEqual({ width: 1200, height: 1500 });
   });
 
   it("reopens an existing fixed watchOS family without resizing it", () => {
