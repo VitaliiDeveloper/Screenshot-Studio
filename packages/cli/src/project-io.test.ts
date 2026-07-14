@@ -13,7 +13,7 @@ import {
 
 function sampleProject(): Project {
   return {
-    meta: { name: "CLI Project", schemaVersion: 10 },
+    meta: { name: "CLI Project", schemaVersion: 1 },
     mode: "isolated",
     platforms: ["apple"],
     locales: ["en"],

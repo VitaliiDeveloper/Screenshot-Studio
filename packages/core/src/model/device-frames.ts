@@ -2,11 +2,10 @@
 import type { DeviceFrameId } from "./schema.js";
 
 /**
- * Bundled device-frame geometry (docs/specs/2026-07-04-phase1-slice3-device-frame-design.md §3). All
- * values are FRACTIONS of the element's own box, so the frame scales with the element and the screen
- * slot is always aligned to the frame body by construction — there is no separate bezel asset that
- * could drift. The frame is drawn with native Konva shapes (spec §9), so it stays vector-crisp at any
- * zoom or export pixelRatio.
+ * Bundled device-frame geometry. All values are FRACTIONS of the element's own box, so the frame
+ * scales with the element and the screen slot is always aligned to the frame body by construction —
+ * there is no separate bezel asset that could drift. Native Konva shapes keep the frame vector-crisp
+ * at any zoom or export pixelRatio.
  */
 export interface DeviceFrameSpec {
   /** Canonical outer width / height used when switching presets. */

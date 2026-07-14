@@ -1,5 +1,6 @@
 {
-  "meta": { "name": "Phase 4 Multi-Locale Export", "schemaVersion": 1 },
+  "meta": { "name": "Multi-Locale Export", "schemaVersion": 1 },
+  "mode": "isolated",
   "platforms": ["apple", "android"],
   "locales": ["en", "../ar", "en_US"],
   "fonts": [],

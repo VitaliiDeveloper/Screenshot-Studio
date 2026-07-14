@@ -67,7 +67,7 @@ export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
 /**
  * Editor state as a framework-agnostic Zustand vanilla store, bound to React via `useStore` in
  * components. Every mutation goes through Immer, so each change is a discrete immutable patch —
- * the day-0 requirement (roadmap.md §1) now used by bounded undo/redo history.
+ * the foundation used by bounded undo/redo history.
  * The store is the only writer of project state; the canvas dispatches actions, never mutates.
  */
 

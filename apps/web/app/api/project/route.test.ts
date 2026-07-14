@@ -7,6 +7,7 @@ import { GET, PUT } from "./route.js";
 
 const validProject = {
   meta: { name: "T", schemaVersion: 1 },
+  mode: "isolated",
   platforms: ["apple"], locales: ["en"], fonts: [],
   screens: [{
     id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
@@ -37,7 +38,7 @@ describe("GET /api/project", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.meta.name).toBe("T");
-    expect(body).toMatchObject({ mode: "isolated", meta: { schemaVersion: 10 } });
+    expect(body).toMatchObject({ mode: "isolated", meta: { schemaVersion: 1 } });
   });
 });
 
@@ -51,7 +52,7 @@ describe("PUT /api/project", () => {
     expect(res.status).toBe(200);
     expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
       mode: "isolated",
-      meta: { name: "Renamed", schemaVersion: 10 },
+      meta: { name: "Renamed", schemaVersion: 1 },
     });
   });
 

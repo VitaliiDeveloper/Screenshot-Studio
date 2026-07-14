@@ -13,7 +13,8 @@ beforeEach(async () => {
   projectPath = join(dir, "app-store-screenshots.json");
   await mkdir(join(dir, "themes"));
   await writeFile(projectPath, JSON.stringify({
-    meta: { name: "Themes", schemaVersion: 1 }, platforms: ["apple"], locales: ["en"], fonts: [],
+    meta: { name: "Themes", schemaVersion: 1 }, mode: "isolated",
+    platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "accent", type: "shape", role: "accent", x: 0, y: 0, width: 100, height: 10, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 }] }],
   }));
   await writeFile(join(dir, "themes/midnight.json"), JSON.stringify({

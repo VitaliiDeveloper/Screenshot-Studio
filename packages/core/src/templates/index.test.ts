@@ -5,7 +5,7 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 10 }, mode: "connected", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 1 }, mode: "connected", platforms: ["apple"], locales: ["en"],
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
     screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
   };

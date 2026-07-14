@@ -1,5 +1,6 @@
 {
-  "meta": { "name": "Slice 2 Screenshot", "schemaVersion": 1 },
+  "meta": { "name": "Screenshot Parity", "schemaVersion": 1 },
+  "mode": "isolated",
   "platforms": ["apple"],
   "locales": ["en"],
   "fonts": [],

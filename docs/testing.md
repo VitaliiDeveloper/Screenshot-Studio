@@ -25,32 +25,23 @@ pnpm exec vitest run --config vitest.e2e.config.ts e2e/inspector-toolbar.test.ts
 Each E2E file belongs to exactly one leaf group. Aggregate commands compose leaf groups rather than
 maintaining a second file list.
 
-| Leaf group | Files / cases | What it protects | Run when |
-|---|---:|---|---|
-| `test:e2e:parity:foundation` | 5 / 9 | base renderer, fonts, screenshots, frames, RTL, connected crops | shared renderer, schema, fonts, core media |
-| `test:e2e:parity:elements` | 5 / 5 | groups, images/crop, icons, badges, consolidated Phase 9 rendering | one of those element contracts changes |
-| `test:e2e:export` | 3 / 3 | CLI/UI bundles, dimensions, alpha, safe paths | export or render-host orchestration |
-| `test:e2e:editor:interaction` | 5 / 13 | canvas editing, panels, inspector, history, snapping | direct interaction behavior |
-| `test:e2e:editor:workspace` | 4 / 8 | isolated/connected workspace, locale scope, responsive state | workspace or locale ownership |
-| `test:e2e:editor:authoring` | 9 / 9 | fonts, themes, templates, assets, selection, groups, icons, badges, consolidated Phase 9 controls | authoring entry points |
-| `test:e2e:accessibility` | 1 / 2 | serious/critical Axe findings at desktop and compact widths | semantics, dialogs, menus, responsive UI |
-| `test:e2e:browsers` | 1 / 3 | Chromium, Firefox, and WebKit author/persist/reload smoke | browser-sensitive code or release readiness |
-| `test:e2e:package` | 1 / 2 | packed install, CLI management/export, recovery | packaging/runtime host or release readiness |
-| `test:e2e:skill` | 1 / 3 | optional skill install and bootstrap failures | skill/package integration |
-| `test:e2e:examples` | 1 / 2 | living v10 example validation and exact export | examples, schema, renderer, release readiness |
+| Leaf group | What it protects | Run when |
+|---|---|---|
+| `test:e2e:parity:foundation` | base renderer, fonts, screenshots, frames, RTL, connected crops | shared renderer, schema, fonts, core media |
+| `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering | one of those element contracts changes |
+| `test:e2e:export` | CLI/UI bundles, dimensions, alpha, safe paths | export or render-host orchestration |
+| `test:e2e:editor:interaction` | canvas editing, panels, inspector, history, snapping | direct interaction behavior |
+| `test:e2e:editor:workspace` | isolated/connected workspace, locale scope, responsive state | workspace or locale ownership |
+| `test:e2e:editor:authoring` | fonts, themes, templates, assets, selection, groups, icons, badges, styling/frame controls | authoring entry points |
+| `test:e2e:accessibility` | serious/critical Axe findings at desktop and compact widths | semantics, dialogs, menus, responsive UI |
+| `test:e2e:browsers` | Chromium, Firefox, and WebKit author/persist/reload smoke | browser-sensitive code or release readiness |
+| `test:e2e:package` | packed install, CLI management/export, recovery | packaging/runtime host or release readiness |
+| `test:e2e:skill` | optional skill install and bootstrap failures | skill/package integration |
+| `test:e2e:examples` | current-schema example validation and exact export | examples, schema, renderer, release readiness |
 
-Current maintained browser baseline: **36 files / 59 cases**. The full config keeps files sequential
-because each file owns mutable project state and usually its own server/browser lifecycle. A larger
-case count is therefore less important than the number and type of files selected.
-
-Parity files reuse one headed and one headless render session per file. This reduces their browser
-launches from 35 to 25 while preserving a fresh page for every render and a separate interactive
-browser where the UI canvas is also asserted. Do not replace the session harness with repeated
-one-shot `renderScreenToPng` calls.
-
-Phase 9 deliberately consolidates background/styling/frame parity into one harness and their
-Inspector persistence into one authoring harness. This reduced five new server/browser lifecycles
-to two while keeping schema/math branches in unit tests and real pixels/interactions in E2E.
+The full config keeps files sequential because each file owns mutable project state and usually its
+own server/browser lifecycle. Reuse a session inside one file only when isolation and fresh-page
+assertions remain explicit.
 
 ## Cost rules
 

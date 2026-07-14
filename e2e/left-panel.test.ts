@@ -14,8 +14,8 @@ import { startWebServer, type RunningServer } from "../packages/cli/src/server.j
  * but two layers. Runs against a temp copy so the committed fixture is untouched.
  */
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const sample = resolve(repoRoot, "fixtures/phase-0-sample/app-store-screenshots.json");
-const sampleAssets = resolve(repoRoot, "fixtures/phase-0-sample/assets");
+const sample = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
+const sampleAssets = resolve(repoRoot, "fixtures/sample/assets");
 
 let server: RunningServer;
 let browser: Browser;

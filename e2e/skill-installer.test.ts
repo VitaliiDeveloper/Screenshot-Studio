@@ -74,7 +74,7 @@ describe("Phase 6 optional skill", () => {
       "utf8",
     ));
     expect(project).toMatchObject({
-      meta: { name: "Skill Smoke", schemaVersion: 10 },
+      meta: { name: "Skill Smoke", schemaVersion: 1 },
       mode: "isolated",
       screens: [{ id: "hero" }],
     });

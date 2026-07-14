@@ -16,7 +16,7 @@ import {
 } from "./support/parity-render-harness.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixtureRoot = resolve(repoRoot, "fixtures/phase-0-sample");
+const fixtureRoot = resolve(repoRoot, "fixtures/sample");
 let harness: ParityRenderHarness;
 let directory: string;
 let projectPath: string;

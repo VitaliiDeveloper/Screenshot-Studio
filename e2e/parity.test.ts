@@ -14,7 +14,7 @@ import {
 } from "./support/parity-render-harness.js";
 
 /**
- * Phase 0 exit gate (docs/roadmap.md §4). Proves, on the hardest parity case (embedded custom
+ * Foundational render/export parity gate. Proves, on the hardest parity case (embedded custom
  * font), that:
  *   1. the pipeline yields a PNG at the exact store target size,
  *   2. with no alpha channel,
@@ -27,10 +27,10 @@ import {
  */
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-0-sample/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 const tmpDir = resolve(repoRoot, "e2e/.tmp");
 const screenId = "hero";
-const pixelRatio = 2; // 660×1434 artboard → 1320×2868 lead size
+const pixelRatio = 1; // The living sample is already authored at the 1320×2868 lead size.
 const target = { width: 1320, height: 2868 };
 
 // Tolerances (spec §6): starting values, tuned once real diffs are observed.

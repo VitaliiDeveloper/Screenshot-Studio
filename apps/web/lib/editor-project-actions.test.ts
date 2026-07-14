@@ -13,7 +13,7 @@ const target: StoreSize = {
   orientation: "portrait",
 };
 const project: Project = {
-  meta: { name: "Targets", schemaVersion: 10 },
+  meta: { name: "Targets", schemaVersion: 1 },
   mode: "isolated",
   platforms: ["apple"],
   locales: ["en"],

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 
-const fixturePath = resolve("fixtures/phase-0-sample/app-store-screenshots.json");
+const fixturePath = resolve("fixtures/sample/app-store-screenshots.json");
 
 describe("demo project layout", () => {
   it("keeps headlines clear of their supporting-copy layers", () => {

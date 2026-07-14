@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const imagePath = resolve(repoRoot, "fixtures/phase-0-sample/assets/demo-logistics-app.png");
+const imagePath = resolve(repoRoot, "fixtures/sample/assets/demo-logistics-app.png");
 
 let server: RunningServer;
 let browser: Browser;
@@ -21,7 +21,7 @@ beforeAll(async () => {
   cpSync(imagePath, join(directory, "assets", "background.png"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Background authoring", schemaVersion: 10 },
+    meta: { name: "Background authoring", schemaVersion: 1 },
     mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
     screens: [{
       id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",

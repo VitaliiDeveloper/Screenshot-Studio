@@ -14,7 +14,7 @@ import {
 import { loadProjectFile } from "./project-io.js";
 
 const baseProject = {
-  meta: { name: "Fonts", schemaVersion: 10 },
+  meta: { name: "Fonts", schemaVersion: 1 },
   mode: "isolated",
   platforms: ["apple"],
   locales: ["en"],

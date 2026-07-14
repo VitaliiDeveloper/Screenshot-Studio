@@ -7,6 +7,7 @@ import { handleFontDelete, handleFontGet, handleFontPost } from "./handler.js";
 
 const validProject = {
   meta: { name: "Fonts", schemaVersion: 1 },
+  mode: "isolated",
   platforms: ["apple"], locales: ["en"], fonts: [],
   screens: [{
     id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",

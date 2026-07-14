@@ -20,7 +20,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "editor-multi-select-"));
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Multi select", schemaVersion: 10 },
+    meta: { name: "Multi select", schemaVersion: 1 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],

@@ -35,7 +35,7 @@ function fixture(mode: Project["mode"]): Project {
     }],
   });
   return {
-    meta: { name: "Stage", schemaVersion: 10 },
+    meta: { name: "Stage", schemaVersion: 1 },
     mode,
     platforms: ["apple"],
     locales: ["en"],

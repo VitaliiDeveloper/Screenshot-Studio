@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
 
-const DEFAULT_PROJECT = "fixtures/phase-0-sample/app-store-screenshots.json";
+const DEFAULT_PROJECT = "fixtures/sample/app-store-screenshots.json";
 
 /**
  * Resolves the on-disk project JSON the editor reads and writes. Same local-file, self-hosted

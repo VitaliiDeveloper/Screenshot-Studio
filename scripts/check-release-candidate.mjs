@@ -55,13 +55,11 @@ for (const field of ["description", "repository", "homepage", "bugs", "keywords"
 const archiveName = `screenshot-studio-cli-${version}.tgz`;
 const documents = {
   "README.md": await readFile(join(repoRoot, "README.md"), "utf8"),
-  "CHANGELOG.md": await readFile(join(repoRoot, "CHANGELOG.md"), "utf8"),
   "SECURITY.md": await readFile(join(repoRoot, "SECURITY.md"), "utf8"),
   "docs/releasing.md": await readFile(join(repoRoot, "docs/releasing.md"), "utf8"),
 };
 assert(documents["README.md"].includes(archiveName), "README candidate filename drifted");
-assert(documents["CHANGELOG.md"].includes(`## [${version}] - 2026-07-11 (release candidate)`), "Changelog candidate entry drifted");
-assert(documents["SECURITY.md"].includes("| 0.1.x | Yes |"), "Security support table drifted");
+assert(documents["SECURITY.md"].includes("| Current `main` branch | Yes |"), "Security support table drifted");
 assert(documents["docs/releasing.md"].includes(archiveName), "Release guide candidate filename drifted");
 assert(documents["docs/releasing.md"].includes("requires explicit owner authorization"), "Release authorization boundary is missing");
 

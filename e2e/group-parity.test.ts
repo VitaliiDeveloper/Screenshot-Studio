@@ -14,7 +14,7 @@ import {
 } from "./support/parity-render-harness.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/phase-7-group/app-store-screenshots.json");
+const fixturePath = resolve(repoRoot, "fixtures/regressions/group-parity/app-store-screenshots.json");
 const pixelRatio = 2;
 const target = { width: 600, height: 600 };
 const MAX_MISMATCH_FRACTION = 0.001;

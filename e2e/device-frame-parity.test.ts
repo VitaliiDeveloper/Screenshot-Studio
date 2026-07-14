@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
@@ -20,7 +21,7 @@ import {
  * (3) the image is live — a missing asset (black slot placeholder) differs by many pixels.
  */
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixtureDir = resolve(repoRoot, "fixtures/slice-3-device-frame");
+const fixtureDir = resolve(repoRoot, "fixtures/regressions/device-frame-parity");
 const fixturePath = resolve(fixtureDir, "app-store-screenshots.json");
 const tmpDir = resolve(repoRoot, "e2e/.tmp");
 const screenId = "framed";
@@ -49,7 +50,7 @@ function mismatch(a: Buffer, b: Buffer): number {
   return pixelmatch(pa.data, pb.data, diff.data, pa.width, pa.height, { threshold: PER_PIXEL_THRESHOLD });
 }
 
-describe("Slice 3 device-frame parity", () => {
+describe("device-frame parity", () => {
   it("headed and headless match, and the framed image is present (red at slot centre)", async () => {
     const headed = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio, timeoutMs: 60_000,
@@ -77,17 +78,24 @@ describe("Slice 3 device-frame parity", () => {
   it("proves the framed image is live: render differs from a missing-asset placeholder", async () => {
     const project = JSON.parse(readFileSync(fixturePath, "utf8"));
     project.screens[0].elements[0].assetUrl = "assets/does-not-exist.png";
-    // Written INTO the fixture dir so the asset route's base (dirname of the project) still points at
-    // the fixture's assets/ — the point is that does-not-exist.png 404s → black slot placeholder.
-    const missingInDir = resolve(fixtureDir, "_missing.json");
-    writeFileSync(missingInDir, JSON.stringify(project));
+    const temporaryRoot = mkdtempSync(resolve(tmpdir(), "device-frame-parity-missing-"));
+    const temporaryProject = resolve(temporaryRoot, "app-store-screenshots.json");
+    try {
+      cpSync(resolve(fixtureDir, "assets"), resolve(temporaryRoot, "assets"), { recursive: true });
+      writeFileSync(temporaryProject, JSON.stringify(project));
 
-    const present = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio,
-    }));
-    const placeholder = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath: missingInDir, screenId, pixelRatio,
-    }));
-    expect(mismatch(present, placeholder)).toBeGreaterThan(2000);
+      const present = stripAlpha(await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio,
+      }));
+      const placeholder = stripAlpha(await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath: temporaryProject, screenId, pixelRatio,
+      }));
+      expect(mismatch(present, placeholder)).toBeGreaterThan(2000);
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+
+    expect(existsSync(temporaryRoot)).toBe(false);
+    expect(existsSync(resolve(fixtureDir, "_missing.json"))).toBe(false);
   });
 });

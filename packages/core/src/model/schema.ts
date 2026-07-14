@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
 
 /**
- * Enforced project schema (v10). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md §3:
  * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
  * (trusted built-in frame presets only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
@@ -12,7 +12,7 @@ import { fontIdentityKey } from "./font-identity.js";
  * so an unknown key must fail loudly rather than be silently dropped.
  */
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 1;
 export const FONT_WEIGHT_MIN = 100;
 export const FONT_WEIGHT_MAX = 900;
 export const FONT_WEIGHT_STEP = 100;
@@ -536,7 +536,7 @@ function validateFontIdentities(proj: ProjectShape, ctx: z.RefinementCtx): void 
   });
 }
 
-/** Strict v10 project contract with derived manifests and cross-object identities validated. */
+/** Strict v1 project contract with derived manifests and cross-object identities validated. */
 export const Project = ProjectObject.superRefine((proj, ctx) => {
   validateManifests(proj, ctx);
   validateVariants(proj, ctx);

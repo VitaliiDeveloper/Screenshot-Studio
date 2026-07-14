@@ -20,7 +20,7 @@ function fixture(): Project {
     radius: 0,
   });
   return {
-    meta: { name: "Inspector", schemaVersion: 10 },
+    meta: { name: "Inspector", schemaVersion: 1 },
     mode: "connected",
     platforms: ["apple"],
     locales: ["en"],
