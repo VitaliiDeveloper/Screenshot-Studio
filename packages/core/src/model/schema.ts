@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from "zod";
 import { fontIdentityKey } from "./font-identity.js";
+import { ProjectRelativePath } from "./project-resource-path.js";
 
 /**
  * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md §3:
@@ -126,8 +127,8 @@ export const ScreenshotElement = z
   .object({
     type: z.literal("screenshot"),
     ...leafBase,
-    /** Document-relative path to the image, served by the web-host asset route. */
-    assetUrl: z.string().min(1),
+    /** Portable project-relative path to the image, served by the web-host asset route. */
+    assetUrl: ProjectRelativePath,
     fit: z.enum(["cover", "contain"]).default("cover"),
     cornerRadius: z.number().min(0).default(0),
     crop: MediaCrop.optional(),
@@ -139,8 +140,8 @@ export const ImageElement = z
   .object({
     type: z.literal("image"),
     ...leafBase,
-    /** Document-relative path to an arbitrary decorative raster asset. */
-    assetUrl: z.string().min(1),
+    /** Portable project-relative path to an arbitrary decorative raster asset. */
+    assetUrl: ProjectRelativePath,
     fit: z.enum(["cover", "contain"]).default("contain"),
     cornerRadius: z.number().min(0).default(0),
     crop: MediaCrop.optional(),
@@ -172,8 +173,8 @@ export const DeviceFrameElement = z
     type: z.literal("device-frame"),
     ...leafBase,
     deviceType: DeviceFrameId,
-    /** Document-relative path to the screenshot placed in the frame's screen slot. */
-    assetUrl: z.string().min(1),
+    /** Portable project-relative path to the screenshot placed in the frame's screen slot. */
+    assetUrl: ProjectRelativePath,
     fit: z.enum(["cover", "contain"]).default("cover"),
   })
   .strict();
@@ -232,8 +233,8 @@ export type LinearGradientBackground = z.infer<typeof LinearGradientBackground>;
 export const ImageBackground = z
   .object({
     type: z.literal("image"),
-    /** Document-relative path served through the project asset route. */
-    assetUrl: z.string().min(1),
+    /** Portable project-relative path served through the project asset route. */
+    assetUrl: ProjectRelativePath,
     fit: z.enum(["cover", "contain"]).default("cover"),
     /** Opaque fallback and contain-mode letterbox colour. */
     color: HexColor.default("#000000"),
@@ -248,13 +249,13 @@ export const Background = z.discriminatedUnion("type", [
 ]);
 export type Background = z.infer<typeof Background>;
 
-/** Project-relative font file served through the same asset route as screenshots. */
+/** Portable project-relative font file served through the same asset route as screenshots. */
 export const FontAsset = z
   .object({
     family: z.string().min(1),
     source: z.enum(["uploaded", "google"]),
-    /** Project-relative path to the font file, e.g. assets/fonts/inter-400.ttf. */
-    path: z.string().min(1),
+    /** Portable project-relative path to the font file, e.g. assets/fonts/inter-400.ttf. */
+    path: ProjectRelativePath,
     weight: FontWeight,
   })
   .strict();
@@ -325,7 +326,7 @@ const ProjectObject = z
     meta: z
       .object({
         name: z.string().min(1),
-        appIcon: z.string().optional(),
+        appIcon: ProjectRelativePath.optional(),
         schemaVersion: z.literal(SCHEMA_VERSION),
       })
       .strict(),
