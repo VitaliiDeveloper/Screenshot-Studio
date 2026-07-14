@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import JSZip from "jszip";
 import {
@@ -22,10 +23,25 @@ import {
 class FakeChild extends EventEmitter {
   exitCode: number | null = null;
   killed = false;
+  stderr = new PassThrough();
+
+  emitExit(code: number | null, signal: NodeJS.Signals | null): void {
+    this.exitCode = code;
+    this.emit("exit", code, signal);
+  }
+
+  endStderr(chunk?: string): void {
+    this.stderr.end(chunk);
+  }
+
+  finishExit(code: number | null, signal: NodeJS.Signals | null, stderr?: string): void {
+    this.emitExit(code, signal);
+    this.endStderr(stderr);
+  }
+
   kill = vi.fn(() => {
     this.killed = true;
-    this.exitCode = 0;
-    this.emit("exit", 0, null);
+    this.finishExit(0, null);
     return true;
   });
 }
@@ -239,8 +255,41 @@ describe("createServerController", () => {
         }),
         timeoutMs: 100,
       }),
-    ).rejects.toThrow(/not ready/);
+    ).rejects.toThrow(/^not ready$/);
     expect(child.kill).toHaveBeenCalledWith("SIGTERM");
+  });
+
+  it("appends render-host stderr to readiness failures", async () => {
+    const child = new FakeChild();
+    const spawn = vi.fn((_command: string, _args: string[], _options: unknown) => child as never);
+
+    await expect(createServerController({
+      port: 4573,
+      spawn,
+      waitForHttp: vi.fn(async () => {
+        child.stderr.write("listen EPERM 127.0.0.1:4573\n");
+        throw new Error("not ready");
+      }),
+    })).rejects.toThrow(/not ready\nRender host stderr:\nlisten EPERM/);
+    expect(spawn.mock.calls[0]?.[2]).toMatchObject({ stdio: ["ignore", "ignore", "pipe"] });
+  });
+
+  it("drains render-host stderr after readiness failure stops the child", async () => {
+    const child = new FakeChild();
+    child.kill = vi.fn(() => {
+      child.killed = true;
+      child.emitExit(0, null);
+      setTimeout(() => child.endStderr("late shutdown failure\n"), 0);
+      return true;
+    });
+
+    await expect(createServerController({
+      port: 4575,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => {
+        throw new Error("not ready");
+      }),
+    })).rejects.toThrow("not ready\nRender host stderr:\nlate shutdown failure");
   });
 
   it("fails readiness promptly when the render host exits", async () => {
@@ -254,9 +303,8 @@ describe("createServerController", () => {
     });
 
     await vi.waitFor(() => expect(pendingReadiness).toHaveBeenCalledTimes(1));
-    child.exitCode = 7;
-    child.emit("exit", 7, null);
-    await expect(starting).rejects.toThrow(/exited unexpectedly.*code 7/);
+    child.finishExit(7, null);
+    await expect(starting).rejects.toThrow(/^Render host exited unexpectedly \(code 7\)$/);
   });
 
   it("reports an unexpected exit after readiness", async () => {
@@ -268,11 +316,50 @@ describe("createServerController", () => {
       timeoutMs: 100,
     });
 
-    child.exitCode = null;
-    child.emit("exit", null, "SIGKILL");
+    child.stderr.write("fatal runtime failure\n");
+    child.finishExit(null, "SIGKILL");
     await expect(server.exited).resolves.toMatchObject({
-      message: expect.stringMatching(/exited unexpectedly.*SIGKILL/),
+      message: "Render host exited unexpectedly (signal SIGKILL)\nRender host stderr:\nfatal runtime failure",
     });
+  });
+
+  it("waits for stderr that arrives after an unexpected exit", async () => {
+    const child = new FakeChild();
+    const server = await createServerController({
+      port: 4576,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => undefined),
+      timeoutMs: 100,
+    });
+
+    child.emitExit(1, null);
+    await Promise.resolve();
+    child.endStderr("late crash output\n");
+
+    await expect(server.exited).resolves.toMatchObject({
+      message: "Render host exited unexpectedly (code 1)\nRender host stderr:\nlate crash output",
+    });
+  });
+
+  it("retains only the final 64 KiB of render-host stderr", async () => {
+    const child = new FakeChild();
+    const server = await createServerController({
+      port: 4574,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => undefined),
+      timeoutMs: 100,
+    });
+    const omitted = "omitted-prefix";
+    const retained = "é".repeat(32 * 1024);
+
+    child.stderr.write(`${omitted}${retained}`);
+    child.finishExit(1, null);
+
+    const failure = await server.exited;
+    const diagnostic = failure.message.split("\nRender host stderr:\n")[1];
+    expect(diagnostic).toBe(retained);
+    expect(Buffer.byteLength(diagnostic!)).toBe(64 * 1024);
+    expect(diagnostic).not.toContain(omitted);
   });
 
   it("runs host cleanup when child termination fails", async () => {
@@ -296,7 +383,7 @@ describe("createServerController", () => {
     });
 
     const stopping = server.stop();
-    child.emit("exit", 1, null);
+    child.finishExit(1, null);
     await stopping;
     expect(cleanup).toHaveBeenCalledTimes(1);
   });

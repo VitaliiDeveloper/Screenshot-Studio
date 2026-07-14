@@ -41,7 +41,7 @@ beforeAll(async () => {
     ],
   }));
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3134);
+  server = await startWebServer();
   browser = await chromium.launch();
 }, 180_000);
 

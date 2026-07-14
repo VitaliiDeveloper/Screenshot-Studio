@@ -32,7 +32,7 @@ beforeAll(async () => {
     fonts: { heading: { family: "Pacifico", weight: 400 } },
   }));
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3133);
+  server = await startWebServer();
   browser = await chromium.launch();
 }, 180_000);
 

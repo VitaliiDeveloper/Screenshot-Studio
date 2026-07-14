@@ -44,7 +44,7 @@ beforeAll(async () => {
   writeFileSync(projectFile, JSON.stringify(fixture));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3124);
+  server = await startWebServer();
   browser = await chromium.launch();
 }, 180_000);
 

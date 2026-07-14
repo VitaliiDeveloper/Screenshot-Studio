@@ -26,8 +26,11 @@ interface PersistedElement {
 interface PersistedScreen {
   id: string;
   name: string;
+  platform: string;
+  device: string;
   locale: string;
   direction: "ltr" | "rtl";
+  storeTargetId?: string;
   artboard: { width: number; height: number };
   elements: PersistedElement[];
 }
@@ -48,7 +51,7 @@ beforeAll(async () => {
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3137);
+  server = await startWebServer();
   browser = await chromium.launch();
 }, 180_000);
 
@@ -71,6 +74,24 @@ function localeScreenIds(locale: string): string[] {
   return localeScreens(locale).map((screen) => screen.id);
 }
 
+function outputScreenIds(screens: PersistedScreen[], anchor: PersistedScreen): string[] {
+  return screens.filter((screen) =>
+    screen.platform === anchor.platform
+    && screen.device === anchor.device
+    && screen.storeTargetId === anchor.storeTargetId,
+  ).map((screen) => screen.id);
+}
+
+function roundedElementX(screens: PersistedScreen[]): PersistedScreen[] {
+  return screens.map((screen) => ({
+    ...screen,
+    elements: screen.elements.map((element) => ({
+      ...element,
+      x: Number(element.x.toFixed(9)),
+    })),
+  }));
+}
+
 async function renderedIds(locator: ReturnType<import("playwright").Page["locator"]>): Promise<string> {
   return locator.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-screen-id")).join(","));
 }
@@ -87,7 +108,9 @@ describe("Phase 4 locale workspace", () => {
     const source = project();
     const sourceScreens = source.screens.filter((screen) => screen.locale === "en");
     const sourceScreenIds = sourceScreens.map((screen) => screen.id);
+    const sourceOutputScreenIds = outputScreenIds(sourceScreens, sourceScreens[0]!);
     const sourceElementIds = new Set(sourceScreens.flatMap((screen) => screen.elements.map((element) => element.id)));
+    const sourceFirstElement = sourceScreens[0]!.elements[0]!;
 
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
@@ -103,21 +126,26 @@ describe("Phase 4 locale workspace", () => {
     await expect.poll(() => project().locales.join(","), { timeout: 10_000 }).toBe("en,ar");
     const arabicScreens = localeScreens("ar");
     const arabicScreenIds = arabicScreens.map((screen) => screen.id);
+    const arabicOutputScreenIds = outputScreenIds(arabicScreens, arabicScreens[0]!);
     expect(arabicScreens.map((screen) => screen.name)).toEqual(sourceScreens.map((screen) => screen.name));
     expect(arabicScreens.every((screen) => screen.direction === "rtl")).toBe(true);
     expect(arabicScreenIds.every((id) => !sourceScreenIds.includes(id))).toBe(true);
     expect(arabicScreens.flatMap((screen) => screen.elements).every((element) => !sourceElementIds.has(element.id))).toBe(true);
-    expect(arabicScreens[0]!.elements[0]!.x).toBe(420);
-    expect(localeScreens("en")[0]!.elements[0]!.x).toBe(-90);
+    expect(arabicScreens[0]!.elements[0]!.x).toBe(
+      sourceScreens[0]!.artboard.width - sourceFirstElement.x - sourceFirstElement.width,
+    );
+    expect(localeScreens("en")[0]!.elements[0]!.x).toBe(sourceFirstElement.x);
 
     const arabicList = page.getByRole("list", { name: "Screens for ar" });
     const overview = page.getByTestId("overview-artboards");
-    await expect.poll(() => renderedIds(arabicList.locator("[data-screen-id]"))).toBe(arabicScreenIds.join(","));
+    await expect.poll(() => renderedIds(arabicList.locator("[data-screen-id]")))
+      .toBe(arabicOutputScreenIds.join(","));
     await expect.poll(() => renderedIds(overview.locator("[data-screen-id]"))).toBe(arabicScreenIds.join(","));
 
     await selectLocale(page, "en");
     const englishList = page.getByRole("list", { name: "Screens for en" });
-    await expect.poll(() => renderedIds(englishList.locator("[data-screen-id]"))).toBe(sourceScreenIds.join(","));
+    await expect.poll(() => renderedIds(englishList.locator("[data-screen-id]")))
+      .toBe(sourceOutputScreenIds.join(","));
     await expect.poll(() => renderedIds(overview.locator("[data-screen-id]"))).toBe(sourceScreenIds.join(","));
     await selectLocale(page, "ar");
 
@@ -157,7 +185,7 @@ describe("Phase 4 locale workspace", () => {
     await page.waitForTimeout(200);
     await page.keyboard.press("Space");
     await expect.poll(() => localeScreenIds("ar").join(","), { timeout: 10_000 })
-      .toBe([orderBefore[1], orderBefore[0], orderBefore[2]].join(","));
+      .toBe([orderBefore[1], orderBefore[0], ...orderBefore.slice(2)].join(","));
     expect(localeScreenIds("en")).toEqual(sourceScreenIds);
     const rtlSnapshot = structuredClone(localeScreens("ar"));
 
@@ -174,7 +202,8 @@ describe("Phase 4 locale workspace", () => {
 
     page.once("dialog", (dialog) => dialog.accept());
     await arabicRow.getByRole("button", { name: "Mirror ar to RTL" }).click();
-    await expect.poll(() => localeScreens("ar"), { timeout: 10_000 }).toEqual(rtlSnapshot);
+    await expect.poll(() => roundedElementX(localeScreens("ar")), { timeout: 10_000 })
+      .toEqual(roundedElementX(rtlSnapshot));
 
     page.once("dialog", (dialog) => dialog.accept());
     await arabicRow
