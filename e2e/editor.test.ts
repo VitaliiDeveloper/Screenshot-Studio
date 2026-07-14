@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser, type Page } from "playwright";
 import { cpSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -65,12 +65,38 @@ interface Geom {
   content?: string;
 }
 
+interface PersistedScreen {
+  id: string;
+  artboard: { width: number; height: number };
+  elements: Geom[];
+}
+
+function project(): { screens: PersistedScreen[] } {
+  return JSON.parse(readFileSync(projectFile, "utf8"));
+}
+
+function heroScreen(): PersistedScreen {
+  return project().screens.find((screen) => screen.id === "hero")!;
+}
+
 function element(id: string): Geom {
-  const p = JSON.parse(readFileSync(projectFile, "utf8"));
-  return p.screens[0].elements.find((e: Geom) => e.id === id);
+  return heroScreen().elements.find((candidate) => candidate.id === id)!;
 }
 
 const headline = () => element("headline");
+
+async function activeHeroCanvas(page: Page) {
+  const viewport = page.getByTestId("canvas-viewport");
+  await expect.poll(
+    () => viewport.getAttribute("data-initial-reveal"),
+    { timeout: 10_000 },
+  ).toBe("idle");
+  const canvas = page.getByTestId("overview-artboards")
+    .locator('[data-artboard-screen-id="hero"] canvas')
+    .first();
+  await canvas.waitFor({ state: "visible" });
+  return canvas;
+}
 
 describe("editor round-trip", () => {
   it("dragging an element persists its new position to disk", async () => {
@@ -81,12 +107,12 @@ describe("editor round-trip", () => {
     // Match the project's proven readiness pattern (render-driver.ts): "load", not "networkidle"
     // — next dev's HMR channel keeps the network busy and makes "networkidle" flaky.
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    const canvas = await page.waitForSelector("canvas");
+    const canvas = await activeHeroCanvas(page);
     const box = (await canvas.boundingBox())!;
 
     // Coords are computed, not guessed: Konva receives document coordinates while the canvas is
     // visually scaled by the workspace viewport.
-    const scale = box.width / 660;
+    const scale = box.width / heroScreen().artboard.width;
     const cx = box.x + (start.x + start.width / 2) * scale;
     const cy = box.y + (start.y + start.height / 2) * scale;
     await page.mouse.move(cx, cy);
@@ -106,15 +132,13 @@ describe("editor round-trip", () => {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
 
-    const canvases = page.getByTestId("overview-artboards").locator("canvas");
-    await expect.poll(() => canvases.count()).toBe(3);
+    const overview = page.getByTestId("overview-artboards");
+    await expect.poll(() => overview.locator("[data-artboard-screen-id]").count())
+      .toBe(project().screens.length);
     await page.getByRole("list", { name: "Layers for Hero" }).waitFor({ state: "visible" });
-    await page.evaluate(() => new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    }));
-    const canvas = canvases.first();
+    const canvas = await activeHeroCanvas(page);
     const box = (await canvas.boundingBox())!;
-    const scale = box.width / 660;
+    const scale = box.width / heroScreen().artboard.width;
 
     await page.mouse.click(
       box.x + (deviceFrame.x + deviceFrame.width / 2) * scale,
@@ -135,9 +159,9 @@ describe("editor round-trip", () => {
     const start = headline();
     const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    const canvas = page.getByTestId("overview-artboards").locator("canvas").first();
+    const canvas = await activeHeroCanvas(page);
     const box = (await canvas.boundingBox())!;
-    const scale = box.width / 660;
+    const scale = box.width / heroScreen().artboard.width;
     const x = box.x + (start.x + start.width / 2) * scale;
     const y = box.y + (start.y + start.height / 2) * scale;
 
@@ -156,7 +180,7 @@ describe("editor round-trip", () => {
     expect(headline().content).toBe(start.content);
 
     const secondBox = (await canvas.boundingBox())!;
-    const secondScale = secondBox.width / 660;
+    const secondScale = secondBox.width / heroScreen().artboard.width;
     await page.mouse.dblclick(
       secondBox.x + (start.x + start.width / 2) * secondScale,
       secondBox.y + (start.y + start.height / 2) * secondScale,
@@ -178,9 +202,9 @@ describe("editor round-trip", () => {
     await expect.poll(() => headline().locked).toBe(true);
 
     const start = headline();
-    const canvas = page.getByTestId("overview-artboards").locator("canvas").first();
+    const canvas = await activeHeroCanvas(page);
     const box = (await canvas.boundingBox())!;
-    const scale = box.width / 660;
+    const scale = box.width / heroScreen().artboard.width;
     const centerX = box.x + (start.x + start.width / 2) * scale;
     const centerY = box.y + (start.y + start.height / 2) * scale;
     await page.mouse.dblclick(centerX, centerY);
@@ -210,9 +234,9 @@ describe("editor round-trip", () => {
     const start = element("contain-shot");
     const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    const canvas = page.getByTestId("overview-artboards").locator("canvas").first();
+    const canvas = await activeHeroCanvas(page);
     const box = (await canvas.boundingBox())!;
-    const scale = box.width / 660;
+    const scale = box.width / heroScreen().artboard.width;
     // The source is portrait inside a wide box; x+10 lands in the transparent letterbox area.
     const x = box.x + (start.x + 10) * scale;
     const y = box.y + (start.y + start.height / 2) * scale;
