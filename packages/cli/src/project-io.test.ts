@@ -2,7 +2,7 @@
 import { access, lstat, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ProjectRevisionConflictError,
   projectMutationLockPath,
@@ -217,6 +217,7 @@ describe("project IO", () => {
       secondCleanup,
       firstCleanup,
     ]);
+    expect((caught as Error).message).toMatch(/second cleanup failed.*first cleanup failed/);
     expect(order).toEqual(["second", "first"]);
   });
 
@@ -237,6 +238,53 @@ describe("project IO", () => {
     expect(result.value).toBe("success");
     expect(rollbackCalls).toBe(0);
     expect((await loadProjectFile(projectPath)).meta.name).toBe("Successful update");
+  });
+
+  it("runs commit cleanup only after the updated project is durable", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+    const observedNames: string[] = [];
+
+    const result = await updateProjectFile(projectPath, (project, transaction) => {
+      transaction.onCommit(async () => {
+        observedNames.push((await loadProjectFile(projectPath)).meta.name);
+      });
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Committed update" } },
+        value: "success",
+      };
+    });
+
+    expect(result.value).toBe("success");
+    expect(observedNames).toEqual(["Committed update"]);
+  });
+
+  it("reports every post-commit cleanup failure without rolling back the durable project", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+    const first = new Error("first commit cleanup failed");
+    const second = new Error("second commit cleanup failed");
+    const rollback = vi.fn();
+
+    const caught = await updateProjectFile(projectPath, (project, transaction) => {
+      transaction.onRollback(rollback);
+      transaction.onCommit(() => { throw first; });
+      transaction.onCommit(() => { throw second; });
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Durable despite cleanup" } },
+        value: undefined,
+      };
+    }).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(AggregateError);
+    expect((caught as AggregateError).errors).toEqual([first, second]);
+    expect((caught as Error).message).toMatch(
+      /committed.*cleanup failed.*first commit cleanup failed.*second commit cleanup failed/i,
+    );
+    expect(rollback).not.toHaveBeenCalled();
+    expect((await loadProjectFile(projectPath)).meta.name).toBe("Durable despite cleanup");
   });
 
   it("treats the identical project object as a no-op without rewriting exact bytes", async () => {
