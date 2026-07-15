@@ -41,14 +41,14 @@ describe("backgroundToNodeConfig", () => {
     });
   });
 
-  it("maps image contain/cover and returns the opaque fallback before preload", () => {
+  it("maps image contain/cover and preserves an alpha-bearing fallback before preload", () => {
     const image = { width: 400, height: 400 } as unknown as HTMLImageElement;
     const background = {
-      type: "image" as const, assetUrl: "background.png", fit: "contain" as const, color: "#123456",
+      type: "image" as const, assetUrl: "background.png", fit: "contain" as const, color: "#12345680",
     };
     const missing = backgroundToNodeConfig(background, { x: 20, y: 30, width: 200, height: 100 });
     expect(missing).toMatchObject({
-      konva: "Rect", config: { x: 20, y: 30, width: 200, height: 100, fill: "#123456" },
+      konva: "Rect", config: { x: 20, y: 30, width: 200, height: 100, fill: "#12345680" },
     });
 
     const contain = backgroundToNodeConfig(
@@ -59,7 +59,7 @@ describe("backgroundToNodeConfig", () => {
     if (contain.konva !== "Group") throw new Error("expected Group");
     expect(contain.config).toMatchObject({ x: 20, y: 30, width: 200, height: 100 });
     expect(contain.children[0]).toMatchObject({
-      konva: "Rect", config: { x: 0, y: 0, width: 200, height: 100, fill: "#123456" },
+      konva: "Rect", config: { x: 0, y: 0, width: 200, height: 100, fill: "#12345680" },
     });
     expect(contain.children[1]).toMatchObject({
       konva: "Image", config: { x: 50, y: 0, width: 100, height: 100, image },
