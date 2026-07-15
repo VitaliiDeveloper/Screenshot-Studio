@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { projectRevision } from "@screenshot-studio/core/storage";
 import { handleTemplateGet, handleTemplatePost } from "./handler.js";
 
 let dir: string;
@@ -39,11 +40,19 @@ describe("/api/templates", () => {
     }));
     expect(response.status).toBe(200);
     expect((await response.json()).screenId).toBe("accent-card");
-    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    const persisted = await readFile(projectPath);
+    const saved = JSON.parse(persisted.toString("utf8"));
     expect(saved.screens.at(-1)).toMatchObject({ id: "accent-card", locale: "uk" });
+    expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
   });
 
   it("returns explicit errors for invalid input", async () => {
+    const nullBody = await handleTemplatePost(new Request("http://localhost/api/templates", {
+      method: "POST", body: "null",
+    }));
+    expect(nullBody.status).toBe(400);
+    expect((await nullBody.json()).error).toMatch(/JSON object/i);
+
     const response = await handleTemplatePost(new Request("http://localhost/api/templates", {
       method: "POST", body: JSON.stringify({ id: "../bad", locale: "en" }),
     }));

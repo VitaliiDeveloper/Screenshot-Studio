@@ -18,11 +18,16 @@ function errorResponse(error: unknown): Response {
 }
 
 async function jsonBody(req: Request): Promise<Record<string, unknown>> {
+  let body: unknown;
   try {
-    return await req.json() as Record<string, unknown>;
+    body = await req.json();
   } catch (error) {
     throw new ThemeValidationError("request body must be valid JSON", { cause: error });
   }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new ThemeValidationError("request body must be a JSON object");
+  }
+  return body as Record<string, unknown>;
 }
 
 export async function handleThemeGet(): Promise<Response> {
@@ -36,8 +41,8 @@ export async function handleThemeGet(): Promise<Response> {
 export async function handleThemePost(req: Request): Promise<Response> {
   try {
     const body = await jsonBody(req);
-    const { project } = await applyThemeFile(resolveProjectPath(), body.id);
-    return Response.json(project);
+    const { project, revision } = await applyThemeFile(resolveProjectPath(), body.id);
+    return Response.json(project, { headers: { etag: `"${revision}"` } });
   } catch (error) {
     return errorResponse(error);
   }

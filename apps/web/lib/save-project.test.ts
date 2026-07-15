@@ -25,6 +25,7 @@ interface RevisionAwareSaveProjectModule {
   saveProject(project: Project): Promise<void>;
   getProjectRevision(): string | undefined;
   setProjectRevision(revision: string | null): void;
+  advanceProjectRevisionFromResponse(response: Pick<Response, "headers">): void;
 }
 
 const initialRevision = '"revision-one"';
@@ -62,6 +63,14 @@ describe("project revision tracking", () => {
     expect(() => api.setProjectRevision("unquoted")).toThrow(/ETag/i);
     expect(() => api.setProjectRevision('W/"weak"')).toThrow(/ETag/i);
     expect(api.getProjectRevision()).toBe(initialRevision);
+  });
+
+  it("advances a resource mutation revision from its response ETag", () => {
+    api.setProjectRevision(initialRevision);
+    api.advanceProjectRevisionFromResponse(new Response(null, {
+      headers: { etag: savedRevision },
+    }));
+    expect(api.getProjectRevision()).toBe(savedRevision);
   });
 });
 

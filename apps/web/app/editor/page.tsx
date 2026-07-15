@@ -35,7 +35,16 @@ const SIDE_PANEL_WIDTH = 288;
 const NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID = "screenshot-studio-next-devtools-alignment";
 
 export default function EditorPage() {
-  const { error, images, specs } = useEditorResources();
+  const {
+    error,
+    images,
+    specs,
+    fontWarnings,
+    retry,
+    reloading,
+    retryFonts,
+    fontRetrying,
+  } = useEditorResources();
   const [zoom, setZoom] = useState(0.5);
   const [view, setView] = useState<WorkspaceView>("overview");
   const [tool, setTool] = useState<WorkspaceTool>("select");
@@ -125,7 +134,23 @@ export default function EditorPage() {
     closeInspector,
   });
 
-  if (error) return <main className="grid h-dvh place-items-center whitespace-pre-wrap p-6 text-sm text-red-600">{error}</main>;
+  if (error) {
+    return (
+      <main className="grid h-dvh place-items-center bg-slate-50 p-6">
+        <div role="alert" className="max-w-lg rounded-xl border border-red-200 bg-white p-5 text-sm text-red-700 shadow-sm">
+          <p className="whitespace-pre-wrap">{error}</p>
+          <button
+            type="button"
+            className="mt-4 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+            disabled={reloading}
+            onClick={retry}
+          >
+            {reloading ? "Retrying workspace resources…" : "Retry workspace resources"}
+          </button>
+        </div>
+      </main>
+    );
+  }
   if (!images) return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;
   return (
     <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-white">
@@ -188,6 +213,29 @@ export default function EditorPage() {
       {saveStatus === "error" && saveError ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
+        </div>
+      ) : null}
+      {fontWarnings.length > 0 ? (
+        <div role="alert" className="absolute bottom-3 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
+          <p className="font-semibold">Some project fonts could not be loaded.</p>
+          <ul className="mt-1 list-disc pl-4">
+            {fontWarnings.map(({ font, error: fontError }) => (
+              <li key={`${font.family}-${font.weight}-${font.path}`}>
+                {font.family} {font.weight} ({font.path}): {fontError.message}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1">
+            Preview may use a fallback. Export remains blocked until every project font resolves.
+          </p>
+          <button
+            type="button"
+            className="mt-2 rounded-md border border-amber-400 bg-white px-2 py-1 font-semibold hover:bg-amber-100"
+            disabled={fontRetrying}
+            onClick={retryFonts}
+          >
+            {fontRetrying ? "Retrying project fonts…" : "Retry project fonts"}
+          </button>
         </div>
       ) : null}
       <FontManagerDialog open={dialog === "fonts"} onClose={() => setDialog(null)} />
