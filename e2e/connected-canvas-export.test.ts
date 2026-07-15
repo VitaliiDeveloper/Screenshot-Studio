@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
 import { parseProjectJson } from "../packages/core/src/model/index.js";
 import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
-import { exportBundle } from "../packages/cli/src/export.js";
+import { exportBundle, withStableProjectExport } from "../packages/cli/src/export.js";
 import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
 import { startWebServer } from "../packages/cli/src/server.js";
 
@@ -36,13 +36,15 @@ describe("Phase 6 connected bundle export", () => {
     const server = await startWebServer();
     const session = await createRenderBrowserSession();
     try {
-      await exportBundle({
+      await withStableProjectExport(fixturePath, (context) => exportBundle({
         baseUrl: server.url,
-        projectPath: fixturePath,
+        projectPath: context.projectPath,
+        projectRevision: context.revision,
         outDir,
         entries,
         renderSession: session,
-      });
+        publicationGuard: context.publish,
+      }));
 
       const firstBytes = await readFile(join(outDir, expectedPaths[0]!));
       const secondBytes = await readFile(join(outDir, expectedPaths[1]!));
@@ -62,6 +64,7 @@ describe("Phase 6 connected bundle export", () => {
     } finally {
       await session.close();
       await server.stop();
+      await rm(outDir, { recursive: true, force: true });
     }
   }, 180_000);
 });

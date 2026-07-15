@@ -22,6 +22,7 @@ import {
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/sample");
+const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const artboard = { width: 1320, height: 2868 };
 const magentaAssetUrl = "assets/semantic-magenta.png";
 const frameRegions = DEVICE_FRAME_IDS.map((deviceType, index) => ({
@@ -227,13 +228,14 @@ beforeAll(async () => {
   imageBackgroundScreen.elements = [];
   project.screens = [stylingScreen, imageBackgroundScreen];
   writeFileSync(projectPath, `${JSON.stringify(project, null, 2)}\n`);
-  process.env.PROJECT_PATH = projectPath;
-  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
+  harness = await startParityRenderHarness(
+    () => startWebServer(undefined, { projectPath, storeSpecsPath }),
+    () => chromium.launch(),
+  );
 }, 180_000);
 
 afterAll(async () => {
   await closeParityRenderHarness(harness);
-  delete process.env.PROJECT_PATH;
   rmSync(directory, { recursive: true, force: true });
 });
 
@@ -263,7 +265,10 @@ describe("Expanded renderer styling parity", () => {
     expectImageBackground(staticRasters.get("save-fast")!, "static render");
 
     if (!harness.interactive) throw new Error("Interactive browser is unavailable");
-    const page = await harness.interactive.newPage({ viewport: { width: 3600, height: 3200 } });
+    const page = await harness.interactive.newPage({
+      viewport: { width: 3600, height: 3200 },
+      reducedMotion: "reduce",
+    });
     try {
       await page.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
       const viewport = page.getByTestId("canvas-viewport");

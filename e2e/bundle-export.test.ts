@@ -16,7 +16,7 @@ import {
 import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
 import { startWebServer } from "../packages/cli/src/server.js";
 import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
-import { exportBundle } from "../packages/cli/src/export.js";
+import { exportBundle, withStableProjectExport } from "../packages/cli/src/export.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixturePath = resolve(repoRoot, "fixtures/regressions/multi-locale-export/app-store-screenshots.json");
@@ -42,13 +42,15 @@ describe("Phase 4 multi-locale bundle export", () => {
     const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
     try {
-      const zipPath = await exportBundle({
+      const zipPath = await withStableProjectExport(fixturePath, (context) => exportBundle({
         baseUrl: server.url,
-        projectPath: fixturePath,
+        projectPath: context.projectPath,
+        projectRevision: context.revision,
         outDir,
         entries,
         renderSession: session,
-      });
+        publicationGuard: context.publish,
+      }));
 
       for (const entry of entries) {
         const png = await readFile(join(outDir, entry.relativePath));
@@ -66,6 +68,7 @@ describe("Phase 4 multi-locale bundle export", () => {
     } finally {
       await session.close();
       await server.stop();
+      await rm(outDir, { recursive: true, force: true });
     }
   }, 180_000);
 
@@ -94,13 +97,15 @@ describe("Phase 4 multi-locale bundle export", () => {
     const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
     try {
-      await exportBundle({
+      await withStableProjectExport(projectPath, (context) => exportBundle({
         baseUrl: server.url,
-        projectPath,
+        projectPath: context.projectPath,
+        projectRevision: context.revision,
         outDir,
         entries: [entry!],
         renderSession: session,
-      });
+        publicationGuard: context.publish,
+      }));
       const info = inspectPng(await readFile(join(outDir, entry!.relativePath)));
       expect(info).toMatchObject({ width: 1284, height: 2778, hasAlpha: false });
       expect(project.screens.find((screen) => screen.id === masterBefore.id)).toEqual(masterBefore);
@@ -208,13 +213,15 @@ describe("Phase 4 multi-locale bundle export", () => {
     const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
     try {
-      await exportBundle({
+      await withStableProjectExport(projectPath, (context) => exportBundle({
         baseUrl: server.url,
-        projectPath,
+        projectPath: context.projectPath,
+        projectRevision: context.revision,
         outDir,
         entries: [entry!, variantEntry!, referenceEntry!],
         renderSession: session,
-      });
+        publicationGuard: context.publish,
+      }));
       const masterBytes = await readFile(join(outDir, entry!.relativePath));
       const referenceBytes = await readFile(join(outDir, referenceEntry!.relativePath));
       expect(inspectPng(masterBytes))
