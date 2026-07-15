@@ -17,6 +17,10 @@ import {
 
 export const DEFAULT_PROJECT_FILENAME = "app-store-screenshots.json";
 
+export interface ProjectUpdateTransaction {
+  onRollback(action: () => void | Promise<void>): void;
+}
+
 export function resolveProjectPath(flags: Record<string, string>): string {
   return resolve(flags.project ?? DEFAULT_PROJECT_FILENAME);
 }
@@ -73,7 +77,7 @@ export async function writeProjectFile(
 
 export async function updateProjectFile<T>(
   projectPath: string,
-  update: (project: ProjectModel) =>
+  update: (project: ProjectModel, transaction: ProjectUpdateTransaction) =>
     | { project: ProjectModel; value: T }
     | Promise<{ project: ProjectModel; value: T }>,
   lockOptions: ProjectLockOptions = {},
@@ -82,13 +86,51 @@ export async function updateProjectFile<T>(
   const canonicalPath = await resolveExistingProjectPath(projectPath);
   return withProjectMutation(canonicalPath, async () => {
     const current = await readIdentifiedProjectSnapshot(canonicalPath, fileDependencies);
-    const updated = await update(current.project);
-    const persisted = await writeProjectConditionalAtomic(
-      canonicalPath,
-      updated.project,
-      current,
-      fileDependencies,
-    );
-    return { ...persisted, value: updated.value };
+    const rollbackActions: Array<() => void | Promise<void>> = [];
+    const transaction: ProjectUpdateTransaction = {
+      onRollback(action) {
+        rollbackActions.push(action);
+      },
+    };
+
+    try {
+      const updated = await update(current.project, transaction);
+      // Returning the exact object read under this lease is the explicit signal to preserve the
+      // persisted bytes and revision without invoking the atomic writer.
+      if (updated.project === current.project) {
+        return {
+          project: current.project,
+          revision: current.revision,
+          value: updated.value,
+        };
+      }
+      const persisted = await writeProjectConditionalAtomic(
+        canonicalPath,
+        updated.project,
+        current,
+        fileDependencies,
+      );
+      return { ...persisted, value: updated.value };
+    } catch (primaryError) {
+      const rollbackErrors: unknown[] = [];
+      for (let index = rollbackActions.length - 1; index >= 0; index -= 1) {
+        try {
+          await rollbackActions[index]!();
+        } catch (rollbackError) {
+          rollbackErrors.push(rollbackError);
+        }
+      }
+      if (rollbackErrors.length > 0) {
+        const primaryMessage = primaryError instanceof Error
+          ? primaryError.message
+          : String(primaryError);
+        throw new AggregateError(
+          [primaryError, ...rollbackErrors],
+          `${primaryMessage}; project update rollback failed`,
+          { cause: primaryError },
+        );
+      }
+      throw primaryError;
+    }
   }, lockOptions);
 }

@@ -172,6 +172,174 @@ describe("project IO", () => {
     expect(snapshot.revision).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it("runs registered rollbacks in reverse order after the updater fails", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+    const primary = new Error("updater failed");
+    const order: string[] = [];
+
+    await expect(updateProjectFile(projectPath, (_project, transaction) => {
+      transaction.onRollback(() => { order.push("first"); });
+      transaction.onRollback(async () => {
+        await Promise.resolve();
+        order.push("second");
+      });
+      throw primary;
+    })).rejects.toBe(primary);
+
+    expect(order).toEqual(["second", "first"]);
+  });
+
+  it("retains a falsy primary and every rollback failure in execution order", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+    const firstCleanup = new Error("first cleanup failed");
+    const secondCleanup = new Error("second cleanup failed");
+    const order: string[] = [];
+
+    const caught = await updateProjectFile(projectPath, (_project, transaction) => {
+      transaction.onRollback(() => {
+        order.push("first");
+        throw firstCleanup;
+      });
+      transaction.onRollback(() => {
+        order.push("second");
+        throw secondCleanup;
+      });
+      throw undefined;
+    }).catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(AggregateError);
+    expect((caught as AggregateError).errors).toEqual([
+      undefined,
+      secondCleanup,
+      firstCleanup,
+    ]);
+    expect(order).toEqual(["second", "first"]);
+  });
+
+  it("never runs registered rollback after a successful update", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+    let rollbackCalls = 0;
+
+    const result = await updateProjectFile(projectPath, (project, transaction) => {
+      transaction.onRollback(() => { rollbackCalls += 1; });
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Successful update" } },
+        value: "success",
+      };
+    });
+
+    expect(result.value).toBe("success");
+    expect(rollbackCalls).toBe(0);
+    expect((await loadProjectFile(projectPath)).meta.name).toBe("Successful update");
+  });
+
+  it("treats the identical project object as a no-op without rewriting exact bytes", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const exactBytes = `${JSON.stringify(sampleProject())}  \n`;
+    await writeFile(projectPath, exactBytes, "utf8");
+    const before = await loadProjectSnapshot(projectPath);
+    let updaterProject: Project | undefined;
+    let writerCalled = false;
+
+    const result = await updateProjectFile(projectPath, (project) => {
+      updaterProject = project;
+      return { project, value: "no-op" };
+    }, {}, {
+      beforeDestinationRevalidation: async () => {
+        writerCalled = true;
+        throw new Error("writer must not run for identity no-op");
+      },
+    } as ProjectFileDependencies);
+
+    expect(writerCalled).toBe(false);
+    expect(result.project).toBe(updaterProject);
+    expect(result.revision).toBe(before.revision);
+    expect(result.value).toBe("no-op");
+    expect(await readFile(projectPath, "utf8")).toBe(exactBytes);
+  });
+
+  it("completes write-failure rollback before a queued mutation enters", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+    const writeFailure = new Error("project write failed");
+    let releaseRollback!: () => void;
+    const rollbackMayFinish = new Promise<void>((resolve) => { releaseRollback = resolve; });
+    let rollbackEntered!: () => void;
+    const rollbackDidEnter = new Promise<void>((resolve) => { rollbackEntered = resolve; });
+    let secondEntered!: () => void;
+    const secondDidEnter = new Promise<void>((resolve) => { secondEntered = resolve; });
+    const lockWaiters: Array<() => void> = [];
+    let lockWaitStarted!: () => void;
+    const lockDidWait = new Promise<void>((resolve) => { lockWaitStarted = resolve; });
+    const events: string[] = [];
+    const lockOptions: ProjectLockOptions = {
+      timeoutMs: 500,
+      staleAfterMs: 10_000,
+      dependencies: {
+        sleep: () => {
+          lockWaitStarted();
+          return new Promise<void>((resolve) => lockWaiters.push(resolve));
+        },
+        scheduleHeartbeat: () => () => undefined,
+      },
+    };
+
+    const first = updateProjectFile(projectPath, (project, transaction) => {
+      transaction.onRollback(async () => {
+        events.push("rollback-started");
+        rollbackEntered();
+        await rollbackMayFinish;
+        events.push("rollback-finished");
+      });
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Must roll back" } },
+        value: "first",
+      };
+    }, lockOptions, {
+      beforeDestinationRevalidation: async () => { throw writeFailure; },
+    } as ProjectFileDependencies);
+    const firstSettled = first.then(
+      () => ({ status: "fulfilled" as const }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    const rollbackState = await Promise.race([
+      rollbackDidEnter.then(() => "entered" as const),
+      firstSettled.then(() => "first-settled" as const),
+    ]);
+    expect(rollbackState).toBe("entered");
+
+    const second = updateProjectFile(projectPath, (project) => {
+      events.push("second-entered");
+      secondEntered();
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Queued update" } },
+        value: "second",
+      };
+    }, lockOptions);
+    const secondState = await Promise.race([
+      lockDidWait.then(() => "waited" as const),
+      secondDidEnter.then(() => "entered" as const),
+    ]);
+
+    expect(secondState).toBe("waited");
+    expect(events).toEqual(["rollback-started"]);
+    releaseRollback();
+    await expect(firstSettled).resolves.toEqual({ status: "rejected", error: writeFailure });
+    lockWaiters.splice(0).forEach((resolve) => resolve());
+    await second;
+
+    expect(events).toEqual(["rollback-started", "rollback-finished", "second-entered"]);
+    expect((await loadProjectFile(projectPath)).meta.name).toBe("Queued update");
+  });
+
   it("serializes concurrent read-modify-write operations without losing either change", async () => {
     const dir = await temporaryDirectory();
     const projectPath = join(dir, "app-store-screenshots.json");
