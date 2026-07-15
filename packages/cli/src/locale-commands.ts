@@ -6,8 +6,9 @@ import {
   type LayoutDirection,
   type Project,
 } from "@screenshot-studio/core/model";
+import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { parseLayoutDirection } from "./direction.js";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import { loadProjectFile, updateProjectFile } from "./project-io.js";
 
 export type LocaleAction =
   | { kind: "list" }
@@ -63,17 +64,19 @@ export async function runLocaleCommand(
   projectPath: string,
   args: string[],
   flags: Record<string, string>,
+  lockOptions: ProjectLockOptions = {},
 ): Promise<string> {
   const action = resolveLocaleAction(args, flags);
-  const project = await loadProjectFile(projectPath);
-  if (action.kind === "list") return formatLocaleList(project);
+  if (action.kind === "list") return formatLocaleList(await loadProjectFile(projectPath));
 
-  const nextProject = action.kind === "add"
-    ? cloneLocaleSet(project, action.source, action.target, action.direction)
-    : action.kind === "direction"
-      ? setLocaleDirection(project, action.locale, action.direction)
-      : removeLocaleSet(project, action.locale);
+  const updated = await updateProjectFile(projectPath, (project) => {
+    const nextProject = action.kind === "add"
+      ? cloneLocaleSet(project, action.source, action.target, action.direction)
+      : action.kind === "direction"
+        ? setLocaleDirection(project, action.locale, action.direction)
+        : removeLocaleSet(project, action.locale);
 
-  await writeProjectFile(projectPath, nextProject);
-  return formatLocaleList(nextProject);
+    return { project: nextProject, value: undefined };
+  }, lockOptions);
+  return formatLocaleList(updated.project);
 }
