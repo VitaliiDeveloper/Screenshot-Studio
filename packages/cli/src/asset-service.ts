@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { constants } from "node:fs";
+import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
+import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import sharp from "sharp";
+import { resolveExistingProjectPath, withProjectMutation } from "@screenshot-studio/core/storage";
 import { loadProjectFile } from "./project-io.js";
+import {
+  publishFileSafely,
+  SafeFileConflictError,
+  type SafeFilePublication,
+} from "./safe-file-publisher.js";
 
 const DEFAULT_AUTO_CROP_THRESHOLD = 10;
 const DEFAULT_BACKGROUND_TOLERANCE = 24;
@@ -28,14 +35,29 @@ export interface RemoveBackgroundOptions {
   tolerance?: number;
 }
 
+export interface AssetServiceDependencies {
+  withProjectMutation?: <T>(projectPath: string, operation: () => Promise<T>) => Promise<T>;
+  publishFileSafely?: (options: SafeFilePublication) => Promise<{ path: string; created: boolean }>;
+  openSourceFile?: (path: string, flags: number) => Promise<FileHandle>;
+}
+
 interface AssetPaths {
   projectRoot: string;
   sourcePath: string;
-  outputDir: string;
+  sourceIdentity: AssetIdentity;
 }
 
-function isErrno(error: unknown, code: string): boolean {
-  return error instanceof Error && "code" in error && error.code === code;
+interface AssetIdentity {
+  device: bigint;
+  inode: bigint;
+  size: bigint;
+}
+
+interface AssetStat {
+  dev: bigint;
+  ino: bigint;
+  size: bigint;
+  isFile(): boolean;
 }
 
 function assertByte(value: number, name: string): void {
@@ -55,36 +77,119 @@ function assertInside(root: string, target: string, label: string): void {
   }
 }
 
-async function realDirectoryOrCreate(root: string, path: string): Promise<string> {
+async function resolveAssetPaths(canonicalProjectPath: string, source: string): Promise<AssetPaths> {
+  await loadProjectFile(canonicalProjectPath);
+  const projectRoot = dirname(canonicalProjectPath);
+  const sourcePath = await realpath(resolve(projectRoot, source));
+  assertInside(projectRoot, sourcePath, "Asset source");
+  const sourceStat = await lstat(sourcePath, { bigint: true }) as AssetStat;
+  if (!sourceStat.isFile()) throw new Error(`Asset source is not a file: ${sourcePath}`);
+  const sourceIdentity = identityOf(sourceStat);
+  await assertNamedSourceBinding({ projectRoot, sourcePath, sourceIdentity });
+
+  return { projectRoot, sourcePath, sourceIdentity };
+}
+
+function sourceReadFlags(): number {
+  return constants.O_RDONLY
+    | constants.O_NONBLOCK
+    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+}
+
+function errorCode(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null && "code" in error
+    ? String(error.code)
+    : undefined;
+}
+
+function identityOf(stat: AssetStat): AssetIdentity {
+  return { device: stat.dev, inode: stat.ino, size: stat.size };
+}
+
+function sameIdentity(stat: AssetStat, expected: AssetIdentity): boolean {
+  const identity = identityOf(stat);
+  return identity.device === expected.device
+    && identity.inode === expected.inode
+    && identity.size === expected.size;
+}
+
+function sourceChangedError(path: string, cause?: unknown): Error {
+  return new Error(
+    `Asset source changed or became a symbolic link while it was being read: ${path}`,
+    cause === undefined ? undefined : { cause },
+  );
+}
+
+async function assertNamedSourceBinding(paths: AssetPaths): Promise<void> {
   try {
-    const resolved = await realpath(path);
-    assertInside(root, resolved, "Asset output directory");
-    if (!(await stat(resolved)).isDirectory()) {
-      throw new Error(`Asset output path is not a directory: ${resolved}`);
+    const canonicalPath = await realpath(paths.sourcePath);
+    assertInside(paths.projectRoot, canonicalPath, "Asset source");
+    const named = await lstat(paths.sourcePath, { bigint: true }) as AssetStat;
+    if (canonicalPath !== paths.sourcePath
+      || !named.isFile()
+      || !sameIdentity(named, paths.sourceIdentity)) {
+      throw sourceChangedError(paths.sourcePath);
     }
-    return path;
   } catch (error) {
-    if (!isErrno(error, "ENOENT")) throw error;
-    await mkdir(path);
-    const resolved = await realpath(path);
-    assertInside(root, resolved, "Asset output directory");
-    return path;
+    if (error instanceof Error && error.message.startsWith("Asset source changed")) throw error;
+    throw sourceChangedError(paths.sourcePath, error);
   }
 }
 
-async function resolveAssetPaths(projectPath: string, source: string): Promise<AssetPaths> {
-  const realProjectPath = await realpath(resolve(projectPath));
-  await loadProjectFile(realProjectPath);
-  const projectRoot = dirname(realProjectPath);
-  const sourcePath = await realpath(resolve(projectRoot, source));
-  assertInside(projectRoot, sourcePath, "Asset source");
-  if (!(await stat(sourcePath)).isFile()) {
-    throw new Error(`Asset source is not a file: ${sourcePath}`);
+async function readAssetSource(
+  paths: AssetPaths,
+  dependencies: AssetServiceDependencies,
+): Promise<Buffer> {
+  const openSourceFile = dependencies.openSourceFile ?? open;
+  let handle: FileHandle | undefined;
+  let input: Buffer | undefined;
+  let operationError: unknown;
+  let hasOperationError = false;
+  try {
+    try {
+      handle = await openSourceFile(paths.sourcePath, sourceReadFlags());
+    } catch (error) {
+      if (["ELOOP", "EMLINK", "ENOENT"].includes(errorCode(error) ?? "")) {
+        throw sourceChangedError(paths.sourcePath, error);
+      }
+      throw error;
+    }
+    const openedBefore = await handle.stat({ bigint: true }) as AssetStat;
+    if (!openedBefore.isFile() || !sameIdentity(openedBefore, paths.sourceIdentity)) {
+      throw sourceChangedError(paths.sourcePath);
+    }
+    await assertNamedSourceBinding(paths);
+    input = await handle.readFile();
+    const openedAfter = await handle.stat({ bigint: true }) as AssetStat;
+    if (!openedAfter.isFile() || !sameIdentity(openedAfter, paths.sourceIdentity)) {
+      throw sourceChangedError(paths.sourcePath);
+    }
+    await assertNamedSourceBinding(paths);
+  } catch (error) {
+    operationError = error;
+    hasOperationError = true;
   }
 
-  const assetsDir = await realDirectoryOrCreate(projectRoot, join(projectRoot, "assets"));
-  const outputDir = await realDirectoryOrCreate(projectRoot, join(assetsDir, "processed"));
-  return { projectRoot, sourcePath, outputDir };
+  let closeError: unknown;
+  let hasCloseError = false;
+  if (handle) {
+    try {
+      await handle.close();
+    } catch (error) {
+      closeError = error;
+      hasCloseError = true;
+    }
+  }
+  if (hasOperationError && hasCloseError) {
+    throw new AggregateError(
+      [operationError, closeError],
+      "Asset source read and handle cleanup failed",
+      { cause: operationError },
+    );
+  }
+  if (hasOperationError) throw operationError;
+  if (hasCloseError) throw closeError;
+  return input!;
 }
 
 function safeStem(path: string): string {
@@ -101,53 +206,83 @@ async function writeProcessedAsset(
   png: Buffer,
   width: number,
   height: number,
+  publish: NonNullable<AssetServiceDependencies["publishFileSafely"]>,
 ): Promise<ProcessedAsset> {
   const stem = `${safeStem(paths.sourcePath)}-${suffix}`;
   for (let attempt = 1; ; attempt++) {
     const filename = `${stem}${attempt === 1 ? "" : `-${attempt}`}.png`;
-    const outputPath = join(paths.outputDir, filename);
+    const relativePath = `assets/processed/${filename}`;
     try {
-      await writeFile(outputPath, png, { flag: "wx" });
+      const publication = await publish({
+        root: paths.projectRoot,
+        relativePath,
+        bytes: png,
+      });
+      if (!publication.created) continue;
       return {
-        path: relative(paths.projectRoot, outputPath).split(sep).join("/"),
+        path: relativePath,
         width,
         height,
       };
     } catch (error) {
-      if (!isErrno(error, "EEXIST")) throw error;
+      if (error instanceof SafeFileConflictError) continue;
+      if (error instanceof Error && /symbolic link in publication path ancestor/i.test(error.message)) {
+        throw new Error(
+          `Asset output directory must stay inside project root ${paths.projectRoot} and contain no symbolic links`,
+          { cause: error },
+        );
+      }
+      throw error;
     }
   }
+}
+
+async function withAssetLease<T>(
+  projectPath: string,
+  source: string,
+  dependencies: AssetServiceDependencies,
+  operation: (paths: AssetPaths, input: Buffer) => Promise<T>,
+): Promise<T> {
+  const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
+  const runWithMutation = dependencies.withProjectMutation ?? withProjectMutation;
+  return runWithMutation(canonicalProjectPath, async () => {
+    const paths = await resolveAssetPaths(canonicalProjectPath, source);
+    const input = await readAssetSource(paths, dependencies);
+    return operation(paths, input);
+  });
 }
 
 export async function autoCropAsset(
   projectPath: string,
   source: string,
   options: AutoCropOptions = {},
+  dependencies: AssetServiceDependencies = {},
 ): Promise<ProcessedAsset> {
   const threshold = options.threshold ?? DEFAULT_AUTO_CROP_THRESHOLD;
   assertByte(threshold, "Auto-crop threshold");
-  const paths = await resolveAssetPaths(projectPath, source);
-  const input = await readFile(paths.sourcePath);
-  const decoded = await sharp(input)
-    .rotate()
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  if (decoded.info.channels !== 4) {
-    throw new Error("Auto-crop could not decode RGBA pixels");
-  }
-  const background = edgeConnectedBackgroundMask(
-    decoded.data,
-    decoded.info.width,
-    decoded.info.height,
-    undefined,
-    threshold,
-  );
-  const bounds = foregroundBounds(background, decoded.info.width, decoded.info.height);
-  const { data, info } = await sharp(decoded.data, {
-    raw: { width: decoded.info.width, height: decoded.info.height, channels: 4 },
-  }).extract(bounds).png().toBuffer({ resolveWithObject: true });
-  return writeProcessedAsset(paths, "auto-crop", data, info.width, info.height);
+  const publish = dependencies.publishFileSafely ?? publishFileSafely;
+  return withAssetLease(projectPath, source, dependencies, async (paths, input) => {
+    const decoded = await sharp(input)
+      .rotate()
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    if (decoded.info.channels !== 4) {
+      throw new Error("Auto-crop could not decode RGBA pixels");
+    }
+    const background = edgeConnectedBackgroundMask(
+      decoded.data,
+      decoded.info.width,
+      decoded.info.height,
+      undefined,
+      threshold,
+    );
+    const bounds = foregroundBounds(background, decoded.info.width, decoded.info.height);
+    const { data, info } = await sharp(decoded.data, {
+      raw: { width: decoded.info.width, height: decoded.info.height, channels: 4 },
+    }).extract(bounds).png().toBuffer({ resolveWithObject: true });
+    return writeProcessedAsset(paths, "auto-crop", data, info.width, info.height, publish);
+  });
 }
 
 function edgeConnectedBackgroundMask(
@@ -256,25 +391,34 @@ export async function removeBackgroundAsset(
   projectPath: string,
   source: string,
   options: RemoveBackgroundOptions = {},
+  dependencies: AssetServiceDependencies = {},
 ): Promise<ProcessedAsset> {
   if (options.background) {
     assertByte(options.background.red, "Background red channel");
     assertByte(options.background.green, "Background green channel");
     assertByte(options.background.blue, "Background blue channel");
   }
-  const paths = await resolveAssetPaths(projectPath, source);
-  const input = await readFile(paths.sourcePath);
-  const decoded = await sharp(input)
-    .rotate()
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  if (decoded.info.channels !== 4) {
-    throw new Error("Background removal could not decode RGBA pixels");
-  }
-  removeEdgeConnectedBackground(decoded.data, decoded.info.width, decoded.info.height, options);
-  const { data, info } = await sharp(decoded.data, {
-    raw: { width: decoded.info.width, height: decoded.info.height, channels: 4 },
-  }).png().toBuffer({ resolveWithObject: true });
-  return writeProcessedAsset(paths, "background-removed", data, info.width, info.height);
+  const publish = dependencies.publishFileSafely ?? publishFileSafely;
+  return withAssetLease(projectPath, source, dependencies, async (paths, input) => {
+    const decoded = await sharp(input)
+      .rotate()
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    if (decoded.info.channels !== 4) {
+      throw new Error("Background removal could not decode RGBA pixels");
+    }
+    removeEdgeConnectedBackground(decoded.data, decoded.info.width, decoded.info.height, options);
+    const { data, info } = await sharp(decoded.data, {
+      raw: { width: decoded.info.width, height: decoded.info.height, channels: 4 },
+    }).png().toBuffer({ resolveWithObject: true });
+    return writeProcessedAsset(
+      paths,
+      "background-removed",
+      data,
+      info.width,
+      info.height,
+      publish,
+    );
+  });
 }

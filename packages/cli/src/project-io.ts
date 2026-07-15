@@ -19,6 +19,7 @@ export const DEFAULT_PROJECT_FILENAME = "app-store-screenshots.json";
 
 export interface ProjectUpdateTransaction {
   onRollback(action: () => void | Promise<void>): void;
+  onCommit(action: () => void | Promise<void>): void;
 }
 
 export function resolveProjectPath(flags: Record<string, string>): string {
@@ -35,6 +36,10 @@ export async function loadProjectFile(projectPath: string): Promise<ProjectModel
 
 function errorCode(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | undefined)?.code;
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 type ProjectWriteTarget =
@@ -87,30 +92,36 @@ export async function updateProjectFile<T>(
   return withProjectMutation(canonicalPath, async () => {
     const current = await readIdentifiedProjectSnapshot(canonicalPath, fileDependencies);
     const rollbackActions: Array<() => void | Promise<void>> = [];
+    const commitActions: Array<() => void | Promise<void>> = [];
     const transaction: ProjectUpdateTransaction = {
       onRollback(action) {
         rollbackActions.push(action);
       },
+      onCommit(action) {
+        commitActions.push(action);
+      },
     };
 
+    let result: { project: ProjectModel; revision: string; value: T };
     try {
       const updated = await update(current.project, transaction);
       // Returning the exact object read under this lease is the explicit signal to preserve the
       // persisted bytes and revision without invoking the atomic writer.
       if (updated.project === current.project) {
-        return {
+        result = {
           project: current.project,
           revision: current.revision,
           value: updated.value,
         };
+      } else {
+        const persisted = await writeProjectConditionalAtomic(
+          canonicalPath,
+          updated.project,
+          current,
+          fileDependencies,
+        );
+        result = { ...persisted, value: updated.value };
       }
-      const persisted = await writeProjectConditionalAtomic(
-        canonicalPath,
-        updated.project,
-        current,
-        fileDependencies,
-      );
-      return { ...persisted, value: updated.value };
     } catch (primaryError) {
       const rollbackErrors: unknown[] = [];
       for (let index = rollbackActions.length - 1; index >= 0; index -= 1) {
@@ -126,11 +137,28 @@ export async function updateProjectFile<T>(
           : String(primaryError);
         throw new AggregateError(
           [primaryError, ...rollbackErrors],
-          `${primaryMessage}; project update rollback failed`,
+          `${primaryMessage}; project update rollback failed: ${rollbackErrors.map(errorText).join("; ")}`,
           { cause: primaryError },
         );
       }
       throw primaryError;
     }
+
+    const commitErrors: unknown[] = [];
+    for (const action of commitActions) {
+      try {
+        await action();
+      } catch (commitError) {
+        commitErrors.push(commitError);
+      }
+    }
+    if (commitErrors.length > 0) {
+      throw new AggregateError(
+        commitErrors,
+        `Project update committed but cleanup failed: ${commitErrors.map(errorText).join("; ")}`,
+        { cause: commitErrors[0] },
+      );
+    }
+    return result;
   }, lockOptions);
 }
