@@ -3,7 +3,6 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import type { Project } from "@screenshot-studio/core/model";
 import {
   DEFAULT_PROJECT_FILENAME,
@@ -95,20 +94,6 @@ describe("project IO", () => {
     const firstMayFinish = new Promise<void>((resolve) => { releaseFirst = resolve; });
     let firstEntered!: () => void;
     const firstDidEnter = new Promise<void>((resolve) => { firstEntered = resolve; });
-    const lockWaiters: Array<() => void> = [];
-    let lockWaitStarted!: () => void;
-    const lockDidWait = new Promise<void>((resolve) => { lockWaitStarted = resolve; });
-    const lockOptions: ProjectLockOptions = {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          lockWaitStarted();
-          return new Promise<void>((resolve) => lockWaiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    };
 
     const first = updateProjectFile(projectPath, async (project) => {
       firstEntered();
@@ -117,22 +102,27 @@ describe("project IO", () => {
         project: { ...project, meta: { ...project.meta, name: "First mutation" } },
         value: "first",
       };
-    }, lockOptions);
+    });
     await firstDidEnter;
 
-    const second = updateProjectFile(projectPath, (project) => ({
-      project: {
-        ...project,
-        screens: project.screens.map((screen, index) => index === 0
-          ? { ...screen, background: { type: "solid" as const, color: "#000000" } }
-          : screen),
-      },
-      value: "second",
-    }), lockOptions);
-    await lockDidWait;
+    let secondEntered = false;
+    const second = updateProjectFile(projectPath, (project) => {
+      secondEntered = true;
+      return {
+        project: {
+          ...project,
+          screens: project.screens.map((screen, index) => index === 0
+            ? { ...screen, background: { type: "solid" as const, color: "#000000" } }
+            : screen),
+        },
+        value: "second",
+      };
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(secondEntered).toBe(false);
+
     releaseFirst();
     await first;
-    lockWaiters.splice(0).forEach((resolve) => resolve());
     const secondResult = await second;
 
     expect(secondResult.value).toBe("second");
