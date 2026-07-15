@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import {
   lstat,
+  link,
   mkdir,
   open,
   readdir,
@@ -41,6 +42,7 @@ export interface ProjectLockFile {
 export interface ProjectLockFileSystem {
   ensureDirectory(path: string, mode: number): Promise<void>;
   createFileExclusive(path: string, contents: string, mode: number): Promise<void>;
+  publishFileExclusive(path: string, contents: string, mode: number): Promise<boolean>;
   appendLine(path: string, line: string, mode: number): Promise<void>;
   readFile(path: string): Promise<ProjectLockFile | undefined>;
   listDirectory(path: string): Promise<string[]>;
@@ -162,6 +164,32 @@ async function assertDirectory(path: string): Promise<void> {
   }
 }
 
+async function writeExclusiveFile(path: string, contents: string, mode: number): Promise<void> {
+  const handle = await open(path, noFollowFlags(
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
+  ), mode);
+  let failed = false;
+  let primaryError: unknown;
+  try {
+    await useHandle(handle, async () => {
+      await handle.writeFile(contents, "utf8");
+      await handle.sync();
+    });
+  } catch (error) {
+    failed = true;
+    primaryError = error;
+  }
+  if (!failed) return;
+  try {
+    await unlink(path);
+  } catch (cleanupError) {
+    if (errorCode(cleanupError) !== "ENOENT") {
+      throw errorsTogether(primaryError, cleanupError);
+    }
+  }
+  throw primaryError;
+}
+
 export function createNodeProjectLockFileSystem(): ProjectLockFileSystem {
   return {
     async ensureDirectory(path, mode) {
@@ -173,29 +201,27 @@ export function createNodeProjectLockFileSystem(): ProjectLockFileSystem {
       await assertDirectory(path);
     },
     async createFileExclusive(path, contents, mode) {
-      const handle = await open(path, noFollowFlags(
-        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
-      ), mode);
-      let failed = false;
-      let primaryError: unknown;
+      await writeExclusiveFile(path, contents, mode);
+    },
+    async publishFileExclusive(path, contents, mode) {
+      const stagePath = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+      await writeExclusiveFile(stagePath, contents, mode);
       try {
-        await useHandle(handle, async () => {
-          await handle.writeFile(contents, "utf8");
-          await handle.sync();
-        });
+        await link(stagePath, path);
       } catch (error) {
-        failed = true;
-        primaryError = error;
-      }
-      if (!failed) return;
-      try {
-        await unlink(path);
-      } catch (cleanupError) {
-        if (errorCode(cleanupError) !== "ENOENT") {
-          throw errorsTogether(primaryError, cleanupError);
+        try {
+          await unlink(stagePath);
+        } catch (cleanupError) {
+          if (errorCode(cleanupError) !== "ENOENT") {
+            throw errorsTogether(error, cleanupError);
+          }
         }
+        if (errorCode(error) === "EEXIST") return false;
+        throw error;
       }
-      throw primaryError;
+      // The complete inode is now published at `path`; stage cleanup cannot retract that claim.
+      await unlink(stagePath).catch(() => undefined);
+      return true;
     },
     async appendLine(path, line, mode) {
       if (!line.endsWith("\n") || line.slice(0, -1).includes("\n")) {
@@ -474,6 +500,26 @@ function isQueueEntry(value: unknown): value is QueueEntry {
     && Number.isFinite(entry.createdAt));
 }
 
+function isReleasedEntry(value: unknown): value is ReleasedEntry {
+  const entry = value as Partial<ReleasedEntry> | null;
+  return Boolean(entry
+    && typeof entry.token === "string"
+    && entry.token.length > 0
+    && typeof entry.releasedAt === "number"
+    && Number.isFinite(entry.releasedAt));
+}
+
+function parseReleasedEntry(contents: string, path: string): ReleasedEntry {
+  let value: unknown;
+  try {
+    value = JSON.parse(contents);
+  } catch (error) {
+    throw new Error(`Invalid project lock release marker: ${path}`, { cause: error });
+  }
+  if (!isReleasedEntry(value)) throw new Error(`Invalid project lock release marker: ${path}`);
+  return value;
+}
+
 function tokenFromRecordFilename(filename: string, directory: string): string | undefined {
   if (!filename.endsWith(".json")) return undefined;
   let token: string;
@@ -497,8 +543,13 @@ async function readReleasedTokens(
   for (const filename of await options.fileSystem.listDirectory(directory)) {
     const token = tokenFromRecordFilename(filename, directory);
     if (!token) continue;
-    const marker = await options.fileSystem.readFile(join(directory, filename));
-    if (marker) tokens.add(token);
+    const path = join(directory, filename);
+    const marker = await options.fileSystem.readFile(path);
+    if (!marker) continue;
+    if (parseReleasedEntry(marker.contents, path).token !== token) {
+      throw new Error(`Project lock release marker does not match its filename: ${path}`);
+    }
+    tokens.add(token);
   }
   return tokens;
 }
@@ -510,16 +561,14 @@ async function markReleased(
 ): Promise<boolean> {
   const entry: ReleasedEntry = { token, releasedAt: options.now() };
   const path = releasedMarkerPath(lockPath, token);
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      await options.fileSystem.createFileExclusive(path, `${JSON.stringify(entry)}\n`, 0o600);
-      return true;
-    } catch (error) {
-      if (errorCode(error) !== "EEXIST") throw error;
-      if (await options.fileSystem.readFile(path)) return false;
-    }
+  if (await options.fileSystem.publishFileExclusive(path, `${JSON.stringify(entry)}\n`, 0o600)) {
+    return true;
   }
-  throw new Error(`Project lock release marker repeatedly disappeared: ${path}`);
+  const existing = await options.fileSystem.readFile(path);
+  if (!existing || parseReleasedEntry(existing.contents, path).token !== token) {
+    throw new Error(`Project lock release marker does not match token ${token}: ${path}`);
+  }
+  return false;
 }
 
 async function readOwner(

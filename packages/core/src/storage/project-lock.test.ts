@@ -77,14 +77,6 @@ function manualEnvironment(identifiers: string[], initialNow = 1_000): ManualLoc
   };
 }
 
-async function waitForIo(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 1_000; attempt += 1) {
-    if (predicate()) return;
-    await new Promise<void>((resolve) => setImmediate(resolve));
-  }
-  throw new Error("condition was not reached");
-}
-
 function ownerFile(lockPath: string, token: string): string {
   return join(lockPath, "owners", `${encodeURIComponent(token)}.json`);
 }
@@ -204,18 +196,21 @@ describe("project mutation lock", () => {
     const baseFileSystem = createNodeProjectLockFileSystem();
     let recoveryRaceEnabled = false;
     let recoveryAttempts = 0;
+    let signalFirstRecovery!: () => void;
+    const firstRecovery = new Promise<void>((resolve) => { signalFirstRecovery = resolve; });
     let releaseRecoveryRace!: () => void;
     const recoveryRace = new Promise<void>((resolve) => { releaseRecoveryRace = resolve; });
     const fileSystem: Partial<ProjectLockFileSystem> = {
-      createFileExclusive: async (filePath, contents, mode) => {
+      publishFileExclusive: async (filePath, contents, mode) => {
         if (recoveryRaceEnabled
           && filePath.endsWith("/released/old-owner.json")
           && recoveryAttempts < 2) {
           recoveryAttempts += 1;
+          if (recoveryAttempts === 1) signalFirstRecovery();
           if (recoveryAttempts === 2) releaseRecoveryRace();
           await recoveryRace;
         }
-        await baseFileSystem.createFileExclusive(filePath, contents, mode);
+        return baseFileSystem.publishFileExclusive(filePath, contents, mode);
       },
     };
     environment.options.dependencies!.fileSystem = fileSystem;
@@ -225,9 +220,9 @@ describe("project mutation lock", () => {
     recoveryRaceEnabled = true;
 
     const secondPromise = acquireProjectMutationLock(path, environment.options);
-    await waitForIo(() => recoveryAttempts === 1);
+    await firstRecovery;
     const thirdPromise = acquireProjectMutationLock(path, environment.options);
-    await waitForIo(() => recoveryAttempts === 2);
+    await recoveryRace;
     const secondOwner = await secondPromise;
     await environment.waitUntilBlocked();
 
@@ -358,25 +353,53 @@ describe("project mutation lock", () => {
     expect(await releasedTokens(projectMutationLockPath(path))).toEqual(["owner"]);
   });
 
+  it("publishes one complete no-replace release marker under concurrent claims", async () => {
+    const path = await projectPath("project-lock-marker-publish-");
+    const fileSystem = createNodeProjectLockFileSystem();
+    const directory = join(projectMutationLockPath(path), "released");
+    await fileSystem.ensureDirectory(projectMutationLockPath(path), 0o700);
+    await fileSystem.ensureDirectory(directory, 0o700);
+    const markerPath = join(directory, "owner.json");
+
+    const results = await Promise.all([
+      fileSystem.publishFileExclusive(markerPath, '{"token":"owner","releasedAt":1}\n', 0o600),
+      fileSystem.publishFileExclusive(markerPath, '{"token":"owner","releasedAt":2}\n', 0o600),
+    ]);
+
+    expect(results.sort()).toEqual([false, true]);
+    const marker = await fileSystem.readFile(markerPath);
+    expect(JSON.parse(marker!.contents)).toMatchObject({ token: "owner" });
+    expect((await readdir(directory)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("fails closed when a release marker is empty or malformed", async () => {
+    const path = await projectPath("project-lock-corrupt-release-");
+    const environment = manualEnvironment(["active-owner", "waiter"]);
+    const activeOwner = await acquireProjectMutationLock(path, environment.options);
+    const markerPath = join(projectMutationLockPath(path), "released", "active-owner.json");
+    await writeFile(markerPath, "");
+
+    await expect(acquireProjectMutationLock(path, {
+      ...environment.options,
+      timeoutMs: 0,
+    })).rejects.toThrow(/Invalid project lock release marker/);
+
+    await rm(markerPath);
+    await activeOwner.release();
+  });
+
   it("clears heartbeat state and allows release to retry after a transient marker failure", async () => {
     const path = await projectPath("project-lock-release-retry-");
     const baseFileSystem = createNodeProjectLockFileSystem();
     let failRelease = true;
     let heartbeatCancelled = 0;
     const fileSystem: Partial<ProjectLockFileSystem> = {
-      createFileExclusive: async (filePath, contents, mode) => {
+      publishFileExclusive: async (filePath, contents, mode) => {
         if (filePath.includes("/released/") && failRelease) {
           failRelease = false;
           throw new Error("transient release failure");
         }
-        await baseFileSystem.createFileExclusive(filePath, contents, mode);
-      },
-      appendLine: async (filePath, line, mode) => {
-        if (filePath.endsWith("released.log") && failRelease) {
-          failRelease = false;
-          throw new Error("transient release failure");
-        }
-        await baseFileSystem.appendLine(filePath, line, mode);
+        return baseFileSystem.publishFileExclusive(filePath, contents, mode);
       },
     };
     const lock = await acquireProjectMutationLock(path, {
