@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from "node:crypto";
-import { constants, type Stats } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { constants, type BigIntStats, type Stats } from "node:fs";
 import {
   link,
   lstat,
@@ -21,6 +21,27 @@ export interface SafeFilePublication {
   replace?: boolean;
 }
 
+export interface SafeFileOwnership {
+  device: bigint;
+  inode: bigint;
+  revision: string;
+}
+
+export interface SafeFilePublicationWithOwnership {
+  path: string;
+  created: boolean;
+  ownership: SafeFileOwnership;
+}
+
+export interface SafeRegularFileQuarantine {
+  path: string;
+  recoveryPath: string;
+  bytes: Uint8Array;
+  ownership: SafeFileOwnership;
+  restore(): Promise<void>;
+  discard(): Promise<void>;
+}
+
 export class SafeFileConflictError extends Error {
   override name = "SafeFileConflictError";
   readonly code = "SAFE_FILE_CONFLICT" as const;
@@ -32,23 +53,37 @@ export class SafeFileConflictError extends Error {
 
 type StageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">
   & Partial<Pick<FileHandle, "stat">>;
+type VerificationHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
 
-interface StageIdentity {
-  device: number;
-  inode: number;
+type StageIdentity = SafeFileOwnership;
+
+interface TrackedFileEvidence extends StageIdentity {
+  links: bigint;
+  bytes: Buffer;
 }
 
 interface PublicationDependencies {
   randomId?: () => string;
   openStage?: (path: string, flags: number, mode: number) => Promise<StageHandle>;
+  openVerification?: (path: string, flags: number) => Promise<VerificationHandle>;
   linkFile?: (source: string, destination: string) => Promise<void>;
   moveFile?: (source: string, destination: string) => Promise<void>;
+  quarantineFile?: (source: string, destination: string) => Promise<void>;
+  restoreLink?: (source: string, destination: string) => Promise<void>;
   removeStage?: (path: string) => Promise<void>;
+  captureOwnership?: (ownership: SafeFileOwnership) => void;
   beforePublication?: (context: {
     destinationPath: string;
     stagePath: string;
     mode: "create-only" | "replace";
   }) => Promise<void>;
+}
+
+interface RemovalDependencies {
+  openVerification?: (path: string, flags: number) => Promise<VerificationHandle>;
+  quarantineFile?: (source: string, destination: string) => Promise<void>;
+  restoreLink?: (source: string, destination: string) => Promise<void>;
+  removeFile?: (path: string) => Promise<void>;
 }
 
 interface RootBoundary {
@@ -64,6 +99,11 @@ interface RootCreationPlan {
 
 interface CapturedError {
   value: unknown;
+}
+
+interface QuarantineOutcome {
+  captured: boolean;
+  error: CapturedError | null;
 }
 
 function errorText(error: unknown): string {
@@ -85,6 +125,15 @@ function hasCode(error: unknown, code: string): boolean {
 async function lstatIfExists(path: string): Promise<Stats | null> {
   try {
     return await lstat(path);
+  } catch (error) {
+    if (hasCode(error, "ENOENT")) return null;
+    throw error;
+  }
+}
+
+async function lstatBigIntIfExists(path: string): Promise<BigIntStats | null> {
+  try {
+    return await lstat(path, { bigint: true });
   } catch (error) {
     if (hasCode(error, "ENOENT")) return null;
     throw error;
@@ -252,33 +301,130 @@ async function inspectRegularLeaf(
 }
 
 function noFollowFlags(base: number): number {
-  if (typeof constants.O_NOFOLLOW !== "number") {
-    throw new Error("Safe local file publication requires O_NOFOLLOW support");
-  }
-  return base | constants.O_NOFOLLOW;
+  return base | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
 }
 
-async function readRegularLeaf(path: string): Promise<Buffer | null> {
+function verificationFlags(): number {
+  return noFollowFlags(constants.O_RDONLY)
+    | (typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0);
+}
+
+async function readRegularLeaf(
+  path: string,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<TrackedFileEvidence | null> {
   const initial = await inspectRegularLeaf(path, publicationDestinationError);
   if (!initial) return null;
+  const evidence = await readBoundRegularFileEvidence(
+    path,
+    openVerification,
+    "Publication destination changed during byte comparison",
+    false,
+  );
+  return evidence;
+}
 
-  let handle: FileHandle;
+async function destinationMatches(
+  path: string,
+  bytes: Uint8Array,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<TrackedFileEvidence | null> {
+  const current = await readRegularLeaf(path, openVerification);
+  return current !== null && current.bytes.equals(Buffer.from(bytes)) ? current : null;
+}
+
+function contentRevision(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function stageIdentity(stats: BigIntStats, bytes: Uint8Array): StageIdentity {
+  return { device: stats.dev, inode: stats.ino, revision: contentRevision(bytes) };
+}
+
+function evidenceWithLinks(
+  evidence: TrackedFileEvidence,
+  links: bigint,
+): TrackedFileEvidence {
+  return { ...evidence, links };
+}
+
+function evidenceMatches(
+  actual: TrackedFileEvidence,
+  expected: TrackedFileEvidence,
+): boolean {
+  return actual.device === expected.device
+    && actual.inode === expected.inode
+    && actual.links === expected.links
+    && actual.revision === expected.revision
+    && actual.bytes.equals(expected.bytes);
+}
+
+function evidenceMatchesIdentityAndBytes(
+  actual: TrackedFileEvidence,
+  expected: TrackedFileEvidence,
+): boolean {
+  return actual.device === expected.device
+    && actual.inode === expected.inode
+    && actual.revision === expected.revision
+    && actual.bytes.equals(expected.bytes);
+}
+
+function expectedEvidence(
+  identity: StageIdentity,
+  links: bigint,
+  bytes: Uint8Array,
+): TrackedFileEvidence {
+  return { ...identity, links, bytes: Buffer.from(bytes) };
+}
+
+async function readBoundRegularFileEvidence(
+  path: string,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  changedMessage: string,
+  requireStableLinkCount = true,
+): Promise<TrackedFileEvidence | null> {
+  const initial = await lstatBigIntIfExists(path);
+  if (!initial) return null;
+  if (!initial.isFile()) throw new Error(`${changedMessage}: ${path}`);
+
+  let handle: VerificationHandle;
   try {
-    handle = await open(path, noFollowFlags(constants.O_RDONLY));
+    handle = await openVerification(path, verificationFlags());
   } catch (error) {
-    if (hasCode(error, "ENOENT")) return null;
-    if (hasCode(error, "ELOOP") || hasCode(error, "EMLINK")) {
-      throw new Error(`Unsafe symbolic link at publication destination: ${path}`, { cause: error });
-    }
-    throw error;
+    throw new Error(`${changedMessage}: ${path}`, { cause: error });
   }
 
   let primaryError: CapturedError | null = null;
-  let bytes: Buffer | undefined;
+  let evidence: TrackedFileEvidence | null = null;
   try {
-    const stats = await handle.stat();
-    if (!stats.isFile()) throw publicationDestinationError(path, stats);
-    bytes = await handle.readFile();
+    const opened = await handle.stat({ bigint: true });
+    if (!opened.isFile()) throw new Error(`${changedMessage}: ${path}`);
+    const namedBeforeRead = await lstatBigIntIfExists(path);
+    if (
+      !namedBeforeRead?.isFile()
+      || namedBeforeRead.dev !== opened.dev
+      || namedBeforeRead.ino !== opened.ino
+      || (requireStableLinkCount && namedBeforeRead.nlink !== opened.nlink)
+    ) {
+      throw new Error(`${changedMessage}: ${path}`);
+    }
+    const bytes = await handle.readFile();
+    evidence = {
+      device: opened.dev,
+      inode: opened.ino,
+      links: opened.nlink,
+      revision: contentRevision(bytes),
+      bytes,
+    };
+    const namedWhileOpen = await lstatBigIntIfExists(path);
+    if (
+      !namedWhileOpen?.isFile()
+      || namedWhileOpen.dev !== evidence.device
+      || namedWhileOpen.ino !== evidence.inode
+      || (requireStableLinkCount && namedWhileOpen.nlink !== evidence.links)
+    ) {
+      throw new Error(`${changedMessage}: ${path}`);
+    }
   } catch (error) {
     primaryError = { value: error };
   }
@@ -287,12 +433,11 @@ async function readRegularLeaf(path: string): Promise<Buffer | null> {
     await handle.close();
   } catch (closeError) {
     if (primaryError !== null) {
-      const primary = primaryError.value;
       primaryError = {
         value: new AggregateError(
-          [primary, closeError],
-          `${errorText(primary)}; leaf close failed: ${errorText(closeError)}`,
-          { cause: primary },
+          [primaryError.value, closeError],
+          `${errorText(primaryError.value)}; publication verification close failed: ${errorText(closeError)}`,
+          { cause: primaryError.value },
         ),
       };
     } else {
@@ -301,31 +446,346 @@ async function readRegularLeaf(path: string): Promise<Buffer | null> {
   }
 
   if (primaryError !== null) throw primaryError.value;
-  return bytes!;
-}
+  if (evidence === null) throw new Error(`${changedMessage}: ${path}`);
 
-async function destinationMatches(path: string, bytes: Uint8Array): Promise<boolean> {
-  const current = await readRegularLeaf(path);
-  return current !== null && current.equals(Buffer.from(bytes));
-}
-
-function stageIdentity(stats: Stats): StageIdentity {
-  return { device: stats.dev, inode: stats.ino };
-}
-
-async function inspectOwnedStage(path: string, identity: StageIdentity): Promise<boolean> {
-  const stats = await lstatIfExists(path);
-  if (!stats) return false;
-  if (!stats.isFile() || stats.dev !== identity.device || stats.ino !== identity.inode) {
-    throw new Error(`Publication stage changed after exclusive creation: ${path}`);
+  const named = await lstatBigIntIfExists(path);
+  if (
+    !named?.isFile()
+    || named.dev !== evidence.device
+    || named.ino !== evidence.inode
+    || (requireStableLinkCount && named.nlink !== evidence.links)
+  ) {
+    throw new Error(`${changedMessage}: ${path}`);
   }
+  return evidence;
+}
+
+async function inspectOwnedPublicationFile(
+  path: string,
+  identity: StageIdentity,
+  expectedLinkCount: bigint | undefined,
+  changedMessage: string,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<boolean> {
+  const evidence = await readBoundRegularFileEvidence(path, openVerification, changedMessage);
+  if (!evidence) return false;
+  if (
+    evidence.device !== identity.device
+    || evidence.inode !== identity.inode
+    || (expectedLinkCount !== undefined && evidence.links !== expectedLinkCount)
+    || evidence.revision !== identity.revision
+  ) throw new Error(`${changedMessage}: ${path}`);
   return true;
 }
 
-async function requireOwnedStage(path: string, identity: StageIdentity): Promise<void> {
-  if (!await inspectOwnedStage(path, identity)) {
+async function inspectOwnedStage(
+  path: string,
+  identity: StageIdentity,
+  expectedLinkCount: bigint | undefined,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<boolean> {
+  return inspectOwnedPublicationFile(
+    path,
+    identity,
+    expectedLinkCount,
+    "Publication stage changed after exclusive creation",
+    openVerification,
+  );
+}
+
+async function requireCommittedDestination(
+  destinationPath: string,
+  identity: StageIdentity,
+  expectedLinkCount: bigint,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<void> {
+  await requireCommittedDestinationLinkRange(
+    destinationPath,
+    identity,
+    expectedLinkCount,
+    expectedLinkCount,
+    openVerification,
+  );
+}
+
+async function requireCommittedDestinationLinkRange(
+  destinationPath: string,
+  identity: StageIdentity,
+  minimumLinkCount: bigint,
+  maximumLinkCount: bigint,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<void> {
+  const changedMessage = "Publication destination changed after committed hard-link publication";
+  const evidence = await readBoundRegularFileEvidence(
+    destinationPath,
+    openVerification,
+    changedMessage,
+  );
+  if (
+    !evidence
+    || evidence.device !== identity.device
+    || evidence.inode !== identity.inode
+    || evidence.revision !== identity.revision
+    || evidence.links < minimumLinkCount
+    || evidence.links > maximumLinkCount
+  ) {
+    throw new Error(`${changedMessage}: ${destinationPath}`);
+  }
+}
+
+async function reconcileHardLinkPublication(
+  stagePath: string,
+  destinationPath: string,
+  identity: StageIdentity,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<"stage-linked" | "destination-only" | null> {
+  try {
+    const destination = await readBoundRegularFileEvidence(
+      destinationPath,
+      openVerification,
+      "Publication destination changed during hard-link reconciliation",
+    );
+    if (
+      destination === null
+      || destination.device !== identity.device
+      || destination.inode !== identity.inode
+      || destination.revision !== identity.revision
+    ) return null;
+    if (destination.links === 1n) return "destination-only";
+    if (destination.links !== 2n) return null;
+    const stage = await readBoundRegularFileEvidence(
+      stagePath,
+      openVerification,
+      "Publication stage changed during hard-link reconciliation",
+    );
+    return stage !== null && evidenceMatches(stage, destination)
+      ? "stage-linked"
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function reconcileRenamePublication(
+  destinationPath: string,
+  identity: StageIdentity,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<boolean> {
+  try {
+    await requireCommittedDestination(destinationPath, identity, 1n, openVerification);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function quarantineEntry(
+  sourcePath: string,
+  quarantinePath: string,
+  quarantineFile: NonNullable<PublicationDependencies["quarantineFile"]>,
+  revalidateBeforeMutation: () => Promise<void>,
+): Promise<QuarantineOutcome> {
+  await revalidateBeforeMutation();
+  const sourceBefore = await lstatBigIntIfExists(sourcePath);
+  if (!sourceBefore) return { captured: false, error: null };
+  let mutationError: CapturedError | null = null;
+  try {
+    await quarantineFile(sourcePath, quarantinePath);
+  } catch (error) {
+    mutationError = { value: error };
+  }
+  const [sourceAfter, quarantineAfter] = await Promise.all([
+    lstatBigIntIfExists(sourcePath),
+    lstatBigIntIfExists(quarantinePath),
+  ]);
+  const captured = quarantineAfter !== null;
+  const sourceStillNamesCapturedEntry = sourceAfter !== null
+    && sourceAfter.dev === sourceBefore.dev
+    && sourceAfter.ino === sourceBefore.ino;
+  if (mutationError === null && (!captured || sourceStillNamesCapturedEntry)) {
+    mutationError = {
+      value: new Error(`Publication quarantine mutation had an unexpected outcome: ${sourcePath}`),
+    };
+  }
+  return { captured, error: mutationError };
+}
+
+function privateQuarantinePath(stagePath: string, purpose: string): string {
+  return `${stagePath}.${randomUUID()}.${purpose}`;
+}
+
+async function recoveryEntryStatus(path: string): Promise<string> {
+  return await lstatIfExists(path)
+    ? `recovery retained at ${path}`
+    : `recovery entry disappeared from ${path}`;
+}
+
+async function requireExactEvidence(
+  path: string,
+  expected: TrackedFileEvidence,
+  changedMessage: string,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<void> {
+  const actual = await readBoundRegularFileEvidence(path, openVerification, changedMessage);
+  if (!actual || !evidenceMatches(actual, expected)) {
+    throw new Error(`${changedMessage}: ${path}`);
+  }
+}
+
+async function restoreQuarantinedEntryNoReplace(
+  quarantinePath: string,
+  destinationPath: string,
+  evidence: TrackedFileEvidence,
+  restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  revalidateBeforeMutation: () => Promise<void>,
+): Promise<void> {
+  await revalidateBeforeMutation();
+  if (await lstatIfExists(destinationPath)) {
+    throw new Error(`Cannot restore publication recovery over an occupied path: ${destinationPath}`);
+  }
+  await restoreLink(quarantinePath, destinationPath);
+  const linkedEvidence = evidenceWithLinks(evidence, evidence.links + 1n);
+  await requireExactEvidence(
+    quarantinePath,
+    linkedEvidence,
+    "Publication recovery changed",
+    openVerification,
+  );
+  await requireExactEvidence(
+    destinationPath,
+    linkedEvidence,
+    "Restored publication entry changed",
+    openVerification,
+  );
+}
+
+async function removeExactQuarantine(
+  quarantinePath: string,
+  expected: TrackedFileEvidence,
+  removeStage: NonNullable<PublicationDependencies["removeStage"]>,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  revalidateBeforeMutation: () => Promise<void>,
+): Promise<void> {
+  await revalidateBeforeMutation();
+  await requireExactEvidence(
+    quarantinePath,
+    expected,
+    "Publication quarantine changed before cleanup",
+    openVerification,
+  );
+  await removeStage(quarantinePath);
+}
+
+async function removeExactQuarantineReconciled(
+  quarantinePath: string,
+  expected: TrackedFileEvidence,
+  removeStage: NonNullable<PublicationDependencies["removeStage"]>,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  revalidateBeforeMutation: () => Promise<void>,
+): Promise<void> {
+  try {
+    await removeExactQuarantine(
+      quarantinePath,
+      expected,
+      removeStage,
+      openVerification,
+      revalidateBeforeMutation,
+    );
+  } catch (error) {
+    if (!await lstatIfExists(quarantinePath)) return;
+    throw new Error(`${errorText(error)}; ${await recoveryEntryStatus(quarantinePath)}`, {
+      cause: error,
+    });
+  }
+}
+
+async function requireOwnedStage(
+  path: string,
+  identity: StageIdentity,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<void> {
+  if (!await inspectOwnedStage(path, identity, 1n, openVerification)) {
     throw new Error(`Publication stage disappeared after exclusive creation: ${path}`);
   }
+}
+
+async function cleanupFailedOwnedStage(
+  stagePath: string,
+  identity: StageIdentity,
+  removeStage: NonNullable<PublicationDependencies["removeStage"]>,
+  quarantineFile: NonNullable<PublicationDependencies["quarantineFile"]>,
+  restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  revalidateBeforeRemoval: () => Promise<void>,
+): Promise<void> {
+  const quarantinePath = privateQuarantinePath(stagePath, "creation-quarantine");
+  const quarantine = await quarantineEntry(
+    stagePath,
+    quarantinePath,
+    quarantineFile,
+    revalidateBeforeRemoval,
+  );
+  if (!quarantine.captured) {
+    if (quarantine.error !== null) throw quarantine.error.value;
+    return;
+  }
+
+  let evidence: TrackedFileEvidence | null;
+  try {
+    evidence = await readBoundRegularFileEvidence(
+      quarantinePath,
+      openVerification,
+      "Failed publication stage changed during cleanup quarantine",
+    );
+  } catch (verificationError) {
+    throw new Error(`Failed publication stage ${await recoveryEntryStatus(quarantinePath)}`, {
+      cause: verificationError,
+    });
+  }
+
+  if (
+    quarantine.error === null
+    &&
+    evidence
+    && evidence.device === identity.device
+    && evidence.inode === identity.inode
+  ) {
+    await removeExactQuarantineReconciled(
+      quarantinePath,
+      evidence,
+      removeStage,
+      openVerification,
+      revalidateBeforeRemoval,
+    );
+    return;
+  }
+
+  const recoveryErrors: unknown[] = [];
+  if (evidence) {
+    try {
+      await restoreQuarantinedEntryNoReplace(
+        quarantinePath,
+        stagePath,
+        evidence,
+        restoreLink,
+        openVerification,
+        revalidateBeforeRemoval,
+      );
+    } catch (recoveryError) {
+      recoveryErrors.push(recoveryError);
+    }
+  }
+  const recoveryStatus = await recoveryEntryStatus(quarantinePath);
+  throw new AggregateError(
+    [
+      quarantine.error !== null
+        ? quarantine.error.value
+        : new Error(`Failed publication stage was replaced before cleanup: ${stagePath}`),
+      ...recoveryErrors,
+    ],
+    `Failed publication stage cleanup failed; ${recoveryStatus}`,
+  );
 }
 
 async function createOwnedStage(
@@ -333,6 +793,9 @@ async function createOwnedStage(
   bytes: Uint8Array,
   openStage: NonNullable<PublicationDependencies["openStage"]>,
   removeStage: NonNullable<PublicationDependencies["removeStage"]>,
+  quarantineFile: NonNullable<PublicationDependencies["quarantineFile"]>,
+  restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
   revalidateBeforeRemoval: () => Promise<void>,
 ): Promise<StageIdentity> {
   let handle: StageHandle | undefined;
@@ -343,9 +806,11 @@ async function createOwnedStage(
     const flags = noFollowFlags(constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
     handle = await openStage(stagePath, flags, 0o666);
     owned = true;
-    const stats = handle.stat ? await handle.stat() : await lstat(stagePath);
+    const stats = handle.stat
+      ? await handle.stat({ bigint: true })
+      : await lstat(stagePath, { bigint: true });
     if (!stats.isFile()) throw new Error(`Publication stage is not a regular file: ${stagePath}`);
-    identity = stageIdentity(stats);
+    identity = stageIdentity(stats, bytes);
     await handle.writeFile(bytes);
     await handle.sync();
   } catch (error) {
@@ -374,8 +839,15 @@ async function createOwnedStage(
   if (primaryError !== null) {
     if (owned && identity) {
       try {
-        await revalidateBeforeRemoval();
-        if (await inspectOwnedStage(stagePath, identity)) await removeStage(stagePath);
+        await cleanupFailedOwnedStage(
+          stagePath,
+          identity,
+          removeStage,
+          quarantineFile,
+          restoreLink,
+          openVerification,
+          revalidateBeforeRemoval,
+        );
       } catch (cleanupError) {
         throw errorWithCleanup(primaryError.value, cleanupError);
       }
@@ -387,31 +859,402 @@ async function createOwnedStage(
 
 async function removeOwnedStage(
   stagePath: string,
+  destinationPath: string,
   removeStage: NonNullable<PublicationDependencies["removeStage"]>,
   primaryError: CapturedError | null,
   publicationCommitted: boolean,
   revalidateBeforeRemoval: () => Promise<void>,
   identity: StageIdentity,
+  publicationBytes: Uint8Array,
+  quarantineFile: NonNullable<PublicationDependencies["quarantineFile"]>,
+  restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
 ): Promise<void> {
+  const stageQuarantinePath = privateQuarantinePath(stagePath, "quarantine");
+  const destinationQuarantinePath = privateQuarantinePath(stagePath, "destination-quarantine");
+  let stageCaptured = false;
+  let stageEvidence: TrackedFileEvidence | null = null;
+  let uncapturedStageEvidence: TrackedFileEvidence | null = null;
+  let stageInspectionError: CapturedError | null;
+
   try {
-    await revalidateBeforeRemoval();
-    if (await inspectOwnedStage(stagePath, identity)) await removeStage(stagePath);
-  } catch (cleanupError) {
-    if (primaryError !== null) throw errorWithCleanup(primaryError.value, cleanupError);
-    // A hard-link publication is already visible. Report that success so an upstream transaction
-    // can register rollback; the exclusively-created random stage is the only leaked entry.
-    if (publicationCommitted) return;
-    throw cleanupError;
+    const stageQuarantine = await quarantineEntry(
+      stagePath,
+      stageQuarantinePath,
+      quarantineFile,
+      revalidateBeforeRemoval,
+    );
+    stageCaptured = stageQuarantine.captured;
+    stageInspectionError = stageQuarantine.error;
+    if (stageCaptured) {
+      stageEvidence = await readBoundRegularFileEvidence(
+        stageQuarantinePath,
+        openVerification,
+        "Publication stage changed during cleanup quarantine",
+      );
+    }
+  } catch (error) {
+    stageInspectionError = { value: error };
   }
-  if (primaryError !== null) throw primaryError.value;
+
+  if (publicationCommitted && !stageCaptured && stageInspectionError !== null) {
+    try {
+      uncapturedStageEvidence = await readBoundRegularFileEvidence(
+        stagePath,
+        openVerification,
+        "Publication stage changed after failed cleanup quarantine",
+      );
+    } catch (error) {
+      stageInspectionError = {
+        value: new AggregateError(
+          [stageInspectionError.value, error],
+          `${errorText(stageInspectionError.value)}; publication stage reconciliation failed: ${errorText(error)}`,
+          { cause: stageInspectionError.value },
+        ),
+      };
+    }
+  }
+
+  if (!publicationCommitted) {
+    if (!stageCaptured) {
+      if (stageInspectionError !== null && primaryError !== null) {
+        throw errorWithCleanup(primaryError.value, stageInspectionError.value);
+      }
+      if (stageInspectionError !== null) throw stageInspectionError.value;
+      if (primaryError !== null) throw primaryError.value;
+      return;
+    }
+
+    const expectedStage = expectedEvidence(identity, 1n, publicationBytes);
+    if (
+      stageInspectionError !== null
+      || stageEvidence === null
+      || !evidenceMatches(stageEvidence, expectedStage)
+    ) {
+      const recoveryErrors: unknown[] = [];
+      if (stageEvidence !== null) {
+        try {
+          await restoreQuarantinedEntryNoReplace(
+            stageQuarantinePath,
+            stagePath,
+            stageEvidence,
+            restoreLink,
+            openVerification,
+            revalidateBeforeRemoval,
+          );
+        } catch (recoveryError) {
+          recoveryErrors.push(recoveryError);
+        }
+      }
+      const capturedStageError = stageInspectionError !== null
+        ? stageInspectionError.value
+        : new Error(`Publication stage changed before cleanup: ${stageQuarantinePath}`);
+      const recoveryStatus = await recoveryEntryStatus(stageQuarantinePath);
+      const cleanupError = new AggregateError(
+        [
+          capturedStageError,
+          ...recoveryErrors,
+        ],
+        `Publication stage cleanup failed; ${recoveryStatus}`,
+        { cause: stageInspectionError !== null ? stageInspectionError.value : undefined },
+      );
+      if (primaryError !== null) throw errorWithCleanup(primaryError.value, cleanupError);
+      throw cleanupError;
+    }
+
+    try {
+      await removeExactQuarantineReconciled(
+        stageQuarantinePath,
+        expectedStage,
+        removeStage,
+        openVerification,
+        revalidateBeforeRemoval,
+      );
+    } catch (cleanupError) {
+      if (primaryError !== null) throw errorWithCleanup(primaryError.value, cleanupError);
+      throw cleanupError;
+    }
+    if (primaryError !== null) throw primaryError.value;
+    return;
+  }
+
+  const expectedLinkedStage = expectedEvidence(identity, 2n, publicationBytes);
+  const uncapturedStageIsExpected = uncapturedStageEvidence !== null
+    && evidenceMatches(uncapturedStageEvidence, expectedLinkedStage);
+  let expectedDestination = expectedEvidence(
+    identity,
+    stageCaptured || uncapturedStageIsExpected ? 2n : 1n,
+    publicationBytes,
+  );
+  const stageHasExpectedIdentityAndBytes = stageCaptured
+    && stageEvidence !== null
+    && evidenceMatchesIdentityAndBytes(stageEvidence, expectedLinkedStage);
+  let destinationVerificationError: CapturedError | null = null;
+  try {
+    const destinationEvidence = await readBoundRegularFileEvidence(
+      destinationPath,
+      openVerification,
+      "Publication destination changed after committed hard-link publication",
+    );
+    if (
+      destinationEvidence === null
+      || !evidenceMatchesIdentityAndBytes(destinationEvidence, expectedDestination)
+      || destinationEvidence.links < 1n
+      || destinationEvidence.links > 2n
+      || (stageHasExpectedIdentityAndBytes && (
+        stageEvidence?.links !== 2n || destinationEvidence.links !== 2n
+      ))
+      || (uncapturedStageIsExpected && destinationEvidence.links !== 2n)
+      || (
+        !stageHasExpectedIdentityAndBytes
+        && !uncapturedStageIsExpected
+        && destinationEvidence.links !== 1n
+      )
+    ) {
+      throw new Error(
+        `Publication destination changed after committed hard-link publication: ${destinationPath}`,
+      );
+    }
+    expectedDestination = evidenceWithLinks(expectedDestination, destinationEvidence.links);
+  } catch (error) {
+    destinationVerificationError = { value: error };
+  }
+
+  const stageIsExpected = stageCaptured
+    && stageEvidence !== null
+    && evidenceMatches(stageEvidence, expectedLinkedStage);
+  let exactStageRemoved = false;
+
+  if (destinationVerificationError === null) {
+    if (uncapturedStageIsExpected) return;
+    if (!stageCaptured) return;
+    if (!stageIsExpected) {
+      let recoveryError: CapturedError | null = null;
+      if (stageEvidence !== null) {
+        try {
+          await restoreQuarantinedEntryNoReplace(
+            stageQuarantinePath,
+            stagePath,
+            stageEvidence,
+            restoreLink,
+            openVerification,
+            revalidateBeforeRemoval,
+          );
+        } catch (error) {
+          recoveryError = { value: error };
+        }
+      }
+      try {
+        await requireCommittedDestinationLinkRange(
+          destinationPath,
+          identity,
+          1n,
+          2n,
+          openVerification,
+        );
+        return;
+      } catch (error) {
+        destinationVerificationError = {
+          value: recoveryError === null
+            ? error
+            : new AggregateError(
+              [error, recoveryError.value],
+              `${errorText(error)}; publication stage recovery failed: ${errorText(recoveryError.value)}`,
+              { cause: error },
+            ),
+        };
+      }
+    } else {
+      let cleanupError: CapturedError | null = null;
+      try {
+        await removeExactQuarantine(
+          stageQuarantinePath,
+          expectedLinkedStage,
+          removeStage,
+          openVerification,
+          revalidateBeforeRemoval,
+        );
+        exactStageRemoved = true;
+        expectedDestination = evidenceWithLinks(expectedDestination, 1n);
+      } catch (error) {
+        cleanupError = { value: error };
+        exactStageRemoved = await lstatIfExists(stageQuarantinePath) === null;
+        if (exactStageRemoved) {
+          expectedDestination = evidenceWithLinks(expectedDestination, 1n);
+        }
+      }
+
+      try {
+        if (cleanupError === null) {
+          await requireCommittedDestination(destinationPath, identity, 1n, openVerification);
+        } else {
+          await requireCommittedDestinationLinkRange(
+            destinationPath,
+            identity,
+            1n,
+            2n,
+            openVerification,
+          );
+        }
+        return;
+      } catch (error) {
+        destinationVerificationError = {
+          value: cleanupError === null
+            ? error
+            : new AggregateError(
+              [error, cleanupError.value],
+              `${errorText(error)}; publication stage cleanup failed: ${errorText(cleanupError.value)}`,
+              { cause: error },
+            ),
+        };
+      }
+    }
+  }
+
+  if (destinationVerificationError === null) {
+    throw new Error("Committed publication rollback requires a captured verification failure");
+  }
+  const destinationError = destinationVerificationError.value;
+
+  const rollbackErrors: unknown[] = [];
+  const recoveryPaths: string[] = [];
+  let destinationCaptured = false;
+  let exactDestinationRemoved = false;
+  try {
+    const destinationQuarantine = await quarantineEntry(
+      destinationPath,
+      destinationQuarantinePath,
+      quarantineFile,
+      revalidateBeforeRemoval,
+    );
+    destinationCaptured = destinationQuarantine.captured;
+    if (destinationCaptured) {
+      const quarantinedDestination = await readBoundRegularFileEvidence(
+        destinationQuarantinePath,
+        openVerification,
+        "Committed publication destination changed during rollback quarantine",
+      );
+      if (quarantinedDestination && evidenceMatches(quarantinedDestination, expectedDestination)) {
+        try {
+          await removeExactQuarantine(
+            destinationQuarantinePath,
+            expectedDestination,
+            removeStage,
+            openVerification,
+            revalidateBeforeRemoval,
+          );
+          exactDestinationRemoved = true;
+        } catch (removalError) {
+          exactDestinationRemoved = await lstatIfExists(destinationQuarantinePath) === null;
+          rollbackErrors.push(removalError);
+          if (!exactDestinationRemoved) recoveryPaths.push(destinationQuarantinePath);
+        }
+      } else {
+        if (quarantinedDestination) {
+          try {
+            await restoreQuarantinedEntryNoReplace(
+              destinationQuarantinePath,
+              destinationPath,
+              quarantinedDestination,
+              restoreLink,
+              openVerification,
+              revalidateBeforeRemoval,
+            );
+          } catch (recoveryError) {
+            rollbackErrors.push(recoveryError);
+          }
+        }
+        const recoveryStatus = await recoveryEntryStatus(destinationQuarantinePath);
+        if (await lstatIfExists(destinationQuarantinePath)) {
+          recoveryPaths.push(destinationQuarantinePath);
+        }
+        rollbackErrors.push(new Error(
+          `Committed publication destination was not owned exactly; ${recoveryStatus}`,
+        ));
+      }
+    }
+    if (destinationQuarantine.error !== null) {
+      rollbackErrors.push(destinationQuarantine.error.value);
+    }
+  } catch (rollbackError) {
+    rollbackErrors.push(rollbackError);
+    if (destinationCaptured && await lstatIfExists(destinationQuarantinePath)) {
+      recoveryPaths.push(destinationQuarantinePath);
+    }
+  }
+
+  if (stageCaptured && !exactStageRemoved) {
+    if (stageIsExpected) {
+      const rollbackStageEvidence = exactDestinationRemoved
+        ? evidenceWithLinks(expectedLinkedStage, expectedLinkedStage.links - 1n)
+        : expectedLinkedStage;
+      try {
+        await removeExactQuarantine(
+          stageQuarantinePath,
+          rollbackStageEvidence,
+          removeStage,
+          openVerification,
+          revalidateBeforeRemoval,
+        );
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+        if (await lstatIfExists(stageQuarantinePath)) recoveryPaths.push(stageQuarantinePath);
+      }
+    } else {
+      if (stageEvidence !== null) {
+        try {
+          await restoreQuarantinedEntryNoReplace(
+            stageQuarantinePath,
+            stagePath,
+            stageEvidence,
+            restoreLink,
+            openVerification,
+            revalidateBeforeRemoval,
+          );
+        } catch (recoveryError) {
+          rollbackErrors.push(recoveryError);
+        }
+      }
+      const recoveryStatus = await recoveryEntryStatus(stageQuarantinePath);
+      if (await lstatIfExists(stageQuarantinePath)) recoveryPaths.push(stageQuarantinePath);
+      rollbackErrors.push(stageInspectionError !== null
+        ? stageInspectionError.value
+        : new Error(
+          `Publication stage was not owned exactly; ${recoveryStatus}`,
+        ));
+    }
+  }
+
+  if (rollbackErrors.length > 0) {
+    const recoverySuffix = recoveryPaths.length > 0
+      ? `; recovery retained at ${[...new Set(recoveryPaths)].join(", ")}`
+      : "";
+    const rollbackDetail = rollbackErrors.map(errorText).join("; ");
+    throw new AggregateError(
+      [destinationError, ...rollbackErrors],
+      `${errorText(destinationError)}; committed publication integrity rollback failed: ${rollbackDetail}${recoverySuffix}`,
+      { cause: destinationError },
+    );
+  }
+  throw destinationError;
 }
 
 async function createOnlyResultAfterCollision(
   destinationPath: string,
   bytes: Uint8Array,
-): Promise<{ path: string; created: boolean }> {
-  if (await destinationMatches(destinationPath, bytes)) {
-    return { path: destinationPath, created: false };
+  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+): Promise<{ path: string; created: boolean; ownership: SafeFileOwnership }> {
+  const existing = await destinationMatches(destinationPath, bytes, openVerification);
+  if (existing) {
+    return {
+      path: destinationPath,
+      created: false,
+      ownership: {
+        device: existing.device,
+        inode: existing.inode,
+        revision: existing.revision,
+      },
+    };
   }
   const current = await inspectRegularLeaf(destinationPath, publicationDestinationError);
   if (!current) {
@@ -448,10 +1291,17 @@ export async function publishFileSafely(
   assertCanonicalContainment(boundary.canonicalRoot, destinationPath);
   const ancestors = await ensureAncestors(boundary, segments.slice(0, -1), true);
   if (!ancestors) throw new Error("Publication ancestor creation failed");
+  const openVerification = dependencies.openVerification ?? ((path, flags) => open(path, flags));
 
   const initialLeaf = await inspectRegularLeaf(destinationPath, publicationDestinationError);
   if (!options.replace && initialLeaf) {
-    if (await destinationMatches(destinationPath, options.bytes)) {
+    const existing = await destinationMatches(destinationPath, options.bytes, openVerification);
+    if (existing) {
+      dependencies.captureOwnership?.({
+        device: existing.device,
+        inode: existing.inode,
+        revision: existing.revision,
+      });
       return { path: destinationPath, created: false };
     }
     throw new SafeFileConflictError(destinationPath);
@@ -463,6 +1313,8 @@ export async function publishFileSafely(
   const openStage = dependencies.openStage ?? ((path, flags, mode) => open(path, flags, mode));
   const linkFile = dependencies.linkFile ?? link;
   const moveFile = dependencies.moveFile ?? rename;
+  const quarantineFile = dependencies.quarantineFile ?? rename;
+  const restoreLink = dependencies.restoreLink ?? link;
   const removeStage = dependencies.removeStage ?? unlink;
 
   const revalidateStageAncestors = () => revalidateAncestors(boundary, ancestors);
@@ -471,11 +1323,15 @@ export async function publishFileSafely(
     options.bytes,
     openStage,
     removeStage,
+    quarantineFile,
+    restoreLink,
+    openVerification,
     revalidateStageAncestors,
   );
   let stageOwned = true;
   let publicationCommitted = false;
   let result: { path: string; created: boolean } | undefined;
+  let resultOwnership: SafeFileOwnership = identity;
   let primaryError: CapturedError | null = null;
   try {
     await dependencies.beforePublication?.({
@@ -484,7 +1340,7 @@ export async function publishFileSafely(
       mode: options.replace ? "replace" : "create-only",
     });
     await revalidateAncestors(boundary, ancestors);
-    await requireOwnedStage(stagePath, identity);
+    await requireOwnedStage(stagePath, identity, openVerification);
 
     if (!options.replace) {
       try {
@@ -492,21 +1348,51 @@ export async function publishFileSafely(
         publicationCommitted = true;
         result = { path: destinationPath, created: true };
       } catch (error) {
-        if (!hasCode(error, "EEXIST")) throw error;
-        result = await createOnlyResultAfterCollision(destinationPath, options.bytes);
+        const reconciled = await reconcileHardLinkPublication(
+          stagePath,
+          destinationPath,
+          identity,
+          openVerification,
+        );
+        if (reconciled !== null) {
+          stageOwned = reconciled === "stage-linked";
+          publicationCommitted = true;
+          result = { path: destinationPath, created: true };
+        } else {
+          if (!hasCode(error, "EEXIST")) throw error;
+          const collision = await createOnlyResultAfterCollision(
+            destinationPath,
+            options.bytes,
+            openVerification,
+          );
+          result = { path: collision.path, created: collision.created };
+          resultOwnership = collision.ownership;
+        }
       }
     } else {
       for (;;) {
         const currentLeaf = await inspectRegularLeaf(destinationPath, publicationDestinationError);
         if (!currentLeaf) {
           await revalidateAncestors(boundary, ancestors);
-          await requireOwnedStage(stagePath, identity);
+          await requireOwnedStage(stagePath, identity, openVerification);
           try {
             await linkFile(stagePath, destinationPath);
             publicationCommitted = true;
             result = { path: destinationPath, created: true };
             break;
           } catch (error) {
+            const reconciled = await reconcileHardLinkPublication(
+              stagePath,
+              destinationPath,
+              identity,
+              openVerification,
+            );
+            if (reconciled !== null) {
+              stageOwned = reconciled === "stage-linked";
+              publicationCommitted = true;
+              result = { path: destinationPath, created: true };
+              break;
+            }
             if (!hasCode(error, "EEXIST")) throw error;
             continue;
           }
@@ -515,11 +1401,20 @@ export async function publishFileSafely(
         await revalidateAncestors(boundary, ancestors);
         const recheckedLeaf = await inspectRegularLeaf(destinationPath, publicationDestinationError);
         if (!recheckedLeaf) continue;
-        await requireOwnedStage(stagePath, identity);
-        await moveFile(stagePath, destinationPath);
+        await requireOwnedStage(stagePath, identity, openVerification);
+        try {
+          await moveFile(stagePath, destinationPath);
+        } catch (error) {
+          if (!await reconcileRenamePublication(
+            destinationPath,
+            identity,
+            openVerification,
+          )) throw error;
+        }
         stageOwned = false;
         publicationCommitted = true;
         result = { path: destinationPath, created: false };
+        await requireCommittedDestination(destinationPath, identity, 1n, openVerification);
         break;
       }
     }
@@ -530,23 +1425,350 @@ export async function publishFileSafely(
   if (stageOwned) {
     await removeOwnedStage(
       stagePath,
+      destinationPath,
       removeStage,
       primaryError,
       publicationCommitted,
       revalidateStageAncestors,
       identity,
+      options.bytes,
+      quarantineFile,
+      restoreLink,
+      openVerification,
     );
   } else if (primaryError !== null) {
     throw primaryError.value;
   }
+  dependencies.captureOwnership?.(resultOwnership);
   return result!;
+}
+
+export async function publishFileSafelyWithOwnership(
+  options: SafeFilePublication,
+): Promise<SafeFilePublicationWithOwnership> {
+  let ownership: SafeFileOwnership | undefined;
+  const publishWithDependencies = publishFileSafely as unknown as (
+    publication: SafeFilePublication,
+    dependencies: PublicationDependencies,
+  ) => Promise<{ path: string; created: boolean }>;
+  const result = await publishWithDependencies(options, {
+    captureOwnership: (captured) => {
+      ownership = captured;
+    },
+  });
+  if (!ownership) throw new Error("Safe file publication completed without ownership evidence");
+  return { ...result, ownership };
+}
+
+function ownershipFromEvidence(evidence: TrackedFileEvidence): SafeFileOwnership {
+  return {
+    device: evidence.device,
+    inode: evidence.inode,
+    revision: evidence.revision,
+  };
+}
+
+function ownershipMatchesEvidence(
+  ownership: SafeFileOwnership,
+  evidence: TrackedFileEvidence,
+): boolean {
+  return ownership.device === evidence.device
+    && ownership.inode === evidence.inode
+    && ownership.revision === evidence.revision;
+}
+
+/**
+ * Atomically moves the current regular leaf to a private sibling path, then returns the bytes and
+ * ownership evidence read from that exact quarantined entry. The returned capability must be
+ * restored on transaction rollback or discarded on commit. Restore never replaces an occupant.
+ *
+ * This has the same local-filesystem directory-entry race limitation documented by
+ * publishFileSafely; leaf inspection and reads never follow symbolic links or non-regular files.
+ */
+export function quarantineRegularFileSafely(
+  root: string,
+  relativePath: string,
+  expectedOwnership?: SafeFileOwnership,
+): Promise<SafeRegularFileQuarantine | null>;
+export async function quarantineRegularFileSafely(
+  root: string,
+  relativePath: string,
+  expectedOwnership?: SafeFileOwnership,
+  dependencies: RemovalDependencies = {},
+): Promise<SafeRegularFileQuarantine | null> {
+  assertPortableRelativePath(relativePath);
+  const boundary = await resolveRootBoundaryIfExists(root);
+  if (!boundary) return null;
+  const segments = relativePath.split("/");
+  const destinationPath = join(boundary.canonicalRoot, ...segments);
+  assertCanonicalContainment(boundary.canonicalRoot, destinationPath);
+  const ancestors = await ensureAncestors(boundary, segments.slice(0, -1), false);
+  if (!ancestors) return null;
+
+  const initialLeaf = await inspectRegularLeaf(destinationPath, removalTargetError);
+  if (!initialLeaf) return null;
+  const openVerification = dependencies.openVerification ?? ((path, flags) => open(path, flags));
+  let initialEvidence: TrackedFileEvidence | null = null;
+  if (expectedOwnership) {
+    initialEvidence = await readBoundRegularFileEvidence(
+      destinationPath,
+      openVerification,
+      "Safe quarantine target changed during ownership capture",
+    );
+    if (!initialEvidence || !ownershipMatchesEvidence(expectedOwnership, initialEvidence)) return null;
+  }
+
+  const revalidateMutationBoundary = () => revalidateAncestors(boundary, ancestors);
+  const recoveryPath = privateQuarantinePath(destinationPath, "transaction-quarantine");
+  const quarantine = await quarantineEntry(
+    destinationPath,
+    recoveryPath,
+    dependencies.quarantineFile ?? rename,
+    revalidateMutationBoundary,
+  );
+  if (!quarantine.captured) {
+    if (quarantine.error !== null) throw quarantine.error.value;
+    return null;
+  }
+
+  let evidence: TrackedFileEvidence;
+  try {
+    const captured = await readBoundRegularFileEvidence(
+      recoveryPath,
+      openVerification,
+      "Safe quarantine entry changed during bound byte capture",
+    );
+    if (!captured) throw new Error(`Safe quarantine entry disappeared: ${recoveryPath}`);
+    evidence = captured;
+  } catch (error) {
+    throw new Error(`Safe quarantine failed; ${await recoveryEntryStatus(recoveryPath)}`, {
+      cause: error,
+    });
+  }
+
+  const sourceAfterQuarantine = await lstatBigIntIfExists(destinationPath);
+  if (sourceAfterQuarantine !== null) {
+    const mutationError = quarantine.error?.value
+      ?? new Error(`Safe quarantine mutation left an occupied source path: ${destinationPath}`);
+    throw new Error(`${errorText(mutationError)}; ${await recoveryEntryStatus(recoveryPath)}`, {
+      cause: mutationError,
+    });
+  }
+
+  let lifecycle: "active" | "restored" | "discarded" = "active";
+  let restoreMutationAttempted = false;
+  const linkedEvidence = evidenceWithLinks(evidence, evidence.links + 1n);
+  const restoreLink = dependencies.restoreLink ?? link;
+  const removeFile = dependencies.removeFile ?? unlink;
+
+  const requireActive = (): void => {
+    if (lifecycle !== "active") {
+      throw new Error(`Safe quarantine capability is already ${lifecycle}`);
+    }
+  };
+
+  type RestoreState = "quarantined" | "linked" | "cleaned" | "occupied";
+  const reconcileRestoreState = async (): Promise<RestoreState> => {
+    const quarantined = await readBoundRegularFileEvidence(
+      recoveryPath,
+      openVerification,
+      "Safe quarantine changed during restore reconciliation",
+    );
+    const destinationStats = await lstatBigIntIfExists(destinationPath);
+
+    if (quarantined !== null && evidenceMatches(quarantined, evidence)) {
+      return destinationStats === null ? "quarantined" : "occupied";
+    }
+
+    if (quarantined !== null && evidenceMatches(quarantined, linkedEvidence)) {
+      if (!destinationStats?.isFile()) return "occupied";
+      const destination = await readBoundRegularFileEvidence(
+        destinationPath,
+        openVerification,
+        "Restored safe quarantine entry changed during reconciliation",
+      );
+      if (destination !== null && evidenceMatches(destination, linkedEvidence)) return "linked";
+      return "occupied";
+    }
+
+    if (quarantined === null && destinationStats?.isFile()) {
+      const destination = await readBoundRegularFileEvidence(
+        destinationPath,
+        openVerification,
+        "Restored safe quarantine entry changed after cleanup reconciliation",
+      );
+      if (destination !== null && evidenceMatches(destination, evidence)) return "cleaned";
+    }
+
+    throw new Error(`Safe quarantine restore state changed unexpectedly: ${recoveryPath}`);
+  };
+
+  const restoreError = async (error: unknown): Promise<Error> => new Error(
+    `${errorText(error)}; ${await recoveryEntryStatus(recoveryPath)}`,
+    { cause: error },
+  );
+
+  const restore = async (): Promise<void> => {
+    requireActive();
+    let state: RestoreState;
+    try {
+      state = await reconcileRestoreState();
+    } catch (error) {
+      throw await restoreError(error);
+    }
+
+    if (state === "cleaned") {
+      lifecycle = "restored";
+      return;
+    }
+    if (state === "occupied") {
+      throw await restoreError(
+        new Error(`Cannot restore publication recovery over an occupied path: ${destinationPath}`),
+      );
+    }
+
+    if (state === "quarantined") {
+      await revalidateMutationBoundary();
+      await requireExactEvidence(
+        recoveryPath,
+        evidence,
+        "Safe quarantine changed before restore",
+        openVerification,
+      );
+      if (await lstatIfExists(destinationPath)) {
+        throw await restoreError(
+          new Error(`Cannot restore publication recovery over an occupied path: ${destinationPath}`),
+        );
+      }
+
+      let linkError: CapturedError | null = null;
+      restoreMutationAttempted = true;
+      try {
+        await restoreLink(recoveryPath, destinationPath);
+      } catch (error) {
+        linkError = { value: error };
+      }
+
+      try {
+        state = await reconcileRestoreState();
+      } catch (error) {
+        if (linkError === null) throw await restoreError(error);
+        throw await restoreError(new AggregateError(
+          [linkError.value, error],
+          `${errorText(linkError.value)}; safe quarantine restore was not committed exactly: ${errorText(error)}`,
+          { cause: linkError.value },
+        ));
+      }
+      if (state === "quarantined") {
+        if (linkError !== null) throw await restoreError(linkError.value);
+        throw await restoreError(new Error("Safe quarantine restore link had no effect"));
+      }
+      if (state === "occupied") {
+        throw await restoreError(
+          linkError?.value
+            ?? new Error(`Safe quarantine restore produced an occupied path: ${destinationPath}`),
+        );
+      }
+      if (state === "cleaned") {
+        lifecycle = "restored";
+        return;
+      }
+    }
+
+    try {
+      await requireExactEvidence(
+        destinationPath,
+        linkedEvidence,
+        "Restored safe quarantine entry changed before cleanup",
+        openVerification,
+      );
+      await removeExactQuarantine(
+        recoveryPath,
+        linkedEvidence,
+        removeFile,
+        openVerification,
+        revalidateMutationBoundary,
+      );
+    } catch (error) {
+      try {
+        state = await reconcileRestoreState();
+      } catch (reconciliationError) {
+        throw await restoreError(new AggregateError(
+          [error, reconciliationError],
+          `${errorText(error)}; safe quarantine cleanup reconciliation failed: ${errorText(reconciliationError)}`,
+          { cause: error },
+        ));
+      }
+      if (state !== "cleaned") throw await restoreError(error);
+    }
+
+    try {
+      state = await reconcileRestoreState();
+    } catch (error) {
+      throw await restoreError(error);
+    }
+    if (state !== "cleaned") {
+      throw await restoreError(new Error("Safe quarantine restore cleanup did not commit exactly"));
+    }
+    lifecycle = "restored";
+  };
+
+  const discard = async (): Promise<void> => {
+    requireActive();
+    if (restoreMutationAttempted) {
+      throw new Error("Cannot discard a safe quarantine after restore has committed");
+    }
+    try {
+      await removeExactQuarantine(
+        recoveryPath,
+        evidence,
+        removeFile,
+        openVerification,
+        revalidateMutationBoundary,
+      );
+    } catch (error) {
+      if (await lstatIfExists(recoveryPath)) {
+        throw new Error(`${errorText(error)}; ${await recoveryEntryStatus(recoveryPath)}`, {
+          cause: error,
+        });
+      }
+    }
+    lifecycle = "discarded";
+  };
+
+  const capability: SafeRegularFileQuarantine = {
+    path: destinationPath,
+    recoveryPath,
+    bytes: Uint8Array.from(evidence.bytes),
+    ownership: ownershipFromEvidence(evidence),
+    restore,
+    discard,
+  };
+
+  if (
+    expectedOwnership
+    && (
+      !ownershipMatchesEvidence(expectedOwnership, evidence)
+      || (initialEvidence !== null && !evidenceMatches(evidence, initialEvidence))
+    )
+  ) {
+    await capability.restore();
+    return null;
+  }
+
+  return capability;
 }
 
 /**
  * Removes a verified regular leaf without ever following a leaf symbolic link. It has the same
  * local-filesystem ancestor-race limitation documented by publishFileSafely.
  */
-export async function removeRegularFileSafely(root: string, relativePath: string): Promise<boolean> {
+export async function removeRegularFileSafely(
+  root: string,
+  relativePath: string,
+  expectedOwnership?: SafeFileOwnership,
+  dependencies: RemovalDependencies = {},
+): Promise<boolean> {
   assertPortableRelativePath(relativePath);
   const boundary = await resolveRootBoundaryIfExists(root);
   if (!boundary) return false;
@@ -558,14 +1780,80 @@ export async function removeRegularFileSafely(root: string, relativePath: string
 
   const initialLeaf = await inspectRegularLeaf(destinationPath, removalTargetError);
   if (!initialLeaf) return false;
-  await revalidateAncestors(boundary, ancestors);
-  const currentLeaf = await inspectRegularLeaf(destinationPath, removalTargetError);
-  if (!currentLeaf) return false;
+  const openVerification = dependencies.openVerification ?? ((path, flags) => open(path, flags));
+  const initialEvidence = await readBoundRegularFileEvidence(
+    destinationPath,
+    openVerification,
+    "Safe removal target changed during ownership capture",
+  );
+  if (!initialEvidence) return false;
+  if (
+    expectedOwnership
+    && (
+      initialEvidence.device !== expectedOwnership.device
+      || initialEvidence.inode !== expectedOwnership.inode
+      || initialEvidence.revision !== expectedOwnership.revision
+    )
+  ) return false;
+
+  const quarantinePath = privateQuarantinePath(destinationPath, "removal-quarantine");
+  const quarantine = await quarantineEntry(
+    destinationPath,
+    quarantinePath,
+    dependencies.quarantineFile ?? rename,
+    () => revalidateAncestors(boundary, ancestors),
+  );
+  if (!quarantine.captured) {
+    if (quarantine.error !== null) throw quarantine.error.value;
+    return false;
+  }
+
+  let quarantinedEvidence: TrackedFileEvidence;
   try {
-    await unlink(destinationPath);
+    const inspected = await readBoundRegularFileEvidence(
+      quarantinePath,
+      openVerification,
+      "Safe removal quarantine changed before deletion",
+    );
+    if (!inspected) throw new Error(`Safe removal quarantine disappeared: ${quarantinePath}`);
+    quarantinedEvidence = inspected;
   } catch (error) {
-    if (hasCode(error, "ENOENT")) return false;
-    throw error;
+    throw new Error(`Safe removal failed; ${await recoveryEntryStatus(quarantinePath)}`, {
+      cause: error,
+    });
+  }
+
+  if (!evidenceMatches(quarantinedEvidence, initialEvidence)) {
+    try {
+      await restoreQuarantinedEntryNoReplace(
+        quarantinePath,
+        destinationPath,
+        quarantinedEvidence,
+        dependencies.restoreLink ?? link,
+        openVerification,
+        () => revalidateAncestors(boundary, ancestors),
+      );
+    } catch (error) {
+      throw new Error(`Safe removal target changed; ${await recoveryEntryStatus(quarantinePath)}`, {
+        cause: error,
+      });
+    }
+    return false;
+  }
+
+  try {
+    await removeExactQuarantine(
+      quarantinePath,
+      initialEvidence,
+      dependencies.removeFile ?? unlink,
+      openVerification,
+      () => revalidateAncestors(boundary, ancestors),
+    );
+  } catch (error) {
+    if (!await lstatIfExists(quarantinePath)) return true;
+    throw new Error(`${errorText(error)}; ${await recoveryEntryStatus(quarantinePath)}`, {
+      cause: error,
+    });
   }
   return true;
 }
