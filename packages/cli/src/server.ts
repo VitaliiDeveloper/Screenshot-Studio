@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
+import type { Readable } from "node:stream";
 import { prepareRenderHost, type PreparedRenderHost } from "./packaged-render-host.js";
 
 export {
@@ -24,6 +25,63 @@ export interface RunningServer {
 type SpawnFn = (command: string, args: string[], options: Parameters<typeof nodeSpawn>[2]) => ChildProcess;
 type WaitForHttpFn = (url: string, timeoutMs: number) => Promise<void>;
 type PrepareRenderHostFn = (port: number) => Promise<PreparedRenderHost>;
+
+const RENDER_HOST_STDERR_TAIL_BYTES = 16 * 1024;
+const stderrDiagnosticsApplied = Symbol("stderrDiagnosticsApplied");
+
+interface StderrTail {
+  snapshot(): { text: string; truncated: boolean };
+  dispose(): void;
+}
+
+function captureStderrTail(stderr: Readable | null): StderrTail {
+  let tail = Buffer.alloc(0);
+  let truncated = false;
+  const onData = (chunk: Buffer | string) => {
+    const incoming = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+    if (incoming.length >= RENDER_HOST_STDERR_TAIL_BYTES) {
+      truncated ||= tail.length > 0 || incoming.length > RENDER_HOST_STDERR_TAIL_BYTES;
+      tail = Buffer.from(incoming.subarray(incoming.length - RENDER_HOST_STDERR_TAIL_BYTES));
+      return;
+    }
+    const combinedLength = tail.length + incoming.length;
+    if (combinedLength <= RENDER_HOST_STDERR_TAIL_BYTES) {
+      tail = Buffer.concat([tail, incoming], combinedLength);
+    } else {
+      truncated = true;
+      const retainedPrefixBytes = RENDER_HOST_STDERR_TAIL_BYTES - incoming.length;
+      tail = Buffer.concat([
+        tail.subarray(Math.max(0, tail.length - retainedPrefixBytes)),
+        incoming,
+      ], RENDER_HOST_STDERR_TAIL_BYTES);
+    }
+  };
+  stderr?.on("data", onData);
+  return {
+    snapshot: () => ({ text: tail.toString("utf8").trimEnd(), truncated }),
+    dispose() {
+      stderr?.off("data", onData);
+      tail = Buffer.alloc(0);
+      truncated = false;
+    },
+  };
+}
+
+function withStderrDiagnostics(error: unknown, stderr: StderrTail): Error {
+  const base = error instanceof Error ? error : new Error(String(error));
+  if ((base as Error & { [stderrDiagnosticsApplied]?: boolean })[stderrDiagnosticsApplied]) {
+    return base;
+  }
+  const snapshot = stderr.snapshot();
+  if (!snapshot.text) return base;
+  const label = snapshot.truncated
+    ? "render host stderr tail truncated"
+    : "render host stderr tail";
+  const diagnosed = new Error(`${base.message}\n\n[${label}]\n${snapshot.text}`, { cause: base });
+  diagnosed.name = base.name;
+  (diagnosed as Error & { [stderrDiagnosticsApplied]?: boolean })[stderrDiagnosticsApplied] = true;
+  return diagnosed;
+}
 
 async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -100,7 +158,7 @@ export async function createServerController({
   const host = await prepareHost(selectedPort);
   const child: ChildProcess = spawn(host.command, host.args, {
     cwd: host.cwd,
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
     env: {
       ...process.env,
       ...host.env,
@@ -108,6 +166,7 @@ export async function createServerController({
       ...(storeSpecsPath ? { STORE_SPECS_PATH: storeSpecsPath } : {}),
     },
   });
+  const stderrTail = captureStderrTail(child.stderr);
 
   const url = `http://localhost:${selectedPort}`;
   let stopping = false;
@@ -116,12 +175,20 @@ export async function createServerController({
     resolveUnexpectedExit = resolveExit;
   });
   child.once("error", (error) => {
-    if (!stopping) resolveUnexpectedExit(new Error(`Render host failed: ${error.message}`, { cause: error }));
+    if (!stopping) {
+      resolveUnexpectedExit(withStderrDiagnostics(
+        new Error(`Render host failed: ${error.message}`, { cause: error }),
+        stderrTail,
+      ));
+    }
   });
   child.once("exit", (code, signal) => {
     if (stopping) return;
     const status = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
-    resolveUnexpectedExit(new Error(`Render host exited unexpectedly (${status})`));
+    resolveUnexpectedExit(withStderrDiagnostics(
+      new Error(`Render host exited unexpectedly (${status})`),
+      stderrTail,
+    ));
   });
 
   let stopPromise: Promise<void> | undefined;
@@ -129,18 +196,27 @@ export async function createServerController({
     stopPromise ??= (async () => {
       stopping = true;
       let terminateError: unknown;
+      let hasTerminateError = false;
       try {
         await terminateChild(child);
       } catch (error) {
         terminateError = error;
+        hasTerminateError = true;
       }
+      let cleanupError: unknown;
+      let hasCleanupError = false;
       try {
         await host.cleanup();
-      } catch (cleanupError) {
-        if (terminateError) throw lifecycleErrors(terminateError, cleanupError);
-        throw cleanupError;
+      } catch (error) {
+        cleanupError = error;
+        hasCleanupError = true;
       }
-      if (terminateError) throw terminateError;
+      stderrTail.dispose();
+      if (hasTerminateError && hasCleanupError) {
+        throw lifecycleErrors(terminateError, cleanupError);
+      }
+      if (hasTerminateError) throw terminateError;
+      if (hasCleanupError) throw cleanupError;
     })();
     return stopPromise;
   };
@@ -151,12 +227,13 @@ export async function createServerController({
       exited.then((error) => { throw error; }),
     ]);
   } catch (error) {
+    const diagnosedError = withStderrDiagnostics(error, stderrTail);
     try {
       await stop();
     } catch (cleanupError) {
-      throw lifecycleErrors(error, cleanupError);
+      throw lifecycleErrors(diagnosedError, cleanupError);
     }
-    throw error;
+    throw diagnosedError;
   }
 
   return { url, exited, stop };

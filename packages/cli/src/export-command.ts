@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   buildBundleEntries,
@@ -7,26 +7,41 @@ import {
   parseStoreSpecs,
   safeLocalePathSegment,
   safeStoreSizePathToken,
+  validateBundleArtboards,
   type BundleFilters,
   type StoreSize,
 } from "@screenshot-studio/core/export";
 import {
   assertProjectFontsResolved,
   getScreen,
-  parseProjectJson,
   parseScreenPlacement,
   SCREEN_DEVICES_BY_PLATFORM,
   type Screen,
 } from "@screenshot-studio/core/model";
 import { closeAll, failWhenServerExits, runWithCleanup } from "./cli-runtime.js";
-import { exportBundle, exportScreenToPng, resolveTarget } from "./export.js";
+import {
+  exportBundle,
+  exportScreenToPng,
+  resolveTarget,
+  withStableProjectExport,
+} from "./export.js";
 import { resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
+import { publishFileSafely } from "./safe-file-publisher.js";
 import { startWebServer } from "./server.js";
 
 export type ExportMode =
   | { kind: "single"; screenId: string; sizeId?: string }
   | { kind: "bundle"; filters: BundleFilters };
+
+export interface ExportCommandDependencies {
+  startWebServer?: typeof startWebServer;
+  exportScreenToPng?: typeof exportScreenToPng;
+  exportBundle?: typeof exportBundle;
+  createRenderBrowserSession?: typeof createRenderBrowserSession;
+  publishFileSafely?: typeof publishFileSafely;
+  log?: (message: string) => void;
+}
 
 const SUPPORTED_DEVICES = new Set<string>(Object.values(SCREEN_DEVICES_BY_PLATFORM).flat());
 
@@ -93,55 +108,74 @@ export function singleExportTargetId(
 export async function runExportCommand(
   flags: Record<string, string>,
   defaultStoreSpecsPath: string,
+  dependencies: ExportCommandDependencies = {},
 ): Promise<void> {
+  const startServer = dependencies.startWebServer ?? startWebServer;
+  const exportScreen = dependencies.exportScreenToPng ?? exportScreenToPng;
+  const exportBundleOutputs = dependencies.exportBundle ?? exportBundle;
+  const createRenderSession = dependencies.createRenderBrowserSession ?? createRenderBrowserSession;
+  const publishFile = dependencies.publishFileSafely ?? publishFileSafely;
+  const log = dependencies.log ?? console.log;
   const projectPath = resolveProjectPath(flags);
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
-  const outDir = flags.out ? resolve(flags.out) : join(dirname(projectPath), "export");
+  const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
   const mode = resolveExportMode(flags);
 
-  const project = parseProjectJson(await readFile(projectPath, "utf8"));
-  assertProjectFontsResolved(project);
-
   if (mode.kind === "single") {
-    const screen = getScreen(project, mode.screenId);
-    const target = await resolveTarget(
-      storeSpecsPath,
-      screen.platform,
-      screen.device,
-      singleExportTargetId(screen, mode.sizeId),
-    );
-    const outFile = join(outDir, singleExportFilename(screen, target));
-
-    const server = await startWebServer(undefined, { storeSpecsPath });
+    const server = await startServer(undefined, { storeSpecsPath });
     await runWithCleanup(async () => {
-      const png = await failWhenServerExits(server, exportScreenToPng({
-        baseUrl: server.url,
-        projectPath,
-        screenId: mode.screenId,
-        target,
-      }));
-      await mkdir(outDir, { recursive: true });
-      await writeFile(outFile, png);
-      console.log(`Exported ${outFile} (${target.width}x${target.height})`);
+      await withStableProjectExport(projectPath, async (context) => {
+        assertProjectFontsResolved(context.project);
+        const screen = getScreen(context.project, mode.screenId);
+        const target = await resolveTarget(
+          storeSpecsPath,
+          screen.platform,
+          screen.device,
+          singleExportTargetId(screen, mode.sizeId),
+        );
+        const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
+        const relativePath = singleExportFilename(screen, target);
+        const png = await failWhenServerExits(server, exportScreen({
+          baseUrl: server.url,
+          projectPath: context.projectPath,
+          projectRevision: context.revision,
+          screenId: mode.screenId,
+          target,
+        }));
+        const publication = await context.publish(() => publishFile({
+          root: outDir,
+          relativePath,
+          bytes: png,
+          replace: true,
+        }));
+        log(`Exported ${publication.path} (${target.width}x${target.height})`);
+      });
     }, () => server.stop());
     return;
   }
 
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  const entries = buildBundleEntries(project, specs, mode.filters);
-  const server = await startWebServer(undefined, { storeSpecsPath });
+  const server = await startServer(undefined, { storeSpecsPath });
   let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
   await runWithCleanup(async () => {
-    session = await createRenderBrowserSession();
-    const zipPath = await failWhenServerExits(server, exportBundle({
-      baseUrl: server.url,
-      projectPath,
-      outDir,
-      entries,
-      renderSession: session,
-    }));
-    console.log(`Exported ${entries.length} screenshots to ${outDir}`);
-    console.log(`Wrote bundle ${zipPath}`);
+    session = await createRenderSession();
+    await withStableProjectExport(projectPath, async (context) => {
+      assertProjectFontsResolved(context.project);
+      const entries = buildBundleEntries(context.project, specs, mode.filters);
+      validateBundleArtboards(entries);
+      const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
+      const zipPath = await failWhenServerExits(server, exportBundleOutputs({
+        baseUrl: server.url,
+        projectPath: context.projectPath,
+        projectRevision: context.revision,
+        outDir,
+        entries,
+        renderSession: session!,
+        publicationGuard: context.publish,
+      }));
+      log(`Exported ${entries.length} screenshots to ${outDir}`);
+      log(`Wrote bundle ${zipPath}`);
+    });
   }, () => closeAll([
     ...(session ? [() => session!.close()] : []),
     () => server.stop(),
