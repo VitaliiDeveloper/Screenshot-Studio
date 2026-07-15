@@ -236,7 +236,7 @@ export const ImageBackground = z
     /** Portable project-relative path served through the project asset route. */
     assetUrl: ProjectRelativePath,
     fit: z.enum(["cover", "contain"]).default("cover"),
-    /** Opaque fallback and contain-mode letterbox colour. */
+    /** RGB or alpha-bearing RGBA fallback and contain-mode letterbox colour. */
     color: HexColor.default("#000000"),
   })
   .strict();
