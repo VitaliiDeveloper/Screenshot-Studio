@@ -47,7 +47,7 @@ function ArtboardSizeEditor({
     return (
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-500">Custom size</span>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
           <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Explicit override</span>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
@@ -78,8 +78,8 @@ function ArtboardSizeEditor({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-slate-500">Editing size</span>
-        <span role="group" aria-label="Editing size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
+        <span role="group" aria-label="Artboard size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
           <button
             type="button"
             aria-label="Use Store size"
@@ -92,7 +92,7 @@ function ArtboardSizeEditor({
           </button>
           <button
             type="button"
-            aria-label="Use custom editing size"
+            aria-label="Use custom artboard size"
             aria-pressed={isCustomTarget}
             disabled={!target}
             className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isCustomTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
@@ -137,7 +137,7 @@ export function ScreenInspectorSections({
   const background = screen.background;
   return (
     <>
-      <Section title="Artboard">
+      <Section>
         <ArtboardSizeEditor
           key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
           screen={screen}

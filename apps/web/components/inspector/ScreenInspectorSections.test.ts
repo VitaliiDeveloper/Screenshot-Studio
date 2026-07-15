@@ -106,10 +106,11 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const markup = renderInspector(result.project, screen, leadOnlyWatchSpecs);
 
     expect(markup).toContain(
-      'aria-label="Use custom editing size" aria-pressed="true"',
+      'aria-label="Use custom artboard size" aria-pressed="true"',
     );
-    expect(markup).toContain('aria-label="Editing size mode"');
-    expect(markup).toContain("Editing size");
+    expect(markup).toContain('aria-label="Artboard size mode"');
+    expect(markup).toContain(">Artboard</h3>");
+    expect(markup).not.toContain("Editing size");
     expect(markup).toContain("Store size");
     expect(markup).toContain("1477 × 1799 px");
     expect(markup).toContain(
@@ -124,11 +125,12 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const markup = renderInspector(result.project, screen, watchSpecs);
 
     expect(screen.artboard).toEqual({ width: 1456, height: 1736 });
-    expect(markup).toContain('aria-label="Editing size mode"');
+    expect(markup).toContain('aria-label="Artboard size mode"');
     expect(markup).toContain(
-      'aria-label="Use custom editing size" aria-pressed="true"',
+      'aria-label="Use custom artboard size" aria-pressed="true"',
     );
-    expect(markup).toContain("Editing size");
+    expect(markup).toContain(">Artboard</h3>");
+    expect(markup).not.toContain("Editing size");
     expect(markup).toContain("Store size");
     expect(markup).toContain("1456 × 1736 px");
     expect(markup).toContain(
@@ -159,12 +161,12 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const markup = renderInspector(result.project, result.variant, leadOnlyWatchSpecs);
 
     expect(markup).toContain('aria-label="Use Store size"');
-    expect(markup).toContain('aria-label="Use custom editing size"');
+    expect(markup).toContain('aria-label="Use custom artboard size"');
     expect(markup).toContain(
       'aria-label="Use Store size" aria-pressed="false" disabled=""',
     );
     expect(markup).toContain(
-      'aria-label="Use custom editing size" aria-pressed="false" disabled=""',
+      'aria-label="Use custom artboard size" aria-pressed="false" disabled=""',
     );
     expect(markup).toContain("This screen references a Store Target that is unavailable.");
   });

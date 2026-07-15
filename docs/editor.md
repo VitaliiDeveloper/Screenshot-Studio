@@ -139,7 +139,7 @@ actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
 - **No selection** → active **artboard** properties: every lead or variant Store Target uses the same
-  `Editing size` Store size/Custom controls. Store size matches that target's export dimensions; Custom keeps
+  single-row `Artboard` control with Store size/Custom modes. Store size matches that target's export dimensions; Custom keeps
   its aspect ratio while allowing a larger authoring canvas. Actions resize every composition in the
   active locale/platform/device/target output set atomically without changing sibling targets.
   Newly created watchOS lead and variant targets default to proportional 3.5× authoring artboards;
