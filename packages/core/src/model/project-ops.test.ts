@@ -235,14 +235,46 @@ describe("project-ops", () => {
       .toThrow('Cannot scale text shadow blur above 100 for element "headline"');
   });
 
-  it("refuses to resize an exact target variant", () => {
+  it("keeps resizeRootArtboard scoped to root screens", () => {
     const withVariant = ensureStoreTargetVariant(sampleProject(), "hero", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
     const variant = withVariant.screens.find((screen) => screen.storeTargetId === "6.5")!;
 
     expect(() => resizeRootArtboard(withVariant, variant.id, { width: 1000, height: 2000 }))
-      .toThrow(/fixed artboards/);
+      .toThrow(/only accepts root screens/);
+  });
+
+  it("resizes one store target output set without changing roots or sibling targets", () => {
+    let withTargets = sampleProject();
+    for (const rootId of ["hero", "details"]) {
+      withTargets = ensureStoreTargetVariant(withTargets, rootId, {
+        id: "6.5", width: 1284, height: 2778,
+      }).project;
+      withTargets = ensureStoreTargetVariant(withTargets, rootId, {
+        id: "5.5", width: 1242, height: 2688,
+      }).project;
+    }
+    const source = withTargets.screens.find((screen) =>
+      screen.variantOf === "hero" && screen.storeTargetId === "6.5"
+    )!;
+    const originalRoots = withTargets.screens.filter((screen) => screen.storeTargetId === undefined);
+    const originalSiblingTarget = withTargets.screens.filter((screen) => screen.storeTargetId === "5.5");
+
+    const resized = resizeStoreOutputArtboards(withTargets, source.id, {
+      width: 642,
+      height: 1389,
+    });
+
+    const resizedTarget = resized.screens.filter((screen) => screen.storeTargetId === "6.5");
+    expect(resizedTarget).toHaveLength(2);
+    expect(resizedTarget.every((screen) =>
+      screen.artboard.width === 642 && screen.artboard.height === 1389
+    )).toBe(true);
+    expect(resized.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toEqual(originalRoots);
+    expect(resized.screens.filter((screen) => screen.storeTargetId === "5.5"))
+      .toEqual(originalSiblingTarget);
   });
 
   it("resizes every master screen in one store output set", () => {
@@ -329,6 +361,30 @@ describe("project-ops", () => {
       storeTargetId: "series-11",
       artboard: { width: 1456, height: 1736 },
     });
+  });
+
+  it("reuses an existing target output set size for newly added variants", () => {
+    const family = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+    const watchRoots = family.project.screens.filter((screen) =>
+      screen.platform === "apple"
+      && screen.device === "watchos"
+      && screen.variantOf === undefined
+    );
+    const first = ensureStoreTargetVariant(family.project, watchRoots[0]!.id, {
+      id: "series-11", width: 416, height: 496,
+    });
+    const resized = resizeStoreOutputArtboards(first.project, first.variant.id, {
+      width: 832,
+      height: 992,
+    });
+
+    const second = ensureStoreTargetVariant(resized, watchRoots[1]!.id, {
+      id: "series-11", width: 416, height: 496,
+    });
+
+    expect(second.variant.artboard).toEqual({ width: 832, height: 992 });
   });
 
   it("derives watchOS masters from the supplied lead dimensions", () => {

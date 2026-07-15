@@ -138,13 +138,12 @@ Multiple elements show read-only aggregate bounds and batch lock/unlock, hide/sh
 actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
-- **No selection** → active **artboard** properties: an exact lead master shown as fixed by default,
-  except newly created editor-driven watchOS output families, whose proportional 3.5× authoring
-  masters are shown as custom. The section retains explicit output-set-wide atomic custom-size/reset
-  actions, independent target variants, and background. Newly created watchOS target variants use
-  target-derived 3.5× authoring artboards internally, while the Inspector retains the fixed-target
-  presentation and shows their exact export dimensions. Persisted exact variants remain exact and
-  are not resized:
+- **No selection** → active **artboard** properties: every lead or variant Store Target uses the same
+  `Artboard size` Fixed/Custom controls. Fixed matches that target's store dimensions; Custom keeps
+  its aspect ratio while allowing a larger authoring canvas. Actions resize every composition in the
+  active locale/platform/device/target output set atomically without changing sibling targets.
+  Newly created watchOS lead and variant targets default to proportional 3.5× authoring artboards;
+  persisted exact screens open as Fixed and remain unchanged until the user explicitly resizes them:
   `solid | linear-gradient | project image`. Image selection uses the secure project asset picker;
   fit and fallback/letterbox colour remain explicit. Project JSON may contain schema-valid
   eight-digit colours with alpha, while the current native `<input type="color">` picker authors
@@ -184,11 +183,12 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   their exact lead masters. Inside the active output, the lead row remains its root/master; accepted
   non-lead sizes create independent variants without leaving the current canvas context. New
   watchOS variants use a 3.5× authoring artboard derived from their own exact target—for example,
-  Series 11 authors at 1456 × 1736 and exports at 416 × 496. Variant Inspector controls stay
-  target-based and non-switchable rather than exposing that authoring implementation as a custom
-  size. Each variant remains available to open explicitly, and removing one preserves its master.
-  Existing output families and variants open unchanged, and no output or target action resizes an
-  existing screen in place.
+  Series 11 authors at 1456 × 1736 and exports at 416 × 496. Lead and variant targets have identical
+  target-local Fixed/Custom controls; resizing one never changes another. When another screen is
+  added to an existing target output set, it reuses that set's current authoring size instead of
+  reverting to the platform default. Each variant remains available to open explicitly, and removing
+  one preserves its master. Existing output families and variants open unchanged, and creation
+  actions never resize an existing screen in place.
 - **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is

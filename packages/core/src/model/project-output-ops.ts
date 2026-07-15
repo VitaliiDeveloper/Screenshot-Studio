@@ -10,7 +10,10 @@ import {
   parseScreenPlacement,
   removeScreenFromProject,
 } from "./project-screen-ops.js";
-import { fitElementsToArtboard, resizeRootArtboard } from "./project-artboard-ops.js";
+import {
+  fitElementsToArtboard,
+  resizeScreenArtboard,
+} from "./project-artboard-ops.js";
 
 export interface StoreTargetDimensions {
   id: string;
@@ -46,7 +49,7 @@ function deriveAuthoringArtboard(
   return artboard;
 }
 
-/** Resize every root/master in one store output set; size variants remain independent. */
+/** Resize every screen in one target-specific store output set. */
 export function resizeStoreOutputArtboards(
   project: ProjectModel,
   sourceScreenId: string,
@@ -54,19 +57,16 @@ export function resizeStoreOutputArtboards(
 ): ProjectModel {
   const source = project.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
-  if (source.variantOf !== undefined || source.storeTargetId !== undefined) {
-    throw new Error("Store-target variants cannot be resized independently");
-  }
 
   let next = project;
   for (const screen of project.screens) {
     if (
-      screen.variantOf === undefined
-      && screen.platform === source.platform
+      screen.platform === source.platform
       && screen.device === source.device
       && screen.locale === source.locale
+      && screen.storeTargetId === source.storeTargetId
     ) {
-      next = resizeRootArtboard(next, screen.id, target);
+      next = resizeScreenArtboard(next, screen.id, target);
     }
   }
   return next;
@@ -158,7 +158,15 @@ export function ensureStoreTargetVariant(
   if (existing) return { project, variant: existing, created: false };
 
   const copy = cloneScreenWithFreshIds(root);
-  const variantArtboard = deriveAuthoringArtboard(root, target);
+  const targetSetScreen = project.screens.find((screen) =>
+    screen.platform === root.platform
+    && screen.device === root.device
+    && screen.locale === root.locale
+    && screen.storeTargetId === target.id
+  );
+  const variantArtboard = targetSetScreen
+    ? { ...targetSetScreen.artboard }
+    : deriveAuthoringArtboard(root, target);
   const variant = ScreenSchema.parse({
     ...copy,
     name: root.name,

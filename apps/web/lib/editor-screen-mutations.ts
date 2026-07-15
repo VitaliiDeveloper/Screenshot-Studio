@@ -205,7 +205,7 @@ export function resizeProjectArtboards(
   size: { width: number; height: number },
 ): Project {
   const active = project.screens.find((screen) => screen.id === activeScreenId);
-  if (!active || active.storeTargetId !== undefined) return project;
+  if (!active) return project;
   return resizeStoreOutputArtboards(project, active.id, size);
 }
 

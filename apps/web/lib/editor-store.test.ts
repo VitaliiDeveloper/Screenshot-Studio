@@ -646,19 +646,35 @@ describe("editorStore screen editors (slice 5)", () => {
       .toEqual({ width: 1320, height: 2868 });
   });
 
-  it("does not let exact store-target variants drift through artboard patches", () => {
+  it("resizeArtboard updates only the active store target output set", () => {
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
-    const variant = editorStore.getState().project!.screens.find(
-      (screen) => screen.storeTargetId === "6.5",
-    )!;
-    editorStore.getState().selectScreen(variant.id);
-    editorStore.getState().resizeArtboard({ width: 720, height: 1560 });
-    const active = editorStore.getState().project!.screens.find(
-      (screen) => screen.id === editorStore.getState().activeScreenId,
+    editorStore.getState().selectScreen("second");
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const before = editorStore.getState().project!;
+    const originalRoots = structuredClone(
+      before.screens.filter((screen) => screen.storeTargetId === undefined),
     );
-    expect(active?.artboard).toEqual({ width: 1284, height: 2778 });
+    const variant = before.screens.find(
+      (screen) => screen.variantOf === "hero" && screen.storeTargetId === "6.5",
+    )!;
+
+    editorStore.getState().selectScreen(variant.id);
+    editorStore.getState().resizeArtboard({ width: 642, height: 1389 });
+
+    const resized = editorStore.getState().project!;
+    const targetScreens = resized.screens.filter(
+      (screen) => screen.storeTargetId === "6.5",
+    );
+    expect(targetScreens).toHaveLength(2);
+    expect(targetScreens.every((screen) =>
+      screen.artboard.width === 642 && screen.artboard.height === 1389
+    )).toBe(true);
+    expect(resized.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toEqual(originalRoots);
   });
 });
 
