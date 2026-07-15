@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { projectRevision } from "@screenshot-studio/core/storage";
 import { handleThemeGet, handleThemePost } from "./handler.js";
 
 let dir: string;
@@ -41,10 +42,18 @@ describe("/api/themes", () => {
     }));
     expect(response.status).toBe(200);
     expect((await response.json()).screens[0].elements[0].fill).toBe("#38BDF8");
-    expect(JSON.parse(await readFile(projectPath, "utf8")).screens[0].elements[0].fill).toBe("#38BDF8");
+    const persisted = await readFile(projectPath);
+    expect(JSON.parse(persisted.toString("utf8")).screens[0].elements[0].fill).toBe("#38BDF8");
+    expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
   });
 
   it("returns explicit errors for missing and invalid ids", async () => {
+    const nullBody = await handleThemePost(new Request("http://localhost/api/themes", {
+      method: "POST", body: "null",
+    }));
+    expect(nullBody.status).toBe(400);
+    expect((await nullBody.json()).error).toMatch(/JSON object/i);
+
     const missing = await handleThemePost(new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "missing" }),
     }));
