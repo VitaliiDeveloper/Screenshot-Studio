@@ -6,14 +6,13 @@ import { useStore } from "zustand";
 import { CloudDownload, Type, Upload } from "lucide-react";
 import {
   DEFAULT_FONT_WEIGHT,
-  elementLeaves,
+  countProjectFontUsage,
   findElementLocation,
   FONT_WEIGHT_MAX,
   FONT_WEIGHT_MIN,
   FONT_WEIGHT_STEP,
   fontIdentityKey,
   getScreen,
-  parseProject,
   type FontAsset,
   type Project,
 } from "@screenshot-studio/core/model";
@@ -22,27 +21,11 @@ import { editorStore } from "../lib/editor-store";
 import { primarySelection } from "../lib/editor-selection";
 import { withFlushedProject } from "../lib/debounced-save";
 import { mutateAndSave } from "../lib/mutate-and-save";
+import { setProjectRevision } from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
+import { reconcileFontMutationResponse } from "./font-manager-model";
 
 type PendingAction = "upload" | "google" | "remove" | null;
-
-function fontUsage(project: Project, font: FontAsset): number {
-  let count = 0;
-  for (const screen of project.screens) {
-    for (const element of screen.elements) {
-      for (const leaf of elementLeaves(element)) {
-        if (leaf.type === "text" && leaf.fontFamily === font.family && leaf.weight === font.weight) count += 1;
-      }
-    }
-  }
-  return count;
-}
-
-async function responseProject(response: Response): Promise<Project> {
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error ?? `Font operation failed (${response.status})`);
-  return parseProject(body);
-}
 
 export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
@@ -55,6 +38,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const [googleWeight, setGoogleWeight] = useState(DEFAULT_FONT_WEIGHT);
   const [pending, setPending] = useState<PendingAction>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
 
   if (!open || !project || !activeScreenId) return null;
@@ -65,43 +49,52 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     : undefined;
   const selectedText = selected?.type === "text" ? selected : undefined;
   const close = () => {
+    if (pending !== null) return;
     setError(null);
+    setWarning(null);
     onClose();
   };
 
-  const acceptProject = async (nextProject: Project, previousFonts: FontAsset[]) => {
-    const previousKeys = new Set(previousFonts.map(fontIdentityKey));
-    const added = nextProject.fonts.filter((font) => !previousKeys.has(fontIdentityKey(font)));
-    try {
-      await Promise.all(added.map((font) => registerFont(
+  const removeBrowserFaces = (font: FontAsset) => {
+    for (const face of document.fonts) {
+      if (face.family === font.family && Number(face.weight) === font.weight) {
+        document.fonts.delete(face);
+      }
+    }
+  };
+
+  const reconcileAdd = async (response: Response, previousProject: Project) => {
+    const result = await reconcileFontMutationResponse({
+      response,
+      previousProject,
+      operation: "add",
+    }, {
+      replaceProject: editorStore.getState().replaceProject,
+      setProjectRevision,
+      registerAddedFont: (font) => registerFont(
         font,
         (path) => `/api/asset?path=${encodeURIComponent(path)}`,
-      )));
-      editorStore.getState().replaceFonts(nextProject.fonts);
-    } catch (loadError) {
-      // The server mutation is already durable. Sync it before releasing the persistence lock so
-      // a queued editor save cannot erase the project entry, then report the partial failure.
-      editorStore.getState().replaceFonts(nextProject.fonts);
-      throw new Error(
-        `Font was saved to the project, but its browser preview could not load: ${(loadError as Error).message}`,
-        { cause: loadError },
-      );
-    }
+      ),
+    });
+    setWarning(result.warning);
   };
 
   const addUpload = async () => {
     if (!uploadFile) { setError("Choose a font file."); return; }
     setPending("upload");
     setError(null);
+    setWarning(null);
     try {
       await withFlushedProject(async () => {
-        const previousFonts = editorStore.getState().project!.fonts;
+        const previousProject = editorStore.getState().project!;
         const form = new FormData();
         form.set("file", uploadFile);
         form.set("family", uploadFamily);
         form.set("weight", String(uploadWeight));
-        const next = await responseProject(await fetch("/api/fonts", { method: "POST", body: form }));
-        await acceptProject(next, previousFonts);
+        await reconcileAdd(
+          await fetch("/api/fonts", { method: "POST", body: form }),
+          previousProject,
+        );
       });
       setUploadFile(null);
       setUploadFamily("");
@@ -116,15 +109,16 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const addGoogle = async () => {
     setPending("google");
     setError(null);
+    setWarning(null);
     try {
       await withFlushedProject(async () => {
-        const previousFonts = editorStore.getState().project!.fonts;
-        const next = await responseProject(await fetch("/api/fonts", {
+        const previousProject = editorStore.getState().project!;
+        const response = await fetch("/api/fonts", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ source: "google", family: googleFamily, weight: googleWeight }),
-        }));
-        await acceptProject(next, previousFonts);
+        });
+        await reconcileAdd(response, previousProject);
       });
       setGoogleFamily("");
     } catch (err) {
@@ -135,21 +129,27 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   };
 
   const remove = async (font: FontAsset) => {
-    const usage = fontUsage(project, font);
-    if (usage > 0 && !window.confirm(`Remove ${font.family} ${font.weight}? It is used by ${usage} text element(s).`)) return;
     setPending("remove");
     setError(null);
+    setWarning(null);
     try {
       await withFlushedProject(async () => {
-        const next = await responseProject(await fetch("/api/fonts", {
+        const previousProject = editorStore.getState().project!;
+        const response = await fetch("/api/fonts", {
           method: "DELETE",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ family: font.family, weight: font.weight }),
-        }));
-        for (const face of document.fonts) {
-          if (face.family === font.family && Number(face.weight) === font.weight) document.fonts.delete(face);
-        }
-        editorStore.getState().replaceFonts(next.fonts);
+        });
+        await reconcileFontMutationResponse({
+          response,
+          previousProject,
+          operation: "remove",
+          removedFont: font,
+        }, {
+          replaceProject: editorStore.getState().replaceProject,
+          setProjectRevision,
+          removeBrowserFaces,
+        });
       });
     } catch (err) {
       setError((err as Error).message);
@@ -175,6 +175,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
       ariaLabel="Font manager"
       closeLabel="Close font manager"
       onClose={close}
+      closeDisabled={pending !== null}
       widthClass="max-w-3xl"
     >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -219,6 +220,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         </div>
 
         {error && <p role="alert" className="mt-4 whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
+        {warning && <p role="status" className="mt-4 whitespace-pre-wrap rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">{warning}</p>}
 
         <section className="mt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -233,7 +235,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
               path="assets/fonts/"
             />
           ) : project.fonts.map((font) => {
-            const usage = fontUsage(project, font);
+            const usage = countProjectFontUsage(project, font);
             return (
               <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className="flex flex-col items-stretch gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">

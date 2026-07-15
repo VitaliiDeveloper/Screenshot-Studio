@@ -10,7 +10,6 @@ import {
   type Background,
   type Project,
   type Element,
-  type FontAsset,
   type LayoutDirection,
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
@@ -39,7 +38,6 @@ import {
   removeScreenElement,
   reorderProjectScreens,
   reorderScreenElements,
-  replaceProjectFonts,
   resizeProjectArtboards,
   setScreenBackground,
 } from "./editor-screen-mutations.js";
@@ -110,7 +108,6 @@ export interface EditorState {
   addElement: (element: Element) => void;
   setBackground: (background: Background) => void;
   resizeArtboard: (size: { width: number; height: number }) => void;
-  replaceFonts: (fonts: FontAsset[]) => void;
   replaceProject: (project: Project) => void;
   endHistoryGroup: () => void;
   undo: () => void;
@@ -448,11 +445,6 @@ export const editorStore = createStore<EditorState>((set) => ({
         state,
         resizeProjectArtboards(state.project, state.activeScreenId, size),
       );
-    }),
-  replaceFonts: (fonts) =>
-    set((state) => {
-      if (!state.project) return state;
-      return recordProjectChange(state, replaceProjectFonts(state.project, fonts));
     }),
   replaceProject: (project) =>
     set((state) => {
