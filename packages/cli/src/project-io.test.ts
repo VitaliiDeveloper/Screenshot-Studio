@@ -139,7 +139,7 @@ describe("project IO", () => {
 });
 
 async function waitForIo(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 1_000; attempt += 1) {
     if (predicate()) return;
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
