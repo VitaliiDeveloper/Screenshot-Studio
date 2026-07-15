@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { copyFile, mkdir, readFile, readdir } from "node:fs/promises";
-import { dirname, join, parse, relative } from "node:path";
+import { createHash } from "node:crypto";
+import { readFile, readdir } from "node:fs/promises";
+import { dirname, join, parse, relative, sep } from "node:path";
 import { posix } from "node:path";
 import {
   addScreenToProject,
@@ -10,7 +11,15 @@ import {
   uniqueId,
 } from "@screenshot-studio/core/model";
 import { inspectPng } from "@screenshot-studio/core/export";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import {
+  resolveExistingProjectPath,
+  type ProjectFileDependencies,
+} from "@screenshot-studio/core/storage";
+import { updateProjectFile } from "./project-io.js";
+import {
+  publishFileSafelyWithOwnership,
+  removeRegularFileSafely,
+} from "./safe-file-publisher.js";
 
 export interface ImportCapturesOptions {
   projectPath: string;
@@ -31,6 +40,20 @@ interface CaptureFile {
   relativePath: string;
 }
 
+interface ImportCapturesDependencies {
+  projectFileDependencies?: ProjectFileDependencies;
+  publishFile?: typeof publishFileSafelyWithOwnership;
+  removeFile?: typeof removeRegularFileSafely;
+}
+
+interface PreparedCapture extends CaptureFile {
+  placement: NonNullable<ReturnType<typeof parseScreenPlacement>>;
+  png: Buffer;
+  width: number;
+  height: number;
+  assetUrl: string;
+}
+
 function displayDevice(device: string): string {
   if (device === "iphone") return "iPhone";
   if (device === "ipad") return "iPad";
@@ -39,7 +62,7 @@ function displayDevice(device: string): string {
 
 async function collectCaptureFiles(inputDir: string): Promise<CaptureFile[]> {
   const captures: CaptureFile[] = [];
-  const platforms = await readdir(inputDir, { withFileTypes: true }).catch(() => []);
+  const platforms = await readdir(inputDir, { withFileTypes: true });
   for (const platformEntry of platforms) {
     if (!platformEntry.isDirectory()) continue;
     const platform = platformEntry.name;
@@ -64,7 +87,7 @@ async function collectCaptureFiles(inputDir: string): Promise<CaptureFile[]> {
             locale,
             filename: file.name,
             sourcePath,
-            relativePath: relative(inputDir, sourcePath).split(posix.sep).join(posix.sep),
+            relativePath: relative(inputDir, sourcePath).split(sep).join(posix.sep),
           });
         }
       }
@@ -76,12 +99,16 @@ async function collectCaptureFiles(inputDir: string): Promise<CaptureFile[]> {
 export async function importCaptures({
   projectPath,
   inputDir,
-}: ImportCapturesOptions): Promise<ImportCapturesResult> {
-  let project = await loadProjectFile(projectPath);
+}: ImportCapturesOptions, {
+  projectFileDependencies = {},
+  publishFile = publishFileSafelyWithOwnership,
+  removeFile = removeRegularFileSafely,
+}: ImportCapturesDependencies = {}): Promise<ImportCapturesResult> {
+  const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const captures = await collectCaptureFiles(inputDir);
-  const projectDir = dirname(projectPath);
+  const projectDir = dirname(canonicalProjectPath);
   const warnings: string[] = [];
-  let imported = 0;
+  const prepared: PreparedCapture[] = [];
 
   for (const capture of captures) {
     const placement = parseScreenPlacement(capture.platform, capture.device);
@@ -90,49 +117,66 @@ export async function importCaptures({
       continue;
     }
 
-    const png = inspectPng(await readFile(capture.sourcePath));
-    const assetUrl = posix.join(
-      "assets",
-      "imports",
-      capture.platform,
-      capture.device,
-      capture.locale,
-      capture.filename,
-    );
-    const targetPath = join(projectDir, assetUrl);
-    await mkdir(dirname(targetPath), { recursive: true });
-    await copyFile(capture.sourcePath, targetPath);
-
-    const stem = parse(capture.filename).name;
-    // Resolve the final unique screen id first so the element id stays deterministic after collisions.
-    const screenId = uniqueId(
-      slugify(`${capture.platform}-${capture.device}-${capture.locale}-${stem}`),
-      project.screens,
-    );
-    const name = `${capture.platform.slice(0, 1).toUpperCase()}${capture.platform.slice(1)} ${displayDevice(
-      capture.device,
-    )} ${capture.locale} ${stem}`;
-
-    project = addScreenToProject(project, {
-      ...placement,
-      id: screenId,
-      name,
-      locale: capture.locale,
-      artboard: { width: png.width, height: png.height },
-      elements: [
-        createScreenshotElement({
-          id: `${screenId}-screenshot`,
-          x: 0,
-          y: 0,
-          width: png.width,
-          height: png.height,
-          assetUrl,
-        }),
-      ],
+    const bytes = await readFile(capture.sourcePath);
+    const png = inspectPng(bytes);
+    const revision = createHash("sha256").update(bytes).digest("hex");
+    prepared.push({
+      ...capture,
+      placement,
+      png: bytes,
+      width: png.width,
+      height: png.height,
+      assetUrl: posix.join("assets", "imports", `${revision}.png`),
     });
-    imported += 1;
   }
 
-  await writeProjectFile(projectPath, project);
-  return { imported, warnings };
+  const updated = await updateProjectFile(canonicalProjectPath, async (current, transaction) => {
+    let project = current;
+    for (const capture of prepared) {
+      const publication = await publishFile({
+        root: projectDir,
+        relativePath: capture.assetUrl,
+        bytes: capture.png,
+      });
+      if (publication.created) {
+        transaction.onRollback(async () => {
+          await removeFile(projectDir, capture.assetUrl, publication.ownership);
+        });
+      }
+
+      const stem = parse(capture.filename).name;
+      // Resolve the final unique screen id first so the element id stays deterministic after collisions.
+      const screenId = uniqueId(
+        slugify(`${capture.platform}-${capture.device}-${capture.locale}-${stem}`),
+        project.screens,
+      );
+      const name = `${capture.platform.slice(0, 1).toUpperCase()}${capture.platform.slice(1)} ${displayDevice(
+        capture.device,
+      )} ${capture.locale} ${stem}`;
+
+      project = addScreenToProject(project, {
+        ...capture.placement,
+        id: screenId,
+        name,
+        locale: capture.locale,
+        artboard: { width: capture.width, height: capture.height },
+        elements: [
+          createScreenshotElement({
+            id: `${screenId}-screenshot`,
+            x: 0,
+            y: 0,
+            width: capture.width,
+            height: capture.height,
+            assetUrl: capture.assetUrl,
+          }),
+        ],
+      });
+    }
+
+    return {
+      project,
+      value: { imported: prepared.length, warnings },
+    };
+  }, {}, projectFileDependencies);
+  return updated.value;
 }
