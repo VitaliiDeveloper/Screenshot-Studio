@@ -6,12 +6,17 @@ import { parseProjectJson, type Project } from "../model/index.js";
 import { writeProjectAtomic } from "./project-file.js";
 
 export {
+  createProjectAtomic,
   ProjectRevisionConflictError,
   projectRevision,
+  readIdentifiedProjectSnapshot,
   readProjectSnapshot,
   serializeProject,
+  writeProjectConditionalAtomic,
   writeProjectAtomic,
+  type IdentifiedProjectSnapshot,
   type ProjectFileDependencies,
+  type ProjectFileIdentity,
   type ProjectSnapshot,
 } from "./project-file.js";
 export {
@@ -25,6 +30,10 @@ export {
   type ProjectLockOwner,
   type ProjectMutationLock,
 } from "./project-lock.js";
+export {
+  ProjectPathError,
+  resolveExistingProjectPath,
+} from "./project-path.js";
 
 /**
  * Storage boundary (docs/architecture.md §2). `core` depends on this interface, not a concrete
