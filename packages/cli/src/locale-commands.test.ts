@@ -1,15 +1,53 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { loadProjectFile, updateProjectFile, writeProjectFile } from "./project-io.js";
 import {
   formatLocaleList,
   resolveLocaleAction,
   runLocaleCommand,
 } from "./locale-commands.js";
+
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function temporaryDirectory(prefix: string): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.push(directory);
+  return directory;
+}
+
+function controlledLockWait(): {
+  options: ProjectLockOptions;
+  didWait: Promise<void>;
+  release: () => void;
+} {
+  let markWait!: () => void;
+  const didWait = new Promise<void>((resolve) => { markWait = resolve; });
+  const waiters: Array<() => void> = [];
+  return {
+    didWait,
+    options: {
+      timeoutMs: 500,
+      staleAfterMs: 10_000,
+      dependencies: {
+        sleep: () => {
+          markWait();
+          return new Promise<void>((resolve) => waiters.push(resolve));
+        },
+        scheduleHeartbeat: () => () => undefined,
+      },
+    },
+    release: () => { waiters.splice(0).forEach((resolve) => resolve()); },
+  };
+}
 
 function project(): Project {
   return {
@@ -98,7 +136,7 @@ describe("locale command workflow", () => {
   });
 
   it("adds, converts, and removes persisted locale sets through core", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "screenshot-studio-locales-"));
+    const dir = await temporaryDirectory("screenshot-studio-locales-");
     const projectPath = join(dir, "app-store-screenshots.json");
     await writeProjectFile(projectPath, project());
 
@@ -127,7 +165,7 @@ describe("locale command workflow", () => {
   });
 
   it("defaults a cloned locale to the source direction and protects the last locale", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "screenshot-studio-locales-default-"));
+    const dir = await temporaryDirectory("screenshot-studio-locales-default-");
     const projectPath = join(dir, "app-store-screenshots.json");
     await writeProjectFile(projectPath, project());
 
@@ -138,5 +176,53 @@ describe("locale command workflow", () => {
 
     await runLocaleCommand(projectPath, ["rm", "uk"], {});
     await expect(runLocaleCommand(projectPath, ["rm", "en"], {})).rejects.toThrow(/last locale/);
+  });
+
+  it("queues mutation behind the project lease while list remains lock-free", async () => {
+    const dir = await temporaryDirectory("screenshot-studio-locales-coordination-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, project());
+    let releaseHeld!: () => void;
+    const heldMayFinish = new Promise<void>((resolve) => { releaseHeld = resolve; });
+    let heldEntered!: () => void;
+    const heldDidEnter = new Promise<void>((resolve) => { heldEntered = resolve; });
+
+    const held = updateProjectFile(projectPath, async (current) => {
+      heldEntered();
+      await heldMayFinish;
+      return {
+        project: { ...current, meta: { ...current.meta, name: "Held writer" } },
+        value: undefined,
+      };
+    });
+    const heldOutcome = held.then(
+      () => ({ status: "fulfilled" as const }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    await heldDidEnter;
+    await expect(runLocaleCommand(projectPath, ["list"], {})).resolves.toBe("en ltr 2 screens");
+
+    const lockWait = controlledLockWait();
+    const command = runLocaleCommand(projectPath, ["add", "uk"], { from: "en" }, lockWait.options);
+    const commandOutcome = command.then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    const queueState = await Promise.race([
+      lockWait.didWait.then(() => "waited" as const),
+      commandOutcome.then(() => "settled" as const),
+    ]);
+
+    releaseHeld();
+    const heldResult = await heldOutcome;
+    lockWait.release();
+    const commandResult = await commandOutcome;
+
+    expect(queueState).toBe("waited");
+    expect(heldResult.status).toBe("fulfilled");
+    expect(commandResult.status).toBe("fulfilled");
+    const saved = await loadProjectFile(projectPath);
+    expect(saved.meta.name).toBe("Held writer");
+    expect(saved.locales).toEqual(["en", "uk"]);
   });
 });

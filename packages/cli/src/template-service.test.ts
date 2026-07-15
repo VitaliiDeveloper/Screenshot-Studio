@@ -1,12 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { createTemplateScreen, listTemplates, TemplateValidationError } from "./template-service.js";
+import { afterEach, describe, expect, it } from "vitest";
+import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { updateProjectFile } from "./project-io.js";
+import {
+  createTemplateScreen,
+  listTemplates,
+  loadTemplate,
+  TemplateValidationError,
+} from "./template-service.js";
+
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function temporaryDirectory(prefix: string): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.push(directory);
+  return directory;
+}
+
+function controlledLockWait(): {
+  options: ProjectLockOptions;
+  didWait: Promise<void>;
+  release: () => void;
+} {
+  let markWait!: () => void;
+  const didWait = new Promise<void>((resolve) => { markWait = resolve; });
+  const waiters: Array<() => void> = [];
+  return {
+    didWait,
+    options: {
+      timeoutMs: 500,
+      staleAfterMs: 10_000,
+      dependencies: {
+        sleep: () => {
+          markWait();
+          return new Promise<void>((resolve) => waiters.push(resolve));
+        },
+        scheduleHeartbeat: () => () => undefined,
+      },
+    },
+    release: () => { waiters.splice(0).forEach((resolve) => resolve()); },
+  };
+}
 
 async function fixture() {
-  const dir = await mkdtemp(join(tmpdir(), "template-service-"));
+  const dir = await temporaryDirectory("template-service-");
   const projectPath = join(dir, "app-store-screenshots.json");
   const template = {
     id: "accent-card", name: "Accent card", platform: "apple", device: "iphone",
@@ -40,6 +84,69 @@ describe("template-service", () => {
     const result = await createTemplateScreen(projectPath, "accent-card", "uk");
     expect(result.screen).toMatchObject({ id: "accent-card", locale: "uk" });
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.screens).toHaveLength(2);
+    expect(saved.locales).toEqual(["en", "uk"]);
+  });
+
+  it("resolves list, load, and create resources beside a symlinked project target", async () => {
+    const { projectPath } = await fixture();
+    const aliasDir = await temporaryDirectory("template-service-alias-");
+    const aliasPath = join(aliasDir, "project-alias.json");
+    await symlink(projectPath, aliasPath);
+
+    expect((await listTemplates(aliasPath)).map((template) => template.id)).toEqual(["accent-card"]);
+    await expect(loadTemplate(aliasPath, "accent-card"))
+      .resolves.toMatchObject({ name: "Accent card" });
+    await createTemplateScreen(aliasPath, "accent-card", "uk");
+
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.screens).toHaveLength(2);
+    expect(saved.locales).toEqual(["en", "uk"]);
+  });
+
+  it("queues create behind the project lease while list remains lock-free", async () => {
+    const { projectPath } = await fixture();
+    let releaseHeld!: () => void;
+    const heldMayFinish = new Promise<void>((resolve) => { releaseHeld = resolve; });
+    let heldEntered!: () => void;
+    const heldDidEnter = new Promise<void>((resolve) => { heldEntered = resolve; });
+
+    const held = updateProjectFile(projectPath, async (project) => {
+      heldEntered();
+      await heldMayFinish;
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Held writer" } },
+        value: undefined,
+      };
+    });
+    const heldOutcome = held.then(
+      () => ({ status: "fulfilled" as const }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    await heldDidEnter;
+    await expect(listTemplates(projectPath)).resolves.toHaveLength(1);
+
+    const lockWait = controlledLockWait();
+    const create = createTemplateScreen(projectPath, "accent-card", "uk", lockWait.options);
+    const createOutcome = create.then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    const queueState = await Promise.race([
+      lockWait.didWait.then(() => "waited" as const),
+      createOutcome.then(() => "settled" as const),
+    ]);
+
+    releaseHeld();
+    const heldResult = await heldOutcome;
+    lockWait.release();
+    const createResult = await createOutcome;
+
+    expect(queueState).toBe("waited");
+    expect(heldResult.status).toBe("fulfilled");
+    expect(createResult.status).toBe("fulfilled");
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.meta.name).toBe("Held writer");
     expect(saved.screens).toHaveLength(2);
     expect(saved.locales).toEqual(["en", "uk"]);
   });

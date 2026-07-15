@@ -3,7 +3,11 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { applyTheme, parseThemeJson, type Theme } from "@screenshot-studio/core/themes";
 import type { Project } from "@screenshot-studio/core/model";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import {
+  resolveExistingProjectPath,
+  type ProjectLockOptions,
+} from "@screenshot-studio/core/storage";
+import { updateProjectFile } from "./project-io.js";
 
 const THEME_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -49,8 +53,7 @@ function parseDefinition(json: string, path: string): Theme {
   }
 }
 
-export async function loadTheme(projectPath: string, rawId: unknown): Promise<Theme> {
-  const id = themeId(rawId);
+async function loadCanonicalTheme(projectPath: string, id: string): Promise<Theme> {
   const path = join(themesDir(projectPath), `${id}.json`);
   let json: string;
   try {
@@ -70,8 +73,13 @@ export async function loadTheme(projectPath: string, rawId: unknown): Promise<Th
   return theme;
 }
 
+export async function loadTheme(projectPath: string, rawId: unknown): Promise<Theme> {
+  const id = themeId(rawId);
+  return loadCanonicalTheme(await resolveExistingProjectPath(projectPath), id);
+}
+
 export async function listThemes(projectPath: string): Promise<Theme[]> {
-  const dir = themesDir(projectPath);
+  const dir = themesDir(await resolveExistingProjectPath(projectPath));
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -94,18 +102,23 @@ export async function listThemes(projectPath: string): Promise<Theme[]> {
   return themes.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export async function applyThemeFile(projectPath: string, rawId: unknown): Promise<{
+export async function applyThemeFile(
+  projectPath: string,
+  rawId: unknown,
+  lockOptions: ProjectLockOptions = {},
+): Promise<{
   project: Project;
   theme: Theme;
 }> {
-  const theme = await loadTheme(projectPath, rawId);
-  const current = await loadProjectFile(projectPath);
-  let project: Project;
-  try {
-    project = applyTheme(current, theme);
-  } catch (error) {
-    throw new ThemeApplyError((error as Error).message, { cause: error });
-  }
-  await writeProjectFile(projectPath, project);
-  return { project, theme };
+  const id = themeId(rawId);
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const theme = await loadCanonicalTheme(canonicalPath, id);
+  const updated = await updateProjectFile(canonicalPath, (current) => {
+    try {
+      return { project: applyTheme(current, theme), value: undefined };
+    } catch (error) {
+      throw new ThemeApplyError((error as Error).message, { cause: error });
+    }
+  }, lockOptions);
+  return { project: updated.project, theme };
 }

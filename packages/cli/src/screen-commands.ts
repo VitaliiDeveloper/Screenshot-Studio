@@ -16,7 +16,8 @@ import {
   parseStoreSpecs,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { loadProjectFile, updateProjectFile } from "./project-io.js";
 import { parseLayoutDirection } from "./direction.js";
 
 export interface AddScreenOptions {
@@ -129,21 +130,23 @@ export async function runScreenCommand(
   storeSpecsPath: string,
   args: string[],
   flags: Record<string, string>,
+  lockOptions: ProjectLockOptions = {},
 ): Promise<string> {
   const action = resolveScreenAction(args, flags);
-  const project = await loadProjectFile(projectPath);
-  if (action.kind === "list") return formatScreenList(project);
+  if (action.kind === "list") return formatScreenList(await loadProjectFile(projectPath));
 
-  let nextProject: ProjectModel;
-  if (action.kind === "add") {
-    const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-    nextProject = addScreenToProject(project, specs, action.options);
-  } else if (action.kind === "rm") {
-    nextProject = removeScreenFromProject(project, action.id);
-  } else {
-    nextProject = reorderScreenInProject(project, action.id, action.to);
-  }
+  const updated = await updateProjectFile(projectPath, async (project) => {
+    let nextProject: ProjectModel;
+    if (action.kind === "add") {
+      const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
+      nextProject = addScreenToProject(project, specs, action.options);
+    } else if (action.kind === "rm") {
+      nextProject = removeScreenFromProject(project, action.id);
+    } else {
+      nextProject = reorderScreenInProject(project, action.id, action.to);
+    }
 
-  await writeProjectFile(projectPath, nextProject);
-  return formatScreenList(nextProject);
+    return { project: nextProject, value: undefined };
+  }, lockOptions);
+  return formatScreenList(updated.project);
 }
