@@ -102,6 +102,27 @@ describe("project-file", () => {
     expect(await readdir(directory)).toEqual(["app-store-screenshots.json"]);
   });
 
+  it("preserves the old project when a stage write rejects without an error value", async () => {
+    const { directory, projectPath } = await workspace("project-snapshot-falsy-write-fail-");
+    const before = serializeProject(project("Before"));
+    await writeFile(projectPath, before);
+
+    await expect(writeProjectAtomic(projectPath, project("After"), {
+      randomId: () => "falsy-write-failure",
+      openFile: async (path, flags, mode) => {
+        const handle = await open(path, flags, mode);
+        return {
+          writeFile: () => Promise.reject(),
+          sync: () => handle.sync(),
+          close: () => handle.close(),
+        };
+      },
+    })).rejects.toBeUndefined();
+
+    expect(await readFile(projectPath, "utf8")).toBe(before);
+    expect(await readdir(directory)).toEqual(["app-store-screenshots.json"]);
+  });
+
   it("preserves the old project and cleans its owned stage after a stage sync failure", async () => {
     const { directory, projectPath } = await workspace("project-snapshot-sync-fail-");
     const before = serializeProject(project("Before"));
@@ -165,6 +186,23 @@ describe("project-file", () => {
     expect(opened.every((path) => path.startsWith(`${directory}/.`))).toBe(true);
     expect(await readdir(directory)).toEqual(["app-store-screenshots.json"]);
     await expect(readProjectSnapshot(projectPath)).resolves.toMatchObject({ project: { meta: { name: "Second" } } });
+  });
+
+  it("keeps a published write successful when directory sync is unavailable", async () => {
+    const { projectPath } = await workspace("project-snapshot-directory-sync-");
+    const close = vi.fn(async () => undefined);
+
+    await expect(writeProjectAtomic(projectPath, project("Published"), {
+      openDirectory: async () => ({
+        sync: async () => { throw new Error("directory sync unsupported"); },
+        close,
+      }),
+    })).resolves.toMatchObject({ project: { meta: { name: "Published" } } });
+
+    await expect(readProjectSnapshot(projectPath)).resolves.toMatchObject({
+      project: { meta: { name: "Published" } },
+    });
+    expect(close).toHaveBeenCalledOnce();
   });
 
   it("never deletes a pre-existing unowned stage when exclusive open fails", async () => {

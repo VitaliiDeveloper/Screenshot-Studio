@@ -6,7 +6,6 @@ import { parseProjectJson, type Project } from "../model/index.js";
 import { writeProjectAtomic } from "./project-file.js";
 
 export {
-  ProjectRevisionConflictError,
   projectRevision,
   readProjectSnapshot,
   serializeProject,

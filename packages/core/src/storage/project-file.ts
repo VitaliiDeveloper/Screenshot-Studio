@@ -10,17 +10,6 @@ export interface ProjectSnapshot {
   revision: string;
 }
 
-export class ProjectRevisionConflictError extends Error {
-  override name = "ProjectRevisionConflictError";
-
-  constructor(
-    readonly expected: string,
-    readonly actual: string,
-  ) {
-    super(`Project revision conflict: expected ${expected}, found ${actual}`);
-  }
-}
-
 type WritableStageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">;
 type DirectoryHandle = Pick<FileHandle, "sync" | "close">;
 
@@ -57,10 +46,6 @@ export async function readProjectSnapshot(projectPath: string): Promise<ProjectS
   return { project: parseProjectJson(bytes.toString("utf8")), revision: projectRevision(bytes) };
 }
 
-async function closeHandle(handle: WritableStageHandle): Promise<void> {
-  await handle.close();
-}
-
 async function createOwnedStage(
   stagePath: string,
   bytes: string,
@@ -70,6 +55,7 @@ async function createOwnedStage(
   let handle: WritableStageHandle | undefined;
   let owned = false;
   let primaryError: unknown;
+  let hasPrimaryError = false;
   try {
     const flags = constants.O_WRONLY
       | constants.O_CREAT
@@ -81,19 +67,21 @@ async function createOwnedStage(
     await handle.sync();
   } catch (error) {
     primaryError = error;
+    hasPrimaryError = true;
   }
 
   if (handle) {
     try {
-      await closeHandle(handle);
+      await handle.close();
     } catch (closeError) {
-      primaryError = primaryError
+      primaryError = hasPrimaryError
         ? withCleanupError(primaryError, closeError, "stage close failed")
         : closeError;
+      hasPrimaryError = true;
     }
   }
 
-  if (primaryError) {
+  if (hasPrimaryError) {
     if (owned) {
       try {
         await remove(stagePath);
