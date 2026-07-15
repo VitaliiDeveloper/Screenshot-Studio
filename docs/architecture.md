@@ -74,13 +74,14 @@ interface StorageAdapter {
 Ships with `LocalFileStorageAdapter` (writes JSON + assets to disk, like the reference).
 
 Local project mutations are serialized beside `app-store-screenshots.json` with exclusive
-owner/release records and one append-only queue. This coordinator is deliberately a **local
-filesystem** contract: the filesystem must provide atomic exclusive file creation and
-non-interleaved single-write append. Do not mutate one active project concurrently through a
-network/shared mount; a community storage adapter for that topology must provide its own distributed
-coordination. Unknown host-instance/PID-namespace liveness, missing owner metadata, queue corruption,
-or an unqueued live owner fails closed with a bounded retry/manual-recovery error rather than risking
-overlapping writers.
+owner/release records and one append-only queue. Release records are fully written and synced under a
+unique name before an atomic no-replace hard-link publishes the final token marker. This coordinator
+is deliberately a **local filesystem** contract: the filesystem must provide atomic exclusive file
+creation, same-directory hard links, and non-interleaved single-write append. Do not mutate one active
+project concurrently through a network/shared mount; a community storage adapter for that topology
+must provide its own distributed coordination. Unknown host-instance/PID-namespace liveness, missing
+owner metadata, or an unqueued live owner waits for the bounded retry/manual-recovery error; malformed
+queue/release evidence fails immediately rather than risking overlapping writers.
 
 ### Render / export parity — the #1 technical risk
 
