@@ -7,6 +7,7 @@ import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core
 import type { Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
+import { advanceProjectRevisionFromResponse } from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
@@ -16,12 +17,14 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
 }
 
 async function applyTheme(id: string): Promise<Project> {
-  const body = await responseBody(await fetch("/api/themes", {
+  const response = await fetch("/api/themes", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id }),
-  }));
-  return parseProject(body);
+  });
+  const project = parseProject(await responseBody(response));
+  advanceProjectRevisionFromResponse(response);
+  return project;
 }
 
 export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
