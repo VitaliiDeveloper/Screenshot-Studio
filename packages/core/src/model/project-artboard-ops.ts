@@ -6,7 +6,7 @@ import {
 } from "./schema.js";
 import { scaleLeafElement } from "./element-scale.js";
 
-/** Fit a root composition into a target artboard without distorting render-bearing elements. */
+/** Fit a screen composition into a target artboard without distorting render-bearing elements. */
 export function fitElementsToArtboard(
   elements: readonly Element[],
   source: { width: number; height: number },
@@ -49,18 +49,4 @@ export function resizeScreenArtboard(
     ...project,
     screens: project.screens.map((screen) => screen.id === screenId ? resized : screen),
   };
-}
-
-/** Compatibility operation for callers that intentionally resize a single root. */
-export function resizeRootArtboard(
-  project: ProjectModel,
-  screenId: string,
-  target: { width: number; height: number },
-): ProjectModel {
-  const source = project.screens.find((screen) => screen.id === screenId);
-  if (!source) throw new Error(`Unknown screen "${screenId}"`);
-  if (source.variantOf !== undefined || source.storeTargetId !== undefined) {
-    throw new Error("resizeRootArtboard only accepts root screens");
-  }
-  return resizeScreenArtboard(project, screenId, target);
 }

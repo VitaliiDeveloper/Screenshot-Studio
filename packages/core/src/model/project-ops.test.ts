@@ -19,7 +19,7 @@ import {
   removeStoreTargetVariant,
   removeLocaleSet,
   reorderScreenInProject,
-  resizeRootArtboard,
+  resizeScreenArtboard,
   resizeStoreOutputArtboards,
   setLocaleDirection,
   slugify,
@@ -159,7 +159,7 @@ describe("project-ops", () => {
     expect(again.project).toBe(result.project);
   });
 
-  it("resizes a root artboard and its composition atomically", () => {
+  it("resizes one screen artboard and its composition atomically", () => {
     const source = sampleProject();
     source.screens[0]!.artboard = { width: 660, height: 1434 };
     source.screens[0]!.elements = [{
@@ -169,7 +169,7 @@ describe("project-ops", () => {
       lineHeight: 1.2, letterSpacing: 2, align: "left", color: "#FFFFFF",
     }];
 
-    const resized = resizeRootArtboard(source, "hero", { width: 1320, height: 2868 });
+    const resized = resizeScreenArtboard(source, "hero", { width: 1320, height: 2868 });
 
     expect(source.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
     expect(resized.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
@@ -202,7 +202,7 @@ describe("project-ops", () => {
       },
     ];
 
-    const resized = resizeRootArtboard(source, "hero", { width: 200, height: 200 });
+    const resized = resizeScreenArtboard(source, "hero", { width: 200, height: 200 });
 
     expect(resized.screens[0]!.elements).toMatchObject([
       {
@@ -231,18 +231,8 @@ describe("project-ops", () => {
       shadow: { color: "#000000", blur: 60, offsetX: 0, offsetY: 4, opacity: 0.5 },
     }];
 
-    expect(() => resizeRootArtboard(source, "hero", { width: 200, height: 200 }))
+    expect(() => resizeScreenArtboard(source, "hero", { width: 200, height: 200 }))
       .toThrow('Cannot scale text shadow blur above 100 for element "headline"');
-  });
-
-  it("keeps resizeRootArtboard scoped to root screens", () => {
-    const withVariant = ensureStoreTargetVariant(sampleProject(), "hero", {
-      id: "6.5", width: 1284, height: 2778,
-    }).project;
-    const variant = withVariant.screens.find((screen) => screen.storeTargetId === "6.5")!;
-
-    expect(() => resizeRootArtboard(withVariant, variant.id, { width: 1000, height: 2000 }))
-      .toThrow(/only accepts root screens/);
   });
 
   it("resizes one store target output set without changing roots or sibling targets", () => {

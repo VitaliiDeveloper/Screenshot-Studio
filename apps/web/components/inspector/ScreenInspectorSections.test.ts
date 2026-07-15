@@ -139,7 +139,7 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     expect(markup).not.toContain("Exact target");
   });
 
-  it("shows a persisted exact watchOS variant in fixed mode", () => {
+  it("shows a persisted exact watchOS variant in Store size mode", () => {
     const created = createWatchVariant();
     const screen = {
       ...created.variant,
