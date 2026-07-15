@@ -296,7 +296,7 @@ exception: core derives each 3.5× authoring artboard by multiplying its selecte
 416 × 496 Series 11 target creates a 1456 × 1736 variant; neither duplicates exact target
 dimensions in persisted metadata. Core rejects a target whose scaled dimensions are fractional
 instead of rounding and distorting its ratio. The editor presents proportional watchOS roots and
-variants as Custom. Every target uses the same Fixed/Custom Inspector control; explicit
+variants as Custom. Every target uses the same Store size/Custom Inspector control; explicit
 customization and reset resize every composition matching the active
 `platform/device/locale/storeTargetId` output set atomically, while reset fits that set back to its
 own exact Store Target dimensions. Sibling targets remain unchanged. Exact and custom state are

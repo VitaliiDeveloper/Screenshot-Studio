@@ -139,7 +139,7 @@ actions. Numeric drafts are bounded
 to the strict schema before they can mutate the live project. Type-specific fields appear below:
 
 - **No selection** → active **artboard** properties: every lead or variant Store Target uses the same
-  `Artboard size` Fixed/Custom controls. Fixed matches that target's store dimensions; Custom keeps
+  `Editing size` Store size/Custom controls. Store size matches that target's export dimensions; Custom keeps
   its aspect ratio while allowing a larger authoring canvas. Actions resize every composition in the
   active locale/platform/device/target output set atomically without changing sibling targets.
   Newly created watchOS lead and variant targets default to proportional 3.5× authoring artboards;
@@ -184,7 +184,7 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   non-lead sizes create independent variants without leaving the current canvas context. New
   watchOS variants use a 3.5× authoring artboard derived from their own exact target—for example,
   Series 11 authors at 1456 × 1736 and exports at 416 × 496. Lead and variant targets have identical
-  target-local Fixed/Custom controls; resizing one never changes another. When another screen is
+  target-local Store size/Custom controls; resizing one never changes another. When another screen is
   added to an existing target output set, it reuses that set's current authoring size instead of
   reverting to the platform default. Each variant remains available to open explicitly, and removing
   one preserves its master. Existing output families and variants open unchanged, and creation

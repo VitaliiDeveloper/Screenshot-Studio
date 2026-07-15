@@ -21,7 +21,7 @@ function editBackground(background: Background) {
 
 function targetExportDescription(target: StoreSize): string {
   const label = target.label.replace(/ \(lead\)$/u, "");
-  return `Exports at the fixed ${target.width} × ${target.height} px size for ${label}.`;
+  return `Exports at ${target.width} × ${target.height} px for ${label}.`;
 }
 
 function ArtboardSizeEditor({
@@ -78,21 +78,21 @@ function ArtboardSizeEditor({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-slate-500">Artboard size</span>
-        <span role="group" aria-label="Artboard size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
+        <span className="text-xs text-slate-500">Editing size</span>
+        <span role="group" aria-label="Editing size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
           <button
             type="button"
-            aria-label="Use fixed target size"
+            aria-label="Use Store size"
             aria-pressed={Boolean(target) && isExactTarget}
             disabled={!target}
             className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isExactTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
             onClick={() => target && !isExactTarget && resize({ width: target.width, height: target.height })}
           >
-            <span className="text-xs leading-none">Fixed</span>
+            <span className="text-xs leading-none">Store size</span>
           </button>
           <button
             type="button"
-            aria-label="Customize artboard size"
+            aria-label="Use custom editing size"
             aria-pressed={isCustomTarget}
             disabled={!target}
             className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isCustomTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}

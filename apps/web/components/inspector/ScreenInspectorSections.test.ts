@@ -106,13 +106,14 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const markup = renderInspector(result.project, screen, leadOnlyWatchSpecs);
 
     expect(markup).toContain(
-      'aria-label="Customize artboard size" aria-pressed="true"',
+      'aria-label="Use custom editing size" aria-pressed="true"',
     );
-    expect(markup).toContain('aria-label="Artboard size mode"');
-    expect(markup).toContain("Artboard size");
+    expect(markup).toContain('aria-label="Editing size mode"');
+    expect(markup).toContain("Editing size");
+    expect(markup).toContain("Store size");
     expect(markup).toContain("1477 × 1799 px");
     expect(markup).toContain(
-      "Exports at the fixed 422 × 514 px size for Apple Watch Ultra 3.",
+      "Exports at 422 × 514 px for Apple Watch Ultra 3.",
     );
     expect(markup).not.toContain("Master size");
   });
@@ -123,14 +124,15 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const markup = renderInspector(result.project, screen, watchSpecs);
 
     expect(screen.artboard).toEqual({ width: 1456, height: 1736 });
-    expect(markup).toContain('aria-label="Artboard size mode"');
+    expect(markup).toContain('aria-label="Editing size mode"');
     expect(markup).toContain(
-      'aria-label="Customize artboard size" aria-pressed="true"',
+      'aria-label="Use custom editing size" aria-pressed="true"',
     );
-    expect(markup).toContain("Artboard size");
+    expect(markup).toContain("Editing size");
+    expect(markup).toContain("Store size");
     expect(markup).toContain("1456 × 1736 px");
     expect(markup).toContain(
-      "Exports at the fixed 416 × 496 px size for Apple Watch Series 11.",
+      "Exports at 416 × 496 px for Apple Watch Series 11.",
     );
     expect(markup).not.toContain("Exact target");
   });
@@ -144,11 +146,11 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const markup = renderInspector(replaceScreen(created.project, screen), screen, watchSpecs);
 
     expect(markup).toContain(
-      'aria-label="Use fixed target size" aria-pressed="true"',
+      'aria-label="Use Store size" aria-pressed="true"',
     );
     expect(markup).toContain("416 × 496 px");
     expect(markup).toContain(
-      "Exports at the fixed 416 × 496 px size for Apple Watch Series 11.",
+      "Exports at 416 × 496 px for Apple Watch Series 11.",
     );
   });
 
@@ -156,13 +158,13 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     const result = createWatchVariant();
     const markup = renderInspector(result.project, result.variant, leadOnlyWatchSpecs);
 
-    expect(markup).toContain('aria-label="Use fixed target size"');
-    expect(markup).toContain('aria-label="Customize artboard size"');
+    expect(markup).toContain('aria-label="Use Store size"');
+    expect(markup).toContain('aria-label="Use custom editing size"');
     expect(markup).toContain(
-      'aria-label="Use fixed target size" aria-pressed="false" disabled=""',
+      'aria-label="Use Store size" aria-pressed="false" disabled=""',
     );
     expect(markup).toContain(
-      'aria-label="Customize artboard size" aria-pressed="false" disabled=""',
+      'aria-label="Use custom editing size" aria-pressed="false" disabled=""',
     );
     expect(markup).toContain("This screen references a Store Target that is unavailable.");
   });
