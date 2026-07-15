@@ -5,7 +5,6 @@ import { useState } from "react";
 import type { Background, Project, Screen } from "@screenshot-studio/core/model";
 import {
   artboardTargetStatus,
-  type ArtboardTargetStatus,
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
@@ -20,30 +19,35 @@ function editBackground(background: Background) {
   mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
 }
 
-function MasterArtboardEditor({
+function targetExportDescription(target: StoreSize): string {
+  const label = target.label.replace(/ \(lead\)$/u, "");
+  return `Exports at ${target.width} × ${target.height} px for ${label}.`;
+}
+
+function ArtboardSizeEditor({
   screen,
-  leadTarget,
-  leadStatus,
+  target,
 }: {
   screen: Screen;
-  leadTarget: StoreSize | undefined;
-  leadStatus: ArtboardTargetStatus | undefined;
+  target: StoreSize | undefined;
 }) {
   const [editing, setEditing] = useState(false);
   const [width, setWidth] = useState(screen.artboard.width);
   const [height, setHeight] = useState(screen.artboard.height);
-  const draftStatus = leadTarget ? artboardTargetStatus({ width, height }, leadTarget) : undefined;
-  const isExactLead = leadStatus?.kind === "exact";
+  const status = target ? artboardTargetStatus(screen.artboard, target) : undefined;
+  const draftStatus = target ? artboardTargetStatus({ width, height }, target) : undefined;
+  const isExactTarget = status?.kind === "exact";
+  const isCustomTarget = Boolean(target) && !isExactTarget;
   const resize = (size: { width: number; height: number }) => {
     mutateAndSave(() => editorStore.getState().resizeArtboard(size));
     setEditing(false);
   };
 
-  if (editing) {
+  if (editing && target) {
     return (
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-slate-500">Custom size</span>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
           <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Explicit override</span>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
@@ -54,8 +58,8 @@ function MasterArtboardEditor({
         </div>
         <p className={`text-[10px] leading-4 ${draftStatus?.kind === "invalid" ? "text-red-600" : "text-slate-500"}`}>
           {draftStatus?.kind === "invalid"
-            ? "Custom dimensions must keep the lead target aspect ratio."
-            : "Apply resizes every master screen in this output and fits each composition."}
+            ? "Custom dimensions must keep the Store Target aspect ratio."
+            : "Apply resizes every screen in this Store Target output and fits each composition."}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button className={editorUi.buttonSecondary} onClick={() => setEditing(false)}>Cancel</button>
@@ -74,23 +78,26 @@ function MasterArtboardEditor({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-slate-500">Master size</span>
-        <span role="group" aria-label="Master size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
+        <span role="group" aria-label="Artboard size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
           <button
             type="button"
-            aria-label="Use fixed lead size"
-            aria-pressed={isExactLead}
-            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${isExactLead ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
-            onClick={() => leadTarget && !isExactLead && resize({ width: leadTarget.width, height: leadTarget.height })}
+            aria-label="Use Store size"
+            aria-pressed={Boolean(target) && isExactTarget}
+            disabled={!target}
+            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isExactTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
+            onClick={() => target && !isExactTarget && resize({ width: target.width, height: target.height })}
           >
-            <span className="text-xs leading-none">Fixed</span>
+            <span className="text-xs leading-none">Store size</span>
           </button>
           <button
             type="button"
-            aria-label="Customize master size"
-            aria-pressed={!isExactLead}
-            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${!isExactLead ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
+            aria-label="Use custom artboard size"
+            aria-pressed={isCustomTarget}
+            disabled={!target}
+            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isCustomTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
             onClick={() => {
+              if (!target) return;
               setWidth(screen.artboard.width);
               setHeight(screen.artboard.height);
               setEditing(true);
@@ -104,11 +111,11 @@ function MasterArtboardEditor({
         {screen.artboard.width} × {screen.artboard.height} px
       </div>
       <p className="text-[10px] leading-4 text-slate-500">
-        {isExactLead && leadTarget
-          ? `Fixed to the ${leadTarget.label} size for this output.`
-          : leadStatus?.kind === "proportional" && leadTarget
-            ? `Explicit custom scale for ${leadTarget.label}.`
-            : "This custom size does not match the output's lead aspect ratio."}
+        {!target
+          ? "This screen references a Store Target that is unavailable."
+          : status?.kind === "invalid"
+            ? "This custom size does not match the Store Target aspect ratio."
+            : targetExportDescription(target)}
       </p>
     </div>
   );
@@ -118,40 +125,24 @@ export function ScreenInspectorSections({
   project,
   screen,
   specs,
-  leadTarget,
-  leadStatus,
+  target,
   onOpenBackgroundAsset,
 }: {
   project: Project;
   screen: Screen;
   specs: StoreSpecs | null;
-  leadTarget: StoreSize | undefined;
-  leadStatus: ArtboardTargetStatus | undefined;
+  target: StoreSize | undefined;
   onOpenBackgroundAsset?: () => void;
 }) {
   const background = screen.background;
   return (
     <>
-      <Section title="Artboard">
-        {screen.storeTargetId ? (
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-slate-500">Target size</span>
-              <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">Exact target</span>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
-              {screen.artboard.width} × {screen.artboard.height} px
-            </div>
-            <p className="text-[10px] leading-4 text-slate-500">This variant uses fixed Store Target dimensions.</p>
-          </div>
-        ) : (
-          <MasterArtboardEditor
-            key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
-            screen={screen}
-            leadTarget={leadTarget}
-            leadStatus={leadStatus}
-          />
-        )}
+      <Section>
+        <ArtboardSizeEditor
+          key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
+          screen={screen}
+          target={target}
+        />
       </Section>
       {specs && (
         <ArtboardTargets

@@ -12,6 +12,13 @@ describe("exportPixelRatio", () => {
     expect(exportPixelRatio({ width: 1320, height: 2868 }, { width: 1320, height: 2868 })).toBe(1);
   });
 
+  it("scales a 3.5x watchOS master down to the lead target", () => {
+    expect(exportPixelRatio(
+      { width: 1477, height: 1799 },
+      { width: 422, height: 514 },
+    )).toBeCloseTo(2 / 7);
+  });
+
   it("throws when aspect ratios differ (would distort)", () => {
     expect(() => exportPixelRatio({ width: 1000, height: 1000 }, { width: 1320, height: 2868 })).toThrow(
       /distort/,

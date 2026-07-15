@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { rotatedElementBounds } from "./connected-canvas.js";
 import { cloneElementWithFreshIds } from "./element-tree.js";
+import { scaleLeafElement } from "./element-scale.js";
 import { Screen as ScreenSchema, type Element, type GroupElement, type LeafElement, type Screen } from "./schema.js";
 
 export interface ElementLocation {
@@ -101,19 +102,7 @@ export function resizeGroupUniform(
     ...group,
     width: group.width * scale,
     height: group.height * scale,
-    children: group.children.map((child) => ({
-      ...child,
-      x: child.x * scale,
-      y: child.y * scale,
-      width: child.width * scale,
-      height: child.height * scale,
-      ...(child.type === "text" ? { size: child.size * scale, letterSpacing: child.letterSpacing * scale } : {}),
-      ...(child.type === "shape" ? { radius: child.radius * scale } : {}),
-      ...(child.type === "icon" ? { strokeWidth: child.strokeWidth * scale } : {}),
-      ...(child.type === "screenshot" || child.type === "image"
-        ? { cornerRadius: child.cornerRadius * scale }
-        : {}),
-    })),
+    children: group.children.map((child) => scaleLeafElement(child, scale)),
   };
 }
 

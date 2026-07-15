@@ -255,6 +255,40 @@ describe("editorStore screens (slice 4)", () => {
     expect(editorStore.getState().project!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
   });
 
+  it("creates and selects a watchOS family with 3.5x custom masters", () => {
+    editorStore.getState().ensureStoreOutputFamily("apple", "watchos", {
+      id: "ultra-3",
+      label: "Apple Watch Ultra 3 (lead)",
+      width: 422,
+      height: 514,
+      orientation: "portrait",
+    });
+
+    const state = editorStore.getState();
+    const watchRoots = state.project!.screens.filter((screen) =>
+      screen.device === "watchos" && screen.variantOf === undefined,
+    );
+    expect(watchRoots).toHaveLength(2);
+    expect(watchRoots.every((screen) =>
+      screen.artboard.width === 1477 && screen.artboard.height === 1799
+    )).toBe(true);
+    expect(state.activeScreenId).toBe(watchRoots[0]!.id);
+    expect(state.project!.screens.find((screen) => screen.id === "hero")!.artboard)
+      .toEqual({ width: 660, height: 1434 });
+
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "series-11",
+      label: "Apple Watch Series 11",
+      width: 416,
+      height: 496,
+      orientation: "portrait",
+    });
+    const variant = editorStore.getState().project!.screens.find((screen) =>
+      screen.variantOf === watchRoots[0]!.id && screen.storeTargetId === "series-11"
+    );
+    expect(variant?.artboard).toEqual({ width: 1456, height: 1736 });
+  });
+
   it("reorders variants only inside the visible platform/device target layer", () => {
     const current = editorStore.getState().project!;
     const heroVariant: Project["screens"][number] = {
@@ -612,19 +646,35 @@ describe("editorStore screen editors (slice 5)", () => {
       .toEqual({ width: 1320, height: 2868 });
   });
 
-  it("does not let exact store-target variants drift through artboard patches", () => {
+  it("resizeArtboard updates only the active store target output set", () => {
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
-    const variant = editorStore.getState().project!.screens.find(
-      (screen) => screen.storeTargetId === "6.5",
-    )!;
-    editorStore.getState().selectScreen(variant.id);
-    editorStore.getState().resizeArtboard({ width: 720, height: 1560 });
-    const active = editorStore.getState().project!.screens.find(
-      (screen) => screen.id === editorStore.getState().activeScreenId,
+    editorStore.getState().selectScreen("second");
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const before = editorStore.getState().project!;
+    const originalRoots = structuredClone(
+      before.screens.filter((screen) => screen.storeTargetId === undefined),
     );
-    expect(active?.artboard).toEqual({ width: 1284, height: 2778 });
+    const variant = before.screens.find(
+      (screen) => screen.variantOf === "hero" && screen.storeTargetId === "6.5",
+    )!;
+
+    editorStore.getState().selectScreen(variant.id);
+    editorStore.getState().resizeArtboard({ width: 642, height: 1389 });
+
+    const resized = editorStore.getState().project!;
+    const targetScreens = resized.screens.filter(
+      (screen) => screen.storeTargetId === "6.5",
+    );
+    expect(targetScreens).toHaveLength(2);
+    expect(targetScreens.every((screen) =>
+      screen.artboard.width === 642 && screen.artboard.height === 1389
+    )).toBe(true);
+    expect(resized.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toEqual(originalRoots);
   });
 });
 

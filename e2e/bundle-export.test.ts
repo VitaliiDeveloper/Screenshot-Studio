@@ -4,8 +4,15 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
-import { ensureStoreOutputFamily, ensureStoreTargetVariant, parseProjectJson } from "../packages/core/src/model/index.js";
+import {
+  ensureStoreOutputFamily,
+  ensureStoreTargetVariant,
+  fitElementsToArtboard,
+  parseProjectJson,
+} from "../packages/core/src/model/index.js";
 import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
 import { startWebServer } from "../packages/cli/src/server.js";
 import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
@@ -120,24 +127,84 @@ describe("Phase 4 multi-locale bundle export", () => {
         direction: "ltr",
         artboard: { width: 1320, height: 2868 },
         background: { type: "solid", color: "#091226" },
-        elements: [],
+        elements: [
+          {
+            id: "card", type: "shape", x: 70, y: 80, width: 282, height: 210,
+            rotation: 0, opacity: 1, locked: false, visible: true,
+            kind: "rect", fill: "#2563EB", radius: 28,
+            stroke: { color: "#FFFFFF", width: 6 },
+          },
+          {
+            id: "headline", type: "text", x: 76, y: 330, width: 270, height: 80,
+            rotation: 0, opacity: 1, locked: false, visible: true,
+            content: "Built for Watch", fontFamily: "Arial", size: 28, weight: 700,
+            lineHeight: 1.2, letterSpacing: 1, align: "center", color: "#FFFFFF",
+            shadow: { color: "#000000", blur: 12, offsetX: 3, offsetY: 6, opacity: 0.55 },
+          },
+        ],
       }],
     }));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
     const target = specs.apple?.watchos?.find((candidate) => candidate.id === "ultra-3");
+    const series11Target = specs.apple?.watchos?.find((candidate) => candidate.id === "series-11");
     expect(target).toBeDefined();
+    expect(series11Target).toBeDefined();
     const result = ensureStoreOutputFamily(source, source.screens[0]!.id, "apple", "watchos", target!);
-    const entry = buildBundleEntries(result.project, specs, {})
+    expect(result.firstScreen).toMatchObject({
+      platform: "apple",
+      device: "watchos",
+      variantOf: undefined,
+      storeTargetId: undefined,
+      artboard: { width: 1477, height: 1799 },
+    });
+    const variantResult = ensureStoreTargetVariant(
+      result.project,
+      result.firstScreen.id,
+      series11Target!,
+    );
+    expect(variantResult.variant).toMatchObject({
+      variantOf: result.firstScreen.id,
+      storeTargetId: "series-11",
+      artboard: { width: 1456, height: 1736 },
+    });
+    const exactReference = {
+      ...structuredClone(source.screens[0]!),
+      id: "watch-reference",
+      name: "Reference",
+      platform: "apple" as const,
+      device: "watchos" as const,
+      artboard: { width: target!.width, height: target!.height },
+      elements: fitElementsToArtboard(
+        source.screens[0]!.elements,
+        source.screens[0]!.artboard,
+        target!,
+      ),
+    };
+    const project = parseProjectJson(JSON.stringify({
+      ...variantResult.project,
+      screens: [...variantResult.project.screens, exactReference],
+    }));
+    const entries = buildBundleEntries(project, specs, {});
+    const entry = entries
       .find((candidate) => candidate.screen.id === result.firstScreen.id);
+    const referenceEntry = entries
+      .find((candidate) => candidate.screen.id === exactReference.id);
+    const variantEntry = entries
+      .find((candidate) => candidate.screen.id === variantResult.variant.id);
     expect(entry).toMatchObject({
       target: { id: "ultra-3", width: 422, height: 514 },
       relativePath: "apple/watchos/locale-en/01-hero-ultra-3.png",
+    });
+    expect(referenceEntry?.relativePath).toBe("apple/watchos/locale-en/02-reference-ultra-3.png");
+    expect(variantEntry).toMatchObject({
+      target: { id: "series-11", width: 416, height: 496 },
+      relativePath: "apple/watchos/locale-en/01-hero-series-11.png",
     });
 
     const directory = await mkdtemp(join(tmpdir(), "watchos-output-export-"));
     const projectPath = join(directory, "app-store-screenshots.json");
     const outDir = join(directory, "export");
-    await writeFile(projectPath, JSON.stringify(result.project));
+    await writeFile(projectPath, JSON.stringify(project));
     const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
     try {
@@ -145,11 +212,29 @@ describe("Phase 4 multi-locale bundle export", () => {
         baseUrl: server.url,
         projectPath,
         outDir,
-        entries: [entry!],
+        entries: [entry!, variantEntry!, referenceEntry!],
         renderSession: session,
       });
-      expect(inspectPng(await readFile(join(outDir, entry!.relativePath))))
+      const masterBytes = await readFile(join(outDir, entry!.relativePath));
+      const referenceBytes = await readFile(join(outDir, referenceEntry!.relativePath));
+      expect(inspectPng(masterBytes))
         .toMatchObject({ width: 422, height: 514, hasAlpha: false });
+      const variantBytes = await readFile(join(outDir, variantEntry!.relativePath));
+      expect(inspectPng(variantBytes))
+        .toMatchObject({ width: 416, height: 496, hasAlpha: false });
+
+      const masterPng = PNG.sync.read(masterBytes);
+      const referencePng = PNG.sync.read(referenceBytes);
+      const diff = new PNG({ width: masterPng.width, height: masterPng.height });
+      const mismatch = pixelmatch(
+        masterPng.data,
+        referencePng.data,
+        diff.data,
+        masterPng.width,
+        masterPng.height,
+        { threshold: 0.1 },
+      );
+      expect(mismatch).toBe(0);
     } finally {
       await session.close();
       await server.stop();
