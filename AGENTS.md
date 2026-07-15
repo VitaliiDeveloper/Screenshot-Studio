@@ -42,3 +42,13 @@ Before any task, read and apply the repository-wide workflow rules in
   and contracts required for independent work streams.
 - Follow the behavioral-risk verification rules in `RULES.md`; exact commands and CI ownership live
   in `docs/testing.md`.
+
+## GitHub authentication boundary
+
+- Repository setup, development, builds, and tests must not require GitHub credentials.
+- Never read, copy, print, modify, or request credential files, access tokens, or private keys.
+- Treat sandbox or container `gh` failures as credentials unavailable in that environment, not proof
+  that the contributor is logged out. Prefer an authorized GitHub connector, then a trusted host
+  credential broker or a narrowly scoped elevated command.
+- If authenticated access remains unavailable, report the blocker and provide the relevant GitHub
+  URL for manual completion.
