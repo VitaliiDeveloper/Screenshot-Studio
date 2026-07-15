@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, lstat, open, unlink, type FileHandle } from "node:fs/promises";
-import { hostname as systemHostname } from "node:os";
+import {
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  readFile as readNodeFile,
+  readlink,
+  unlink,
+  type FileHandle,
+} from "node:fs/promises";
+import { hostname as systemHostname, tmpdir, uptime } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -10,8 +19,8 @@ const DEFAULT_STALE_AFTER_MS = 30_000;
 const DEFAULT_RETRY_DELAY_MS = 50;
 const DEFAULT_HEARTBEAT_MS = 10_000;
 const OWNERS_DIRECTORY = "owners";
+const RELEASED_DIRECTORY = "released";
 const QUEUE_FILENAME = "queue.log";
-const RELEASED_FILENAME = "released.log";
 const LOG_ENTRY_PREFIX = "SSLOCK1:";
 
 type HeartbeatCallback = () => Promise<void>;
@@ -19,6 +28,7 @@ type HeartbeatCallback = () => Promise<void>;
 export interface ProjectLockOwner {
   token: string;
   hostname: string;
+  hostInstanceId: string;
   pid: number;
   createdAt: number;
 }
@@ -33,6 +43,7 @@ export interface ProjectLockFileSystem {
   createFileExclusive(path: string, contents: string, mode: number): Promise<void>;
   appendLine(path: string, line: string, mode: number): Promise<void>;
   readFile(path: string): Promise<ProjectLockFile | undefined>;
+  listDirectory(path: string): Promise<string[]>;
   touchFile(path: string, mtimeMs: number): Promise<void>;
   removeFile(path: string): Promise<void>;
 }
@@ -41,6 +52,7 @@ export interface ProjectLockDependencies {
   now?: () => number;
   randomId?: () => string;
   hostname?: () => string;
+  hostInstanceId?: () => string | Promise<string>;
   processId?: () => number;
   isOwnerAlive?: (owner: ProjectLockOwner) => boolean | Promise<boolean>;
   sleep?: (durationMs: number) => Promise<void>;
@@ -79,6 +91,7 @@ interface ResolvedLockOptions {
   now: () => number;
   randomId: () => string;
   hostname: string;
+  hostInstanceId: string;
   processId: number;
   isOwnerAlive: (owner: ProjectLockOwner) => Promise<boolean>;
   sleep: (durationMs: number) => Promise<void>;
@@ -189,9 +202,11 @@ export function createNodeProjectLockFileSystem(): ProjectLockFileSystem {
         throw new Error("Project lock log entries must be exactly one newline-terminated line");
       }
       const handle = await open(path, noFollowFlags(
-        constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | (constants.O_NONBLOCK ?? 0),
       ), mode);
       await useHandle(handle, async () => {
+        const entry = await handle.stat();
+        if (!entry.isFile()) throw new Error(`Project lock entry is not a regular file: ${path}`);
         const bytes = Buffer.from(line, "utf8");
         const { bytesWritten } = await handle.write(bytes, 0, bytes.length, null);
         if (bytesWritten !== bytes.length) {
@@ -213,6 +228,9 @@ export function createNodeProjectLockFileSystem(): ProjectLockFileSystem {
         if (!entry.isFile()) throw new Error(`Project lock entry is not a regular file: ${path}`);
         return { contents: await handle.readFile("utf8"), mtimeMs: entry.mtimeMs };
       });
+    },
+    async listDirectory(path) {
+      return readdir(path);
     },
     async touchFile(path, mtimeMs) {
       const handle = await open(path, noFollowFlags(constants.O_WRONLY));
@@ -240,8 +258,93 @@ function checkedDuration(value: number, name: string, allowZero: boolean): numbe
   return value;
 }
 
-function defaultOwnerLiveness(owner: ProjectLockOwner, localHostname: string): boolean {
-  if (owner.hostname !== localHostname) return true;
+let localHostInstancePromise: Promise<string> | undefined;
+
+async function bootSessionIdentity(): Promise<string> {
+  if (process.platform === "linux") {
+    try {
+      const [bootId, pidNamespace] = await Promise.all([
+        readNodeFile("/proc/sys/kernel/random/boot_id", "utf8"),
+        readlink("/proc/self/ns/pid"),
+      ]);
+      return `linux:${bootId.trim()}:${pidNamespace}`;
+    } catch {
+      // Fall through to the portable boot-epoch identity and fail closed on disagreement.
+    }
+  }
+  try {
+    const bootEpochMinute = Math.round((Date.now() - uptime() * 1_000) / 60_000);
+    return `${process.platform}:uptime:${bootEpochMinute}`;
+  } catch {
+    try {
+      const runtimeDirectory = process.platform === "darwin" ? "/private/var/run" : tmpdir();
+      const runtimeState = await lstat(runtimeDirectory);
+      const runtimeEpoch = runtimeState.birthtimeMs || runtimeState.mtimeMs;
+      return `${process.platform}:runtime:${runtimeEpoch}`;
+    } catch {
+      // Different processes intentionally disagree when the OS cannot prove one shared boot epoch.
+      return `${process.platform}:unknown:${process.pid}:${randomUUID()}`;
+    }
+  }
+}
+
+function validatedHostInstanceId(contents: string, path: string): string {
+  const value = contents.trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw new Error(`Invalid local project-lock host identity: ${path}`);
+  }
+  return value;
+}
+
+async function createLocalHostInstanceId(): Promise<string> {
+  const bootSession = await bootSessionIdentity();
+  const sessionHash = createHash("sha256").update(bootSession).digest("hex").slice(0, 20);
+  const userId = process.getuid?.() ?? "user";
+  const path = join(tmpdir(), `.screenshot-studio-host-${userId}-${sessionHash}.id`);
+  const fileSystem = createNodeProjectLockFileSystem();
+  const existing = await fileSystem.readFile(path);
+  if (existing) return validatedHostInstanceId(existing.contents, path);
+
+  const identifier = randomUUID();
+  try {
+    await fileSystem.createFileExclusive(path, `${identifier}\n`, 0o600);
+    return identifier;
+  } catch (error) {
+    if (errorCode(error) !== "EEXIST") throw error;
+    let lastReadError: unknown = error;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const raced = await fileSystem.readFile(path);
+      if (raced) {
+        try {
+          return validatedHostInstanceId(raced.contents, path);
+        } catch (readError) {
+          lastReadError = readError;
+        }
+      }
+      await new Promise<void>((resolveWait) => setImmediate(resolveWait));
+    }
+    throw new AggregateError(
+      [error, lastReadError],
+      `Local project-lock host identity was not readable after creation: ${path}`,
+      { cause: error },
+    );
+  }
+}
+
+function defaultHostInstanceId(): Promise<string> {
+  localHostInstancePromise ??= createLocalHostInstanceId().catch((error) => {
+    localHostInstancePromise = undefined;
+    throw error;
+  });
+  return localHostInstancePromise;
+}
+
+function defaultOwnerLiveness(
+  owner: ProjectLockOwner,
+  localHostname: string,
+  localHostInstanceId: string,
+): boolean {
+  if (owner.hostname !== localHostname || owner.hostInstanceId !== localHostInstanceId) return true;
   try {
     process.kill(owner.pid, 0);
     return true;
@@ -252,9 +355,10 @@ function defaultOwnerLiveness(owner: ProjectLockOwner, localHostname: string): b
   }
 }
 
-function resolvedOptions(options: ProjectLockOptions): ResolvedLockOptions {
+async function resolvedOptions(options: ProjectLockOptions): Promise<ResolvedLockOptions> {
   const dependencies = options.dependencies ?? {};
   const localHostname = dependencies.hostname?.() ?? systemHostname();
+  const localHostInstanceId = await (dependencies.hostInstanceId?.() ?? defaultHostInstanceId());
   const nodeFileSystem = createNodeProjectLockFileSystem();
   return {
     timeoutMs: checkedDuration(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, "timeoutMs", true),
@@ -264,10 +368,11 @@ function resolvedOptions(options: ProjectLockOptions): ResolvedLockOptions {
     now: dependencies.now ?? Date.now,
     randomId: dependencies.randomId ?? randomUUID,
     hostname: localHostname,
+    hostInstanceId: localHostInstanceId,
     processId: dependencies.processId?.() ?? process.pid,
     isOwnerAlive: async (owner) => dependencies.isOwnerAlive
       ? dependencies.isOwnerAlive(owner)
-      : defaultOwnerLiveness(owner, localHostname),
+      : defaultOwnerLiveness(owner, localHostname, localHostInstanceId),
     sleep: dependencies.sleep ?? defaultSleep,
     scheduleHeartbeat: dependencies.scheduleHeartbeat ?? defaultScheduleHeartbeat,
     fileSystem: { ...nodeFileSystem, ...dependencies.fileSystem },
@@ -287,12 +392,16 @@ function ownerPath(lockPath: string, token: string): string {
   return join(ownersPath(lockPath), `${encodeURIComponent(token)}.json`);
 }
 
-function queuePath(lockPath: string): string {
-  return join(lockPath, QUEUE_FILENAME);
+function releasedPath(lockPath: string): string {
+  return join(lockPath, RELEASED_DIRECTORY);
 }
 
-function releasedPath(lockPath: string): string {
-  return join(lockPath, RELEASED_FILENAME);
+function releasedMarkerPath(lockPath: string, token: string): string {
+  return join(releasedPath(lockPath), `${encodeURIComponent(token)}.json`);
+}
+
+function queuePath(lockPath: string): string {
+  return join(lockPath, QUEUE_FILENAME);
 }
 
 function parseOwner(contents: string, path: string): ProjectLockOwner {
@@ -308,6 +417,8 @@ function parseOwner(contents: string, path: string): ProjectLockOwner {
     || owner.token.length === 0
     || typeof owner.hostname !== "string"
     || owner.hostname.length === 0
+    || typeof owner.hostInstanceId !== "string"
+    || owner.hostInstanceId.length === 0
     || !Number.isInteger(owner.pid)
     || (owner.pid ?? 0) <= 0
     || typeof owner.createdAt !== "number"
@@ -324,7 +435,7 @@ function completeLogLines(contents: string): string[] {
   return lines;
 }
 
-function encodedLogLine(value: QueueEntry | ReleasedEntry): string {
+function encodedLogLine(value: QueueEntry): string {
   const payload = Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
   return `${LOG_ENTRY_PREFIX}${payload}\n`;
 }
@@ -363,22 +474,52 @@ function isQueueEntry(value: unknown): value is QueueEntry {
     && Number.isFinite(entry.createdAt));
 }
 
-function isReleasedEntry(value: unknown): value is ReleasedEntry {
-  const entry = value as Partial<ReleasedEntry> | null;
-  return Boolean(entry
-    && typeof entry.token === "string"
-    && entry.token.length > 0
-    && typeof entry.releasedAt === "number"
-    && Number.isFinite(entry.releasedAt));
+function tokenFromRecordFilename(filename: string, directory: string): string | undefined {
+  if (!filename.endsWith(".json")) return undefined;
+  let token: string;
+  try {
+    token = decodeURIComponent(filename.slice(0, -".json".length));
+  } catch (error) {
+    throw new Error(`Invalid project lock record filename: ${join(directory, filename)}`, { cause: error });
+  }
+  if (`${encodeURIComponent(token)}.json` !== filename || token.length === 0) {
+    throw new Error(`Invalid project lock record filename: ${join(directory, filename)}`);
+  }
+  return token;
 }
 
-async function appendReleasedToken(
+async function readReleasedTokens(
+  lockPath: string,
+  options: ResolvedLockOptions,
+): Promise<Set<string>> {
+  const directory = releasedPath(lockPath);
+  const tokens = new Set<string>();
+  for (const filename of await options.fileSystem.listDirectory(directory)) {
+    const token = tokenFromRecordFilename(filename, directory);
+    if (!token) continue;
+    const marker = await options.fileSystem.readFile(join(directory, filename));
+    if (marker) tokens.add(token);
+  }
+  return tokens;
+}
+
+async function markReleased(
   lockPath: string,
   token: string,
   options: ResolvedLockOptions,
-): Promise<void> {
+): Promise<boolean> {
   const entry: ReleasedEntry = { token, releasedAt: options.now() };
-  await options.fileSystem.appendLine(releasedPath(lockPath), encodedLogLine(entry), 0o600);
+  const path = releasedMarkerPath(lockPath, token);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await options.fileSystem.createFileExclusive(path, `${JSON.stringify(entry)}\n`, 0o600);
+      return true;
+    } catch (error) {
+      if (errorCode(error) !== "EEXIST") throw error;
+      if (await options.fileSystem.readFile(path)) return false;
+    }
+  }
+  throw new Error(`Project lock release marker repeatedly disappeared: ${path}`);
 }
 
 async function readOwner(
@@ -396,17 +537,46 @@ async function readOwner(
   return { owner, mtimeMs: file.mtimeMs };
 }
 
+async function hasBlockingUnqueuedOwner(
+  lockPath: string,
+  queued: Set<string>,
+  released: Set<string>,
+  options: ResolvedLockOptions,
+): Promise<boolean> {
+  const directory = ownersPath(lockPath);
+  for (const filename of await options.fileSystem.listDirectory(directory)) {
+    const token = tokenFromRecordFilename(filename, directory);
+    if (!token || queued.has(token)) continue;
+    const path = ownerPath(lockPath, token);
+    if (released.has(token)) {
+      await options.fileSystem.removeFile(path);
+      continue;
+    }
+    const file = await options.fileSystem.readFile(path);
+    if (!file) continue;
+    const owner = parseOwner(file.contents, path);
+    if (owner.token !== token) throw new Error(`Project lock owner filename does not match token: ${path}`);
+    if (options.now() - file.mtimeMs <= options.staleAfterMs) return true;
+    if (await options.isOwnerAlive(owner)) return true;
+
+    await markReleased(lockPath, token, options);
+    released.add(token);
+    await options.fileSystem.removeFile(path);
+  }
+  return false;
+}
+
 async function releaseStaleOwner(
   lockPath: string,
   entry: QueueEntry,
   options: ResolvedLockOptions,
 ): Promise<boolean> {
   const observed = await readOwner(lockPath, entry, options);
-  const heartbeatAt = observed?.mtimeMs ?? entry.createdAt;
-  if (options.now() - heartbeatAt <= options.staleAfterMs) return false;
-  if (observed && await options.isOwnerAlive(observed.owner)) return false;
+  if (!observed) return false;
+  if (options.now() - observed.mtimeMs <= options.staleAfterMs) return false;
+  if (await options.isOwnerAlive(observed.owner)) return false;
 
-  await appendReleasedToken(lockPath, entry.token, options);
+  await markReleased(lockPath, entry.token, options);
   await options.fileSystem.removeFile(ownerPath(lockPath, entry.token));
   return true;
 }
@@ -429,12 +599,9 @@ async function ownsQueueHead(
   const ownIndex = queue.findIndex((entry) => entry.token === owner.token);
   if (ownIndex < 0) throw new Error(`Project lock queue lost owner token ${owner.token}`);
 
-  const released = new Set(parseLog(
-    await options.fileSystem.readFile(releasedPath(lockPath)),
-    releasedPath(lockPath),
-    isReleasedEntry,
-  ).map((entry) => entry.token));
+  const released = await readReleasedTokens(lockPath, options);
   if (released.has(owner.token)) throw new Error(`Project lock token was released before acquisition: ${owner.token}`);
+  if (await hasBlockingUnqueuedOwner(lockPath, seen, released, options)) return false;
 
   for (const entry of queue.slice(0, ownIndex + 1)) {
     if (released.has(entry.token)) continue;
@@ -458,10 +625,12 @@ async function createTicket(
 ): Promise<ProjectLockTicket> {
   await options.fileSystem.ensureDirectory(lockPath, 0o700);
   await options.fileSystem.ensureDirectory(ownersPath(lockPath), 0o700);
+  await options.fileSystem.ensureDirectory(releasedPath(lockPath), 0o700);
 
   const owner: ProjectLockOwner = {
     token: options.randomId(),
     hostname: options.hostname,
+    hostInstanceId: options.hostInstanceId,
     pid: options.processId,
     createdAt: options.now(),
   };
@@ -478,15 +647,17 @@ async function createTicket(
   } catch (error) {
     let cleanupFailed = false;
     let cleanupError: unknown;
+    let safeToRemoveOwner = !queueAttempted;
     if (queueAttempted) {
       try {
-        await appendReleasedToken(lockPath, owner.token, options);
+        await markReleased(lockPath, owner.token, options);
+        safeToRemoveOwner = true;
       } catch (releaseError) {
         cleanupFailed = true;
         cleanupError = releaseError;
       }
     }
-    if (ownerCreated) {
+    if (ownerCreated && safeToRemoveOwner) {
       try {
         await options.fileSystem.removeFile(path);
       } catch (removeError) {
@@ -505,6 +676,7 @@ async function createTicket(
   let closing = false;
   let released = false;
   const stopHeartbeat = () => {
+    if (heartbeatStopped) return;
     heartbeatStopped = true;
     cancelHeartbeat();
   };
@@ -527,34 +699,42 @@ async function createTicket(
     }
   };
 
+  let releaseMarked = false;
+  let releaseComplete = false;
+  let terminalReleaseError: Error | undefined;
   let releasePromise: Promise<void> | undefined;
-  const release = () => {
-    releasePromise ??= (async () => {
-      closing = true;
-      try {
-        await appendReleasedToken(lockPath, owner.token, options);
-      } catch (error) {
-        closing = false;
-        throw error;
+  const performRelease = async () => {
+    closing = true;
+    try {
+      if (!releaseMarked) {
+        await markReleased(lockPath, owner.token, options);
+        releaseMarked = true;
+        released = true;
       }
-      released = true;
       stopHeartbeat();
-
-      let removeFailed = false;
-      let removeError: unknown;
-      try {
-        await options.fileSystem.removeFile(path);
-      } catch (error) {
-        removeFailed = true;
-        removeError = error;
-      }
+      await options.fileSystem.removeFile(path);
+      releaseComplete = true;
       if (heartbeatFailed) {
-        const failure = heartbeatFailure(lockPath, heartbeatError);
-        if (removeFailed) throw errorsTogether(failure, removeError);
-        throw failure;
+        terminalReleaseError = heartbeatFailure(lockPath, heartbeatError);
+        throw terminalReleaseError;
       }
-      if (removeFailed) throw removeError;
-    })();
+    } catch (error) {
+      stopHeartbeat();
+      if (!releaseComplete) closing = false;
+      throw error;
+    }
+  };
+  const release = () => {
+    if (releaseComplete) {
+      return terminalReleaseError ? Promise.reject(terminalReleaseError) : Promise.resolve();
+    }
+    releasePromise ??= performRelease().then(
+      () => { releasePromise = undefined; },
+      (error: unknown) => {
+        releasePromise = undefined;
+        throw error;
+      },
+    );
     return releasePromise;
   };
 
@@ -590,7 +770,7 @@ export async function acquireProjectMutationLock(
   projectPath: string,
   options: ProjectLockOptions = {},
 ): Promise<ProjectMutationLock> {
-  const resolved = resolvedOptions(options);
+  const resolved = await resolvedOptions(options);
   const lockPath = projectMutationLockPath(projectPath);
   const startedAt = resolved.now();
   const deadline = startedAt + resolved.timeoutMs;

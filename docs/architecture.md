@@ -73,6 +73,15 @@ interface StorageAdapter {
 
 Ships with `LocalFileStorageAdapter` (writes JSON + assets to disk, like the reference).
 
+Local project mutations are serialized beside `app-store-screenshots.json` with exclusive
+owner/release records and one append-only queue. This coordinator is deliberately a **local
+filesystem** contract: the filesystem must provide atomic exclusive file creation and
+non-interleaved single-write append. Do not mutate one active project concurrently through a
+network/shared mount; a community storage adapter for that topology must provide its own distributed
+coordination. Unknown host-instance/PID-namespace liveness, missing owner metadata, queue corruption,
+or an unqueued live owner fails closed with a bounded retry/manual-recovery error rather than risking
+overlapping writers.
+
 ### Render / export parity — the #1 technical risk
 
 The renderer decision is complete: UI and CLI exports both use the same browser Konva stage.

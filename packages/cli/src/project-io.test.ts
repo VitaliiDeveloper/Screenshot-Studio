@@ -96,11 +96,16 @@ describe("project IO", () => {
     let firstEntered!: () => void;
     const firstDidEnter = new Promise<void>((resolve) => { firstEntered = resolve; });
     const lockWaiters: Array<() => void> = [];
+    let lockWaitStarted!: () => void;
+    const lockDidWait = new Promise<void>((resolve) => { lockWaitStarted = resolve; });
     const lockOptions: ProjectLockOptions = {
       timeoutMs: 500,
       staleAfterMs: 10_000,
       dependencies: {
-        sleep: () => new Promise<void>((resolve) => lockWaiters.push(resolve)),
+        sleep: () => {
+          lockWaitStarted();
+          return new Promise<void>((resolve) => lockWaiters.push(resolve));
+        },
         scheduleHeartbeat: () => () => undefined,
       },
     };
@@ -124,7 +129,7 @@ describe("project IO", () => {
       },
       value: "second",
     }), lockOptions);
-    await waitForIo(() => lockWaiters.length > 0);
+    await lockDidWait;
     releaseFirst();
     await first;
     lockWaiters.splice(0).forEach((resolve) => resolve());
@@ -137,11 +142,3 @@ describe("project IO", () => {
     expect(final.screens[0]!.background).toEqual({ type: "solid", color: "#000000" });
   });
 });
-
-async function waitForIo(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 1_000; attempt += 1) {
-    if (predicate()) return;
-    await new Promise<void>((resolve) => setImmediate(resolve));
-  }
-  throw new Error("condition was not reached");
-}
