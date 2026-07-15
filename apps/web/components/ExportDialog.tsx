@@ -7,6 +7,7 @@ import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
+import { launchExportArtifactDownload } from "./export-dialog-model";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
@@ -44,21 +45,16 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             locale: locale === "all" ? undefined : locale,
           }),
         });
+        const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
           throw new Error(body.error ?? `Export failed (${res.status})`);
         }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "app-store-screenshots-bundle.zip";
-        // Append before click and defer the revoke so the browser doesn't abort a large download.
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-        setDoneDir(res.headers.get("x-export-dir"));
+        const ticket = launchExportArtifactDownload(body, {
+          origin: window.location.origin,
+          createAnchor: () => document.createElement("a"),
+          appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
+        });
+        setDoneDir(ticket.outputDir);
       });
     } catch (err) {
       setError((err as Error).message);
