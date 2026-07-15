@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import JSZip from "jszip";
 import { PNG } from "pngjs";
 
 const execFile = promisify(execFileCallback);
@@ -176,6 +177,27 @@ describe("Packaged CLI", () => {
     expect(basename(files[0]!)).toContain("apple-iphone-6.9");
     const png = PNG.sync.read(await readFile(join(outputDirectory, files[0]!)));
     expect({ width: png.width, height: png.height }).toEqual({ width: 1320, height: 2868 });
+
+    const bundleDirectory = join(projectDirectory, "packaged-bundle");
+    const bundled = await run(bin, [
+      "export",
+      "--project", projectPath,
+      "--out", bundleDirectory,
+    ], consumer, 300_000);
+    expect(bundled.stdout).toContain("Exported 1 screenshots");
+    expect(bundled.stdout).toContain("Wrote bundle");
+
+    const bundledPngPath = "apple/iphone/locale-en/01-hero-6.9.png";
+    const bundledPng = PNG.sync.read(await readFile(join(bundleDirectory, bundledPngPath)));
+    expect({ width: bundledPng.width, height: bundledPng.height })
+      .toEqual({ width: 1320, height: 2868 });
+    const archive = await JSZip.loadAsync(
+      await readFile(join(bundleDirectory, "app-store-screenshots-bundle.zip")),
+    );
+    expect(Object.values(archive.files)
+      .filter((entry) => !entry.dir)
+      .map((entry) => entry.name))
+      .toEqual([bundledPngPath]);
 
     const outputPath = join(outputDirectory, files[0]!);
     const priorOutput = await readFile(outputPath);

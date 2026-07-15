@@ -26,7 +26,7 @@ beforeAll(async () => {
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3125);
+  server = await startWebServer();
   browser = await chromium.launch();
 }, 180_000);
 
@@ -62,9 +62,8 @@ describe("inspector + toolbar", () => {
     expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(false);
     expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(false);
 
-    const measureToolbar = async (width: number) => {
-      await page.setViewportSize({ width, height: 900 });
-      return page.locator("header").evaluate((header) => {
+    const measureToolbar = async () => {
+      return page.locator("header", { has: page.getByLabel("Canvas view") }).evaluate((header) => {
         const left = header.firstElementChild!.getBoundingClientRect();
         const center = header.querySelector('[aria-label="Canvas view"]')!.getBoundingClientRect();
         const right = header.querySelector('[aria-label="Export"]')!.parentElement!.getBoundingClientRect();
@@ -81,9 +80,14 @@ describe("inspector + toolbar", () => {
     };
 
     const expectNoOverlap = async (width: number) => {
-      const geometry = await measureToolbar(width);
-      expect(geometry.centerLeft).toBeGreaterThanOrEqual(geometry.leftRight);
-      expect(geometry.centerRight).toBeLessThanOrEqual(geometry.rightLeft);
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(async () => {
+        const geometry = await measureToolbar();
+        return Math.min(
+          geometry.centerLeft - geometry.leftRight,
+          geometry.rightLeft - geometry.centerRight,
+        );
+      }).toBeGreaterThanOrEqual(0);
     };
 
     await expectNoOverlap(320);
@@ -106,8 +110,11 @@ describe("inspector + toolbar", () => {
     }
 
     for (const width of [630, 828, 959, 1152, 1280, 1440]) {
-      const geometry = await measureToolbar(width);
-      expect(geometry.center).toBeCloseTo(geometry.viewportCenter, 0);
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(async () => {
+        const geometry = await measureToolbar();
+        return geometry.center - geometry.viewportCenter;
+      }).toBeCloseTo(0, 0);
     }
 
     await page.setViewportSize({ width: 630, height: 900 });

@@ -40,6 +40,11 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
   const page = await context.newPage();
   await page.goto(`${server.url}/editor`, { waitUntil: "load" });
   await page.waitForSelector("canvas");
+  const canvasViewport = page.getByTestId("canvas-viewport");
+  await expect.poll(
+    () => canvasViewport.getAttribute("data-initial-reveal"),
+    { timeout: 10_000 },
+  ).toBe("idle");
   return { context, page };
 }
 
@@ -86,7 +91,11 @@ describe("editor accessibility states", () => {
     await expectNoSeriousOrCriticalViolations(page, "desktop add panel");
 
     await page.getByRole("button", { name: "Canvas background: Dots", exact: true }).click();
-    await page.getByRole("menu", { name: "Canvas background", exact: true }).waitFor();
+    const canvasMenu = page.getByRole("menu", { name: "Canvas background", exact: true });
+    await canvasMenu.waitFor();
+    await canvasMenu.evaluate(async (element) => {
+      await Promise.all(element.getAnimations().map((animation) => animation.finished));
+    });
     await expectNoSeriousOrCriticalViolations(page, "desktop canvas menu");
     await page.keyboard.press("Escape");
 

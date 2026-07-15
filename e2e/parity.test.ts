@@ -41,7 +41,7 @@ let harness: ParityRenderHarness;
 
 beforeAll(async () => {
   mkdirSync(tmpDir, { recursive: true });
-  harness = await startParityRenderHarness(() => startWebServer(3123));
+  harness = await startParityRenderHarness(() => startWebServer());
 }, 180_000);
 
 afterAll(async () => {

@@ -21,7 +21,7 @@ const MAX_MISMATCH_FRACTION = 0.001;
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  harness = await startParityRenderHarness(() => startWebServer(3131));
+  harness = await startParityRenderHarness(() => startWebServer());
 }, 180_000);
 
 afterAll(async () => {
