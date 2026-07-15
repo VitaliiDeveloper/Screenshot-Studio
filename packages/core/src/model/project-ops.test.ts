@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Project } from "./schema.js";
 import { isScreenPlacement as isScreenPlacementFromModel } from "./index.js";
+import { slugify as manifestSlugify } from "./project-manifest.js";
+import { isScreenPlacement as ownedScreenPlacement } from "./project-screen-ops.js";
+import { ensureStoreOutputFamily as ownedStoreOutputFamily } from "./project-output-ops.js";
+import { setLocaleDirection as ownedLocaleDirection } from "./project-locale-ops.js";
 import {
   addScreenToProject,
   cloneLocaleSet,
@@ -61,27 +64,11 @@ function sampleProject(): Project {
 }
 
 describe("project-ops", () => {
-  it("keeps the project-ops compatibility surface", () => {
-    expect(typeof slugify).toBe("function");
-    expect(typeof isScreenPlacement).toBe("function");
-    expect(typeof ensureStoreOutputFamily).toBe("function");
-    expect(typeof setLocaleDirection).toBe("function");
-  });
-
-  it("keeps project-ops as the declarative compatibility barrel", () => {
-    const source = readFileSync(new URL("./project-ops.ts", import.meta.url), "utf8");
-    const reexports = [...source.matchAll(/export \* from "(.+)";/g)]
-      .map((match) => match[1]);
-
-    expect(reexports).toEqual([
-      "./project-manifest.js",
-      "./project-font-ops.js",
-      "./project-screen-ops.js",
-      "./project-artboard-ops.js",
-      "./project-output-ops.js",
-      "./project-locale-ops.js",
-    ]);
-    expect(source).not.toMatch(/\bfunction\b/);
+  it("keeps the compatibility barrel wired to its owning runtime operations", () => {
+    expect(slugify).toBe(manifestSlugify);
+    expect(isScreenPlacement).toBe(ownedScreenPlacement);
+    expect(ensureStoreOutputFamily).toBe(ownedStoreOutputFamily);
+    expect(setLocaleDirection).toBe(ownedLocaleDirection);
   });
 
   it("slugify and uniqueId produce stable free ids", () => {
@@ -167,6 +154,12 @@ describe("project-ops", () => {
       rotation: 0, opacity: 1, locked: false, visible: true,
       content: "Hello", fontFamily: "Inter", size: 72, weight: 400,
       lineHeight: 1.2, letterSpacing: 2, align: "left", color: "#FFFFFF",
+      shadow: { color: "#000000", blur: 4, offsetX: -3, offsetY: 5, opacity: 0.8 },
+    }, {
+      id: "card", type: "shape", x: 20, y: 40, width: 100, height: 80,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      kind: "rect", fill: "#FFFFFF", radius: 6,
+      stroke: { color: "#000000", width: 6 },
     }];
 
     const resized = resizeRootArtboard(source, "hero", { width: 1320, height: 2868 });
@@ -175,8 +168,30 @@ describe("project-ops", () => {
     expect(resized.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
     expect(resized.screens[0]!.elements[0]).toMatchObject({
       x: 80, y: 200, width: 1160, height: 400, size: 144, letterSpacing: 4,
+      shadow: { blur: 8, offsetX: -6, offsetY: 10 },
+    });
+    expect(resized.screens[0]!.elements[1]).toMatchObject({
+      x: 40, y: 80, width: 200, height: 160, radius: 12,
+      stroke: { width: 12 },
     });
     expect(resized.screens[1]).toBe(source.screens[1]);
+  });
+
+  it("rejects an artboard resize that would exceed strict schema effect bounds", () => {
+    const source = sampleProject();
+    source.screens[0]!.artboard = { width: 660, height: 1434 };
+    source.screens[0]!.elements = [{
+      id: "headline", type: "text", x: 40, y: 100, width: 580, height: 200,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      content: "Hello", fontFamily: "Inter", size: 72, weight: 400,
+      lineHeight: 1.2, letterSpacing: 2, align: "left", color: "#FFFFFF",
+      shadow: { color: "#000000", blur: 60, offsetX: 0, offsetY: 0, opacity: 1 },
+    }];
+    const original = structuredClone(source);
+
+    expect(() => resizeRootArtboard(source, "hero", { width: 1320, height: 2868 }))
+      .toThrow(/cannot scale element "headline".*shadow\.blur.*100/i);
+    expect(source).toEqual(original);
   });
 
   it("refuses to resize an exact target variant", () => {
@@ -242,7 +257,7 @@ describe("project-ops", () => {
     expect(again.project).toBe(result.project);
   });
 
-  it("removes one target variant and cascades variants when their root is removed", () => {
+  it("removes one target variant and requires acknowledgement before cascading a root", () => {
     const first = ensureStoreTargetVariant(sampleProject(), "hero", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
@@ -252,9 +267,26 @@ describe("project-ops", () => {
     const recreated = ensureStoreTargetVariant(first, "details", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
-    const withoutRoot = removeScreenFromProject(recreated, "details");
+    expect(() => removeScreenFromProject(recreated, "details"))
+      .toThrow(/has 1 store target variant.*cascade/i);
+    const withoutRoot = removeScreenFromProject(recreated, "details", { cascadeVariants: true });
     expect(withoutRoot.screens).toHaveLength(2);
     expect(withoutRoot.screens.every((screen) => screen.id === "hero" || screen.variantOf === "hero")).toBe(true);
+  });
+
+  it("refuses to remove the last root screen for one locale", () => {
+    const withUkrainian = addScreenToProject(sampleProject(), {
+      id: "uk-root",
+      platform: "apple",
+      device: "iphone",
+      locale: "uk",
+      artboard: { width: 1320, height: 2868 },
+    });
+
+    expect(() => removeScreenFromProject(withUkrainian, "uk-root"))
+      .toThrow('Cannot remove the last root screen for locale "uk"');
+    expect(removeScreenFromProject(withUkrainian, "details").screens.map((screen) => screen.id))
+      .toContain("uk-root");
   });
 
   it("addScreenToProject preserves an explicit RTL direction", () => {
@@ -305,7 +337,7 @@ describe("project-ops", () => {
     expect(withoutAndroid.platforms).toEqual(["apple"]);
     expect(() => removeScreenFromProject(withoutAndroid, "details")).not.toThrow();
     const oneLeft = removeScreenFromProject(withoutAndroid, "details");
-    expect(() => removeScreenFromProject(oneLeft, "hero")).toThrow(/last screen/);
+    expect(() => removeScreenFromProject(oneLeft, "hero")).toThrow(/last root screen.*en/);
   });
 
   it("reorderScreenInProject uses 1-based positions", () => {

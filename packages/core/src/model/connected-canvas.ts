@@ -3,6 +3,7 @@ import {
   Project as ProjectSchema,
   type CanvasMode,
   type Element,
+  type LeafElement,
   type Project,
   type Screen,
 } from "./schema.js";
@@ -80,19 +81,69 @@ interface Point {
   y: number;
 }
 
-function leafCorners(element: Exclude<Element, { type: "group" }>): Point[] {
+interface LocalRectangle {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function hasVisibleColorAlpha(color: string): boolean {
+  return color.length !== 9 || color.slice(7) !== "00";
+}
+
+function visualRectangles(element: LeafElement): LocalRectangle[] {
+  const rectangles: LocalRectangle[] = [{
+    minX: 0,
+    minY: 0,
+    maxX: element.width,
+    maxY: element.height,
+  }];
+  if (element.type === "shape" && element.stroke && hasVisibleColorAlpha(element.stroke.color)) {
+    const inflation = element.stroke.width / 2;
+    rectangles.push({
+      minX: -inflation,
+      minY: -inflation,
+      maxX: element.width + inflation,
+      maxY: element.height + inflation,
+    });
+  }
+  if (element.type === "icon" && element.strokeWidth > 0 && hasVisibleColorAlpha(element.color)) {
+    const inflation = element.strokeWidth / 2;
+    rectangles.push({
+      minX: -inflation,
+      minY: -inflation,
+      maxX: element.width + inflation,
+      maxY: element.height + inflation,
+    });
+  }
+  if (element.type === "text"
+    && element.shadow
+    && element.shadow.opacity !== 0
+    && hasVisibleColorAlpha(element.shadow.color)) {
+    rectangles.push({
+      minX: element.shadow.offsetX - element.shadow.blur,
+      minY: element.shadow.offsetY - element.shadow.blur,
+      maxX: element.width + element.shadow.offsetX + element.shadow.blur,
+      maxY: element.height + element.shadow.offsetY + element.shadow.blur,
+    });
+  }
+  return rectangles;
+}
+
+function leafVisualCorners(element: LeafElement): Point[] {
   const radians = element.rotation * Math.PI / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
-  return [
-    [0, 0],
-    [element.width, 0],
-    [0, element.height],
-    [element.width, element.height],
+  return visualRectangles(element).flatMap((rectangle) => [
+    [rectangle.minX, rectangle.minY],
+    [rectangle.maxX, rectangle.minY],
+    [rectangle.minX, rectangle.maxY],
+    [rectangle.maxX, rectangle.maxY],
   ].map(([x, y]) => ({
     x: element.x + x! * cos - y! * sin,
     y: element.y + x! * sin + y! * cos,
-  }));
+  })));
 }
 
 /** Pixel-bearing bounds, including persisted group transforms and visible child overflow. */
@@ -101,7 +152,7 @@ export function renderedElementBounds(element: Element): ElementBounds | null {
   const points = element.type === "group"
     ? element.children
       .filter((child) => child.visible && child.opacity !== 0)
-      .flatMap((child) => leafCorners(child))
+      .flatMap((child) => leafVisualCorners(child))
       .map((point) => {
         const radians = element.rotation * Math.PI / 180;
         const cos = Math.cos(radians);
@@ -111,7 +162,7 @@ export function renderedElementBounds(element: Element): ElementBounds | null {
           y: element.y + point.x * sin + point.y * cos,
         };
       })
-    : leafCorners(element);
+    : leafVisualCorners(element);
   if (points.length === 0) return null;
   return {
     minX: Math.min(...points.map((point) => point.x)),

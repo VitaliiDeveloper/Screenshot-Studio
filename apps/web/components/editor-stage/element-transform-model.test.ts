@@ -32,5 +32,6 @@ describe("element transform model", () => {
       kind: "rect", fill: "#000000", radius: 0,
     };
     expect(transformedDimensions(shape, 0.1, 2)).toEqual({ width: 5, height: 40 });
+    expect(transformedDimensions(shape, -2, -0.5)).toEqual({ width: 20, height: 10 });
   });
 });

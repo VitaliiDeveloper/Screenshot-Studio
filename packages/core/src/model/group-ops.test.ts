@@ -49,12 +49,34 @@ describe("group authoring operations", () => {
   });
 
   it("bakes uniform group scale into geometry and visual leaf dimensions", () => {
-    const grouped = groupElements(screen(), ["red", "copy"], () => "group").group;
+    const source = screen();
+    const red = source.elements[0];
+    const copy = source.elements[2];
+    if (red?.type !== "shape" || copy?.type !== "text") throw new Error("expected leaves");
+    red.stroke = { color: "#FFFFFF", width: 6 };
+    copy.shadow = { color: "#000000", blur: 4, offsetX: -3, offsetY: 5, opacity: 0.8 };
+    const grouped = groupElements(source, ["red", "copy"], () => "group").group;
     const resized = resizeGroupUniform(grouped, 320, 120);
     expect(resized).toMatchObject({ width: 320, height: 120 });
-    expect(resized.children[0]).toMatchObject({ width: 80, height: 40, radius: 8 });
-    expect(resized.children[1]).toMatchObject({ x: 120, y: 40, width: 200, height: 80, size: 40, letterSpacing: 4 });
+    expect(resized.children[0]).toMatchObject({
+      width: 80, height: 40, radius: 8, stroke: { width: 12 },
+    });
+    expect(resized.children[1]).toMatchObject({
+      x: 120, y: 40, width: 200, height: 80, size: 40, letterSpacing: 4,
+      shadow: { blur: 8, offsetX: -6, offsetY: 10 },
+    });
     expect(() => resizeGroupUniform(grouped, 320, 180)).toThrow(/uniformly/);
+  });
+
+  it("rejects a scale that would exceed strict schema effect bounds", () => {
+    const source = screen();
+    const red = source.elements[0];
+    if (red?.type !== "shape") throw new Error("expected shape");
+    red.stroke = { color: "#FFFFFF", width: 60 };
+    const grouped = groupElements(source, ["red", "copy"], () => "group").group;
+
+    expect(() => resizeGroupUniform(grouped, grouped.width * 2, grouped.height * 2))
+      .toThrow(/cannot scale element "red".*stroke\.width.*100/i);
   });
 
   it("scales decorative-image corner radius with grouped geometry", () => {

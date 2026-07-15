@@ -4,29 +4,7 @@ import {
   type Element,
   type Project as ProjectModel,
 } from "./schema.js";
-
-function scaleLeafForArtboard<T extends Exclude<Element, { type: "group" }>>(
-  leaf: T,
-  scale: number,
-  offsetX = 0,
-  offsetY = 0,
-): T {
-  return {
-    ...leaf,
-    x: leaf.x * scale + offsetX,
-    y: leaf.y * scale + offsetY,
-    width: leaf.width * scale,
-    height: leaf.height * scale,
-    ...(leaf.type === "text"
-      ? { size: leaf.size * scale, letterSpacing: (leaf.letterSpacing ?? 0) * scale }
-      : {}),
-    ...(leaf.type === "shape" ? { radius: (leaf.radius ?? 0) * scale } : {}),
-    ...(leaf.type === "icon" ? { strokeWidth: (leaf.strokeWidth ?? 2) * scale } : {}),
-    ...(leaf.type === "screenshot" || leaf.type === "image"
-      ? { cornerRadius: (leaf.cornerRadius ?? 0) * scale }
-      : {}),
-  } as T;
-}
+import { scaleLeafElement } from "./element-scale.js";
 
 /** Fit a root composition into a target artboard without distorting render-bearing elements. */
 export function fitElementsToArtboard(
@@ -38,14 +16,16 @@ export function fitElementsToArtboard(
   const offsetX = (target.width - source.width * scale) / 2;
   const offsetY = (target.height - source.height * scale) / 2;
   return elements.map((element) => {
-    if (element.type !== "group") return scaleLeafForArtboard(element, scale, offsetX, offsetY);
+    if (element.type !== "group") {
+      return scaleLeafElement(element, scale, { x: offsetX, y: offsetY });
+    }
     return {
       ...element,
       x: element.x * scale + offsetX,
       y: element.y * scale + offsetY,
       width: element.width * scale,
       height: element.height * scale,
-      children: element.children.map((child) => scaleLeafForArtboard(child, scale)),
+      children: element.children.map((child) => scaleLeafElement(child, scale)),
     };
   });
 }
