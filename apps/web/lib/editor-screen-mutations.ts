@@ -8,7 +8,6 @@ import {
   sameScreenGroup,
   type Background,
   type Element,
-  type FontAsset,
   type Project,
 } from "@screenshot-studio/core/model";
 import { primarySelection, reconcileSelection, type SelectionRef } from "./editor-selection.js";
@@ -111,7 +110,7 @@ export function removeProjectScreen(
   const removedIds = new Set([id, ...project.screens
     .filter((screen) => screen.variantOf === id)
     .map((screen) => screen.id)]);
-  const nextProject = removeScreenFromProject(project, id);
+  const nextProject = removeScreenFromProject(project, id, { cascadeVariants: true });
   const wasActive = activeScreenId ? removedIds.has(activeScreenId) : false;
   const nextActiveScreenId = wasActive
     ? (nextProject.screens.find((screen) =>
@@ -207,8 +206,4 @@ export function resizeProjectArtboards(
   const active = project.screens.find((screen) => screen.id === activeScreenId);
   if (!active || active.storeTargetId !== undefined) return project;
   return resizeStoreOutputArtboards(project, active.id, size);
-}
-
-export function replaceProjectFonts(project: Project, fonts: FontAsset[]): Project {
-  return { ...project, fonts };
 }

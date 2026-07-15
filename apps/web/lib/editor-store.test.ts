@@ -80,6 +80,10 @@ describe("editorStore", () => {
     expect(s.selectedItems).toEqual([]);
   });
 
+  it("does not expose a partial durable-font replacement action", () => {
+    expect(editorStore.getState()).not.toHaveProperty("replaceFonts");
+  });
+
   it("select sets the selected id", () => {
     editorStore.getState().load(project());
     editorStore.getState().select("headline");
@@ -542,11 +546,14 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     expect(element).toMatchObject({ fontFamily: "Inter", weight: 700 });
   });
 
-  it("replaces font assets without resetting selection", () => {
+  it("preserves valid selection while accepting an authoritative font project", () => {
     editorStore.getState().select("headline");
-    editorStore.getState().replaceFonts([
-      { family: "Inter", weight: 400, source: "uploaded", path: "assets/fonts/inter-400.ttf" },
-    ]);
+    editorStore.getState().replaceProject({
+      ...editorStore.getState().project!,
+      fonts: [
+        { family: "Inter", weight: 400, source: "uploaded", path: "assets/fonts/inter-400.ttf" },
+      ],
+    });
     expect(editorStore.getState().project!.fonts).toHaveLength(1);
     expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: "headline" }]);
   });
@@ -667,6 +674,32 @@ describe("editorStore history (phase 6 slice 4)", () => {
     expect(editorStore.getState().historyPast).toHaveLength(0);
     patchText("headline", { x: 300 });
     editorStore.getState().replaceProject(structuredClone(editorStore.getState().project!));
+    expect(editorStore.getState()).toMatchObject({ historyPast: [], historyFuture: [] });
+  });
+
+  it("makes an authoritative project replacement non-undoable in either direction", () => {
+    patchText("headline", { x: 120 });
+    editorStore.getState().endHistoryGroup();
+    patchText("headline", { y: 220 });
+    editorStore.getState().undo();
+    expect(editorStore.getState().historyPast).not.toEqual([]);
+    expect(editorStore.getState().historyFuture).not.toEqual([]);
+
+    const authoritative: Project = {
+      ...structuredClone(editorStore.getState().project!),
+      meta: { name: "Authoritative", schemaVersion: 1 },
+      fonts: [{
+        family: "Inter",
+        weight: 400,
+        source: "uploaded",
+        path: "assets/fonts/inter-400.ttf",
+      }],
+    };
+    editorStore.getState().replaceProject(authoritative);
+    editorStore.getState().undo();
+    editorStore.getState().redo();
+
+    expect(editorStore.getState().project).toEqual(authoritative);
     expect(editorStore.getState()).toMatchObject({ historyPast: [], historyFuture: [] });
   });
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Project, Screen } from "@screenshot-studio/core/model";
+import * as editorScreenMutations from "./editor-screen-mutations.js";
 import { removeProjectScreen } from "./editor-screen-mutations.js";
 
 function screen(id: string, variantOf?: string): Screen {
@@ -47,6 +48,10 @@ const project: Project = {
 };
 
 describe("editor screen mutations", () => {
+  it("does not expose a partial project-font replacement helper", () => {
+    expect(editorScreenMutations).not.toHaveProperty("replaceProjectFonts");
+  });
+
   it("removing an active root removes its variants and chooses the locale fallback", () => {
     const result = removeProjectScreen(project, "root-a", "root-a", [
       { screenId: "variant-a", elementId: "text-a" },

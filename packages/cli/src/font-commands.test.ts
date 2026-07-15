@@ -1,13 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { resolveFontAction, runFontCommand } from "./font-commands.js";
 import { loadProjectFile } from "./project-io.js";
 
+const temporaryDirectories: string[] = [];
+let validTtf: Buffer;
+
+beforeAll(async () => {
+  validTtf = await readFile(new URL("../../../fixtures/sample/assets/fonts/Pacifico-Regular.ttf", import.meta.url));
+});
+
+afterEach(async () => {
+  await Promise.all(temporaryDirectories.splice(0).map((path) => rm(path, {
+    recursive: true,
+    force: true,
+  })));
+});
+
 async function projectFile() {
   const dir = await mkdtemp(join(tmpdir(), "font-command-"));
+  temporaryDirectories.push(dir);
   const path = join(dir, "app-store-screenshots.json");
   await writeFile(path, JSON.stringify({
     meta: { name: "Fonts", schemaVersion: 1 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
@@ -28,12 +43,20 @@ describe("runFontCommand", () => {
   it("copies, lists, and removes an uploaded font", async () => {
     const { dir, path } = await projectFile();
     const source = join(dir, "Inter.ttf");
-    await writeFile(source, "font-bytes");
+    await writeFile(source, validTtf);
 
-    await expect(runFontCommand(path, ["add", source], { family: "Inter", weight: "700" })).resolves.toBe("Inter 700 uploaded assets/fonts/inter-700.ttf");
-    expect(await readFile(join(dir, "assets/fonts/inter-700.ttf"), "utf8")).toBe("font-bytes");
+    await expect(runFontCommand(
+      path,
+      ["add", source],
+      { family: "Inter", weight: "700" },
+    )).resolves.toBe("Inter 700 uploaded assets/fonts/inter-700.ttf");
+    expect(await readFile(join(dir, "assets/fonts/inter-700.ttf"))).toEqual(validTtf);
     await expect(runFontCommand(path, ["list"], {})).resolves.toContain("Inter 700 uploaded");
-    await expect(runFontCommand(path, ["rm", "Inter"], { weight: "700" })).resolves.toBe("");
+    await expect(runFontCommand(
+      path,
+      ["rm", "Inter"],
+      { weight: "700" },
+    )).resolves.toBe("");
     await expect(readFile(join(dir, "assets/fonts/inter-700.ttf"))).rejects.toMatchObject({ code: "ENOENT" });
     expect((await loadProjectFile(path)).fonts).toEqual([]);
   });
@@ -42,12 +65,12 @@ describe("runFontCommand", () => {
     const { dir, path } = await projectFile();
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response("@font-face { src: url(https://fonts.gstatic.com/s/inter/v1/inter.ttf) format('truetype'); }"))
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])));
+      .mockResolvedValueOnce(new Response(new Uint8Array(validTtf)));
 
     await runFontCommand(path, ["add"], { google: "Inter" }, { fetch });
 
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(await readFile(join(dir, "assets/fonts/inter-400.ttf"))).toEqual(Buffer.from([1, 2, 3]));
+    expect(await readFile(join(dir, "assets/fonts/inter-400.ttf"))).toEqual(validTtf);
     expect((await loadProjectFile(path)).fonts).toEqual([{ family: "Inter", source: "google", path: "assets/fonts/inter-400.ttf", weight: 400 }]);
   });
 
