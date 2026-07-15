@@ -33,7 +33,7 @@ export interface AddScreenOptions {
 export type ScreenAction =
   | { kind: "list" }
   | { kind: "add"; options: AddScreenOptions }
-  | { kind: "rm"; id: string }
+  | { kind: "rm"; id: string; cascadeVariants?: boolean }
   | { kind: "reorder"; id: string; to: number };
 
 function requireFlag(flags: Record<string, string>, key: string): string {
@@ -71,7 +71,11 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
     }
     case "rm":
       if (!id) throw new Error("Usage: screenshots screen rm <id>");
-      return { kind: "rm", id };
+      return {
+        kind: "rm",
+        id,
+        ...(flags.cascade === "true" ? { cascadeVariants: true } : {}),
+      };
     case "reorder": {
       if (!id) throw new Error("Usage: screenshots screen reorder <id> --to <position>");
       const to = Number(flags.to);
@@ -106,12 +110,18 @@ export function addScreenToProject(
   if (!placement) {
     throw new Error(`Unsupported platform/device pair: ${options.platform}/${options.device}`);
   }
+  const leadSizeId = leadStoreSizeId(placement.platform, placement.device);
   const target = findStoreSize(
     specs,
     placement.platform,
     placement.device,
-    options.sizeId ?? leadStoreSizeId(placement.platform, placement.device),
+    options.sizeId ?? leadSizeId,
   );
+  if (options.sizeId !== undefined && target.id !== leadSizeId) {
+    throw new Error(
+      `Cannot create a root screen at non-lead store size "${options.sizeId}"; create a store target variant instead`,
+    );
+  }
   const input: CreateScreenInput = {
     ...placement,
     id: options.id,
@@ -141,7 +151,9 @@ export async function runScreenCommand(
       const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
       nextProject = addScreenToProject(project, specs, action.options);
     } else if (action.kind === "rm") {
-      nextProject = removeScreenFromProject(project, action.id);
+      nextProject = removeScreenFromProject(project, action.id, {
+        cascadeVariants: action.cascadeVariants,
+      });
     } else {
       nextProject = reorderScreenInProject(project, action.id, action.to);
     }

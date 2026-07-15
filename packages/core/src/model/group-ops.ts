@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { rotatedElementBounds } from "./connected-canvas.js";
-import { cloneElementWithFreshIds } from "./element-tree.js";
 import { scaleLeafElement } from "./element-scale.js";
+import { cloneElementWithFreshIds } from "./element-tree.js";
 import { Screen as ScreenSchema, type Element, type GroupElement, type LeafElement, type Screen } from "./schema.js";
 
 export interface ElementLocation {

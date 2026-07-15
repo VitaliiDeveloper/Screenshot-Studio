@@ -78,13 +78,30 @@ export function addScreenToProject(project: ProjectModel, input: CreateScreenInp
   return recomputeManifests({ ...project, screens: [...project.screens, screen] });
 }
 
-export function removeScreenFromProject(project: ProjectModel, id: string): ProjectModel {
-  const index = project.screens.findIndex((screen) => screen.id === id);
-  if (index === -1) throw new Error(`Unknown screen "${id}"`);
-  const removed = project.screens[index]!;
-  const rootScreens = project.screens.filter((screen) => screen.variantOf === undefined);
-  if (removed.variantOf === undefined && rootScreens.length === 1) {
-    throw new Error("Cannot remove the last screen (root)");
+export interface RemoveScreenOptions {
+  cascadeVariants?: boolean;
+}
+
+export function removeScreenFromProject(
+  project: ProjectModel,
+  id: string,
+  options: RemoveScreenOptions = {},
+): ProjectModel {
+  const removed = project.screens.find((screen) => screen.id === id);
+  if (!removed) throw new Error(`Unknown screen "${id}"`);
+  if (removed.variantOf === undefined) {
+    const localeRoots = project.screens.filter((screen) =>
+      screen.variantOf === undefined && screen.locale === removed.locale
+    );
+    if (localeRoots.length === 1) {
+      throw new Error(`Cannot remove the last root screen for locale "${removed.locale}"`);
+    }
+    const variants = project.screens.filter((screen) => screen.variantOf === id);
+    if (variants.length > 0 && !options.cascadeVariants) {
+      throw new Error(
+        `Screen "${id}" has ${variants.length} store target variant(s); rerun with cascade acknowledgement`,
+      );
+    }
   }
   const screens = project.screens.filter((screen) =>
     screen.id !== id && screen.variantOf !== id,
