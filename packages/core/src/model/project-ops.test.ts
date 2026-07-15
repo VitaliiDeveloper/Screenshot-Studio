@@ -22,7 +22,7 @@ import {
   removeStoreTargetVariant,
   removeLocaleSet,
   reorderScreenInProject,
-  resizeRootArtboard,
+  resizeScreenArtboard,
   resizeStoreOutputArtboards,
   setLocaleDirection,
   slugify,
@@ -146,7 +146,7 @@ describe("project-ops", () => {
     expect(again.project).toBe(result.project);
   });
 
-  it("resizes a root artboard and its composition atomically", () => {
+  it("resizes one screen artboard and its composition atomically", () => {
     const source = sampleProject();
     source.screens[0]!.artboard = { width: 660, height: 1434 };
     source.screens[0]!.elements = [{
@@ -162,7 +162,7 @@ describe("project-ops", () => {
       stroke: { color: "#000000", width: 6 },
     }];
 
-    const resized = resizeRootArtboard(source, "hero", { width: 1320, height: 2868 });
+    const resized = resizeScreenArtboard(source, "hero", { width: 1320, height: 2868 });
 
     expect(source.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
     expect(resized.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
@@ -177,31 +177,94 @@ describe("project-ops", () => {
     expect(resized.screens[1]).toBe(source.screens[1]);
   });
 
-  it("rejects an artboard resize that would exceed strict schema effect bounds", () => {
+  it("scales render-bearing effects with an artboard fit", () => {
     const source = sampleProject();
-    source.screens[0]!.artboard = { width: 660, height: 1434 };
+    source.screens[0]!.artboard = { width: 100, height: 100 };
+    source.screens[0]!.elements = [
+      {
+        id: "headline", type: "text", x: 10, y: 10, width: 80, height: 20,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        content: "Hello", fontFamily: "Inter", size: 10, weight: 400,
+        lineHeight: 1.2, letterSpacing: 1, align: "left", color: "#FFFFFF",
+        shadow: { color: "#000000", blur: 12, offsetX: 4, offsetY: -6, opacity: 0.5 },
+      },
+      {
+        id: "group", type: "group", x: 10, y: 40, width: 80, height: 40,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        children: [{
+          id: "card", type: "shape", x: 0, y: 0, width: 80, height: 40,
+          rotation: 0, opacity: 1, locked: false, visible: true,
+          kind: "rect", fill: "#101827", radius: 6,
+          stroke: { color: "#FFFFFF", width: 4 },
+        }],
+      },
+    ];
+
+    const resized = resizeScreenArtboard(source, "hero", { width: 200, height: 200 });
+
+    expect(resized.screens[0]!.elements).toMatchObject([
+      {
+        type: "text",
+        shadow: { color: "#000000", blur: 24, offsetX: 8, offsetY: -12, opacity: 0.5 },
+      },
+      {
+        type: "group",
+        children: [{
+          type: "shape",
+          radius: 12,
+          stroke: { color: "#FFFFFF", width: 8 },
+        }],
+      },
+    ]);
+  });
+
+  it("rejects artboard fits that exceed bounded visual metrics", () => {
+    const source = sampleProject();
+    source.screens[0]!.artboard = { width: 100, height: 100 };
     source.screens[0]!.elements = [{
-      id: "headline", type: "text", x: 40, y: 100, width: 580, height: 200,
+      id: "headline", type: "text", x: 10, y: 10, width: 80, height: 20,
       rotation: 0, opacity: 1, locked: false, visible: true,
-      content: "Hello", fontFamily: "Inter", size: 72, weight: 400,
-      lineHeight: 1.2, letterSpacing: 2, align: "left", color: "#FFFFFF",
-      shadow: { color: "#000000", blur: 60, offsetX: 0, offsetY: 0, opacity: 1 },
+      content: "Hello", fontFamily: "Inter", size: 10, weight: 400,
+      lineHeight: 1.2, letterSpacing: 1, align: "left", color: "#FFFFFF",
+      shadow: { color: "#000000", blur: 60, offsetX: 0, offsetY: 4, opacity: 0.5 },
     }];
     const original = structuredClone(source);
 
-    expect(() => resizeRootArtboard(source, "hero", { width: 1320, height: 2868 }))
-      .toThrow(/cannot scale element "headline".*shadow\.blur.*100/i);
+    expect(() => resizeScreenArtboard(source, "hero", { width: 200, height: 200 }))
+      .toThrow('Cannot scale text shadow blur above 100 for element "headline"');
     expect(source).toEqual(original);
   });
 
-  it("refuses to resize an exact target variant", () => {
-    const withVariant = ensureStoreTargetVariant(sampleProject(), "hero", {
-      id: "6.5", width: 1284, height: 2778,
-    }).project;
-    const variant = withVariant.screens.find((screen) => screen.storeTargetId === "6.5")!;
+  it("resizes one store target output set without changing roots or sibling targets", () => {
+    let withTargets = sampleProject();
+    for (const rootId of ["hero", "details"]) {
+      withTargets = ensureStoreTargetVariant(withTargets, rootId, {
+        id: "6.5", width: 1284, height: 2778,
+      }).project;
+      withTargets = ensureStoreTargetVariant(withTargets, rootId, {
+        id: "5.5", width: 1242, height: 2688,
+      }).project;
+    }
+    const source = withTargets.screens.find((screen) =>
+      screen.variantOf === "hero" && screen.storeTargetId === "6.5"
+    )!;
+    const originalRoots = withTargets.screens.filter((screen) => screen.storeTargetId === undefined);
+    const originalSiblingTarget = withTargets.screens.filter((screen) => screen.storeTargetId === "5.5");
 
-    expect(() => resizeRootArtboard(withVariant, variant.id, { width: 1000, height: 2000 }))
-      .toThrow(/fixed artboards/);
+    const resized = resizeStoreOutputArtboards(withTargets, source.id, {
+      width: 642,
+      height: 1389,
+    });
+
+    const resizedTarget = resized.screens.filter((screen) => screen.storeTargetId === "6.5");
+    expect(resizedTarget).toHaveLength(2);
+    expect(resizedTarget.every((screen) =>
+      screen.artboard.width === 642 && screen.artboard.height === 1389
+    )).toBe(true);
+    expect(resized.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toEqual(originalRoots);
+    expect(resized.screens.filter((screen) => screen.storeTargetId === "5.5"))
+      .toEqual(originalSiblingTarget);
   });
 
   it("resizes every master screen in one store output set", () => {
@@ -257,7 +320,114 @@ describe("project-ops", () => {
     expect(again.project).toBe(result.project);
   });
 
-  it("removes one target variant and requires acknowledgement before cascading a root", () => {
+  it("creates new watchOS output families with 3.5x custom masters", () => {
+    const source = sampleProject();
+    const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+
+    const watchRoots = result.project.screens.filter((screen) =>
+      screen.platform === "apple"
+      && screen.device === "watchos"
+      && screen.variantOf === undefined,
+    );
+    expect(result.created).toBe(true);
+    expect(watchRoots).toHaveLength(2);
+    expect(watchRoots.every((screen) =>
+      screen.storeTargetId === undefined
+      && screen.artboard.width === 1477
+      && screen.artboard.height === 1799
+    )).toBe(true);
+    expect(source.screens.map((screen) => screen.artboard)).toEqual([
+      { width: 1320, height: 2868 },
+      { width: 1320, height: 2868 },
+    ]);
+
+    const variant = ensureStoreTargetVariant(result.project, watchRoots[0]!.id, {
+      id: "series-11", width: 416, height: 496,
+    }).variant;
+    expect(variant).toMatchObject({
+      variantOf: watchRoots[0]!.id,
+      storeTargetId: "series-11",
+      artboard: { width: 1456, height: 1736 },
+    });
+  });
+
+  it("reuses an existing target output set size for newly added variants", () => {
+    const family = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+    const watchRoots = family.project.screens.filter((screen) =>
+      screen.platform === "apple"
+      && screen.device === "watchos"
+      && screen.variantOf === undefined
+    );
+    const first = ensureStoreTargetVariant(family.project, watchRoots[0]!.id, {
+      id: "series-11", width: 416, height: 496,
+    });
+    const resized = resizeStoreOutputArtboards(first.project, first.variant.id, {
+      width: 832,
+      height: 992,
+    });
+
+    const second = ensureStoreTargetVariant(resized, watchRoots[1]!.id, {
+      id: "series-11", width: 416, height: 496,
+    });
+
+    expect(second.variant.artboard).toEqual({ width: 832, height: 992 });
+  });
+
+  it("derives watchOS masters from the supplied lead dimensions", () => {
+    const result = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+      id: "custom-watch-lead", width: 400, height: 500,
+    });
+
+    expect(result.firstScreen.artboard).toEqual({ width: 1400, height: 1750 });
+  });
+
+  it("rejects watchOS lead dimensions that cannot produce an integer 3.5x master", () => {
+    const source = sampleProject();
+
+    expect(() => ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+      id: "fractional-watch-lead", width: 401, height: 501,
+    })).toThrow(/derived artboard must use integer dimensions/);
+    expect(source.screens).toHaveLength(2);
+  });
+
+  it("rejects watchOS variant dimensions that cannot produce an integer 3.5x artboard", () => {
+    const family = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+    const before = family.project;
+
+    expect(() => ensureStoreTargetVariant(before, family.firstScreen.id, {
+      id: "fractional-watch-target", width: 401, height: 501,
+    })).toThrow(/derived artboard must use integer dimensions/);
+    expect(before.screens).toHaveLength(4);
+  });
+
+  it("reopens an existing fixed watchOS family without resizing it", () => {
+    const source = sampleProject();
+    source.screens.push({
+      ...structuredClone(source.screens[0]!),
+      id: "existing-watch",
+      platform: "apple",
+      device: "watchos",
+      artboard: { width: 422, height: 514 },
+      elements: [],
+    });
+
+    const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+      id: "ultra-3", width: 422, height: 514,
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.project).toBe(source);
+    expect(result.firstScreen.id).toBe("existing-watch");
+    expect(result.firstScreen.artboard).toEqual({ width: 422, height: 514 });
+  });
+
+  it("removes one target variant and cascades variants when their root is removed", () => {
     const first = ensureStoreTargetVariant(sampleProject(), "hero", {
       id: "6.5", width: 1284, height: 2778,
     }).project;

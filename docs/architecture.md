@@ -297,13 +297,27 @@ store PNGs. These examples validate the current baseline but do not authorize pu
 **Independent store targets.** Root screens omit
 `variantOf` and `storeTargetId`. An explicit target copy stores both fields, points directly to its
 root, matches the root platform/device/locale, and renders through the same flat `Screen` contract.
-Creation fits a fresh-id copy into the exact store artboard and never mutates the root. Workspace
+Creation fits a fresh-id copy into a target-derived authoring artboard and never mutates the root.
+That artboard is normally exact; newly created watchOS variants use the proportional policy below.
+Workspace
 projection includes `storeTargetId` in the group identity so root and variant canvases cannot be
 stitched together. Bundle export uses the lead target for roots and each explicit variant's own
 target id, with numbering restarted per target. New roots use their device family's exact lead
-artboard. The editor presents that master size as fixed by default; explicit customization resizes
-every root composition in the output set atomically, while reset fits the set back to the exact lead dimensions. Exact and
-custom state are derived from `store-specs.json`, not duplicated in the schema.
+artboard. Newly created editor-driven `apple/watchos` roots and target variants are the deliberate
+exception: core derives each 3.5× authoring artboard by multiplying its selected
+`store-specs.json` target. The current 422 × 514 lead creates a 1477 × 1799 root, while the
+416 × 496 Series 11 target creates a 1456 × 1736 variant; neither duplicates exact target
+dimensions in persisted metadata. Core rejects a target whose scaled dimensions are fractional
+instead of rounding and distorting its ratio. The editor presents proportional watchOS roots and
+variants as Custom. Every target uses the same Store size/Custom Inspector control; explicit
+customization and reset resize every composition matching the active
+`platform/device/locale/storeTargetId` output set atomically, while reset fits that set back to its
+own exact Store Target dimensions. Sibling targets remain unchanged. Exact and custom state are
+derived from `store-specs.json`, not duplicated in the schema. Artboard fitting scales pixel-valued
+visual metrics alongside geometry—including text-shadow blur and offsets, shape-stroke width, and
+corner radii—so proportional authoring masters preserve their appearance at exact export sizes.
+Scaling fails atomically instead of clamping when a bounded visual metric would exceed the strict
+schema. Existing roots and variants are opened unchanged.
 
 **Artboard backgrounds.** `Background` is a strict discriminated
 union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
@@ -337,9 +351,15 @@ width and fits height to the canonical outer aspect.
 
 Each exact `platform/device/locale` root set is an independently editable output. Creating another
 family clones every root screen in the active locale with fresh screen and element ids, fits the
-copy to that family's lead target, and never mutates or links it back to the source family. Accepted
-non-lead sizes remain `variantOf`/`storeTargetId` variants of a root inside the same family. Both
-operations are idempotent: an existing output or size is opened instead of duplicated.
+copy to that family's core-derived master artboard, and never mutates or links it back to the source
+family. The master normally equals the lead target; editor-created `apple/watchos` families use the
+3.5× proportional master described above. Accepted non-lead sizes remain
+`variantOf`/`storeTargetId` variants of a root inside the same family. Newly created watchOS
+variants derive their own 3.5× authoring artboards from their selected targets; other variants use
+literal target dimensions. If a target already has another screen, a newly created variant reuses
+that target output set's current authoring artboard so a user-defined custom size is not silently
+replaced by the platform default. Both operations are idempotent: an existing output or size is
+opened unchanged instead of duplicated or resized.
 
 ## 4. Store export spec
 

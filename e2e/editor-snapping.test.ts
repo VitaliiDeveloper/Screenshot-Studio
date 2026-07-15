@@ -15,6 +15,9 @@ let browser: Browser;
 let directory: string;
 let projectPath: string;
 
+const CONNECTED_STAGE_WIDTH = 1320;
+const BRIDGE_DRAG_POINT = { x: 650, y: 300 };
+
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "editor-snapping-"));
   projectPath = join(directory, "app-store-screenshots.json");
@@ -39,11 +42,36 @@ function bridgeX(): number {
 async function beginBridgeDrag(page: Page, logicalDeltaX: number) {
   const connected = page.getByTestId("connected-artboards");
   const canvas = connected.locator("canvas").first();
+  const viewport = page.getByTestId("canvas-viewport");
+  await canvas.waitFor({ state: "visible" });
+  await viewport.evaluate((node, { deltaX, point, stageWidth }) => {
+    const canvasNode = node.querySelector<HTMLCanvasElement>('[data-testid="connected-artboards"] canvas');
+    if (!canvasNode) throw new Error("Connected canvas is unavailable");
+    const viewportBox = node.getBoundingClientRect();
+    const canvasBox = canvasNode.getBoundingClientRect();
+    const scale = canvasBox.width / stageWidth;
+    const dragCenterX = canvasBox.left + (point.x + deltaX / 2) * scale;
+    const dragY = canvasBox.top + point.y * scale;
+    node.scrollLeft += dragCenterX - (viewportBox.left + viewportBox.width / 2);
+    node.scrollTop += dragY - (viewportBox.top + viewportBox.height / 2);
+  }, { deltaX: logicalDeltaX, point: BRIDGE_DRAG_POINT, stageWidth: CONNECTED_STAGE_WIDTH });
+
+  await expect.poll(async () => {
+    const [box, viewportBox] = await Promise.all([canvas.boundingBox(), viewport.boundingBox()]);
+    if (!box || !viewportBox) return false;
+    const scale = box.width / CONNECTED_STAGE_WIDTH;
+    const startX = box.x + BRIDGE_DRAG_POINT.x * scale;
+    const endX = startX + logicalDeltaX * scale;
+    const y = box.y + BRIDGE_DRAG_POINT.y * scale;
+    return [startX, endX].every((x) => x >= viewportBox.x && x <= viewportBox.x + viewportBox.width)
+      && y >= viewportBox.y
+      && y <= viewportBox.y + viewportBox.height;
+  }).toBe(true);
+
   const box = (await canvas.boundingBox())!;
-  const scale = box.width / 1320;
-  const x = box.x + 650 * scale;
-  const y = box.y + 300 * scale;
-  await page.mouse.click(x, y);
+  const scale = box.width / CONNECTED_STAGE_WIDTH;
+  const x = box.x + BRIDGE_DRAG_POINT.x * scale;
+  const y = box.y + BRIDGE_DRAG_POINT.y * scale;
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x + logicalDeltaX * scale, y, { steps: 8 });
@@ -57,13 +85,20 @@ describe("Phase 6 editor snapping", () => {
     const connected = page.getByTestId("connected-artboards");
     await connected.waitFor({ state: "visible" });
 
+    const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
+    if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
+    const stage = connected.getByTestId("editor-stage");
+    await page.getByRole("list", { name: "Layers for Connected First" })
+      .getByRole("button", { name: "Shape", exact: true })
+      .click();
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("1");
+
     const zoomControls = page.getByLabel("Zoom controls");
     const zoomValue = zoomControls.getByRole("button").nth(1);
     await zoomValue.click();
     await expect.poll(() => zoomValue.textContent()).toBe("100%");
 
     let drag = await beginBridgeDrag(page, -108);
-    const stage = drag.connected.getByTestId("editor-stage");
     expect(await stage.getAttribute("data-snap-guide-x")).toBeNull();
     await page.mouse.up();
     await expect.poll(bridgeX).toBeCloseTo(452, 0);

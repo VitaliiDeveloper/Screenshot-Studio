@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
-import type { Readable } from "node:stream";
+import { finished } from "node:stream/promises";
 import { prepareRenderHost, type PreparedRenderHost } from "./packaged-render-host.js";
 
 export {
@@ -26,62 +26,7 @@ type SpawnFn = (command: string, args: string[], options: Parameters<typeof node
 type WaitForHttpFn = (url: string, timeoutMs: number) => Promise<void>;
 type PrepareRenderHostFn = (port: number) => Promise<PreparedRenderHost>;
 
-const RENDER_HOST_STDERR_TAIL_BYTES = 16 * 1024;
-const stderrDiagnosticsApplied = Symbol("stderrDiagnosticsApplied");
-
-interface StderrTail {
-  snapshot(): { text: string; truncated: boolean };
-  dispose(): void;
-}
-
-function captureStderrTail(stderr: Readable | null): StderrTail {
-  let tail = Buffer.alloc(0);
-  let truncated = false;
-  const onData = (chunk: Buffer | string) => {
-    const incoming = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
-    if (incoming.length >= RENDER_HOST_STDERR_TAIL_BYTES) {
-      truncated ||= tail.length > 0 || incoming.length > RENDER_HOST_STDERR_TAIL_BYTES;
-      tail = Buffer.from(incoming.subarray(incoming.length - RENDER_HOST_STDERR_TAIL_BYTES));
-      return;
-    }
-    const combinedLength = tail.length + incoming.length;
-    if (combinedLength <= RENDER_HOST_STDERR_TAIL_BYTES) {
-      tail = Buffer.concat([tail, incoming], combinedLength);
-    } else {
-      truncated = true;
-      const retainedPrefixBytes = RENDER_HOST_STDERR_TAIL_BYTES - incoming.length;
-      tail = Buffer.concat([
-        tail.subarray(Math.max(0, tail.length - retainedPrefixBytes)),
-        incoming,
-      ], RENDER_HOST_STDERR_TAIL_BYTES);
-    }
-  };
-  stderr?.on("data", onData);
-  return {
-    snapshot: () => ({ text: tail.toString("utf8").trimEnd(), truncated }),
-    dispose() {
-      stderr?.off("data", onData);
-      tail = Buffer.alloc(0);
-      truncated = false;
-    },
-  };
-}
-
-function withStderrDiagnostics(error: unknown, stderr: StderrTail): Error {
-  const base = error instanceof Error ? error : new Error(String(error));
-  if ((base as Error & { [stderrDiagnosticsApplied]?: boolean })[stderrDiagnosticsApplied]) {
-    return base;
-  }
-  const snapshot = stderr.snapshot();
-  if (!snapshot.text) return base;
-  const label = snapshot.truncated
-    ? "render host stderr tail truncated"
-    : "render host stderr tail";
-  const diagnosed = new Error(`${base.message}\n\n[${label}]\n${snapshot.text}`, { cause: base });
-  diagnosed.name = base.name;
-  (diagnosed as Error & { [stderrDiagnosticsApplied]?: boolean })[stderrDiagnosticsApplied] = true;
-  return diagnosed;
-}
+const RENDER_HOST_STDERR_TAIL_BYTES = 64 * 1024;
 
 async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -145,6 +90,56 @@ function lifecycleErrors(primary: unknown, cleanup: unknown): AggregateError {
   );
 }
 
+interface StderrCapture {
+  drained: Promise<void>;
+  readTail: () => { text: string; truncated: boolean };
+}
+
+function captureStderrTail(child: ChildProcess): StderrCapture {
+  let tail = Buffer.alloc(0);
+  let truncated = false;
+  const stderr = child.stderr;
+  if (!stderr) {
+    return {
+      drained: Promise.resolve(),
+      readTail: () => ({ text: "", truncated: false }),
+    };
+  }
+
+  const onData = (chunk: Buffer | string) => {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    if (bytes.length >= RENDER_HOST_STDERR_TAIL_BYTES) {
+      truncated ||= tail.length > 0 || bytes.length > RENDER_HOST_STDERR_TAIL_BYTES;
+      tail = Buffer.from(bytes.subarray(bytes.length - RENDER_HOST_STDERR_TAIL_BYTES));
+      return;
+    }
+    truncated ||= tail.length + bytes.length > RENDER_HOST_STDERR_TAIL_BYTES;
+    const previousBytes = RENDER_HOST_STDERR_TAIL_BYTES - bytes.length;
+    tail = Buffer.concat([tail.subarray(Math.max(0, tail.length - previousBytes)), bytes]);
+  };
+  stderr.on("data", onData);
+
+  return {
+    drained: finished(stderr, { cleanup: true }).then(
+      () => undefined,
+      () => undefined,
+    ).finally(() => stderr.off("data", onData)),
+    readTail: () => ({ text: tail.toString("utf8").trimEnd(), truncated }),
+  };
+}
+
+function withRenderHostStderr(
+  error: unknown,
+  stderr: { text: string; truncated: boolean },
+): Error {
+  const base = error instanceof Error ? error : new Error(String(error));
+  if (!stderr.text.trim()) return base;
+  const label = stderr.truncated
+    ? "Render host stderr tail truncated"
+    : "Render host stderr";
+  return new Error(`${base.message}\n${label}:\n${stderr.text}`, { cause: base });
+}
+
 export async function createServerController({
   port,
   projectPath,
@@ -166,29 +161,21 @@ export async function createServerController({
       ...(storeSpecsPath ? { STORE_SPECS_PATH: storeSpecsPath } : {}),
     },
   });
-  const stderrTail = captureStderrTail(child.stderr);
+  const stderrCapture = captureStderrTail(child);
 
   const url = `http://localhost:${selectedPort}`;
   let stopping = false;
   let resolveUnexpectedExit!: (error: Error) => void;
-  const exited = new Promise<Error>((resolveExit) => {
+  const unexpectedExit = new Promise<Error>((resolveExit) => {
     resolveUnexpectedExit = resolveExit;
   });
   child.once("error", (error) => {
-    if (!stopping) {
-      resolveUnexpectedExit(withStderrDiagnostics(
-        new Error(`Render host failed: ${error.message}`, { cause: error }),
-        stderrTail,
-      ));
-    }
+    if (!stopping) resolveUnexpectedExit(new Error(`Render host failed: ${error.message}`, { cause: error }));
   });
   child.once("exit", (code, signal) => {
     if (stopping) return;
     const status = signal ? `signal ${signal}` : `code ${code ?? "unknown"}`;
-    resolveUnexpectedExit(withStderrDiagnostics(
-      new Error(`Render host exited unexpectedly (${status})`),
-      stderrTail,
-    ));
+    resolveUnexpectedExit(new Error(`Render host exited unexpectedly (${status})`));
   });
 
   let stopPromise: Promise<void> | undefined;
@@ -196,27 +183,19 @@ export async function createServerController({
     stopPromise ??= (async () => {
       stopping = true;
       let terminateError: unknown;
-      let hasTerminateError = false;
       try {
         await terminateChild(child);
       } catch (error) {
         terminateError = error;
-        hasTerminateError = true;
       }
-      let cleanupError: unknown;
-      let hasCleanupError = false;
+      if (!terminateError) await stderrCapture.drained;
       try {
         await host.cleanup();
-      } catch (error) {
-        cleanupError = error;
-        hasCleanupError = true;
+      } catch (cleanupError) {
+        if (terminateError) throw lifecycleErrors(terminateError, cleanupError);
+        throw cleanupError;
       }
-      stderrTail.dispose();
-      if (hasTerminateError && hasCleanupError) {
-        throw lifecycleErrors(terminateError, cleanupError);
-      }
-      if (hasTerminateError) throw terminateError;
-      if (hasCleanupError) throw cleanupError;
+      if (terminateError) throw terminateError;
     })();
     return stopPromise;
   };
@@ -224,18 +203,27 @@ export async function createServerController({
   try {
     await Promise.race([
       wait(url, timeoutMs),
-      exited.then((error) => { throw error; }),
+      unexpectedExit.then((error) => { throw error; }),
     ]);
   } catch (error) {
-    const diagnosedError = withStderrDiagnostics(error, stderrTail);
+    let cleanupFailed = false;
+    let cleanupError: unknown;
     try {
       await stop();
-    } catch (cleanupError) {
-      throw lifecycleErrors(diagnosedError, cleanupError);
+    } catch (caughtCleanupError) {
+      cleanupFailed = true;
+      cleanupError = caughtCleanupError;
     }
-    throw diagnosedError;
+    await stderrCapture.drained;
+    const decoratedError = withRenderHostStderr(error, stderrCapture.readTail());
+    if (cleanupFailed) throw lifecycleErrors(decoratedError, cleanupError);
+    throw decoratedError;
   }
 
+  const exited = unexpectedExit.then(async (error) => {
+    await stderrCapture.drained;
+    return withRenderHostStderr(error, stderrCapture.readTail());
+  });
   return { url, exited, stop };
 }
 

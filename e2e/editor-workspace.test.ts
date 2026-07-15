@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
+import { chromium, type Browser, type Page } from "playwright";
 import { cpSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -13,6 +13,7 @@ const sampleAssets = resolve(repoRoot, "fixtures/sample/assets");
 
 let server: RunningServer;
 let browser: Browser;
+let page: Page | undefined;
 let dir: string;
 let projectFile: string;
 
@@ -38,15 +39,16 @@ beforeAll(async () => {
   projectFile = join(dir, "app-store-screenshots.json");
   writeWorkspaceBaseline();
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
-  process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer(3136, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
+  server = await startWebServer(undefined, {
+    projectPath: projectFile,
+    storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+  });
   browser = await chromium.launch();
 }, 180_000);
 
 afterAll(async () => {
   await browser?.close();
   await server?.stop();
-  delete process.env.PROJECT_PATH;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -66,11 +68,68 @@ function project() {
   };
 }
 
+async function openEditor(viewport: { width: number; height: number }): Promise<Page> {
+  page = await browser.newPage({ viewport });
+  await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+  await page.waitForSelector("canvas");
+  return page;
+}
+
+beforeEach(() => {
+  writeWorkspaceBaseline();
+  expect(project().screens).toHaveLength(3);
+});
+
+afterEach(async () => {
+  try {
+    await page?.close();
+  } finally {
+    page = undefined;
+    writeWorkspaceBaseline();
+  }
+});
+
 describe("Phase 3.6 editor workspace", () => {
-  it("shows only the active screen's layers and updates them when screen selection changes", async () => {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  it("surfaces store-spec failures and recovers through the visible workspace retry", async () => {
+    page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    let attempts = 0;
+    await page.route("**/api/store-specs", async (route) => {
+      attempts += 1;
+      if (attempts === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ apple: { iphone: [{ id: "broken-target" }] } }),
+        });
+        return;
+      }
+      if (attempts === 2) {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "store specs temporarily unavailable" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const retryButton = page.getByRole("button", { name: "Retry workspace resources" });
+    await retryButton.waitFor({ state: "visible" });
+    const alert = page.getByRole("alert").filter({ has: retryButton });
+    expect(await alert.textContent()).toMatch(/width|invalid|expected/i);
+    await retryButton.click();
+    await expect.poll(() => alert.textContent()).toContain("store specs temporarily unavailable");
+    expect(await alert.textContent()).toContain("store specs temporarily unavailable");
+    await retryButton.click();
     await page.waitForSelector("canvas");
+    await alert.waitFor({ state: "hidden" });
+    expect(attempts).toBe(3);
+  });
+
+  it("shows only the active screen's layers and updates them when screen selection changes", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
 
     const currentProject = project();
     const firstScreen = currentProject.screens[0]!;
@@ -89,13 +148,10 @@ describe("Phase 3.6 editor workspace", () => {
     await secondLayers.waitFor({ state: "visible" });
     await expect.poll(() => secondLayers.getByRole("listitem").count()).toBe(secondScreen.elements.length);
     expect(await page.getByRole("button", { name: `Show ${firstScreen.name} layers` }).count()).toBe(0);
-    await page.close();
   });
 
   it("adds an independent store-target row without leaving the master output", async () => {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 1440, height: 1000 });
 
     const masterBefore = structuredClone(project().screens[0]!);
     const addSize = page.getByRole("button", { name: "Add size", exact: true });
@@ -115,8 +171,11 @@ describe("Phase 3.6 editor workspace", () => {
     });
     expect(variant.id).not.toBe(masterBefore.id);
     expect(variant.elements[0]!.id).not.toBe(masterBefore.elements[0]!.id);
-    expect(await page.getByText("Master size", { exact: true }).count()).toBe(1);
-    expect(await page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(0);
+    expect(await page.getByText("Artboard", { exact: true }).count()).toBe(1);
+    const artboardMode = page.getByRole("group", { name: "Artboard size mode" });
+    expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
+      .toBe("true");
+    expect(await page.getByText("1320 × 2868 px", { exact: true }).count()).toBe(1);
     const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
     const leadTargetRow = page.getByRole("group", { name: '6.9" iPhone (lead) store target', exact: true });
     await expect.poll(() => targetRow.getByRole("button", { name: "Open", exact: true }).count()).toBe(1);
@@ -142,7 +201,17 @@ describe("Phase 3.6 editor workspace", () => {
     expect(await iphoneOutput.getByText("Master", { exact: true }).count()).toBe(1);
 
     await targetRow.getByRole("button", { name: "Open", exact: true }).click();
-    await expect.poll(() => page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(1);
+    await expect.poll(() => page.getByText("1284 × 2778 px", { exact: true }).count()).toBe(1);
+    expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
+      .toBe("true");
+    await artboardMode.getByRole("button", { name: "Use custom artboard size" }).click();
+    expect(await page.getByRole("spinbutton", { name: "W", exact: true }).inputValue()).toBe("1284");
+    expect(await page.getByRole("spinbutton", { name: "H", exact: true }).inputValue()).toBe("2778");
+    expect(await page.getByText(
+      "Apply resizes every screen in this Store Target output and fits each composition.",
+      { exact: true },
+    ).count()).toBe(1);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(await targetRow.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
     expect(await iphoneOutput.getAttribute("data-editing")).toBe("true");
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("false");
@@ -153,13 +222,10 @@ describe("Phase 3.6 editor workspace", () => {
     await targetRow.getByRole("button", { name: "Remove", exact: true }).click();
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(0);
     expect(project().screens.find((screen) => screen.id === masterBefore.id)!.artboard).toEqual(masterBefore.artboard);
-    await page.close();
   });
 
   it("creates and opens an independent iPad output set without changing iPhone roots", async () => {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 1440, height: 1000 });
 
     const iphoneBefore = structuredClone(project().screens.filter((screen) =>
       screen.platform === "apple" && screen.device === "iphone" && screen.variantOf === undefined,
@@ -300,14 +366,10 @@ describe("Phase 3.6 editor workspace", () => {
     const finalIphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
     await finalIphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
     await expect.poll(() => finalIphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
-    await page.close();
-    writeWorkspaceBaseline();
   });
 
   it("fits the complete three-screen overview and preserves Space activation on controls", async () => {
-    const page = await browser.newPage({ viewport: { width: 1800, height: 1000 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 1800, height: 1000 });
 
     const fit = page.getByRole("button", { name: "Fit", exact: true });
     await fit.click();
@@ -344,13 +406,10 @@ describe("Phase 3.6 editor workspace", () => {
     await overview.focus();
     await page.keyboard.press("Space");
     await expect.poll(() => overview.getAttribute("aria-pressed")).toBe("true");
-    await page.close();
   });
 
   it("transitions between fitted Focus and Overview without a stale zoom frame", async () => {
-    const page = await browser.newPage({ viewport: { width: 651, height: 998 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 651, height: 998 });
 
     const viewport = page.getByTestId("canvas-viewport");
     await expect.poll(async () => {
@@ -402,13 +461,10 @@ describe("Phase 3.6 editor workspace", () => {
     await page.getByRole("button", { name: "Overview", exact: true }).click();
     expect(await viewport.getAttribute("data-view-transition")).toBe("idle");
     await expectSettledView("overview");
-    await page.close();
   });
 
   it("supports overview, extensible add, canvas patterns, zoom, and hand pan", async () => {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 1440, height: 1000 });
 
     // Overview is a projection of every isolated screen in export order.
     const screenAdd = page.getByRole("button", { name: "Add screen", exact: true });
@@ -481,13 +537,10 @@ describe("Phase 3.6 editor workspace", () => {
 
     await zoomControls.getByRole("button", { name: "Fit" }).click();
     await expect.poll(async () => Number.parseInt((await percent.textContent()) ?? "100", 10)).toBeLessThan(100);
-    await page.close();
   });
 
   it("keeps compact Structure free of output navigation and opens outputs through Inspect", async () => {
-    const page = await browser.newPage({ viewport: { width: 720, height: 900 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 720, height: 900 });
 
     const structure = page.getByRole("button", { name: "Structure panel", exact: true });
     const inspect = page.getByRole("button", { name: "Inspect", exact: true });
@@ -516,13 +569,10 @@ describe("Phase 3.6 editor workspace", () => {
         && storeOutputsBox.y + storeOutputsBox.height <= inspectorBox.y + inspectorBox.height;
     }, { timeout: 5_000 }).toBe(true);
 
-    await page.close();
   });
 
   it("keeps canvas controls inside the available compact workspace", async () => {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.waitForSelector("canvas");
+    const page = await openEditor({ width: 1440, height: 900 });
 
     expect(await page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("true");
     expect(await page.getByRole("button", { name: "Structure panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
@@ -564,6 +614,5 @@ describe("Phase 3.6 editor workspace", () => {
     await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     expect(await page.getByLabel("Zoom controls").count()).toBe(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await page.close();
   });
 });

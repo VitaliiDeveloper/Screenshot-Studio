@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
@@ -23,7 +23,6 @@ import {
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureDir = resolve(repoRoot, "fixtures/regressions/device-frame-parity");
 const fixturePath = resolve(fixtureDir, "app-store-screenshots.json");
-const tmpDir = resolve(repoRoot, "e2e/.tmp");
 const screenId = "framed";
 const pixelRatio = 2;
 const target = { width: 1320, height: 2868 };
@@ -33,8 +32,7 @@ const MAX_MISMATCH_FRACTION = 0.001;
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  mkdirSync(tmpDir, { recursive: true });
-  harness = await startParityRenderHarness(() => startWebServer(3126));
+  harness = await startParityRenderHarness(() => startWebServer());
 }, 180_000);
 
 afterAll(async () => {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cp, mkdtemp, readFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -41,18 +41,26 @@ describe("Phase 4 multi-locale UI export", () => {
     const expected = buildBundleEntries(project, specs, {});
     expect(expected.map((entry) => entry.relativePath)).toEqual(expectedPaths);
 
-    const server = await startWebServer();
+    let server: Awaited<ReturnType<typeof startWebServer>> | undefined;
     try {
+      server = await startWebServer();
       const res = await fetch(`${server.url}/api/export`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (res.status !== 200) throw new Error(`UI export failed (${res.status}): ${await res.text()}`);
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("application/zip");
+      if (res.status !== 201) throw new Error(`UI export failed (${res.status}): ${await res.text()}`);
+      const ticket = await res.json() as { downloadUrl: string; expiresAt: string };
+      expect(ticket.downloadUrl).toMatch(/^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/);
+      expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
 
-      const zip = await JSZip.loadAsync(Buffer.from(await res.arrayBuffer()));
+      const download = await fetch(new URL(ticket.downloadUrl, server.url));
+      expect(download.status).toBe(200);
+      expect(download.headers.get("content-type")).toBe("application/zip");
+      expect(download.headers.get("content-disposition"))
+        .toBe('attachment; filename="app-store-screenshots-bundle.zip"');
+
+      const zip = await JSZip.loadAsync(Buffer.from(await download.arrayBuffer()));
       const names = Object.values(zip.files).filter((f) => !f.dir).map((f) => f.name).sort();
       expect(names).toEqual([...expectedPaths].sort());
 
@@ -63,8 +71,13 @@ describe("Phase 4 multi-locale UI export", () => {
         expect(info.height).toBe(entry.target.height);
         expect(info.hasAlpha).toBe(false);
       }
+
+      const consumed = await fetch(new URL(ticket.downloadUrl, server.url));
+      expect(consumed.status).toBe(404);
+      expect(await consumed.json()).toEqual({ error: "Export artifact not found" });
     } finally {
-      await server.stop();
+      await server?.stop();
+      await rm(workspace, { recursive: true, force: true });
     }
   }, 180_000);
 });

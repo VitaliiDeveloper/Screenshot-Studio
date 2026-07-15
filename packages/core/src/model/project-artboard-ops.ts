@@ -6,7 +6,7 @@ import {
 } from "./schema.js";
 import { scaleLeafElement } from "./element-scale.js";
 
-/** Fit a root composition into a target artboard without distorting render-bearing elements. */
+/** Fit a screen composition into a target artboard without distorting render-bearing elements. */
 export function fitElementsToArtboard(
   elements: readonly Element[],
   source: { width: number; height: number },
@@ -16,9 +16,7 @@ export function fitElementsToArtboard(
   const offsetX = (target.width - source.width * scale) / 2;
   const offsetY = (target.height - source.height * scale) / 2;
   return elements.map((element) => {
-    if (element.type !== "group") {
-      return scaleLeafElement(element, scale, { x: offsetX, y: offsetY });
-    }
+    if (element.type !== "group") return scaleLeafElement(element, scale, offsetX, offsetY);
     return {
       ...element,
       x: element.x * scale + offsetX,
@@ -30,17 +28,14 @@ export function fitElementsToArtboard(
   });
 }
 
-/** Resize one root artboard and fit its composition atomically; exact variants stay independent. */
-export function resizeRootArtboard(
+/** Resize one screen artboard and fit its composition atomically. */
+export function resizeScreenArtboard(
   project: ProjectModel,
   screenId: string,
   target: { width: number; height: number },
 ): ProjectModel {
   const source = project.screens.find((screen) => screen.id === screenId);
   if (!source) throw new Error(`Unknown screen "${screenId}"`);
-  if (source.variantOf !== undefined || source.storeTargetId !== undefined) {
-    throw new Error("Exact store-target variants have fixed artboards");
-  }
   if (source.artboard.width === target.width && source.artboard.height === target.height) {
     return project;
   }

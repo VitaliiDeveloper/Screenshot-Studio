@@ -3,7 +3,7 @@
 
 import { useStore } from "zustand";
 import { Combine, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
-import { artboardTargetStatus, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
+import { leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "../lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "../lib/mutate-and-save";
@@ -51,17 +51,16 @@ export function Inspector({
     canGroup,
     canUngroup,
   } = deriveInspectorSelection(project, activeScreenId, selectedItems);
-  const leadTarget = specs
+  const target = specs
     ? (() => {
         try {
-          const leadId = leadStoreSizeId(screen.platform, screen.device);
-          return specs[screen.platform]?.[screen.device]?.find((target) => target.id === leadId);
+          const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+          return specs[screen.platform]?.[screen.device]?.find((candidate) => candidate.id === targetId);
         } catch {
           return undefined;
         }
       })()
     : undefined;
-  const leadStatus = leadTarget ? artboardTargetStatus(screen.artboard, leadTarget) : undefined;
   return (
     <aside
       className={cx(
@@ -194,8 +193,7 @@ export function Inspector({
           project={project}
           screen={screen}
           specs={specs}
-          leadTarget={leadTarget}
-          leadStatus={leadStatus}
+          target={target}
           onOpenBackgroundAsset={onOpenBackgroundAsset}
         />
       )}

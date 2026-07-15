@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { chromium } from "playwright";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
@@ -27,8 +29,8 @@ import {
  */
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
-const tmpDir = resolve(repoRoot, "e2e/.tmp");
+const fixtureRoot = resolve(repoRoot, "fixtures/sample");
+const fixturePath = resolve(fixtureRoot, "app-store-screenshots.json");
 const screenId = "hero";
 const pixelRatio = 1; // The living sample is already authored at the 1320×2868 lead size.
 const target = { width: 1320, height: 2868 };
@@ -40,8 +42,7 @@ const MAX_MISMATCH_FRACTION = 0.001; // 0.1% of pixels
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  mkdirSync(tmpDir, { recursive: true });
-  harness = await startParityRenderHarness(() => startWebServer(3123));
+  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
 }, 180_000);
 
 afterAll(async () => {
@@ -102,32 +103,49 @@ describe("Phase 0 render/export parity", () => {
   });
 
   it("proves the embedded font is live: render differs from a fallback render", async () => {
-    // Same project, but the text element points at a generic family with no embedded font,
-    // forcing a system fallback. If the custom font had silently failed, the main render would
-    // ALSO be a fallback and these would match — so a large diff is the positive proof.
-    const project = JSON.parse(readFileSync(fixturePath, "utf8"));
-    for (const el of project.screens[0].elements) {
-      if (el.type === "text") el.fontFamily = "serif";
+    if (!harness.interactive) throw new Error("Interactive browser is unavailable");
+    const page = await harness.interactive.newPage();
+    const query = new URLSearchParams({ project: fixturePath, screen: screenId });
+    try {
+      await page.goto(`${harness.server.url}/render?${query}`, { waitUntil: "load" });
+      await page.waitForFunction(() => window.__stageReady === true || window.__renderError);
+      expect(await page.evaluate(() => Array.from(document.fonts).some(
+        (font) => font.family === "Pacifico" && font.weight === "400" && font.status === "loaded",
+      ))).toBe(true);
+    } finally {
+      await page.close();
     }
-    project.fonts = [];
-    const fallbackPath = resolve(tmpDir, "fallback-project.json");
-    writeFileSync(fallbackPath, JSON.stringify(project));
 
-    const custom = await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url,
-      projectPath: fixturePath,
-      screenId,
-      pixelRatio,
-    });
-    const fallback = await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url,
-      projectPath: fallbackPath,
-      screenId,
-      pixelRatio,
-    });
+    // Keep every non-font input identical so the raster difference cannot be caused by missing
+    // neighbouring assets or by mutating the tracked fixture.
+    const fallbackRoot = mkdtempSync(resolve(tmpdir(), "parity-fallback-"));
+    try {
+      cpSync(fixtureRoot, fallbackRoot, { recursive: true });
+      const fallbackPath = resolve(fallbackRoot, "app-store-screenshots.json");
+      const project = JSON.parse(readFileSync(fallbackPath, "utf8"));
+      for (const el of project.screens[0].elements) {
+        if (el.type === "text") el.fontFamily = "serif";
+      }
+      project.fonts = [];
+      writeFileSync(fallbackPath, JSON.stringify(project));
 
-    const { mismatch } = countMismatch(stripAlpha(custom), stripAlpha(fallback));
-    // A distinct script font vs serif over a 120px headline differs by many thousands of pixels.
-    expect(mismatch).toBeGreaterThan(2000);
+      const custom = await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url,
+        projectPath: fixturePath,
+        screenId,
+        pixelRatio,
+      });
+      const fallback = await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url,
+        projectPath: fallbackPath,
+        screenId,
+        pixelRatio,
+      });
+
+      const { mismatch } = countMismatch(stripAlpha(custom), stripAlpha(fallback));
+      expect(mismatch).toBeGreaterThan(2000);
+    } finally {
+      rmSync(fallbackRoot, { recursive: true, force: true });
+    }
   });
 });

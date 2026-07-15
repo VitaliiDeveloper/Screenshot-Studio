@@ -10,7 +10,10 @@ import {
   parseScreenPlacement,
   removeScreenFromProject,
 } from "./project-screen-ops.js";
-import { fitElementsToArtboard, resizeRootArtboard } from "./project-artboard-ops.js";
+import {
+  fitElementsToArtboard,
+  resizeScreenArtboard,
+} from "./project-artboard-ops.js";
 
 export interface StoreTargetDimensions {
   id: string;
@@ -18,7 +21,35 @@ export interface StoreTargetDimensions {
   height: number;
 }
 
-/** Resize every root/master in one store output set; size variants remain independent. */
+const WATCHOS_AUTHORING_SCALE = 3.5;
+
+/**
+ * Store outputs author at their exact target size by default. watchOS uses a larger proportional
+ * canvas; the shared export path still renders it to the exact target dimensions.
+ */
+function deriveAuthoringArtboard(
+  placement: Pick<Screen, "platform" | "device">,
+  target: StoreTargetDimensions,
+): { width: number; height: number } {
+  if (placement.platform !== "apple" || placement.device !== "watchos") {
+    return { width: target.width, height: target.height };
+  }
+
+  const artboard = {
+    width: target.width * WATCHOS_AUTHORING_SCALE,
+    height: target.height * WATCHOS_AUTHORING_SCALE,
+  };
+  if (!Number.isInteger(artboard.width) || !Number.isInteger(artboard.height)) {
+    throw new Error(
+      `Cannot derive a ${WATCHOS_AUTHORING_SCALE}x watchOS authoring artboard from target `
+      + `"${target.width}x${target.height}": derived artboard must use integer dimensions`,
+    );
+  }
+
+  return artboard;
+}
+
+/** Resize every screen in one target-specific store output set. */
 export function resizeStoreOutputArtboards(
   project: ProjectModel,
   sourceScreenId: string,
@@ -26,19 +57,16 @@ export function resizeStoreOutputArtboards(
 ): ProjectModel {
   const source = project.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
-  if (source.variantOf !== undefined || source.storeTargetId !== undefined) {
-    throw new Error("Exact store-target variants have fixed artboards");
-  }
 
   let next = project;
   for (const screen of project.screens) {
     if (
-      screen.variantOf === undefined
-      && screen.platform === source.platform
+      screen.platform === source.platform
       && screen.device === source.device
       && screen.locale === source.locale
+      && screen.storeTargetId === source.storeTargetId
     ) {
-      next = resizeRootArtboard(next, screen.id, target);
+      next = resizeScreenArtboard(next, screen.id, target);
     }
   }
   return next;
@@ -58,7 +86,7 @@ export interface StoreOutputFamilyResult {
 
 /**
  * Create one independent platform/device output set for the source locale. Every root screen in
- * the source family is copied with fresh ids and fitted to the destination lead artboard; size
+ * the source family is copied with fresh ids and fitted to the destination master artboard; size
  * variants remain family-local and are deliberately not copied.
  */
 export function ensureStoreOutputFamily(
@@ -95,6 +123,7 @@ export function ensureStoreOutputFamily(
   );
   if (sourceRoots.length === 0) throw new Error(`No source output screens for "${sourceRootId}"`);
 
+  const masterArtboard = deriveAuthoringArtboard(placement, leadTarget);
   const copies = sourceRoots.map((root) => {
     const copy = cloneScreenWithFreshIds(root);
     return ScreenSchema.parse({
@@ -103,15 +132,15 @@ export function ensureStoreOutputFamily(
       name: root.name,
       variantOf: undefined,
       storeTargetId: undefined,
-      artboard: { width: leadTarget.width, height: leadTarget.height },
-      elements: fitElementsToArtboard(copy.elements, root.artboard, leadTarget),
+      artboard: masterArtboard,
+      elements: fitElementsToArtboard(copy.elements, root.artboard, masterArtboard),
     });
   });
   const next = recomputeManifests({ ...project, screens: [...project.screens, ...copies] });
   return { project: next, firstScreen: copies[0]!, created: true };
 }
 
-/** Create one independent exact-target copy, or return the existing variant idempotently. */
+/** Create one independent target copy, or return the existing variant idempotently. */
 export function ensureStoreTargetVariant(
   project: ProjectModel,
   sourceScreenId: string,
@@ -129,13 +158,22 @@ export function ensureStoreTargetVariant(
   if (existing) return { project, variant: existing, created: false };
 
   const copy = cloneScreenWithFreshIds(root);
+  const targetSetScreen = project.screens.find((screen) =>
+    screen.platform === root.platform
+    && screen.device === root.device
+    && screen.locale === root.locale
+    && screen.storeTargetId === target.id
+  );
+  const variantArtboard = targetSetScreen
+    ? { ...targetSetScreen.artboard }
+    : deriveAuthoringArtboard(root, target);
   const variant = ScreenSchema.parse({
     ...copy,
     name: root.name,
     variantOf: root.id,
     storeTargetId: target.id,
-    artboard: { width: target.width, height: target.height },
-    elements: fitElementsToArtboard(copy.elements, root.artboard, target),
+    artboard: variantArtboard,
+    elements: fitElementsToArtboard(copy.elements, root.artboard, variantArtboard),
   });
   const next = recomputeManifests({
     ...project,
