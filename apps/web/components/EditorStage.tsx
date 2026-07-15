@@ -348,7 +348,7 @@ export function EditorStage({
               resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               keepRatio={selectedElement?.type === "group"}
-              flipEnabled={selectedElement?.type !== "group"}
+              flipEnabled={false}
               enabledAnchors={selectedElement?.type === "group"
                 ? ["top-left", "top-right", "bottom-left", "bottom-right"]
                 : undefined}

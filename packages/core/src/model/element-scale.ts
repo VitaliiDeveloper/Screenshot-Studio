@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { assertNever } from "./assert-never.js";
 import {
+  LeafElement as LeafElementSchema,
   SHAPE_STROKE_WIDTH_MAX,
   TEXT_SHADOW_BLUR_MAX,
   type LeafElement,
@@ -20,53 +21,56 @@ function scaleBoundedVisualMetric(
   return scaled;
 }
 
-/** Bake one uniform scale into leaf geometry and every pixel-valued visual metric. */
-export function scaleLeafElement(
-  leaf: LeafElement,
+/** Bake one positive uniform scale into leaf geometry and every pixel-valued visual metric. */
+export function scaleLeafElement<T extends LeafElement>(
+  leaf: T,
   scale: number,
   offsetX = 0,
   offsetY = 0,
-): LeafElement {
+): T {
+  const factor = Math.abs(scale);
   const transform = {
-    x: leaf.x * scale + offsetX,
-    y: leaf.y * scale + offsetY,
-    width: leaf.width * scale,
-    height: leaf.height * scale,
+    x: leaf.x * factor + offsetX,
+    y: leaf.y * factor + offsetY,
+    width: leaf.width * factor,
+    height: leaf.height * factor,
   };
 
+  let scaled: LeafElement;
   switch (leaf.type) {
     case "text":
-      return {
+      scaled = {
         ...leaf,
         ...transform,
-        size: leaf.size * scale,
-        letterSpacing: leaf.letterSpacing * scale,
+        size: leaf.size * factor,
+        letterSpacing: leaf.letterSpacing * factor,
         ...(leaf.shadow ? {
           shadow: {
             ...leaf.shadow,
             blur: scaleBoundedVisualMetric(
               leaf.shadow.blur,
-              scale,
+              factor,
               TEXT_SHADOW_BLUR_MAX,
               "text shadow blur",
               leaf.id,
             ),
-            offsetX: leaf.shadow.offsetX * scale,
-            offsetY: leaf.shadow.offsetY * scale,
+            offsetX: leaf.shadow.offsetX * factor,
+            offsetY: leaf.shadow.offsetY * factor,
           },
         } : {}),
       };
+      break;
     case "shape":
-      return {
+      scaled = {
         ...leaf,
         ...transform,
-        radius: leaf.radius * scale,
+        radius: leaf.radius * factor,
         ...(leaf.stroke ? {
           stroke: {
             ...leaf.stroke,
             width: scaleBoundedVisualMetric(
               leaf.stroke.width,
-              scale,
+              factor,
               SHAPE_STROKE_WIDTH_MAX,
               "shape stroke width",
               leaf.id,
@@ -74,14 +78,29 @@ export function scaleLeafElement(
           },
         } : {}),
       };
+      break;
     case "screenshot":
     case "image":
-      return { ...leaf, ...transform, cornerRadius: leaf.cornerRadius * scale };
+      scaled = { ...leaf, ...transform, cornerRadius: leaf.cornerRadius * factor };
+      break;
     case "icon":
-      return { ...leaf, ...transform, strokeWidth: leaf.strokeWidth * scale };
+      scaled = { ...leaf, ...transform, strokeWidth: leaf.strokeWidth * factor };
+      break;
     case "device-frame":
-      return { ...leaf, ...transform };
+      scaled = { ...leaf, ...transform };
+      break;
     default:
       return assertNever(leaf);
   }
+
+  const parsed = LeafElementSchema.safeParse(scaled);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const field = issue?.path.join(".") || "element";
+    throw new Error(
+      `Cannot scale element "${leaf.id}" within strict schema v1: ${field}: ${issue?.message ?? "invalid value"}`,
+      { cause: parsed.error },
+    );
+  }
+  return parsed.data as T;
 }
