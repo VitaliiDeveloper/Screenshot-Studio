@@ -1,24 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { parseProjectJson } from "../packages/core/src/model/index.js";
 import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
+import { projectMutationLockPath } from "../packages/core/src/storage/index.js";
 import { exportBundle, withStableProjectExport } from "../packages/cli/src/export.js";
 import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
 import { startWebServer } from "../packages/cli/src/server.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/regressions/connected-canvas/app-store-screenshots.json");
+const fixtureDirectory = resolve(repoRoot, "fixtures/regressions/connected-canvas");
+const fixturePath = resolve(fixtureDirectory, "app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const expectedPaths = [
   "apple/iphone/locale-en/01-connected-first-6.9.png",
   "apple/iphone/locale-en/02-connected-second-6.9.png",
   "android/phone/locale-en/01-unrelated-phone-portrait.png",
 ];
+
+afterAll(async () => {
+  await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+  await expect(stat(projectMutationLockPath(fixturePath))).rejects.toMatchObject({ code: "ENOENT" });
+});
 
 function pixel(png: PNG, x: number, y: number): [number, number, number] {
   const offset = (y * png.width + x) * 4;
@@ -27,16 +34,20 @@ function pixel(png: PNG, x: number, y: number): [number, number, number] {
 
 describe("Phase 6 connected bundle export", () => {
   it("exports exact alpha-free crops and isolates unrelated groups", async () => {
-    const project = parseProjectJson(await readFile(fixturePath, "utf8"));
+    const directory = await mkdtemp(join(tmpdir(), "connected-canvas-export-"));
+    const projectDirectory = join(directory, "project");
+    const projectPath = join(projectDirectory, "app-store-screenshots.json");
+    const outDir = join(directory, "export");
+    await cp(fixtureDirectory, projectDirectory, { recursive: true });
+    const project = parseProjectJson(await readFile(projectPath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
     const entries = buildBundleEntries(project, specs);
     expect(entries.map((entry) => entry.relativePath)).toEqual(expectedPaths);
 
-    const outDir = await mkdtemp(join(tmpdir(), "connected-canvas-export-"));
     const server = await startWebServer();
     const session = await createRenderBrowserSession();
     try {
-      await withStableProjectExport(fixturePath, (context) => exportBundle({
+      await withStableProjectExport(projectPath, (context) => exportBundle({
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
@@ -64,7 +75,7 @@ describe("Phase 6 connected bundle export", () => {
     } finally {
       await session.close();
       await server.stop();
-      await rm(outDir, { recursive: true, force: true });
+      await rm(directory, { recursive: true, force: true });
     }
   }, 180_000);
 });

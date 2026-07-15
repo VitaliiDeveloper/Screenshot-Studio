@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   ensureStoreOutputFamily,
   ensureStoreTargetVariant,
@@ -14,12 +14,14 @@ import {
   parseProjectJson,
 } from "../packages/core/src/model/index.js";
 import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
+import { projectMutationLockPath } from "../packages/core/src/storage/index.js";
 import { startWebServer } from "../packages/cli/src/server.js";
 import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
 import { exportBundle, withStableProjectExport } from "../packages/cli/src/export.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fixturePath = resolve(repoRoot, "fixtures/regressions/multi-locale-export/app-store-screenshots.json");
+const fixtureDirectory = resolve(repoRoot, "fixtures/regressions/multi-locale-export");
+const fixturePath = resolve(fixtureDirectory, "app-store-screenshots.json");
 const storeVariantFixturePath = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 
@@ -32,17 +34,26 @@ const expectedPaths = [
   "android/phone/locale-en_~0055~0053/01-underscore-android-phone-portrait.png",
 ];
 
+afterAll(async () => {
+  await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+  await expect(stat(projectMutationLockPath(fixturePath))).rejects.toMatchObject({ code: "ENOENT" });
+});
+
 describe("Phase 4 multi-locale bundle export", () => {
   it("exports safe per-group-numbered PNGs and a zip using one server/browser session", async () => {
-    const project = parseProjectJson(await readFile(fixturePath, "utf8"));
+    const directory = await mkdtemp(join(tmpdir(), "phase-4-bundle-"));
+    const projectDirectory = join(directory, "project");
+    const projectPath = join(projectDirectory, "app-store-screenshots.json");
+    const outDir = join(directory, "export");
+    await cp(fixtureDirectory, projectDirectory, { recursive: true });
+    const project = parseProjectJson(await readFile(projectPath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
     const entries = buildBundleEntries(project, specs, {});
     expect(entries.map((entry) => entry.relativePath)).toEqual(expectedPaths);
-    const outDir = await mkdtemp(join(tmpdir(), "phase-4-bundle-"));
     const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
     try {
-      const zipPath = await withStableProjectExport(fixturePath, (context) => exportBundle({
+      const zipPath = await withStableProjectExport(projectPath, (context) => exportBundle({
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
@@ -68,7 +79,7 @@ describe("Phase 4 multi-locale bundle export", () => {
     } finally {
       await session.close();
       await server.stop();
-      await rm(outDir, { recursive: true, force: true });
+      await rm(directory, { recursive: true, force: true });
     }
   }, 180_000);
 
