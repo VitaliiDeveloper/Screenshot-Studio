@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { POST } from "./route.js";
+import { handleExportPost, POST } from "./route.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -23,12 +23,13 @@ function completeProject(elements: unknown[] = []) {
   };
 }
 
-async function useProject(project = completeProject()): Promise<void> {
+async function useProject(project = completeProject()): Promise<{ directory: string; projectPath: string }> {
   const directory = await mkdtemp(join(tmpdir(), "export-route-"));
   temporaryDirectories.push(directory);
   const projectPath = join(directory, "app-store-screenshots.json");
   await writeFile(projectPath, JSON.stringify(project));
   process.env.PROJECT_PATH = projectPath;
+  return { directory, projectPath };
 }
 
 function req(body: unknown): Request {
@@ -47,6 +48,43 @@ afterEach(async () => {
 });
 
 describe("POST /api/export", () => {
+  it("returns a structured error when a successful export cannot close its browser session", async () => {
+    const { directory } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const closeError = new Error("browser close failed");
+    const session = {
+      renderScreenToPng: vi.fn(),
+      close: vi.fn(async () => { throw closeError; }),
+    };
+
+    const response = await handleExportPost(req({}), {
+      createRenderBrowserSession: vi.fn(async () => session),
+      exportBundle: vi.fn(async () => zipPath),
+    });
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toMatch(/browser close failed/);
+  });
+
+  it("aggregates export and browser cleanup failures in one structured response", async () => {
+    await useProject();
+    const exportError = new Error("render failed");
+    const closeError = new Error("browser close failed");
+    const session = {
+      renderScreenToPng: vi.fn(),
+      close: vi.fn(async () => { throw closeError; }),
+    };
+
+    const response = await handleExportPost(req({}), {
+      createRenderBrowserSession: vi.fn(async () => session),
+      exportBundle: vi.fn(async () => { throw exportError; }),
+    });
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toMatch(/render failed.*browser cleanup failed.*browser close failed/);
+  });
+
   it("returns 422 without rendering when filters match no screens", async () => {
     await useProject();
     const res = await POST(req({ locale: "does-not-exist" }));

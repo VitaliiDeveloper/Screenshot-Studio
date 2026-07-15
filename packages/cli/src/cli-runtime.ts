@@ -25,15 +25,17 @@ export async function runWithCleanup<T>(
 ): Promise<T> {
   let result: T | undefined;
   let primaryError: unknown;
+  let hasPrimaryError = false;
   try {
     result = await operation();
   } catch (error) {
     primaryError = error;
+    hasPrimaryError = true;
   }
   try {
     await cleanup();
   } catch (cleanupError) {
-    if (primaryError) {
+    if (hasPrimaryError) {
       throw new AggregateError(
         [primaryError, cleanupError],
         `${primaryError instanceof Error ? primaryError.message : String(primaryError)}; runtime cleanup failed`,
@@ -42,6 +44,6 @@ export async function runWithCleanup<T>(
     }
     throw cleanupError;
   }
-  if (primaryError) throw primaryError;
+  if (hasPrimaryError) throw primaryError;
   return result!;
 }

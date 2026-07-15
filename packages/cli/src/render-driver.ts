@@ -31,6 +31,8 @@ export interface RenderOptions {
   baseUrl: string;
   /** Path to the project JSON. Made absolute before handing to the server. */
   projectPath: string;
+  /** Exact persisted project revision that the render host must load. */
+  projectRevision?: string;
   screenId: string;
   pixelRatio: number;
   headless?: boolean;
@@ -79,15 +81,31 @@ export async function createRenderBrowserSession({
 
   return {
     async renderScreenToPng(opts) {
-      const { baseUrl, projectPath, screenId, pixelRatio, timeoutMs = 30_000 } = opts;
+      const {
+        baseUrl,
+        projectPath,
+        projectRevision,
+        screenId,
+        pixelRatio,
+        timeoutMs = 30_000,
+      } = opts;
       const abs = resolve(projectPath);
-      const url = `${baseUrl}/render?project=${encodeURIComponent(abs)}&screen=${encodeURIComponent(screenId)}`;
+      const search = new URLSearchParams({ project: abs, screen: screenId });
+      if (projectRevision !== undefined) search.set("revision", projectRevision);
+      const url = `${baseUrl}/render?${search}`;
 
       const page = await context.newPage();
       let result: Buffer | undefined;
       let primaryError: unknown;
+      let hasPrimaryError = false;
       try {
         await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
+
+        const renderHostError = page.locator("[data-render-error]");
+        if (await renderHostError.count() > 0) {
+          const detail = await renderHostError.first().textContent();
+          throw new Error(`Render failed for screen "${screenId}": ${detail ?? "render host failed"}`);
+        }
 
         // Resolve as soon as the stage is ready OR a render error is surfaced, so a bad project
         // fails fast with its validator message instead of timing out opaquely.
@@ -102,39 +120,64 @@ export async function createRenderBrowserSession({
         result = base64PngToBuffer(dataUrl);
       } catch (error) {
         primaryError = error;
+        hasPrimaryError = true;
       }
       try {
         await page.close();
       } catch (cleanupError) {
-        if (primaryError) throw errorsTogether(primaryError, cleanupError, "page cleanup failed");
+        if (hasPrimaryError) throw errorsTogether(primaryError, cleanupError, "page cleanup failed");
         throw cleanupError;
       }
-      if (primaryError) throw primaryError;
+      if (hasPrimaryError) throw primaryError;
       return result!;
     },
     async close() {
       let contextError: unknown;
+      let contextFailed = false;
       try {
         await context.close();
       } catch (error) {
         contextError = error;
+        contextFailed = true;
       }
       try {
         await browser.close();
       } catch (browserError) {
-        if (contextError) throw errorsTogether(contextError, browserError, "browser cleanup failed");
+        if (contextFailed) throw errorsTogether(contextError, browserError, "browser cleanup failed");
         throw browserError;
       }
-      if (contextError) throw contextError;
+      if (contextFailed) throw contextError;
     },
   };
 }
 
-export async function renderScreenToPng(opts: RenderOptions): Promise<Buffer> {
-  const session = await createRenderBrowserSession({ headless: opts.headless ?? true });
+interface OneShotRenderDependencies {
+  createSession?: typeof createRenderBrowserSession;
+}
+
+export async function renderScreenToPng(
+  opts: RenderOptions,
+  dependencies: OneShotRenderDependencies = {},
+): Promise<Buffer> {
+  const createSession = dependencies.createSession ?? createRenderBrowserSession;
+  const session = await createSession({ headless: opts.headless ?? true });
+  let result: Buffer | undefined;
+  let primaryError: unknown;
+  let hasPrimaryError = false;
   try {
-    return await session.renderScreenToPng(opts);
-  } finally {
-    await session.close();
+    result = await session.renderScreenToPng(opts);
+  } catch (error) {
+    primaryError = error;
+    hasPrimaryError = true;
   }
+  try {
+    await session.close();
+  } catch (cleanupError) {
+    if (hasPrimaryError) {
+      throw errorsTogether(primaryError, cleanupError, "render session cleanup failed");
+    }
+    throw cleanupError;
+  }
+  if (hasPrimaryError) throw primaryError;
+  return result!;
 }

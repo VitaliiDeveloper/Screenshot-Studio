@@ -4,6 +4,31 @@ import { closeAll, failWhenServerExits, runWithCleanup } from "./cli-runtime.js"
 import type { RunningServer } from "./server.js";
 
 describe("CLI runtime lifecycle", () => {
+  it("preserves a falsy operation failure after successful cleanup", async () => {
+    let rejected = false;
+    try {
+      await runWithCleanup(
+        async () => { throw undefined; },
+        async () => undefined,
+      );
+    } catch (error) {
+      rejected = true;
+      expect(error).toBeUndefined();
+    }
+    expect(rejected).toBe(true);
+  });
+
+  it("aggregates a falsy operation failure with cleanup failure", async () => {
+    const cleanupError = new Error("cleanup failed");
+    await expect(runWithCleanup(
+      async () => { throw undefined; },
+      async () => { throw cleanupError; },
+    )).rejects.toMatchObject({
+      errors: [undefined, cleanupError],
+      cause: cleanupError,
+    });
+  });
+
   it("preserves the primary operation error before a cleanup error", async () => {
     const operationError = new Error("render failed");
     const cleanupError = new Error("cleanup failed");
