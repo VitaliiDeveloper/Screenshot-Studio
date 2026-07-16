@@ -90,6 +90,44 @@ afterEach(async () => {
 });
 
 describe("Phase 3.6 editor workspace", () => {
+  it("surfaces store-spec failures and recovers through the visible workspace retry", async () => {
+    page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    let attempts = 0;
+    await page.route("**/api/store-specs", async (route) => {
+      attempts += 1;
+      if (attempts === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ apple: { iphone: [{ id: "broken-target" }] } }),
+        });
+        return;
+      }
+      if (attempts === 2) {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "store specs temporarily unavailable" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const retryButton = page.getByRole("button", { name: "Retry workspace resources" });
+    await retryButton.waitFor({ state: "visible" });
+    const alert = page.getByRole("alert").filter({ has: retryButton });
+    expect(await alert.textContent()).toMatch(/width|invalid|expected/i);
+    await retryButton.click();
+    await expect.poll(() => alert.textContent()).toContain("store specs temporarily unavailable");
+    expect(await alert.textContent()).toContain("store specs temporarily unavailable");
+    await retryButton.click();
+    await page.waitForSelector("canvas");
+    await alert.waitFor({ state: "hidden" });
+    expect(attempts).toBe(3);
+  });
+
   it("shows only the active screen's layers and updates them when screen selection changes", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 
@@ -133,8 +171,11 @@ describe("Phase 3.6 editor workspace", () => {
     });
     expect(variant.id).not.toBe(masterBefore.id);
     expect(variant.elements[0]!.id).not.toBe(masterBefore.elements[0]!.id);
-    expect(await page.getByText("Master size", { exact: true }).count()).toBe(1);
-    expect(await page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(0);
+    expect(await page.getByText("Artboard", { exact: true }).count()).toBe(1);
+    const artboardMode = page.getByRole("group", { name: "Artboard size mode" });
+    expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
+      .toBe("true");
+    expect(await page.getByText("1320 × 2868 px", { exact: true }).count()).toBe(1);
     const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
     const leadTargetRow = page.getByRole("group", { name: '6.9" iPhone (lead) store target', exact: true });
     await expect.poll(() => targetRow.getByRole("button", { name: "Open", exact: true }).count()).toBe(1);
@@ -160,7 +201,17 @@ describe("Phase 3.6 editor workspace", () => {
     expect(await iphoneOutput.getByText("Master", { exact: true }).count()).toBe(1);
 
     await targetRow.getByRole("button", { name: "Open", exact: true }).click();
-    await expect.poll(() => page.getByText("This variant uses fixed Store Target dimensions.", { exact: true }).count()).toBe(1);
+    await expect.poll(() => page.getByText("1284 × 2778 px", { exact: true }).count()).toBe(1);
+    expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
+      .toBe("true");
+    await artboardMode.getByRole("button", { name: "Use custom artboard size" }).click();
+    expect(await page.getByRole("spinbutton", { name: "W", exact: true }).inputValue()).toBe("1284");
+    expect(await page.getByRole("spinbutton", { name: "H", exact: true }).inputValue()).toBe("2778");
+    expect(await page.getByText(
+      "Apply resizes every screen in this Store Target output and fits each composition.",
+      { exact: true },
+    ).count()).toBe(1);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(await targetRow.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
     expect(await iphoneOutput.getAttribute("data-editing")).toBe("true");
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("false");
