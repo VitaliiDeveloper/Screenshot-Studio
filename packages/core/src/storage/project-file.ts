@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { constants } from "node:fs";
+import { constants, type BigIntStats } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { link, lstat, mkdir, open, rename, rm, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { parseProjectJson, Project, type Project as ProjectModel } from "../model/index.js";
+import { withOptionalNoFollow } from "./open-flags.js";
 import {
   ProjectPathError,
   createProjectCreationIntent,
@@ -44,7 +45,11 @@ export class ProjectRevisionConflictError extends Error {
 
 type WritableStageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">;
 type DirectoryHandle = Pick<FileHandle, "sync" | "close">;
-type ReadableSnapshotHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
+interface ReadableSnapshotHandle {
+  stat(options: { bigint: true }): Promise<BigIntStats>;
+  readFile(): Promise<Buffer>;
+  close(): Promise<void>;
+}
 
 export interface ProjectFileDependencies {
   randomId?: () => string;
@@ -80,10 +85,7 @@ export function serializeProject(project: ProjectModel): string {
 }
 
 function noFollowFlags(base: number): number {
-  if (typeof constants.O_NOFOLLOW !== "number") {
-    throw new ProjectPathError("Safe project snapshots require O_NOFOLLOW support");
-  }
-  return base | constants.O_NOFOLLOW;
+  return withOptionalNoFollow(base, constants.O_NOFOLLOW);
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -98,9 +100,30 @@ function projectOpenError(projectPath: string, error: unknown): ProjectPathError
     );
   }
   return new ProjectPathError(
-    `Unable to open project path without following links ${projectPath}: ${errorText(error)}`,
+    `Unable to open project path for a safe snapshot ${projectPath}: ${errorText(error)}`,
     { cause: error },
   );
+}
+
+function sameFileIdentity(left: BigIntStats, right: BigIntStats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+async function assertNamedProjectBinding(projectPath: string, opened: BigIntStats): Promise<void> {
+  let named: BigIntStats;
+  try {
+    named = await lstat(projectPath, { bigint: true });
+  } catch (error) {
+    throw new ProjectPathError(
+      `Project path changed before its snapshot was read: ${projectPath}`,
+      { cause: error },
+    );
+  }
+  if (!named.isFile() || !sameFileIdentity(named, opened)) {
+    throw new ProjectPathError(
+      `Project path changed or became a symbolic link before its snapshot was read: ${projectPath}`,
+    );
+  }
 }
 
 async function readIdentifiedProjectBytes(
@@ -124,6 +147,7 @@ async function readIdentifiedProjectBytes(
     if (!stats.isFile()) {
       throw new ProjectPathError(`Project path must be a regular file: ${projectPath}`);
     }
+    await assertNamedProjectBinding(projectPath, stats);
     await recoverOwnedProjectStages(projectPath, { device: stats.dev, inode: stats.ino });
     stats = await handle.stat({ bigint: true });
     if (stats.nlink !== 1n) {
@@ -132,6 +156,7 @@ async function readIdentifiedProjectBytes(
         + "Copy it to a new file before opening it",
       );
     }
+    await assertNamedProjectBinding(projectPath, stats);
     const bytes = await handle.readFile();
     result = {
       bytes,

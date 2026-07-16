@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { constants, type BigIntStats } from "node:fs";
 import { lstat, open, readdir, realpath, unlink, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
+import { withOptionalNoFollow } from "./open-flags.js";
 
 export class ProjectPathError extends Error {
   override name = "ProjectPathError";
@@ -34,6 +35,16 @@ export interface ProjectCreationIntent {
 interface ProjectFileEvidence extends ProjectPublicationEvidence {
   bytes: Buffer;
   stats: BigIntStats;
+}
+
+interface ReadableEvidenceHandle {
+  stat(options: { bigint: true }): Promise<BigIntStats>;
+  readFile(): Promise<Buffer>;
+  close(): Promise<void>;
+}
+
+export interface ProjectPublicationDependencies {
+  openFile?: (path: string, flags: number) => Promise<ReadableEvidenceHandle>;
 }
 
 interface ParsedCreationIntent {
@@ -122,10 +133,10 @@ export function serializeProjectCreationIntent(intent: ProjectCreationIntent): s
 }
 
 function noFollowReadFlags(): number {
-  if (typeof constants.O_NOFOLLOW !== "number") {
-    throw new ProjectPathError("Safe project publication inspection requires O_NOFOLLOW support");
-  }
-  return constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
+  return withOptionalNoFollow(
+    constants.O_RDONLY | constants.O_NONBLOCK,
+    constants.O_NOFOLLOW,
+  );
 }
 
 async function lstatIfExists(path: string): Promise<BigIntStats | null> {
@@ -137,10 +148,14 @@ async function lstatIfExists(path: string): Promise<BigIntStats | null> {
   }
 }
 
-async function readFileEvidence(path: string): Promise<ProjectFileEvidence | null> {
-  let handle: FileHandle;
+async function readFileEvidence(
+  path: string,
+  dependencies: ProjectPublicationDependencies = {},
+): Promise<ProjectFileEvidence | null> {
+  const openFile = dependencies.openFile ?? open;
+  let handle: ReadableEvidenceHandle;
   try {
-    handle = await open(path, noFollowReadFlags());
+    handle = await openFile(path, noFollowReadFlags());
   } catch (error) {
     if (
       errorCode(error) === "ENOENT"
@@ -156,6 +171,8 @@ async function readFileEvidence(path: string): Promise<ProjectFileEvidence | nul
   try {
     const stats = await handle.stat({ bigint: true });
     if (!stats.isFile()) return null;
+    const named = await lstatIfExists(path);
+    if (!named?.isFile() || !identitiesMatch(identityOf(named), identityOf(stats))) return null;
     const bytes = await handle.readFile();
     return {
       bytes,
@@ -171,8 +188,9 @@ async function readFileEvidence(path: string): Promise<ProjectFileEvidence | nul
 
 export async function inspectProjectPublicationFile(
   path: string,
+  dependencies: ProjectPublicationDependencies = {},
 ): Promise<ProjectPublicationEvidence> {
-  const evidence = await readFileEvidence(path);
+  const evidence = await readFileEvidence(path, dependencies);
   if (!evidence) {
     throw new ProjectPathError(`Project publication file must be a no-follow regular file: ${path}`);
   }
