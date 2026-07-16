@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
-import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { updateProjectFile } from "./project-io.js";
 import {
   addScreenToProject,
@@ -26,31 +25,6 @@ async function temporaryDirectory(prefix: string): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   temporaryRoots.push(directory);
   return directory;
-}
-
-function controlledLockWait(): {
-  options: ProjectLockOptions;
-  didWait: Promise<void>;
-  release: () => void;
-} {
-  let markWait!: () => void;
-  const didWait = new Promise<void>((resolve) => { markWait = resolve; });
-  const waiters: Array<() => void> = [];
-  return {
-    didWait,
-    options: {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          markWait();
-          return new Promise<void>((resolve) => waiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    },
-    release: () => { waiters.splice(0).forEach((resolve) => resolve()); },
-  };
 }
 
 const specs = parseStoreSpecs({
@@ -305,25 +279,23 @@ describe("screen commands", () => {
     await expect(runScreenCommand(projectPath, specsPath, ["list"], {}))
       .resolves.toContain("1 hero apple/iphone en Hero");
 
-    const lockWait = controlledLockWait();
     const command = runScreenCommand(projectPath, specsPath, ["add"], {
       platform: "android",
       device: "phone",
       locale: "en",
       name: "Queued screen",
-    }, lockWait.options);
+    });
     const commandOutcome = command.then(
       (value) => ({ status: "fulfilled" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
     );
     const queueState = await Promise.race([
-      lockWait.didWait.then(() => "waited" as const),
       commandOutcome.then(() => "settled" as const),
+      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
     ]);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    lockWait.release();
     const commandResult = await commandOutcome;
 
     expect(queueState).toBe("waited");

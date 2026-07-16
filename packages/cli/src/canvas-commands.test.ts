@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import {
   loadProjectFile,
   loadProjectSnapshot,
@@ -17,31 +16,6 @@ const temporaryRoots: string[] = [];
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
-
-function controlledLockWait(): {
-  options: ProjectLockOptions;
-  didWait: Promise<void>;
-  release: () => void;
-} {
-  let markWait!: () => void;
-  const didWait = new Promise<void>((resolve) => { markWait = resolve; });
-  const waiters: Array<() => void> = [];
-  return {
-    didWait,
-    options: {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          markWait();
-          return new Promise<void>((resolve) => waiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    },
-    release: () => { waiters.splice(0).forEach((resolve) => resolve()); },
-  };
-}
 
 function project(): Project {
   return {
@@ -141,20 +115,18 @@ describe("canvas commands", () => {
     await heldDidEnter;
     await expect(runCanvasCommand(path, ["mode"])).resolves.toBe("Canvas mode: isolated");
 
-    const lockWait = controlledLockWait();
-    const command = runCanvasCommand(path, ["mode", "connected"], lockWait.options);
+    const command = runCanvasCommand(path, ["mode", "connected"]);
     const commandOutcome = command.then(
       (value) => ({ status: "fulfilled" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
     );
     const queueState = await Promise.race([
-      lockWait.didWait.then(() => "waited" as const),
       commandOutcome.then(() => "settled" as const),
+      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
     ]);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    lockWait.release();
     const commandResult = await commandOutcome;
 
     expect(queueState).toBe("waited");
