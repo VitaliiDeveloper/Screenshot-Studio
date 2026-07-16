@@ -1,6 +1,7 @@
 # Screenshot Studio
 
-A code-first, open-source editor for App Store and Google Play marketing screenshots:
+A code-first, open-source editor for App Store, Google Play, and Microsoft Store marketing
+screenshots:
 a visual Konva canvas with screens, editable elements, fonts, themes, and pixel-correct
 export to exact store sizes — driven by the same `core` from both a web UI and a CLI.
 
@@ -72,7 +73,7 @@ Monorepo (pnpm workspaces):
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
 - `docs/` — current architecture, operational guides, and tracked product contracts.
-- `store-specs.json` — Apple/Google export sizes (data, not hardcoded).
+- `store-specs.json` — Apple, Google, and Microsoft export sizes (data, not hardcoded).
 
 A screenshots *project* (the JSON file a user edits, as opposed to this repo) has its own
 layout — see [the management-interface contract](docs/architecture.md).
@@ -142,10 +143,10 @@ pnpm exec playwright install firefox webkit
 # Scaffold a project (writes JSON, standard directories, AGENTS.md, and CLAUDE.md)
 pnpm screenshots init --dir ./my-app-screenshots
 
-# Export every screen to its lead store target (PNGs + zip, no alpha)
+# Export every locale root at its lead target plus every explicit persisted variant
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json
 
-# Export a filtered lead-size bundle
+# Export a filtered root-and-variant bundle
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --platform apple --locale en
 
 # Export one screen to an explicit store size
@@ -155,6 +156,7 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 pnpm screenshots screen list --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots screen add --project ./my-app-screenshots/app-store-screenshots.json --platform apple --device iphone --locale en --name "Hero"
 pnpm screenshots screen reorder hero --to 1 --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots screen rm hero --cascade --project ./my-app-screenshots/app-store-screenshots.json
 
 # Clone and manage complete locale sets; RTL conversion is baked into project geometry
 pnpm screenshots locale add ar --from en --direction rtl --project ./my-app-screenshots/app-store-screenshots.json
@@ -173,22 +175,31 @@ pnpm screenshots asset auto-crop assets/icons/product.png --threshold 10 --proje
 pnpm screenshots asset remove-background assets/icons/product.png --background FFFFFF --tolerance 24 --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+`dev`, `screen`, and `export` accept `--store-specs <path>` when a project needs an explicit
+store-spec override; otherwise the source checkout or packaged CLI uses its bundled
+[store-specs.json](store-specs.json).
+
 Bundle `export` flags: optional `--platform <apple|android|windows>`,
 `--device <iphone|ipad|macos|tvos|watchos|phone|desktop>`,
-`--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode uses the
-lead size per device from [store-specs.json](store-specs.json) and writes
+`--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode exports each
+locale root at its device lead target and all explicit persisted variants at their own target,
+then writes
 `app-store-screenshots-bundle.zip`. PNGs use
 `platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
-the exact stored identifier, and numbering restarts at `01` for each platform/device/locale group.
+the exact stored identifier, and numbering restarts at `01` for each
+platform/device/locale/target group.
 `--locale` filtering still compares the exact stored string.
 
-Single-screen `export` flags: `--screen <id>`, optional `--size <id>` (defaults to `6.9`), and
-`--out <dir>`.
+Single-screen `export` flags: `--screen <id>`, optional `--size <id>`, and `--out <dir>`. Target
+precedence is explicit `--size`, the screen’s persisted `storeTargetId`, then that device’s lead
+target from the active store specs.
 
 Screen commands mutate the same strict JSON source of truth. `screen list` prints project order;
 within each export group that relative order becomes the `01`, `02`, … store-slot order.
-`screen rm <id>` refuses to remove the last screen, and `screen reorder <id> --to <position>` uses
-1-based positions.
+`screen add --size` accepts only the selected device’s lead target because non-lead outputs are
+persisted variants. `screen rm <id>` protects the last root in a locale and refuses to remove a
+root that still owns variants; `screen rm <id> --cascade` removes that root and its variants.
+`screen reorder <id> --to <position>` uses 1-based positions.
 
 Locale commands delegate to the same core transformations as the editor. `locale add` clones a
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the

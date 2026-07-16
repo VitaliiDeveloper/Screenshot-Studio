@@ -32,6 +32,9 @@ describe("runInit", () => {
     const agentGuide = await readFile(join(dir, "AGENTS.md"), "utf8");
     expect(agentGuide).toContain("strict v1 JSON");
     expect(agentGuide).toContain("mode: isolated | connected");
+    expect(agentGuide).toContain("platform/device/locale/`storeTargetId` group");
+    expect(agentGuide).toContain("must not be mistaken for duplicate roots");
+    expect(agentGuide).toContain("RGB or alpha-bearing RGBA fallback/letterbox `color`");
     expect(agentGuide).toContain("## Recipe: generate or refresh copy");
     expect(agentGuide).toContain("## Recipe: lay out slides");
     expect(agentGuide).toContain("## Recipe: translate a locale");

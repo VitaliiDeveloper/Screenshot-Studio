@@ -34,6 +34,16 @@ describe("parseCommandFlags", () => {
     )).toThrow(/--project requires a value/);
   });
 
+  it("parses screen --cascade as a boolean without consuming a positional id", () => {
+    expect(parseCommandFlags(
+      ["rm", "hero", "--cascade"],
+      COMMAND_FLAG_SPECS.screen,
+    )).toEqual({
+      args: ["rm", "hero"],
+      flags: { cascade: "true" },
+    });
+  });
+
   it.each([
     ["init", ["dir", "name"]],
     ["export", ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale"]],

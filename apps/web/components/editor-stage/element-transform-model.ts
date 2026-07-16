@@ -10,8 +10,8 @@ export function transformedDimensions(
 ): { width: number; height: number } {
   if (element.type !== "group") {
     return {
-      width: Math.max(MIN_ELEMENT_SIZE, element.width * scaleX),
-      height: Math.max(MIN_ELEMENT_SIZE, element.height * scaleY),
+      width: Math.max(MIN_ELEMENT_SIZE, element.width * Math.abs(scaleX)),
+      height: Math.max(MIN_ELEMENT_SIZE, element.height * Math.abs(scaleY)),
     };
   }
   const scale = Math.max(

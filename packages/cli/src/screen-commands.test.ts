@@ -29,7 +29,10 @@ async function temporaryDirectory(prefix: string): Promise<string> {
 
 const specs = parseStoreSpecs({
   apple: {
-    iphone: [{ id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" }],
+    iphone: [
+      { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
+      { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
+    ],
     ipad: [{ id: "13", label: "13", width: 2048, height: 2732, orientation: "portrait" }],
   },
   android: {
@@ -75,6 +78,9 @@ describe("screen commands", () => {
   it("resolves screen subcommands from args and flags", () => {
     expect(resolveScreenAction(["list"], {})).toEqual({ kind: "list" });
     expect(resolveScreenAction(["rm", "hero"], {})).toEqual({ kind: "rm", id: "hero" });
+    expect(resolveScreenAction(["rm", "hero"], { cascade: "true" })).toEqual({
+      kind: "rm", id: "hero", cascadeVariants: true,
+    });
     expect(resolveScreenAction(["reorder", "hero"], { to: "2" })).toEqual({
       kind: "reorder",
       id: "hero",
@@ -142,6 +148,26 @@ describe("screen commands", () => {
     });
   });
 
+  it("rejects a non-lead target for a new root screen", () => {
+    expect(() => addScreenToProject(sampleProject(), specs, {
+      name: "Invalid root target",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      sizeId: "6.5",
+    })).toThrow(/non-lead.*variant/i);
+  });
+
+  it("reports an unknown target before applying the non-lead root policy", () => {
+    expect(() => addScreenToProject(sampleProject(), specs, {
+      name: "Unknown target",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      sizeId: "typo",
+    })).toThrow(/Unknown size "typo".*Known: 6\.9, 6\.5/);
+  });
+
   it("derives a unique id from the name when id is omitted", () => {
     const project = addScreenToProject(sampleProject(), specs, {
       name: "Hero",
@@ -169,7 +195,7 @@ describe("screen commands", () => {
   it("removes a screen and refuses to remove the last one", () => {
     const project = removeScreenFromProject(sampleProject(), "details");
     expect(project.screens.map((screen) => screen.id)).toEqual(["hero"]);
-    expect(() => removeScreenFromProject(project, "hero")).toThrow(/last screen/);
+    expect(() => removeScreenFromProject(project, "hero")).toThrow(/last root screen.*en/);
   });
 
   it("moves a screen to a 1-based position", () => {
@@ -199,6 +225,31 @@ describe("screen commands", () => {
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     expect(written.platforms).toEqual(["android", "apple"]);
     expect(written.screens.map((screen) => screen.id)).toEqual(["android-hero", "hero"]);
+  });
+
+  it("requires cascade acknowledgement and atomically removes a root with its variants", async () => {
+    const dir = await temporaryDirectory("screenshot-studio-screen-cascade-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const specsPath = join(dir, "store-specs.json");
+    const project = sampleProject();
+    project.screens.push({
+      ...structuredClone(project.screens[1]!),
+      id: "details-65",
+      variantOf: "details",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    });
+    const exact = `${JSON.stringify(project, null, 2)}\n`;
+    await writeFile(projectPath, exact, "utf8");
+    await writeFile(specsPath, `${JSON.stringify(specs, null, 2)}\n`, "utf8");
+
+    await expect(runScreenCommand(projectPath, specsPath, ["rm", "details"], {}))
+      .rejects.toThrow(/has 1 store target variant.*cascade/i);
+    expect(await readFile(projectPath, "utf8")).toBe(exact);
+
+    await runScreenCommand(projectPath, specsPath, ["rm", "details"], { cascade: "true" });
+    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    expect(written.screens.map((screen) => screen.id)).toEqual(["hero"]);
   });
 
   it("queues mutation behind the project lease while list remains lock-free", async () => {
