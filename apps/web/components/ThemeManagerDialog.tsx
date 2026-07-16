@@ -8,7 +8,7 @@ import type { Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
 import { advanceProjectRevisionFromResponse } from "../lib/save-project";
-import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
   const body = await response.json().catch(() => ({}));
@@ -74,7 +74,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
       closeDisabled={applying !== null}
       widthClass="max-w-2xl"
     >
-      {error ? <p role="alert" className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p> : null}
+      {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
       {loading ? <p className="text-xs text-slate-500">Loading themes…</p> : null}
       {!loading && themes.length === 0 ? (
         <EmptyResourceState
@@ -87,7 +87,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
 
       <div className="flex flex-col gap-3">
         {themes.map((theme) => (
-          <section key={theme.id} data-testid={`theme-row-${theme.id}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <section key={theme.id} data-testid={`theme-row-${theme.id}`} className={editorUi.resourceCard}>
               <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">

@@ -3,7 +3,7 @@
 
 import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
 import type { ElementPatchFor } from "../../lib/editor-store";
-import { editorUi } from "../editor-ui";
+import { editorUi, InsetPanel } from "../editor-ui";
 import { NumberField, SelectField, TextField } from "../inspector-fields";
 import { mediaInspectorModel } from "./media-inspector-model";
 
@@ -21,7 +21,7 @@ export function MediaInspectorFields({
       <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => onChange({ fit })} />
       <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => onChange({ cornerRadius })} />
       {showCrop ? (
-        <div className="flex flex-col gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+        <InsetPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>
           <NumberField label="Focal X %" value={crop.x * 100} min={0} max={100} integer onChange={(x) => onChange({ crop: { ...crop, x: x / 100 } })} />
           <NumberField label="Focal Y %" value={crop.y * 100} min={0} max={100} integer onChange={(y) => onChange({ crop: { ...crop, y: y / 100 } })} />
@@ -31,7 +31,7 @@ export function MediaInspectorFields({
               Reset crop
             </button>
           ) : null}
-        </div>
+        </InsetPanel>
       ) : null}
     </>
   );

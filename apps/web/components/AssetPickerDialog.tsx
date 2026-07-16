@@ -15,7 +15,7 @@ import {
 } from "../lib/project-assets";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
 
@@ -110,7 +110,7 @@ export function AssetPickerDialog({
       </label>
 
       {error ? (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>
+        <StatusMessage tone="error">{error}</StatusMessage>
       ) : assets === null ? (
         <p role="status" className="py-12 text-center text-xs text-slate-500">Scanning project images…</p>
       ) : visibleAssets.length === 0 ? (

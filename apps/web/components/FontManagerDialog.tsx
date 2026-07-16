@@ -22,7 +22,7 @@ import { primarySelection } from "../lib/editor-selection";
 import { withFlushedProject } from "../lib/debounced-save";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { setProjectRevision } from "../lib/save-project";
-import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { reconcileFontMutationResponse } from "./font-manager-model";
 
 type PendingAction = "upload" | "google" | "remove" | null;
@@ -179,7 +179,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
       widthClass="max-w-3xl"
     >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+          <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
               <Upload size={15} className="text-slate-500" strokeWidth={1.8} />
               <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Upload file</h3>
@@ -205,7 +205,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
             </button>
           </section>
 
-          <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+          <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
               <CloudDownload size={15} className="text-slate-500" strokeWidth={1.8} />
               <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Google Fonts</h3>
@@ -219,8 +219,8 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
           </section>
         </div>
 
-        {error && <p role="alert" className="mt-4 whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
-        {warning && <p role="status" className="mt-4 whitespace-pre-wrap rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">{warning}</p>}
+        {error && <StatusMessage tone="error" className="mt-4 whitespace-pre-wrap">{error}</StatusMessage>}
+        {warning && <StatusMessage tone="warning" className="mt-4 whitespace-pre-wrap">{warning}</StatusMessage>}
 
         <section className="mt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -237,7 +237,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
           ) : project.fonts.map((font) => {
             const usage = countProjectFontUsage(project, font);
             return (
-              <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className="flex flex-col items-stretch gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+              <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className={`${editorUi.resourceCard} flex flex-col items-stretch gap-3 sm:flex-row sm:items-center`}>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-xs text-slate-600">
                     <strong className="text-slate-900">{font.family}</strong>

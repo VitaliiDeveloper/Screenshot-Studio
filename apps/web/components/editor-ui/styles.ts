@@ -4,17 +4,42 @@ export function cx(...classes: Array<string | false | null | undefined>): string
   return classes.filter(Boolean).join(" ");
 }
 
-const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2";
+const motion = "transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)]";
+const focusRing = "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-[length:var(--editor-focus-offset)]";
+const containedFocusRing = "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)]";
+const disabled = "disabled:pointer-events-none disabled:opacity-45";
+const buttonBase = `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--editor-radius-control)] px-[var(--editor-space-control-x)] text-[length:var(--editor-font-control-size)] font-medium ${motion} ${disabled} ${focusRing}`;
+const iconButtonBase = `inline-flex shrink-0 items-center justify-center ${motion} disabled:pointer-events-none disabled:opacity-35 ${focusRing}`;
+const rowIconButtonBase = `inline-flex size-7 shrink-0 items-center justify-center rounded-[var(--editor-radius-compact)] ${motion} ${containedFocusRing}`;
 
 export const editorUi = {
-  buttonBase: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
-  buttonSecondary: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
-  buttonPrimary: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
-  buttonGhost: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
-  buttonDanger: `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-xs font-medium text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:pointer-events-none disabled:opacity-45 ${focusRing}`,
-  iconButton: `inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
-  compactIconButton: `inline-flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
-  compactAddButton: `inline-flex size-6 shrink-0 items-center justify-center rounded-md text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 disabled:pointer-events-none disabled:opacity-35 ${focusRing}`,
-  field: `h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800 shadow-sm transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15`,
-  textarea: `w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 shadow-sm transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15`,
+  buttonBase,
+  buttonSecondary: `${buttonBase} border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-default)] shadow-[var(--editor-shadow-control)] hover:border-[var(--editor-color-border-strong)] hover:bg-[var(--editor-color-surface-subtle)]`,
+  buttonPrimary: `${buttonBase} bg-[var(--editor-color-accent)] font-semibold text-white shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-accent-hover)]`,
+  buttonGhost: `${buttonBase} px-[var(--editor-space-control-compact-x)] text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`,
+  buttonGhostAccent: `${buttonBase} px-[var(--editor-space-control-compact-x)] text-[color:var(--editor-color-accent)] hover:bg-[var(--editor-color-accent-subtle)] hover:text-[color:var(--editor-color-accent-hover)]`,
+  buttonGhostActive: `${buttonBase} bg-[var(--editor-color-surface-muted)] px-[var(--editor-space-control-compact-x)] text-[color:var(--editor-color-text-strong)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`,
+  buttonDanger: `${buttonBase} border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-danger)] shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-danger-surface)]`,
+  iconButton: `${iconButtonBase} size-8 rounded-[var(--editor-radius-control)] text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-default)]`,
+  iconButtonActive: `${iconButtonBase} size-8 rounded-[var(--editor-radius-control)] bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-default)]`,
+  iconButtonDanger: `${iconButtonBase} size-8 rounded-[var(--editor-radius-control)] text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger)]`,
+  compactIconButton: `${iconButtonBase} size-6 rounded-[var(--editor-radius-compact)] text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-default)]`,
+  compactAddButton: `${iconButtonBase} size-6 rounded-[var(--editor-radius-compact)] text-[color:var(--editor-color-accent)] hover:bg-[var(--editor-color-accent-subtle)] hover:text-[color:var(--editor-color-accent-hover)]`,
+  rowIconButton: `${rowIconButtonBase} text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface)] hover:text-[color:var(--editor-color-text-default)]`,
+  rowIconButtonDanger: `${rowIconButtonBase} text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger)]`,
+  dragHandle: `${rowIconButtonBase} cursor-grab select-none text-[color:var(--editor-color-text-faint)] hover:bg-[var(--editor-color-surface)] hover:text-[color:var(--editor-color-text-secondary)]`,
+  field: `h-8 w-full rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-[var(--editor-space-control-compact-x)] text-[length:var(--editor-font-control-size)] text-[color:var(--editor-color-text)] shadow-[var(--editor-shadow-control)] ${motion} placeholder:text-[color:var(--editor-color-text-subtle)] hover:border-[var(--editor-color-border-strong)] focus:border-[var(--editor-color-focus-border)] focus:outline-none focus:ring-[length:var(--editor-focus-width)] focus:ring-[var(--editor-color-focus-subtle)]`,
+  textarea: `w-full rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-[var(--editor-space-control-compact-x)] py-[var(--editor-space-control-y)] text-[length:var(--editor-font-control-size)] text-[color:var(--editor-color-text)] shadow-[var(--editor-shadow-control)] ${motion} placeholder:text-[color:var(--editor-color-text-subtle)] hover:border-[var(--editor-color-border-strong)] focus:border-[var(--editor-color-focus-border)] focus:outline-none focus:ring-[length:var(--editor-focus-width)] focus:ring-[var(--editor-color-focus-subtle)]`,
+  colorField: `h-8 w-28 cursor-pointer rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-control)] ${containedFocusRing}`,
+  fieldInvalid: "aria-invalid:border-[var(--editor-color-danger-focus)] aria-invalid:ring-[length:var(--editor-focus-width)] aria-invalid:ring-[var(--editor-color-danger-focus-subtle)]",
+  statusError: "rounded-[var(--editor-radius-control)] bg-[var(--editor-color-danger-surface)] px-[var(--editor-space-control-x)] py-[var(--editor-space-control-y)] text-[length:var(--editor-font-control-size)] text-[color:var(--editor-color-danger-text)] ring-1 ring-[var(--editor-color-danger-border)]",
+  statusWarning: "rounded-[var(--editor-radius-control)] bg-[var(--editor-color-warning-surface)] px-[var(--editor-space-control-x)] py-[var(--editor-space-control-y)] text-[length:var(--editor-font-control-size)] text-[color:var(--editor-color-warning-text)] ring-1 ring-[var(--editor-color-warning-border)]",
+  insetPanel: "flex flex-col gap-[var(--editor-space-section-gap)] rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-[var(--editor-space-inset)]",
+  resourceCard: "rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-[var(--editor-space-card)] shadow-[var(--editor-shadow-control)]",
+  formPanel: "flex flex-col gap-3 rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle-translucent)] p-[var(--editor-space-card)]",
+  sectionLabel: "text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]",
+  toolButton: `inline-flex size-10 items-center justify-center rounded-[var(--editor-radius-surface)] ${motion} ${containedFocusRing}`,
+  toolButtonInactive: "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]",
+  toolButtonToolActive: "bg-[var(--editor-color-accent)] text-white shadow-[var(--editor-shadow-accent)] hover:bg-[var(--editor-color-accent-hover)] hover:text-white",
+  toolButtonPanelActive: "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)] ring-1 ring-[var(--editor-color-accent-muted)] hover:bg-[var(--editor-color-accent-muted)] hover:text-[color:var(--editor-color-accent-strong)]",
 };

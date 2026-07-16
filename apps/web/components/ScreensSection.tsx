@@ -106,7 +106,7 @@ export function ScreensSection({
             aria-label="Return to master"
             title="Return to master"
             onClick={() => editorStore.getState().selectScreen(activeRoot.id)}
-            className={`${editorUi.buttonGhost} h-6 min-h-6 px-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700`}
+            className={`${editorUi.buttonGhostAccent} h-6 min-h-6 px-1.5`}
           >
             <CornerUpLeft size={14} strokeWidth={2} />
             Master
@@ -179,7 +179,7 @@ export function ScreensSection({
                   onClick={() => onDelete(s.id, s.name)}
                   disabled={s.variantOf === undefined && localeRootScreenCount <= 1}
                   aria-label={`Delete ${s.name}`}
-                  className={`${editorUi.iconButton} opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 focus-visible:opacity-100`}
+                  className={`${editorUi.iconButtonDanger} opacity-0 group-hover:opacity-100 focus-visible:opacity-100`}
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                 </button>
