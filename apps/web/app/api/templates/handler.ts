@@ -18,11 +18,16 @@ function errorResponse(error: unknown): Response {
 }
 
 async function jsonBody(req: Request): Promise<Record<string, unknown>> {
+  let body: unknown;
   try {
-    return await req.json() as Record<string, unknown>;
+    body = await req.json();
   } catch (error) {
     throw new TemplateValidationError("request body must be valid JSON", { cause: error });
   }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new TemplateValidationError("request body must be a JSON object");
+  }
+  return body as Record<string, unknown>;
 }
 
 export async function handleTemplateGet(): Promise<Response> {
@@ -36,12 +41,15 @@ export async function handleTemplateGet(): Promise<Response> {
 export async function handleTemplatePost(req: Request): Promise<Response> {
   try {
     const body = await jsonBody(req);
-    const { project, screen } = await createTemplateScreen(
+    const { project, revision, screen } = await createTemplateScreen(
       resolveProjectPath(),
       body.id,
       body.locale,
     );
-    return Response.json({ project, screenId: screen.id });
+    return Response.json(
+      { project, screenId: screen.id },
+      { headers: { etag: `"${revision}"` } },
+    );
   } catch (error) {
     return errorResponse(error);
   }

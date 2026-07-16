@@ -8,6 +8,7 @@ import { getScreen, parseProject } from "@screenshot-studio/core/model";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
+import { advanceProjectRevisionFromResponse } from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
@@ -49,13 +50,15 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       await withFlushedProject(async () => {
-        const body = await responseBody(await fetch("/api/templates", {
+        const response = await fetch("/api/templates", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ id, locale: activeScreen.locale }),
-        }));
+        });
+        const body = await responseBody(response);
         const nextProject = parseProject(body.project);
         const screenId = String(body.screenId);
+        advanceProjectRevisionFromResponse(response);
         editorStore.getState().replaceProject(nextProject);
         editorStore.getState().selectScreen(screenId);
       });

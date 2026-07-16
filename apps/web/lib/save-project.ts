@@ -12,16 +12,28 @@ function isStrongQuotedETag(value: string): boolean {
   return true;
 }
 
-/** Replace the editor's opaque project revision after a confirmed server response. */
-export function setProjectRevision(revision: string | null): void {
+/** Validate and return the opaque strong ETag used by editor resource loads and saves. */
+export function requireProjectRevision(revision: string | null): string {
   if (revision === null || !isStrongQuotedETag(revision)) {
     throw new Error("Project response is missing a valid strong ETag");
   }
-  projectRevision = revision;
+  return revision;
+}
+
+/** Replace the editor's opaque project revision after a confirmed server response. */
+export function setProjectRevision(revision: string | null): void {
+  projectRevision = requireProjectRevision(revision);
 }
 
 export function getProjectRevision(): string | undefined {
   return projectRevision;
+}
+
+/** Advance the editor revision after a durable server-side project resource mutation. */
+export function advanceProjectRevisionFromResponse(
+  response: Pick<Response, "headers">,
+): void {
+  setProjectRevision(response.headers.get("etag"));
 }
 
 /** Persist the project to disk through the API route (spec §4). Throws on any rejected save. */
@@ -43,5 +55,5 @@ export async function saveProject(project: Project): Promise<void> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Save failed (${res.status})`);
   }
-  setProjectRevision(res.headers.get("etag"));
+  advanceProjectRevisionFromResponse(res);
 }
