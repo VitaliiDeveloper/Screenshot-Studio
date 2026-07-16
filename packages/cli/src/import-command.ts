@@ -17,9 +17,9 @@ import {
 } from "@screenshot-studio/core/storage";
 import { updateProjectFile } from "./project-io.js";
 import {
-  publishFileSafelyWithOwnership,
-  removeRegularFileSafely,
-} from "./safe-file-publisher.js";
+  publishManagedResourceFile,
+  removeManagedResourceFile,
+} from "./managed-resource-file.js";
 
 export interface ImportCapturesOptions {
   projectPath: string;
@@ -42,8 +42,8 @@ interface CaptureFile {
 
 interface ImportCapturesDependencies {
   projectFileDependencies?: ProjectFileDependencies;
-  publishFile?: typeof publishFileSafelyWithOwnership;
-  removeFile?: typeof removeRegularFileSafely;
+  publishFile?: typeof publishManagedResourceFile;
+  removeFile?: typeof removeManagedResourceFile;
 }
 
 interface PreparedCapture extends CaptureFile {
@@ -101,8 +101,8 @@ export async function importCaptures({
   inputDir,
 }: ImportCapturesOptions, {
   projectFileDependencies = {},
-  publishFile = publishFileSafelyWithOwnership,
-  removeFile = removeRegularFileSafely,
+  publishFile = publishManagedResourceFile,
+  removeFile = removeManagedResourceFile,
 }: ImportCapturesDependencies = {}): Promise<ImportCapturesResult> {
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const captures = await collectCaptureFiles(inputDir);

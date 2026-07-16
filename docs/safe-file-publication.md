@@ -5,8 +5,10 @@ may already contain stale files, symbolic links, hard links, or entries created 
 process. A normal `writeFile(destination)` is therefore not an acceptable commit boundary: it may
 follow a link, expose partial bytes, or overwrite a file the current operation does not own.
 
-This document describes the local-filesystem contract implemented by
-`packages/cli/src/safe-file-publisher.ts`. It is deliberately narrower than a general storage API.
+This document describes the local-filesystem contract implemented by the internal
+`packages/cli/src/safe-file-publisher.ts` engine and the resource-specific
+`packages/cli/src/managed-resource-file.ts` adapter. They are deliberately narrower than a general
+storage API.
 
 ## iOS mental model
 
@@ -41,19 +43,26 @@ It does **not** own project JSON transactions, complete export directories, or Z
 - bundle publication uses `bundle-publisher.ts`, which validates and commits a complete output set;
 - render/export parity remains owned by the shared browser renderer.
 
+The two application-facing responsibilities are intentionally separate:
+
+- export/output code uses `publishFileSafely` for create-only or replace publication;
+- fonts, imports, and processed assets use the managed-resource adapter, which returns ownership
+  evidence and exposes quarantine/restore/remove for transaction rollback.
+
 ## API and examples
 
-Create-only publication is used when the same logical resource may be produced more than once. The
-same bytes converge on the existing file; different bytes are a conflict.
+Create-only managed-resource publication is used when the same logical resource may be produced
+more than once. The same bytes converge on the existing file; different bytes are a conflict.
 
 ```ts
-const result = await publishFileSafely({
+const result = await publishManagedResourceFile({
   root: projectRoot,
   relativePath: "assets/processed/icon-cropped.png",
   bytes: png,
 });
 
 // result.created === false means an identical regular file already existed.
+// result.ownership is retained for fail-closed rollback/removal.
 ```
 
 Replace publication is used for a generated output whose stable pathname intentionally points to
@@ -66,6 +75,18 @@ await publishFileSafely({
   bytes: archive,
   replace: true,
 });
+```
+
+Resource deletion is transactional rather than a direct `unlink`. The service quarantines the
+exact regular file, restores it when the project JSON update rolls back, and discards it only after
+the JSON commit succeeds:
+
+```ts
+const quarantine = await quarantineManagedResourceFile(projectRoot, font.path);
+if (quarantine) {
+  transaction.onRollback(() => quarantine.restore());
+  transaction.onCommit(() => quarantine.discard());
+}
 ```
 
 Callers pass a root plus a portable relative path rather than an arbitrary absolute destination.
@@ -98,4 +119,3 @@ filesystem namespace:
 When the application cannot prove that a file or stage is still the one it owns, it fails closed and
 may retain a private recovery entry rather than deleting a possible competitor file. The surfaced
 error includes that recovery path so cleanup can be deliberate.
-
