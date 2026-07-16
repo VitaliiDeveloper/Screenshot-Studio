@@ -92,40 +92,52 @@ function lifecycleErrors(primary: unknown, cleanup: unknown): AggregateError {
 
 interface StderrCapture {
   drained: Promise<void>;
-  readTail: () => string;
+  readTail: () => { text: string; truncated: boolean };
 }
 
 function captureStderrTail(child: ChildProcess): StderrCapture {
   let tail = Buffer.alloc(0);
+  let truncated = false;
   const stderr = child.stderr;
   if (!stderr) {
-    return { drained: Promise.resolve(), readTail: () => "" };
+    return {
+      drained: Promise.resolve(),
+      readTail: () => ({ text: "", truncated: false }),
+    };
   }
 
-  stderr.on("data", (chunk: Buffer | string) => {
+  const onData = (chunk: Buffer | string) => {
     const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     if (bytes.length >= RENDER_HOST_STDERR_TAIL_BYTES) {
+      truncated ||= tail.length > 0 || bytes.length > RENDER_HOST_STDERR_TAIL_BYTES;
       tail = Buffer.from(bytes.subarray(bytes.length - RENDER_HOST_STDERR_TAIL_BYTES));
       return;
     }
+    truncated ||= tail.length + bytes.length > RENDER_HOST_STDERR_TAIL_BYTES;
     const previousBytes = RENDER_HOST_STDERR_TAIL_BYTES - bytes.length;
     tail = Buffer.concat([tail.subarray(Math.max(0, tail.length - previousBytes)), bytes]);
-  });
+  };
+  stderr.on("data", onData);
 
   return {
     drained: finished(stderr, { cleanup: true }).then(
       () => undefined,
       () => undefined,
-    ),
-    readTail: () => tail.toString("utf8").trimEnd(),
+    ).finally(() => stderr.off("data", onData)),
+    readTail: () => ({ text: tail.toString("utf8").trimEnd(), truncated }),
   };
 }
 
-function withRenderHostStderr(error: Error, stderr: string): Error;
-function withRenderHostStderr(error: unknown, stderr: string): unknown;
-function withRenderHostStderr(error: unknown, stderr: string): unknown {
-  if (!stderr.trim()) return error;
-  return new Error(`${errorText(error)}\nRender host stderr:\n${stderr}`, { cause: error });
+function withRenderHostStderr(
+  error: unknown,
+  stderr: { text: string; truncated: boolean },
+): Error {
+  const base = error instanceof Error ? error : new Error(String(error));
+  if (!stderr.text.trim()) return base;
+  const label = stderr.truncated
+    ? "Render host stderr tail truncated"
+    : "Render host stderr";
+  return new Error(`${base.message}\n${label}:\n${stderr.text}`, { cause: base });
 }
 
 export async function createServerController({
@@ -176,6 +188,7 @@ export async function createServerController({
       } catch (error) {
         terminateError = error;
       }
+      if (!terminateError) await stderrCapture.drained;
       try {
         await host.cleanup();
       } catch (cleanupError) {

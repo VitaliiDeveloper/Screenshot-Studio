@@ -38,7 +38,6 @@ class FakeChild extends EventEmitter {
     this.emitExit(code, signal);
     this.endStderr(stderr);
   }
-
   kill = vi.fn(() => {
     this.killed = true;
     this.finishExit(0, null);
@@ -206,6 +205,62 @@ describe("materializeSharpRuntime", () => {
 });
 
 describe("createServerController", () => {
+  it("includes only a bounded stderr tail when startup fails", async () => {
+    const child = new FakeChild();
+    const starting = createServerController({
+      port: 4559,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => {
+        child.stderr.write(`old-marker\n${"x".repeat(64 * 1024)}\nlast diagnostic line\n`);
+        throw new Error("not ready");
+      }),
+      timeoutMs: 100,
+    });
+
+    let observed: unknown;
+    try {
+      await starting;
+    } catch (error) {
+      observed = error;
+    }
+    expect(observed).toBeInstanceOf(Error);
+    const message = (observed as Error).message;
+    expect(message).toContain("not ready");
+    expect(message).toContain("last diagnostic line");
+    expect(message).toContain("stderr tail truncated");
+    expect(message).not.toContain("old-marker");
+  });
+
+  it("includes the stderr tail when a ready render host exits prematurely", async () => {
+    const child = new FakeChild();
+    const server = await createServerController({
+      port: 4560,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => undefined),
+      timeoutMs: 100,
+    });
+
+    child.finishExit(9, null, "render host fatal detail\n");
+
+    await expect(server.exited).resolves.toMatchObject({
+      message: expect.stringMatching(/exited unexpectedly.*code 9[\s\S]*render host fatal detail/),
+    });
+  });
+
+  it("releases the bounded stderr listener when a healthy server stops", async () => {
+    const child = new FakeChild();
+    const server = await createServerController({
+      port: 4561,
+      spawn: vi.fn(() => child as never),
+      waitForHttp: vi.fn(async () => undefined),
+      timeoutMs: 100,
+    });
+
+    expect(child.stderr.listenerCount("data")).toBe(1);
+    await server.stop();
+    expect(child.stderr.listenerCount("data")).toBe(0);
+  });
+
   it("spawns Next on the resolved port and returns a localhost URL", async () => {
     const child = new FakeChild();
     const spawn = vi.fn((_cmd: string, _args: string[]) => child as never);
@@ -356,7 +411,7 @@ describe("createServerController", () => {
     child.finishExit(1, null);
 
     const failure = await server.exited;
-    const diagnostic = failure.message.split("\nRender host stderr:\n")[1];
+    const diagnostic = failure.message.split("\nRender host stderr tail truncated:\n")[1];
     expect(diagnostic).toBe(retained);
     expect(Buffer.byteLength(diagnostic!)).toBe(64 * 1024);
     expect(diagnostic).not.toContain(omitted);

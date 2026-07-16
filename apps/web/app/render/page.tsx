@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseProjectJson } from "@screenshot-studio/core/model";
+import {
+  ProjectPathError,
+  readIdentifiedProjectSnapshot,
+  resolveExistingProjectPath,
+} from "@screenshot-studio/core/storage";
 import { RenderStage } from "./RenderStage";
 
 /**
@@ -19,28 +22,43 @@ export const dynamic = "force-dynamic";
 export default async function RenderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; screen?: string }>;
+  searchParams: Promise<{ project?: string; screen?: string; revision?: string }>;
 }) {
-  const { project: projectPath, screen: screenId } = await searchParams;
+  const { project: projectPath, screen: screenId, revision } = await searchParams;
   if (!projectPath) {
     return <main data-render-error="missing-project">Missing ?project= path</main>;
   }
 
-  let projectJson: string;
+  let canonicalProjectPath: string;
   try {
-    projectJson = await readFile(resolve(projectPath), "utf8");
+    canonicalProjectPath = await resolveExistingProjectPath(resolve(projectPath));
   } catch (err) {
     return <main data-render-error="read-failed">Cannot read project: {(err as Error).message}</main>;
   }
 
-  let project;
+  let snapshot;
   try {
-    project = parseProjectJson(projectJson);
+    snapshot = await readIdentifiedProjectSnapshot(canonicalProjectPath);
   } catch (err) {
-    // Surface the validator message; never render an invalid project (editor.md §7).
-    return <main data-render-error="invalid-project">{(err as Error).message}</main>;
+    const kind = err instanceof ProjectPathError ? "read-failed" : "invalid-project";
+    return <main data-render-error={kind}>{(err as Error).message}</main>;
   }
 
+  if (revision !== undefined && snapshot.revision !== revision) {
+    return (
+      <main data-render-error="revision-mismatch">
+        Project revision changed before render
+      </main>
+    );
+  }
+
+  const project = snapshot.project;
   const targetScreen = screenId ?? project.screens[0]!.id;
-  return <RenderStage project={project} screenId={targetScreen} projectPath={resolve(projectPath)} />;
+  return (
+    <RenderStage
+      project={project}
+      screenId={targetScreen}
+      projectPath={canonicalProjectPath}
+    />
+  );
 }
