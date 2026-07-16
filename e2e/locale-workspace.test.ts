@@ -50,15 +50,16 @@ beforeAll(async () => {
   projectFile = join(dir, "app-store-screenshots.json");
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
-  process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer();
+  server = await startWebServer(undefined, {
+    projectPath: projectFile,
+    storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+  });
   browser = await chromium.launch();
 }, 180_000);
 
 afterAll(async () => {
   await browser?.close();
   await server?.stop();
-  delete process.env.PROJECT_PATH;
   rmSync(dir, { recursive: true, force: true });
 });
 

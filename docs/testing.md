@@ -13,6 +13,8 @@ packed consumer. A test does not belong in E2E merely because its data is used b
 | CI subset | automated representative coverage on pushes to `dev` | `pnpm test:e2e:ci` |
 | Full browser gate | GitHub CI for the integration PR from `dev` into `main` | `pnpm test:e2e` |
 | Release surfaces | cross-browser, packed CLI, optional skill, and living examples | `pnpm test:e2e:release-surfaces` |
+| Release policy | SPDX headers, required community surfaces, and public status text | `pnpm check:spdx` and `pnpm check:community` |
+| Release candidate | exact packed archive, metadata, integrity, and public release contract | `pnpm check:release-candidate` |
 
 ## Project mutation lock ownership
 
@@ -80,3 +82,9 @@ complete `pnpm test:e2e` gate runs only for a pull request whose head is `dev` a
 That full command composes the leaf groups as separate Vitest processes, preserving complete
 coverage without leaking mutable `PROJECT_PATH`, browser, or Next.js runtime state across unrelated
 areas. Local development still uses only exact E2E files when the changed behavior requires a browser.
+
+The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm check:spdx`, and
+`pnpm check:release-candidate` when its workflow, release guide, release audit scripts, package
+builder, lockfile, or package manifests change. It can also be dispatched manually for an exact
+candidate head. These checks build and inspect the packed CLI archive but do not publish it:
+publication remains a separate, owner-authorized action under [`docs/releasing.md`](releasing.md).

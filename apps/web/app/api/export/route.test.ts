@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { handleExportPost, POST } from "./route.js";
+import { handleExportPost } from "./handler.js";
+import { POST } from "./route.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -48,6 +49,105 @@ afterEach(async () => {
 });
 
 describe("POST /api/export", () => {
+  it("treats valid non-object JSON as an unfiltered request", async () => {
+    const { directory } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const exportBundle = vi.fn(async () => zipPath);
+
+    const response = await handleExportPost(req(null), {
+      createRenderBrowserSession: vi.fn(async () => ({
+        renderScreenToPng: vi.fn(),
+        close: vi.fn(async () => undefined),
+      })),
+      exportBundle,
+      stageExportArtifact: vi.fn(async (_source, outputDir) => ({
+        downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+        outputDir,
+        expiresAt: "2026-07-15T00:05:00.000Z",
+      })),
+    });
+
+    expect(response.status).toBe(201);
+    expect(exportBundle).toHaveBeenCalledOnce();
+  });
+
+  it("returns a one-shot artifact ticket without placing archive bytes in the POST response", async () => {
+    const { directory } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes that must not be returned here");
+    const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
+    const stageExportArtifact = vi.fn(async (_sourceZipPath: string, outputDir: string) => ({
+      downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+      outputDir,
+      expiresAt: "2026-07-15T00:05:00.000Z",
+    }));
+
+    const response = await handleExportPost(req({}), {
+      createRenderBrowserSession: vi.fn(async () => session),
+      exportBundle: vi.fn(async () => zipPath),
+      stageExportArtifact,
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("content-type")).toMatch(/^application\/json/);
+    expect(response.headers.get("x-export-dir")).toBeNull();
+    const body = await response.json();
+    expect(body).toEqual({
+      downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+      outputDir: expect.stringMatching(/\/export$/),
+      expiresAt: "2026-07-15T00:05:00.000Z",
+    });
+    expect(JSON.stringify(body)).not.toContain(zipPath);
+    expect(stageExportArtifact).toHaveBeenCalledWith(zipPath, expect.stringMatching(/\/export$/));
+    expect(session.close).toHaveBeenCalledOnce();
+  });
+
+  it("stages the exact archive before browser cleanup can expose the path to replacement", async () => {
+    const { directory } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "request-owned zip bytes");
+    let stagedBytes = "";
+    const session = {
+      renderScreenToPng: vi.fn(),
+      close: vi.fn(async () => { await writeFile(zipPath, "replacement zip bytes"); }),
+    };
+
+    const response = await handleExportPost(req({}), {
+      createRenderBrowserSession: vi.fn(async () => session),
+      exportBundle: vi.fn(async () => zipPath),
+      stageExportArtifact: vi.fn(async (source, outputDir) => {
+        stagedBytes = await readFile(source, "utf8");
+        return {
+          downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+          outputDir,
+          expiresAt: "2026-07-15T00:05:00.000Z",
+        };
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(stagedBytes).toBe("request-owned zip bytes");
+    expect(session.close).toHaveBeenCalledOnce();
+  });
+
+  it("returns a structured 500 when artifact staging fails", async () => {
+    const { directory } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
+
+    const response = await handleExportPost(req({}), {
+      createRenderBrowserSession: vi.fn(async () => session),
+      exportBundle: vi.fn(async () => zipPath),
+      stageExportArtifact: vi.fn(async () => { throw new Error("artifact staging failed"); }),
+    });
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toMatch(/artifact staging failed/);
+    expect(session.close).toHaveBeenCalledOnce();
+  });
+
   it("returns a structured error when a successful export cannot close its browser session", async () => {
     const { directory } = await useProject();
     const zipPath = join(directory, "bundle.zip");
