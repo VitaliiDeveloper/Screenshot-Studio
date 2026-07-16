@@ -14,7 +14,6 @@ const temporaryRoots: string[] = [];
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
-
 async function workspace(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "screenshot-studio-managed-resource-"));
   temporaryRoots.push(root);
@@ -51,4 +50,3 @@ describe("managed resource files", () => {
     await expect(lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
-
