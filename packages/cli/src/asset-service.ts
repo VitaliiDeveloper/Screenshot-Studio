@@ -6,10 +6,10 @@ import sharp from "sharp";
 import { resolveExistingProjectPath, withProjectMutation } from "@screenshot-studio/core/storage";
 import { loadProjectFile } from "./project-io.js";
 import {
-  publishFileSafely,
-  SafeFileConflictError,
-  type SafeFilePublication,
-} from "./safe-file-publisher.js";
+  ManagedResourceConflictError,
+  publishManagedResourceFile,
+  type ManagedResourceFilePublication,
+} from "./managed-resource-file.js";
 
 const DEFAULT_AUTO_CROP_THRESHOLD = 10;
 const DEFAULT_BACKGROUND_TOLERANCE = 24;
@@ -37,7 +37,9 @@ export interface RemoveBackgroundOptions {
 
 export interface AssetServiceDependencies {
   withProjectMutation?: <T>(projectPath: string, operation: () => Promise<T>) => Promise<T>;
-  publishFileSafely?: (options: SafeFilePublication) => Promise<{ path: string; created: boolean }>;
+  publishFileSafely?: (
+    options: ManagedResourceFilePublication,
+  ) => Promise<{ path: string; created: boolean }>;
   openSourceFile?: (path: string, flags: number) => Promise<FileHandle>;
 }
 
@@ -225,7 +227,7 @@ async function writeProcessedAsset(
         height,
       };
     } catch (error) {
-      if (error instanceof SafeFileConflictError) continue;
+      if (error instanceof ManagedResourceConflictError) continue;
       if (error instanceof Error && /symbolic link in publication path ancestor/i.test(error.message)) {
         throw new Error(
           `Asset output directory must stay inside project root ${paths.projectRoot} and contain no symbolic links`,
@@ -260,7 +262,7 @@ export async function autoCropAsset(
 ): Promise<ProcessedAsset> {
   const threshold = options.threshold ?? DEFAULT_AUTO_CROP_THRESHOLD;
   assertByte(threshold, "Auto-crop threshold");
-  const publish = dependencies.publishFileSafely ?? publishFileSafely;
+  const publish = dependencies.publishFileSafely ?? publishManagedResourceFile;
   return withAssetLease(projectPath, source, dependencies, async (paths, input) => {
     const decoded = await sharp(input)
       .rotate()
@@ -398,7 +400,7 @@ export async function removeBackgroundAsset(
     assertByte(options.background.green, "Background green channel");
     assertByte(options.background.blue, "Background blue channel");
   }
-  const publish = dependencies.publishFileSafely ?? publishFileSafely;
+  const publish = dependencies.publishFileSafely ?? publishManagedResourceFile;
   return withAssetLease(projectPath, source, dependencies, async (paths, input) => {
     const decoded = await sharp(input)
       .rotate()
