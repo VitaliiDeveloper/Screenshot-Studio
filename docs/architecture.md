@@ -17,7 +17,7 @@ Version 1.0, 12 July 2026.
 | Styling | Tailwind CSS | Speed, consistency |
 | Components | Shared local workbench primitives + Lucide | Inspector, dialogs, selects, menus, tooltips |
 | State | Zustand (+ Immer) | Light editor store with bounded project history and transient workspace state |
-| Export (UI) | `POST /api/export` delegates to CLI bundle orchestration | Exact-size PNGs, zip bundle |
+| Export (UI) | `POST /api/export` delegates to CLI bundle orchestration and returns a one-shot artifact ticket | Exact-size PNGs, streamed zip download |
 | Export (CLI / headless) | **Playwright** renders the same web stage | Pixel parity with the UI by construction — see §2 |
 | Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
 | Screen reorder | dnd-kit | Reordering screens in the sidebar |
@@ -71,7 +71,10 @@ interface StorageAdapter {
 }
 ```
 
-Ships with `LocalFileStorageAdapter` (writes JSON + assets to disk, like the reference).
+Ships with `LocalFileStorageAdapter`. Its ownership is deliberately narrow: `load`/`save` own the
+single project JSON document, while `putAsset` persists only bytes explicitly submitted through
+that call. Fonts, themes, templates, imports, processed assets, and exports use their dedicated
+services; the adapter does not implicitly own every project resource.
 
 Local project read-modify-write transactions are serialized beside the canonical
 `app-store-screenshots.json` path through the `@screenshot-studio/core/storage` mutation-lock adapter.
@@ -84,10 +87,12 @@ configuration, and usage details.
 
 Generated single-file outputs use a separate fail-closed publication boundary: complete bytes are
 written and synced to an exclusive sibling stage, then committed with explicit create-only or
-replace semantics. Path validation, no-follow leaf checks, identity/link-count evidence, ambiguous
-commit reconciliation, and the remaining Node.js namespace-race limitation are documented in
-[Safe file publication](safe-file-publication.md). Project JSON transactions and complete ZIP/output
-batches retain their dedicated commit paths; the single-file helper is not a generic storage layer.
+replace semantics. Managed fonts, imports, and processed assets add ownership-aware
+quarantine/restore/remove operations behind a resource-specific adapter. Path validation, no-follow
+checks, identity/link-count evidence, ambiguous commit reconciliation, and the remaining Node.js
+namespace-race limitation are documented in [Safe file publication](safe-file-publication.md).
+Project JSON transactions and complete ZIP/output batches retain their dedicated commit paths; this
+is not a generic storage layer.
 
 ### Render / export parity — the #1 technical risk
 
@@ -382,15 +387,29 @@ UTF-16 code unit outside lowercase ASCII letters, digits, `_`, and `-`; overlong
 before rendering. Store-size ids remain exact data for lookup and receive the same portable escape
 only at the filename sink, so custom specs stay compatible without introducing unsafe path bytes.
 
+The UI route does not buffer the finished ZIP into its POST response. `POST /api/export` copies the
+completed revision-stable archive into a private short-lived artifact and returns `201` with
+`{ downloadUrl, outputDir, expiresAt }` plus `Cache-Control: no-store`. `downloadUrl` is an opaque,
+unguessable same-origin one-shot URL. Its GET returns `200` with the verified ZIP stream, `404` for
+an invalid, missing, already-consumed, or integrity-rejected ticket, and `410` for a known expired
+ticket. The browser uses a native anchor download; consumption, five-minute expiry, cancellation,
+or stream completion closes the handle and removes the private artifact.
+
+Next may evaluate the POST and GET route modules separately, so their default store is retained on
+one process-global symbol. This only coordinates modules inside the same Node.js process. It is an
+intentional fit for the packaged/local standalone host, not a durable or distributed artifact
+service; a horizontally scaled or serverless deployment must supply shared artifact storage and
+ticket coordination.
+
 **"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
 sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one
 artboard cannot be scaled to all of them without distortion — `exportPixelRatio` rejects
-aspect-ratio mismatches by design. Bundles therefore target **one lead size per device**
-(Apple down-scales the lead size to smaller slots itself); the other accepted sizes remain
-available as explicit opt-in targets.
+aspect-ratio mismatches by design. Bundles therefore target each root at **one lead size per
+device** and also include every explicit persisted variant at its own target. Other accepted
+sizes remain opt-in until a variant is created.
 
 **Store sizes are data, not hardcode.** They live in **`store-specs.json`** with Vitest tests
-asserting export output dimensions. Apple and Google change these over time, and Google in
+asserting export output dimensions. Apple, Google, and Microsoft change these over time, and Google in
 particular defines *ranges* rather than single values — so a hardcoded table (the reference's
 weak point) is brittle. In the tables below, the Apple values are *accepted sizes* Apple
 publishes; the Google values are *recommended presets* within Google's allowed ranges. Either
@@ -399,10 +418,14 @@ way, `store-specs.json` is the runtime source of truth.
 Also: **strip the alpha channel on export** — Apple requires flattened PNG/JPG with no alpha;
 Google requires 24-bit PNG or JPEG with no transparency.
 
-**Apple App Store** (PNG/JPG, RGB, no alpha, 1–10 images):
+Published listing counts and metadata requirements below are informational release inputs. The
+exporter validates configured target lookup, exact output dimensions, opacity, and safe paths; it
+does not validate a store listing’s image count, copy, metadata, or current portal policy.
 
-| Display | Portrait |
-|---------|----------|
+**Apple App Store** (PNG/JPG, RGB, no alpha; published guidance currently allows 1–10 images):
+
+| Configured target | Exact size |
+|-------------------|------------|
 | 6.9″ iPhone (lead) | 1320 × 2868 (also accepts 1290×2796, 1260×2736) |
 | 6.5″ | 1284 × 2778 |
 | 6.3″ | 1206 × 2622 |
@@ -414,7 +437,9 @@ Google requires 24-bit PNG or JPEG with no transparency.
 | tvOS (lead) | 3840 × 2160 |
 | watchOS (lead) | 422 × 514 |
 
-Landscape swaps the dimensions (e.g. 2868×1320). Apple scales down to smaller slots itself.
+These are the exact Apple rows currently configured in `store-specs.json`; each row’s persisted
+orientation is data. The exporter does not derive an unconfigured orientation by interchanging
+width and height. Apple may scale an accepted lead image for smaller portal slots.
 
 **Google Play** — recommended presets (JPEG / 24-bit PNG, no transparency, up to 8 per type,
 side 320–3840 px, max ratio 2:1; any size in range is valid):
@@ -483,15 +508,15 @@ my-app-screenshots/
 | Command | Action |
 |---------|--------|
 | `init` | Scaffold the project, standard directories, and project-local agent guides |
-| `dev` | Run the canvas editor (dev server) |
-| `screen add / list / rm / reorder` | Manage screens |
+| `dev [--store-specs <path>]` | Run the canvas editor with optional explicit store specs |
+| `screen add / list / rm / reorder [--store-specs <path>]` | Manage roots and variants; root removal requires `--cascade` while variants exist |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
 | `theme set <id>` | Apply a theme to all screens |
 | `locale list / add / direction / rm` | Manage complete locale sets and baked LTR/RTL placement |
 | `canvas mode [isolated|connected]` | Inspect or explicitly change the project-wide canvas mode |
 | `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets |
 | `import <dir>` | Ingest raw captures by directory convention |
-| `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
+| `export [--platform --device --locale --store-specs <path>]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
 
 **Generated `AGENTS.md` / `CLAUDE.md` — project-local guidance.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to

@@ -1,6 +1,6 @@
 ---
 name: screenshot-studio
-description: Bootstrap and enter Screenshot Studio projects for App Store and Google Play marketing screenshots. Use when a user wants to initialize a Screenshot Studio project, start a code-first store-screenshot workflow, or continue work in a folder containing app-store-screenshots.json.
+description: Bootstrap and enter Screenshot Studio projects for App Store, Google Play, and Microsoft Store marketing screenshots. Use when a user wants to initialize a Screenshot Studio project, start a code-first store-screenshot workflow, or continue work in a folder containing app-store-screenshots.json.
 ---
 
 # Screenshot Studio

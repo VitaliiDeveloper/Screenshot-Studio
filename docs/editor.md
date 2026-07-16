@@ -170,7 +170,10 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 ## 6. Save / load / export
 
-- **Save / load** read and write `app-store-screenshots.json` through the `core` `StorageAdapter`.
+- **Save / load** read and write the single `app-store-screenshots.json` project document through
+  the `core` `StorageAdapter`. Its separate `putAsset` operation owns only explicitly submitted
+  asset bytes; fonts, themes, templates, imports, processed assets, and exports remain dedicated
+  service boundaries rather than implicit adapter storage.
   Load validates the raw complete v1 document directly through the strict Zod schema. Historical
   internal development formats are unsupported and are not rewritten on load.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
@@ -196,6 +199,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   project order. The UI export button and `cli export` meet the parity contract —
   exact target dimensions, no alpha channel, and a visual diff within tolerance (*not*
   byte-identical; PNG metadata/compression may differ). See `architecture.md` §2.
+  The POST returns `201` with a short-lived one-shot same-origin ticket; a separate GET consumes the
+  ticket and streams the ZIP to the browser’s native download path without creating a page-memory
+  Blob. Missing/consumed tickets return `404`, and known expired tickets return `410`.
 - **Font management** opens from Resources: upload or materialize a Google Font, preview/list
   registered identities, apply one to the selected text element, or remove it. CLI and UI reuse
   the same add-time Node service; render/export never fetch fonts from the network.

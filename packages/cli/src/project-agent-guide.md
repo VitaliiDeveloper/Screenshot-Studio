@@ -76,12 +76,14 @@ owns their vector bezel/slot geometry and render never downloads vendor artwork.
 
 Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
 an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and
-an opaque fallback/letterbox `color`. Keep background assets inside the project and use the same
+an RGB or alpha-bearing RGBA fallback/letterbox `color`. Keep background assets inside the project and use the same
 shared render/export path as every element.
 
 `mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
-platform/device/locale group forms a gapless horizontal strip in project order; elements stay owned
-by one screen with owner-local coordinates, and export crops the requested artboard through the
+platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in project order;
+root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
+must not be mistaken for duplicate roots. Elements stay owned by one screen with owner-local coordinates,
+and export crops the requested artboard through the
 shared renderer. Connected Overview authors the complete exact group; Focus previews one exact crop.
 Selecting a cross-screen element resolves to its owner screen, and transforms stay owner-local.
 
@@ -166,7 +168,7 @@ screenshots asset remove-background assets/icons/product.png --background FFFFFF
 
 - `auto-crop` removes edge-connected margins matching the top-left colour within the threshold.
 - `remove-background` makes matching edge-connected pixels transparent. Omit `--background` to use
-  the opaque top-left colour; use a six-digit RGB value when the intended background is known.
+  the top-left colour; use a six-digit RGB value when the intended background is known.
 - Background removal is for flat or near-uniform backgrounds. It is not semantic object/person
   segmentation; do not apply it blindly to a complex photographic scene.
 - Inspect the processed PNG before assigning its printed path to `assetUrl`. Preserve the source and
