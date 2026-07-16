@@ -76,15 +76,14 @@ single project JSON document, while `putAsset` persists only bytes explicitly su
 that call. Fonts, themes, templates, imports, processed assets, and exports use their dedicated
 services; the adapter does not implicitly own every project resource.
 
-Local project mutations are serialized beside `app-store-screenshots.json` with exclusive
-owner/release records and one append-only queue. Release records are fully written and synced under a
-unique name before an atomic no-replace hard-link publishes the final token marker. This coordinator
-is deliberately a **local filesystem** contract: the filesystem must provide atomic exclusive file
-creation, same-directory hard links, and non-interleaved single-write append. Do not mutate one active
-project concurrently through a network/shared mount; a community storage adapter for that topology
-must provide its own distributed coordination. Unknown host-instance/PID-namespace liveness, missing
-owner metadata, or an unqueued live owner waits for the bounded retry/manual-recovery error; malformed
-queue/release evidence fails immediately rather than risking overlapping writers.
+Local project read-modify-write transactions are serialized beside the canonical
+`app-store-screenshots.json` path through the `@screenshot-studio/core/storage` mutation-lock adapter.
+The adapter uses `proper-lockfile` for one bounded, heartbeat-refreshed directory lease; normal release
+removes the directory and a later contender may recover it only after its mtime is stale. This remains
+a **local filesystem** contract. Do not mutate one active project concurrently through a
+network/shared mount; a community storage adapter for that topology must provide its own distributed
+coordination. See [Project mutation locking](project-mutation-locking.md) for lifecycle, failure,
+configuration, and usage details.
 
 ### Render / export parity — the #1 technical risk
 

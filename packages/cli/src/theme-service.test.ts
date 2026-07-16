@@ -15,7 +15,6 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { updateProjectFile } from "./project-io.js";
 import {
   applyThemeFile,
@@ -60,31 +59,6 @@ async function temporaryDirectory(prefix: string): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   temporaryRoots.push(directory);
   return directory;
-}
-
-function controlledLockWait(): {
-  options: ProjectLockOptions;
-  didWait: Promise<void>;
-  release: () => void;
-} {
-  let markWait!: () => void;
-  const didWait = new Promise<void>((resolve) => { markWait = resolve; });
-  const waiters: Array<() => void> = [];
-  return {
-    didWait,
-    options: {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          markWait();
-          return new Promise<void>((resolve) => waiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    },
-    release: () => { waiters.splice(0).forEach((resolve) => resolve()); },
-  };
 }
 
 async function fixture() {
@@ -337,20 +311,18 @@ describe("theme-service", () => {
     await heldDidEnter;
     await expect(listThemes(projectPath)).resolves.toHaveLength(1);
 
-    const lockWait = controlledLockWait();
-    const apply = applyThemeFile(projectPath, "midnight", lockWait.options);
+    const apply = applyThemeFile(projectPath, "midnight");
     const applyOutcome = apply.then(
       (value) => ({ status: "fulfilled" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
     );
     const queueState = await Promise.race([
-      lockWait.didWait.then(() => "waited" as const),
       applyOutcome.then(() => "settled" as const),
+      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
     ]);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    lockWait.release();
     const applyResult = await applyOutcome;
 
     expect(queueState).toBe("waited");

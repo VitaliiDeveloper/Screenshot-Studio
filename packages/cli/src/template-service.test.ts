@@ -15,7 +15,6 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { updateProjectFile } from "./project-io.js";
 import {
   createTemplateScreen,
@@ -60,31 +59,6 @@ async function temporaryDirectory(prefix: string): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   temporaryRoots.push(directory);
   return directory;
-}
-
-function controlledLockWait(): {
-  options: ProjectLockOptions;
-  didWait: Promise<void>;
-  release: () => void;
-} {
-  let markWait!: () => void;
-  const didWait = new Promise<void>((resolve) => { markWait = resolve; });
-  const waiters: Array<() => void> = [];
-  return {
-    didWait,
-    options: {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          markWait();
-          return new Promise<void>((resolve) => waiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    },
-    release: () => { waiters.splice(0).forEach((resolve) => resolve()); },
-  };
 }
 
 async function fixture() {
@@ -346,20 +320,18 @@ describe("template-service", () => {
     await heldDidEnter;
     await expect(listTemplates(projectPath)).resolves.toHaveLength(1);
 
-    const lockWait = controlledLockWait();
-    const create = createTemplateScreen(projectPath, "accent-card", "uk", lockWait.options);
+    const create = createTemplateScreen(projectPath, "accent-card", "uk");
     const createOutcome = create.then(
       (value) => ({ status: "fulfilled" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
     );
     const queueState = await Promise.race([
-      lockWait.didWait.then(() => "waited" as const),
       createOutcome.then(() => "settled" as const),
+      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
     ]);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    lockWait.release();
     const createResult = await createOutcome;
 
     expect(queueState).toBe("waited");
