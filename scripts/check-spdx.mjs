@@ -7,31 +7,40 @@ import { fileURLToPath } from "node:url";
 
 const HEADER = "// SPDX-License-Identifier: Apache-2.0";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".mjs"]);
-const SKIPPED_DIRECTORY_NAMES = new Set([".git", ".next", "node_modules"]);
+const SKIPPED_DIRECTORY_NAMES = new Set([
+  ".git",
+  ".next",
+  ".turbo",
+  ".worktrees",
+  "build",
+  "dist",
+  "node_modules",
+  "out",
+  "worktrees",
+]);
 const SKIPPED_PREFIXES = ["packages/cli/package/", "e2e/.tmp/"];
 const SKIPPED_PATHS = new Set(["apps/web/next-env.d.ts"]);
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const write = process.argv.includes("--write");
 
-function normalizedRelative(path) {
-  return relative(repoRoot, path).split("\\").join("/");
+function normalizedRelative(root, path) {
+  return relative(root, path).split("\\").join("/");
 }
 
-function isSkipped(path) {
-  const relativePath = normalizedRelative(path);
+function isSkipped(root, path) {
+  const relativePath = normalizedRelative(root, path);
   return SKIPPED_PATHS.has(relativePath)
     || SKIPPED_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
 }
 
-async function collect(directory, files) {
+async function collect(root, directory, files) {
   const entries = await readdir(directory, { withFileTypes: true });
   entries.sort((first, second) => first.name.localeCompare(second.name));
   for (const entry of entries) {
     if (entry.isDirectory() && SKIPPED_DIRECTORY_NAMES.has(entry.name)) continue;
     const path = join(directory, entry.name);
-    if (isSkipped(path)) continue;
+    if (isSkipped(root, path)) continue;
     if (entry.isDirectory()) {
-      await collect(path, files);
+      await collect(root, path, files);
     } else if (entry.isFile() && SOURCE_EXTENSIONS.has(extname(entry.name))) {
       files.push(path);
     }
@@ -47,20 +56,53 @@ function addHeader(source) {
   return `${HEADER}\n${source}`;
 }
 
-const files = [];
-await collect(repoRoot, files);
-const missing = [];
-
-for (const path of files) {
-  const source = await readFile(path, "utf8");
-  if (source.split("\n").slice(0, 3).includes(HEADER)) continue;
-  if (write) await writeFile(path, addHeader(source));
-  else missing.push(normalizedRelative(path));
+export async function collectSourceFiles(root) {
+  const absoluteRoot = resolve(root);
+  const files = [];
+  await collect(absoluteRoot, absoluteRoot, files);
+  return files;
 }
 
-if (missing.length > 0) {
-  console.error(`Missing SPDX header in ${missing.length} source file(s):\n${missing.join("\n")}`);
-  process.exitCode = 1;
-} else {
-  console.log(`${write ? "Applied" : "Verified"} SPDX headers for ${files.length} source files.`);
+export async function checkSpdx({ root, write = false }) {
+  const absoluteRoot = resolve(root);
+  const files = await collectSourceFiles(absoluteRoot);
+  const missing = [];
+  const updated = [];
+
+  for (const path of files) {
+    const source = await readFile(path, "utf8");
+    if (source.split("\n").slice(0, 3).includes(HEADER)) continue;
+    const relativePath = normalizedRelative(absoluteRoot, path);
+    if (write) {
+      await writeFile(path, addHeader(source));
+      updated.push(relativePath);
+    } else {
+      missing.push(relativePath);
+    }
+  }
+
+  return {
+    files: files.map((path) => normalizedRelative(absoluteRoot, path)),
+    missing,
+    updated,
+  };
 }
+
+async function main() {
+  const write = process.argv.includes("--write");
+  const result = await checkSpdx({ root: repoRoot, write });
+
+  if (result.missing.length > 0) {
+    console.error(
+      `Missing SPDX header in ${result.missing.length} source file(s):\n${result.missing.join("\n")}`,
+    );
+    process.exitCode = 1;
+  } else {
+    console.log(
+      `${write ? "Applied" : "Verified"} SPDX headers for ${result.files.length} source files.`,
+    );
+  }
+}
+
+const invokedPath = process.argv[1] ? resolve(process.argv[1]) : undefined;
+if (invokedPath === fileURLToPath(import.meta.url)) await main();
