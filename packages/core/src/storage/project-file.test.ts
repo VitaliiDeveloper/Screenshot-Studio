@@ -206,6 +206,41 @@ describe("project-file", () => {
     expect(await readFile(outsidePath, "utf8")).toBe(outsideBytes);
   });
 
+  it("rejects a named-path rebound after recovery before reading snapshot bytes", async () => {
+    const { directory, projectPath } = await workspace("project-snapshot-post-recovery-swap-");
+    const displacedPath = join(directory, "displaced.json");
+    const outsidePath = join(directory, "outside.json");
+    const outsideBytes = serializeProject(project("Outside sentinel"));
+    await writeFile(projectPath, serializeProject(project("Observed")));
+    await writeFile(outsidePath, outsideBytes);
+    let statCalls = 0;
+    let readAttempted = false;
+
+    await expect(readIdentifiedProjectSnapshot(projectPath, {
+      openSnapshot: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: async (options) => {
+            statCalls += 1;
+            if (statCalls === 2) {
+              await rename(projectPath, displacedPath);
+              await symlink(outsidePath, projectPath);
+            }
+            return handle.stat(options);
+          },
+          readFile: async () => {
+            readAttempted = true;
+            return handle.readFile();
+          },
+          close: handle.close.bind(handle),
+        };
+      },
+    })).rejects.toThrow(/changed|symbolic link/i);
+
+    expect(readAttempted).toBe(false);
+    expect(await readFile(outsidePath, "utf8")).toBe(outsideBytes);
+  });
+
   it("rejects an atomic replacement after the observed snapshot and preserves the newer bytes", async () => {
     const { directory, projectPath } = await workspace("project-conditional-atomic-swap-");
     const competitorStage = join(directory, ".competitor.tmp");
