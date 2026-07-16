@@ -1,12 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { updateProjectFile } from "./project-io.js";
 import { applyThemeFile, listThemes, loadTheme, ThemeValidationError } from "./theme-service.js";
 
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function temporaryDirectory(prefix: string): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  temporaryRoots.push(directory);
+  return directory;
+}
+
 async function fixture() {
-  const dir = await mkdtemp(join(tmpdir(), "theme-service-"));
+  const dir = await temporaryDirectory("theme-service-");
   const projectPath = join(dir, "app-store-screenshots.json");
   const project = {
     meta: { name: "Themes", schemaVersion: 1 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
@@ -37,6 +50,59 @@ describe("theme-service", () => {
     expect((await loadTheme(projectPath, "midnight")).name).toBe("Midnight");
     await applyThemeFile(projectPath, "midnight");
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
+  });
+
+  it("resolves list, load, and apply resources beside a symlinked project target", async () => {
+    const { projectPath } = await fixture();
+    const aliasDir = await temporaryDirectory("theme-service-alias-");
+    const aliasPath = join(aliasDir, "project-alias.json");
+    await symlink(projectPath, aliasPath);
+
+    expect((await listThemes(aliasPath)).map((theme) => theme.id)).toEqual(["midnight"]);
+    await expect(loadTheme(aliasPath, "midnight")).resolves.toMatchObject({ name: "Midnight" });
+    await applyThemeFile(aliasPath, "midnight");
+
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
+  });
+
+  it("queues apply behind the project lease while list remains lock-free", async () => {
+    const { projectPath } = await fixture();
+    let releaseHeld!: () => void;
+    const heldMayFinish = new Promise<void>((resolve) => { releaseHeld = resolve; });
+    let heldEntered!: () => void;
+    const heldDidEnter = new Promise<void>((resolve) => { heldEntered = resolve; });
+
+    const held = updateProjectFile(projectPath, async (project) => {
+      heldEntered();
+      await heldMayFinish;
+      return {
+        project: { ...project, meta: { ...project.meta, name: "Held writer" } },
+        value: undefined,
+      };
+    });
+    const heldOutcome = held.then(
+      () => ({ status: "fulfilled" as const }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    await heldDidEnter;
+    await expect(listThemes(projectPath)).resolves.toHaveLength(1);
+
+    await expect(applyThemeFile(
+      projectPath,
+      "midnight",
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
+
+    releaseHeld();
+    const heldResult = await heldOutcome;
+    const applyResult = await applyThemeFile(projectPath, "midnight", { timeoutMs: 0 });
+
+    expect(heldResult.status).toBe("fulfilled");
+    expect(applyResult.theme.id).toBe("midnight");
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.meta.name).toBe("Held writer");
     expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
   });
 });

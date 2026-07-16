@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { setCanvasMode, type CanvasMode } from "@screenshot-studio/core/model";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { loadProjectFile, updateProjectFile } from "./project-io.js";
 
 export type CanvasAction = { kind: "show" } | { kind: "set"; mode: CanvasMode };
 
@@ -16,12 +17,19 @@ export function resolveCanvasAction(args: string[]): CanvasAction {
   return { kind: "set", mode: value };
 }
 
-export async function runCanvasCommand(projectPath: string, args: string[]): Promise<string> {
+export async function runCanvasCommand(
+  projectPath: string,
+  args: string[],
+  lockOptions: ProjectLockOptions = {},
+): Promise<string> {
   const action = resolveCanvasAction(args);
-  const project = await loadProjectFile(projectPath);
-  if (action.kind === "show") return `Canvas mode: ${project.mode}`;
+  if (action.kind === "show") {
+    return `Canvas mode: ${(await loadProjectFile(projectPath)).mode}`;
+  }
 
-  const nextProject = setCanvasMode(project, action.mode);
-  if (nextProject !== project) await writeProjectFile(projectPath, nextProject);
-  return `Canvas mode: ${nextProject.mode}`;
+  const updated = await updateProjectFile(projectPath, (project) => ({
+    project: setCanvasMode(project, action.mode),
+    value: undefined,
+  }), lockOptions);
+  return `Canvas mode: ${updated.project.mode}`;
 }

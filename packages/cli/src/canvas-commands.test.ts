@@ -1,10 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
+import {
+  loadProjectFile,
+  loadProjectSnapshot,
+  updateProjectFile,
+} from "./project-io.js";
 import { resolveCanvasAction, runCanvasCommand } from "./canvas-commands.js";
+
+const temporaryRoots: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
 function project(): Project {
   return {
@@ -29,6 +40,7 @@ function project(): Project {
 
 async function projectFile(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), "canvas-command-"));
+  temporaryRoots.push(directory);
   const path = join(directory, "app-store-screenshots.json");
   await writeFile(path, `${JSON.stringify(project(), null, 2)}\n`);
   return path;
@@ -66,5 +78,57 @@ describe("canvas commands", () => {
     await expect(runCanvasCommand(path, ["mode", "isolated"]))
       .rejects.toThrow(/bridge.*crosses/);
     await expect(readFile(path, "utf8")).resolves.toBe(before);
+  });
+
+  it("keeps exact bytes and revision when setting the active mode", async () => {
+    const path = await projectFile();
+    const exactBytes = `${JSON.stringify(project())}  \n`;
+    await writeFile(path, exactBytes);
+    const before = await loadProjectSnapshot(path);
+
+    await expect(runCanvasCommand(path, ["mode", "isolated"]))
+      .resolves.toBe("Canvas mode: isolated");
+
+    expect(await readFile(path, "utf8")).toBe(exactBytes);
+    expect((await loadProjectSnapshot(path)).revision).toBe(before.revision);
+  });
+
+  it("queues mode mutation behind the project lease while show remains lock-free", async () => {
+    const path = await projectFile();
+    let releaseHeld!: () => void;
+    const heldMayFinish = new Promise<void>((resolve) => { releaseHeld = resolve; });
+    let heldEntered!: () => void;
+    const heldDidEnter = new Promise<void>((resolve) => { heldEntered = resolve; });
+
+    const held = updateProjectFile(path, async (current) => {
+      heldEntered();
+      await heldMayFinish;
+      return {
+        project: { ...current, meta: { ...current.meta, name: "Held writer" } },
+        value: undefined,
+      };
+    });
+    const heldOutcome = held.then(
+      () => ({ status: "fulfilled" as const }),
+      (error: unknown) => ({ status: "rejected" as const, error }),
+    );
+    await heldDidEnter;
+    await expect(runCanvasCommand(path, ["mode"])).resolves.toBe("Canvas mode: isolated");
+
+    await expect(runCanvasCommand(
+      path,
+      ["mode", "connected"],
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
+
+    releaseHeld();
+    const heldResult = await heldOutcome;
+    const commandResult = await runCanvasCommand(path, ["mode", "connected"], { timeoutMs: 0 });
+
+    expect(heldResult.status).toBe("fulfilled");
+    expect(commandResult).toBe("Canvas mode: connected");
+    const saved = await loadProjectFile(path);
+    expect(saved.meta.name).toBe("Held writer");
+    expect(saved.mode).toBe("connected");
   });
 });

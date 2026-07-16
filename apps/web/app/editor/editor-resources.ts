@@ -8,6 +8,7 @@ import { registerProjectFonts } from "@screenshot-studio/core/fonts";
 import { collectImageUrls, loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore } from "../../lib/editor-store";
+import { setProjectRevision } from "../../lib/save-project";
 
 const resolveAsset = (assetUrl: string) => `/api/asset?path=${encodeURIComponent(assetUrl)}`;
 
@@ -35,6 +36,7 @@ export function useEditorResources() {
           registerProjectFonts(project.fonts, resolveAsset),
           loadProjectImages(project, resolveAsset),
         ]);
+        setProjectRevision(response.headers.get("etag"));
         editorStore.getState().load(project);
         setImages(cache);
         const specsResponse = await fetch("/api/store-specs");

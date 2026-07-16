@@ -7,7 +7,11 @@ import {
   type ScreenTemplate,
 } from "@screenshot-studio/core/templates";
 import type { Project, Screen } from "@screenshot-studio/core/model";
-import { loadProjectFile, writeProjectFile } from "./project-io.js";
+import {
+  resolveExistingProjectPath,
+  type ProjectLockOptions,
+} from "@screenshot-studio/core/storage";
+import { updateProjectFile } from "./project-io.js";
 
 const TEMPLATE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -60,8 +64,7 @@ function parseDefinition(json: string, path: string): ScreenTemplate {
   }
 }
 
-export async function loadTemplate(projectPath: string, rawId: unknown): Promise<ScreenTemplate> {
-  const id = templateId(rawId);
+async function loadCanonicalTemplate(projectPath: string, id: string): Promise<ScreenTemplate> {
   const path = join(templatesDir(projectPath), `${id}.json`);
   let json: string;
   try {
@@ -81,8 +84,13 @@ export async function loadTemplate(projectPath: string, rawId: unknown): Promise
   return template;
 }
 
+export async function loadTemplate(projectPath: string, rawId: unknown): Promise<ScreenTemplate> {
+  const id = templateId(rawId);
+  return loadCanonicalTemplate(await resolveExistingProjectPath(projectPath), id);
+}
+
 export async function listTemplates(projectPath: string): Promise<ScreenTemplate[]> {
-  const dir = templatesDir(projectPath);
+  const dir = templatesDir(await resolveExistingProjectPath(projectPath));
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -109,16 +117,20 @@ export async function createTemplateScreen(
   projectPath: string,
   rawId: unknown,
   rawLocale: unknown,
+  lockOptions: ProjectLockOptions = {},
 ): Promise<{ project: Project; screen: Screen; template: ScreenTemplate }> {
-  const template = await loadTemplate(projectPath, rawId);
+  const id = templateId(rawId);
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const template = await loadCanonicalTemplate(canonicalPath, id);
   const locale = templateLocale(rawLocale);
-  const current = await loadProjectFile(projectPath);
-  let result: { project: Project; screen: Screen };
-  try {
-    result = createScreenFromTemplate(current, template, locale);
-  } catch (error) {
-    throw new TemplateCreateError((error as Error).message, { cause: error });
-  }
-  await writeProjectFile(projectPath, result.project);
-  return { ...result, template };
+  const updated = await updateProjectFile(canonicalPath, (current) => {
+    try {
+      const result = createScreenFromTemplate(current, template, locale);
+      return { project: result.project, value: result.screen.id };
+    } catch (error) {
+      throw new TemplateCreateError((error as Error).message, { cause: error });
+    }
+  }, lockOptions);
+  const screen = updated.project.screens.find((candidate) => candidate.id === updated.value)!;
+  return { project: updated.project, screen, template };
 }
