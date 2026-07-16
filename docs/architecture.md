@@ -385,12 +385,12 @@ only at the filename sink, so custom specs stay compatible without introducing u
 **"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
 sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one
 artboard cannot be scaled to all of them without distortion — `exportPixelRatio` rejects
-aspect-ratio mismatches by design. Bundles therefore target **one lead size per device**
-(Apple down-scales the lead size to smaller slots itself); the other accepted sizes remain
-available as explicit opt-in targets.
+aspect-ratio mismatches by design. Bundles therefore target each root at **one lead size per
+device** and also include every explicit persisted variant at its own target. Other accepted
+sizes remain opt-in until a variant is created.
 
 **Store sizes are data, not hardcode.** They live in **`store-specs.json`** with Vitest tests
-asserting export output dimensions. Apple and Google change these over time, and Google in
+asserting export output dimensions. Apple, Google, and Microsoft change these over time, and Google in
 particular defines *ranges* rather than single values — so a hardcoded table (the reference's
 weak point) is brittle. In the tables below, the Apple values are *accepted sizes* Apple
 publishes; the Google values are *recommended presets* within Google's allowed ranges. Either
@@ -399,10 +399,14 @@ way, `store-specs.json` is the runtime source of truth.
 Also: **strip the alpha channel on export** — Apple requires flattened PNG/JPG with no alpha;
 Google requires 24-bit PNG or JPEG with no transparency.
 
-**Apple App Store** (PNG/JPG, RGB, no alpha, 1–10 images):
+Published listing counts and metadata requirements below are informational release inputs. The
+exporter validates configured target lookup, exact output dimensions, opacity, and safe paths; it
+does not validate a store listing’s image count, copy, metadata, or current portal policy.
 
-| Display | Portrait |
-|---------|----------|
+**Apple App Store** (PNG/JPG, RGB, no alpha; published guidance currently allows 1–10 images):
+
+| Configured target | Exact size |
+|-------------------|------------|
 | 6.9″ iPhone (lead) | 1320 × 2868 (also accepts 1290×2796, 1260×2736) |
 | 6.5″ | 1284 × 2778 |
 | 6.3″ | 1206 × 2622 |
@@ -414,7 +418,9 @@ Google requires 24-bit PNG or JPEG with no transparency.
 | tvOS (lead) | 3840 × 2160 |
 | watchOS (lead) | 422 × 514 |
 
-Landscape swaps the dimensions (e.g. 2868×1320). Apple scales down to smaller slots itself.
+These are the exact Apple rows currently configured in `store-specs.json`; each row’s persisted
+orientation is data. The exporter does not derive an unconfigured orientation by interchanging
+width and height. Apple may scale an accepted lead image for smaller portal slots.
 
 **Google Play** — recommended presets (JPEG / 24-bit PNG, no transparency, up to 8 per type,
 side 320–3840 px, max ratio 2:1; any size in range is valid):
@@ -483,15 +489,15 @@ my-app-screenshots/
 | Command | Action |
 |---------|--------|
 | `init` | Scaffold the project, standard directories, and project-local agent guides |
-| `dev` | Run the canvas editor (dev server) |
-| `screen add / list / rm / reorder` | Manage screens |
+| `dev [--store-specs <path>]` | Run the canvas editor with optional explicit store specs |
+| `screen add / list / rm / reorder [--store-specs <path>]` | Manage roots and variants; root removal requires `--cascade` while variants exist |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
 | `theme set <id>` | Apply a theme to all screens |
 | `locale list / add / direction / rm` | Manage complete locale sets and baked LTR/RTL placement |
 | `canvas mode [isolated|connected]` | Inspect or explicitly change the project-wide canvas mode |
 | `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets |
 | `import <dir>` | Ingest raw captures by directory convention |
-| `export [--platform --device --locale]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
+| `export [--platform --device --locale --store-specs <path>]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
 
 **Generated `AGENTS.md` / `CLAUDE.md` — project-local guidance.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to
