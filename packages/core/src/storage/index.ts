@@ -1,8 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { parseProjectJson, type Project } from "../model/index.js";
+import { writeProjectAtomic } from "./project-file.js";
+
+export {
+  projectRevision,
+  readProjectSnapshot,
+  serializeProject,
+  writeProjectAtomic,
+  type ProjectFileDependencies,
+  type ProjectSnapshot,
+} from "./project-file.js";
 
 /**
  * Storage boundary (docs/architecture.md §2). `core` depends on this interface, not a concrete
@@ -15,8 +25,9 @@ export interface StorageAdapter {
 }
 
 /**
- * Reference adapter: reads/writes the project JSON and assets on local disk, like the
- * self-hosted product. `projectId` is a filesystem path to the project JSON file.
+ * Reference adapter for project JSON plus content-addressed asset writes on local disk.
+ * `projectId` is a filesystem path to the project JSON file; other project resource trees use
+ * their dedicated services.
  */
 export class LocalFileStorageAdapter implements StorageAdapter {
   constructor(private readonly assetsDir: string) {}
@@ -27,8 +38,7 @@ export class LocalFileStorageAdapter implements StorageAdapter {
   }
 
   async save(project: Project, projectId: string): Promise<void> {
-    await mkdir(dirname(projectId), { recursive: true });
-    await writeFile(projectId, `${JSON.stringify(project, null, 2)}\n`, "utf8");
+    await writeProjectAtomic(projectId, project);
   }
 
   async putAsset(bytes: Uint8Array): Promise<{ url: string; hash: string }> {

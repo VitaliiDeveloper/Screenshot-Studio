@@ -54,6 +54,139 @@ function setRawFonts(project: ReturnType<typeof validProject>, fonts: unknown[])
   (project as { fonts: unknown[] }).fonts = fonts;
 }
 
+describe("project resource paths", () => {
+  const transform = { x: 0, y: 0, width: 100, height: 200 };
+
+  it("accepts portable resource paths across every persisted field family", () => {
+    const project = validProject();
+    (project.meta as Record<string, unknown>).appIcon = "assets/App Icon Привіт.png";
+    setRawFonts(project, [
+      { family: "Inter", source: "uploaded", path: "assets/fonts/Inter Привіт.ttf", weight: 400 },
+    ]);
+
+    const screen = project.screens[0]! as unknown as {
+      background: unknown;
+      elements: unknown[];
+    };
+    screen.background = { type: "image", assetUrl: "assets/backgrounds/Launch image 1.png" };
+    screen.elements = [
+      { id: "shot", type: "screenshot", ...transform, assetUrl: "assets/shot.png" },
+      { id: "image", type: "image", ...transform, assetUrl: "assets/decor.png" },
+      {
+        id: "frame",
+        type: "device-frame",
+        ...transform,
+        deviceType: "iphone",
+        assetUrl: "assets/framed-shot.png",
+      },
+      {
+        id: "group",
+        type: "group",
+        ...transform,
+        children: [
+          { id: "grouped-image", type: "image", ...transform, assetUrl: "assets/Група.png" },
+        ],
+      },
+    ];
+
+    expect(Project.safeParse(project).success).toBe(true);
+  });
+
+  const unsafeCases: Array<{
+    field: string;
+    value: string;
+    expectedPath: Array<string | number>;
+    mutate: (project: ReturnType<typeof validProject>, value: string) => void;
+  }> = [
+    {
+      field: "meta.appIcon",
+      value: "../icon.png",
+      expectedPath: ["meta", "appIcon"],
+      mutate(project, value) {
+        (project.meta as Record<string, unknown>).appIcon = value;
+      },
+    },
+    {
+      field: "background.assetUrl",
+      value: "/tmp/background.png",
+      expectedPath: ["screens", 0, "background", "assetUrl"],
+      mutate(project, value) {
+        (project.screens[0]! as unknown as { background: unknown }).background = {
+          type: "image",
+          assetUrl: value,
+        };
+      },
+    },
+    {
+      field: "screenshot.assetUrl",
+      value: "https://example.com/shot.png",
+      expectedPath: ["screens", 0, "elements", 0, "assetUrl"],
+      mutate(project, value) {
+        (project.screens[0]! as unknown as { elements: unknown[] }).elements = [
+          { id: "shot", type: "screenshot", ...transform, assetUrl: value },
+        ];
+      },
+    },
+    {
+      field: "grouped image.assetUrl",
+      value: "assets/../decor.png",
+      expectedPath: ["screens", 0, "elements", 0, "children", 0, "assetUrl"],
+      mutate(project, value) {
+        (project.screens[0]! as unknown as { elements: unknown[] }).elements = [
+          {
+            id: "group",
+            type: "group",
+            ...transform,
+            children: [
+              { id: "grouped-image", type: "image", ...transform, assetUrl: value },
+            ],
+          },
+        ];
+      },
+    },
+    {
+      field: "device-frame.assetUrl",
+      value: "file:assets/shot.png",
+      expectedPath: ["screens", 0, "elements", 0, "assetUrl"],
+      mutate(project, value) {
+        (project.screens[0]! as unknown as { elements: unknown[] }).elements = [
+          {
+            id: "frame",
+            type: "device-frame",
+            ...transform,
+            deviceType: "iphone",
+            assetUrl: value,
+          },
+        ];
+      },
+    },
+    {
+      field: "fonts.path",
+      value: "C:\\fonts\\inter.ttf",
+      expectedPath: ["fonts", 0, "path"],
+      mutate(project, value) {
+        setRawFonts(project, [
+          { family: "Inter", source: "uploaded", path: value, weight: 400 },
+        ]);
+      },
+    },
+  ];
+
+  it.each(unsafeCases)("rejects unsafe $field at its exact issue path", ({ value, expectedPath, mutate }) => {
+    const project = validProject();
+    mutate(project, value);
+
+    const result = Project.safeParse(project);
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual([{
+      message: "expected a portable project-relative path",
+      path: expectedPath,
+    }]);
+  });
+});
+
 describe("Project validation issue contracts", () => {
   const cases = [
     {

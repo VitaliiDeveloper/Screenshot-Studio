@@ -2,6 +2,7 @@
 import { Project, SCHEMA_VERSION, type Project as ProjectType } from "./schema.js";
 
 export * from "./schema.js";
+export * from "./project-resource-path.js";
 export * from "./device-frames.js";
 export * from "./font-identity.js";
 export * from "./factories.js";
