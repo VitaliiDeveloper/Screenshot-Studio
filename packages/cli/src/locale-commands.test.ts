@@ -176,23 +176,24 @@ describe("locale command workflow", () => {
     await heldDidEnter;
     await expect(runLocaleCommand(projectPath, ["list"], {})).resolves.toBe("en ltr 2 screens");
 
-    const command = runLocaleCommand(projectPath, ["add", "uk"], { from: "en" });
-    const commandOutcome = command.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (error: unknown) => ({ status: "rejected" as const, error }),
-    );
-    const queueState = await Promise.race([
-      commandOutcome.then(() => "settled" as const),
-      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
-    ]);
+    await expect(runLocaleCommand(
+      projectPath,
+      ["add", "uk"],
+      { from: "en" },
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    const commandResult = await commandOutcome;
+    const commandResult = await runLocaleCommand(
+      projectPath,
+      ["add", "uk"],
+      { from: "en" },
+      { timeoutMs: 0 },
+    );
 
-    expect(queueState).toBe("waited");
     expect(heldResult.status).toBe("fulfilled");
-    expect(commandResult.status).toBe("fulfilled");
+    expect(commandResult).toContain("uk ltr 2 screens");
     const saved = await loadProjectFile(projectPath);
     expect(saved.meta.name).toBe("Held writer");
     expect(saved.locales).toEqual(["en", "uk"]);

@@ -299,23 +299,28 @@ describe("project IO", () => {
     ]);
     expect(rollbackState).toBe("entered");
 
-    let secondEntered = false;
-    const second = updateProjectFile(projectPath, (project) => {
+    let secondEntries = 0;
+    const secondUpdater = (project: Project) => {
       events.push("second-entered");
-      secondEntered = true;
+      secondEntries += 1;
       return {
         project: { ...project, meta: { ...project.meta, name: "Queued update" } },
         value: "second",
       };
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    };
 
-    expect(secondEntered).toBe(false);
+    await expect(updateProjectFile(
+      projectPath,
+      secondUpdater,
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
+    expect(secondEntries).toBe(0);
     expect(events).toEqual(["rollback-started"]);
     releaseRollback();
     await expect(firstSettled).resolves.toEqual({ status: "rejected", error: writeFailure });
-    await second;
+    await updateProjectFile(projectPath, secondUpdater, { timeoutMs: 0 });
 
+    expect(secondEntries).toBe(1);
     expect(events).toEqual(["rollback-started", "rollback-finished", "second-entered"]);
     expect((await loadProjectFile(projectPath)).meta.name).toBe("Queued update");
   });
