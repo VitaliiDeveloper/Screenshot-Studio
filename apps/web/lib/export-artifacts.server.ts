@@ -505,7 +505,11 @@ export function createExportArtifactStore(
   return { stage, consume, close };
 }
 
-const defaultStore = createExportArtifactStore();
+const defaultStoreKey = Symbol.for("screenshot-studio.export-artifact-store");
+const processStores = globalThis as typeof globalThis & Record<symbol, unknown>;
+const defaultStore = (processStores[defaultStoreKey] as ExportArtifactStore | undefined)
+  ?? createExportArtifactStore();
+processStores[defaultStoreKey] = defaultStore;
 
 export function stageExportArtifact(
   sourceZipPath: string,
