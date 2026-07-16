@@ -37,6 +37,8 @@ assert(cliManifest.homepage === "https://github.com/VitaliiDeveloper/Screenshot-
 assert(cliManifest.bugs?.url === "https://github.com/VitaliiDeveloper/Screenshot-Studio/issues", "CLI bugs URL drifted");
 assert(cliManifest.publishConfig?.access === "public", "CLI public-scope metadata drifted");
 assert(Array.isArray(cliManifest.keywords) && cliManifest.keywords.length >= 5, "CLI keywords are incomplete");
+assert(cliManifest.description.includes("Microsoft Store"), "CLI description omits Microsoft Store");
+assert(cliManifest.keywords.includes("microsoft-store"), "CLI keywords omit Microsoft Store");
 for (const [name, dependency] of Object.entries({
   playwright: cliManifest.dependencies?.playwright,
   sharp: cliManifest.dependencies?.sharp,
@@ -62,5 +64,16 @@ assert(documents["README.md"].includes(archiveName), "README candidate filename 
 assert(documents["SECURITY.md"].includes("| Current `main` branch | Yes |"), "Security support table drifted");
 assert(documents["docs/releasing.md"].includes(archiveName), "Release guide candidate filename drifted");
 assert(documents["docs/releasing.md"].includes("requires explicit owner authorization"), "Release authorization boundary is missing");
+assert(
+  documents["docs/releasing.md"].includes("--pack-destination ../../../artifacts"),
+  "Release guide artifact destination drifted",
+);
+assert(documents["docs/releasing.md"].includes("SHA-512 SRI"), "Release guide must require SHA-512 SRI");
+assert(
+  documents["docs/releasing.md"].includes(
+    `npm publish ./artifacts/${archiveName} --access public --dry-run --json`,
+  ),
+  "Release guide must inspect the exact tarball with npm publish --dry-run --json",
+);
 
 process.stdout.write(`Verified release candidate ${version}, package metadata, pinned runtime dependencies, and public docs.\n`);
