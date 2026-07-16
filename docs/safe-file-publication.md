@@ -98,4 +98,3 @@ filesystem namespace:
 When the application cannot prove that a file or stage is still the one it owns, it fails closed and
 may retain a private recovery entry rather than deleting a possible competitor file. The surfaced
 error includes that recovery path so cleanup can be deliberate.
-
