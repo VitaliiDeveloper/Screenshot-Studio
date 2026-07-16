@@ -22,6 +22,7 @@ const fixtureDirectory = resolve(repoRoot, "fixtures/regressions/multi-locale-ex
 const fixturePath = resolve(fixtureDirectory, "app-store-screenshots.json");
 const storeVariantFixturePath = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
+const RGBA_CHANNEL_COUNT = 4;
 
 const expectedPaths = [
   "apple/iphone/locale-en/01-english-one-6.9.png",
@@ -33,8 +34,9 @@ const expectedPaths = [
 ];
 
 function pixel(png: PNG, x: number, y: number): [number, number, number] {
-  const offset = (y * png.width + x) * 4;
-  return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
+  const offset = (y * png.width + x) * RGBA_CHANNEL_COUNT;
+  const [red, green, blue] = png.data.subarray(offset, offset + RGBA_CHANNEL_COUNT);
+  return [red!, green!, blue!];
 }
 
 afterAll(async () => {
@@ -131,6 +133,8 @@ describe("Phase 4 multi-locale bundle export", () => {
   }, 180_000);
 
   it("exports a newly created watchOS output through the shared alpha-free path", async () => {
+    const watchCardFill = "#2563EB";
+    const watchCardRgb = Array.from(Buffer.from(watchCardFill.slice(1), "hex"));
     const source = parseProjectJson(JSON.stringify({
       meta: { name: "watchOS export", schemaVersion: 1 },
       mode: "isolated",
@@ -150,7 +154,7 @@ describe("Phase 4 multi-locale bundle export", () => {
           {
             id: "card", type: "shape", x: 70, y: 80, width: 282, height: 210,
             rotation: 0, opacity: 1, locked: false, visible: true,
-            kind: "rect", fill: "#2563EB", radius: 28,
+            kind: "rect", fill: watchCardFill, radius: 28,
             stroke: { color: "#FFFFFF", width: 6 },
           },
           {
@@ -233,7 +237,7 @@ describe("Phase 4 multi-locale bundle export", () => {
         const y = Math.floor(
           (card.y + card.height / 2) * bundleEntry.target.height / bundleEntry.screen.artboard.height,
         );
-        expect(pixel(PNG.sync.read(bytes), x, y)).toEqual([37, 99, 235]);
+        expect(pixel(PNG.sync.read(bytes), x, y)).toEqual(watchCardRgb);
       }
     } finally {
       await session.close();
