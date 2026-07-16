@@ -13,6 +13,13 @@ export {
   type ProjectFileDependencies,
   type ProjectSnapshot,
 } from "./project-file.js";
+export {
+  acquireProjectMutationLock,
+  projectMutationLockPath,
+  withProjectMutation,
+  type ProjectLockOptions,
+  type ProjectMutationLock,
+} from "./project-lock.js";
 
 /**
  * Storage boundary (docs/architecture.md §2). `core` depends on this interface, not a concrete

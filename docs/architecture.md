@@ -73,6 +73,15 @@ interface StorageAdapter {
 
 Ships with `LocalFileStorageAdapter` (writes JSON + assets to disk, like the reference).
 
+Local project read-modify-write transactions are serialized beside the canonical
+`app-store-screenshots.json` path through the `@screenshot-studio/core/storage` mutation-lock adapter.
+The adapter uses `proper-lockfile` for one bounded, heartbeat-refreshed directory lease; normal release
+removes the directory and a later contender may recover it only after its mtime is stale. This remains
+a **local filesystem** contract. Do not mutate one active project concurrently through a
+network/shared mount; a community storage adapter for that topology must provide its own distributed
+coordination. See [Project mutation locking](project-mutation-locking.md) for lifecycle, failure,
+configuration, and usage details.
+
 ### Render / export parity — the #1 technical risk
 
 The renderer decision is complete: UI and CLI exports both use the same browser Konva stage.
