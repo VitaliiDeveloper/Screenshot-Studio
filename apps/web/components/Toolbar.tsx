@@ -181,7 +181,7 @@ export function Toolbar({
           aria-label={`Canvas mode: ${canvasMode}`}
           aria-pressed={canvasMode === "connected"}
           title={`${canvasMode === "connected" ? "Connected" : "Isolated"} canvas — switch to ${canvasMode === "connected" ? "isolated" : "connected"}`}
-          className={cx(editorUi.iconButton, canvasMode === "connected" && "bg-blue-50 text-blue-700")}
+          className={canvasMode === "connected" ? editorUi.iconButtonActive : editorUi.iconButton}
           onClick={() => {
             setModeError(null);
             if (canvasMode === "isolated") {
@@ -221,7 +221,7 @@ export function Toolbar({
           type="button"
           aria-label="Inspect"
           aria-pressed={inspectorOpen}
-          className={cx(editorUi.buttonGhost, inspectorOpen && "bg-slate-100 text-slate-900")}
+          className={inspectorOpen ? editorUi.buttonGhostActive : editorUi.buttonGhost}
           onClick={onToggleInspector}
         >
           <PanelRight size={15} strokeWidth={1.9} /> <span className="hidden lg:inline">Inspect</span>

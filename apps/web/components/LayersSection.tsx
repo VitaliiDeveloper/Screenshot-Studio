@@ -355,7 +355,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     </button>
                     <button
                       type="button"
-                      className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
+                      className={editorUi.rowIconButton}
                       aria-label={child.locked ? `Unlock ${elementLabel(child)}` : `Lock ${elementLabel(child)}`}
                       onClick={() => patch(child, { locked: !child.locked })}
                     >
@@ -363,7 +363,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     </button>
                     <button
                       type="button"
-                      className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-slate-700"
+                      className={editorUi.rowIconButton}
                       aria-label={child.visible ? `Hide ${elementLabel(child)}` : `Show ${elementLabel(child)}`}
                       onClick={() => patch(child, { visible: !child.visible })}
                     >
@@ -371,7 +371,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     </button>
                     <button
                       type="button"
-                      className="inline-flex size-7 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      className={editorUi.rowIconButtonDanger}
                       aria-label={`Delete ${elementLabel(child)}`}
                       onClick={() => mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId))}
                     >
