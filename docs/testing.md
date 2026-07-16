@@ -14,6 +14,18 @@ packed consumer. A test does not belong in E2E merely because its data is used b
 | Full browser gate | GitHub CI for the integration PR from `dev` into `main` | `pnpm test:e2e` |
 | Release surfaces | cross-browser, packed CLI, optional skill, and living examples | `pnpm test:e2e:release-surfaces` |
 
+## Project mutation lock ownership
+
+`packages/core/src/storage/project-lock.test.ts` owns local-filesystem lease behavior, including real
+child-process contention, `SIGKILL` recovery, stale cleanup, canonical path aliases, and bounded lock
+metadata. `packages/cli/src/project-io.test.ts` owns the caller-level proof that concurrent complete
+read-modify-write transactions preserve both changes.
+
+Do not move these guarantees into browser E2E. A browser host does not add evidence about atomic
+directory creation or operating-system process death. Run editor E2E only when a separate user-visible
+persistence workflow changes and cannot be verified below the browser boundary. The complete contract
+and iOS-oriented mental model live in [Project mutation locking](project-mutation-locking.md).
+
 For one changed workflow, prefer its exact file:
 
 ```bash

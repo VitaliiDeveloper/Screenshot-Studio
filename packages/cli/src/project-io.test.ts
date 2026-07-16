@@ -7,7 +7,6 @@ import {
   ProjectRevisionConflictError,
   projectMutationLockPath,
   type ProjectFileDependencies,
-  type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
 import type { Project } from "@screenshot-studio/core/model";
 import {
@@ -274,23 +273,7 @@ describe("project IO", () => {
     const rollbackMayFinish = new Promise<void>((resolve) => { releaseRollback = resolve; });
     let rollbackEntered!: () => void;
     const rollbackDidEnter = new Promise<void>((resolve) => { rollbackEntered = resolve; });
-    let secondEntered!: () => void;
-    const secondDidEnter = new Promise<void>((resolve) => { secondEntered = resolve; });
-    const lockWaiters: Array<() => void> = [];
-    let lockWaitStarted!: () => void;
-    const lockDidWait = new Promise<void>((resolve) => { lockWaitStarted = resolve; });
     const events: string[] = [];
-    const lockOptions: ProjectLockOptions = {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          lockWaitStarted();
-          return new Promise<void>((resolve) => lockWaiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    };
 
     const first = updateProjectFile(projectPath, (project, transaction) => {
       transaction.onRollback(async () => {
@@ -303,7 +286,7 @@ describe("project IO", () => {
         project: { ...project, meta: { ...project.meta, name: "Must roll back" } },
         value: "first",
       };
-    }, lockOptions, {
+    }, {}, {
       beforeDestinationRevalidation: async () => { throw writeFailure; },
     } as ProjectFileDependencies);
     const firstSettled = first.then(
@@ -316,24 +299,21 @@ describe("project IO", () => {
     ]);
     expect(rollbackState).toBe("entered");
 
+    let secondEntered = false;
     const second = updateProjectFile(projectPath, (project) => {
       events.push("second-entered");
-      secondEntered();
+      secondEntered = true;
       return {
         project: { ...project, meta: { ...project.meta, name: "Queued update" } },
         value: "second",
       };
-    }, lockOptions);
-    const secondState = await Promise.race([
-      lockDidWait.then(() => "waited" as const),
-      secondDidEnter.then(() => "entered" as const),
-    ]);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(secondState).toBe("waited");
+    expect(secondEntered).toBe(false);
     expect(events).toEqual(["rollback-started"]);
     releaseRollback();
     await expect(firstSettled).resolves.toEqual({ status: "rejected", error: writeFailure });
-    lockWaiters.splice(0).forEach((resolve) => resolve());
     await second;
 
     expect(events).toEqual(["rollback-started", "rollback-finished", "second-entered"]);
@@ -351,22 +331,6 @@ describe("project IO", () => {
     const firstMayFinish = new Promise<void>((resolve) => { releaseFirst = resolve; });
     let firstEntered!: () => void;
     const firstDidEnter = new Promise<void>((resolve) => { firstEntered = resolve; });
-    const lockWaiters: Array<() => void> = [];
-    let lockWaitStarted!: () => void;
-    const lockDidWait = new Promise<void>((resolve) => { lockWaitStarted = resolve; });
-    let secondEntered!: () => void;
-    const secondDidEnter = new Promise<void>((resolve) => { secondEntered = resolve; });
-    const lockOptions: ProjectLockOptions = {
-      timeoutMs: 500,
-      staleAfterMs: 10_000,
-      dependencies: {
-        sleep: () => {
-          lockWaitStarted();
-          return new Promise<void>((resolve) => lockWaiters.push(resolve));
-        },
-        scheduleHeartbeat: () => () => undefined,
-      },
-    };
 
     const first = updateProjectFile(projectPath, async (project) => {
       firstEntered();
@@ -375,11 +339,12 @@ describe("project IO", () => {
         project: { ...project, meta: { ...project.meta, name: "First mutation" } },
         value: "first",
       };
-    }, lockOptions);
+    });
     await firstDidEnter;
 
+    let secondEntered = false;
     const second = updateProjectFile(aliasPath, (project) => {
-      secondEntered();
+      secondEntered = true;
       return {
         project: {
           ...project,
@@ -389,22 +354,19 @@ describe("project IO", () => {
         },
         value: "second",
       };
-    }, lockOptions);
-    const secondState = await Promise.race([
-      lockDidWait.then(() => "waited" as const),
-      secondDidEnter.then(() => "entered" as const),
-    ]);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(secondEntered).toBe(false);
+
     releaseFirst();
     await first;
-    lockWaiters.splice(0).forEach((resolve) => resolve());
     const secondResult = await second;
 
-    expect(secondState).toBe("waited");
     expect(secondResult.value).toBe("second");
     expect(secondResult.revision).toMatch(/^[a-f0-9]{64}$/);
     expect((await lstat(aliasPath)).isSymbolicLink()).toBe(true);
-    await expect(access(projectMutationLockPath(projectPath))).resolves.toBeUndefined();
-    await expect(access(projectMutationLockPath(aliasPath))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(projectMutationLockPath(aliasPath)).toBe(projectMutationLockPath(projectPath));
+    await expect(access(projectMutationLockPath(projectPath))).rejects.toMatchObject({ code: "ENOENT" });
     const final = await loadProjectFile(projectPath);
     expect(final.meta.name).toBe("First mutation");
     expect(final.screens[0]!.background).toEqual({ type: "solid", color: "#000000" });

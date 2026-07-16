@@ -23,11 +23,7 @@ export {
   acquireProjectMutationLock,
   projectMutationLockPath,
   withProjectMutation,
-  type ProjectLockDependencies,
-  type ProjectLockFile,
-  type ProjectLockFileSystem,
   type ProjectLockOptions,
-  type ProjectLockOwner,
   type ProjectMutationLock,
 } from "./project-lock.js";
 export {
