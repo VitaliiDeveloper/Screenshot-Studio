@@ -1,9 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
-import { link, lstat, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  link,
+  lstat,
+  mkdtemp,
+  open,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ProjectPathError, resolveExistingProjectPath } from "./project-path.js";
+import {
+  ProjectPathError,
+  inspectProjectPublicationFile,
+  resolveExistingProjectPath,
+} from "./project-path.js";
 
 const temporaryRoots: string[] = [];
 
@@ -18,6 +33,35 @@ async function temporaryDirectory(): Promise<string> {
 }
 
 describe("existing project path identity", () => {
+  it("does not read a followed publication symlink when open ignores no-follow flags", async () => {
+    const directory = await temporaryDirectory();
+    const projectPath = join(directory, "app-store-screenshots.json");
+    const displacedPath = join(directory, "displaced.json");
+    const outsidePath = join(directory, "outside.json");
+    await writeFile(projectPath, "project bytes\n");
+    await writeFile(outsidePath, "outside sentinel\n");
+    let readAttempted = false;
+
+    await expect(inspectProjectPublicationFile(projectPath, {
+      openFile: async (path) => {
+        await rename(path, displacedPath);
+        await symlink(outsidePath, path);
+        const handle = await open(path, "r");
+        return {
+          stat: handle.stat.bind(handle),
+          readFile: async () => {
+            readAttempted = true;
+            return handle.readFile();
+          },
+          close: handle.close.bind(handle),
+        };
+      },
+    })).rejects.toThrow(/regular file|symbolic link|changed/i);
+
+    expect(readAttempted).toBe(false);
+    expect(await readFile(outsidePath, "utf8")).toBe("outside sentinel\n");
+  });
+
   it("resolves a symlink alias to its canonical absolute regular-file target", async () => {
     const directory = await temporaryDirectory();
     const projectPath = join(directory, "app-store-screenshots.json");

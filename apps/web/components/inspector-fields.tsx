@@ -8,7 +8,7 @@ import {
   type FontAsset,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
-import { editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
+import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 
@@ -65,7 +65,12 @@ export function NumberField({
           const next = parse(draft);
           if (next === null) setDraft(String(value));
         }}
-        className={`${editorUi.field} ${layout === "column" ? "min-w-0" : "w-28"} text-right tabular-nums aria-invalid:border-red-400 aria-invalid:ring-2 aria-invalid:ring-red-500/15`}
+        className={cx(
+          editorUi.field,
+          editorUi.fieldInvalid,
+          layout === "column" ? "min-w-0" : "w-28",
+          "text-right tabular-nums",
+        )}
       />
     </label>
   );
@@ -81,7 +86,7 @@ export function ColorField({
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 w-28 cursor-pointer rounded-lg border border-slate-200 bg-white p-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+        className={editorUi.colorField}
       />
     </label>
   );
