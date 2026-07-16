@@ -56,6 +56,26 @@ afterEach(async () => {
 });
 
 describe("export artifact store", () => {
+  it("shares the default ticket store across independently evaluated route modules", async () => {
+    vi.resetModules();
+    const producer = await import("./export-artifacts.server.js");
+    const ticket = await producer.stageExportArtifact(sourcePath, "/project/export");
+
+    vi.resetModules();
+    const consumer = await import("./export-artifacts.server.js");
+    const consumed = await consumer.consumeExportArtifact(tokenFrom(ticket.downloadUrl));
+
+    expect(consumed.status).toBe("ready");
+    if (consumed.status !== "ready") return;
+    expect(await readArtifact(consumed.artifact.stream)).toEqual(Buffer.from("canonical zip bytes"));
+    await consumed.artifact.cleanup;
+
+    const key = Symbol.for("screenshot-studio.export-artifact-store");
+    const globals = globalThis as typeof globalThis & Record<symbol, ExportArtifactStore | undefined>;
+    await globals[key]?.close();
+    delete globals[key];
+  });
+
   it("does not publish a ticket or leak a file when close starts during staging", async () => {
     let closing: Promise<void> | undefined;
     await store.close();
