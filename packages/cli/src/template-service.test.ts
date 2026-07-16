@@ -320,23 +320,24 @@ describe("template-service", () => {
     await heldDidEnter;
     await expect(listTemplates(projectPath)).resolves.toHaveLength(1);
 
-    const create = createTemplateScreen(projectPath, "accent-card", "uk");
-    const createOutcome = create.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (error: unknown) => ({ status: "rejected" as const, error }),
-    );
-    const queueState = await Promise.race([
-      createOutcome.then(() => "settled" as const),
-      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
-    ]);
+    await expect(createTemplateScreen(
+      projectPath,
+      "accent-card",
+      "uk",
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    const createResult = await createOutcome;
+    const createResult = await createTemplateScreen(
+      projectPath,
+      "accent-card",
+      "uk",
+      { timeoutMs: 0 },
+    );
 
-    expect(queueState).toBe("waited");
     expect(heldResult.status).toBe("fulfilled");
-    expect(createResult.status).toBe("fulfilled");
+    expect(createResult.screen.locale).toBe("uk");
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.meta.name).toBe("Held writer");
     expect(saved.screens).toHaveLength(2);

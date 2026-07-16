@@ -82,6 +82,13 @@ network/shared mount; a community storage adapter for that topology must provide
 coordination. See [Project mutation locking](project-mutation-locking.md) for lifecycle, failure,
 configuration, and usage details.
 
+Generated single-file outputs use a separate fail-closed publication boundary: complete bytes are
+written and synced to an exclusive sibling stage, then committed with explicit create-only or
+replace semantics. Path validation, no-follow leaf checks, identity/link-count evidence, ambiguous
+commit reconciliation, and the remaining Node.js namespace-race limitation are documented in
+[Safe file publication](safe-file-publication.md). Project JSON transactions and complete ZIP/output
+batches retain their dedicated commit paths; the single-file helper is not a generic storage layer.
+
 ### Render / export parity — the #1 technical risk
 
 The renderer decision is complete: UI and CLI exports both use the same browser Konva stage.

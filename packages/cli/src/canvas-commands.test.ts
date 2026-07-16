@@ -115,23 +115,18 @@ describe("canvas commands", () => {
     await heldDidEnter;
     await expect(runCanvasCommand(path, ["mode"])).resolves.toBe("Canvas mode: isolated");
 
-    const command = runCanvasCommand(path, ["mode", "connected"]);
-    const commandOutcome = command.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (error: unknown) => ({ status: "rejected" as const, error }),
-    );
-    const queueState = await Promise.race([
-      commandOutcome.then(() => "settled" as const),
-      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
-    ]);
+    await expect(runCanvasCommand(
+      path,
+      ["mode", "connected"],
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    const commandResult = await commandOutcome;
+    const commandResult = await runCanvasCommand(path, ["mode", "connected"], { timeoutMs: 0 });
 
-    expect(queueState).toBe("waited");
     expect(heldResult.status).toBe("fulfilled");
-    expect(commandResult.status).toBe("fulfilled");
+    expect(commandResult).toBe("Canvas mode: connected");
     const saved = await loadProjectFile(path);
     expect(saved.meta.name).toBe("Held writer");
     expect(saved.mode).toBe("connected");

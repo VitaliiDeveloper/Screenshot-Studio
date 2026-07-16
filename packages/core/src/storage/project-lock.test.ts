@@ -50,10 +50,6 @@ function shortLockOptions(overrides: ProjectLockOptions = {}): ProjectLockOption
   };
 }
 
-function wait(durationMs: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, durationMs));
-}
-
 function startLockChild(...arguments_: string[]): ChildProcess {
   const child = spawn(process.execPath, ["--import", "tsx", childScript, ...arguments_], {
     stdio: ["ignore", "pipe", "pipe"],
@@ -138,19 +134,22 @@ describe("project mutation lock", () => {
     await expect(stat(lockPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("keeps a second operation outside until the current owner releases", async () => {
+  it("rejects a contender while the current owner holds the lease and admits it after release", async () => {
     const path = await createProjectPath("project-lock-exclusive-");
     const first = await acquireProjectMutationLock(path, shortLockOptions());
     let secondEntered = false;
 
-    const second = withProjectMutation(path, async () => {
+    const blocked = withProjectMutation(path, async () => {
       secondEntered = true;
-    }, shortLockOptions());
-    await wait(100);
+    }, shortLockOptions({ timeoutMs: 0 }));
+
+    await expect(blocked).rejects.toThrow(/Timed out.*project mutation lock/i);
     expect(secondEntered).toBe(false);
 
     await first.release();
-    await second;
+    await withProjectMutation(path, async () => {
+      secondEntered = true;
+    }, shortLockOptions({ timeoutMs: 0 }));
     expect(secondEntered).toBe(true);
   });
 
@@ -250,16 +249,17 @@ describe("project mutation lock", () => {
     },
   );
 
-  it("recovers a lock abandoned by a killed process without overlapping the live owner", async () => {
+  it("rejects contenders while a child owner lives and recovers its abandoned lock after kill", async () => {
     const path = await createProjectPath("project-lock-killed-owner-");
     const owner = startLockChild("hold", path);
     await waitForOutput(owner, "acquired\n");
     let contenderEntered = false;
 
-    const contender = withProjectMutation(path, async () => {
+    const blocked = withProjectMutation(path, async () => {
       contenderEntered = true;
-    }, shortLockOptions({ timeoutMs: 5_000 }));
-    await wait(200);
+    }, shortLockOptions({ timeoutMs: 0 }));
+
+    await expect(blocked).rejects.toThrow(/Timed out.*project mutation lock/i);
     expect(contenderEntered).toBe(false);
 
     const ownerExited = new Promise<void>((resolvePromise) => {
@@ -270,7 +270,9 @@ describe("project mutation lock", () => {
     const staleDate = new Date(Date.now() - 10_000);
     await utimes(projectMutationLockPath(path), staleDate, staleDate);
 
-    await contender;
+    await withProjectMutation(path, async () => {
+      contenderEntered = true;
+    }, shortLockOptions({ timeoutMs: 0 }));
     expect(contenderEntered).toBe(true);
     await expect(stat(projectMutationLockPath(path))).rejects.toMatchObject({ code: "ENOENT" });
   });

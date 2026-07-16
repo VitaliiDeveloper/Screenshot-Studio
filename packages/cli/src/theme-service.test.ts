@@ -311,23 +311,18 @@ describe("theme-service", () => {
     await heldDidEnter;
     await expect(listThemes(projectPath)).resolves.toHaveLength(1);
 
-    const apply = applyThemeFile(projectPath, "midnight");
-    const applyOutcome = apply.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (error: unknown) => ({ status: "rejected" as const, error }),
-    );
-    const queueState = await Promise.race([
-      applyOutcome.then(() => "settled" as const),
-      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
-    ]);
+    await expect(applyThemeFile(
+      projectPath,
+      "midnight",
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    const applyResult = await applyOutcome;
+    const applyResult = await applyThemeFile(projectPath, "midnight", { timeoutMs: 0 });
 
-    expect(queueState).toBe("waited");
     expect(heldResult.status).toBe("fulfilled");
-    expect(applyResult.status).toBe("fulfilled");
+    expect(applyResult.theme.id).toBe("midnight");
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.meta.name).toBe("Held writer");
     expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
