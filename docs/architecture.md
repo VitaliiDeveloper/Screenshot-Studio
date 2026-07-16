@@ -85,6 +85,15 @@ network/shared mount; a community storage adapter for that topology must provide
 coordination. See [Project mutation locking](project-mutation-locking.md) for lifecycle, failure,
 configuration, and usage details.
 
+Generated single-file outputs use a separate fail-closed publication boundary: complete bytes are
+written and synced to an exclusive sibling stage, then committed with explicit create-only or
+replace semantics. Managed fonts, imports, and processed assets add ownership-aware
+quarantine/restore/remove operations behind a resource-specific adapter. Path validation, no-follow
+checks, identity/link-count evidence, ambiguous commit reconciliation, and the remaining Node.js
+namespace-race limitation are documented in [Safe file publication](safe-file-publication.md).
+Project JSON transactions and complete ZIP/output batches retain their dedicated commit paths; this
+is not a generic storage layer.
+
 ### Render / export parity — the #1 technical risk
 
 The renderer decision is complete: UI and CLI exports both use the same browser Konva stage.
@@ -378,11 +387,19 @@ UTF-16 code unit outside lowercase ASCII letters, digits, `_`, and `-`; overlong
 before rendering. Store-size ids remain exact data for lookup and receive the same portable escape
 only at the filename sink, so custom specs stay compatible without introducing unsafe path bytes.
 
-The UI route does not buffer the finished ZIP into its POST response. It copies the completed
-revision-stable archive into a private short-lived artifact, returns an unguessable same-origin
-one-shot URL, and streams that verified regular file from a separate GET route. The browser uses a
-native anchor download; consumption, expiry, cancellation, or stream completion closes the handle
-and removes the private artifact.
+The UI route does not buffer the finished ZIP into its POST response. `POST /api/export` copies the
+completed revision-stable archive into a private short-lived artifact and returns `201` with
+`{ downloadUrl, outputDir, expiresAt }` plus `Cache-Control: no-store`. `downloadUrl` is an opaque,
+unguessable same-origin one-shot URL. Its GET returns `200` with the verified ZIP stream, `404` for
+an invalid, missing, already-consumed, or integrity-rejected ticket, and `410` for a known expired
+ticket. The browser uses a native anchor download; consumption, five-minute expiry, cancellation,
+or stream completion closes the handle and removes the private artifact.
+
+Next may evaluate the POST and GET route modules separately, so their default store is retained on
+one process-global symbol. This only coordinates modules inside the same Node.js process. It is an
+intentional fit for the packaged/local standalone host, not a durable or distributed artifact
+service; a horizontally scaled or serverless deployment must supply shared artifact storage and
+ticket coordination.
 
 **"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
 sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one

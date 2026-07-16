@@ -279,28 +279,32 @@ describe("screen commands", () => {
     await expect(runScreenCommand(projectPath, specsPath, ["list"], {}))
       .resolves.toContain("1 hero apple/iphone en Hero");
 
-    const command = runScreenCommand(projectPath, specsPath, ["add"], {
+    const addOptions = {
       platform: "android",
       device: "phone",
       locale: "en",
       name: "Queued screen",
-    });
-    const commandOutcome = command.then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (error: unknown) => ({ status: "rejected" as const, error }),
-    );
-    const queueState = await Promise.race([
-      commandOutcome.then(() => "settled" as const),
-      new Promise<"waited">((resolve) => setTimeout(() => resolve("waited"), 100)),
-    ]);
+    } as const;
+    await expect(runScreenCommand(
+      projectPath,
+      specsPath,
+      ["add"],
+      addOptions,
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
 
     releaseHeld();
     const heldResult = await heldOutcome;
-    const commandResult = await commandOutcome;
+    const commandResult = await runScreenCommand(
+      projectPath,
+      specsPath,
+      ["add"],
+      addOptions,
+      { timeoutMs: 0 },
+    );
 
-    expect(queueState).toBe("waited");
     expect(heldResult.status).toBe("fulfilled");
-    expect(commandResult.status).toBe("fulfilled");
+    expect(commandResult).toContain("queued-screen android/phone en Queued screen");
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     expect(written.meta.name).toBe("Held writer");
     expect(written.screens.some((screen) => screen.name === "Queued screen")).toBe(true);

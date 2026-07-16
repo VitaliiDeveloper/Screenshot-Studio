@@ -22,15 +22,15 @@ import {
 } from "./font-validation.js";
 import { loadProjectFile, updateProjectFile } from "./project-io.js";
 import {
-  publishFileSafelyWithOwnership,
-  quarantineRegularFileSafely,
-  removeRegularFileSafely,
-  SafeFileConflictError,
-  type SafeFilePublication,
-  type SafeFilePublicationWithOwnership,
-  type SafeFileOwnership,
-  type SafeRegularFileQuarantine,
-} from "./safe-file-publisher.js";
+  ManagedResourceConflictError,
+  publishManagedResourceFile,
+  quarantineManagedResourceFile,
+  removeManagedResourceFile,
+  type ManagedResourceFilePublication,
+  type ManagedResourceOwnership,
+  type ManagedResourcePublication,
+  type ManagedResourceQuarantine,
+} from "./managed-resource-file.js";
 
 export { FontValidationError } from "./font-validation.js";
 
@@ -67,17 +67,17 @@ export class FontInUseError extends Error {
 }
 
 type PublishFontFile = (
-  options: SafeFilePublication,
-) => Promise<SafeFilePublicationWithOwnership>;
+  options: ManagedResourceFilePublication,
+) => Promise<ManagedResourcePublication>;
 type RemoveFontFile = (
   root: string,
   relativePath: string,
-  expectedOwnership?: SafeFileOwnership,
+  expectedOwnership?: ManagedResourceOwnership,
 ) => Promise<boolean>;
 type QuarantineFontFile = (
   root: string,
   relativePath: string,
-) => Promise<SafeRegularFileQuarantine | null>;
+) => Promise<ManagedResourceQuarantine | null>;
 
 export interface FontServiceDependencies {
   fetch?: typeof fetch;
@@ -206,19 +206,19 @@ async function addMaterializedFontMutation(
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const root = dirname(canonicalProjectPath);
   const path = targetAssetPath(family, weight, input.extension);
-  const publishFontFile = dependencies.publishFontFile ?? publishFileSafelyWithOwnership;
-  const removeFontFile = dependencies.removeFontFile ?? removeRegularFileSafely;
+  const publishFontFile = dependencies.publishFontFile ?? publishManagedResourceFile;
+  const removeFontFile = dependencies.removeFontFile ?? removeManagedResourceFile;
 
   const updated = await updateProjectFile(canonicalProjectPath, async (project, transaction) => {
     if (findFont(project, family, weight)) {
       throw new FontConflictError(`Font "${family}" ${weight} is already registered`);
     }
 
-    let publication: SafeFilePublicationWithOwnership;
+    let publication: ManagedResourcePublication;
     try {
       publication = await publishFontFile({ root, relativePath: path, bytes: input.bytes });
     } catch (error) {
-      if (error instanceof SafeFileConflictError) {
+      if (error instanceof ManagedResourceConflictError) {
         throw new FontConflictError(`Refusing to overwrite existing font file: ${error.path}`);
       }
       throw error;
@@ -333,7 +333,7 @@ export async function removeFontMutation(
   const weight = fontWeight(input.weight);
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const root = dirname(canonicalProjectPath);
-  const quarantineFontFile = dependencies.quarantineFontFile ?? quarantineRegularFileSafely;
+  const quarantineFontFile = dependencies.quarantineFontFile ?? quarantineManagedResourceFile;
 
   const updated = await updateProjectFile(canonicalProjectPath, async (project, transaction) => {
     const font = findFont(project, family, weight);
