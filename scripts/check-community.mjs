@@ -31,13 +31,8 @@ const readme = await readFile(join(repoRoot, "README.md"), "utf8");
 assertIncludes(readme, "https://github.com/VitaliiDeveloper/Screenshot-Studio.git", "README source install");
 assertIncludes(readme, "it is not a registry release", "README release status");
 assertIncludes(readme, "A code-first, open-source editor", "README product positioning");
-assertIncludes(readme, "Microsoft Store", "README Microsoft Store support");
 assertIncludes(readme, "## Current capabilities", "README current capabilities");
 assertIncludes(readme, "strict schema v1", "README current schema status");
-assertIncludes(readme, "--store-specs <path>", "README store-spec override");
-assertIncludes(readme, "persisted `storeTargetId`", "README single-target precedence");
-assertIncludes(readme, "explicit persisted variants", "README bundle variant behavior");
-assertIncludes(readme, "screen rm <id> --cascade", "README screen cascade behavior");
 for (const legacyDoc of [
   "docs/roadmap.md",
   "docs/vision.md",
@@ -70,20 +65,6 @@ assertIncludes(security, "Current `main` branch", "current supported security su
 const releasing = await readFile(join(repoRoot, "docs/releasing.md"), "utf8");
 assertIncludes(releasing, "requires explicit owner authorization", "release authorization boundary");
 assertIncludes(releasing, "screenshot-studio-cli-0.1.0.tgz", "release candidate artifact");
-assertIncludes(releasing, "--pack-destination ../../../artifacts", "release artifact destination");
-assertIncludes(releasing, "SHA-512 SRI", "release integrity algorithm");
-assertIncludes(
-  releasing,
-  "npm publish ./artifacts/screenshot-studio-cli-0.1.0.tgz --access public --dry-run --json",
-  "release exact-artifact integrity dry run",
-);
-
-const cliReadme = await readFile(join(repoRoot, "packages/cli/README.md"), "utf8");
-assertIncludes(cliReadme, "Microsoft Store", "CLI README Microsoft Store support");
-assertIncludes(cliReadme, "--store-specs <path>", "CLI README store-spec override");
-
-const skill = await readFile(join(repoRoot, "skills/screenshot-studio/SKILL.md"), "utf8");
-assertIncludes(skill, "Microsoft Store", "skill Microsoft Store support");
 
 const notice = await readFile(join(repoRoot, "NOTICE"), "utf8");
 assertIncludes(notice, "Copyright 2026 Vitalii Lavreniuk", "NOTICE copyright");

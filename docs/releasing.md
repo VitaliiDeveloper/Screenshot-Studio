@@ -12,15 +12,13 @@ corepack enable
 pnpm install --frozen-lockfile
 pnpm check:release-candidate
 mkdir -p artifacts
-pnpm --dir packages/cli/package pack --pack-destination ../../../artifacts
-npm publish ./artifacts/screenshot-studio-cli-0.1.0.tgz --access public --dry-run --json
+pnpm --dir packages/cli/package pack --pack-destination ../../artifacts
 ```
 
 `check:release-candidate` builds the shared standalone host, generates third-party notices, packs a
 temporary tarball, and audits its files, runtime dependencies, licenses, size, portability, version,
 and public documentation. The retained artifact is
-`artifacts/screenshot-studio-cli-0.1.0.tgz`. The final command is inspection-only: its JSON reports
-the exact retained tarball’s npm SHA-512 SRI and packed size without publishing it.
+`artifacts/screenshot-studio-cli-0.1.0.tgz`.
 
 ## Verify a clean local installation
 
@@ -46,12 +44,10 @@ For the exact commit and artifact proposed for publication:
    `pnpm check:release-candidate`.
 4. Run `pnpm test:e2e:package`. Let the `dev` to `main` integration CI own the complete browser gate,
    and require the package matrix on the exact candidate SHA to pass the supported OS/Node matrix.
-5. Record the tarball’s SHA-512 SRI (`sha512-…`) and size from the pack result, then install that
-   exact file into a clean temporary consumer and repeat the init, project-management, and
-   exact-export smoke. After publication, compare it with `npm view … dist.integrity`; do not treat
-   a separate SHA-256 checksum as equivalent.
-6. Review `THIRD_PARTY_NOTICES.md`, runtime dependency licenses, current Apple, Google, and
-   Microsoft Store rules, `SECURITY.md`, and the limitations below.
+5. Record the tarball's SHA-256 and size, then install that exact file into a clean temporary
+   consumer and repeat the init, project-management, and exact-export smoke.
+6. Review `THIRD_PARTY_NOTICES.md`, runtime dependency licenses, current Apple/Google store rules,
+   `SECURITY.md`, and the limitations below.
 7. Confirm control of the `@screenshot-studio` npm scope, registry authentication, public access,
    release notes, rollback ownership, and announcement timing.
 
@@ -60,10 +56,9 @@ the earlier artifact hash and requires a fresh gate.
 
 ## Publication boundary
 
-Tagging, creating a GitHub release, authenticating to npm, running a non-dry-run `npm publish`, and
-announcing a release each requires explicit owner authorization. The local `npm publish --dry-run
---json` inspection command above is the only publish-command exception and cannot publish a package.
-A green build or CI result grants no publication authority.
+Tagging, creating a GitHub release, authenticating to npm, running `npm publish`, and announcing a
+release each requires explicit owner authorization. A green build or CI result grants no publication
+authority.
 
 After authorization, publish the already-hashed tarball rather than rebuilding it:
 

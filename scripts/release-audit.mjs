@@ -31,8 +31,6 @@ export const EXPECTED_PACK_FILES = [
 ];
 
 export const ALLOWED_LICENSES = new Set([
-  "0BSD",
-  "(MIT AND Apache-2.0)",
   "(MIT AND Zlib)",
   "(MIT OR GPL-3.0-or-later)",
   "Apache-2.0",
@@ -74,56 +72,7 @@ function licenseNames(files) {
   return files.filter((name) => /^(?:license|copying|notice)(?:\.|$)/i.test(name)).sort();
 }
 
-const REVIEWED_IDENTIFIER_ONLY_MIT_PACKAGES = new Map([
-  ["dfa@1.2.0", "Devon Govett <devongovett@gmail.com>"],
-  ["fontkit@2.0.4", "Devon Govett <devongovett@gmail.com>"],
-]);
-const BROTLI_1_3_3_AUTHOR = "Devon Govett <devongovett@gmail.com>";
-const BROTLI_APACHE_NOTICE = `/* Copyright 2013 Google Inc. All Rights Reserved.
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-*/`;
-const MIT_PERMISSION_TERMS = `Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`;
-
-function readmeLicenseSection(readme) {
-  const heading = "## License";
-  const index = readme.indexOf(heading);
-  return index < 0 ? undefined : readme.slice(index + heading.length).trim();
-}
-
-export function reviewedPackageLicense(manifest) {
-  return manifest.name === "brotli" && manifest.version === "1.3.3"
-    ? "(MIT AND Apache-2.0)"
-    : manifest.license;
-}
-
-export async function licenseTexts(packageRoot, manifest) {
+async function licenseTexts(packageRoot, manifest) {
   const files = await readdir(packageRoot);
   const names = licenseNames(files);
   if (names.length > 0) {
@@ -131,45 +80,8 @@ export async function licenseTexts(packageRoot, manifest) {
   }
   if (manifest.name === "isarray") {
     const readme = await readFile(join(packageRoot, "README.md"), "utf8");
-    const license = readmeLicenseSection(readme);
-    assert(license, `Missing README license section for ${manifest.name}@${manifest.version}`);
+    const license = readme.slice(readme.indexOf("## License") + "## License".length).trim();
     return [`README.md license section\n\n${license}`];
-  }
-  if (manifest.name === "brotli" && manifest.version === "1.3.3") {
-    const readmeName = files.find((name) => /^readme(?:\.|$)/i.test(name));
-    assert(readmeName, "Missing README license declaration for brotli@1.3.3");
-    const readme = await readFile(join(packageRoot, readmeName), "utf8");
-    assert(readmeLicenseSection(readme) === "MIT", "brotli@1.3.3 README license declaration drifted");
-    assert(manifest.license === "MIT", "brotli@1.3.3 package license metadata drifted");
-    assert(manifest.author === BROTLI_1_3_3_AUTHOR, "brotli@1.3.3 package author metadata drifted");
-    const decoderSource = await readFile(join(packageRoot, "dec", "decode.js"), "utf8");
-    assert(decoderSource.startsWith(BROTLI_APACHE_NOTICE), "brotli@1.3.3 Apache source notice drifted");
-    const apacheLicense = await readFile(join(repoRoot, "LICENSE"), "utf8");
-    assert(
-      apacheLicense.includes("Apache License") && apacheLicense.includes("Version 2.0, January 2004"),
-      "Repository Apache-2.0 license text drifted",
-    );
-    return [
-      `${readmeName} license declaration: MIT\n\nMIT License\n\nCopyright (c) ${BROTLI_1_3_3_AUTHOR}\n\n${MIT_PERMISSION_TERMS}`,
-      `dec/decode.js source notice\n\n${BROTLI_APACHE_NOTICE}\n\nFull Apache-2.0 terms\n\n${apacheLicense}`,
-    ];
-  }
-  // These exact package versions deliberately publish only the SPDX identifier in their READMEs.
-  // Keep each fallback version/author pinned, then supply the full standard MIT terms required by
-  // that declaration instead of weakening the audit for every package without a license file.
-  const packageKey = `${manifest.name}@${manifest.version}`;
-  const reviewedAuthor = REVIEWED_IDENTIFIER_ONLY_MIT_PACKAGES.get(packageKey);
-  if (reviewedAuthor) {
-    const readmeName = files.find((name) => /^readme(?:\.|$)/i.test(name));
-    assert(readmeName, `Missing README license declaration for ${packageKey}`);
-    const readme = await readFile(join(packageRoot, readmeName), "utf8");
-    const license = readmeLicenseSection(readme);
-    assert(license === "MIT", `${packageKey} README license declaration drifted`);
-    assert(manifest.license === "MIT", `${packageKey} package license metadata drifted`);
-    assert(manifest.author === reviewedAuthor, `${packageKey} package author metadata drifted`);
-    return [
-      `${readmeName} license declaration: MIT\n\nMIT License\n\nCopyright (c) ${reviewedAuthor}\n\n${MIT_PERMISSION_TERMS}`,
-    ];
   }
   const fallback = manifest.name === "@next/env" ? "next" : manifest.name === "client-only" ? "react" : undefined;
   if (fallback) {
@@ -184,13 +96,11 @@ async function packageRecord(packageRoot) {
   const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8"));
   assert(manifest.name && manifest.version && manifest.license, `Incomplete package metadata at ${packageRoot}`);
   assert(ALLOWED_LICENSES.has(manifest.license), `Unreviewed license ${manifest.license} for ${manifest.name}`);
-  const license = reviewedPackageLicense(manifest);
-  assert(ALLOWED_LICENSES.has(license), `Unreviewed effective license ${license} for ${manifest.name}`);
   return {
     key: `${manifest.name}@${manifest.version}`,
     name: manifest.name,
     version: manifest.version,
-    license,
+    license: manifest.license,
     source: typeof manifest.repository === "string"
       ? manifest.repository
       : manifest.repository?.url ?? manifest.homepage ?? "package metadata",
