@@ -17,7 +17,7 @@ Version 1.0, 12 July 2026.
 | Styling | Tailwind CSS | Speed, consistency |
 | Components | Shared local workbench primitives + Lucide | Inspector, dialogs, selects, menus, tooltips |
 | State | Zustand (+ Immer) | Light editor store with bounded project history and transient workspace state |
-| Export (UI) | `POST /api/export` delegates to CLI bundle orchestration | Exact-size PNGs, zip bundle |
+| Export (UI) | `POST /api/export` delegates to CLI bundle orchestration and returns a one-shot artifact ticket | Exact-size PNGs, streamed zip download |
 | Export (CLI / headless) | **Playwright** renders the same web stage | Pixel parity with the UI by construction — see §2 |
 | Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
 | Screen reorder | dnd-kit | Reordering screens in the sidebar |
@@ -386,6 +386,20 @@ The safe locale directory uses a fixed `locale-` prefix and an injective `~hhhh`
 UTF-16 code unit outside lowercase ASCII letters, digits, `_`, and `-`; overlong segments fail
 before rendering. Store-size ids remain exact data for lookup and receive the same portable escape
 only at the filename sink, so custom specs stay compatible without introducing unsafe path bytes.
+
+The UI route does not buffer the finished ZIP into its POST response. `POST /api/export` copies the
+completed revision-stable archive into a private short-lived artifact and returns `201` with
+`{ downloadUrl, outputDir, expiresAt }` plus `Cache-Control: no-store`. `downloadUrl` is an opaque,
+unguessable same-origin one-shot URL. Its GET returns `200` with the verified ZIP stream, `404` for
+an invalid, missing, already-consumed, or integrity-rejected ticket, and `410` for a known expired
+ticket. The browser uses a native anchor download; consumption, five-minute expiry, cancellation,
+or stream completion closes the handle and removes the private artifact.
+
+Next may evaluate the POST and GET route modules separately, so their default store is retained on
+one process-global symbol. This only coordinates modules inside the same Node.js process. It is an
+intentional fit for the packaged/local standalone host, not a durable or distributed artifact
+service; a horizontally scaled or serverless deployment must supply shared artifact storage and
+ticket coordination.
 
 **"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
 sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one
