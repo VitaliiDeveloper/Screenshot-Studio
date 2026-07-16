@@ -105,9 +105,9 @@ describe("project IO", () => {
     });
     await firstDidEnter;
 
-    let secondEntered = false;
-    const second = updateProjectFile(projectPath, (project) => {
-      secondEntered = true;
+    let secondEntries = 0;
+    const secondUpdater = (project: Project) => {
+      secondEntries += 1;
       return {
         project: {
           ...project,
@@ -117,14 +117,20 @@ describe("project IO", () => {
         },
         value: "second",
       };
-    });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(secondEntered).toBe(false);
+    };
+
+    await expect(updateProjectFile(
+      projectPath,
+      secondUpdater,
+      { timeoutMs: 0 },
+    )).rejects.toThrow(/Timed out.*project mutation lock/i);
+    expect(secondEntries).toBe(0);
 
     releaseFirst();
     await first;
-    const secondResult = await second;
+    const secondResult = await updateProjectFile(projectPath, secondUpdater, { timeoutMs: 0 });
 
+    expect(secondEntries).toBe(1);
     expect(secondResult.value).toBe("second");
     expect(secondResult.revision).toMatch(/^[a-f0-9]{64}$/);
     const final = await loadProjectFile(projectPath);
