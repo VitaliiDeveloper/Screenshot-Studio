@@ -8,7 +8,6 @@ import {
   sameScreenGroup,
   type Background,
   type Element,
-  type FontAsset,
   type Project,
 } from "@screenshot-studio/core/model";
 import { primarySelection, reconcileSelection, type SelectionRef } from "./editor-selection.js";
@@ -207,8 +206,4 @@ export function resizeProjectArtboards(
   const active = project.screens.find((screen) => screen.id === activeScreenId);
   if (!active) return project;
   return resizeStoreOutputArtboards(project, active.id, size);
-}
-
-export function replaceProjectFonts(project: Project, fonts: FontAsset[]): Project {
-  return { ...project, fonts };
 }

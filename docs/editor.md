@@ -170,7 +170,10 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 ## 6. Save / load / export
 
-- **Save / load** read and write `app-store-screenshots.json` through the `core` `StorageAdapter`.
+- **Save / load** read and write the single `app-store-screenshots.json` project document through
+  the `core` `StorageAdapter`. Its separate `putAsset` operation owns only explicitly submitted
+  asset bytes; fonts, themes, templates, imports, processed assets, and exports remain dedicated
+  service boundaries rather than implicit adapter storage.
   Load validates the raw complete v1 document directly through the strict Zod schema. Historical
   internal development formats are unsupported and are not rewritten on load.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed

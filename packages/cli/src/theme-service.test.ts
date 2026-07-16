@@ -1,12 +1,55 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { constants, type BigIntStats } from "node:fs";
+import {
+  lstat,
+  mkdtemp,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { updateProjectFile } from "./project-io.js";
-import { applyThemeFile, listThemes, loadTheme, ThemeValidationError } from "./theme-service.js";
+import {
+  applyThemeFile,
+  listThemes,
+  loadTheme,
+  ThemeNotFoundError,
+  ThemeValidationError,
+} from "./theme-service.js";
 
 const temporaryRoots: string[] = [];
+
+interface DefinitionHandle {
+  stat: (options: { bigint: true }) => Promise<BigIntStats>;
+  readFile: () => Promise<Buffer>;
+  close: () => Promise<void>;
+}
+
+type LoadThemeWithDependencies = (
+  projectPath: string,
+  id: unknown,
+  dependencies: {
+    openDefinition?: (path: string, flags: number) => Promise<DefinitionHandle>;
+    lstatDefinitionPath?: (path: string, options: { bigint: true }) => Promise<BigIntStats>;
+    realpathDefinitionPath?: (path: string) => Promise<string>;
+  },
+) => ReturnType<typeof loadTheme>;
+
+const loadThemeWithDependencies = loadTheme as unknown as LoadThemeWithDependencies;
+
+type ListThemesWithDependencies = (
+  projectPath: string,
+  dependencies: Parameters<LoadThemeWithDependencies>[2],
+) => ReturnType<typeof listThemes>;
+
+const listThemesWithDependencies = listThemes as unknown as ListThemesWithDependencies;
 
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -43,6 +86,185 @@ describe("theme-service", () => {
     const { dir, projectPath, theme } = await fixture();
     await writeFile(join(dir, "themes/wrong.json"), JSON.stringify({ ...theme, id: "other" }));
     await expect(listThemes(projectPath)).rejects.toBeInstanceOf(ThemeValidationError);
+  });
+
+  it("preserves the missing-file errno as the not-found cause", async () => {
+    const { dir, projectPath } = await fixture();
+    await rm(join(dir, "themes/midnight.json"));
+
+    const error = await loadTheme(projectPath, "midnight").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ThemeNotFoundError);
+    expect((error as Error).cause).toMatchObject({ code: "ENOENT" });
+  });
+
+  it("preserves the missing-directory errno as the not-found cause", async () => {
+    const { dir, projectPath } = await fixture();
+    await rm(join(dir, "themes"), { recursive: true });
+
+    const error = await loadTheme(projectPath, "midnight").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ThemeNotFoundError);
+    expect((error as Error).cause).toMatchObject({ code: "ENOENT" });
+    await expect(listThemes(projectPath)).resolves.toEqual([]);
+  });
+
+  it("wraps an ENOENT race between leaf inspection and realpath as not found", async () => {
+    const { projectPath } = await fixture();
+    let missingError: unknown;
+
+    const error = await loadThemeWithDependencies(projectPath, "midnight", {
+      realpathDefinitionPath: async (path) => {
+        if (path.endsWith("midnight.json")) await rm(path);
+        try {
+          return await realpath(path);
+        } catch (caught) {
+          missingError = caught;
+          throw caught;
+        }
+      },
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ThemeNotFoundError);
+    expect((error as Error).cause).toBe(missingError);
+    expect(missingError).toMatchObject({ code: "ENOENT" });
+  });
+
+  it("keeps listed definition reads bound to the original directory identity", async () => {
+    const { dir, projectPath, theme } = await fixture();
+    const themesPath = join(dir, "themes");
+    const heldDirectory = join(dir, "held-themes-list");
+    let directoryInspections = 0;
+
+    await expect(listThemesWithDependencies(projectPath, {
+      lstatDefinitionPath: async (path, options) => {
+        if (basename(path) === "themes" && ++directoryInspections === 3) {
+          await rename(themesPath, heldDirectory);
+          await mkdir(themesPath);
+          await writeFile(
+            join(themesPath, "midnight.json"),
+            JSON.stringify({ ...theme, name: "Replacement" }),
+          );
+        }
+        return lstat(path, options);
+      },
+    })).rejects.toThrow(/theme definitions directory changed while reading/i);
+  });
+
+  it("rejects a symlinked definitions directory outside the project root", async () => {
+    const { dir, projectPath, theme } = await fixture();
+    const outside = await temporaryDirectory("theme-service-outside-directory-");
+    await writeFile(join(outside, "midnight.json"), JSON.stringify(theme));
+    await rm(join(dir, "themes"), { recursive: true });
+    await symlink(outside, join(dir, "themes"), "dir");
+
+    await expect(listThemes(projectPath))
+      .rejects.toThrow(/theme definitions directory.*symbolic link/i);
+    await expect(loadTheme(projectPath, "midnight"))
+      .rejects.toThrow(/theme definitions directory.*symbolic link/i);
+  });
+
+  it("rejects a definition symlink outside the project root", async () => {
+    const { dir, projectPath, theme } = await fixture();
+    const outside = await temporaryDirectory("theme-service-outside-file-");
+    const outsideTheme = join(outside, "midnight.json");
+    await writeFile(outsideTheme, JSON.stringify(theme));
+    await rm(join(dir, "themes/midnight.json"));
+    await symlink(outsideTheme, join(dir, "themes/midnight.json"));
+
+    await expect(listThemes(projectPath))
+      .rejects.toThrow(/theme definition.*symbolic link/i);
+    await expect(loadTheme(projectPath, "midnight"))
+      .rejects.toThrow(/theme definition.*symbolic link/i);
+  });
+
+  it("does not follow a definition symlink introduced immediately before open", async () => {
+    const { projectPath, theme } = await fixture();
+    const outside = await temporaryDirectory("theme-service-open-race-");
+    const outsideTheme = join(outside, "midnight.json");
+    await writeFile(outsideTheme, JSON.stringify({ ...theme, name: "Outside" }));
+    let openFlags = 0;
+
+    await expect(loadThemeWithDependencies(projectPath, "midnight", {
+      openDefinition: async (path, flags) => {
+        openFlags = flags;
+        await rm(path);
+        await symlink(outsideTheme, path);
+        return open(path, flags);
+      },
+    })).rejects.toThrow(/theme definition.*symbolic link/i);
+
+    if (typeof constants.O_NOFOLLOW === "number") {
+      expect(openFlags & constants.O_NOFOLLOW).not.toBe(0);
+    }
+  });
+
+  it("rejects a moved inode reached through a leaf symlink when open ignores flags", async () => {
+    const { projectPath } = await fixture();
+    const outside = await temporaryDirectory("theme-service-ignored-nofollow-");
+    const movedTheme = join(outside, "midnight.json");
+    let readCalled = false;
+
+    await expect(loadThemeWithDependencies(projectPath, "midnight", {
+      openDefinition: async (path) => {
+        await rename(path, movedTheme);
+        await symlink(movedTheme, path);
+        const handle = await open(path, constants.O_RDONLY);
+        return {
+          stat: (options) => handle.stat(options),
+          readFile: async () => {
+            readCalled = true;
+            return handle.readFile();
+          },
+          close: () => handle.close(),
+        };
+      },
+    })).rejects.toThrow(/theme definition.*symbolic link/i);
+
+    expect(readCalled).toBe(false);
+  });
+
+  it("rejects a definitions-directory swap before reading an opened file", async () => {
+    const { dir, projectPath, theme } = await fixture();
+    const outside = await temporaryDirectory("theme-service-directory-race-");
+    await writeFile(join(outside, "midnight.json"), JSON.stringify({ ...theme, name: "Outside" }));
+    const heldDirectory = join(dir, "held-themes");
+    let readCalled = false;
+
+    await expect(loadThemeWithDependencies(projectPath, "midnight", {
+      openDefinition: async (path, flags) => {
+        await rename(join(dir, "themes"), heldDirectory);
+        await symlink(outside, join(dir, "themes"), "dir");
+        const handle = await open(path, flags);
+        return {
+          stat: (options) => handle.stat(options),
+          readFile: async () => {
+            readCalled = true;
+            return handle.readFile();
+          },
+          close: () => handle.close(),
+        };
+      },
+    })).rejects.toThrow(/theme definitions directory.*symbolic link/i);
+
+    expect(readCalled).toBe(false);
+  });
+
+  it("preserves definition read and close failures", async () => {
+    const { projectPath } = await fixture();
+    const readError = new Error("theme definition stat failed");
+    const closeError = new Error("theme definition close failed");
+    const error = await loadThemeWithDependencies(projectPath, "midnight", {
+      openDefinition: async () => ({
+        stat: async () => { throw readError; },
+        readFile: async () => Buffer.from("unused"),
+        close: async () => { throw closeError; },
+      }),
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(AggregateError);
+    expect((error as AggregateError).errors).toEqual([readError, closeError]);
+    expect((error as Error).message).toMatch(/stat failed.*close failed/i);
   });
 
   it("loads and applies a theme through the shared service", async () => {

@@ -71,7 +71,10 @@ interface StorageAdapter {
 }
 ```
 
-Ships with `LocalFileStorageAdapter` (writes JSON + assets to disk, like the reference).
+Ships with `LocalFileStorageAdapter`. Its ownership is deliberately narrow: `load`/`save` own the
+single project JSON document, while `putAsset` persists only bytes explicitly submitted through
+that call. Fonts, themes, templates, imports, processed assets, and exports use their dedicated
+services; the adapter does not implicitly own every project resource.
 
 Local project read-modify-write transactions are serialized beside the canonical
 `app-store-screenshots.json` path through the `@screenshot-studio/core/storage` mutation-lock adapter.
@@ -84,10 +87,12 @@ configuration, and usage details.
 
 Generated single-file outputs use a separate fail-closed publication boundary: complete bytes are
 written and synced to an exclusive sibling stage, then committed with explicit create-only or
-replace semantics. Path validation, no-follow leaf checks, identity/link-count evidence, ambiguous
-commit reconciliation, and the remaining Node.js namespace-race limitation are documented in
-[Safe file publication](safe-file-publication.md). Project JSON transactions and complete ZIP/output
-batches retain their dedicated commit paths; the single-file helper is not a generic storage layer.
+replace semantics. Managed fonts, imports, and processed assets add ownership-aware
+quarantine/restore/remove operations behind a resource-specific adapter. Path validation, no-follow
+checks, identity/link-count evidence, ambiguous commit reconciliation, and the remaining Node.js
+namespace-race limitation are documented in [Safe file publication](safe-file-publication.md).
+Project JSON transactions and complete ZIP/output batches retain their dedicated commit paths; this
+is not a generic storage layer.
 
 ### Render / export parity — the #1 technical risk
 
