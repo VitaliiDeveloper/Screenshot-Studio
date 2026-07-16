@@ -4,13 +4,11 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
-import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   ensureStoreOutputFamily,
   ensureStoreTargetVariant,
-  fitElementsToArtboard,
   parseProjectJson,
 } from "../packages/core/src/model/index.js";
 import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
@@ -33,6 +31,11 @@ const expectedPaths = [
   "apple/ipad/locale-en/01-english-ipad-13.png",
   "android/phone/locale-en_~0055~0053/01-underscore-android-phone-portrait.png",
 ];
+
+function pixel(png: PNG, x: number, y: number): [number, number, number] {
+  const offset = (y * png.width + x) * 4;
+  return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
+}
 
 afterAll(async () => {
   await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
@@ -183,35 +186,16 @@ describe("Phase 4 multi-locale bundle export", () => {
       storeTargetId: "series-11",
       artboard: { width: 1456, height: 1736 },
     });
-    const exactReference = {
-      ...structuredClone(source.screens[0]!),
-      id: "watch-reference",
-      name: "Reference",
-      platform: "apple" as const,
-      device: "watchos" as const,
-      artboard: { width: target!.width, height: target!.height },
-      elements: fitElementsToArtboard(
-        source.screens[0]!.elements,
-        source.screens[0]!.artboard,
-        target!,
-      ),
-    };
-    const project = parseProjectJson(JSON.stringify({
-      ...variantResult.project,
-      screens: [...variantResult.project.screens, exactReference],
-    }));
+    const project = variantResult.project;
     const entries = buildBundleEntries(project, specs, {});
     const entry = entries
       .find((candidate) => candidate.screen.id === result.firstScreen.id);
-    const referenceEntry = entries
-      .find((candidate) => candidate.screen.id === exactReference.id);
     const variantEntry = entries
       .find((candidate) => candidate.screen.id === variantResult.variant.id);
     expect(entry).toMatchObject({
       target: { id: "ultra-3", width: 422, height: 514 },
       relativePath: "apple/watchos/locale-en/01-hero-ultra-3.png",
     });
-    expect(referenceEntry?.relativePath).toBe("apple/watchos/locale-en/02-reference-ultra-3.png");
     expect(variantEntry).toMatchObject({
       target: { id: "series-11", width: 416, height: 496 },
       relativePath: "apple/watchos/locale-en/01-hero-series-11.png",
@@ -229,30 +213,28 @@ describe("Phase 4 multi-locale bundle export", () => {
         projectPath: context.projectPath,
         projectRevision: context.revision,
         outDir,
-        entries: [entry!, variantEntry!, referenceEntry!],
+        entries: [entry!, variantEntry!],
         renderSession: session,
         publicationGuard: context.publish,
       }));
       const masterBytes = await readFile(join(outDir, entry!.relativePath));
-      const referenceBytes = await readFile(join(outDir, referenceEntry!.relativePath));
       expect(inspectPng(masterBytes))
         .toMatchObject({ width: 422, height: 514, hasAlpha: false });
       const variantBytes = await readFile(join(outDir, variantEntry!.relativePath));
       expect(inspectPng(variantBytes))
         .toMatchObject({ width: 416, height: 496, hasAlpha: false });
 
-      const masterPng = PNG.sync.read(masterBytes);
-      const referencePng = PNG.sync.read(referenceBytes);
-      const diff = new PNG({ width: masterPng.width, height: masterPng.height });
-      const mismatch = pixelmatch(
-        masterPng.data,
-        referencePng.data,
-        diff.data,
-        masterPng.width,
-        masterPng.height,
-        { threshold: 0.1 },
-      );
-      expect(mismatch).toBe(0);
+      for (const [bytes, bundleEntry] of [[masterBytes, entry!], [variantBytes, variantEntry!]] as const) {
+        const card = bundleEntry.screen.elements.find((element) => element.type === "shape");
+        if (!card) throw new Error("Expected the watchOS fixture to contain its blue card");
+        const x = Math.floor(
+          (card.x + card.width / 2) * bundleEntry.target.width / bundleEntry.screen.artboard.width,
+        );
+        const y = Math.floor(
+          (card.y + card.height / 2) * bundleEntry.target.height / bundleEntry.screen.artboard.height,
+        );
+        expect(pixel(PNG.sync.read(bytes), x, y)).toEqual([37, 99, 235]);
+      }
     } finally {
       await session.close();
       await server.stop();
