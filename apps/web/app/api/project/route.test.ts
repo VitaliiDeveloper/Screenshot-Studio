@@ -14,6 +14,10 @@ import {
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  PROJECT_SESSION_COOKIE,
+  projectSessionRegistry,
+} from "../../../lib/project-session.server.js";
 import { GET, PUT } from "./route.js";
 
 const storageHooks = vi.hoisted(() => ({
@@ -63,6 +67,14 @@ function quotedRevision(bytes: string | Buffer): string {
   return `"${createHash("sha256").update(bytes).digest("hex")}"`;
 }
 
+function cookieFor(sessionId: string): string {
+  return `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}`;
+}
+
+function getRequest(cookie?: string): Request {
+  return new Request("http://x/api/project", { headers: cookie ? { cookie } : undefined });
+}
+
 async function currentRevision(): Promise<string> {
   const response = await GET();
   expect(response.status).toBe(200);
@@ -96,6 +108,45 @@ afterEach(() => {
 });
 
 describe("GET /api/project", () => {
+  it("resolves each request through its active project session", async () => {
+    const first = await projectSessionRegistry.openLocal(file);
+    const secondDir = mkdtempSync(join(tmpdir(), "proj-second-"));
+    const secondFile = join(secondDir, "app-store-screenshots.json");
+    const secondProject = structuredClone(validProject);
+    secondProject.meta.name = "Second";
+    writeFileSync(secondFile, JSON.stringify(secondProject));
+
+    try {
+      const firstResponse = await GET(getRequest(cookieFor(first.descriptor.sessionId)));
+      const second = await projectSessionRegistry.openLocal(secondFile);
+      const secondResponse = await GET(getRequest(cookieFor(second.descriptor.sessionId)));
+
+      expect(firstResponse.status).toBe(200);
+      expect((await firstResponse.json()).meta.name).toBe("T");
+      expect(firstResponse.headers.get("x-project-id")).toBe(first.projectId);
+      expect(secondResponse.status).toBe(200);
+      expect((await secondResponse.json()).meta.name).toBe("Second");
+      expect(secondResponse.headers.get("x-project-id")).toBe(second.projectId);
+    } finally {
+      rmSync(secondDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 409 without a selected or configured project", async () => {
+    delete process.env.PROJECT_PATH;
+
+    const response = await GET(getRequest());
+
+    expect(response.status).toBe(409);
+  });
+
+  it("keeps an explicitly configured project as a compatibility seed", async () => {
+    const response = await GET(getRequest());
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).meta.name).toBe("T");
+  });
+
   it("returns the parsed project and an ETag from the same exact bytes", async () => {
     const bytes = `${JSON.stringify(validProject, null, 4)}\n`;
     writeFileSync(file, bytes);
@@ -135,6 +186,36 @@ describe("GET /api/project", () => {
 });
 
 describe("PUT /api/project", () => {
+  it("keeps an invalid selected-session write from changing the configured project", async () => {
+    const secondDir = mkdtempSync(join(tmpdir(), "proj-second-"));
+    const secondFile = join(secondDir, "app-store-screenshots.json");
+    const secondProject = structuredClone(validProject);
+    secondProject.meta.name = "Second";
+    writeFileSync(secondFile, JSON.stringify(secondProject));
+    const second = await projectSessionRegistry.openLocal(secondFile);
+    const firstBefore = readFileSync(file);
+    const secondBefore = readFileSync(secondFile);
+    writeFileSync(secondFile, "not JSON");
+
+    try {
+      const response = await PUT(new Request("http://x/api/project", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "if-match": quotedRevision(secondBefore),
+          cookie: cookieFor(second.descriptor.sessionId),
+        },
+        body: JSON.stringify(secondProject),
+      }));
+
+      expect(response.status).toBe(500);
+      expect(readFileSync(file)).toEqual(firstBefore);
+      expect(readFileSync(secondFile, "utf8")).toBe("not JSON");
+    } finally {
+      rmSync(secondDir, { recursive: true, force: true });
+    }
+  });
+
   it("returns 428 without changing bytes when If-Match is missing", async () => {
     const before = readFileSync(file);
     const next = structuredClone(validProject);

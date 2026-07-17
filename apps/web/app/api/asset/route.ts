@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, isAbsolute, extname, sep } from "node:path";
-import { resolveProjectPath } from "../../../lib/project-path.js";
+import { withActiveProjectSession } from "../../../lib/project-session.server.js";
 
 /**
  * Serves the project's asset files over HTTP so /editor and the headless /render resolve the SAME
  * URL for a given screenshot assetUrl — parity by construction, and same-origin so images never
  * taint the canvas (spec §3). Dev-only, local, self-hosted (same model as /render, /api/project).
- * `project` (optional) lets the headless render pass its own project path; else PROJECT_PATH.
+ * `project` (optional) lets the headless render pass its own project path; interactive requests use
+ * the active project session.
  */
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,12 @@ export async function GET(req: Request): Promise<Response> {
 
   if (isAbsolute(rel)) return Response.json({ error: "path outside project" }, { status: 400 });
 
-  const projectPath = url.searchParams.get("project") ?? resolveProjectPath();
+  const explicitProjectPath = url.searchParams.get("project");
+  if (explicitProjectPath) return serveProjectAsset(explicitProjectPath, rel);
+  return withActiveProjectSession(req, ({ projectPath }) => serveProjectAsset(projectPath, rel));
+}
+
+async function serveProjectAsset(projectPath: string, rel: string): Promise<Response> {
   let baseDir: string;
   try {
     baseDir = dirname(await realpath(resolve(projectPath)));

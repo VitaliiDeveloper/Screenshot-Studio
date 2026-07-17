@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from "node:crypto";
 import { parseProject, ProjectValidationError } from "@screenshot-studio/core/model";
 import {
   ProjectPathError,
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
   readProjectSnapshot,
-  resolveExistingProjectPath,
   withProjectMutation,
   writeProjectConditionalAtomic,
 } from "@screenshot-studio/core/storage";
-import { resolveProjectPath } from "../../../lib/project-path.js";
+import { withActiveProjectSession } from "../../../lib/project-session.server.js";
 
 /**
  * The editor's only persistence channel (spec §5): the browser reads/writes the same on-disk
@@ -22,10 +20,6 @@ export const dynamic = "force-dynamic";
 
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
-}
-
-function projectIdentifier(canonicalPath: string): string {
-  return createHash("sha256").update(canonicalPath).digest("hex");
 }
 
 function isStrongQuotedETag(value: string): boolean {
@@ -60,20 +54,21 @@ function projectWriteErrorResponse(error: unknown): Response {
   return Response.json({ error: message }, { status });
 }
 
-export async function GET(): Promise<Response> {
-  try {
-    const path = await resolveExistingProjectPath(resolveProjectPath());
-    const snapshot = await readProjectSnapshot(path);
-    return Response.json(snapshot.project, {
-      headers: {
-        etag: quotedRevision(snapshot.revision),
-        "x-project-id": projectIdentifier(path),
-      },
-    });
-  } catch (err) {
-    const status = err instanceof ProjectValidationError ? 422 : 404;
-    return Response.json({ error: (err as Error).message }, { status });
-  }
+export async function GET(req?: Request): Promise<Response> {
+  return withActiveProjectSession(req, async (session) => {
+    try {
+      const snapshot = await readProjectSnapshot(session.projectPath);
+      return Response.json(snapshot.project, {
+        headers: {
+          etag: quotedRevision(snapshot.revision),
+          "x-project-id": session.projectId,
+        },
+      });
+    } catch (err) {
+      const status = err instanceof ProjectValidationError ? 422 : 404;
+      return Response.json({ error: (err as Error).message }, { status });
+    }
+  });
 }
 
 export async function PUT(req: Request): Promise<Response> {
@@ -92,21 +87,22 @@ export async function PUT(req: Request): Promise<Response> {
     return Response.json({ error: (err as Error).message }, { status: 400 });
   }
 
-  try {
-    const path = await resolveExistingProjectPath(resolveProjectPath());
-    return await withProjectMutation(path, async () => {
-      const current = await readIdentifiedProjectSnapshot(path);
-      const actualRevision = quotedRevision(current.revision);
-      if (expectedRevision !== actualRevision) {
-        return revisionConflictResponse(expectedRevision, actualRevision);
-      }
+  return withActiveProjectSession(req, async ({ projectPath }) => {
+    try {
+      return await withProjectMutation(projectPath, async () => {
+        const current = await readIdentifiedProjectSnapshot(projectPath);
+        const actualRevision = quotedRevision(current.revision);
+        if (expectedRevision !== actualRevision) {
+          return revisionConflictResponse(expectedRevision, actualRevision);
+        }
 
-      const persisted = await writeProjectConditionalAtomic(path, project, current);
-      return Response.json(persisted.project, {
-        headers: { etag: quotedRevision(persisted.revision) },
+        const persisted = await writeProjectConditionalAtomic(projectPath, project, current);
+        return Response.json(persisted.project, {
+          headers: { etag: quotedRevision(persisted.revision) },
+        });
       });
-    });
-  } catch (error) {
-    return projectWriteErrorResponse(error);
-  }
+    } catch (error) {
+      return projectWriteErrorResponse(error);
+    }
+  });
 }
