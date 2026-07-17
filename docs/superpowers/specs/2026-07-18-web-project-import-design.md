@@ -1,8 +1,8 @@
 # Web project creation and import design
 
 **Date:** 2026-07-18  
-**Status:** Product direction approved; implementation plan pending  
-**Scope:** App Home project creation/import, managed web projects, and portable project archives
+**Status:** Cross-slice product and architecture direction approved  
+**Scope:** App Home, managed project lifecycle, browser project import, and portable project archives
 
 ## Summary
 
@@ -25,6 +25,31 @@ not merely the rendered store images.
 This design does not widen the strict Project schema and does not introduce a second render/export
 path.
 
+## Canonical delivery ownership
+
+This document is a cross-slice architecture contract, not one implementation plan or one PR. The
+canonical launcher sequence is:
+
+| Slice | Owner | Deliverable |
+| --- | --- | --- |
+| [Launcher 1/7](https://app.notion.com/p/3a0e246e185c81928c3cdfe570f79dad) | Active project session foundation | Source-neutral session, local-file compatibility, App Home route, minimal Project Home, and session-scoped APIs |
+| [Launcher 2/7](https://app.notion.com/p/3a0e246e185c8107a2e8d91198d3afbd) | Managed project storage and catalog foundation | Managed repository, catalog, staging, atomic publication, and managed-project source adapter |
+| [Launcher 3/7](https://app.notion.com/p/3a0e246e185c8101ba33f05fdae8ab79) | App Home UI, browser project import, and project archive export | Final App Home shell, Folder/ZIP/JSON project import, and **Export project archive** |
+| [Launcher 4/7](https://app.notion.com/p/3a0e246e185c8177bf32dadc286e0ec0) | Project Home and Workspace round-trip | Full Project Home overview and preserved Home/Workspace context |
+| [Launcher 5/7](https://app.notion.com/p/3a0e246e185c8134828bd81fef220b37) | Project creation and starter project templates | Connect Create new to the stable App Home shell and shared CLI/web scaffold |
+| [Launcher 6/7](https://app.notion.com/p/3a0e246e185c811fadcae96b49a35f85) | Capture and asset import | Preview and atomically apply PNG captures/assets to an explicit target |
+| [Launcher 7/7](https://app.notion.com/p/3a0e246e185c8133b122d50694c083c6) | Recents, examples, onboarding, and closure | Fill stable recents/onboarding extension points and verify the umbrella outcome |
+
+The App Home visual contract has one owner: Launcher 3/7. Launcher 5/7 and Launcher 7/7 connect
+creation and recents to stable extension points without redesigning the shell. Whole-project import
+belongs to Launcher 3/7; PNG capture import into a project belongs to Launcher 6/7.
+
+Each slice requires its own implementation plan and independently reviewable test boundary. The
+current draft PR is Launcher 1/7 only. It retains the active-session and session-scoped API work, but
+must stop presenting its raw local path field as the normal web launcher. Managed storage, browser
+project import/archive export, project creation, full Project Home, capture import, and recents remain
+outside that PR.
+
 ## Goals
 
 - Replace the raw path field on web App Home with familiar create/import actions.
@@ -41,7 +66,7 @@ path.
 
 - Persisting browser file or directory handles.
 - Editing the originally selected folder in place from the web application.
-- Adding authentication, multi-user authorization, or a cloud database in this slice.
+- Adding authentication, multi-user authorization, or a cloud database in this delivery sequence.
 - Widening project fields to store source paths, catalog ids, import state, or credentials.
 - Changing the existing rendered store-image export contract.
 - Turning the CLI screenshot-capture `import` command into a project importer.
@@ -348,4 +373,3 @@ the smallest exact launcher/import groups.
   renderer, and store-image export path.
 - **Export project archive** produces a portable artifact that round-trips through archive import.
 - README, editor, architecture, and testing documentation match the implemented behavior.
-
