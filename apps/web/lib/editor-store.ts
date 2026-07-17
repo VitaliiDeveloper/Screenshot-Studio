@@ -2,12 +2,21 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
 import {
+  addLayout as addLayoutCore,
   duplicateElement as duplicateElementCore,
+  duplicateLayout as duplicateLayoutCore,
   findElementLocation,
+  getLayout,
   groupElements as groupElementsCore,
+  preferLayout as preferLayoutCore,
+  removeLayout as removeLayoutCore,
+  renameLayout as renameLayoutCore,
+  replaceLayout,
+  setLayoutMode as setLayoutModeCore,
   ungroupElement as ungroupElementCore,
   type CanvasMode,
   type Background,
+  type DesignLayout,
   type Project,
   type Element,
   type LayoutDirection,
@@ -28,6 +37,7 @@ import {
   recordProjectChange,
   redoProjectChange,
   selectionForProject,
+  type LayoutContentSnapshot,
   undoProjectChange,
 } from "./editor-history.js";
 import {
@@ -42,7 +52,6 @@ import {
   setScreenBackground,
 } from "./editor-screen-mutations.js";
 import {
-  changeCanvasMode,
   changeProjectLocaleDirection,
   cloneProjectLocale,
   createStoreOutputFamily,
@@ -71,14 +80,16 @@ export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
 
 export interface EditorState {
   project: Project | null;
+  activeLayoutId: string | null;
   activeScreenId: string | null;
   selectedItems: SelectionRef[];
-  historyPast: Project[];
-  historyFuture: Project[];
+  historyPast: LayoutContentSnapshot[];
+  historyFuture: LayoutContentSnapshot[];
+  layoutHistories: Record<string, { past: LayoutContentSnapshot[]; future: LayoutContentSnapshot[] }>;
   historyGroupKey: string | null;
   saveStatus: "idle" | "saving" | "saved" | "error";
   saveError: string | null;
-  load: (project: Project) => void;
+  load: (project: Project, locallyActiveLayoutId?: string) => void;
   setSaveState: (status: EditorState["saveStatus"], error?: string | null) => void;
   select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
   setSelection: (items: SelectionRef[]) => void;
@@ -90,10 +101,16 @@ export interface EditorState {
   groupSelected: () => void;
   ungroupSelected: () => void;
   duplicateSelected: () => void;
+  selectLayout: (id: string) => void;
+  addLayout: (name: string, mode: CanvasMode) => void;
+  duplicateLayout: (id: string, name?: string) => void;
+  renameLayout: (id: string, name: string) => void;
+  setLayoutMode: (id: string, mode: CanvasMode) => void;
+  preferLayout: (id: string) => void;
+  removeLayout: (id: string) => void;
   selectScreen: (id: string) => void;
   selectLocale: (locale: string) => void;
   reorderScreens: (fromId: string, toId: string) => void;
-  setCanvasMode: (mode: CanvasMode) => void;
   addScreen: () => void;
   addBlankScreen: () => void;
   removeScreen: (id: string) => void;
@@ -114,26 +131,69 @@ export interface EditorState {
   redo: () => void;
 }
 
+function currentLayout(state: Pick<EditorState, "project" | "activeLayoutId">): DesignLayout | null {
+  if (!state.project || !state.activeLayoutId) return null;
+  return state.project.layouts.find((layout) => layout.id === state.activeLayoutId) ?? null;
+}
+
+export function selectEditorLayout(
+  state: Pick<EditorState, "project" | "activeLayoutId">,
+): DesignLayout | null {
+  return currentLayout(state);
+}
+
+function activateLayout(
+  state: EditorState,
+  project: Project,
+  layoutId: string,
+): Partial<EditorState> {
+  const layout = getLayout(project, layoutId);
+  const layoutHistories = state.activeLayoutId
+    ? {
+        ...state.layoutHistories,
+        [state.activeLayoutId]: { past: state.historyPast, future: state.historyFuture },
+      }
+    : state.layoutHistories;
+  const history = layoutHistories[layout.id] ?? { past: [], future: [] };
+  return {
+    project,
+    activeLayoutId: layout.id,
+    activeScreenId: layout.screens[0]?.id ?? null,
+    selectedItems: [],
+    historyPast: history.past,
+    historyFuture: history.future,
+    layoutHistories,
+    historyGroupKey: null,
+  };
+}
+
 export const editorStore = createStore<EditorState>((set) => ({
   project: null,
+  activeLayoutId: null,
   activeScreenId: null,
   selectedItems: [],
   historyPast: [],
   historyFuture: [],
+  layoutHistories: {},
   historyGroupKey: null,
   saveStatus: "idle",
   saveError: null,
-  load: (project) =>
+  load: (project, locallyActiveLayoutId) => {
+    const activeLayout = project.layouts.find((layout) => layout.id === locallyActiveLayoutId)
+      ?? getLayout(project, project.preferredExportLayoutId);
     set({
       project,
-      activeScreenId: project.screens[0]?.id ?? null,
+      activeLayoutId: activeLayout.id,
+      activeScreenId: activeLayout.screens[0]?.id ?? null,
       selectedItems: [],
       historyPast: [],
       historyFuture: [],
+      layoutHistories: {},
       historyGroupKey: null,
       saveStatus: "idle",
       saveError: null,
-    }),
+    });
+  },
   setSaveState: (saveStatus, saveError = null) => set({ saveStatus, saveError }),
   select: (id, screenId, mode = "replace") => set((state) => {
     if (id === null) return { selectedItems: [], historyGroupKey: null };
@@ -146,26 +206,28 @@ export const editorStore = createStore<EditorState>((set) => ({
     return {
       selectedItems,
       historyGroupKey: null,
-      ...(state.project?.mode === "connected" ? { activeScreenId: ownerScreenId } : {}),
+      ...(currentLayout(state)?.mode === "connected" ? { activeScreenId: ownerScreenId } : {}),
     };
   }),
   setSelection: (items) => set((state) => {
-    if (!state.project) return state;
+    const layout = currentLayout(state);
+    if (!layout) return state;
     return {
-      selectedItems: reconcileSelection(state.project, state.activeScreenId, items),
+      selectedItems: reconcileSelection(layout, state.activeScreenId, items),
       historyGroupKey: null,
     };
   }),
   patchElement: ({ id, type, patch, screenId }) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeLayoutId) return state;
       const primary = primarySelection(state.selectedItems);
       const ownerScreenId = screenId
         ?? (primary?.elementId === id ? primary.screenId : null)
         ?? state.activeScreenId;
       if (!ownerScreenId) return state;
       const project = produce(state.project, (draft) => {
-        const screen = draft.screens.find((candidate) => candidate.id === ownerScreenId);
+        const screen = draft.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens
+          .find((candidate) => candidate.id === ownerScreenId);
         const location = screen ? findElementLocation(screen, id) : null;
         if (location) applyMatchingElementPatch(location.element, { type, patch });
       });
@@ -173,9 +235,10 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   moveSelected: (delta) =>
     set((state) => {
-      if (!state.project || state.selectedItems.length === 0 || (delta.x === 0 && delta.y === 0)) return state;
+      if (!state.project || !state.activeLayoutId || state.selectedItems.length === 0 || (delta.x === 0 && delta.y === 0)) return state;
       const project = produce(state.project, (draft) => {
-        forEachSelectedElement(draft, state.selectedItems, ({ element, parent }) => {
+        const layout = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!;
+        forEachSelectedElement(layout, state.selectedItems, ({ element, parent }) => {
           if (element.locked || parent?.locked) return;
           element.x += delta.x;
           element.y += delta.y;
@@ -185,9 +248,10 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   removeSelected: () =>
     set((state) => {
-      if (!state.project || state.selectedItems.length === 0) return state;
+      if (!state.project || !state.activeLayoutId || state.selectedItems.length === 0) return state;
       const project = produce(state.project, (draft) => {
-        forEachSelectedElement(draft, state.selectedItems, ({
+        const layout = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!;
+        forEachSelectedElement(layout, state.selectedItems, ({
           screen,
           parent,
           elementIndex,
@@ -205,9 +269,10 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   setSelectedLocked: (locked) =>
     set((state) => {
-      if (!state.project || state.selectedItems.length === 0) return state;
+      if (!state.project || !state.activeLayoutId || state.selectedItems.length === 0) return state;
       const project = produce(state.project, (draft) => {
-        forEachSelectedElement(draft, state.selectedItems, ({ element }) => {
+        const layout = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!;
+        forEachSelectedElement(layout, state.selectedItems, ({ element }) => {
           element.locked = locked;
         });
       });
@@ -215,9 +280,10 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   setSelectedVisible: (visible) =>
     set((state) => {
-      if (!state.project || state.selectedItems.length === 0) return state;
+      if (!state.project || !state.activeLayoutId || state.selectedItems.length === 0) return state;
       const project = produce(state.project, (draft) => {
-        forEachSelectedElement(draft, state.selectedItems, ({ element }) => {
+        const layout = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!;
+        forEachSelectedElement(layout, state.selectedItems, ({ element }) => {
           element.visible = visible;
         });
       });
@@ -225,18 +291,20 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   groupSelected: () =>
     set((state) => {
-      if (!state.project || state.selectedItems.length < 2) return state;
+      const layout = currentLayout(state);
+      if (!state.project || !state.activeLayoutId || !layout || state.selectedItems.length < 2) return state;
       const ownerIds = new Set(state.selectedItems.map((item) => item.screenId));
       if (ownerIds.size !== 1) return state;
       const ownerScreenId = state.selectedItems[0]!.screenId;
-      const owner = state.project.screens.find((screen) => screen.id === ownerScreenId);
+      const owner = layout.screens.find((screen) => screen.id === ownerScreenId);
       if (!owner) return state;
       const locations = state.selectedItems.map((item) => findElementLocation(owner, item.elementId));
       if (locations.some((location) => !location || location.parent || location.element.type === "group")) return state;
       const result = groupElementsCore(owner, state.selectedItems.map((item) => item.elementId));
       const project = produce(state.project, (draft) => {
-        const index = draft.screens.findIndex((screen) => screen.id === ownerScreenId);
-        if (index >= 0) draft.screens[index] = result.screen;
+        const screens = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!.screens;
+        const index = screens.findIndex((screen) => screen.id === ownerScreenId);
+        if (index >= 0) screens[index] = result.screen;
       });
       return recordProjectChange(state, project, null, {
         activeScreenId: ownerScreenId,
@@ -245,20 +313,22 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   ungroupSelected: () =>
     set((state) => {
-      if (!state.project || state.selectedItems.length === 0) return state;
+      if (!state.project || !state.activeLayoutId || state.selectedItems.length === 0) return state;
       let project = state.project;
       const selectedItems: SelectionRef[] = [];
       for (const selection of state.selectedItems) {
-        const screen = project.screens.find((candidate) => candidate.id === selection.screenId);
+        const screen = getLayout(project, state.activeLayoutId).screens
+          .find((candidate) => candidate.id === selection.screenId);
         const location = screen ? findElementLocation(screen, selection.elementId) : null;
         if (!screen || !location || location.parent || location.element.type !== "group") {
           return state;
         }
         const result = ungroupElementCore(screen, selection.elementId);
-        project = {
-          ...project,
-          screens: project.screens.map((candidate) => candidate.id === screen.id ? result.screen : candidate),
-        };
+        project = produce(project, (draft) => {
+          const screens = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!.screens;
+          const index = screens.findIndex((candidate) => candidate.id === screen.id);
+          if (index >= 0) screens[index] = result.screen;
+        });
         selectedItems.push(...result.children.map((child) => ({
           screenId: screen.id,
           elementId: child.id,
@@ -268,10 +338,11 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   duplicateSelected: () =>
     set((state) => {
-      if (!state.project || state.selectedItems.length === 0) return state;
+      const layout = currentLayout(state);
+      if (!state.project || !state.activeLayoutId || !layout || state.selectedItems.length === 0) return state;
       const selectedByScreen = new Map<string, Set<string>>();
       for (const selection of state.selectedItems) {
-        const screen = state.project.screens.find((candidate) => candidate.id === selection.screenId);
+        const screen = layout.screens.find((candidate) => candidate.id === selection.screenId);
         const location = screen ? findElementLocation(screen, selection.elementId) : null;
         if (!location || location.parent) return state;
         const ids = selectedByScreen.get(selection.screenId) ?? new Set<string>();
@@ -279,9 +350,7 @@ export const editorStore = createStore<EditorState>((set) => ({
         selectedByScreen.set(selection.screenId, ids);
       }
       const nextSelection: SelectionRef[] = [];
-      const project: Project = {
-        ...state.project,
-        screens: state.project.screens.map((screen) => {
+      const screens = layout.screens.map((screen) => {
           const selectedIds = selectedByScreen.get(screen.id);
           if (!selectedIds) return screen;
           const elements: Element[] = [];
@@ -294,10 +363,59 @@ export const editorStore = createStore<EditorState>((set) => ({
             selectedIds.delete(element.id);
           }
           return { ...screen, elements };
-        }),
-      };
+        });
+      const project = replaceLayout(state.project, {
+        ...layout,
+        screens,
+      });
       return recordProjectChange(state, project, null, { selectedItems: nextSelection });
     }),
+  selectLayout: (id) => set((state) => {
+    if (!state.project || id === state.activeLayoutId) return state;
+    return state.project.layouts.some((layout) => layout.id === id)
+      ? activateLayout(state, state.project, id)
+      : state;
+  }),
+  addLayout: (name, mode) => set((state) => {
+    const layout = currentLayout(state);
+    if (!state.project || !layout) return state;
+    const source = layout.screens.find((screen) => screen.id === state.activeScreenId)
+      ?? layout.screens[0]!;
+    const result = addLayoutCore(state.project, {
+      name,
+      mode,
+      screen: {
+        platform: source.platform,
+        device: source.device,
+        locale: source.locale,
+        direction: source.direction,
+        artboard: source.artboard,
+        background: { type: "solid", color: "#101827" },
+      },
+    });
+    return activateLayout(state, result.project, result.layout.id);
+  }),
+  duplicateLayout: (id, name) => set((state) => {
+    if (!state.project) return state;
+    const result = duplicateLayoutCore(state.project, id, name);
+    return activateLayout(state, result.project, result.layout.id);
+  }),
+  renameLayout: (id, name) => set((state) => state.project
+    ? { project: renameLayoutCore(state.project, id, name) }
+    : state),
+  setLayoutMode: (id, mode) => set((state) => state.project
+    ? { project: setLayoutModeCore(state.project, id, mode) }
+    : state),
+  preferLayout: (id) => set((state) => state.project
+    ? { project: preferLayoutCore(state.project, id) }
+    : state),
+  removeLayout: (id) => set((state) => {
+    if (!state.project) return state;
+    const result = removeLayoutCore(state.project, id);
+    const { [id]: _removed, ...layoutHistories } = state.layoutHistories;
+    if (state.activeLayoutId !== id) return { project: result.project, layoutHistories };
+    return { ...activateLayout({ ...state, layoutHistories }, result.project, result.layout.id), layoutHistories };
+  }),
   selectScreen: (id) => set({
     activeScreenId: id,
     selectedItems: [],
@@ -305,44 +423,38 @@ export const editorStore = createStore<EditorState>((set) => ({
   }),
   selectLocale: (locale) =>
     set((state) => {
-      const activeScreenId = state.project?.screens.find((screen) => screen.locale === locale)?.id;
+      const activeScreenId = currentLayout(state)?.screens
+        .find((screen) => screen.locale === locale)?.id;
       return activeScreenId
         ? { activeScreenId, selectedItems: [], historyGroupKey: null }
         : state;
     }),
   reorderScreens: (fromId, toId) =>
     set((state) => {
-      if (!state.project) return state;
-      return recordProjectChange(state, reorderProjectScreens(state.project, fromId, toId));
-    }),
-  setCanvasMode: (mode) =>
-    set((state) => {
-      if (!state.project) return state;
-      const result = changeCanvasMode(
-        state.project,
-        state.activeScreenId,
-        state.selectedItems,
-        mode,
+      if (!state.project || !state.activeLayoutId) return state;
+      return recordProjectChange(
+        state,
+        reorderProjectScreens(state.project, state.activeLayoutId, fromId, toId),
       );
-      return recordProjectChange(state, result.project, null, result);
     }),
   addScreen: () =>
     set((state) => {
-      if (!state.project) return state;
-      const result = appendClonedScreen(state.project, state.activeScreenId);
+      if (!state.project || !state.activeLayoutId) return state;
+      const result = appendClonedScreen(state.project, state.activeLayoutId, state.activeScreenId);
       return recordProjectChange(state, result.project, null, result);
     }),
   addBlankScreen: () =>
     set((state) => {
-      if (!state.project) return state;
-      const result = appendBlankScreen(state.project, state.activeScreenId);
+      if (!state.project || !state.activeLayoutId) return state;
+      const result = appendBlankScreen(state.project, state.activeLayoutId, state.activeScreenId);
       return recordProjectChange(state, result.project, null, result);
     }),
   removeScreen: (id) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeLayoutId) return state;
       const result = removeProjectScreen(
         state.project,
+        state.activeLayoutId,
         id,
         state.activeScreenId,
         state.selectedItems,
@@ -351,9 +463,10 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   ensureStoreOutputFamily: (platform, device, leadTarget) =>
     set((state) => {
-      if (!state.project || !state.activeScreenId) return state;
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
       const result = createStoreOutputFamily(
         state.project,
+        state.activeLayoutId,
         state.activeScreenId,
         platform,
         device,
@@ -363,15 +476,21 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   ensureStoreTargetVariant: (target) =>
     set((state) => {
-      if (!state.project || !state.activeScreenId) return state;
-      const result = createStoreTargetVariant(state.project, state.activeScreenId, target);
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
+      const result = createStoreTargetVariant(
+        state.project,
+        state.activeLayoutId,
+        state.activeScreenId,
+        target,
+      );
       return recordProjectChange(state, result.project, null, result);
     }),
   removeStoreTargetVariant: (rootScreenId, storeTargetId) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeLayoutId) return state;
       const result = deleteStoreTargetVariant(
         state.project,
+        state.activeLayoutId,
         state.activeScreenId,
         state.selectedItems,
         rootScreenId,
@@ -381,23 +500,30 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   addLocale: (sourceLocale, targetLocale, direction) =>
     set((state) => {
-      if (!state.project) return state;
-      const result = cloneProjectLocale(state.project, sourceLocale, targetLocale, direction);
+      if (!state.project || !state.activeLayoutId) return state;
+      const result = cloneProjectLocale(
+        state.project,
+        state.activeLayoutId,
+        sourceLocale,
+        targetLocale,
+        direction,
+      );
       return recordProjectChange(state, result.project, null, result);
     }),
   setLocaleDirection: (locale, direction) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeLayoutId) return state;
       return recordProjectChange(
         state,
-        changeProjectLocaleDirection(state.project, locale, direction),
+        changeProjectLocaleDirection(state.project, state.activeLayoutId, locale, direction),
       );
     }),
   removeLocale: (locale) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeLayoutId) return state;
       const result = deleteProjectLocale(
         state.project,
+        state.activeLayoutId,
         state.activeScreenId,
         locale,
       );
@@ -405,17 +531,18 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   reorderElements: (from, to) =>
     set((state) => {
-      if (!state.project || !state.activeScreenId) return state;
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
       return recordProjectChange(
         state,
-        reorderScreenElements(state.project, state.activeScreenId, from, to),
+        reorderScreenElements(state.project, state.activeLayoutId, state.activeScreenId, from, to),
       );
     }),
   removeElement: (id, screenId) =>
     set((state) => {
-      if (!state.project) return state;
+      if (!state.project || !state.activeLayoutId) return state;
       const result = removeScreenElement(
         state.project,
+        state.activeLayoutId,
         state.activeScreenId,
         state.selectedItems,
         id,
@@ -425,34 +552,45 @@ export const editorStore = createStore<EditorState>((set) => ({
     }),
   addElement: (element) =>
     set((state) => {
-      if (!state.project || !state.activeScreenId) return state;
-      const result = appendScreenElement(state.project, state.activeScreenId, element);
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
+      const result = appendScreenElement(
+        state.project,
+        state.activeLayoutId,
+        state.activeScreenId,
+        element,
+      );
       return recordProjectChange(state, result.project, null, result);
     }),
   setBackground: (background) =>
     set((state) => {
-      if (!state.project || !state.activeScreenId) return state;
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
       return recordProjectChange(
         state,
-        setScreenBackground(state.project, state.activeScreenId, background),
+        setScreenBackground(state.project, state.activeLayoutId, state.activeScreenId, background),
         `background:${state.activeScreenId}`,
       );
     }),
   resizeArtboard: (size) =>
     set((state) => {
-      if (!state.project || !state.activeScreenId) return state;
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
       return recordProjectChange(
         state,
-        resizeProjectArtboards(state.project, state.activeScreenId, size),
+        resizeProjectArtboards(state.project, state.activeLayoutId, state.activeScreenId, size),
       );
     }),
   replaceProject: (project) =>
     set((state) => {
+      const activeLayoutId = project.layouts.some((layout) => layout.id === state.activeLayoutId)
+        ? state.activeLayoutId!
+        : project.preferredExportLayoutId;
+      const nextState = { ...state, activeLayoutId };
       return {
         project,
-        ...selectionForProject(state, project),
+        activeLayoutId,
+        ...selectionForProject(nextState, project),
         historyPast: [],
         historyFuture: [],
+        layoutHistories: {},
         historyGroupKey: null,
       };
     }),

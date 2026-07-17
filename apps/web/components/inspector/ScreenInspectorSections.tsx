@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Background, Project, Screen } from "@screenshot-studio/core/model";
+import type { Background, DesignLayout, Screen } from "@screenshot-studio/core/model";
 import {
   artboardTargetStatus,
   type StoreSize,
@@ -122,13 +122,13 @@ function ArtboardSizeEditor({
 }
 
 export function ScreenInspectorSections({
-  project,
+  layout,
   screen,
   specs,
   target,
   onOpenBackgroundAsset,
 }: {
-  project: Project;
+  layout: DesignLayout;
   screen: Screen;
   specs: StoreSpecs | null;
   target: StoreSize | undefined;
@@ -146,7 +146,7 @@ export function ScreenInspectorSections({
       </Section>
       {specs && (
         <ArtboardTargets
-          project={project}
+          layout={layout}
           screen={screen}
           specs={specs}
           onOpen={(screenId) => editorStore.getState().selectScreen(screenId)}

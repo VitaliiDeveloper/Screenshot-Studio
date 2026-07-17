@@ -75,8 +75,8 @@ describe("Phase 6 optional skill", () => {
     ));
     expect(project).toMatchObject({
       meta: { name: "Skill Smoke", schemaVersion: 1 },
-      mode: "isolated",
-      screens: [{ id: "hero" }],
+      preferredExportLayoutId: "default",
+      layouts: [{ id: "default", name: "Default", mode: "isolated", screens: [{ id: "hero" }] }],
     });
     expect(await readFile(join(projectDirectory, "AGENTS.md"), "utf8"))
       .toContain("screenshots <command>");

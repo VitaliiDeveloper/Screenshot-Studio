@@ -5,11 +5,13 @@ import { countProjectFontUsage } from "./project-font-usage.js";
 
 const project: Project = {
   meta: { name: "Font usage", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"],
-  locales: ["en"],
   fonts: [],
-  screens: [{
+  preferredExportLayoutId: "default",
+  layouts: [{
+    id: "default",
+    name: "Default",
+    mode: "isolated",
+    screens: [{
     id: "hero",
     name: "Hero",
     platform: "apple",
@@ -101,6 +103,7 @@ const project: Project = {
         fill: "#ffffff",
         radius: 0,
       }],
+    }],
     }],
   }],
 };

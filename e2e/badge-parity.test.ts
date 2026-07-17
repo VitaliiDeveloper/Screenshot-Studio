@@ -32,11 +32,9 @@ beforeAll(async () => {
   const font = { family: "Pacifico", weight: 400 };
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Badge parity", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [{ ...font, source: "uploaded", path: "assets/fonts/pacifico.ttf" }],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "connected", screens: [
       {
         id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 500, height: 320 }, background: { type: "solid", color: "#FFFFFF" },
@@ -50,10 +48,10 @@ beforeAll(async () => {
         artboard: { width: 500, height: 320 }, background: { type: "solid", color: "#00FF00" },
         elements: [],
       },
-    ],
+    ] }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
+  harness = await startParityRenderHarness(() => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }), () => chromium.launch());
 }, 180_000);
 
 afterAll(async () => {
@@ -70,13 +68,13 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
 describe("Phase 7 badge composition parity", () => {
   it("matches generated group pixels in static, UI, headed/headless, and connected crops", async () => {
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "first", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "first", pixelRatio: 1,
     }));
     const secondBytes = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "second", pixelRatio: 1,
     }));
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "second", pixelRatio: 1,
       timeoutMs: 60_000,
     }));
     const first = PNG.sync.read(firstBytes);

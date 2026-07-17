@@ -21,7 +21,7 @@ const MAX_MISMATCH_FRACTION = 0.001;
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  harness = await startParityRenderHarness(() => startWebServer());
+  harness = await startParityRenderHarness(() => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }));
 }, 180_000);
 
 afterAll(async () => {
@@ -46,6 +46,7 @@ describe("Phase 6 connected crop parity", () => {
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "connected-second",
       pixelRatio,
       timeoutMs: 60_000,
@@ -53,12 +54,14 @@ describe("Phase 6 connected crop parity", () => {
     const headlessSecond = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "connected-second",
       pixelRatio,
     }));
     const headlessFirst = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "connected-first",
       pixelRatio,
     }));

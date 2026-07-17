@@ -41,13 +41,18 @@ vi.mock("@screenshot-studio/core/storage", async (importOriginal) => {
 
 const validProject = {
   meta: { name: "T", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"], locales: ["en"], fonts: [],
-  screens: [{
-    id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
-    artboard: { width: 660, height: 1434 },
-    background: { type: "solid", color: "#000000" },
-    elements: [],
+  fonts: [],
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary",
+    name: "Primary",
+    mode: "isolated",
+    screens: [{
+      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+      artboard: { width: 660, height: 1434 },
+      background: { type: "solid", color: "#000000" },
+      elements: [],
+    }],
   }],
 };
 
@@ -99,15 +104,23 @@ describe("GET /api/project", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("etag")).toBe(quotedRevision(bytes));
+    expect(res.headers.get("x-project-id")).toMatch(/^[a-f0-9]{64}$/);
+    expect(res.headers.get("x-project-id")).not.toContain(dir);
     const body = await res.json();
     expect(body.meta.name).toBe("T");
-    expect(body).toMatchObject({ mode: "isolated", meta: { schemaVersion: 1 } });
+    expect(body).toMatchObject({
+      preferredExportLayoutId: "primary",
+      layouts: [{ id: "primary", mode: "isolated" }],
+      meta: { schemaVersion: 1 },
+    });
   });
 
   it("returns the ETag for canonical target bytes through a symlink project path", async () => {
     const alias = join(dir, "project-alias.json");
     const bytes = `${JSON.stringify(validProject, null, 4)}\n`;
     writeFileSync(file, bytes);
+    const directResponse = await GET();
+    const directProjectId = directResponse.headers.get("x-project-id");
     symlinkSync(file, alias);
     process.env.PROJECT_PATH = alias;
 
@@ -115,6 +128,7 @@ describe("GET /api/project", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("etag")).toBe(quotedRevision(bytes));
+    expect(res.headers.get("x-project-id")).toBe(directProjectId);
     expect(lstatSync(alias).isSymbolicLink()).toBe(true);
     expect(realpathSync(alias)).toBe(realpathSync(file));
   });
@@ -142,14 +156,14 @@ describe("PUT /api/project", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      mode: "isolated",
+      layouts: [{ id: "primary", mode: "isolated" }],
       meta: { name: "Renamed", schemaVersion: 1 },
     });
     const persistedBytes = readFileSync(file);
     expect(res.headers.get("etag")).toBe(quotedRevision(persistedBytes));
     expect(res.headers.get("etag")).not.toBe(revision);
     expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({
-      mode: "isolated",
+      layouts: [{ id: "primary", mode: "isolated" }],
       meta: { name: "Renamed", schemaVersion: 1 },
     });
   });

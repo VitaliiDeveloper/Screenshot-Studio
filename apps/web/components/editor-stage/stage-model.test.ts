@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { Project } from "@screenshot-studio/core/model";
+import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
 import { deriveStageModel } from "./stage-model";
 
-function fixture(mode: Project["mode"]): Project {
-  const screen = (id: string, width: number, height: number): Project["screens"][number] => ({
+function fixture(mode: CanvasMode): DesignLayout {
+  const screen = (id: string, width: number, height: number): DesignLayout["screens"][number] => ({
     id,
     name: id,
     platform: "apple",
@@ -35,11 +35,9 @@ function fixture(mode: Project["mode"]): Project {
     }],
   });
   return {
-    meta: { name: "Stage", schemaVersion: 1 },
+    id: "primary",
+    name: "Primary",
     mode,
-    platforms: ["apple"],
-    locales: ["en"],
-    fonts: [],
     screens: [screen("first", 100, 200), screen("second", 120, 180)],
   };
 }
@@ -47,7 +45,7 @@ function fixture(mode: Project["mode"]): Project {
 describe("stage model", () => {
   it("derives the editable connected overview dimensions and owner-aware selection", () => {
     const model = deriveStageModel({
-      project: fixture("connected"),
+      layout: fixture("connected"),
       requestedScreenId: "first",
       activeScreenId: "first",
       selectedItems: [{ screenId: "second", elementId: "text-second" }],
@@ -68,7 +66,7 @@ describe("stage model", () => {
 
   it("projects connected focus onto the requested crop without enabling editing", () => {
     const model = deriveStageModel({
-      project: fixture("connected"),
+      layout: fixture("connected"),
       requestedScreenId: "second",
       activeScreenId: "second",
       selectedItems: [],
@@ -84,7 +82,7 @@ describe("stage model", () => {
 
   it("keeps isolated editing scoped to the active requested screen", () => {
     const model = deriveStageModel({
-      project: fixture("isolated"),
+      layout: fixture("isolated"),
       requestedScreenId: "first",
       activeScreenId: "first",
       selectedItems: [{ screenId: "first", elementId: "text-first" }],

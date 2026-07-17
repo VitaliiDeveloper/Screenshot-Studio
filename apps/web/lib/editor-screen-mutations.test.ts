@@ -40,11 +40,14 @@ function screen(id: string, variantOf?: string): Screen {
 
 const project: Project = {
   meta: { name: "Screens", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"],
-  locales: ["en"],
   fonts: [],
-  screens: [screen("root-a"), screen("variant-a", "root-a"), screen("root-b")],
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary",
+    name: "Primary",
+    mode: "isolated",
+    screens: [screen("root-a"), screen("variant-a", "root-a"), screen("root-b")],
+  }],
 };
 
 describe("editor screen mutations", () => {
@@ -53,10 +56,10 @@ describe("editor screen mutations", () => {
   });
 
   it("removing an active root removes its variants and chooses the locale fallback", () => {
-    const result = removeProjectScreen(project, "root-a", "root-a", [
+    const result = removeProjectScreen(project, "primary", "root-a", "root-a", [
       { screenId: "variant-a", elementId: "text-a" },
     ]);
-    expect(result.project.screens.map((candidate: Screen) => candidate.id)).toEqual(["root-b"]);
+    expect(result.project.layouts[0]!.screens.map((candidate: Screen) => candidate.id)).toEqual(["root-b"]);
     expect(result.activeScreenId).toBe("root-b");
     expect(result.selectedItems).toEqual([]);
   });

@@ -13,33 +13,36 @@ import {
 
 const project = {
   meta: { name: "Resources", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"],
-  locales: ["en"],
   fonts: [],
-  screens: [{
-    id: "screen",
-    name: "Screen",
-    platform: "apple",
-    device: "iphone",
-    locale: "en",
-    direction: "ltr",
-    artboard: { width: 100, height: 200 },
-    background: { type: "image", assetUrl: "assets/background.png", fit: "cover", color: "#ffffff" },
-    elements: [{
-      id: "image",
-      type: "image",
-      x: 0,
-      y: 0,
-      width: 10,
-      height: 10,
-      rotation: 0,
-      opacity: 1,
-      locked: false,
-      visible: true,
-      assetUrl: "assets/image.png",
-      fit: "contain",
-      cornerRadius: 0,
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary",
+    name: "Primary",
+    mode: "isolated",
+    screens: [{
+      id: "screen",
+      name: "Screen",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      direction: "ltr",
+      artboard: { width: 100, height: 200 },
+      background: { type: "image", assetUrl: "assets/background.png", fit: "cover", color: "#ffffff" },
+      elements: [{
+        id: "image",
+        type: "image",
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        assetUrl: "assets/image.png",
+        fit: "contain",
+        cornerRadius: 0,
+      }],
     }],
   }],
 } as Project;
@@ -67,7 +70,9 @@ function successfulDependencies(events: string[] = []) {
   return {
     fetchProject: vi.fn(async () => {
       events.push("project");
-      return Response.json(project, { headers: { etag: '"revision-1"' } });
+      return Response.json(project, {
+        headers: { etag: '"revision-1"', "x-project-id": "project-1" },
+      });
     }),
     loadImages: vi.fn(async () => {
       events.push("images");
@@ -93,7 +98,13 @@ describe("editor resources", () => {
 
     const result = await loadEditorResources(dependencies);
 
-    expect(result).toMatchObject({ project, revision: '"revision-1"', specs, fontWarnings: [] });
+    expect(result).toMatchObject({
+      project,
+      projectId: "project-1",
+      revision: '"revision-1"',
+      specs,
+      fontWarnings: [],
+    });
     expect(result.images.has("assets/image.png")).toBe(true);
     expect(events).toEqual(["project", "images", "fonts", "specs"]);
   });
@@ -122,6 +133,16 @@ describe("editor resources", () => {
     invalid.fetchProject.mockResolvedValue(Response.json({ nope: true }, { headers: { etag: '"revision-1"' } }));
     await expect(loadEditorResources(invalid)).rejects.toThrow();
     expect(invalid.loadImages).not.toHaveBeenCalled();
+  });
+
+  it("requires an opaque project identifier before loading dependent resources", async () => {
+    const dependencies = successfulDependencies();
+    dependencies.fetchProject.mockResolvedValue(Response.json(project, {
+      headers: { etag: '"revision-1"' },
+    }));
+
+    await expect(loadEditorResources(dependencies)).rejects.toThrow(/project identifier/i);
+    expect(dependencies.loadImages).not.toHaveBeenCalled();
   });
 
   it("keeps ordered font registration failures as recoverable warnings", async () => {
@@ -187,7 +208,14 @@ describe("editor resources", () => {
       events.push("load:start");
       await fetchGate;
       events.push("load:end");
-      return { project, revision: '"revision-2"', images: new Map(), specs, fontWarnings: [] };
+      return {
+        project,
+        projectId: "project-1",
+        revision: '"revision-2"',
+        images: new Map(),
+        specs,
+        fontWarnings: [],
+      };
     });
 
     const reload = runEditorResourceReload({ serialize, load, apply, isCurrent: () => current });

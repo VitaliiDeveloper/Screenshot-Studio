@@ -18,35 +18,38 @@ import {
 function validProject() {
   return {
     meta: { name: "Sample", schemaVersion: SCHEMA_VERSION },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
-      {
-        id: "s1",
-        name: "Screen 1",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#0A0A0A" },
-        elements: [
-          {
-            id: "t1",
-            type: "text",
-            x: 100,
-            y: 100,
-            width: 1120,
-            height: 300,
-            content: "Hello",
-            fontFamily: "Inter",
-            size: 96,
-            color: "#FFFFFF",
-          },
-        ],
-      },
-    ],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default",
+      name: "Default",
+      mode: "isolated",
+      screens: [
+        {
+          id: "s1",
+          name: "Screen 1",
+          platform: "apple",
+          device: "iphone",
+          locale: "en",
+          artboard: { width: 1320, height: 2868 },
+          background: { type: "solid", color: "#0A0A0A" },
+          elements: [
+            {
+              id: "t1",
+              type: "text",
+              x: 100,
+              y: 100,
+              width: 1120,
+              height: 300,
+              content: "Hello",
+              fontFamily: "Inter",
+              size: 96,
+              color: "#FFFFFF",
+            },
+          ],
+        },
+      ],
+    }],
   };
 }
 
@@ -64,7 +67,7 @@ describe("project resource paths", () => {
       { family: "Inter", source: "uploaded", path: "assets/fonts/Inter Привіт.ttf", weight: 400 },
     ]);
 
-    const screen = project.screens[0]! as unknown as {
+    const screen = project.layouts[0]!.screens[0]! as unknown as {
       background: unknown;
       elements: unknown[];
     };
@@ -109,9 +112,9 @@ describe("project resource paths", () => {
     {
       field: "background.assetUrl",
       value: "/tmp/background.png",
-      expectedPath: ["screens", 0, "background", "assetUrl"],
+      expectedPath: ["layouts", 0, "screens", 0, "background", "assetUrl"],
       mutate(project, value) {
-        (project.screens[0]! as unknown as { background: unknown }).background = {
+        (project.layouts[0]!.screens[0]! as unknown as { background: unknown }).background = {
           type: "image",
           assetUrl: value,
         };
@@ -120,9 +123,9 @@ describe("project resource paths", () => {
     {
       field: "screenshot.assetUrl",
       value: "https://example.com/shot.png",
-      expectedPath: ["screens", 0, "elements", 0, "assetUrl"],
+      expectedPath: ["layouts", 0, "screens", 0, "elements", 0, "assetUrl"],
       mutate(project, value) {
-        (project.screens[0]! as unknown as { elements: unknown[] }).elements = [
+        (project.layouts[0]!.screens[0]! as unknown as { elements: unknown[] }).elements = [
           { id: "shot", type: "screenshot", ...transform, assetUrl: value },
         ];
       },
@@ -130,9 +133,9 @@ describe("project resource paths", () => {
     {
       field: "grouped image.assetUrl",
       value: "assets/../decor.png",
-      expectedPath: ["screens", 0, "elements", 0, "children", 0, "assetUrl"],
+      expectedPath: ["layouts", 0, "screens", 0, "elements", 0, "children", 0, "assetUrl"],
       mutate(project, value) {
-        (project.screens[0]! as unknown as { elements: unknown[] }).elements = [
+        (project.layouts[0]!.screens[0]! as unknown as { elements: unknown[] }).elements = [
           {
             id: "group",
             type: "group",
@@ -147,9 +150,9 @@ describe("project resource paths", () => {
     {
       field: "device-frame.assetUrl",
       value: "file:assets/shot.png",
-      expectedPath: ["screens", 0, "elements", 0, "assetUrl"],
+      expectedPath: ["layouts", 0, "screens", 0, "elements", 0, "assetUrl"],
       mutate(project, value) {
-        (project.screens[0]! as unknown as { elements: unknown[] }).elements = [
+        (project.layouts[0]!.screens[0]! as unknown as { elements: unknown[] }).elements = [
           {
             id: "frame",
             type: "device-frame",
@@ -190,58 +193,44 @@ describe("project resource paths", () => {
 describe("Project validation issue contracts", () => {
   const cases = [
     {
-      category: "platform manifest",
-      mutate(project: ReturnType<typeof validProject>) {
-        project.platforms = ["apple", "apple"];
-      },
-      expected: [{ message: "platforms must not contain duplicates", path: ["platforms"] }],
-    },
-    {
-      category: "locale manifest",
-      mutate(project: ReturnType<typeof validProject>) {
-        project.locales = ["en", "en"];
-      },
-      expected: [{ message: "locales must not contain duplicates", path: ["locales"] }],
-    },
-    {
       category: "screen variants",
       mutate(project: ReturnType<typeof validProject>) {
-        project.screens.push({
-          ...structuredClone(project.screens[0]!),
+        project.layouts[0]!.screens.push({
+          ...structuredClone(project.layouts[0]!.screens[0]!),
           id: "s2",
           variantOf: "s1",
         } as never);
       },
       expected: [{
         message: "variantOf and storeTargetId must be present together",
-        path: ["screens", 1],
+        path: ["layouts", 0, "screens", 1],
       }],
     },
     {
       category: "locale direction",
       mutate(project: ReturnType<typeof validProject>) {
-        project.screens.push({
-          ...structuredClone(project.screens[0]!),
+        project.layouts[0]!.screens.push({
+          ...structuredClone(project.layouts[0]!.screens[0]!),
           id: "s2",
           direction: "rtl",
         } as never);
       },
       expected: [{
         message: 'all screens in locale "en" must use direction "ltr"',
-        path: ["screens", 1, "direction"],
+        path: ["layouts", 0, "screens", 1, "direction"],
       }],
     },
     {
       category: "element ids",
       mutate(project: ReturnType<typeof validProject>) {
-        project.screens[0]!.elements.push({
-          ...structuredClone(project.screens[0]!.elements[0]!),
+        project.layouts[0]!.screens[0]!.elements.push({
+          ...structuredClone(project.layouts[0]!.screens[0]!.elements[0]!),
           id: "t1",
         });
       },
       expected: [{
         message: 'duplicate element id within screen: "t1"',
-        path: ["screens", 0, "elements", 1, "id"],
+        path: ["layouts", 0, "screens", 0, "elements", 1, "id"],
       }],
     },
     {
@@ -272,16 +261,14 @@ describe("Project validation issue contracts", () => {
 
   it("preserves issue order across project validators", () => {
     const project = validProject();
-    project.platforms = ["apple", "apple"];
-    project.locales = ["en", "en"];
-    project.screens.push({
-      ...structuredClone(project.screens[0]!),
+    project.layouts[0]!.screens.push({
+      ...structuredClone(project.layouts[0]!.screens[0]!),
       id: "s2",
       variantOf: "s1",
       direction: "rtl",
     } as never);
-    project.screens[0]!.elements.push({
-      ...structuredClone(project.screens[0]!.elements[0]!),
+    project.layouts[0]!.screens[0]!.elements.push({
+      ...structuredClone(project.layouts[0]!.screens[0]!.elements[0]!),
       id: "t1",
     });
     setRawFonts(project, [
@@ -294,19 +281,17 @@ describe("Project validation issue contracts", () => {
     if (result.success) throw new Error("expected project validation to fail");
 
     expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual([
-      { message: "platforms must not contain duplicates", path: ["platforms"] },
-      { message: "locales must not contain duplicates", path: ["locales"] },
       {
         message: "variantOf and storeTargetId must be present together",
-        path: ["screens", 1],
+        path: ["layouts", 0, "screens", 1],
       },
       {
         message: 'all screens in locale "en" must use direction "ltr"',
-        path: ["screens", 1, "direction"],
+        path: ["layouts", 0, "screens", 1, "direction"],
       },
       {
         message: 'duplicate element id within screen: "t1"',
-        path: ["screens", 0, "elements", 1, "id"],
+        path: ["layouts", 0, "screens", 0, "elements", 1, "id"],
       },
       {
         message: 'duplicate font family and weight: "Inter" 400',
@@ -319,7 +304,7 @@ describe("Project validation issue contracts", () => {
 describe("parseProject", () => {
   it("accepts a valid project and applies element defaults", () => {
     const project = parseProject(validProject());
-    const el = project.screens[0]!.elements[0]!;
+    const el = project.layouts[0]!.screens[0]!.elements[0]!;
     expect(el.opacity).toBe(1);
     expect(el.visible).toBe(true);
     expect(el.rotation).toBe(0);
@@ -327,8 +312,8 @@ describe("parseProject", () => {
 
   it("accepts connected mode", () => {
     const raw = validProject();
-    raw.mode = "connected";
-    expect(parseProject(raw).mode).toBe("connected");
+    raw.layouts[0]!.mode = "connected";
+    expect(parseProject(raw).layouts[0]!.mode).toBe("connected");
   });
 
   it("accepts the complete schema v1 project without mutating the raw input", () => {
@@ -339,7 +324,7 @@ describe("parseProject", () => {
     const project = parseProject(raw);
 
     expect(project.meta.schemaVersion).toBe(1);
-    expect(project.screens[0]!.direction).toBe("ltr");
+    expect(project.layouts[0]!.screens[0]!.direction).toBe("ltr");
     expect(raw).toEqual(before);
   });
 
@@ -356,7 +341,9 @@ describe("parseProject", () => {
     ["missing", undefined],
     ["non-numeric", "1"],
   ])("rejects a %s schema version through strict validation", (_case, version) => {
-    const raw = validProject() as unknown as Record<string, unknown>;
+    const raw = validProject() as unknown as {
+      meta: Record<string, unknown>;
+    };
     const meta = raw.meta as Record<string, unknown>;
     if (version === undefined) delete meta.schemaVersion;
     else meta.schemaVersion = version;
@@ -365,25 +352,32 @@ describe("parseProject", () => {
   });
 
   it("does not migrate the historical incomplete v1 structure", () => {
-    const raw = validProject() as unknown as Record<string, unknown>;
-    delete raw.mode;
+    const raw = validProject() as unknown as {
+      meta: Record<string, unknown>;
+      layouts: Array<{ mode?: unknown }>;
+    };
+    delete raw.layouts[0]!.mode;
     (raw.meta as Record<string, unknown>).schemaVersion = 1;
 
     expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
   it("accepts strict linear-gradient and image backgrounds with defaults", () => {
-    const gradient = validProject() as unknown as Record<string, unknown>;
-    const gradientScreen = (gradient.screens as Array<Record<string, unknown>>)[0]!;
+    const gradient = validProject() as unknown as {
+      layouts: Array<{ screens: Array<Record<string, unknown>> }>;
+    };
+    const gradientScreen = gradient.layouts[0]!.screens[0]!;
     gradientScreen.background = { type: "linear-gradient", from: "#112233", to: "#AABBCC" };
-    expect(parseProject(gradient).screens[0]!.background).toEqual({
+    expect(parseProject(gradient).layouts[0]!.screens[0]!.background).toEqual({
       type: "linear-gradient", from: "#112233", to: "#AABBCC", angle: 0,
     });
 
-    const image = validProject() as unknown as Record<string, unknown>;
-    const imageScreen = (image.screens as Array<Record<string, unknown>>)[0]!;
+    const image = validProject() as unknown as {
+      layouts: Array<{ screens: Array<Record<string, unknown>> }>;
+    };
+    const imageScreen = image.layouts[0]!.screens[0]!;
     imageScreen.background = { type: "image", assetUrl: "assets/background.png" };
-    expect(parseProject(image).screens[0]!.background).toEqual({
+    expect(parseProject(image).layouts[0]!.screens[0]!.background).toEqual({
       type: "image", assetUrl: "assets/background.png", fit: "cover", color: "#000000",
     });
   });
@@ -394,39 +388,41 @@ describe("parseProject", () => {
       { type: "image", assetUrl: "", fit: "cover", color: "#000000" },
       { type: "solid", color: "#000000", opacity: 0.5 },
     ]) {
-      const raw = validProject() as unknown as Record<string, unknown>;
-      (raw.screens as Array<Record<string, unknown>>)[0]!.background = background;
+      const raw = validProject() as unknown as {
+        layouts: Array<{ screens: Array<Record<string, unknown>> }>;
+      };
+      raw.layouts[0]!.screens[0]!.background = background;
       expect(() => parseProject(raw)).toThrow(ProjectValidationError);
     }
   });
 
   it("validates root and store-target variant relationships", () => {
     const raw = validProject();
-    const variant = structuredClone(raw.screens[0]!);
+    const variant = structuredClone(raw.layouts[0]!.screens[0]!);
     variant.id = "hero-65";
     variant.artboard = { width: 1284, height: 2778 };
     Object.assign(variant, {
-      variantOf: raw.screens[0]!.id,
+      variantOf: raw.layouts[0]!.screens[0]!.id,
       storeTargetId: "6.5",
     });
-    raw.screens.push(variant);
-    expect(parseProject(raw).screens[1]).toMatchObject({
-      variantOf: raw.screens[0]!.id,
+    raw.layouts[0]!.screens.push(variant);
+    expect(parseProject(raw).layouts[0]!.screens[1]).toMatchObject({
+      variantOf: raw.layouts[0]!.screens[0]!.id,
       storeTargetId: "6.5",
     });
 
     const missingTarget = structuredClone(raw);
-    delete (missingTarget.screens[1]! as unknown as Record<string, unknown>).storeTargetId;
+    delete (missingTarget.layouts[0]!.screens[1]! as unknown as Record<string, unknown>).storeTargetId;
     expect(() => parseProject(missingTarget)).toThrow(/variantOf and storeTargetId/);
 
     const duplicate = structuredClone(raw);
-    duplicate.screens.push({ ...structuredClone(duplicate.screens[1]!), id: "hero-65-copy" });
+    duplicate.layouts[0]!.screens.push({ ...structuredClone(duplicate.layouts[0]!.screens[1]!), id: "hero-65-copy" });
     expect(() => parseProject(duplicate)).toThrow(/duplicate store target variant/);
   });
 
   it("rejects duplicate screen ids before resolving variant references", () => {
     const raw = validProject();
-    raw.screens.push(structuredClone(raw.screens[0]!));
+    raw.layouts[0]!.screens.push(structuredClone(raw.layouts[0]!.screens[0]!));
     expect(() => parseProject(raw)).toThrow(/duplicate screen id/);
   });
 
@@ -438,19 +434,19 @@ describe("parseProject", () => {
 
   it("rejects a non-hex color", () => {
     const bad = validProject();
-    bad.screens[0]!.background.color = "black";
+    bad.layouts[0]!.screens[0]!.background.color = "black";
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
   });
 
   it("rejects an unknown element type via the discriminated union", () => {
     const bad = validProject();
-    (bad.screens[0]!.elements[0] as Record<string, unknown>).type = "screenshot";
+    (bad.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).type = "screenshot";
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
   });
 
   it("requires at least one screen", () => {
     const bad = validProject();
-    bad.screens = [];
+    bad.layouts[0]!.screens = [];
     expect(() => parseProject(bad)).toThrow(ProjectValidationError);
   });
 });
@@ -502,31 +498,31 @@ describe("FontAsset", () => {
 describe("element name (slice 4)", () => {
   it("accepts an element with an optional name", () => {
     const p = validProject();
-    (p.screens[0]!.elements[0] as Record<string, unknown>).name = "Big headline";
+    (p.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).name = "Big headline";
     expect(() => parseProject(p)).not.toThrow();
-    expect(parseProject(p).screens[0]!.elements[0]!.name).toBe("Big headline");
+    expect(parseProject(p).layouts[0]!.screens[0]!.elements[0]!.name).toBe("Big headline");
   });
 
   it("still accepts an element with no name (v1 stays valid)", () => {
     const p = validProject();
-    delete (p.screens[0]!.elements[0] as Record<string, unknown>).name;
+    delete (p.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).name;
     expect(() => parseProject(p)).not.toThrow();
-    expect(parseProject(p).screens[0]!.elements[0]!.name).toBeUndefined();
+    expect(parseProject(p).layouts[0]!.screens[0]!.elements[0]!.name).toBeUndefined();
   });
 });
 
 describe("element theme role", () => {
   it("accepts a known optional role", () => {
     const p = validProject();
-    (p.screens[0]!.elements[0] as Record<string, unknown>).role = "heading";
-    const parsed = parseProject(p).screens[0]!.elements[0]!;
+    (p.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).role = "heading";
+    const parsed = parseProject(p).layouts[0]!.screens[0]!.elements[0]!;
     if (parsed.type === "group") throw new Error("expected leaf fixture");
     expect(parsed.role).toBe("heading");
   });
 
   it("rejects an unknown role", () => {
     const p = validProject();
-    (p.screens[0]!.elements[0] as Record<string, unknown>).role = "hero";
+    (p.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).role = "hero";
     expect(() => parseProject(p)).toThrow(ProjectValidationError);
   });
 });
@@ -534,18 +530,18 @@ describe("element theme role", () => {
 describe("getScreen", () => {
   it("returns a screen by id", () => {
     const project = parseProject(validProject());
-    expect(getScreen(project, "s1").name).toBe("Screen 1");
+    expect(getScreen(project, "default", "s1").name).toBe("Screen 1");
   });
 
   it("throws for an unknown screen id", () => {
     const project = parseProject(validProject());
-    expect(() => getScreen(project, "nope")).toThrow(/not found/);
+    expect(() => getScreen(project, "default", "nope")).toThrow(/not found/);
   });
 });
 
 describe("Phase 9 styling literals", () => {
   it("accepts strict bounded text shadow", () => {
-    const text = validProject().screens[0]!.elements[0]!;
+    const text = validProject().layouts[0]!.screens[0]!.elements[0]!;
     expect(Element.parse({
       ...text,
       shadow: { color: "#000000", blur: 12, offsetX: 2, offsetY: 4, opacity: 0.5 },
@@ -725,8 +721,8 @@ describe("GroupElement (schema v3)", () => {
 
   it("requires element ids to be unique across one screen tree", () => {
     const project = validProject();
-    const original = project.screens[0]!.elements[0]!;
-    project.screens[0]!.elements.push({
+    const original = project.layouts[0]!.screens[0]!.elements[0]!;
+    project.layouts[0]!.screens[0]!.elements.push({
       ...group,
       children: [{ ...child, id: original.id }],
     } as never);
@@ -775,116 +771,33 @@ describe("Screen platform/device union", () => {
 
 describe("Screen direction", () => {
   it("defaults an existing v1 screen to ltr", () => {
-    expect(parseProject(validProject()).screens[0]!.direction).toBe("ltr");
+    expect(parseProject(validProject()).layouts[0]!.screens[0]!.direction).toBe("ltr");
   });
 
   it("accepts an explicit rtl direction", () => {
     const project = validProject();
-    (project.screens[0] as Record<string, unknown>).direction = "rtl";
+    (project.layouts[0]!.screens[0] as Record<string, unknown>).direction = "rtl";
 
-    expect(parseProject(project).screens[0]!.direction).toBe("rtl");
+    expect(parseProject(project).layouts[0]!.screens[0]!.direction).toBe("rtl");
   });
 
   it("rejects an unknown direction", () => {
     const project = validProject();
-    (project.screens[0] as Record<string, unknown>).direction = "auto";
+    (project.layouts[0]!.screens[0] as Record<string, unknown>).direction = "auto";
 
     expect(() => parseProject(project)).toThrow(ProjectValidationError);
   });
 
   it("requires every screen in one locale set to share a direction", () => {
     const project = validProject();
-    (project.screens[0] as Record<string, unknown>).direction = "ltr";
-    project.screens.push({
-      ...structuredClone(project.screens[0]!),
+    (project.layouts[0]!.screens[0] as Record<string, unknown>).direction = "ltr";
+    project.layouts[0]!.screens.push({
+      ...structuredClone(project.layouts[0]!.screens[0]!),
       id: "s2",
       name: "Screen 2",
     });
-    (project.screens[1] as Record<string, unknown>).direction = "rtl";
+    (project.layouts[0]!.screens[1] as Record<string, unknown>).direction = "rtl";
 
     expect(() => parseProject(project)).toThrow(ProjectValidationError);
-  });
-});
-
-describe("Project.platforms manifest", () => {
-  function androidProject() {
-    const p = validProject();
-    p.platforms = ["android"];
-    p.screens[0]!.platform = "android";
-    p.screens[0]!.device = "phone";
-    p.screens[0]!.artboard = { width: 1080, height: 1920 };
-    return p;
-  }
-
-  it("accepts an android/phone project", () => {
-    expect(() => parseProject(androidProject())).not.toThrow();
-  });
-
-  it.each([
-    ["apple", "ipad"],
-    ["apple", "macos"],
-    ["apple", "tvos"],
-    ["apple", "watchos"],
-    ["windows", "desktop"],
-  ] as const)("accepts %s/%s projects", (platform, device) => {
-    const project = validProject();
-    project.platforms = [platform];
-    project.screens[0]!.platform = platform;
-    project.screens[0]!.device = device;
-    expect(() => parseProject(project)).not.toThrow();
-  });
-
-  it("rejects a duplicate platform", () => {
-    const bad = validProject();
-    bad.platforms = ["apple", "apple"];
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
-  });
-
-  it("rejects a declared platform with no screen", () => {
-    const bad = validProject();
-    bad.platforms = ["apple", "android"]; // only an apple screen exists
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
-  });
-
-  it("rejects a screen whose platform is not declared", () => {
-    const bad = androidProject();
-    bad.platforms = ["apple"]; // screen is android
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
-  });
-});
-
-describe("Project.locales manifest", () => {
-  it("accepts a project whose locale manifest matches its screens", () => {
-    const project = validProject();
-    project.locales = ["en", "uk"];
-    project.screens.push({
-      ...structuredClone(project.screens[0]!),
-      id: "s2",
-      name: "Screen 2",
-      locale: "uk",
-    });
-
-    expect(() => parseProject(project)).not.toThrow();
-  });
-
-  it("rejects a duplicate locale", () => {
-    const bad = validProject();
-    bad.locales = ["en", "en"];
-
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
-  });
-
-  it("rejects a declared locale with no screen", () => {
-    const bad = validProject();
-    bad.locales = ["en", "uk"];
-
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
-  });
-
-  it("rejects a screen whose locale is not declared", () => {
-    const bad = validProject();
-    bad.screens[0]!.locale = "uk";
-
-    expect(() => parseProject(bad)).toThrow(ProjectValidationError);
   });
 });

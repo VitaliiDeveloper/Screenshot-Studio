@@ -41,16 +41,17 @@ describe("Phase 6 connected bundle export", () => {
     await cp(fixtureDirectory, projectDirectory, { recursive: true });
     const project = parseProjectJson(await readFile(projectPath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-    const entries = buildBundleEntries(project, specs);
+    const entries = buildBundleEntries(project, project.preferredExportLayoutId, specs);
     expect(entries.map((entry) => entry.relativePath)).toEqual(expectedPaths);
 
-    const server = await startWebServer();
+    const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
     try {
       await withStableProjectExport(projectPath, (context) => exportBundle({
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
+        layoutId: project.preferredExportLayoutId,
         outDir,
         entries,
         renderSession: session,

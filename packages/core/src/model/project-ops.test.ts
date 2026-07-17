@@ -17,7 +17,6 @@ import {
   formatUnresolvedFontsError,
   isScreenPlacement,
   parseScreenPlacement,
-  recomputeManifests,
   removeScreenFromProject,
   removeStoreTargetVariant,
   removeLocaleSet,
@@ -32,34 +31,35 @@ import {
 function sampleProject(): Project {
   return {
     meta: { name: "T", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
-      {
-        id: "hero",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
-      },
-      {
-        id: "details",
-        name: "Details",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
-      },
-    ],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "connected",
+      screens: [
+        {
+          id: "hero",
+          name: "Hero",
+          platform: "apple",
+          device: "iphone",
+          locale: "en",
+          direction: "ltr",
+          artboard: { width: 1320, height: 2868 },
+          background: { type: "solid", color: "#101827" },
+          elements: [],
+        },
+        {
+          id: "details",
+          name: "Details",
+          platform: "apple",
+          device: "iphone",
+          locale: "en",
+          direction: "ltr",
+          artboard: { width: 1320, height: 2868 },
+          background: { type: "solid", color: "#101827" },
+          elements: [],
+        },
+      ],
+    }],
   };
 }
 
@@ -73,7 +73,7 @@ describe("project-ops", () => {
 
   it("slugify and uniqueId produce stable free ids", () => {
     expect(slugify("Hello World")).toBe("hello-world");
-    expect(uniqueId("hero", sampleProject().screens)).toBe("hero-2");
+    expect(uniqueId("hero", sampleProject().layouts[0]!.screens)).toBe("hero-2");
   });
 
   it("parseScreenPlacement accepts only schema pairs", () => {
@@ -93,8 +93,8 @@ describe("project-ops", () => {
     expect(isScreenPlacementFromModel).toBe(isScreenPlacement);
   });
 
-  it("addScreenToProject appends and recomputes manifests", () => {
-    const project = addScreenToProject(sampleProject(), {
+  it("addScreenToProject appends inside one layout", () => {
+    const project = addScreenToProject(sampleProject(), "default", {
       id: "ipad-hero",
       name: "iPad Hero",
       platform: "apple",
@@ -102,9 +102,8 @@ describe("project-ops", () => {
       locale: "uk",
       artboard: { width: 2048, height: 2732 },
     });
-    expect(project.mode).toBe("connected");
-    expect(project.locales).toEqual(["en", "uk"]);
-    expect(project.screens.at(-1)).toMatchObject({
+    expect(project.layouts[0]!.mode).toBe("connected");
+    expect(project.layouts[0]!.screens.at(-1)).toMatchObject({
       id: "ipad-hero",
       platform: "apple",
       device: "ipad",
@@ -116,19 +115,19 @@ describe("project-ops", () => {
 
   it("creates an independent exact store-target variant without mutating the root", () => {
     const source = sampleProject();
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "headline", type: "text", x: 100, y: 200, width: 500, height: 100,
       rotation: 0, opacity: 1, locked: false, visible: true,
       content: "Hello", fontFamily: "Inter", size: 60, weight: 400,
       lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF",
     }];
-    const result = ensureStoreTargetVariant(source, "hero", {
+    const result = ensureStoreTargetVariant(source, "default", "hero", {
       id: "6.5", width: 1284, height: 2778,
     });
 
     expect(result.created).toBe(true);
-    expect(source.screens).toHaveLength(2);
-    expect(result.project.screens).toHaveLength(3);
+    expect(source.layouts[0]!.screens).toHaveLength(2);
+    expect(result.project.layouts[0]!.screens).toHaveLength(3);
     expect(result.variant).toMatchObject({
       name: "Hero", variantOf: "hero", storeTargetId: "6.5",
       artboard: { width: 1284, height: 2778 },
@@ -136,9 +135,9 @@ describe("project-ops", () => {
     expect(result.variant.id).not.toBe("hero");
     expect(result.variant.elements[0]!.id).not.toBe("headline");
     expect(result.variant.elements[0]!.width).toBeLessThan(500);
-    expect(source.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(source.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
 
-    const again = ensureStoreTargetVariant(result.project, "hero", {
+    const again = ensureStoreTargetVariant(result.project, "default", "hero", {
       id: "6.5", width: 1284, height: 2778,
     });
     expect(again.created).toBe(false);
@@ -148,8 +147,8 @@ describe("project-ops", () => {
 
   it("resizes one screen artboard and its composition atomically", () => {
     const source = sampleProject();
-    source.screens[0]!.artboard = { width: 660, height: 1434 };
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.artboard = { width: 660, height: 1434 };
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "headline", type: "text", x: 40, y: 100, width: 580, height: 200,
       rotation: 0, opacity: 1, locked: false, visible: true,
       content: "Hello", fontFamily: "Inter", size: 72, weight: 400,
@@ -162,25 +161,25 @@ describe("project-ops", () => {
       stroke: { color: "#000000", width: 6 },
     }];
 
-    const resized = resizeScreenArtboard(source, "hero", { width: 1320, height: 2868 });
+    const resized = resizeScreenArtboard(source, "default", "hero", { width: 1320, height: 2868 });
 
-    expect(source.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
-    expect(resized.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
-    expect(resized.screens[0]!.elements[0]).toMatchObject({
+    expect(source.layouts[0]!.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
+    expect(resized.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(resized.layouts[0]!.screens[0]!.elements[0]).toMatchObject({
       x: 80, y: 200, width: 1160, height: 400, size: 144, letterSpacing: 4,
       shadow: { blur: 8, offsetX: -6, offsetY: 10 },
     });
-    expect(resized.screens[0]!.elements[1]).toMatchObject({
+    expect(resized.layouts[0]!.screens[0]!.elements[1]).toMatchObject({
       x: 40, y: 80, width: 200, height: 160, radius: 12,
       stroke: { width: 12 },
     });
-    expect(resized.screens[1]).toBe(source.screens[1]);
+    expect(resized.layouts[0]!.screens[1]).toEqual(source.layouts[0]!.screens[1]);
   });
 
   it("scales render-bearing effects with an artboard fit", () => {
     const source = sampleProject();
-    source.screens[0]!.artboard = { width: 100, height: 100 };
-    source.screens[0]!.elements = [
+    source.layouts[0]!.screens[0]!.artboard = { width: 100, height: 100 };
+    source.layouts[0]!.screens[0]!.elements = [
       {
         id: "headline", type: "text", x: 10, y: 10, width: 80, height: 20,
         rotation: 0, opacity: 1, locked: false, visible: true,
@@ -200,9 +199,9 @@ describe("project-ops", () => {
       },
     ];
 
-    const resized = resizeScreenArtboard(source, "hero", { width: 200, height: 200 });
+    const resized = resizeScreenArtboard(source, "default", "hero", { width: 200, height: 200 });
 
-    expect(resized.screens[0]!.elements).toMatchObject([
+    expect(resized.layouts[0]!.screens[0]!.elements).toMatchObject([
       {
         type: "text",
         shadow: { color: "#000000", blur: 24, offsetX: 8, offsetY: -12, opacity: 0.5 },
@@ -220,8 +219,8 @@ describe("project-ops", () => {
 
   it("rejects artboard fits that exceed bounded visual metrics", () => {
     const source = sampleProject();
-    source.screens[0]!.artboard = { width: 100, height: 100 };
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.artboard = { width: 100, height: 100 };
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "headline", type: "text", x: 10, y: 10, width: 80, height: 20,
       rotation: 0, opacity: 1, locked: false, visible: true,
       content: "Hello", fontFamily: "Inter", size: 10, weight: 400,
@@ -230,7 +229,7 @@ describe("project-ops", () => {
     }];
     const original = structuredClone(source);
 
-    expect(() => resizeScreenArtboard(source, "hero", { width: 200, height: 200 }))
+    expect(() => resizeScreenArtboard(source, "default", "hero", { width: 200, height: 200 }))
       .toThrow('Cannot scale text shadow blur above 100 for element "headline"');
     expect(source).toEqual(original);
   });
@@ -238,66 +237,64 @@ describe("project-ops", () => {
   it("resizes one store target output set without changing roots or sibling targets", () => {
     let withTargets = sampleProject();
     for (const rootId of ["hero", "details"]) {
-      withTargets = ensureStoreTargetVariant(withTargets, rootId, {
+      withTargets = ensureStoreTargetVariant(withTargets, "default", rootId, {
         id: "6.5", width: 1284, height: 2778,
       }).project;
-      withTargets = ensureStoreTargetVariant(withTargets, rootId, {
+      withTargets = ensureStoreTargetVariant(withTargets, "default", rootId, {
         id: "5.5", width: 1242, height: 2688,
       }).project;
     }
-    const source = withTargets.screens.find((screen) =>
+    const source = withTargets.layouts[0]!.screens.find((screen) =>
       screen.variantOf === "hero" && screen.storeTargetId === "6.5"
     )!;
-    const originalRoots = withTargets.screens.filter((screen) => screen.storeTargetId === undefined);
-    const originalSiblingTarget = withTargets.screens.filter((screen) => screen.storeTargetId === "5.5");
+    const originalRoots = withTargets.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined);
+    const originalSiblingTarget = withTargets.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "5.5");
 
-    const resized = resizeStoreOutputArtboards(withTargets, source.id, {
+    const resized = resizeStoreOutputArtboards(withTargets, "default", source.id, {
       width: 642,
       height: 1389,
     });
 
-    const resizedTarget = resized.screens.filter((screen) => screen.storeTargetId === "6.5");
+    const resizedTarget = resized.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "6.5");
     expect(resizedTarget).toHaveLength(2);
     expect(resizedTarget.every((screen) =>
       screen.artboard.width === 642 && screen.artboard.height === 1389
     )).toBe(true);
-    expect(resized.screens.filter((screen) => screen.storeTargetId === undefined))
+    expect(resized.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined))
       .toEqual(originalRoots);
-    expect(resized.screens.filter((screen) => screen.storeTargetId === "5.5"))
+    expect(resized.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "5.5"))
       .toEqual(originalSiblingTarget);
   });
 
   it("resizes every master screen in one store output set", () => {
     const source = sampleProject();
-    source.screens.forEach((screen) => {
+    source.layouts[0]!.screens.forEach((screen) => {
       screen.artboard = { width: 660, height: 1434 };
     });
 
-    const resized = resizeStoreOutputArtboards(source, "hero", { width: 1320, height: 2868 });
+    const resized = resizeStoreOutputArtboards(source, "default", "hero", { width: 1320, height: 2868 });
 
-    expect(resized.screens.filter((screen) => screen.variantOf === undefined))
+    expect(resized.layouts[0]!.screens.filter((screen) => screen.variantOf === undefined))
       .toHaveLength(2);
-    expect(resized.screens.every((screen) =>
+    expect(resized.layouts[0]!.screens.every((screen) =>
       screen.artboard.width === 1320 && screen.artboard.height === 2868
     )).toBe(true);
   });
 
   it("creates one independent full store-output family and reopens it idempotently", () => {
     const source = sampleProject();
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "shape", type: "shape", x: 100, y: 200, width: 500, height: 100,
       rotation: 0, opacity: 1, locked: false, visible: true,
       kind: "rect", fill: "#FFFFFF", radius: 20,
     }];
-    const result = ensureStoreOutputFamily(source, "hero", "apple", "ipad", {
+    const result = ensureStoreOutputFamily(source, "default", "hero", "apple", "ipad", {
       id: "13", width: 2064, height: 2752,
     });
 
     expect(result.created).toBe(true);
-    expect(source.platforms).toEqual(["apple"]);
-    expect(source.screens).toHaveLength(2);
-    expect(result.project.platforms).toEqual(["apple"]);
-    const ipadRoots = result.project.screens.filter((screen) =>
+    expect(source.layouts[0]!.screens).toHaveLength(2);
+    const ipadRoots = result.project.layouts[0]!.screens.filter((screen) =>
       screen.platform === "apple" && screen.device === "ipad",
     );
     expect(ipadRoots).toHaveLength(2);
@@ -310,9 +307,9 @@ describe("project-ops", () => {
       && !["hero", "details"].includes(screen.id)
     )).toBe(true);
     expect(ipadRoots[0]!.elements[0]!.id).not.toBe("shape");
-    expect(source.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(source.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
 
-    const again = ensureStoreOutputFamily(result.project, "hero", "apple", "ipad", {
+    const again = ensureStoreOutputFamily(result.project, "default", "hero", "apple", "ipad", {
       id: "13", width: 2064, height: 2752,
     });
     expect(again.created).toBe(false);
@@ -322,11 +319,11 @@ describe("project-ops", () => {
 
   it("creates new watchOS output families with 3.5x custom masters", () => {
     const source = sampleProject();
-    const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+    const result = ensureStoreOutputFamily(source, "default", "hero", "apple", "watchos", {
       id: "ultra-3", width: 422, height: 514,
     });
 
-    const watchRoots = result.project.screens.filter((screen) =>
+    const watchRoots = result.project.layouts[0]!.screens.filter((screen) =>
       screen.platform === "apple"
       && screen.device === "watchos"
       && screen.variantOf === undefined,
@@ -338,12 +335,12 @@ describe("project-ops", () => {
       && screen.artboard.width === 1477
       && screen.artboard.height === 1799
     )).toBe(true);
-    expect(source.screens.map((screen) => screen.artboard)).toEqual([
+    expect(source.layouts[0]!.screens.map((screen) => screen.artboard)).toEqual([
       { width: 1320, height: 2868 },
       { width: 1320, height: 2868 },
     ]);
 
-    const variant = ensureStoreTargetVariant(result.project, watchRoots[0]!.id, {
+    const variant = ensureStoreTargetVariant(result.project, "default", watchRoots[0]!.id, {
       id: "series-11", width: 416, height: 496,
     }).variant;
     expect(variant).toMatchObject({
@@ -354,23 +351,23 @@ describe("project-ops", () => {
   });
 
   it("reuses an existing target output set size for newly added variants", () => {
-    const family = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+    const family = ensureStoreOutputFamily(sampleProject(), "default", "hero", "apple", "watchos", {
       id: "ultra-3", width: 422, height: 514,
     });
-    const watchRoots = family.project.screens.filter((screen) =>
+    const watchRoots = family.project.layouts[0]!.screens.filter((screen) =>
       screen.platform === "apple"
       && screen.device === "watchos"
       && screen.variantOf === undefined
     );
-    const first = ensureStoreTargetVariant(family.project, watchRoots[0]!.id, {
+    const first = ensureStoreTargetVariant(family.project, "default", watchRoots[0]!.id, {
       id: "series-11", width: 416, height: 496,
     });
-    const resized = resizeStoreOutputArtboards(first.project, first.variant.id, {
+    const resized = resizeStoreOutputArtboards(first.project, "default", first.variant.id, {
       width: 832,
       height: 992,
     });
 
-    const second = ensureStoreTargetVariant(resized, watchRoots[1]!.id, {
+    const second = ensureStoreTargetVariant(resized, "default", watchRoots[1]!.id, {
       id: "series-11", width: 416, height: 496,
     });
 
@@ -378,7 +375,7 @@ describe("project-ops", () => {
   });
 
   it("derives watchOS masters from the supplied lead dimensions", () => {
-    const result = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+    const result = ensureStoreOutputFamily(sampleProject(), "default", "hero", "apple", "watchos", {
       id: "custom-watch-lead", width: 400, height: 500,
     });
 
@@ -388,28 +385,28 @@ describe("project-ops", () => {
   it("rejects watchOS lead dimensions that cannot produce an integer 3.5x master", () => {
     const source = sampleProject();
 
-    expect(() => ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+    expect(() => ensureStoreOutputFamily(source, "default", "hero", "apple", "watchos", {
       id: "fractional-watch-lead", width: 401, height: 501,
     })).toThrow(/derived artboard must use integer dimensions/);
-    expect(source.screens).toHaveLength(2);
+    expect(source.layouts[0]!.screens).toHaveLength(2);
   });
 
   it("rejects watchOS variant dimensions that cannot produce an integer 3.5x artboard", () => {
-    const family = ensureStoreOutputFamily(sampleProject(), "hero", "apple", "watchos", {
+    const family = ensureStoreOutputFamily(sampleProject(), "default", "hero", "apple", "watchos", {
       id: "ultra-3", width: 422, height: 514,
     });
     const before = family.project;
 
-    expect(() => ensureStoreTargetVariant(before, family.firstScreen.id, {
+    expect(() => ensureStoreTargetVariant(before, "default", family.firstScreen.id, {
       id: "fractional-watch-target", width: 401, height: 501,
     })).toThrow(/derived artboard must use integer dimensions/);
-    expect(before.screens).toHaveLength(4);
+    expect(before.layouts[0]!.screens).toHaveLength(4);
   });
 
   it("reopens an existing fixed watchOS family without resizing it", () => {
     const source = sampleProject();
-    source.screens.push({
-      ...structuredClone(source.screens[0]!),
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
       id: "existing-watch",
       platform: "apple",
       device: "watchos",
@@ -417,7 +414,7 @@ describe("project-ops", () => {
       elements: [],
     });
 
-    const result = ensureStoreOutputFamily(source, "hero", "apple", "watchos", {
+    const result = ensureStoreOutputFamily(source, "default", "hero", "apple", "watchos", {
       id: "ultra-3", width: 422, height: 514,
     });
 
@@ -428,24 +425,24 @@ describe("project-ops", () => {
   });
 
   it("removes one target variant and cascades variants when their root is removed", () => {
-    const first = ensureStoreTargetVariant(sampleProject(), "hero", {
+    const first = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
-    const withoutVariant = removeStoreTargetVariant(first, "hero", "6.5");
-    expect(withoutVariant.screens.map((screen) => screen.id)).toEqual(["hero", "details"]);
+    const withoutVariant = removeStoreTargetVariant(first, "default", "hero", "6.5");
+    expect(withoutVariant.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["hero", "details"]);
 
-    const recreated = ensureStoreTargetVariant(first, "details", {
+    const recreated = ensureStoreTargetVariant(first, "default", "details", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
-    expect(() => removeScreenFromProject(recreated, "details"))
+    expect(() => removeScreenFromProject(recreated, "default", "details"))
       .toThrow(/has 1 store target variant.*cascade/i);
-    const withoutRoot = removeScreenFromProject(recreated, "details", { cascadeVariants: true });
-    expect(withoutRoot.screens).toHaveLength(2);
-    expect(withoutRoot.screens.every((screen) => screen.id === "hero" || screen.variantOf === "hero")).toBe(true);
+    const withoutRoot = removeScreenFromProject(recreated, "default", "details", { cascadeVariants: true });
+    expect(withoutRoot.layouts[0]!.screens).toHaveLength(2);
+    expect(withoutRoot.layouts[0]!.screens.every((screen) => screen.id === "hero" || screen.variantOf === "hero")).toBe(true);
   });
 
   it("refuses to remove the last root screen for one locale", () => {
-    const withUkrainian = addScreenToProject(sampleProject(), {
+    const withUkrainian = addScreenToProject(sampleProject(), "default", {
       id: "uk-root",
       platform: "apple",
       device: "iphone",
@@ -453,14 +450,14 @@ describe("project-ops", () => {
       artboard: { width: 1320, height: 2868 },
     });
 
-    expect(() => removeScreenFromProject(withUkrainian, "uk-root"))
+    expect(() => removeScreenFromProject(withUkrainian, "default", "uk-root"))
       .toThrow('Cannot remove the last root screen for locale "uk"');
-    expect(removeScreenFromProject(withUkrainian, "details").screens.map((screen) => screen.id))
+    expect(removeScreenFromProject(withUkrainian, "default", "details").layouts[0]!.screens.map((screen) => screen.id))
       .toContain("uk-root");
   });
 
   it("addScreenToProject preserves an explicit RTL direction", () => {
-    const project = addScreenToProject(sampleProject(), {
+    const project = addScreenToProject(sampleProject(), "default", {
       name: "Arabic Hero",
       platform: "apple",
       device: "iphone",
@@ -469,19 +466,19 @@ describe("project-ops", () => {
       artboard: { width: 1320, height: 2868 },
     });
 
-    expect(project.screens.at(-1)).toMatchObject({ locale: "ar", direction: "rtl" });
+    expect(project.layouts[0]!.screens.at(-1)).toMatchObject({ locale: "ar", direction: "rtl" });
   });
 
   it("addScreenToProject inherits an existing locale direction and defaults a new locale to ltr", () => {
-    const rtl = setLocaleDirection(sampleProject(), "en", "rtl");
-    const sameLocale = addScreenToProject(rtl, {
+    const rtl = setLocaleDirection(sampleProject(), "default", "en", "rtl");
+    const sameLocale = addScreenToProject(rtl, "default", {
       name: "More",
       platform: "apple",
       device: "iphone",
       locale: "en",
       artboard: { width: 1320, height: 2868 },
     });
-    const newLocale = addScreenToProject(sameLocale, {
+    const newLocale = addScreenToProject(sameLocale, "default", {
       name: "Ukrainian",
       platform: "apple",
       device: "iphone",
@@ -489,44 +486,32 @@ describe("project-ops", () => {
       artboard: { width: 1320, height: 2868 },
     });
 
-    expect(sameLocale.screens.at(-1)!.direction).toBe("rtl");
-    expect(newLocale.screens.at(-1)!.direction).toBe("ltr");
+    expect(sameLocale.layouts[0]!.screens.at(-1)!.direction).toBe("rtl");
+    expect(newLocale.layouts[0]!.screens.at(-1)!.direction).toBe("ltr");
   });
 
-  it("removeScreenFromProject refuses the last screen and recomputes platforms", () => {
-    const withAndroid = addScreenToProject(sampleProject(), {
+  it("removeScreenFromProject refuses the last root screen", () => {
+    const withAndroid = addScreenToProject(sampleProject(), "default", {
       name: "Android",
       platform: "android",
       device: "phone",
       locale: "en",
       artboard: { width: 1080, height: 1920 },
     });
-    expect(withAndroid.platforms).toEqual(["apple", "android"]);
-    const androidId = withAndroid.screens.at(-1)!.id;
-    const withoutAndroid = removeScreenFromProject(withAndroid, androidId);
-    expect(withoutAndroid.platforms).toEqual(["apple"]);
-    expect(() => removeScreenFromProject(withoutAndroid, "details")).not.toThrow();
-    const oneLeft = removeScreenFromProject(withoutAndroid, "details");
-    expect(() => removeScreenFromProject(oneLeft, "hero")).toThrow(/last root screen.*en/);
+    const androidId = withAndroid.layouts[0]!.screens.at(-1)!.id;
+    const withoutAndroid = removeScreenFromProject(withAndroid, "default", androidId);
+    expect(() => removeScreenFromProject(withoutAndroid, "default", "details")).not.toThrow();
+    const oneLeft = removeScreenFromProject(withoutAndroid, "default", "details");
+    expect(() => removeScreenFromProject(oneLeft, "default", "hero")).toThrow(/last root screen.*en/);
   });
 
   it("reorderScreenInProject uses 1-based positions", () => {
-    const project = reorderScreenInProject(sampleProject(), "details", 1);
-    expect(project.screens.map((s) => s.id)).toEqual(["details", "hero"]);
-  });
-
-  it("recomputeManifests derives platforms/locales from screens", () => {
-    const project = recomputeManifests({
-      ...sampleProject(),
-      platforms: ["android"],
-      locales: ["de"],
-    });
-    expect(project.platforms).toEqual(["apple"]);
-    expect(project.locales).toEqual(["en"]);
+    const project = reorderScreenInProject(sampleProject(), "default", "details", 1);
+    expect(project.layouts[0]!.screens.map((s) => s.id)).toEqual(["details", "hero"]);
   });
 
   it("cloneScreenWithFreshIds regenerates screen and element ids", () => {
-    const src = sampleProject().screens[0]!;
+    const src = sampleProject().layouts[0]!.screens[0]!;
     src.elements = [
       {
         id: "headline",
@@ -557,7 +542,7 @@ describe("project-ops", () => {
 
   it("clones group and child ids and resolves grouped fonts", () => {
     const source = sampleProject();
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "group", type: "group", x: 10, y: 20, width: 200, height: 100,
       rotation: 0, opacity: 1, locked: false, visible: true,
       children: [{
@@ -569,7 +554,7 @@ describe("project-ops", () => {
     }];
 
     expect(findUnresolvedFonts(source)).toEqual([{ family: "Missing", weight: 700 }]);
-    const copy = cloneScreenWithFreshIds(source.screens[0]!);
+    const copy = cloneScreenWithFreshIds(source.layouts[0]!.screens[0]!);
     const copiedGroup = copy.elements[0]!;
     expect(copiedGroup.id).not.toBe("group");
     expect(copiedGroup.type === "group" && copiedGroup.children[0]!.id).not.toBe("child");
@@ -577,7 +562,7 @@ describe("project-ops", () => {
 
   it("cloneLocaleSet appends an independent target set in source order", () => {
     let source = sampleProject();
-    source.screens[0]!.elements = [
+    source.layouts[0]!.screens[0]!.elements = [
       {
         id: "hero-shot",
         type: "screenshot",
@@ -595,16 +580,17 @@ describe("project-ops", () => {
       },
     ];
 
-    source = ensureStoreTargetVariant(source, "hero", {
+    source = ensureStoreTargetVariant(source, "default", "hero", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
-    const result = cloneLocaleSet(source, "en", "ar");
-    const targets = result.screens.filter((screen) => screen.locale === "ar");
+    const result = cloneLocaleSet(source, "default", "en", "ar");
+    const targets = result.layouts[0]!.screens.filter((screen) => screen.locale === "ar");
     const clonedRoot = targets.find((screen) => screen.storeTargetId === undefined)!;
     const clonedVariant = targets.find((screen) => screen.storeTargetId === "6.5")!;
 
-    expect(result.locales).toEqual(["en", "ar"]);
-    expect(result.screens.slice(-3)).toEqual(targets);
+    expect(Array.from(new Set(result.layouts[0]!.screens.map((screen) => screen.locale))))
+      .toEqual(["en", "ar"]);
+    expect(result.layouts[0]!.screens.slice(-3)).toEqual(targets);
     expect(targets.map((screen) => screen.name)).toEqual(["Hero", "Details", "Hero"]);
     expect(targets.map((screen) => screen.id)).not.toEqual(["hero", "details", "hero-65"]);
     expect(clonedVariant.variantOf).toBe(clonedRoot.id);
@@ -615,31 +601,33 @@ describe("project-ops", () => {
       x: 10,
       y: 20,
     });
-    expect(source.locales).toEqual(["en"]);
-    expect(source.screens).toHaveLength(3);
+    expect(Array.from(new Set(source.layouts[0]!.screens.map((screen) => screen.locale))))
+      .toEqual(["en"]);
+    expect(source.layouts[0]!.screens).toHaveLength(3);
   });
 
   it("cloneLocaleSet rejects invalid source and target locales", () => {
     const project = sampleProject();
 
-    expect(() => cloneLocaleSet(project, "missing", "uk")).toThrow(/Unknown source locale/);
-    expect(() => cloneLocaleSet(project, "en", "en")).toThrow(/already exists/);
-    expect(() => cloneLocaleSet(project, "en", "   ")).toThrow(/must not be empty/);
+    expect(() => cloneLocaleSet(project, "default", "missing", "uk")).toThrow(/Unknown source locale/);
+    expect(() => cloneLocaleSet(project, "default", "en", "en")).toThrow(/already exists/);
+    expect(() => cloneLocaleSet(project, "default", "en", "   ")).toThrow(/must not be empty/);
   });
 
   it("removeLocaleSet removes the whole set and protects the last locale", () => {
-    const project = cloneLocaleSet(sampleProject(), "en", "uk");
-    const result = removeLocaleSet(project, "en");
+    const project = cloneLocaleSet(sampleProject(), "default", "en", "uk");
+    const result = removeLocaleSet(project, "default", "en");
 
-    expect(result.locales).toEqual(["uk"]);
-    expect(result.screens.map((screen) => screen.locale)).toEqual(["uk", "uk"]);
-    expect(() => removeLocaleSet(result, "missing")).toThrow(/Unknown locale/);
-    expect(() => removeLocaleSet(result, "uk")).toThrow(/last locale/);
+    expect(Array.from(new Set(result.layouts[0]!.screens.map((screen) => screen.locale))))
+      .toEqual(["uk"]);
+    expect(result.layouts[0]!.screens.map((screen) => screen.locale)).toEqual(["uk", "uk"]);
+    expect(() => removeLocaleSet(result, "default", "missing")).toThrow(/Unknown locale/);
+    expect(() => removeLocaleSet(result, "default", "uk")).toThrow(/last locale/);
   });
 
   it("setLocaleDirection mirrors placement once and is reversible", () => {
     const source = sampleProject();
-    source.screens[0]!.elements = [
+    source.layouts[0]!.screens[0]!.elements = [
       {
         id: "shot",
         type: "screenshot",
@@ -677,10 +665,10 @@ describe("project-ops", () => {
       },
     ];
 
-    const rtl = setLocaleDirection(source, "en", "rtl");
-    const [shot, headline] = rtl.screens[0]!.elements;
+    const rtl = setLocaleDirection(source, "default", "en", "rtl");
+    const [shot, headline] = rtl.layouts[0]!.screens[0]!.elements;
 
-    expect(rtl.screens.every((screen) => screen.direction === "rtl")).toBe(true);
+    expect(rtl.layouts[0]!.screens.every((screen) => screen.direction === "rtl")).toBe(true);
     expect(shot).toMatchObject({
       type: "screenshot",
       x: 620,
@@ -690,14 +678,14 @@ describe("project-ops", () => {
       assetUrl: "assets/hero.png",
     });
     expect(headline).toMatchObject({ type: "text", x: 440, align: "right", content: "Hello" });
-    expect(setLocaleDirection(rtl, "en", "rtl")).toEqual(rtl);
-    expect(setLocaleDirection(rtl, "en", "ltr")).toEqual(source);
-    expect(() => setLocaleDirection(source, "missing", "rtl")).toThrow(/Unknown locale/);
+    expect(setLocaleDirection(rtl, "default", "en", "rtl")).toEqual(rtl);
+    expect(setLocaleDirection(rtl, "default", "en", "ltr")).toEqual(source);
+    expect(() => setLocaleDirection(source, "default", "missing", "rtl")).toThrow(/Unknown locale/);
   });
 
   it("setLocaleDirection mirrors grouped children without reflecting media state", () => {
     const source = sampleProject();
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "group", type: "group", x: 100, y: 20, width: 300, height: 200,
       rotation: 0, opacity: 1, locked: false, visible: true,
       children: [
@@ -715,18 +703,18 @@ describe("project-ops", () => {
       ],
     }];
 
-    const rtl = setLocaleDirection(source, "en", "rtl");
-    const grouped = rtl.screens[0]!.elements[0]!;
+    const rtl = setLocaleDirection(source, "default", "en", "rtl");
+    const grouped = rtl.layouts[0]!.screens[0]!.elements[0]!;
     expect(grouped).toMatchObject({ x: 920 });
     if (grouped.type !== "group") throw new Error("expected group");
     expect(grouped.children[0]).toMatchObject({ x: 180, align: "right" });
     expect(grouped.children[1]).toMatchObject({ x: 40, assetUrl: "assets/shot.png", fit: "contain" });
-    expect(setLocaleDirection(rtl, "en", "ltr")).toEqual(source);
+    expect(setLocaleDirection(rtl, "default", "en", "ltr")).toEqual(source);
   });
 
   it("cloneLocaleSet can bake a target direction while preserving the source", () => {
     const source = sampleProject();
-    source.screens[0]!.elements = [{
+    source.layouts[0]!.screens[0]!.elements = [{
       id: "title",
       type: "text",
       x: 100,
@@ -747,17 +735,17 @@ describe("project-ops", () => {
       color: "#FFFFFF",
     }];
 
-    const project = cloneLocaleSet(source, "en", "ar", "rtl");
-    const target = project.screens.find((screen) => screen.locale === "ar")!;
+    const project = cloneLocaleSet(source, "default", "en", "ar", "rtl");
+    const target = project.layouts[0]!.screens.find((screen) => screen.locale === "ar")!;
 
     expect(target.direction).toBe("rtl");
     expect(target.elements[0]).toMatchObject({ x: 720, align: "right" });
-    expect(source.screens[0]!.elements[0]).toMatchObject({ x: 100, align: "left" });
+    expect(source.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ x: 100, align: "left" });
   });
 
   it("finds each text font identity absent from project assets once", () => {
     const project = sampleProject();
-    project.screens[0]!.elements = [
+    project.layouts[0]!.screens[0]!.elements = [
       {
         id: "title", type: "text", x: 0, y: 0, width: 100, height: 100,
         content: "Title", fontFamily: "Inter", weight: 700, size: 24, color: "#FFFFFF",

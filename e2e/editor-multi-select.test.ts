@@ -3,8 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser } from "playwright";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 let server: RunningServer;
 let browser: Browser;
@@ -21,25 +24,26 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Multi select", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
-      {
-        id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
-        artboard: { width: 300, height: 300 }, background: { type: "solid", color: "#FFFFFF" },
-        elements: [shape("same", "Red", 40, "#FF0000"), shape("green", "Green", 120, "#00FF00")],
-      },
-      {
-        id: "second", name: "Second", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
-        artboard: { width: 300, height: 300 }, background: { type: "solid", color: "#F8FAFC" },
-        elements: [shape("same", "Blue duplicate", 40, "#0000FF", true)],
-      },
-    ],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "connected",
+      screens: [
+        {
+          id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
+          artboard: { width: 300, height: 300 }, background: { type: "solid", color: "#FFFFFF" },
+          elements: [shape("same", "Red", 40, "#FF0000"), shape("green", "Green", 120, "#00FF00")],
+        },
+        {
+          id: "second", name: "Second", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
+          artboard: { width: 300, height: 300 }, background: { type: "solid", color: "#F8FAFC" },
+          elements: [shape("same", "Blue duplicate", 40, "#0000FF", true)],
+        },
+      ],
+    }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -52,15 +56,15 @@ afterAll(async () => {
 
 function project() {
   return JSON.parse(readFileSync(projectPath, "utf8")) as {
-    screens: Array<{
-      id: string;
-      elements: Array<{ id: string; x: number; y: number; locked: boolean; visible: boolean }>;
-    }>;
+    layouts: Array<{ screens: Array<{
+        id: string;
+        elements: Array<{ id: string; x: number; y: number; locked: boolean; visible: boolean }>;
+      }> }>;
   };
 }
 
 function element(screenId: string, elementId: string) {
-  return project().screens.find((screen) => screen.id === screenId)!.elements
+  return project().layouts[0].screens.find((screen) => screen.id === screenId)!.elements
     .find((candidate) => candidate.id === elementId)!;
 }
 
@@ -118,12 +122,12 @@ describe("Phase 7 multi-select foundation", () => {
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("3");
 
     await page.getByRole("button", { name: "Lock", exact: true }).click();
-    await expect.poll(() => project().screens.every(
+    await expect.poll(() => project().layouts[0].screens.every(
       (screen) => screen.elements.every((candidate) => candidate.locked),
     )).toBe(true);
 
     await page.getByRole("button", { name: "Hide", exact: true }).click();
-    await expect.poll(() => project().screens.every(
+    await expect.poll(() => project().layouts[0].screens.every(
       (screen) => screen.elements.every((candidate) => !candidate.visible),
     )).toBe(true);
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("0");
@@ -143,8 +147,8 @@ describe("Phase 7 multi-select foundation", () => {
     await greenLayer.click({ modifiers: ["Shift"] });
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press("Delete");
-    await expect.poll(() => project().screens.find((screen) => screen.id === "first")!.elements.length).toBe(0);
-    expect(project().screens.find((screen) => screen.id === "second")!.elements).toHaveLength(1);
+    await expect.poll(() => project().layouts[0].screens.find((screen) => screen.id === "first")!.elements.length).toBe(0);
+    expect(project().layouts[0].screens.find((screen) => screen.id === "second")!.elements).toHaveLength(1);
 
     await page.close();
   });

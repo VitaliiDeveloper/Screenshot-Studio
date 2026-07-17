@@ -38,20 +38,34 @@ async function projectFixture(): Promise<{ root: string; path: string; bytes: st
   const path = join(root, "app-store-screenshots.json");
   const bytes = `${JSON.stringify({
     meta: { name: "Export", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [{
-      id: "hero",
-      name: "Hero",
-      platform: "apple",
-      device: "iphone",
-      locale: "en",
-      direction: "ltr",
-      artboard: { width: 660, height: 1434 },
-      background: { type: "solid", color: "#111111" },
-      elements: [],
+    preferredExportLayoutId: "launch",
+    layouts: [{
+      id: "launch", name: "Launch", mode: "isolated",
+      screens: [{
+        id: "hero",
+        name: "Hero",
+        platform: "apple",
+        device: "iphone",
+        locale: "en",
+        direction: "ltr",
+        artboard: { width: 660, height: 1434 },
+        background: { type: "solid", color: "#111111" },
+        elements: [],
+      }],
+    }, {
+      id: "feature", name: "Feature", mode: "connected",
+      screens: [{
+        id: "hero",
+        name: "Feature Hero",
+        platform: "android",
+        device: "phone",
+        locale: "uk",
+        direction: "ltr",
+        artboard: { width: 1080, height: 1920 },
+        background: { type: "solid", color: "#222222" },
+        elements: [],
+      }],
     }],
   })}\n`;
   await writeFile(path, bytes, "utf8");
@@ -98,8 +112,26 @@ describe("runExportCommand stable single export", () => {
     expect(files).toHaveLength(1);
     expect(await readFile(join(outDir, files[0]!))).toEqual(Buffer.from("rendered png"));
     expect(render.mock.calls[0]![0].projectRevision).toMatch(/^[a-f0-9]{64}$/);
+    expect(render.mock.calls[0]![0].layoutId).toBe("launch");
     expect(runtime.stop).toHaveBeenCalledOnce();
     expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported .* \(\d+x\d+\)$/));
+  });
+
+  it("resolves an explicit layout name before selecting a same-id screen", async () => {
+    const fixture = await projectFixture();
+    const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(
+      async () => Buffer.from("feature png"),
+    );
+    const runtime = commandDependencies(render);
+
+    await runExportCommand({
+      project: fixture.path,
+      layout: "Feature",
+      screen: "hero",
+      out: join(fixture.root, "feature-output"),
+    }, storeSpecsPath, runtime.dependencies);
+
+    expect(render.mock.calls[0]![0]).toMatchObject({ layoutId: "feature", screenId: "hero" });
   });
 
   it("does not publish when the project changes during render", async () => {

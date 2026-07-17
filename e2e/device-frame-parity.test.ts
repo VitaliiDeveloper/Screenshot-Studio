@@ -32,7 +32,7 @@ const MAX_MISMATCH_FRACTION = 0.001;
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  harness = await startParityRenderHarness(() => startWebServer());
+  harness = await startParityRenderHarness(() => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }));
 }, 180_000);
 
 afterAll(async () => {
@@ -51,10 +51,10 @@ function mismatch(a: Buffer, b: Buffer): number {
 describe("device-frame parity", () => {
   it("headed and headless match, and the framed image is present (red at slot centre)", async () => {
     const headed = stripAlpha(await harness.headed.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio, timeoutMs: 60_000,
+      baseUrl: harness.server.url, projectPath: fixturePath, layoutId: "default", screenId, pixelRatio, timeoutMs: 60_000,
     }));
     const headless = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio,
+      baseUrl: harness.server.url, projectPath: fixturePath, layoutId: "default", screenId, pixelRatio,
     }));
 
     const px = PNG.sync.read(headless);
@@ -75,7 +75,7 @@ describe("device-frame parity", () => {
 
   it("proves the framed image is live: render differs from a missing-asset placeholder", async () => {
     const project = JSON.parse(readFileSync(fixturePath, "utf8"));
-    project.screens[0].elements[0].assetUrl = "assets/does-not-exist.png";
+    project.layouts[0].screens[0].elements[0].assetUrl = "assets/does-not-exist.png";
     const temporaryRoot = mkdtempSync(resolve(tmpdir(), "device-frame-parity-missing-"));
     const temporaryProject = resolve(temporaryRoot, "app-store-screenshots.json");
     try {
@@ -83,10 +83,10 @@ describe("device-frame parity", () => {
       writeFileSync(temporaryProject, JSON.stringify(project));
 
       const present = stripAlpha(await harness.headless.renderScreenToPng({
-        baseUrl: harness.server.url, projectPath: fixturePath, screenId, pixelRatio,
+        baseUrl: harness.server.url, projectPath: fixturePath, layoutId: "default", screenId, pixelRatio,
       }));
       const placeholder = stripAlpha(await harness.headless.renderScreenToPng({
-        baseUrl: harness.server.url, projectPath: temporaryProject, screenId, pixelRatio,
+        baseUrl: harness.server.url, projectPath: temporaryProject, layoutId: "default", screenId, pixelRatio,
       }));
       expect(mismatch(present, placeholder)).toBeGreaterThan(2000);
     } finally {

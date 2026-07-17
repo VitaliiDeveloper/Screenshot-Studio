@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useStore } from "zustand";
 import { Palette } from "lucide-react";
 import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
 import type { Theme } from "@screenshot-studio/core/themes";
@@ -16,11 +17,11 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
   return body as Record<string, unknown>;
 }
 
-async function applyTheme(id: string): Promise<Project> {
+async function applyTheme(id: string, layoutId: string): Promise<Project> {
   const response = await fetch("/api/themes", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id }),
+    body: JSON.stringify({ id, layoutId }),
   });
   const project = parseProject(await responseBody(response));
   advanceProjectRevisionFromResponse(response);
@@ -28,6 +29,7 @@ async function applyTheme(id: string): Promise<Project> {
 }
 
 export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
+  const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
@@ -52,11 +54,12 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
     onClose();
   };
   const apply = async (id: string) => {
+    if (!activeLayoutId) return;
     setApplying(id);
     setError(null);
     try {
       await withFlushedProject(async () => {
-        editorStore.getState().replaceProject(await applyTheme(id));
+        editorStore.getState().replaceProject(await applyTheme(id, activeLayoutId));
       });
     } catch (applyError) {
       setError((applyError as Error).message);

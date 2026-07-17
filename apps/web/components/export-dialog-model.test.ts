@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { launchExportArtifactDownload } from "./export-dialog-model.js";
+import { parseProject } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_EXPORT_FILTERS,
+  launchExportArtifactDownload,
+  normalizeExportFilters,
+} from "./export-dialog-model.js";
 
 const token = "a".repeat(43);
 
@@ -86,5 +92,66 @@ describe("export dialog artifact download", () => {
       expiresAt: "2026-07-15T00:05:00.000Z",
     }, value)).toThrow("click failed");
     expect(anchor.remove).toHaveBeenCalledOnce();
+  });
+});
+
+describe("export dialog layout filters", () => {
+  const layout = parseProject({
+    meta: { name: "Android only", schemaVersion: 1 },
+    fonts: [],
+    preferredExportLayoutId: "android",
+    layouts: [{
+      id: "android",
+      name: "Android",
+      mode: "isolated",
+      screens: [{
+        id: "hero",
+        name: "Hero",
+        platform: "android",
+        device: "phone",
+        locale: "uk",
+        direction: "ltr",
+        artboard: { width: 1080, height: 1920 },
+        background: { type: "solid", color: "#101827" },
+        elements: [],
+      }],
+    }],
+  }).layouts[0]!;
+
+  it("drops stale filters that do not exist in the active layout", () => {
+    expect(normalizeExportFilters(layout, {
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+    })).toEqual(DEFAULT_EXPORT_FILTERS);
+  });
+
+  it("drops a locale that exists in the layout but not for the selected platform and device", () => {
+    const mixed = parseProject({
+      meta: { name: "Mixed", schemaVersion: 1 },
+      fonts: [],
+      preferredExportLayoutId: "mixed",
+      layouts: [{
+        id: "mixed",
+        name: "Mixed",
+        mode: "isolated",
+        screens: [
+          layout.screens[0],
+          { ...layout.screens[0], id: "iphone", platform: "apple", device: "iphone", locale: "en" },
+        ],
+      }],
+    }).layouts[0]!;
+
+    expect(normalizeExportFilters(mixed, {
+      platform: "android",
+      device: "phone",
+      locale: "en",
+    })).toEqual({ platform: "android", device: "phone", locale: "all" });
+  });
+
+  it("remounts filter and result state whenever the active layout changes", () => {
+    const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain('key={activeLayout?.id ?? "no-layout"}');
   });
 });

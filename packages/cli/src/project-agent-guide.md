@@ -20,19 +20,19 @@ plain `screenshots` spelling above.
 
 - `app-store-screenshots.json` is the only persisted project state. It is strict v1 JSON; unknown
   keys fail validation.
-- Use CLI commands for structural changes to screens, locales, fonts, themes, and imports. Directly
+- Use CLI commands for structural changes to layouts, screens, locales, fonts, themes, and imports. Directly
   edit JSON only for literals the CLI does not manage, such as text content and element geometry.
-- Preserve screen and element ids unless intentionally creating a new object. Array order is screen
-  order at the project level and z-order inside `elements`.
+- Preserve layout, screen, and element ids unless intentionally creating a new object. Layout ids
+  are immutable. Array order is layout order, layout-local screen order, and z-order inside `elements`.
 - Asset and font paths are project-relative. Do not embed remote URLs, machine-only absolute paths,
   or system-font fallbacks.
 - Every text `(fontFamily, weight)` must match a registered file in `fonts`. Add the font before
   assigning that identity.
 - Layout is literal. There is no responsive constraint engine: write final `x`, `y`, `width`, and
   `height` values for each artboard.
-- Inspect mode with `screenshots canvas mode`. Change it only explicitly with
-  `screenshots canvas mode isolated|connected`; switching to isolated refuses while rendered
-  elements cross their owner artboards.
+- Choose layout mode explicitly with `screenshots layout add "Name" --mode isolated|connected`.
+  Change an existing layout without rewriting its content with
+  `screenshots layout mode "Name" --mode isolated|connected`.
 - RTL is explicit and baked. Never reflect screenshot or device media pixels.
 - Do not add prompt history, translation-pair ids, nested groups, clipping/scale state, new element
   types, or any other field outside the enforced schema.
@@ -43,16 +43,16 @@ plain `screenshots` spelling above.
 ```text
 Project
 ├── meta: { name, appIcon?, schemaVersion: 1 }
-├── mode: isolated | connected
-├── platforms: ["apple" | "android" | "windows", …]  # set-equal to screens
-├── locales: ["en", …]                   # duplicate-free, set-equal to screens
 ├── fonts: FontAsset[]                    # file-backed project fonts
-└── screens: Screen[]
-    ├── id, name, platform, device, locale, direction
-    ├── variantOf?, storeTargetId?          # paired only on explicit target variants
-    ├── artboard: { width, height }
-    ├── background: solid | linear-gradient | project image
-    └── elements: Element[]               # array order is z-order
+├── preferredExportLayoutId: string
+└── layouts: DesignLayout[]
+    ├── id, name, mode: isolated | connected
+    └── screens: Screen[]
+        ├── id, name, platform, device, locale, direction
+        ├── variantOf?, storeTargetId?      # paired only on explicit target variants
+        ├── artboard: { width, height }
+        ├── background: solid | linear-gradient | project image
+        └── elements: Element[]             # array order is z-order
 ```
 
 Leaf element types are `text`, `shape`, `screenshot`, decorative `image`, trusted built-in `icon`,
@@ -79,13 +79,23 @@ an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover |
 an RGB or alpha-bearing RGBA fallback/letterbox `color`. Keep background assets inside the project and use the same
 shared render/export path as every element.
 
-`mode` is project-wide. `isolated` clips every screen independently. In `connected`, each exact
-platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in project order;
+Each layout is independent and has one persisted mode. Screen ids, locale sets, variants, and
+elements are layout-local; fonts and asset paths are shared. Trimmed layout names are
+case-insensitively unique. `preferredExportLayoutId` is the CLI export default, not editor state.
+Use `screenshots layout list` to inspect ids/names/modes. Layout-aware mutations infer the layout
+only when exactly one exists; in multi-layout projects pass `--layout <id-or-full-name>`.
+
+`isolated` clips every screen independently. In `connected`, each exact
+platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order;
 root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
 must not be mistaken for duplicate roots. Elements stay owned by one screen with owner-local coordinates,
 and export crops the requested artboard through the
 shared renderer. Connected Overview authors the complete exact group; Focus previews one exact crop.
 Selecting a cross-screen element resolves to its owner screen, and transforms stay owner-local.
+
+The recipes below omit `--layout` only for a one-layout project. In a multi-layout project, first
+run `screenshots layout list`, choose the intended id or full name, and add
+`--layout <id-or-full-name>` to every screen, locale, theme, template, import, and export command.
 
 ## Recipe: generate or refresh copy
 
@@ -177,7 +187,7 @@ screenshots asset remove-background assets/icons/product.png --background FFFFFF
 ## Completion checklist
 
 - The CLI can list the project without a validation error.
-- Copy and media changes are limited to the intended locale/screens.
+- Copy and media changes are limited to the intended layout, locale, and screens.
 - Every text font identity is registered and contains the required glyphs.
 - Focus and Overview show no accidental overlap, clipping, or broken hierarchy.
 - A targeted export succeeds with exact dimensions and store-ready opaque PNG output.

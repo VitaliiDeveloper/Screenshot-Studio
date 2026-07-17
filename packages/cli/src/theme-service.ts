@@ -9,6 +9,7 @@ import {
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
 import { updateProjectFile } from "./project-io.js";
+import { resolveMutationLayout } from "./layout-commands.js";
 
 const THEME_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -391,6 +392,7 @@ export async function applyThemeFile(
   projectPath: string,
   rawId: unknown,
   lockOptions: ProjectLockOptions = {},
+  layoutReference?: string,
 ): Promise<{
   project: Project;
   revision: string;
@@ -401,7 +403,8 @@ export async function applyThemeFile(
   const theme = await loadCanonicalTheme(canonicalPath, id);
   const updated = await updateProjectFile(canonicalPath, (current) => {
     try {
-      return { project: applyTheme(current, theme), value: undefined };
+      const layout = resolveMutationLayout(current, layoutReference);
+      return { project: applyTheme(current, layout.id, theme), value: undefined };
     } catch (error) {
       throw new ThemeApplyError((error as Error).message, { cause: error });
     }

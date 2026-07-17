@@ -11,8 +11,12 @@ export function resolveThemeAction(args: string[]): ThemeAction {
   return { kind: "set", id: themeId(id) };
 }
 
-export async function runThemeCommand(projectPath: string, args: string[]): Promise<string> {
+export async function runThemeCommand(
+  projectPath: string,
+  args: string[],
+  flags: Record<string, string> = {},
+): Promise<string> {
   const action = resolveThemeAction(args);
-  const { theme } = await applyThemeFile(projectPath, action.id);
+  const { theme } = await applyThemeFile(projectPath, action.id, {}, flags.layout);
   return `Applied theme "${theme.name}" (${theme.id})`;
 }

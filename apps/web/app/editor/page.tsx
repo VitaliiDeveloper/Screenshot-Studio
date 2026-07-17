@@ -21,6 +21,7 @@ import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
 import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
 import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
 import { AssetPickerDialog } from "../../components/AssetPickerDialog";
+import { EditorSidePanel } from "../../components/editor-shell/EditorSidePanel";
 import { flushScheduledSave } from "../../lib/debounced-save";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
 import { useEditorResources } from "./editor-resources";
@@ -49,13 +50,18 @@ export default function EditorPage() {
   const [view, setView] = useState<WorkspaceView>("overview");
   const [tool, setTool] = useState<WorkspaceTool>("select");
   const [pattern, setPattern] = useState<CanvasPattern>("dots");
-  const [panel, setPanel] = useState<WorkspacePanel | null>("structure");
+  const [panel, setPanelState] = useState<WorkspacePanel | null>("structure");
+  const [lastPanel, setLastPanel] = useState<WorkspacePanel>("structure");
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [dialog, setDialog] = useState<ResourceDialog | null>(null);
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
+  const setPanel = useCallback((next: WorkspacePanel | null) => {
+    setPanelState(next);
+    if (next) setLastPanel(next);
+  }, []);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
@@ -113,7 +119,7 @@ export default function EditorPage() {
       compactQuery.removeEventListener("change", sync);
       phoneQuery.removeEventListener("change", sync);
     };
-  }, []);
+  }, [setPanel]);
 
   useEffect(() => {
     const onPageHide = () => { void flushScheduledSave().catch(() => undefined); };
@@ -176,15 +182,15 @@ export default function EditorPage() {
             setPanel(opening ? next : null);
           }}
         />
-        {panel ? (
+        <EditorSidePanel side="left" open={panel !== null}>
           <LeftPanel
-            panel={panel}
+            panel={panel ?? lastPanel}
             images={images}
             onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
           />
-        ) : null}
+        </EditorSidePanel>
         <div className="flex min-w-0 flex-1">
           <DynamicCanvasViewport
             images={images}
@@ -200,15 +206,14 @@ export default function EditorPage() {
             controlsHidden={layout.phone && Boolean(panel || inspectorOpen)}
           />
         </div>
-        {inspectorOpen ? (
-          <div className="absolute inset-y-0 right-0 z-30 shrink-0 xl:static">
-            <Inspector
-              specs={specs}
-              onOpenBackgroundAsset={() => setDialog("background-assets")}
-              onClose={() => setInspectorOpen(false)}
-            />
-          </div>
-        ) : null}
+        <EditorSidePanel side="right" open={inspectorOpen}>
+          <Inspector
+            specs={specs}
+            onOpenBackgroundAsset={() => setDialog("background-assets")}
+            onClose={() => setInspectorOpen(false)}
+            className="!w-full"
+          />
+        </EditorSidePanel>
       </div>
       {saveStatus === "error" && saveError ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">

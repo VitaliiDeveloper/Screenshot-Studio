@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
+import { getLayout } from "@screenshot-studio/core/model";
 import {
   ProjectPathError,
   readIdentifiedProjectSnapshot,
@@ -22,9 +23,9 @@ export const dynamic = "force-dynamic";
 export default async function RenderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; screen?: string; revision?: string }>;
+  searchParams: Promise<{ project?: string; layout?: string; screen?: string; revision?: string }>;
 }) {
-  const { project: projectPath, screen: screenId, revision } = await searchParams;
+  const { project: projectPath, layout: requestedLayoutId, screen: screenId, revision } = await searchParams;
   if (!projectPath) {
     return <main data-render-error="missing-project">Missing ?project= path</main>;
   }
@@ -53,10 +54,18 @@ export default async function RenderPage({
   }
 
   const project = snapshot.project;
-  const targetScreen = screenId ?? project.screens[0]!.id;
+  const layoutId = requestedLayoutId ?? project.preferredExportLayoutId;
+  let layout;
+  try {
+    layout = getLayout(project, layoutId);
+  } catch (error) {
+    return <main data-render-error="invalid-layout">{(error as Error).message}</main>;
+  }
+  const targetScreen = screenId ?? layout.screens[0]!.id;
   return (
     <RenderStage
       project={project}
+      layoutId={layout.id}
       screenId={targetScreen}
       projectPath={canonicalProjectPath}
     />

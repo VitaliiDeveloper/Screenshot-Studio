@@ -22,7 +22,10 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   await writeFile(projectPath, await readFile(sampleProject));
   await cp(join(sampleRoot, "assets"), join(directory, "assets"), { recursive: true });
-  server = await startWebServer(undefined, { projectPath });
+  server = await startWebServer(undefined, {
+    projectPath,
+    storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+  });
   browser = await chromium.launch();
 }, 180_000);
 

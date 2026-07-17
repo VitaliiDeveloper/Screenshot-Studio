@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseProjectJson, SCHEMA_VERSION, elementLeaves } from "../packages/core/src/model/index.js";
 import { inspectPng } from "../packages/core/src/export/index.js";
 import { exportScreenToPng, resolveTarget } from "../packages/cli/src/export.js";
+import { loadProjectSnapshot } from "../packages/cli/src/project-io.js";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
 import type { Element } from "../packages/core/src/model/index.js";
 
@@ -40,7 +41,7 @@ function collectElementTypes(elements: Element[]): Set<Element["type"]> {
 let server: RunningServer;
 
 beforeAll(async () => {
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
 }, 180_000);
 
 afterAll(async () => {
@@ -53,27 +54,29 @@ describe("Phase 9 living examples", () => {
       const source = await readFile(example.projectPath, "utf8");
       expect(JSON.parse(source).meta.schemaVersion).toBe(SCHEMA_VERSION);
       const project = parseProjectJson(source);
-      const elementTypes = collectElementTypes(project.screens.flatMap(({ elements }) => elements));
+      const elementTypes = collectElementTypes(project.layouts[0].screens.flatMap(({ elements }) => elements));
       expect([...example.elementTypes].every((type) => elementTypes.has(type))).toBe(true);
-      const leaves = project.screens.flatMap(({ elements }) => elements.flatMap(elementLeaves));
-      expect(project.screens.some(({ background }) => background.type === "linear-gradient")).toBe(true);
+      const leaves = project.layouts[0].screens.flatMap(({ elements }) => elements.flatMap(elementLeaves));
+      expect(project.layouts[0].screens.some(({ background }) => background.type === "linear-gradient")).toBe(true);
       expect(leaves.some((leaf) => leaf.type === "text" && leaf.shadow)).toBe(true);
       expect(leaves.some((leaf) => leaf.type === "shape" && leaf.kind === "ellipse" && leaf.gradient)).toBe(true);
       if (example.name === "connected launch") {
-        expect(project.screens.some(({ background }) => background.type === "image")).toBe(true);
+        expect(project.layouts[0].screens.some(({ background }) => background.type === "image")).toBe(true);
         expect(leaves.some((leaf) => (leaf.type === "image" || leaf.type === "screenshot") && leaf.crop)).toBe(true);
         expect(leaves.some((leaf) => leaf.type === "device-frame" && leaf.deviceType === "tablet")).toBe(true);
       }
       if (example.name === "RTL delivery") {
-        expect(project.mode).toBe("connected");
-        expect(project.screens.filter(({ locale }) => locale === "en")).toHaveLength(2);
-        expect(project.screens.filter(({ locale }) => locale === "ar")).toHaveLength(2);
+        expect(project.layouts[0]!.mode).toBe("connected");
+        expect(project.layouts[0].screens.filter(({ locale }) => locale === "en")).toHaveLength(2);
+        expect(project.layouts[0].screens.filter(({ locale }) => locale === "ar")).toHaveLength(2);
       }
-      const screen = project.screens.find(({ id }) => id === example.screenId)!;
+      const screen = project.layouts[0].screens.find(({ id }) => id === example.screenId)!;
       const target = await resolveTarget(storeSpecsPath, screen.platform, screen.device, "6.9");
       const png = await exportScreenToPng({
         baseUrl: server.url,
         projectPath: example.projectPath,
+        projectRevision: (await loadProjectSnapshot(example.projectPath)).revision,
+        layoutId: project.layouts[0]!.id,
         screenId: example.screenId,
         target,
       });

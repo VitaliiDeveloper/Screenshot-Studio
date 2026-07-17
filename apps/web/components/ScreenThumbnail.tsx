@@ -10,10 +10,12 @@ import { screenThumbnailInputsEqual } from "../lib/screen-thumbnail";
 /** A small raster preview produced by the same renderer as editor and export. */
 function ScreenThumbnailImpl({
   project,
+  layoutId,
   screenId,
   images,
 }: {
   project: Project;
+  layoutId: string;
   screenId: string;
   images: ImageCache;
 }) {
@@ -21,11 +23,11 @@ function ScreenThumbnailImpl({
 
   useEffect(() => {
     const container = document.createElement("div");
-    const stage = renderScreen(container, project, screenId, images);
+    const stage = renderScreen(container, project, layoutId, screenId, images);
     const nextSrc = stage.toDataURL({ pixelRatio: 0.12, mimeType: "image/png" });
     stage.destroy();
     if (imageRef.current) imageRef.current.src = nextSrc;
-  }, [images, project, screenId]);
+  }, [images, layoutId, project, screenId]);
 
   // A generated data URL cannot use Next Image's loader or remote optimization pipeline.
   // eslint-disable-next-line @next/next/no-img-element

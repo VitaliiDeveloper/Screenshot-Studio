@@ -42,7 +42,7 @@ const MAX_MISMATCH_FRACTION = 0.001; // 0.1% of pixels
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
+  harness = await startParityRenderHarness(() => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }), () => chromium.launch());
 }, 180_000);
 
 afterAll(async () => {
@@ -70,6 +70,7 @@ describe("Phase 0 render/export parity", () => {
     const headedRaw = await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId,
       pixelRatio,
       timeoutMs: 60_000,
@@ -77,6 +78,7 @@ describe("Phase 0 render/export parity", () => {
     const headlessRaw = await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId,
       pixelRatio,
     });
@@ -123,7 +125,7 @@ describe("Phase 0 render/export parity", () => {
       cpSync(fixtureRoot, fallbackRoot, { recursive: true });
       const fallbackPath = resolve(fallbackRoot, "app-store-screenshots.json");
       const project = JSON.parse(readFileSync(fallbackPath, "utf8"));
-      for (const el of project.screens[0].elements) {
+      for (const el of project.layouts[0].screens[0].elements) {
         if (el.type === "text") el.fontFamily = "serif";
       }
       project.fonts = [];
@@ -132,12 +134,14 @@ describe("Phase 0 render/export parity", () => {
       const custom = await harness.headless.renderScreenToPng({
         baseUrl: harness.server.url,
         projectPath: fixturePath,
+        layoutId: "default",
         screenId,
         pixelRatio,
       });
       const fallback = await harness.headless.renderScreenToPng({
         baseUrl: harness.server.url,
         projectPath: fallbackPath,
+        layoutId: "default",
         screenId,
         pixelRatio,
       });

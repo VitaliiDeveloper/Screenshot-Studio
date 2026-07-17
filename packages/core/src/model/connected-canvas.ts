@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import {
-  Project as ProjectSchema,
-  type CanvasMode,
-  type Element,
-  type LeafElement,
-  type Project,
-  type Screen,
-} from "./schema.js";
+import type { Element, LeafElement, Project, Screen } from "./schema.js";
+import { getLayout } from "./project-layout.js";
 
 /** One screen projected into its exact platform/device/locale strip. */
 export interface ProjectedScreen {
@@ -26,12 +20,17 @@ export function sameScreenGroup(first: Screen, second: Screen): boolean {
  * Project an exact export group into a gapless, top-aligned horizontal strip in project order.
  * Screen/element storage remains unchanged; this is the single connected-coordinate derivation.
  */
-export function projectScreenGroup(project: Project, screenId: string): ProjectedScreen[] {
-  const target = project.screens.find((screen) => screen.id === screenId);
+export function projectScreenGroup(
+  project: Project,
+  layoutId: string,
+  screenId: string,
+): ProjectedScreen[] {
+  const layout = getLayout(project, layoutId);
+  const target = layout.screens.find((screen) => screen.id === screenId);
   if (!target) throw new Error(`Screen "${screenId}" not found`);
 
   let x = 0;
-  return project.screens
+  return layout.screens
     .filter((screen) => sameScreenGroup(screen, target))
     .map((screen) => {
       const projected = { screen, x, y: 0 as const };
@@ -172,10 +171,11 @@ export function renderedElementBounds(element: Element): ElementBounds | null {
   };
 }
 
-export function findOwnerOverflows(project: Project): OwnerOverflow[] {
+export function findOwnerOverflows(project: Project, layoutId: string): OwnerOverflow[] {
+  const layout = getLayout(project, layoutId);
   const epsilon = 1e-9;
   const overflows: OwnerOverflow[] = [];
-  for (const screen of project.screens) {
+  for (const screen of layout.screens) {
     for (const element of screen.elements) {
       const bounds = renderedElementBounds(element);
       if (!bounds) continue;
@@ -190,20 +190,4 @@ export function findOwnerOverflows(project: Project): OwnerOverflow[] {
     }
   }
   return overflows;
-}
-
-/** Explicit, loss-aware canvas-mode transition; never clips connected pixels silently. */
-export function setCanvasMode(project: Project, mode: CanvasMode): Project {
-  if (project.mode === mode) return project;
-  if (mode === "isolated") {
-    const overflows = findOwnerOverflows(project);
-    if (overflows.length > 0) {
-      const first = overflows[0]!;
-      const suffix = overflows.length === 1 ? "" : ` and ${overflows.length - 1} more`;
-      throw new Error(
-        `Cannot switch to isolated mode: element "${first.elementId}" on screen "${first.screenId}" crosses its owner artboard${suffix}`,
-      );
-    }
-  }
-  return ProjectSchema.parse({ ...project, mode });
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import React, { Fragment, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   Box,
@@ -30,13 +30,31 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
-import { editorStore, type CommonElementPatch } from "../lib/editor-store";
+import { editorStore, selectEditorLayout, type CommonElementPatch } from "../lib/editor-store";
 import { isSelected } from "../lib/editor-selection";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "../lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
-import { cx, editorUi } from "./editor-ui";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
+import { cx, editorUi } from "./editor-ui";
+
+export function LayersHeading({
+  count,
+  screenName,
+  showScreenContext,
+}: {
+  count: number;
+  screenName: string;
+  showScreenContext: boolean;
+}) {
+  return (
+    <h2 className="flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+      <span>Layers</span>
+      {showScreenContext ? <span className="truncate normal-case tracking-normal text-slate-500">· {screenName}</span> : null}
+      <span className="shrink-0 font-medium tabular-nums tracking-normal text-slate-400">{count}</span>
+    </h2>
+  );
+}
 
 const elementIcons: Partial<Record<Element["type"], LucideIcon>> = {
   text: Type,
@@ -65,6 +83,7 @@ function ElementTypeIcon({ element }: { element: Element }) {
 /** Layers list for the active screen. Rendered reversed: top row = front-most = last in array. */
 export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
+  const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const selectedItems = useStore(editorStore, (s) => s.selectedItems);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
@@ -112,8 +131,8 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [openActionsId]);
-  if (!project || !activeScreenId) return null;
-  const screen = getScreen(project, activeScreenId);
+  if (!project || !layout || !activeScreenId) return null;
+  const screen = getScreen(project, layout.id, activeScreenId);
   const elements = screen.elements;
   const rows = [...elements].reverse(); // top-of-list = front-most
   const len = elements.length;
@@ -139,10 +158,11 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
     <section className="pb-3">
       <header className="px-3 py-3">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-            Layers
-            <span className="font-medium tabular-nums tracking-normal text-slate-400">{rows.length}</span>
-          </h2>
+          <LayersHeading
+            count={rows.length}
+            screenName={screen.name}
+            showScreenContext={layout.mode === "connected"}
+          />
           <button
             type="button"
             aria-label="Add element"
@@ -153,12 +173,6 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
             <Plus size={14} strokeWidth={2} />
           </button>
         </div>
-        {project.mode === "connected" ? (
-          <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-slate-700">
-            <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-blue-600">Owner</span>
-            <span data-testid="layers-owner" className="truncate">{screen.name}</span>
-          </p>
-        ) : null}
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project, Screen } from "../model/index.js";
+import { getLayout } from "../model/index.js";
 import { findStoreSize, type StoreSize, type StoreSpecs } from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
 
@@ -28,8 +29,12 @@ export function leadStoreSizeId(platform: string, device: string): string {
   return id;
 }
 
-export function selectBundleScreens(project: Project, filters: BundleFilters = {}): Screen[] {
-  const screens = project.screens.filter((screen) => {
+export function selectBundleScreens(
+  project: Project,
+  layoutId: string,
+  filters: BundleFilters = {},
+): Screen[] {
+  const screens = getLayout(project, layoutId).screens.filter((screen) => {
     if (filters.platform && screen.platform !== filters.platform) return false;
     if (filters.device && screen.device !== filters.device) return false;
     if (filters.locale && screen.locale !== filters.locale) return false;
@@ -110,11 +115,12 @@ export function bundleRelativePath(
 
 export function buildBundleEntries(
   project: Project,
+  layoutId: string,
   specs: StoreSpecs,
   filters: BundleFilters = {},
 ): BundleEntry[] {
   const counts = new Map<string, Map<string, Map<string, Map<string, number>>>>();
-  return selectBundleScreens(project, filters).map((screen) => {
+  return selectBundleScreens(project, layoutId, filters).map((screen) => {
     let byDevice = counts.get(screen.platform);
     if (!byDevice) {
       byDevice = new Map();

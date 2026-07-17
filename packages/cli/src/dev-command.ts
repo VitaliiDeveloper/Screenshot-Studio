@@ -22,12 +22,17 @@ export function resolveDevOptions(flags: Record<string, string>): DevOptions {
 export interface ImportOptions {
   projectPath: string;
   inputDir: string;
+  layout?: string;
 }
 
 export function resolveImportOptions(args: string[], flags: Record<string, string>): ImportOptions {
   const [inputDir] = args;
   if (!inputDir) throw new Error("Usage: screenshots import <dir>");
-  return { projectPath: resolveProjectPath(flags), inputDir: resolve(inputDir) };
+  return {
+    projectPath: resolveProjectPath(flags),
+    inputDir: resolve(inputDir),
+    ...(flags.layout ? { layout: flags.layout } : {}),
+  };
 }
 
 export async function runDevCommand(

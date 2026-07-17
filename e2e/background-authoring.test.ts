@@ -22,19 +22,23 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Background authoring", schemaVersion: 1 },
-    mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
-    screens: [{
-      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
-      direction: "ltr", artboard: { width: 300, height: 300 },
-      background: { type: "solid", color: "#FFFFFF" },
-      elements: [
-        { id: "title", name: "Title", type: "text", x: 20, y: 20, width: 260, height: 80, content: "Hello", fontFamily: "Inter", size: 40, weight: 400, lineHeight: 1.2, letterSpacing: 0, align: "center", color: "#000000", rotation: 0, opacity: 1, locked: false, visible: true },
-        { id: "shape", name: "Accent", type: "shape", x: 50, y: 130, width: 200, height: 120, kind: "rect", fill: "#3366FF", radius: 12, rotation: 0, opacity: 1, locked: false, visible: true },
-      ],
+    fonts: [],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "isolated",
+      screens: [{
+        id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+        direction: "ltr", artboard: { width: 300, height: 300 },
+        background: { type: "solid", color: "#FFFFFF" },
+        elements: [
+          { id: "title", name: "Title", type: "text", x: 20, y: 20, width: 260, height: 80, content: "Hello", fontFamily: "Inter", size: 40, weight: 400, lineHeight: 1.2, letterSpacing: 0, align: "center", color: "#000000", rotation: 0, opacity: 1, locked: false, visible: true },
+          { id: "shape", name: "Accent", type: "shape", x: 50, y: 130, width: 200, height: 120, kind: "rect", fill: "#3366FF", radius: 12, rotation: 0, opacity: 1, locked: false, visible: true },
+        ],
+      }],
     }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -47,15 +51,15 @@ afterAll(async () => {
 
 function background(): Record<string, unknown> {
   const project = JSON.parse(readFileSync(projectPath, "utf8")) as {
-    screens: Array<{ background: Record<string, unknown> }>;
+    layouts: Array<{ screens: Array<{ background: Record<string, unknown> }> }>;
   };
-  return project.screens[0]!.background;
+  return project.layouts[0].screens[0]!.background;
 }
 
 function elements(): Array<Record<string, unknown>> {
   return (JSON.parse(readFileSync(projectPath, "utf8")) as {
-    screens: Array<{ elements: Array<Record<string, unknown>> }>;
-  }).screens[0]!.elements;
+    layouts: Array<{ screens: Array<{ elements: Array<Record<string, unknown>> }> }>;
+  }).layouts[0]!.screens[0]!.elements;
 }
 
 describe("Phase 9 background authoring", () => {
@@ -63,6 +67,12 @@ describe("Phase 9 background authoring", () => {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     const inspector = page.locator("aside").filter({ has: page.getByRole("heading", { name: "Inspector" }) });
+    try {
+      await inspector.waitFor({ state: "visible", timeout: 10_000 });
+    } catch (error) {
+      const alerts = await page.getByRole("alert").allTextContents();
+      throw new Error(`Background authoring editor did not load. Alerts: ${alerts.join(" | ")}`, { cause: error });
+    }
 
     await inspector.getByLabel("Type", { exact: true }).click();
     await page.getByRole("menuitemradio", { name: "linear-gradient", exact: true }).click();

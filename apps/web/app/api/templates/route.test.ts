@@ -14,9 +14,9 @@ beforeEach(async () => {
   projectPath = join(dir, "app-store-screenshots.json");
   await mkdir(join(dir, "templates"));
   await writeFile(projectPath, JSON.stringify({
-    meta: { name: "Templates", schemaVersion: 1 }, mode: "isolated",
-    platforms: ["apple"], locales: ["en"], fonts: [],
-    screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [] }],
+    meta: { name: "Templates", schemaVersion: 1 }, fonts: [],
+    preferredExportLayoutId: "primary",
+    layouts: [{ id: "primary", name: "Primary", mode: "isolated", screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [] }] }],
   }));
   await writeFile(join(dir, "templates/accent-card.json"), JSON.stringify({
     id: "accent-card", name: "Accent card", platform: "apple", device: "iphone",
@@ -42,7 +42,7 @@ describe("/api/templates", () => {
     expect((await response.json()).screenId).toBe("accent-card");
     const persisted = await readFile(projectPath);
     const saved = JSON.parse(persisted.toString("utf8"));
-    expect(saved.screens.at(-1)).toMatchObject({ id: "accent-card", locale: "uk" });
+    expect(saved.layouts[0].screens.at(-1)).toMatchObject({ id: "accent-card", locale: "uk" });
     expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
   });
 

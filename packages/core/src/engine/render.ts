@@ -3,7 +3,7 @@ import Konva from "konva";
 import type { Project, Screen, Element, LayoutDirection } from "../model/schema.js";
 import { assertNever } from "../model/assert-never.js";
 import type { ImageCache, NodeConfig } from "./node-config.js";
-import { getScreen } from "../model/index.js";
+import { getLayout, getScreen } from "../model/index.js";
 import { projectScreenGroup } from "../model/connected-canvas.js";
 import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
 
@@ -19,18 +19,20 @@ import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
 export function renderScreen(
   container: HTMLDivElement,
   project: Project,
+  layoutId: string,
   screenId: string,
   images: ImageCache,
 ): Konva.Stage {
-  const screen = getScreen(project, screenId);
+  const layout = getLayout(project, layoutId);
+  const screen = getScreen(project, layoutId, screenId);
   const { width, height } = screen.artboard;
 
   const stage = new Konva.Stage({ container, width, height });
   const layer = new Konva.Layer({ listening: false });
   stage.add(layer);
 
-  if (project.mode === "connected") {
-    const group = projectScreenGroup(project, screenId);
+  if (layout.mode === "connected") {
+    const group = projectScreenGroup(project, layoutId, screenId);
     const target = group.find((entry) => entry.screen.id === screenId)!;
     for (const entry of group) {
       drawBackground(layer, entry.screen, entry.x - target.x, entry.y - target.y, images);

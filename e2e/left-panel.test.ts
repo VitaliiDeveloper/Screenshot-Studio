@@ -28,7 +28,7 @@ beforeAll(async () => {
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -41,17 +41,17 @@ afterAll(async () => {
 
 function elementIds(): string[] {
   const p = JSON.parse(readFileSync(projectFile, "utf8"));
-  return p.screens[0].elements.map((e: { id: string }) => e.id);
+  return p.layouts[0].screens[0].elements.map((e: { id: string }) => e.id);
 }
 
 function screenIds(): string[] {
   const project = JSON.parse(readFileSync(projectFile, "utf8"));
-  return project.screens.map((screen: { id: string }) => screen.id);
+  return project.layouts[0].screens.map((screen: { id: string }) => screen.id);
 }
 
 function elementName(id: string): string | undefined {
   const project = JSON.parse(readFileSync(projectFile, "utf8"));
-  return project.screens[0].elements.find((element: { id: string }) => element.id === id)?.name;
+  return project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === id)?.name;
 }
 
 describe("left panel", () => {

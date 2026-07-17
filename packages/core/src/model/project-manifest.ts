@@ -1,9 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import {
-  Project,
-  type Project as ProjectModel,
-} from "./schema.js";
-
 /** Slug suitable for screen ids (lowercase, hyphenated, non-empty). */
 export function slugify(value: string): string {
   return (
@@ -31,14 +26,4 @@ export function uniqueId(base: string, screens: readonly { id: string }[]): stri
     const candidate = `${base}-${i}`;
     if (!used.has(candidate)) return candidate;
   }
-}
-
-/**
- * Re-derive `platforms` and `locales` from screens and re-validate.
- * Call after any mutation that adds/removes screens or changes platform/locale.
- */
-export function recomputeManifests(project: ProjectModel): ProjectModel {
-  const platforms = Array.from(new Set(project.screens.map((screen) => screen.platform)));
-  const locales = Array.from(new Set(project.screens.map((screen) => screen.locale)));
-  return Project.parse({ ...project, platforms, locales });
 }

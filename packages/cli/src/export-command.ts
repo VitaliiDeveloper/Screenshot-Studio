@@ -15,6 +15,7 @@ import {
   assertProjectFontsResolved,
   getScreen,
   parseScreenPlacement,
+  resolveLayoutReference,
   SCREEN_DEVICES_BY_PLATFORM,
   type Screen,
 } from "@screenshot-studio/core/model";
@@ -25,7 +26,7 @@ import {
   resolveTarget,
   withStableProjectExport,
 } from "./export.js";
-import { resolveProjectPath } from "./project-io.js";
+import { loadProjectFile, resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
 import { startWebServer } from "./server.js";
@@ -120,13 +121,15 @@ export async function runExportCommand(
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
   const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
   const mode = resolveExportMode(flags);
+  const layoutId = resolveLayoutReference(await loadProjectFile(projectPath), flags.layout).id;
 
   if (mode.kind === "single") {
     const server = await startServer(undefined, { storeSpecsPath });
     await runWithCleanup(async () => {
       await withStableProjectExport(projectPath, async (context) => {
-        assertProjectFontsResolved(context.project);
-        const screen = getScreen(context.project, mode.screenId);
+        resolveLayoutReference(context.project, layoutId);
+        assertProjectFontsResolved(context.project, layoutId);
+        const screen = getScreen(context.project, layoutId, mode.screenId);
         const target = await resolveTarget(
           storeSpecsPath,
           screen.platform,
@@ -139,6 +142,7 @@ export async function runExportCommand(
           baseUrl: server.url,
           projectPath: context.projectPath,
           projectRevision: context.revision,
+          layoutId,
           screenId: mode.screenId,
           target,
         }));
@@ -160,14 +164,16 @@ export async function runExportCommand(
   await runWithCleanup(async () => {
     session = await createRenderSession();
     await withStableProjectExport(projectPath, async (context) => {
-      assertProjectFontsResolved(context.project);
-      const entries = buildBundleEntries(context.project, specs, mode.filters);
+      resolveLayoutReference(context.project, layoutId);
+      assertProjectFontsResolved(context.project, layoutId);
+      const entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
       validateBundleArtboards(entries);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
       const zipPath = await failWhenServerExits(server, exportBundleOutputs({
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
+        layoutId,
         outDir,
         entries,
         renderSession: session!,

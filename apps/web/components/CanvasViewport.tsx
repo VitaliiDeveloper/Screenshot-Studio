@@ -24,10 +24,11 @@ import {
   type WorkspaceTool,
   type WorkspaceView,
 } from "../lib/editor-workspace";
-import { editorStore } from "../lib/editor-store";
+import { editorStore, selectEditorLayout } from "../lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
 import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
+import { canvasTransitionKind, type CanvasTransitionState } from "./canvas-viewport/layout-transition";
 import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
 import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
@@ -129,11 +130,16 @@ export function CanvasViewport({
   controlsHidden?: boolean;
 }) {
   const project = useStore(editorStore, (state) => state.project);
+  const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const lastFitLayoutRef = useRef<string | null>(null);
-  const previousViewRef = useRef(view);
+  const previousCanvasStateRef = useRef<CanvasTransitionState>({
+    layoutId: layout?.id ?? null,
+    layoutMode: layout?.mode ?? null,
+    view,
+  });
   const initialRevealStartedRef = useRef(false);
   const initialRevealRef = useRef<Animation | null>(null);
   const initialRevealFrameRef = useRef<number | null>(null);
@@ -144,15 +150,15 @@ export function CanvasViewport({
   const [initialReveal, setInitialReveal] = useState<"pending" | "running" | "idle">("pending");
   const [transitioning, setTransitioning] = useState(false);
 
-  const activeScreen = project?.screens.find((screen) => screen.id === activeScreenId) ?? project?.screens[0];
+  const activeScreen = layout?.screens.find((screen) => screen.id === activeScreenId) ?? layout?.screens[0];
   const editingScreens = useMemo(() => {
-    if (!project || !activeScreen) return [];
-    return workspaceEditingScope(project, activeScreen);
-  }, [activeScreen, project]);
+    if (!layout || !activeScreen) return [];
+    return workspaceEditingScope(layout, activeScreen);
+  }, [activeScreen, layout]);
   const outputRows = useMemo(() => {
-    if (!project || !activeScreen || view !== "overview") return [];
-    return workspaceOverviewRows(project, activeScreen);
-  }, [activeScreen, project, view]);
+    if (!layout || !activeScreen || view !== "overview") return [];
+    return workspaceOverviewRows(layout, activeScreen);
+  }, [activeScreen, layout, view]);
   const isolatedOutputFamilies = useMemo(
     () => groupIsolatedOverviewRows(outputRows),
     [outputRows],
@@ -164,7 +170,7 @@ export function CanvasViewport({
     screens,
     outputRows,
     view,
-    connected: project?.mode === "connected",
+    connected: layout?.mode === "connected",
     leftInset,
     rightInset,
     onZoomChange,
@@ -218,8 +224,14 @@ export function CanvasViewport({
   }, [fit, view]);
 
   useLayoutEffect(() => {
-    if (previousViewRef.current === view) return;
-    previousViewRef.current = view;
+    const nextState: CanvasTransitionState = {
+      layoutId: layout?.id ?? null,
+      layoutMode: layout?.mode ?? null,
+      view,
+    };
+    const transitionKind = canvasTransitionKind(previousCanvasStateRef.current, nextState);
+    previousCanvasStateRef.current = nextState;
+    if (transitionKind === "none") return;
 
     transitionRef.current?.cancel();
     transitionRef.current = null;
@@ -254,10 +266,15 @@ export function CanvasViewport({
 
       const animation = content.animate(
         [
-          { opacity: 0.88, transform: view === "overview" ? "scale(1.025)" : "scale(0.975)" },
+          transitionKind === "layout"
+            ? { opacity: 0.82, transform: "scale(0.985)" }
+            : { opacity: 0.88, transform: view === "overview" ? "scale(1.025)" : "scale(0.975)" },
           { opacity: 1, transform: "scale(1)" },
         ],
-        { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+        {
+          duration: transitionKind === "layout" ? 220 : 320,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        },
       );
       transitionRef.current = animation;
       animation.finished.then(() => {
@@ -267,7 +284,7 @@ export function CanvasViewport({
         setTransitioning(false);
       }).catch(() => undefined);
     });
-  }, [activeScreenId, fit, view]);
+  }, [activeScreenId, fit, layout?.id, layout?.mode, view]);
 
   useEffect(() => () => {
     initialRevealRef.current?.cancel();
@@ -315,7 +332,7 @@ export function CanvasViewport({
     return () => cancelAnimationFrame(id);
   }, [activeScreenId, leftInset, rightInset, view]);
 
-  if (!project || screens.length === 0) {
+  if (!project || !layout || screens.length === 0) {
     return <section className="min-w-0 flex-1 bg-slate-50" />;
   }
 
@@ -355,7 +372,7 @@ export function CanvasViewport({
             images={images}
             zoom={zoom}
             screenId={screen.id}
-            interactive={project.mode === "connected" ? false : active}
+            interactive={layout.mode === "connected" ? false : active}
           />
         </div>
         <ScreenPreviewMetadata screen={screen} />
@@ -394,7 +411,7 @@ export function CanvasViewport({
           >
             {view === "overview" ? (
               <div className="flex flex-col gap-14" data-testid="overview-output-families">
-                {project.mode === "connected" ? outputRows.map((row) => (
+                {layout.mode === "connected" ? outputRows.map((row) => (
                   <ConnectedOutputRow
                     key={row.key}
                     row={row}

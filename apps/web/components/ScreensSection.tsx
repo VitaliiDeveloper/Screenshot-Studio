@@ -15,7 +15,7 @@ import {
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { sameScreenGroup } from "@screenshot-studio/core/model";
 import { workspaceEditingScope } from "../lib/editor-workspace";
-import { editorStore } from "../lib/editor-store";
+import { editorStore, selectEditorLayout } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
 import { AddMenu, editorUi } from "./editor-ui";
@@ -35,6 +35,7 @@ export function ScreensSection({
   onOpenDialog: (dialog: ResourceDialog) => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
+  const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
   const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
@@ -64,18 +65,18 @@ export function ScreensSection({
     });
     return () => cancelAnimationFrame(id);
   }, [activeScreenId]);
-  if (!project) return null;
-  const activeScreen = project.screens.find((screen) => screen.id === activeScreenId);
-  const activeLocale = activeScreen?.locale ?? project.locales[0]!;
+  if (!project || !layout) return null;
+  const activeScreen = layout.screens.find((screen) => screen.id === activeScreenId);
+  const activeLocale = activeScreen?.locale ?? layout.screens[0]!.locale;
   const screens = activeScreen
-    ? workspaceEditingScope(project, activeScreen)
+    ? workspaceEditingScope(layout, activeScreen)
       .filter((screen) => sameScreenGroup(screen, activeScreen))
-    : project.screens.filter((screen) => screen.locale === activeLocale);
-  const localeRootScreenCount = project.screens.filter((screen) =>
+    : layout.screens.filter((screen) => screen.locale === activeLocale);
+  const localeRootScreenCount = layout.screens.filter((screen) =>
     screen.locale === activeLocale && screen.variantOf === undefined,
   ).length;
   const activeRoot = activeScreen?.variantOf
-    ? project.screens.find((screen) => screen.id === activeScreen.variantOf)
+    ? layout.screens.find((screen) => screen.id === activeScreen.variantOf)
     : undefined;
   const listLabel = activeScreen
     ? `Screens for ${activeLocale} · ${activeScreen.device}`
@@ -87,10 +88,10 @@ export function ScreensSection({
   };
 
   const onDelete = (id: string, name: string) => {
-    const candidate = project.screens.find((screen) => screen.id === id);
+    const candidate = layout.screens.find((screen) => screen.id === id);
     if (!candidate) return;
     if (candidate.variantOf === undefined && localeRootScreenCount <= 1) return;
-    const variants = project.screens.filter((screen) => screen.variantOf === id).length;
+    const variants = layout.screens.filter((screen) => screen.variantOf === id).length;
     const suffix = variants > 0 ? ` and ${variants} store target variant${variants === 1 ? "" : "s"}` : "";
     if (!window.confirm(`Delete screen "${name}"${suffix} and all its layers?`)) return;
     mutateAndSave(() => editorStore.getState().removeScreen(id));
@@ -156,7 +157,7 @@ export function ScreensSection({
                       : "border-slate-300"
                   }`}
                 >
-                  <DynamicScreenThumbnail project={project} screenId={s.id} images={images} />
+                  <DynamicScreenThumbnail project={project} layoutId={layout.id} screenId={s.id} images={images} />
                   <span className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border border-white bg-slate-700 text-[8px] font-semibold leading-none text-white">
                     {index + 1}
                   </span>

@@ -14,9 +14,9 @@ beforeEach(async () => {
   projectPath = join(dir, "app-store-screenshots.json");
   await mkdir(join(dir, "themes"));
   await writeFile(projectPath, JSON.stringify({
-    meta: { name: "Themes", schemaVersion: 1 }, mode: "isolated",
-    platforms: ["apple"], locales: ["en"], fonts: [],
-    screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "accent", type: "shape", role: "accent", x: 0, y: 0, width: 100, height: 10, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 }] }],
+    meta: { name: "Themes", schemaVersion: 1 }, fonts: [],
+    preferredExportLayoutId: "primary",
+    layouts: [{ id: "primary", name: "Primary", mode: "isolated", screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "accent", type: "shape", role: "accent", x: 0, y: 0, width: 100, height: 10, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 }] }] }],
   }));
   await writeFile(join(dir, "themes/midnight.json"), JSON.stringify({
     id: "midnight", name: "Midnight",
@@ -41,9 +41,9 @@ describe("/api/themes", () => {
       body: JSON.stringify({ id: "midnight" }),
     }));
     expect(response.status).toBe(200);
-    expect((await response.json()).screens[0].elements[0].fill).toBe("#38BDF8");
+    expect((await response.json()).layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
     const persisted = await readFile(projectPath);
-    expect(JSON.parse(persisted.toString("utf8")).screens[0].elements[0].fill).toBe("#38BDF8");
+    expect(JSON.parse(persisted.toString("utf8")).layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
     expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
   });
 

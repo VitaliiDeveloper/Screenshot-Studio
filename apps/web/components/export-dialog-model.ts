@@ -1,6 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
+import type { DesignLayout } from "@screenshot-studio/core/model";
+
 const ARTIFACT_PATH = /^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/;
 const DOWNLOAD_FILENAME = "app-store-screenshots-bundle.zip";
+
+export interface ExportFilters {
+  platform: string;
+  device: string;
+  locale: string;
+}
+
+export const DEFAULT_EXPORT_FILTERS: ExportFilters = {
+  platform: "all",
+  device: "all",
+  locale: "all",
+};
+
+export function normalizeExportFilters(
+  layout: DesignLayout,
+  filters: ExportFilters,
+): ExportFilters {
+  const platforms = new Set<string>(layout.screens.map((screen) => screen.platform));
+  const platform = filters.platform === "all" || platforms.has(filters.platform)
+    ? filters.platform
+    : "all";
+  const devices = new Set<string>(layout.screens
+    .filter((screen) => platform === "all" || screen.platform === platform)
+    .map((screen) => screen.device));
+  const device = filters.device === "all" || devices.has(filters.device)
+    ? filters.device
+    : "all";
+  const locales = new Set<string>(layout.screens
+    .filter((screen) => platform === "all" || screen.platform === platform)
+    .filter((screen) => device === "all" || screen.device === device)
+    .map((screen) => screen.locale));
+  const locale = filters.locale === "all" || locales.has(filters.locale)
+    ? filters.locale
+    : "all";
+  return { platform, device, locale };
+}
 
 export interface ExportArtifactTicket {
   downloadUrl: string;

@@ -29,20 +29,21 @@ afterEach(async () => {
 function project(name = "Snapshot"): Project {
   return {
     meta: { name, schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [{
-      id: "hero",
-      name: "Hero",
-      platform: "apple",
-      device: "iphone",
-      locale: "en",
-      direction: "ltr",
-      artboard: { width: 1320, height: 2868 },
-      background: { type: "solid", color: "#FFFFFF" },
-      elements: [],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "isolated",
+      screens: [{
+        id: "hero",
+        name: "Hero",
+        platform: "apple",
+        device: "iphone",
+        locale: "en",
+        direction: "ltr",
+        artboard: { width: 1320, height: 2868 },
+        background: { type: "solid", color: "#FFFFFF" },
+        elements: [],
+      }],
     }],
   };
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { Project, Screen } from "@screenshot-studio/core/model";
+import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
 import { leadStoreSizeId, type StoreSize, type StoreSpecs } from "@screenshot-studio/core/export";
 import { storeOutputLabel } from "../lib/editor-workspace";
 import { AddMenu } from "./editor-ui";
@@ -11,7 +11,7 @@ import { AddMenu } from "./editor-ui";
  * non-lead rows create or open independent exact-target variants with fresh persisted identities.
  */
 export function ArtboardTargets({
-  project,
+  layout,
   screen,
   specs,
   onOpen,
@@ -19,7 +19,7 @@ export function ArtboardTargets({
   onCreate,
   onRemove,
 }: {
-  project: Project;
+  layout: DesignLayout;
   screen: Screen;
   specs: StoreSpecs;
   onOpen: (screenId: string) => void;
@@ -32,7 +32,7 @@ export function ArtboardTargets({
     Object.entries(devices).map(([device, sizes]) => ({ platform, device, sizes })),
   );
   const rootId = screen.variantOf ?? screen.id;
-  const root = project.screens.find((candidate) => candidate.id === rootId) ?? screen;
+  const root = layout.screens.find((candidate) => candidate.id === rootId) ?? screen;
   let leadId: string | undefined;
   try {
     leadId = leadStoreSizeId(screen.platform, screen.device);
@@ -45,7 +45,7 @@ export function ArtboardTargets({
   }
 
   const familyRows = families.map(({ platform, device, sizes }) => {
-    const existingRoot = project.screens.find((candidate) =>
+    const existingRoot = layout.screens.find((candidate) =>
       candidate.variantOf === undefined
       && candidate.platform === platform
       && candidate.device === device
@@ -68,7 +68,7 @@ export function ArtboardTargets({
   });
   const createdFamilies = familyRows.filter((family) => family.existingRoot);
   const availableFamilies = familyRows.filter((family) => !family.existingRoot && family.leadTarget);
-  const variantsByTargetId = new Map(project.screens
+  const variantsByTargetId = new Map(layout.screens
     .filter((candidate) => candidate.variantOf === rootId && candidate.storeTargetId)
     .map((candidate) => [candidate.storeTargetId!, candidate]));
   const createdTargets = targets.filter((target) => target.id === leadId || variantsByTargetId.has(target.id));

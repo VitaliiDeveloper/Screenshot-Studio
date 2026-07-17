@@ -124,6 +124,7 @@ export interface ExportScreenOptions {
   baseUrl: string;
   projectPath: string;
   projectRevision: string;
+  layoutId: string;
   screenId: string;
   target: StoreSize;
   headless?: boolean;
@@ -131,14 +132,14 @@ export interface ExportScreenOptions {
 
 /** Render + flatten + verify one screen, returning a store-ready PNG buffer. */
 export async function exportScreenToPng(opts: ExportScreenOptions): Promise<Buffer> {
-  const { baseUrl, projectPath, projectRevision, screenId, target, headless } = opts;
+  const { baseUrl, projectPath, projectRevision, layoutId, screenId, target, headless } = opts;
   const snapshot = await loadProjectSnapshot(projectPath);
   if (snapshot.revision !== projectRevision) {
     throw new Error(
       `Project revision changed before export: expected ${projectRevision}, found ${snapshot.revision}`,
     );
   }
-  const screen = getScreen(snapshot.project, screenId);
+  const screen = getScreen(snapshot.project, layoutId, screenId);
 
   return renderStoreReadyPng({
     screen,
@@ -147,6 +148,7 @@ export async function exportScreenToPng(opts: ExportScreenOptions): Promise<Buff
       baseUrl,
       projectPath,
       projectRevision,
+      layoutId,
       screenId,
       pixelRatio,
       headless,
@@ -169,6 +171,7 @@ export async function exportBundle({
   baseUrl,
   projectPath,
   projectRevision,
+  layoutId,
   outDir,
   entries,
   renderSession,
@@ -177,6 +180,7 @@ export async function exportBundle({
   baseUrl: string;
   projectPath: string;
   projectRevision: string;
+  layoutId: string;
   outDir: string;
   entries: BundleEntry[];
   renderSession: Pick<RenderBrowserSession, "renderScreenToPng">;
@@ -193,6 +197,7 @@ export async function exportBundle({
           baseUrl,
           projectPath,
           projectRevision,
+          layoutId,
           screenId: entry.screen.id,
           pixelRatio,
         }),

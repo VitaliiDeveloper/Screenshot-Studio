@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { Project } from "../model/index.js";
+import type { DesignLayout, Project } from "../model/index.js";
 import { parseStoreSpecs } from "./specs.js";
 import {
   buildBundleEntries,
@@ -28,15 +28,16 @@ const specs = parseStoreSpecs({
 function project(): Project {
   return {
     meta: { name: "Bundle", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple", "android"],
-    locales: ["en", "uk"],
     fonts: [],
-    screens: [
-      screen("hero", "Hero Phone", "apple", "iphone", "en", 1320, 2868),
-      screen("ipad", "Hero iPad", "apple", "ipad", "en", 2064, 2752),
-      screen("android", "Android Hero", "android", "phone", "uk", 1080, 1920),
-    ],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "isolated",
+      screens: [
+        screen("hero", "Hero Phone", "apple", "iphone", "en", 1320, 2868),
+        screen("ipad", "Hero iPad", "apple", "ipad", "en", 2064, 2752),
+        screen("android", "Android Hero", "android", "phone", "uk", 1080, 1920),
+      ],
+    }],
   };
 }
 
@@ -48,7 +49,7 @@ function screen(
   locale: string,
   width: number,
   height: number,
-): Project["screens"][number] {
+): DesignLayout["screens"][number] {
   return {
     id,
     name,
@@ -59,7 +60,7 @@ function screen(
     artboard: { width, height },
     background: { type: "solid", color: "#000000" },
     elements: [],
-  } as Project["screens"][number];
+  } as DesignLayout["screens"][number];
 }
 
 describe("leadStoreSizeId", () => {
@@ -80,20 +81,20 @@ describe("leadStoreSizeId", () => {
 
 describe("selectBundleScreens", () => {
   it("keeps project screen order and filters by platform/device/locale", () => {
-    expect(selectBundleScreens(project(), { platform: "apple" }).map((s) => s.id)).toEqual(["hero", "ipad"]);
-    expect(selectBundleScreens(project(), { device: "phone" }).map((s) => s.id)).toEqual(["android"]);
-    expect(selectBundleScreens(project(), { locale: "en" }).map((s) => s.id)).toEqual(["hero", "ipad"]);
+    expect(selectBundleScreens(project(), "default", { platform: "apple" }).map((s) => s.id)).toEqual(["hero", "ipad"]);
+    expect(selectBundleScreens(project(), "default", { device: "phone" }).map((s) => s.id)).toEqual(["android"]);
+    expect(selectBundleScreens(project(), "default", { locale: "en" }).map((s) => s.id)).toEqual(["hero", "ipad"]);
   });
 
   it("throws when filters match no screens", () => {
-    expect(() => selectBundleScreens(project(), { locale: "fr" })).toThrow(/No screens match/);
+    expect(() => selectBundleScreens(project(), "default", { locale: "fr" })).toThrow(/No screens match/);
   });
 
   it("matches a free-form locale exactly", () => {
     const source = project();
-    source.screens.push(screen("arabic", "Arabic", "apple", "iphone", "../ar", 1320, 2868));
-    expect(selectBundleScreens(source, { locale: "../ar" }).map((candidate) => candidate.id)).toEqual(["arabic"]);
-    expect(() => selectBundleScreens(source, { locale: "ar" })).toThrow(/No screens match/);
+    source.layouts[0]!.screens.push(screen("arabic", "Arabic", "apple", "iphone", "../ar", 1320, 2868));
+    expect(selectBundleScreens(source, "default", { locale: "../ar" }).map((candidate) => candidate.id)).toEqual(["arabic"]);
+    expect(() => selectBundleScreens(source, "default", { locale: "ar" })).toThrow(/No screens match/);
   });
 });
 
@@ -125,24 +126,24 @@ describe("safeStoreSizePathToken", () => {
 
 describe("bundleRelativePath", () => {
   it("builds a stable platform/device/locale path with a one-based order prefix", () => {
-    const path = bundleRelativePath(project().screens[0]!, { id: "6.9" } as never, 0);
+    const path = bundleRelativePath(project().layouts[0]!.screens[0]!, { id: "6.9" } as never, 0);
     expect(path).toBe("apple/iphone/locale-en/01-hero-phone-6.9.png");
   });
 
   it("sanitizes empty names by falling back to the screen id", () => {
-    const s = { ...project().screens[0]!, id: "s_1", name: "!!!" };
+    const s = { ...project().layouts[0]!.screens[0]!, id: "s_1", name: "!!!" };
     expect(bundleRelativePath(s, { id: "6.9" } as never, 1)).toBe("apple/iphone/locale-en/02-s-1-6.9.png");
   });
 
   it("encodes a custom target id before composing the filename", () => {
-    const path = bundleRelativePath(project().screens[0]!, { id: "6.9:alt*" } as never, 0);
+    const path = bundleRelativePath(project().layouts[0]!.screens[0]!, { id: "6.9:alt*" } as never, 0);
     expect(path).toBe("apple/iphone/locale-en/01-hero-phone-6.9~003aalt~002a.png");
   });
 });
 
 describe("buildBundleEntries", () => {
   it("attaches lead targets and relative paths", () => {
-    const entries = buildBundleEntries(project(), specs, { platform: "apple" });
+    const entries = buildBundleEntries(project(), "default", specs, { platform: "apple" });
     expect(entries.map((e) => [e.screen.id, e.target.id, e.relativePath])).toEqual([
       ["hero", "6.9", "apple/iphone/locale-en/01-hero-phone-6.9.png"],
       ["ipad", "13", "apple/ipad/locale-en/01-hero-ipad-13.png"],
@@ -153,9 +154,9 @@ describe("buildBundleEntries", () => {
     const source = project();
     const iphoneTwo = screen("hero-two", "Hero Two", "apple", "iphone", "en", 1320, 2868);
     const androidTwo = screen("android-two", "Android Two", "android", "phone", "uk", 1080, 1920);
-    source.screens = [source.screens[0]!, source.screens[2]!, iphoneTwo, source.screens[1]!, androidTwo];
+    source.layouts[0]!.screens = [source.layouts[0]!.screens[0]!, source.layouts[0]!.screens[2]!, iphoneTwo, source.layouts[0]!.screens[1]!, androidTwo];
 
-    expect(buildBundleEntries(source, specs).map((entry) => entry.relativePath)).toEqual([
+    expect(buildBundleEntries(source, "default", specs).map((entry) => entry.relativePath)).toEqual([
       "apple/iphone/locale-en/01-hero-phone-6.9.png",
       "android/phone/locale-uk/01-android-hero-phone-portrait.png",
       "apple/iphone/locale-en/02-hero-two-6.9.png",
@@ -166,14 +167,14 @@ describe("buildBundleEntries", () => {
 
   it("exports explicit variants against their own target with independent numbering", () => {
     const source = project();
-    source.screens.push({
-      ...structuredClone(source.screens[0]!),
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
       id: "hero-65",
       variantOf: "hero",
       storeTargetId: "6.5",
       artboard: { width: 1284, height: 2778 },
     });
-    const entries = buildBundleEntries(source, specs, { platform: "apple", device: "iphone" });
+    const entries = buildBundleEntries(source, "default", specs, { platform: "apple", device: "iphone" });
     expect(entries.map((entry) => [entry.screen.id, entry.target.id, entry.relativePath])).toEqual([
       ["hero", "6.9", "apple/iphone/locale-en/01-hero-phone-6.9.png"],
       ["hero-65", "6.5", "apple/iphone/locale-en/01-hero-phone-6.5.png"],
@@ -183,33 +184,33 @@ describe("buildBundleEntries", () => {
 
   it("throws if store-specs lacks the schema-supported lead target", () => {
     const broken = parseStoreSpecs({ apple: { iphone: [] }, android: { phone: [] } });
-    expect(() => buildBundleEntries(project(), broken, { platform: "apple", device: "iphone" })).toThrow(
+    expect(() => buildBundleEntries(project(), "default", broken, { platform: "apple", device: "iphone" })).toThrow(
       /Unknown size/,
     );
   });
 
   it("rejects an explicit variant whose target id is absent from store specs", () => {
     const source = project();
-    source.screens.push({
-      ...structuredClone(source.screens[0]!),
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
       id: "hero-unknown",
       variantOf: "hero",
       storeTargetId: "unknown-target",
     });
-    expect(() => buildBundleEntries(source, specs)).toThrow(/Unknown size.*unknown-target/);
+    expect(() => buildBundleEntries(source, "default", specs)).toThrow(/Unknown size.*unknown-target/);
   });
 });
 
 describe("validateBundleArtboards", () => {
   it("passes when every entry's artboard scales to its lead target", () => {
-    const entries = buildBundleEntries(project(), specs, { platform: "apple" });
+    const entries = buildBundleEntries(project(), "default", specs, { platform: "apple" });
     expect(() => validateBundleArtboards(entries)).not.toThrow();
   });
 
   it("throws naming the screen and target when an artboard cannot scale", () => {
     const bad = project();
-    bad.screens[0]!.artboard = { width: 1320, height: 2000 }; // wrong aspect for 6.9
-    const entries = buildBundleEntries(bad, specs, { platform: "apple", device: "iphone" });
+    bad.layouts[0]!.screens[0]!.artboard = { width: 1320, height: 2000 }; // wrong aspect for 6.9
+    const entries = buildBundleEntries(bad, "default", specs, { platform: "apple", device: "iphone" });
     expect(() => validateBundleArtboards(entries)).toThrow(/Hero Phone.*hero.*6\.9/);
   });
 });

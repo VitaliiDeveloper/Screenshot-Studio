@@ -45,6 +45,8 @@ export async function handleTemplatePost(req: Request): Promise<Response> {
       resolveProjectPath(),
       body.id,
       body.locale,
+      {},
+      typeof body.layoutId === "string" ? body.layoutId : undefined,
     );
     return Response.json(
       { project, screenId: screen.id },

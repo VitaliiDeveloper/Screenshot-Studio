@@ -149,8 +149,8 @@ describe("Packaged CLI", () => {
     const project = JSON.parse(await readFile(projectPath, "utf8"));
     expect(project).toMatchObject({
       meta: { name: "Packaged Smoke", schemaVersion: 1 },
-      mode: "isolated",
-      screens: [{ id: "hero" }],
+      preferredExportLayoutId: "default",
+      layouts: [{ id: "default", name: "Default", mode: "isolated", screens: [{ id: "hero" }] }],
     });
     expect(await readFile(join(projectDirectory, "AGENTS.md"), "utf8"))
       .toContain("screenshots <command>");
@@ -208,7 +208,7 @@ describe("Packaged CLI", () => {
       source: "uploaded",
       path: "assets/fonts/missing.ttf",
     }];
-    project.screens[0].elements = [{
+    project.layouts[0].screens[0].elements = [{
       id: "missing-font-text",
       type: "text",
       x: 40,
@@ -246,7 +246,7 @@ describe("Packaged CLI", () => {
     expect(await renderHostDirectories()).toEqual(hostsBeforeFailure);
 
     project.fonts = [];
-    project.screens[0].elements = [];
+    project.layouts[0].screens[0].elements = [];
     await writeFile(projectPath, `${JSON.stringify(project, null, 2)}\n`);
     await expect(run(bin, exportArgs, consumer, 300_000)).resolves.toMatchObject({
       stdout: expect.stringContaining("(1320x2868)"),

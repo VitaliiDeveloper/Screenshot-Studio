@@ -20,7 +20,7 @@ beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "font-management-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(sample, "utf8"));
-  const headline = project.screens[0].elements.find((element: { id: string }) => element.id === "headline");
+  const headline = project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === "headline");
   headline.name = "Font headline";
   writeFileSync(projectFile, JSON.stringify(project));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
@@ -122,7 +122,7 @@ describe("font management UI", () => {
 
     await row.getByRole("button", { name: "Apply" }).click();
     await expect.poll(() => {
-      const element = project().screens[0].elements.find((candidate: { id: string }) => candidate.id === "headline");
+      const element = project().layouts[0].screens[0].elements.find((candidate: { id: string }) => candidate.id === "headline");
       return `${element.fontFamily}:${element.weight}`;
     }).toBe("Pacifico Alt:700");
 
@@ -144,7 +144,7 @@ describe("font management UI", () => {
     const original = page.getByTestId("font-row-Pacifico-400");
     await original.getByRole("button", { name: "Apply" }).click();
     await expect.poll(() => {
-      const element = project().screens[0].elements.find((candidate: { id: string }) => candidate.id === "headline");
+      const element = project().layouts[0].screens[0].elements.find((candidate: { id: string }) => candidate.id === "headline");
       return `${element.fontFamily}:${element.weight}`;
     }).toBe("Pacifico:400");
     await row.getByRole("button", { name: "Remove" }).click();

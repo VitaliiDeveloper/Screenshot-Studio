@@ -22,12 +22,12 @@ let originalProject: string;
 let server: RunningServer;
 
 interface ProjectFile {
-  screens: Array<{
-    id: string;
-    name: string;
-    device: string;
-    elements: Array<{ id: string; type: string; name?: string }>;
-  }>;
+  layouts: Array<{ screens: Array<{
+      id: string;
+      name: string;
+      device: string;
+      elements: Array<{ id: string; type: string; name?: string }>;
+    }> }>;
 }
 
 beforeAll(async () => {
@@ -36,7 +36,10 @@ beforeAll(async () => {
   originalProject = await readFile(sampleProject, "utf8");
   await writeFile(projectPath, originalProject);
   await cp(join(sampleRoot, "assets"), join(directory, "assets"), { recursive: true });
-  server = await startWebServer(undefined, { projectPath });
+  server = await startWebServer(undefined, {
+    projectPath,
+    storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+  });
 }, 180_000);
 
 afterAll(async () => {
@@ -55,7 +58,7 @@ describe("representative cross-browser editor smoke", () => {
         await page.waitForSelector("canvas");
 
         const before = JSON.parse(await readFile(projectPath, "utf8")) as ProjectFile;
-        const secondScreen = before.screens[1]!;
+        const secondScreen = before.layouts[0].screens[1]!;
         await page.getByRole("button", {
           name: `${secondScreen.name} · ${secondScreen.device}`,
           exact: true,
@@ -68,11 +71,11 @@ describe("representative cross-browser editor smoke", () => {
         await page.getByRole("button", { name: "+ Shape", exact: true }).click();
         await expect.poll(async () => {
           const current = JSON.parse(await readFile(projectPath, "utf8")) as ProjectFile;
-          return current.screens[1]!.elements.length;
+          return current.layouts[0].screens[1]!.elements.length;
         }, { timeout: 10_000 }).toBe(priorCount + 1);
 
         const persisted = JSON.parse(await readFile(projectPath, "utf8")) as ProjectFile;
-        const inserted = persisted.screens[1]!.elements.at(-1)!;
+        const inserted = persisted.layouts[0].screens[1]!.elements.at(-1)!;
         expect(inserted.type).toBe("shape");
         await page.reload({ waitUntil: "load" });
         await page.waitForSelector("canvas");

@@ -46,15 +46,15 @@ describe("parseCommandFlags", () => {
 
   it.each([
     ["init", ["dir", "name"]],
-    ["export", ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale"]],
-    ["screen", ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to"]],
+    ["export", ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout"]],
+    ["screen", ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout"]],
     ["dev", ["project", "store-specs", "port"]],
-    ["import", ["project"]],
+    ["import", ["project", "layout"]],
     ["font", ["project", "weight", "google", "family"]],
-    ["theme", ["project"]],
-    ["locale", ["project", "from", "direction", "to"]],
+    ["theme", ["project", "layout"]],
+    ["locale", ["project", "from", "direction", "to", "layout"]],
     ["asset", ["project", "threshold", "background", "tolerance"]],
-    ["canvas", ["project"]],
+    ["layout", ["project", "name", "mode"]],
   ] as const)("retains every supported %s option", (command, options) => {
     const argv = options.flatMap((option) => [`--${option}`, `${option}-value`]);
     expect(parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]).flags).toEqual(
@@ -171,8 +171,8 @@ describe("singleExportTargetId", () => {
 describe("assertProjectFontsResolved", () => {
   it("blocks export before rendering when text resolves to a system fallback", () => {
     expect(() => assertProjectFontsResolved({
-      meta: { name: "T", schemaVersion: 1 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
-      screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "title", type: "text", x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1, locked: false, visible: true, content: "Title", fontFamily: "sans-serif", size: 24, weight: 400, lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF" }] }],
+      meta: { name: "T", schemaVersion: 1 }, fonts: [], preferredExportLayoutId: "default",
+      layouts: [{ id: "default", name: "Default", mode: "isolated", screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "title", type: "text", x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1, locked: false, visible: true, content: "Title", fontFamily: "sans-serif", size: 24, weight: 400, lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF" }] }] }],
     })).toThrow(/unresolved project fonts.*sans-serif/);
   });
 });

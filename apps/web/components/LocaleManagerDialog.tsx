@@ -4,32 +4,34 @@
 import { useState, type FormEvent } from "react";
 import { useStore } from "zustand";
 import { ArrowLeftRight, Languages, Trash2 } from "lucide-react";
-import type { LayoutDirection } from "@screenshot-studio/core/model";
-import { editorStore } from "../lib/editor-store";
+import { layoutLocales, type DesignLayout, type LayoutDirection } from "@screenshot-studio/core/model";
+import { editorStore, selectEditorLayout } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { DialogShell, cx, editorUi } from "./editor-ui";
 
 function localeDirection(
-  project: NonNullable<ReturnType<typeof editorStore.getState>["project"]>,
+  layout: DesignLayout,
   locale: string,
 ): LayoutDirection {
-  return project.screens.find((screen) => screen.locale === locale)?.direction ?? "ltr";
+  return layout.screens.find((screen) => screen.locale === locale)?.direction ?? "ltr";
 }
 
 export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
+  const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
-  const activeLocale = project?.screens.find((screen) => screen.id === activeScreenId)?.locale
-    ?? project?.locales[0]
+  const activeLocale = layout?.screens.find((screen) => screen.id === activeScreenId)?.locale
+    ?? layout?.screens[0]?.locale
     ?? "";
   const [sourceLocale, setSourceLocale] = useState(activeLocale);
   const [targetLocale, setTargetLocale] = useState("");
   const [targetDirection, setTargetDirection] = useState<LayoutDirection>(
-    project ? localeDirection(project, activeLocale) : "ltr",
+    layout ? localeDirection(layout, activeLocale) : "ltr",
   );
   const [error, setError] = useState<string | null>(null);
 
-  if (!project) return null;
+  if (!project || !layout) return null;
+  const locales = layoutLocales(layout);
 
   const mutate = (action: () => void): boolean => {
     try {
@@ -48,7 +50,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
       setError("Target locale must not be empty");
       return;
     }
-    if (project.locales.includes(targetLocale)) {
+    if (locales.includes(targetLocale)) {
       setError(`Locale "${targetLocale}" already exists`);
       return;
     }
@@ -68,11 +70,12 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
   };
 
   const remove = (locale: string) => {
-    if (!window.confirm(`Delete locale "${locale}" and all ${project.screens.filter((screen) => screen.locale === locale).length} screens?`)) return;
-    const remainingLocale = project.locales.find((candidate) => candidate !== locale);
+    if (!window.confirm(`Delete locale "${locale}" and all ${layout.screens.filter((screen) => screen.locale === locale).length} screens?`)) return;
+    const remainingLocale = locales.find((candidate) => candidate !== locale);
     if (mutate(() => editorStore.getState().removeLocale(locale)) && sourceLocale === locale && remainingLocale) {
       setSourceLocale(remainingLocale);
-      setTargetDirection(localeDirection(editorStore.getState().project!, remainingLocale));
+      const current = selectEditorLayout(editorStore.getState());
+      if (current) setTargetDirection(localeDirection(current, remainingLocale));
     }
   };
 
@@ -110,10 +113,10 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
                 onChange={(event) => {
                   const locale = event.target.value;
                   setSourceLocale(locale);
-                  setTargetDirection(localeDirection(project, locale));
+                  setTargetDirection(localeDirection(layout, locale));
                 }}
               >
-                {project.locales.map((locale) => <option key={locale} value={locale}>{locale}</option>)}
+                {locales.map((locale) => <option key={locale} value={locale}>{locale}</option>)}
               </select>
             </label>
             <label className="space-y-1">
@@ -140,8 +143,8 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
         <section aria-label="Project locales">
           <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Current locales</h3>
           <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-            {project.locales.map((locale) => {
-              const screens = project.screens.filter((screen) => screen.locale === locale);
+            {locales.map((locale) => {
+              const screens = layout.screens.filter((screen) => screen.locale === locale);
               const direction = screens[0]!.direction;
               const active = locale === activeLocale;
               return (
@@ -178,7 +181,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
                     type="button"
                     className={editorUi.buttonDanger}
                     aria-label={`Delete locale ${locale}`}
-                    disabled={project.locales.length === 1}
+                    disabled={locales.length === 1}
                     onClick={() => remove(locale)}
                   >
                     <Trash2 size={14} strokeWidth={1.9} /> Delete

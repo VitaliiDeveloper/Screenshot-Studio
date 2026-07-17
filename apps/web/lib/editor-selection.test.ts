@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { Project } from "@screenshot-studio/core/model";
+import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
 import {
   boundsIntersect,
   primarySelection,
@@ -13,15 +13,14 @@ import {
 const first: SelectionRef = { screenId: "a", elementId: "same" };
 const second: SelectionRef = { screenId: "b", elementId: "same" };
 
-function fixture(mode: Project["mode"] = "connected"): Project {
+function fixture(mode: CanvasMode = "connected"): DesignLayout {
   const element = (x: number, rotation = 0) => ({
     id: "same", type: "shape" as const, x, y: 10, width: 20, height: 10,
     rotation, opacity: 1, locked: false, visible: true,
     kind: "rect" as const, fill: "#000000", radius: 0,
   });
   return {
-    meta: { name: "Selection", schemaVersion: 1 }, mode,
-    platforms: ["apple"], locales: ["en"], fonts: [],
+    id: "primary", name: "Primary", mode,
     screens: [
       {
         id: "a", name: "A", platform: "apple", device: "iphone", locale: "en", direction: "ltr",

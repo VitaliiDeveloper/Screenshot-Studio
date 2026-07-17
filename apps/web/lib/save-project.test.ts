@@ -4,22 +4,25 @@ import type { Project } from "@screenshot-studio/core/model";
 
 const project = {
   meta: { name: "Saved", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"],
-  locales: ["en"],
   fonts: [],
-  screens: [{
-    id: "hero",
-    name: "Hero",
-    platform: "apple",
-    device: "iphone",
-    locale: "en",
-    direction: "ltr",
-    artboard: { width: 660, height: 1434 },
-    background: { type: "solid", color: "#000000" },
-    elements: [],
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary",
+    name: "Primary",
+    mode: "isolated",
+    screens: [{
+      id: "hero",
+      name: "Hero",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      direction: "ltr",
+      artboard: { width: 660, height: 1434 },
+      background: { type: "solid", color: "#000000" },
+      elements: [],
+    }],
   }],
-} as Project;
+} satisfies Project;
 
 interface RevisionAwareSaveProjectModule {
   saveProject(project: Project): Promise<void>;

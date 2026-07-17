@@ -14,6 +14,7 @@ describe("RenderBrowserSession", () => {
     await expect(renderScreenToPng({
       baseUrl: "http://localhost:4000",
       projectPath: "fixtures/project.json",
+      layoutId: "default",
       screenId: "s1",
       pixelRatio: 1,
     }, { createSession: vi.fn(async () => session) })).rejects.toMatchObject({
@@ -32,6 +33,7 @@ describe("RenderBrowserSession", () => {
     await expect(renderScreenToPng({
       baseUrl: "http://localhost:4000",
       projectPath: "fixtures/project.json",
+      layoutId: "default",
       screenId: "s1",
       pixelRatio: 1,
     }, { createSession: vi.fn(async () => session) })).rejects.toMatchObject({
@@ -72,6 +74,7 @@ describe("RenderBrowserSession", () => {
       baseUrl: "http://localhost:4000",
       projectPath: "fixtures/project.json",
       projectRevision: "a".repeat(64),
+      layoutId: "default",
       screenId: "s1",
       pixelRatio: 1,
     })).rejects.toThrow(/s1.*revision changed/i);
@@ -113,6 +116,7 @@ describe("RenderBrowserSession", () => {
       session.renderScreenToPng({
         baseUrl: "http://localhost:4000",
         projectPath: "fixtures/project.json",
+        layoutId: "default",
         screenId: "s1",
         pixelRatio: 1,
       }),
@@ -121,6 +125,7 @@ describe("RenderBrowserSession", () => {
       session.renderScreenToPng({
         baseUrl: "http://localhost:4000",
         projectPath: "fixtures/project.json",
+        layoutId: "default",
         screenId: "s2",
         pixelRatio: 2,
       }),
@@ -152,6 +157,7 @@ describe("RenderBrowserSession", () => {
       session.renderScreenToPng({
         baseUrl: "http://localhost:4000",
         projectPath: "fixtures/project.json",
+        layoutId: "default",
         screenId: "s1",
         pixelRatio: 1,
       }),
@@ -177,6 +183,7 @@ describe("RenderBrowserSession", () => {
     await expect(session.renderScreenToPng({
       baseUrl: "http://localhost:4000",
       projectPath: "fixtures/project.json",
+      layoutId: "default",
       screenId: "s1",
       pixelRatio: 1,
     })).rejects.toThrow(/navigation failed.*page cleanup failed.*page close failed/);
@@ -203,6 +210,7 @@ describe("RenderBrowserSession", () => {
       await session.renderScreenToPng({
         baseUrl: "http://localhost:4000",
         projectPath: "fixtures/project.json",
+        layoutId: "default",
         screenId: "s1",
         pixelRatio: 1,
       });

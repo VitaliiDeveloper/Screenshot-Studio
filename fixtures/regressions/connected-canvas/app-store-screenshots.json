@@ -1,74 +1,100 @@
 {
-  "meta": { "name": "Connected Canvas", "schemaVersion": 1 },
-  "mode": "connected",
-  "platforms": ["apple", "android"],
-  "locales": ["en"],
+  "meta": {
+    "name": "Connected Canvas",
+    "schemaVersion": 1
+  },
   "fonts": [],
-  "screens": [
+  "preferredExportLayoutId": "default",
+  "layouts": [
     {
-      "id": "connected-first",
-      "name": "Connected First",
-      "platform": "apple",
-      "device": "iphone",
-      "locale": "en",
-      "direction": "ltr",
-      "artboard": { "width": 660, "height": 1434 },
-      "background": { "type": "solid", "color": "#101010" },
-      "elements": [
+      "id": "default",
+      "name": "Default",
+      "mode": "connected",
+      "screens": [
         {
-          "id": "bridge",
-          "type": "shape",
-          "x": 560,
-          "y": 200,
-          "width": 200,
-          "height": 300,
-          "rotation": 0,
-          "opacity": 1,
-          "locked": false,
-          "visible": true,
-          "kind": "rect",
-          "fill": "#FF0000",
-          "radius": 0
+          "id": "connected-first",
+          "name": "Connected First",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 660,
+            "height": 1434
+          },
+          "background": {
+            "type": "solid",
+            "color": "#101010"
+          },
+          "elements": [
+            {
+              "id": "bridge",
+              "type": "shape",
+              "x": 560,
+              "y": 200,
+              "width": 200,
+              "height": 300,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "kind": "rect",
+              "fill": "#FF0000",
+              "radius": 0
+            }
+          ]
+        },
+        {
+          "id": "connected-second",
+          "name": "Connected Second",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 660,
+            "height": 1434
+          },
+          "background": {
+            "type": "solid",
+            "color": "#202020"
+          },
+          "elements": [
+            {
+              "id": "local-accent",
+              "type": "shape",
+              "x": 160,
+              "y": 700,
+              "width": 200,
+              "height": 200,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "kind": "rect",
+              "fill": "#0066FF",
+              "radius": 0
+            }
+          ]
+        },
+        {
+          "id": "unrelated",
+          "name": "Unrelated",
+          "platform": "android",
+          "device": "phone",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 540,
+            "height": 960
+          },
+          "background": {
+            "type": "solid",
+            "color": "#00AA00"
+          },
+          "elements": []
         }
       ]
-    },
-    {
-      "id": "connected-second",
-      "name": "Connected Second",
-      "platform": "apple",
-      "device": "iphone",
-      "locale": "en",
-      "direction": "ltr",
-      "artboard": { "width": 660, "height": 1434 },
-      "background": { "type": "solid", "color": "#202020" },
-      "elements": [
-        {
-          "id": "local-accent",
-          "type": "shape",
-          "x": 160,
-          "y": 700,
-          "width": 200,
-          "height": 200,
-          "rotation": 0,
-          "opacity": 1,
-          "locked": false,
-          "visible": true,
-          "kind": "rect",
-          "fill": "#0066FF",
-          "radius": 0
-        }
-      ]
-    },
-    {
-      "id": "unrelated",
-      "name": "Unrelated",
-      "platform": "android",
-      "device": "phone",
-      "locale": "en",
-      "direction": "ltr",
-      "artboard": { "width": 540, "height": 960 },
-      "background": { "type": "solid", "color": "#00AA00" },
-      "elements": []
     }
   ]
 }

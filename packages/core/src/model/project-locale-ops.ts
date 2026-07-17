@@ -1,27 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  Project,
   Screen as ScreenSchema,
   type LayoutDirection,
   type Project as ProjectModel,
   type Screen,
 } from "./schema.js";
 import { mirrorElement } from "./element-tree.js";
-import { recomputeManifests } from "./project-manifest.js";
 import { cloneScreenWithFreshIds } from "./project-screen-ops.js";
+import { getLayout, layoutLocales, replaceLayout } from "./project-layout.js";
 
 /** Clone every screen in one locale as an independent target set, preserving source order. */
 export function cloneLocaleSet(
   project: ProjectModel,
+  layoutId: string,
   sourceLocale: string,
   targetLocale: string,
   targetDirection?: LayoutDirection,
 ): ProjectModel {
   if (!targetLocale.trim()) throw new Error("Target locale must not be empty");
 
-  const sourceScreens = project.screens.filter((screen) => screen.locale === sourceLocale);
+  const layout = getLayout(project, layoutId);
+  const sourceScreens = layout.screens.filter((screen) => screen.locale === sourceLocale);
   if (sourceScreens.length === 0) throw new Error(`Unknown source locale "${sourceLocale}"`);
-  if (project.locales.includes(targetLocale)) {
+  if (layoutLocales(layout).includes(targetLocale)) {
     throw new Error(`Locale "${targetLocale}" already exists`);
   }
 
@@ -42,20 +43,23 @@ export function cloneLocaleSet(
     );
   });
 
-  return recomputeManifests({
-    ...project,
-    screens: [...project.screens, ...copies],
-  });
+  return replaceLayout(project, { ...layout, screens: [...layout.screens, ...copies] });
 }
 
 /** Remove an entire locale set without deleting any shared project assets. */
-export function removeLocaleSet(project: ProjectModel, locale: string): ProjectModel {
-  if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
-  if (project.locales.length === 1) throw new Error("Cannot remove the last locale");
+export function removeLocaleSet(
+  project: ProjectModel,
+  layoutId: string,
+  locale: string,
+): ProjectModel {
+  const layout = getLayout(project, layoutId);
+  const locales = layoutLocales(layout);
+  if (!locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+  if (locales.length === 1) throw new Error("Cannot remove the last locale");
 
-  return recomputeManifests({
-    ...project,
-    screens: project.screens.filter((screen) => screen.locale !== locale),
+  return replaceLayout(project, {
+    ...layout,
+    screens: layout.screens.filter((screen) => screen.locale !== locale),
   });
 }
 
@@ -72,16 +76,18 @@ export function setScreenDirection(screen: Screen, direction: LayoutDirection): 
 /** Change every screen in a locale together so the locale set keeps one direction. */
 export function setLocaleDirection(
   project: ProjectModel,
+  layoutId: string,
   locale: string,
   direction: LayoutDirection,
 ): ProjectModel {
-  if (!project.locales.includes(locale)) throw new Error(`Unknown locale "${locale}"`);
-  if (project.screens
+  const layout = getLayout(project, layoutId);
+  if (!layoutLocales(layout).includes(locale)) throw new Error(`Unknown locale "${locale}"`);
+  if (layout.screens
     .filter((screen) => screen.locale === locale)
     .every((screen) => screen.direction === direction)) return project;
 
-  const screens = project.screens.map((screen) =>
+  const screens = layout.screens.map((screen) =>
     screen.locale === locale ? setScreenDirection(screen, direction) : screen,
   );
-  return Project.parse({ ...project, screens });
+  return replaceLayout(project, { ...layout, screens });
 }

@@ -119,18 +119,24 @@ silently).
 ```
 Project
 ├── meta: { name, appIcon, schemaVersion }
-├── mode: isolated | connected
-├── platforms: ["apple", "android", "windows"]
-├── locales: ["en", "de", "ar"]            # derived from screens
 ├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
-└── screens: Screen[]
-    ├── id, name, platform, device, locale, direction
-    │   # apple: iphone/ipad/macos/tvos/watchos; android: phone; windows: desktop
-    ├── variantOf?, storeTargetId?          # paired only for non-lead sizes in one family
-    ├── artboard: { width, height }        # slide size
-    ├── background: Background              # solid | gradient | image
-    └── elements: Element[]                # z-order = array order
+├── preferredExportLayoutId: string
+└── layouts: DesignLayout[]
+    ├── id, name, mode: isolated | connected
+    └── screens: Screen[]
+        ├── id, name, platform, device, locale, direction
+        │   # apple: iphone/ipad/macos/tvos/watchos; android: phone; windows: desktop
+        ├── variantOf?, storeTargetId?      # paired only for non-lead sizes in one family
+        ├── artboard: { width, height }     # slide size
+        ├── background: Background          # solid | gradient | image
+        └── elements: Element[]             # z-order = array order
 ```
+
+Layouts are ordered, non-empty, independently editable design alternatives. Layout ids are
+immutable; trimmed names are case-insensitively unique; mode is selected at creation and may change later.
+Screen and element identity, locale sets, output families, variants, ordering, and mode semantics
+are layout-local. Fonts and project assets remain shared. `preferredExportLayoutId` must reference
+one existing layout and is the default only for non-interactive export selection.
 
 **Element types** — all elements share `id`, `type`, `x`, `y`, `width`, `height`, `rotation`,
 `opacity`, `locked`, `visible`, and optional display `name`. Leaf elements additionally allow the
@@ -150,21 +156,21 @@ members. There are no arbitrary CSS paints, generic effects, blobs, author-defin
 frame colours, nested groups, or `badge` element member in v1.
 
 **Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
-`applyTheme(project, theme)` rewrites the existing literal text/shape fields selected by an
+`applyTheme(project, layoutId, theme)` rewrites the selected layout's literal text/shape fields selected by an
 optional role (`heading | body | accent | surface`) and preserves that role for later re-apply.
 Elements without a role opt out. Theme files never enter `Project`, and the renderer never
 resolves tokens or ids; unknown/invalid theme data fails before a project is written.
 
 **Templates are screen inputs, not render state.** Strict definitions live in `templates/*.json`
 and contain an exact platform/device/artboard plus ordinary background and element literals.
-Instantiation injects the chosen locale and its persisted direction, creates fresh screen/element
-ids, recomputes manifests, and writes an ordinary `Project`. Template geometry is authored as LTR;
+Instantiation into an explicit layout injects the chosen locale and its persisted direction,
+creates fresh screen/element ids, and writes an ordinary `Project`. Template geometry is authored as LTR;
 an RTL target bakes mirrored placement/alignment exactly once before persistence. Render and export
 never read template files.
 
-**Locale sets are ordinary screens, not a parallel model.** `Project.locales` is a duplicate-free
-derived manifest whose set is exactly the locale strings used by `screens`; locale identifiers stay
-free-form and comparisons are exact. Cloning a locale appends fresh-id copies of its screens in the
+**Locale sets are ordinary screens, not a parallel model.** Each layout derives its duplicate-free
+locale list directly from its screens; locale identifiers stay free-form and comparisons are exact.
+Cloning a locale appends fresh-id copies of its screens in the
 same relative order and shares existing asset paths. The copies are independent after creation —
 there is no persisted source/translation pairing id in the render contract.
 
@@ -188,11 +194,28 @@ development shapes or mutate the caller's object. Unsupported numeric versions r
 version error, while missing or invalid versions fail strict validation. Compatibility migrations
 will be introduced only after a published project format creates a supported upgrade boundary.
 
-**Connected canvas — render/export contract.** `Project.mode` is one explicit
-project-level `isolated | connected` choice. In connected mode, screens with the same exact
+**Layout lifecycle.** Add creates a clean one-screen layout, never a content copy. The editor uses
+the active screen's platform/device/locale/direction/artboard with a solid `#101827` background and
+no elements; the CLI uses the preferred layout's first root screen as the source for those placement
+fields. Duplicate is the explicit copy operation: it inserts immediately after its source, preserves
+content, mode, ordering, variants, and shared asset paths, but creates fresh layout, screen, and
+element ids and rewrites variant references. Rename trims and rejects empty or case-insensitively
+duplicate names. Delete refuses the final layout; deleting the preferred layout atomically prefers
+the next layout or, for the last position, the previous layout. The editor activates that same
+next/previous fallback when deleting its active layout. Prefer changes only
+`preferredExportLayoutId`. The explicit mode operation changes only the selected layout's mode.
+
+The editor's active layout is local workspace state keyed by an opaque hash of the canonical project
+path. It falls back to `preferredExportLayoutId` when missing or stale and never enters
+`app-store-screenshots.json`. Editor export uses the active layout. CLI export accepts
+`--layout <id-or-full-name>` and otherwise uses the preferred layout; other layout-aware CLI
+mutations infer a target only for a one-layout project and require `--layout` when ambiguous.
+
+**Connected canvas — render/export contract.** Every layout owns one explicit
+`isolated | connected` choice. In a connected layout, screens with the same exact
 platform, device, locale, and
 store-target identity form a gapless,
-top-aligned strip in project order; each origin is the cumulative width of earlier group screens.
+top-aligned strip in layout order; each origin is the cumulative width of earlier group screens.
 Elements remain in their owner screen with owner-local coordinates. The shared renderer paints all
 group backgrounds first, then visible elements by screen order and element-array order, translated
 against the requested screen origin. `renderScreen` still returns a stage at exactly the requested
@@ -200,21 +223,24 @@ artboard dimensions, so the stage itself is the precise UI/CLI export crop — t
 PNG or post-export slicing path. The editor uses one gapless editable group stage on the same
 `elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
 screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
-non-interactive crop. The toolbar exposes project mode and guarded conversion feedback; successful
-changes travel through ordinary history/save.
+non-interactive crop. Switching layouts is transient, unconditional, and never converts content or
+changes either layout's mode. Explicit mode changes are also unconditional and preserve coordinates.
+Connected overflow is clipped while the layout is isolated but is not deleted, so switching back
+restores the connected rendering; the editor exposes that consequence as a non-blocking warning.
 
-**Editor history.** The Zustand store keeps at most 50 prior project snapshots in
+**Editor history.** The Zustand store keeps at most 50 prior screen-content snapshots per layout in
 memory. Consecutive patches for the same owner element, background, or artboard coalesce until an
-explicit interaction boundary; structural mutations remain separate steps. Undo and redo preserve
-only still-valid active/selected ids, clear the opposite branch after a new mutation, and travel
-through the same durable project save path as ordinary edits. Loading a project or replacing it
-after an external durable-resource operation resets history. Selection, viewport, dialogs, save
-status, and guide chrome are transient and never enter project history or JSON.
+explicit interaction boundary; structural content mutations remain separate steps. Undo and redo
+preserve only still-valid active/selected ids, clear that layout's opposite branch after a new
+mutation, and travel through the same durable project save path as ordinary edits. Rename,
+duplicate, prefer, add, remove, and layout switching are outside content undo. Loading a project or
+replacing it after an external durable-resource operation resets in-memory history. Selection,
+active layout, viewport, dialogs, save status, and guide chrome never enter project JSON.
 
 **Editor snapping.** One dragged element derives rotation-aware bounds in the
 active stage coordinate space. Candidate anchors come from the connected group bounds, each active
 artboard, and visible non-zero-opacity elements; exact ties prefer element, then artboard, then
-group targets in stable project order. The logical tolerance is `6 / zoom`, keeping the interaction
+group targets in stable layout order. The logical tolerance is `6 / zoom`, keeping the interaction
 threshold at six screen pixels. Connected results translate back to the unchanged owner-local
 coordinate. Vertical/horizontal guides are non-listening Konva lines updated through refs during
 drag, cleared before persistence, and absent from the store, project schema, static renderer, and
@@ -232,9 +258,9 @@ project replacement. The `image` leaf has a non-cropping `contain` default, dete
 
 **Connected workspace behavior.** Workspace derivation has two explicit
 contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
-transforms with one exact platform/device/locale/store-target group in connected mode; isolated
-mode retains its locale/root or exact target layer. `workspaceOverviewRows` presents every output
-family for the active locale in stable project order. Isolated families render as one output
+transforms with one exact platform/device/locale/store-target group in a connected layout; an
+isolated layout retains its locale/root or exact target layer. `workspaceOverviewRows` presents
+every output family for the active layout and locale in stable layout order. Isolated families render as one output
 container whose master and explicit targets remain separate size rows; the active family owns the
 outer highlight and the active exact row owns the `Editing` marker. Variant rows repeat the output
 label as a contextual breadcrumb, append the exact size, and carry a `Variant` marker; the lead row
@@ -247,9 +273,8 @@ Connected reorder rewrites only the visible group's existing project-array slots
 unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
 memoization compares every exact-group screen reference and projected order because a neighbour's
 element can change the requested crop, while unrelated groups remain memoized. The toolbar mode
-control delegates to the guarded core transition, reports refusal without adding history, and sends
-successful changes through bounded history and durable save. Desktop and compact browser coverage
-composes mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
+badge is descriptive, while mode changes remain an explicit layout-row action. Desktop and compact browser coverage
+composes layout switching, mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
 keyboard dismissal without persisting workspace chrome.
 
 **Editor multi-selection.** Selection is an ephemeral ordered set of composite
@@ -258,7 +283,7 @@ click and rotation-aware marquee acquisition operate only inside the editable ac
 connected exact group. Aggregate translation adds one stage-space delta to each unlocked member's
 unchanged owner-local coordinates and commits one history/save mutation; delete, lock, and
 visibility are likewise atomic. Multi-resize/rotate and snapping remain outside this selection
-contract. Selection is reconciled across screen/mode/load/undo boundaries
+contract. Selection is reconciled across screen/layout/load/undo boundaries
 but never enters project JSON, render/export input, or history snapshots.
 
 **Persisted groups.** `Element` is `LeafElement | GroupElement`,
@@ -266,8 +291,8 @@ where a group owns a non-empty, non-nested `children: LeafElement[]` array in lo
 The group occupies one top-level z-order slot; child array order is internal z-order. Group
 translation/rotation/opacity compose through the ordinary recursive `NodeConfig` tree, while
 `width/height` are authoring bounds and introduce neither runtime scale nor clipping. Visible child
-overflow participates in the connected→isolated loss guard, and exact screen stage dimensions remain
-the only export crop. Fonts, assets, themes, templates, cloning, and RTL all traverse group leaves
+overflow follows its layout's current connected or isolated rendering semantics, and exact screen
+stage dimensions remain the only export crop. Fonts, assets, themes, templates, cloning, and RTL all traverse group leaves
 through shared core helpers.
 
 **Group authoring.** Grouping requires at least two top-level leaves from one
@@ -377,7 +402,7 @@ the CLI bundle orchestration. Both surfaces drive the shared `/render` stage, wh
 `platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
 the exact free-form identifier, filtering remains exact against the stored string, and `NN`
 restarts inside each platform/device/locale/target group while preserving that group's relative
-project order. The complete filesystem/ZIP batch is validated for containment and duplicate paths before
+layout order. The complete filesystem/ZIP batch is validated for containment and duplicate paths before
 any output is written; existing symlinked ancestors/files are rejected and final files use
 no-follow opens. Re-running export deliberately replaces regular files at the same generated
 destinations; only in-batch collisions and redirecting filesystem objects are rejected.
@@ -509,14 +534,17 @@ my-app-screenshots/
 |---------|--------|
 | `init` | Scaffold the project, standard directories, and project-local agent guides |
 | `dev [--store-specs <path>]` | Run the canvas editor with optional explicit store specs |
-| `screen add / list / rm / reorder [--store-specs <path>]` | Manage roots and variants; root removal requires `--cascade` while variants exist |
+| `layout list / add / duplicate / rename / mode / prefer / rm` | Manage ordered independent layouts; mode switches preserve content and duplicate creates fresh screen/element ids |
+| `screen add / list / rm / reorder [--layout <id-or-name>] [--store-specs <path>]` | Manage layout-local roots and variants; root removal requires `--cascade` while variants exist |
 | `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
-| `theme set <id>` | Apply a theme to all screens |
-| `locale list / add / direction / rm` | Manage complete locale sets and baked LTR/RTL placement |
-| `canvas mode [isolated|connected]` | Inspect or explicitly change the project-wide canvas mode |
+| `theme set <id> [--layout <id-or-name>]` | Apply a theme to one layout's screens |
+| `locale list / add / direction / rm [--layout <id-or-name>]` | Manage one layout's complete locale sets and baked LTR/RTL placement |
 | `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets |
-| `import <dir>` | Ingest raw captures by directory convention |
-| `export [--platform --device --locale --store-specs <path>]` | Exact PNG bundles (same result as the UI button; CI-friendly) |
+| `import <dir> [--layout <id-or-name>]` | Ingest raw captures by directory convention |
+| `export [--layout <id-or-name> --platform --device --locale --store-specs <path>]` | Exact PNG bundles from the selected or preferred layout (same renderer as the UI button; CI-friendly) |
+
+Layout-aware mutation commands infer the layout only when the project contains exactly one;
+multi-layout projects require `--layout`. Export instead defaults to `preferredExportLayoutId`.
 
 **Generated `AGENTS.md` / `CLAUDE.md` — project-local guidance.** `screenshots init`
 materializes a self-contained project guide plus a small Claude forwarding file and refuses to

@@ -33,21 +33,26 @@ function digest(bytes: Uint8Array): string {
 function sampleProject(): Project {
   return {
     meta: { name: "Import Project", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [
       {
-        id: "hero",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
+        id: "default",
+        name: "Default",
+        mode: "isolated",
+        screens: [
+          {
+            id: "hero",
+            name: "Hero",
+            platform: "apple",
+            device: "iphone",
+            locale: "en",
+            direction: "ltr",
+            artboard: { width: 1320, height: 2868 },
+            background: { type: "solid", color: "#101827" },
+            elements: [],
+          },
+        ],
       },
     ],
   };
@@ -74,8 +79,9 @@ describe("importCaptures", () => {
     await expect(readFile(join(dir, assetUrl))).resolves.toEqual(png);
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
-    expect(written.screens.map((screen) => screen.id)).toEqual(["hero", "apple-iphone-en-01"]);
-    expect(written.screens[1]).toMatchObject({
+    const screens = written.layouts[0]!.screens;
+    expect(screens.map((screen) => screen.id)).toEqual(["hero", "apple-iphone-en-01"]);
+    expect(screens[1]).toMatchObject({
       id: "apple-iphone-en-01",
       name: "Apple iPhone en 01",
       platform: "apple",
@@ -103,7 +109,7 @@ describe("importCaptures", () => {
     const projectPath = join(dir, "app-store-screenshots.json");
     const inputDir = join(dir, "screenshots");
     const existing = sampleProject();
-    existing.screens.push({
+    existing.layouts[0]!.screens.push({
       id: "apple-iphone-en-01",
       name: "Existing",
       platform: "apple",
@@ -122,7 +128,7 @@ describe("importCaptures", () => {
     await importCaptures({ projectPath, inputDir });
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
-    const imported = written.screens.find((screen) => screen.id === "apple-iphone-en-01-2");
+    const imported = written.layouts[0]!.screens.find((screen) => screen.id === "apple-iphone-en-01-2");
     expect(imported?.elements[0]?.id).toBe("apple-iphone-en-01-2-screenshot");
   });
 
@@ -185,7 +191,7 @@ describe("importCaptures", () => {
       publication.ownership,
     );
     await expect(readFile(assetPath)).rejects.toMatchObject({ code: "ENOENT" });
-    expect((JSON.parse(await readFile(projectPath, "utf8")) as Project).screens).toHaveLength(1);
+    expect((JSON.parse(await readFile(projectPath, "utf8")) as Project).layouts[0]!.screens).toHaveLength(1);
   });
 
   it("does not remove a pre-existing exact asset when the project write fails", async () => {

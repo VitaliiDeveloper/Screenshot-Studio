@@ -8,12 +8,17 @@ import { handleFontDelete, handleFontGet, handleFontPost } from "./handler.js";
 
 const validProject = {
   meta: { name: "Fonts", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"], locales: ["en"], fonts: [],
-  screens: [{
-    id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
-    artboard: { width: 660, height: 1434 },
-    background: { type: "solid", color: "#111111" }, elements: [],
+  fonts: [],
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary",
+    name: "Primary",
+    mode: "isolated",
+    screens: [{
+      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+      artboard: { width: 660, height: 1434 },
+      background: { type: "solid", color: "#111111" }, elements: [],
+    }],
   }],
 };
 
@@ -173,20 +178,23 @@ describe("/api/fonts", () => {
       fonts: [{
         family: "Inter", weight: 400, source: "uploaded", path: "assets/fonts/inter-400.ttf",
       }],
-      screens: [{
-        ...validProject.screens[0],
-        elements: [text, {
-          id: "group",
-          type: "group",
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 50,
-          rotation: 0,
-          opacity: 1,
-          locked: false,
-          visible: true,
-          children: [{ ...text, id: "nested" }],
+      layouts: [{
+        ...validProject.layouts[0]!,
+        screens: [{
+          ...validProject.layouts[0]!.screens[0]!,
+          elements: [text, {
+            id: "group",
+            type: "group",
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 50,
+            rotation: 0,
+            opacity: 1,
+            locked: false,
+            visible: true,
+            children: [{ ...text, id: "nested" }],
+          }],
         }],
       }],
     };

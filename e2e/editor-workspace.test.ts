@@ -19,18 +19,19 @@ let projectFile: string;
 
 function writeWorkspaceBaseline(): void {
   const baseline = JSON.parse(readFileSync(sample, "utf8")) as {
-    mode: "isolated" | "connected";
-    platforms: string[];
-    screens: Array<{ platform: string; device: string; variantOf?: string; storeTargetId?: string }>;
+    layouts: Array<{
+      mode: "isolated" | "connected";
+      screens: Array<{ platform: string; device: string; variantOf?: string; storeTargetId?: string }>;
+    }>;
   };
-  baseline.screens = baseline.screens.filter((screen) =>
+  const layout = baseline.layouts[0]!;
+  layout.screens = layout.screens.filter((screen) =>
     screen.platform === "apple"
     && screen.device === "iphone"
     && screen.variantOf === undefined
     && screen.storeTargetId === undefined,
   );
-  baseline.mode = "isolated";
-  baseline.platforms = ["apple"];
+  layout.mode = "isolated";
   writeFileSync(projectFile, `${JSON.stringify(baseline, null, 2)}\n`);
 }
 
@@ -53,7 +54,7 @@ afterAll(async () => {
 });
 
 function project() {
-  return JSON.parse(readFileSync(projectFile, "utf8")) as {
+  const root = JSON.parse(readFileSync(projectFile, "utf8")) as { layouts: Array<{
     screens: Array<{
       id: string;
       name: string;
@@ -65,7 +66,8 @@ function project() {
       artboard: { width: number; height: number };
       elements: Array<{ id: string; type: string; x: number; y: number; width: number; height: number }>;
     }>;
-  };
+  }> };
+  return root.layouts[0]!;
 }
 
 async function openEditor(viewport: { width: number; height: number }): Promise<Page> {
@@ -262,7 +264,8 @@ describe("Phase 3.6 editor workspace", () => {
     expect(await inactiveOutputRows.count()).toBe(1);
 
     await page.getByRole("button", { name: "Close inspector", exact: true }).click();
-    expect(await page.getByTestId("store-outputs-section").count()).toBe(0);
+    await expect.poll(() => page.locator('[data-editor-side-panel="right"]').getAttribute("data-state"))
+      .toBe("closed");
     await page.getByRole("button", { name: "Inspect", exact: true }).click();
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
@@ -604,7 +607,8 @@ describe("Phase 3.6 editor workspace", () => {
     expect(shiftedControls!.x + shiftedControls!.width).toBeLessThanOrEqual(viewportBox!.x + viewportBox!.width - 288);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect.poll(() => page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("false");
+    await expect.poll(() => page.locator('[data-editor-side-panel="right"]').getAttribute("data-state"))
+      .toBe("closed");
     await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     expect(await page.getByLabel("Zoom controls").count()).toBe(0);
     const phonePanel = await page.getByRole("heading", { name: "Structure", exact: true }).locator("..")

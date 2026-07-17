@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { createHash } from "node:crypto";
 import { parseProject, ProjectValidationError } from "@screenshot-studio/core/model";
 import {
   ProjectPathError,
@@ -21,6 +22,10 @@ export const dynamic = "force-dynamic";
 
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
+}
+
+function projectIdentifier(canonicalPath: string): string {
+  return createHash("sha256").update(canonicalPath).digest("hex");
 }
 
 function isStrongQuotedETag(value: string): boolean {
@@ -60,7 +65,10 @@ export async function GET(): Promise<Response> {
     const path = await resolveExistingProjectPath(resolveProjectPath());
     const snapshot = await readProjectSnapshot(path);
     return Response.json(snapshot.project, {
-      headers: { etag: quotedRevision(snapshot.revision) },
+      headers: {
+        etag: quotedRevision(snapshot.revision),
+        "x-project-id": projectIdentifier(path),
+      },
     });
   } catch (err) {
     const status = err instanceof ProjectValidationError ? 422 : 404;

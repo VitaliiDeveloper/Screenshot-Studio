@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium } from "playwright";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { stripAlpha } from "../packages/core/src/export/png.js";
@@ -14,6 +15,8 @@ import {
   startParityRenderHarness,
   type ParityRenderHarness,
 } from "./support/parity-render-harness.js";
+
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 let harness: ParityRenderHarness;
 let directory: string;
@@ -37,11 +40,9 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Icon parity", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "connected", screens: [
       {
         id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 200, height: 200 }, background: { type: "solid", color: "#FFFFFF" },
@@ -59,10 +60,13 @@ beforeAll(async () => {
         artboard: { width: 200, height: 200 }, background: { type: "solid", color: "#00FF00" },
         elements: [icon("heart", "heart", 20, 20, 96, "#0000FF")],
       },
-    ],
+    ] }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
+  harness = await startParityRenderHarness(
+    () => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }),
+    () => chromium.launch(),
+  );
 }, 180_000);
 
 afterAll(async () => {
@@ -80,13 +84,13 @@ describe("Phase 7 trusted icon parity", () => {
   it("matches headed/headless exact crops and carries a grouped vector across owners", async () => {
     expect(JSON.parse(readFileSync(projectPath, "utf8")).meta.schemaVersion).toBe(SCHEMA_VERSION);
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "first", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "first", pixelRatio: 1,
     }));
     const secondBytes = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "second", pixelRatio: 1,
     }));
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "second", pixelRatio: 1,
       timeoutMs: 60_000,
     }));
     const first = PNG.sync.read(firstBytes);

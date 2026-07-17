@@ -5,6 +5,7 @@ import {
   type Project as ProjectModel,
 } from "./schema.js";
 import { scaleLeafElement } from "./element-scale.js";
+import { getLayout, replaceLayout } from "./project-layout.js";
 
 /** Fit a screen composition into a target artboard without distorting render-bearing elements. */
 export function fitElementsToArtboard(
@@ -31,10 +32,12 @@ export function fitElementsToArtboard(
 /** Resize one screen artboard and fit its composition atomically. */
 export function resizeScreenArtboard(
   project: ProjectModel,
+  layoutId: string,
   screenId: string,
   target: { width: number; height: number },
 ): ProjectModel {
-  const source = project.screens.find((screen) => screen.id === screenId);
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === screenId);
   if (!source) throw new Error(`Unknown screen "${screenId}"`);
   if (source.artboard.width === target.width && source.artboard.height === target.height) {
     return project;
@@ -45,8 +48,8 @@ export function resizeScreenArtboard(
     artboard: target,
     elements: fitElementsToArtboard(source.elements, source.artboard, target),
   });
-  return {
-    ...project,
-    screens: project.screens.map((screen) => screen.id === screenId ? resized : screen),
-  };
+  return replaceLayout(project, {
+    ...layout,
+    screens: layout.screens.map((screen) => screen.id === screenId ? resized : screen),
+  });
 }

@@ -21,7 +21,7 @@ const MAX_MISMATCH_FRACTION = 0.001;
 let harness: ParityRenderHarness;
 
 beforeAll(async () => {
-  harness = await startParityRenderHarness(() => startWebServer());
+  harness = await startParityRenderHarness(() => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }));
 }, 180_000);
 
 afterAll(async () => {
@@ -44,6 +44,7 @@ describe("Phase 4 RTL render parity", () => {
     const headed = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "arabic-rtl",
       pixelRatio,
       timeoutMs: 60_000,
@@ -51,6 +52,7 @@ describe("Phase 4 RTL render parity", () => {
     const headless = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "arabic-rtl",
       pixelRatio,
     }));
@@ -67,12 +69,14 @@ describe("Phase 4 RTL render parity", () => {
     const rtl = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "arabic-rtl",
       pixelRatio,
     }));
     const ltr = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "arabic-ltr",
       pixelRatio,
     }));

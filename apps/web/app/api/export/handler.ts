@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { assertProjectFontsResolved } from "@screenshot-studio/core/model";
+import { assertProjectFontsResolved, getLayout } from "@screenshot-studio/core/model";
 import {
   buildBundleEntries,
   parseStoreSpecs,
@@ -19,6 +19,7 @@ import { resolveStoreSpecsPath } from "../../../lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "../../../lib/export-artifacts.server.js";
 
 interface ExportRequest {
+  layoutId?: string;
   platform?: BundleFilters["platform"];
   device?: BundleFilters["device"];
   locale?: string;
@@ -63,13 +64,15 @@ export async function handleExportPost(
 
   // Validate before launching a browser so bad input fails fast.
   let specs: ReturnType<typeof parseStoreSpecs>;
+  let layoutId: string;
   try {
     const project = (await readProjectSnapshot(
       await resolveExistingProjectPath(projectPath),
     )).project;
-    assertProjectFontsResolved(project);
+    layoutId = getLayout(project, body.layoutId ?? project.preferredExportLayoutId).id;
+    assertProjectFontsResolved(project, layoutId);
     specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
-    validateBundleArtboards(buildBundleEntries(project, specs, filters));
+    validateBundleArtboards(buildBundleEntries(project, layoutId, specs, filters));
   } catch (error) {
     return Response.json({ error: errorText(error) }, { status: 422 });
   }
@@ -82,14 +85,16 @@ export async function handleExportPost(
   try {
     session = await createSession();
     result = await withStableProjectExport(projectPath, async (context) => {
-      assertProjectFontsResolved(context.project);
-      const entries = buildBundleEntries(context.project, specs, filters);
+      getLayout(context.project, layoutId);
+      assertProjectFontsResolved(context.project, layoutId);
+      const entries = buildBundleEntries(context.project, layoutId, specs, filters);
       validateBundleArtboards(entries);
       const outDir = join(dirname(context.projectPath), "export");
       const zipPath = await exportBundleOutputs({
         baseUrl,
         projectPath: context.projectPath,
         projectRevision: context.revision,
+        layoutId,
         outDir,
         entries,
         renderSession: session!,

@@ -12,10 +12,21 @@ import {
 import { collectImageUrls, loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
 import { parseStoreSpecs, type StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore } from "../../lib/editor-store";
+import {
+  readActiveLayoutPreference,
+  writeActiveLayoutPreference,
+} from "../../lib/editor-layout-preference";
 import { requireProjectRevision, setProjectRevision } from "../../lib/save-project";
 import { withFlushedProject } from "../../lib/debounced-save";
 
 const resolveAsset = (assetUrl: string) => `/api/asset?path=${encodeURIComponent(assetUrl)}`;
+
+async function loadAllProjectImages(project: Project): Promise<ImageCache> {
+  const caches = await Promise.all(
+    project.layouts.map((layout) => loadProjectImages(project, layout.id, resolveAsset)),
+  );
+  return new Map(caches.flatMap((cache) => [...cache]));
+}
 
 export function missingImageUrls(project: Project, images: ImageCache): string[] {
   return collectImageUrls(project).filter((assetUrl) => !images.has(assetUrl));
@@ -23,6 +34,7 @@ export function missingImageUrls(project: Project, images: ImageCache): string[]
 
 export interface EditorResourceResult {
   project: Project;
+  projectId: string;
   revision: string;
   images: ImageCache;
   specs: StoreSpecs;
@@ -95,7 +107,7 @@ export async function loadEditorResources(
 ): Promise<EditorResourceResult> {
   const fetchProject = dependencies.fetchProject ?? (() => fetch("/api/project"));
   const loadImages = dependencies.loadImages
-    ?? ((project: Project) => loadProjectImages(project, resolveAsset));
+    ?? loadAllProjectImages;
   const registerFonts = dependencies.registerFonts
     ?? ((fonts: Project["fonts"]) => registerProjectFonts(fonts, resolveAsset));
   const fetchStoreSpecs = dependencies.fetchStoreSpecs ?? (() => fetch("/api/store-specs"));
@@ -103,6 +115,8 @@ export async function loadEditorResources(
   const projectResponse = await fetchProject();
   if (!projectResponse.ok) throw await responseError(projectResponse, "Failed to load project");
   const revision = requireProjectRevision(projectResponse.headers.get("etag"));
+  const projectId = projectResponse.headers.get("x-project-id")?.trim();
+  if (!projectId) throw new Error("Project response is missing its project identifier");
   const project = parseProject(await projectResponse.json());
   const images = await loadImages(project);
 
@@ -112,7 +126,7 @@ export async function loadEditorResources(
   if (!specsResponse.ok) throw await responseError(specsResponse, "Failed to load store specs");
   const specs = parseStoreSpecs(await specsResponse.json());
 
-  return { project, revision, images, specs, fontWarnings };
+  return { project, projectId, revision, images, specs, fontWarnings };
 }
 
 export function useEditorResources() {
@@ -124,6 +138,7 @@ export function useEditorResources() {
   const [fontRetrying, setFontRetrying] = useState(false);
   const resourceGeneration = useRef(0);
   const fontGeneration = useRef(0);
+  const projectId = useRef<string | null>(null);
   const assetSignature = useStore(editorStore, (state) =>
     state.project ? collectImageUrls(state.project).sort().join("\n") : "",
   );
@@ -144,7 +159,11 @@ export function useEditorResources() {
         // A revision becomes globally usable only after every required resource validated and this
         // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
         setProjectRevision(resources.revision);
-        editorStore.getState().load(resources.project);
+        projectId.current = resources.projectId;
+        editorStore.getState().load(
+          resources.project,
+          readActiveLayoutPreference(resources.projectId) ?? undefined,
+        );
         setImages(resources.images);
         setSpecs(resources.specs);
         setFontWarnings(resources.fontWarnings);
@@ -155,6 +174,17 @@ export function useEditorResources() {
       if (resourceGeneration.current === generation) setReloading(false);
     });
   }, []);
+
+  useEffect(() => editorStore.subscribe((state, previous) => {
+    const currentProjectId = projectId.current;
+    if (
+      currentProjectId
+      && state.activeLayoutId
+      && state.activeLayoutId !== previous.activeLayoutId
+    ) {
+      writeActiveLayoutPreference(currentProjectId, state.activeLayoutId);
+    }
+  }), []);
 
   const cancelLoads = useCallback(() => {
     ++resourceGeneration.current;
@@ -181,7 +211,7 @@ export function useEditorResources() {
     const missing = missingImageUrls(project, images);
     if (missing.length === 0) return;
     let cancelled = false;
-    void loadProjectImages(project, resolveAsset).then((loaded) => {
+    void loadAllProjectImages(project).then((loaded) => {
       if (cancelled) return;
       setImages((current) => {
         if (!current) return loaded;

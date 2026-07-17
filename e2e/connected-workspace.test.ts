@@ -19,32 +19,54 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "connected-workspace-"));
   projectPath = join(directory, "app-store-screenshots.json");
   const fixture = JSON.parse(readFileSync(fixturePath, "utf8")) as {
-    platforms: string[];
-    screens: Array<{
+    layouts: Array<{
       id: string;
-      platform: string;
-      device: string;
+      name: string;
+      mode: "isolated" | "connected";
+      screens: Array<{
+        id: string;
+        name: string;
+        platform: string;
+        device: string;
+        elements: unknown[];
+        variantOf?: string;
+        storeTargetId?: string;
+      }>;
     }>;
   };
-  const ipad = fixture.screens.find((screen) => screen.id === "unrelated")!;
+  const connectedLayout = fixture.layouts[0]!;
+  const ipad = connectedLayout.screens.find((screen) => screen.id === "unrelated")!;
   ipad.platform = "apple";
   ipad.device = "ipad";
-  fixture.platforms = ["apple"];
+  const isolatedScreen = structuredClone(connectedLayout.screens[0]!);
+  isolatedScreen.id = "isolated-hero";
+  isolatedScreen.name = "Isolated Hero";
+  isolatedScreen.elements = [];
+  delete isolatedScreen.variantOf;
+  delete isolatedScreen.storeTargetId;
+  fixture.layouts.push({
+    id: "isolated-campaign",
+    name: "Isolated campaign",
+    mode: "isolated",
+    screens: [isolatedScreen],
+  });
   writeFileSync(projectPath, `${JSON.stringify(fixture, null, 2)}\n`);
-  process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, {
+    projectPath,
+    storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+  });
   browser = await chromium.launch();
 }, 180_000);
 
 afterAll(async () => {
   await browser?.close();
   await server?.stop();
-  delete process.env.PROJECT_PATH;
   rmSync(directory, { recursive: true, force: true });
 });
 
 function project() {
-  return JSON.parse(readFileSync(projectPath, "utf8"));
+  return JSON.parse(readFileSync(projectPath, "utf8")).layouts
+    .find((layout: { id: string }) => layout.id === "default");
 }
 
 function bridgeX(): number {
@@ -65,12 +87,24 @@ async function dragBridge(page: Page, logicalDeltaX: number) {
   await page.mouse.up();
 }
 
+async function waitForConnectedWorkspace(page: Page) {
+  const connected = page.getByTestId("connected-artboards");
+  try {
+    await connected.waitFor({ state: "visible" });
+  } catch (error) {
+    const alerts = await page.getByRole("alert").allTextContents();
+    throw new Error(`Connected workspace did not load. Alerts: ${alerts.join(" | ")}`, {
+      cause: error,
+    });
+  }
+  return connected;
+}
+
 describe("Phase 6 connected workspace hardening", () => {
-  it("keeps group scope, owner surfaces, thumbnails, history, snapping, and mode guard coherent", async () => {
+  it("keeps group scope, owner surfaces, thumbnails, history, snapping, and layout switching coherent", async () => {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    const connected = page.getByTestId("connected-artboards");
-    await connected.waitFor({ state: "visible" });
+    const connected = await waitForConnectedWorkspace(page);
     const rows = page.getByTestId("overview-output-row");
     await expect.poll(() => rows.count()).toBe(2);
     const iphoneRow = rows.filter({ hasText: "App Store · iPhone" });
@@ -94,7 +128,7 @@ describe("Phase 6 connected workspace hardening", () => {
     const ipadRow = rows.filter({ hasText: "App Store · iPad" });
     await expect.poll(() => ipadRow.getAttribute("data-editing")).toBe("true");
     await page.getByRole("list", { name: "Screens for en · ipad" }).waitFor({ state: "visible" });
-    await expect.poll(() => page.getByTestId("layers-owner").textContent()).toBe("Unrelated");
+    await page.getByRole("heading", { name: /^Layers · Unrelated \d+$/ }).waitFor({ state: "visible" });
     await page.getByText("540 × 960 px", { exact: true }).waitFor({ state: "visible" });
     const ipadConnected = page.getByTestId("connected-artboards");
     const ipadConnectedBox = (await ipadConnected.boundingBox())!;
@@ -142,14 +176,22 @@ describe("Phase 6 connected workspace hardening", () => {
     expect(await screens.getByRole("listitem").count()).toBe(2);
     expect(await page.getByRole("button", { name: "Unrelated · phone", exact: true }).count()).toBe(0);
 
-    const mode = page.getByRole("button", { name: "Canvas mode: connected" });
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
-    await mode.click();
-    const modeError = page.getByRole("alert").filter({ hasText: "Can't switch to isolated canvas yet" });
-    await expect.poll(() => modeError.textContent(), { timeout: 5_000 }).toContain("screen boundaries");
-    expect(project().mode).toBe("connected");
+    const activeLayout = page.getByRole("button", { name: "Active layout: Default" });
+    const bytesBeforeLayoutSwitch = readFileSync(projectPath, "utf8");
+    await activeLayout.click();
+    await page.getByRole("menuitemradio", { name: /Isolated campaign/ }).click();
+    await page.getByRole("button", { name: "Active layout: Isolated campaign" }).waitFor();
+    await expect.poll(() => page.getByTestId("connected-artboards").count()).toBe(0);
+    expect(readFileSync(projectPath, "utf8")).toBe(bytesBeforeLayoutSwitch);
+
+    await page.reload({ waitUntil: "load" });
+    await page.getByRole("button", { name: "Active layout: Isolated campaign" }).waitFor();
+    expect(readFileSync(projectPath, "utf8")).toBe(bytesBeforeLayoutSwitch);
+    await page.getByRole("button", { name: "Active layout: Isolated campaign" }).click();
+    await page.getByRole("menuitemradio", { name: /Default/ }).click();
+    await waitForConnectedWorkspace(page);
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
-    await page.getByRole("button", { name: "Dismiss canvas mode error" }).click();
 
     const secondButton = screens.getByRole("button", { name: "Connected Second · iphone" });
     const secondThumbnail = secondButton.locator("xpath=..").locator("img");
@@ -165,31 +207,13 @@ describe("Phase 6 connected workspace hardening", () => {
 
     await dragBridge(page, -160);
     await expect.poll(() => Math.abs(bridgeX() - 400) < 4).toBe(true);
-    await mode.click();
-    await expect.poll(() => project().mode).toBe("isolated");
-    const isolatedMode = page.getByRole("button", { name: "Canvas mode: isolated" });
-    await expect.poll(() => isolatedMode.count()).toBe(1);
-    await expect.poll(() => page.getByTestId("connected-artboards").count()).toBe(0);
-
-    await isolatedMode.click();
-    const connectedModeDialog = page.getByRole("dialog", { name: "Switch to connected canvas?" });
-    await connectedModeDialog.waitFor({ state: "visible" });
-    expect(project().mode).toBe("isolated");
-    await connectedModeDialog.getByRole("button", { name: "Switch to connected", exact: true }).click();
-    await expect.poll(() => project().mode).toBe("connected");
-
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect.poll(() => project().mode).toBe("isolated");
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect.poll(() => project().mode).toBe("connected");
-    await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(bridgeX).toBe(560);
 
     await secondButton.click();
     await expect.poll(() => secondButton.getAttribute("aria-current")).toBe("true");
     await expect.poll(() => stage.getAttribute("data-active-screen-id")).toBe("connected-second");
-    await expect.poll(() => page.getByTestId("layers-owner").textContent()).toBe("Connected Second");
+    await page.getByRole("heading", { name: /^Layers · Connected Second \d+$/ }).waitFor({ state: "visible" });
     expect(await page.getByRole("list", { name: "Layers for Connected Second" })
       .getByRole("listitem").count()).toBe(1);
 
@@ -205,10 +229,10 @@ describe("Phase 6 connected workspace hardening", () => {
     await page.close();
   });
 
-  it("keeps compact overlays and mode feedback keyboard-operable", async () => {
+  it("keeps compact overlays and the layout menu keyboard-operable", async () => {
     const page = await browser.newPage({ viewport: { width: 720, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
+    await waitForConnectedWorkspace(page);
     const ipadRow = page.getByRole("button", {
       name: "Edit App Store · iPad connected row",
       exact: true,
@@ -236,14 +260,20 @@ describe("Phase 6 connected workspace hardening", () => {
     expect(await structure.getAttribute("aria-pressed")).toBe("false");
     expect(await inspect.getAttribute("aria-pressed")).toBe("false");
 
-    const mode = page.getByRole("button", { name: "Canvas mode: connected" });
-    await mode.focus();
+    const layoutSelector = page.getByRole("button", { name: "Active layout: Default" });
+    await layoutSelector.focus();
     await page.keyboard.press("Enter");
-    const modeError = page.getByRole("alert").filter({ hasText: "Can't switch to isolated canvas yet" });
-    await modeError.waitFor({ state: "visible" });
+    const layoutMenu = page.getByRole("menu", { name: "Design layouts" });
+    await layoutMenu.waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "More actions for Default" }).click();
+    const modeAction = page.getByRole("menu", { name: "Actions for Default" })
+      .getByRole("menuitem", { name: /Switch to isolated/ });
+    expect(await modeAction.textContent()).toContain(
+      "will be clipped while isolated. Layout data remains unchanged.",
+    );
     await page.keyboard.press("Escape");
-    await expect.poll(() => modeError.count()).toBe(0);
-    expect(await mode.evaluate((node) => document.activeElement === node)).toBe(true);
+    await expect.poll(() => layoutMenu.count()).toBe(0);
+    expect(await layoutSelector.evaluate((node) => document.activeElement === node)).toBe(true);
 
     await structure.focus();
     await page.keyboard.press("Space");
@@ -254,6 +284,30 @@ describe("Phase 6 connected workspace hardening", () => {
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+    await page.close();
+  });
+
+  it("resets stale export filters after switching layouts", async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await waitForConnectedWorkspace(page);
+
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    let dialog = page.getByRole("dialog", { name: "Export bundle" });
+    await dialog.getByRole("button", { name: "Device" }).click();
+    await dialog.getByRole("menuitemradio", { name: "ipad", exact: true }).click();
+    expect(await dialog.getByRole("button", { name: "Device" }).textContent()).toContain("ipad");
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+
+    await page.getByRole("button", { name: "Active layout: Default" }).click();
+    await page.getByRole("menuitemradio", { name: /Isolated campaign/ }).click();
+    await page.getByRole("button", { name: "Active layout: Isolated campaign" }).waitFor();
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Export bundle" });
+
+    expect((await dialog.getByRole("button", { name: "Platform" }).textContent())?.trim()).toBe("all");
+    expect((await dialog.getByRole("button", { name: "Device" }).textContent())?.trim()).toBe("all");
+    expect((await dialog.getByRole("button", { name: "Locale" }).textContent())?.trim()).toBe("all");
     await page.close();
   });
 });
