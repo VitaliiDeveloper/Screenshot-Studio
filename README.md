@@ -17,11 +17,11 @@ pnpm install
 pnpm dev             # App Home → http://localhost:3000
 ```
 
-Without `PROJECT_PATH`, App Home asks for the existing absolute path to
-`app-store-screenshots.json`; the editor validates it before activation. An explicit
-`PROJECT_PATH=... pnpm dev` or `screenshots dev --project ...` seeds the same local-file session and
-keeps automation and backward compatibility. The bundled sample is no longer opened or autosaved
-implicitly.
+Without an explicit project source, App Home reports that no project is active and never opens or
+autosaves the bundled sample. The Launcher 1/7 foundation intentionally does not expose a browser
+filesystem-path form. Start a local project explicitly with `PROJECT_PATH=... pnpm dev` or
+`screenshots dev --project ...`; browser Folder/ZIP/JSON import is delivered through managed project
+storage in later launcher slices.
 
 For example:
 
@@ -236,10 +236,11 @@ semantic object/person segmentation for complex scenes.
 
 ### Editor
 
-`pnpm dev` (see **Quick start**) runs App Home at http://localhost:3000. Open an existing project
-there, or set `PROJECT_PATH` to an existing absolute `app-store-screenshots.json` path before
-starting the host. `screenshots dev --project /absolute/path/to/app-store-screenshots.json` seeds
-the same local-file session through the CLI and prints the selected local URL.
+`pnpm dev` (see **Quick start**) runs the no-active-project App Home at http://localhost:3000. To open
+a local project in the current foundation, set `PROJECT_PATH` to an existing absolute
+`app-store-screenshots.json` path before starting the host, or run
+`screenshots dev --project /absolute/path/to/app-store-screenshots.json`. Both seed the same
+local-file session; App Home itself does not ask the user to paste a filesystem path.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
 strict `templates/*.json`. The Add shelf inserts text, shape, and trusted built-in icons directly;

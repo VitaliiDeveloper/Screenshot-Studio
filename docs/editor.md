@@ -232,13 +232,13 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 ## 7. States
 
-- **No active project** → App Home explains the expected `app-store-screenshots.json` path and offers
-  the open-existing action; the bundled sample is never selected implicitly.
-- **Invalid project open** → show the path/validation error without replacing the previously active
-  session.
-- **Selected project** → minimal Project Home shows identity and exact local path, with explicit entry
-  to the existing Workspace. Project overview and Home/Workspace context restoration belong to the
-  next launcher slice.
+- **No active project** → App Home states that no source is active and explains explicit CLI/server
+  startup; it exposes no raw path field and never selects the bundled sample implicitly.
+- **Invalid configured local project** → App Home shows the validation/path error without activating
+  or mutating a project.
+- **Selected local project** → minimal Project Home shows source identity and the exact location only
+  because the local source reports `revealLocation`; managed-source identity and the full overview
+  belong to later launcher slices.
 - **Empty artboard** → Add remains available for creating the first element on the existing screen.
 - **Missing asset** → a visible placeholder on the canvas; never crash or block the rest of the screen.
 - **Invalid JSON on load** → a blocking error surfacing the validator message; never fail silently.

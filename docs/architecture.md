@@ -98,21 +98,21 @@ is not a generic storage layer.
 
 The editor must not treat one process-global filesystem path as the identity of the active project.
 That shortcut works only for one local process and prevents multiple browser sessions, an Electron
-shell, browser-owned files, and hosted projects from sharing the same Project Home and Workspace.
+shell, managed browser projects, and hosted projects from sharing the same Project Home and Workspace.
 The portable boundary is therefore an **active project session**, not a universal file picker.
 
 The shell owns how a project is selected. A registered project-source adapter owns how that source is
 opened. The editor, APIs, renderer, and export flow consume the resulting request-scoped session and
-do not need to know whether the source began as a local path, a browser file handle, or a cloud id.
+do not need to know whether the source began as a local path, a managed project id, or a cloud id.
 
 ```mermaid
 flowchart LR
     Launcher["Launcher or shell"] --> Registry["Project source registry"]
     Registry --> Local["local-file adapter"]
-    Registry --> Browser["browser-file adapter"]
+    Registry --> Managed["managed-project adapter"]
     Registry --> Cloud["cloud-project adapter"]
     Local --> Session["Active project session"]
-    Browser --> Session
+    Managed --> Session
     Cloud --> Session
     Session --> Storage["StorageAdapter plus resource services"]
     Storage --> Snapshot["Validated Project snapshot and revision"]
@@ -133,7 +133,7 @@ An illustrative browser-safe descriptor is:
 interface ActiveProjectDescriptor {
   sessionId: string
   name: string
-  sourceKind: string // registered id, for example "local-file" or "cloud-project"
+  sourceKind: string // registered id, for example "local-file" or "managed-project"
   displayLocation?: string
   capabilities: {
     writeInPlace: boolean
@@ -148,15 +148,15 @@ interface ActiveProjectDescriptor {
 This descriptor is application state, not persisted Project data. It intentionally contains no
 filesystem path field that every consumer can depend on. `displayLocation` is present only when the
 source can safely expose a useful location. A local self-hosted source can display the exact canonical
-`app-store-screenshots.json` path; a browser-owned file may expose only a filename; a hosted source may
-show a workspace/project label or URL. Capabilities combine what the selected source and the current
-shell can actually provide: the same local-file source can report `nativePicker: false` in the web
-shell and `nativePicker: true` in Electron.
+`app-store-screenshots.json` path; a managed project exposes a project name or managed label; a hosted
+source may show a workspace/project label or URL. Capabilities combine what the selected source and
+the current shell can actually provide: the same local-file source can report `nativePicker: false`
+in the web shell and `nativePicker: true` in Electron.
 
 The session owner retains the opaque source locator, current revision evidence, and the adapter needed
-to load or save the project. Local-file and cloud sessions are normally server-owned. A browser file
-handle must remain browser-owned; server-only operations such as shared-renderer export then require an
-explicit validated snapshot/resource bridge rather than pretending the server possesses the handle.
+to load or save the project. Local-file, managed-project, and cloud sessions are server-owned. Browser
+Folder/ZIP/JSON inputs are bounded import inputs that publish a managed copy; they are not retained
+filesystem handles and do not imply in-place mutation of the selected source.
 Project-bound operations resolve the session from request or client-workspace scope. They must not read
 or mutate one global "current project" path. In a hosted deployment the authenticated user/session owns
 access; possession of a `sessionId` is never authorization by itself.
@@ -165,22 +165,23 @@ access; possession of a `sessionId` is never authorization by itself.
 
 | Deployment | Selection experience | Adapter locator | Visible location | Implementation boundary |
 |---|---|---|---|---|
-| Local self-hosted web | Explicit path, then safe recent projects | Canonical local JSON path | Exact path | `local-file`; local mutation lock and resource services |
-| Electron or another desktop shell | Native OS open dialog | Canonical local JSON path | Exact path | The same `local-file` behavior; only the shell picker changes |
-| Hosted browser-owned file | Browser permission/file handle | Browser-owned retained handle | Filename or browser label | `browser-file`; client storage plus an explicit server render/export bridge when supported |
+| CLI-seeded local web | `PROJECT_PATH` or `screenshots dev --project` | Canonical local JSON path | Exact path | `local-file`; implemented in Launcher 1/7 |
+| Managed browser web | Folder/ZIP/JSON import | Opaque managed project id | Project name / managed label | `managed-project`; Launcher 2/7–3/7 |
+| Electron or another desktop shell | Native OS open dialog | Canonical local JSON path | Exact path | The same `local-file` adapter; future shell |
 | Hosted cloud project | Authenticated project catalog | Provider-owned project id | Project/workspace label or URL | `cloud-project`; cloud storage, authorization, and distributed concurrency |
 
 There is deliberately no promise that all rows support the same actions. The UI reads capabilities
 instead of inferring behavior from `NODE_ENV`, hostname, or source-name conditionals. For example, a
 hosted source without project-local resource support may allow validated JSON editing while hiding
-font/template management. It must not silently emulate an unsupported operation with a detached copy.
+font/template management. It must not silently emulate an unsupported operation or claim that an
+imported copy still edits its original source.
 
 #### Local self-hosted example
 
-A user starts the open-source editor and enters:
+A user explicitly starts the open-source editor with a local project:
 
-```text
-/Users/alex/Projects/MyAppScreenshots/app-store-screenshots.json
+```bash
+PROJECT_PATH=/Users/alex/Projects/MyAppScreenshots/app-store-screenshots.json pnpm dev
 ```
 
 The local source canonicalizes and validates the path, loads the strict document, captures its
@@ -188,8 +189,9 @@ revision, and only then creates an active session. The response exposes a genera
 project name, the exact display path, and local capabilities. Project Home, Workspace, asset routes,
 preview, and export resolve the same session. A failed open leaves the previous active session intact.
 
-An Electron shell later replaces the text field with a native file dialog. The dialog still supplies a
-local path to the same source behavior, so Project Home, Workspace, persistence, and export do not
+Normal browser project selection later imports Folder/ZIP/JSON input into managed storage and opens a
+`managed-project` session. An Electron shell instead supplies a canonical local path from a native
+dialog to the same `local-file` behavior, so Project Home, Workspace, persistence, and export do not
 change.
 
 #### Hosted example
@@ -202,19 +204,20 @@ concurrency behavior differ behind the adapter boundary.
 
 #### Compatibility and first delivery
 
-The first launcher slice implements only the local-file source and the active-session seam:
+Launcher 1/7 implements only the local-file source and the active-session seam:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
 - `PROJECT_PATH` and `screenshots dev --project` seed a local-file session for backward compatibility;
+- App Home does not expose a browser path form or arbitrary local-path activation endpoint;
 - the initial local registry may be in-process, so a server restart can require reopening the project;
-  durable recent-project recovery belongs to the later launcher slice;
+  managed storage/catalog belongs to Launcher 2/7 and durable recents to Launcher 7/7;
 - every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
   independently;
 - conditional revisions, mutation locks, strict validation, and shared render/export behavior remain
   unchanged;
-- browser-file, Electron-specific, and cloud implementations are not created until their product
-  surfaces exist.
+- managed browser import/archive export belongs to Launcher 3/7; Electron-specific and cloud
+  implementations are not created until their product surfaces exist.
 
 Future adapters must prove the same behavioral contract: validate before activation, preserve the
 previous session on open failure, detect stale writes, avoid partial publication, report capabilities
