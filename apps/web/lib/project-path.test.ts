@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveProjectPath } from "./project-path.js";
+import { resolveConfiguredProjectPath, resolveProjectPath } from "./project-path.js";
 
 const saved = { PROJECT_PATH: process.env.PROJECT_PATH, INIT_CWD: process.env.INIT_CWD };
 
@@ -12,6 +12,13 @@ afterEach(() => {
 });
 
 describe("resolveProjectPath", () => {
+  it("returns null when PROJECT_PATH is not explicitly configured", () => {
+    process.env.INIT_CWD = "/repo-root";
+    delete process.env.PROJECT_PATH;
+    expect(resolveConfiguredProjectPath()).toBeNull();
+    expect(resolveProjectPath()).toBe("/repo-root/fixtures/sample/app-store-screenshots.json");
+  });
+
   it("resolves a relative PROJECT_PATH against INIT_CWD, not cwd", () => {
     // `next dev` runs with cwd = apps/web; the user invokes pnpm from the repo root.
     process.env.INIT_CWD = "/repo-root";
