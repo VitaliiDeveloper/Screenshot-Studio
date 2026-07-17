@@ -133,7 +133,7 @@ Project
 ```
 
 Layouts are ordered, non-empty, independently editable design alternatives. Layout ids are
-immutable; trimmed names are case-insensitively unique; mode is fixed when a layout is created.
+immutable; trimmed names are case-insensitively unique; mode is selected at creation and may change later.
 Screen and element identity, locale sets, output families, variants, ordering, and mode semantics
 are layout-local. Fonts and project assets remain shared. `preferredExportLayoutId` must reference
 one existing layout and is the default only for non-interactive export selection.
@@ -203,7 +203,7 @@ element ids and rewrites variant references. Rename trims and rejects empty or c
 duplicate names. Delete refuses the final layout; deleting the preferred layout atomically prefers
 the next layout or, for the last position, the previous layout. The editor activates that same
 next/previous fallback when deleting its active layout. Prefer changes only
-`preferredExportLayoutId`. No lifecycle operation changes an existing layout's mode.
+`preferredExportLayoutId`. The explicit mode operation changes only the selected layout's mode.
 
 The editor's active layout is local workspace state keyed by an opaque hash of the canonical project
 path. It falls back to `preferredExportLayoutId` when missing or stale and never enters
@@ -211,7 +211,7 @@ path. It falls back to `preferredExportLayoutId` when missing or stale and never
 `--layout <id-or-full-name>` and otherwise uses the preferred layout; other layout-aware CLI
 mutations infer a target only for a one-layout project and require `--layout` when ambiguous.
 
-**Connected canvas — render/export contract.** Every layout owns one immutable
+**Connected canvas — render/export contract.** Every layout owns one explicit
 `isolated | connected` choice. In a connected layout, screens with the same exact
 platform, device, locale, and
 store-target identity form a gapless,
@@ -224,7 +224,9 @@ PNG or post-export slicing path. The editor uses one gapless editable group stag
 `elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
 screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
 non-interactive crop. Switching layouts is transient, unconditional, and never converts content or
-changes either layout's mode.
+changes either layout's mode. Explicit mode changes are also unconditional and preserve coordinates.
+Connected overflow is clipped while the layout is isolated but is not deleted, so switching back
+restores the connected rendering; the editor exposes that consequence as a non-blocking warning.
 
 **Editor history.** The Zustand store keeps at most 50 prior screen-content snapshots per layout in
 memory. Consecutive patches for the same owner element, background, or artboard coalesce until an
@@ -271,7 +273,7 @@ Connected reorder rewrites only the visible group's existing project-array slots
 unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
 memoization compares every exact-group screen reference and projected order because a neighbour's
 element can change the requested crop, while unrelated groups remain memoized. The toolbar mode
-badge is descriptive only because mode is immutable after layout creation. Desktop and compact browser coverage
+badge is descriptive, while mode changes remain an explicit layout-row action. Desktop and compact browser coverage
 composes layout switching, mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
 keyboard dismissal without persisting workspace chrome.
 
@@ -289,7 +291,7 @@ where a group owns a non-empty, non-nested `children: LeafElement[]` array in lo
 The group occupies one top-level z-order slot; child array order is internal z-order. Group
 translation/rotation/opacity compose through the ordinary recursive `NodeConfig` tree, while
 `width/height` are authoring bounds and introduce neither runtime scale nor clipping. Visible child
-overflow follows its layout's immutable connected or isolated rendering semantics, and exact screen
+overflow follows its layout's current connected or isolated rendering semantics, and exact screen
 stage dimensions remain the only export crop. Fonts, assets, themes, templates, cloning, and RTL all traverse group leaves
 through shared core helpers.
 

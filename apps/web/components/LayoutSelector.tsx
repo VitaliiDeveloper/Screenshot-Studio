@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { ArrowLeftRight, Check, ChevronDown, Copy, LayoutTemplate, MoreVertical, Pencil, Plus, Star, Trash2 } from "lucide-react";
-import type { CanvasMode, DesignLayout, Project } from "@screenshot-studio/core/model";
+import { findOwnerOverflows, type CanvasMode, type DesignLayout, type Project } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { cx, DialogShell, editorUi } from "./editor-ui";
@@ -53,13 +53,26 @@ export function toggleLayoutMenuState(state: LayoutMenuState): LayoutMenuState {
   return state.open ? CLOSED_LAYOUT_MENU : { open: true, actionMenuId: null };
 }
 
-export function layoutActionPresentation(project: Project, layout: DesignLayout) {
+export function layoutActionPresentation(
+  project: Project,
+  layout: DesignLayout,
+  includeModeWarning = false,
+) {
   const nextMode: CanvasMode = layout.mode === "connected" ? "isolated" : "connected";
+  const overflowCount = includeModeWarning && nextMode === "isolated"
+    ? findOwnerOverflows(project, layout.id).length
+    : 0;
+  const modeWarning = overflowCount === 1
+    ? "1 element extends outside its owner artboard and will be clipped while isolated. Layout data remains unchanged."
+    : overflowCount > 1
+      ? `${overflowCount} elements extend outside their owner artboards and will be clipped while isolated. Layout data remains unchanged.`
+      : null;
   return {
     canDelete: project.layouts.length > 1,
     canPrefer: project.preferredExportLayoutId !== layout.id,
     nextMode,
     switchModeLabel: `Switch to ${nextMode}`,
+    modeWarning,
   };
 }
 
@@ -154,7 +167,7 @@ export function LayoutSelector() {
             <div className="max-h-80 overflow-visible">
               {project.layouts.map((layout) => {
                 const presentation = layoutPresentation(project, layout, activeLayout.id);
-                const actions = layoutActionPresentation(project, layout);
+                const actions = layoutActionPresentation(project, layout, actionMenuId === layout.id);
                 return (
                   <div key={layout.id} className="group relative flex items-center border-b border-slate-100 py-1.5 last:border-b-0">
                     <button
@@ -212,7 +225,17 @@ export function LayoutSelector() {
                         <button type="button" role="menuitem" className={actionMenuItem} onClick={() => {
                           mutateAndSave(() => editorStore.getState().setLayoutMode(layout.id, actions.nextMode));
                           setMenuState(CLOSED_LAYOUT_MENU);
-                        }}><ArrowLeftRight size={13} /> {actions.switchModeLabel}</button>
+                        }}>
+                          <ArrowLeftRight size={13} className="shrink-0" />
+                          <span className="min-w-0 py-1">
+                            <span className="block">{actions.switchModeLabel}</span>
+                            {actions.modeWarning ? (
+                              <span className="mt-0.5 block text-[10px] font-normal leading-4 text-amber-700">
+                                {actions.modeWarning}
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
                         <button type="button" role="menuitem" disabled={!actions.canPrefer} className={actionMenuItem} onClick={() => {
                           mutateAndSave(() => editorStore.getState().preferLayout(layout.id));
                           setMenuState((current) => ({ ...current, actionMenuId: null }));

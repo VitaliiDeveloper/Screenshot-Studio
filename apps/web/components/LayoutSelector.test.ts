@@ -121,6 +121,33 @@ describe("layout presentation", () => {
       canPrefer: false,
       nextMode: "connected",
       switchModeLabel: "Switch to connected",
+      modeWarning: null,
+    });
+  });
+
+  it("warns without blocking when isolated rendering will clip connected overflow", () => {
+    const fixture = project();
+    const connected = fixture.layouts[1]!;
+    connected.screens[0]!.elements = [{
+      id: "bridge",
+      type: "shape",
+      x: 1200,
+      y: 100,
+      width: 240,
+      height: 100,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      kind: "rect",
+      fill: "#ffffff",
+      radius: 0,
+    }];
+
+    expect(layoutActionPresentation(fixture, connected, true)).toMatchObject({
+      nextMode: "isolated",
+      switchModeLabel: "Switch to isolated",
+      modeWarning: "1 element extends outside its owner artboard and will be clipped while isolated. Layout data remains unchanged.",
     });
   });
 });

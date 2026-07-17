@@ -475,7 +475,11 @@ export function Toolbar({
         ) : null}
       </div>
 
-      <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
+      <ExportDialog
+        key={activeLayout?.id ?? "no-layout"}
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+      />
     </header>
   );
 }

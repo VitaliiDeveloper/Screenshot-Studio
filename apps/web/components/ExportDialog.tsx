@@ -5,10 +5,13 @@ import { useState } from "react";
 import { useStore } from "zustand";
 import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
-import { layoutLocales } from "@screenshot-studio/core/model";
 import { withFlushedProject } from "../lib/debounced-save";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
-import { launchExportArtifactDownload } from "./export-dialog-model";
+import {
+  DEFAULT_EXPORT_FILTERS,
+  launchExportArtifactDownload,
+  normalizeExportFilters,
+} from "./export-dialog-model";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
@@ -18,9 +21,9 @@ import { launchExportArtifactDownload } from "./export-dialog-model";
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeLayoutId = useStore(editorStore, (s) => s.activeLayoutId);
-  const [platform, setPlatform] = useState("all");
-  const [device, setDevice] = useState("all");
-  const [locale, setLocale] = useState<string>("all");
+  const [platform, setPlatform] = useState(DEFAULT_EXPORT_FILTERS.platform);
+  const [device, setDevice] = useState(DEFAULT_EXPORT_FILTERS.device);
+  const [locale, setLocale] = useState<string>(DEFAULT_EXPORT_FILTERS.locale);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneDir, setDoneDir] = useState<string | null>(null);
@@ -32,8 +35,13 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const devices = Array.from(new Set(layout.screens
     .filter((screen) => platform === "all" || screen.platform === platform)
     .map((screen) => screen.device)));
+  const locales = Array.from(new Set(layout.screens
+    .filter((screen) => platform === "all" || screen.platform === platform)
+    .filter((screen) => device === "all" || screen.device === device)
+    .map((screen) => screen.locale)));
 
   const runExport = async () => {
+    const filters = normalizeExportFilters(layout, { platform, device, locale });
     setPending(true);
     setError(null);
     setDoneDir(null);
@@ -44,9 +52,9 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             layoutId: activeLayoutId,
-            platform: platform === "all" ? undefined : platform,
-            device: device === "all" ? undefined : device,
-            locale: locale === "all" ? undefined : locale,
+            platform: filters.platform === "all" ? undefined : filters.platform,
+            device: filters.device === "all" ? undefined : filters.device,
+            locale: filters.locale === "all" ? undefined : filters.locale,
           }),
         });
         const body = await res.json().catch(() => ({}));
@@ -84,6 +92,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             onChange={(value) => {
               setPlatform(value);
               setDevice("all");
+              setLocale("all");
             }}
             className="w-40"
           />
@@ -95,7 +104,10 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             ariaLabel="Device"
             value={device}
             options={[{ value: "all", label: "all" }, ...devices.map((value) => ({ value, label: value }))]}
-            onChange={setDevice}
+            onChange={(value) => {
+              setDevice(value);
+              setLocale("all");
+            }}
             className="w-40"
           />
         </label>
@@ -105,7 +117,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <MenuSelect
             ariaLabel="Locale"
             value={locale}
-            options={[{ value: "all", label: "all" }, ...layoutLocales(layout).map((entry) => ({ value: entry, label: entry }))]}
+            options={[{ value: "all", label: "all" }, ...locales.map((entry) => ({ value: entry, label: entry }))]}
             onChange={setLocale}
             className="w-40"
           />

@@ -265,6 +265,12 @@ describe("Phase 6 connected workspace hardening", () => {
     await page.keyboard.press("Enter");
     const layoutMenu = page.getByRole("menu", { name: "Design layouts" });
     await layoutMenu.waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "More actions for Default" }).click();
+    const modeAction = page.getByRole("menu", { name: "Actions for Default" })
+      .getByRole("menuitem", { name: /Switch to isolated/ });
+    expect(await modeAction.textContent()).toContain(
+      "will be clipped while isolated. Layout data remains unchanged.",
+    );
     await page.keyboard.press("Escape");
     await expect.poll(() => layoutMenu.count()).toBe(0);
     expect(await layoutSelector.evaluate((node) => document.activeElement === node)).toBe(true);
@@ -278,6 +284,30 @@ describe("Phase 6 connected workspace hardening", () => {
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+    await page.close();
+  });
+
+  it("resets stale export filters after switching layouts", async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await waitForConnectedWorkspace(page);
+
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    let dialog = page.getByRole("dialog", { name: "Export bundle" });
+    await dialog.getByRole("button", { name: "Device" }).click();
+    await dialog.getByRole("menuitemradio", { name: "ipad", exact: true }).click();
+    expect(await dialog.getByRole("button", { name: "Device" }).textContent()).toContain("ipad");
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+
+    await page.getByRole("button", { name: "Active layout: Default" }).click();
+    await page.getByRole("menuitemradio", { name: /Isolated campaign/ }).click();
+    await page.getByRole("button", { name: "Active layout: Isolated campaign" }).waitFor();
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Export bundle" });
+
+    expect((await dialog.getByRole("button", { name: "Platform" }).textContent())?.trim()).toBe("all");
+    expect((await dialog.getByRole("button", { name: "Device" }).textContent())?.trim()).toBe("all");
+    expect((await dialog.getByRole("button", { name: "Locale" }).textContent())?.trim()).toBe("all");
     await page.close();
   });
 });

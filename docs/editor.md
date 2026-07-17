@@ -52,7 +52,7 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** Every layout is created as `isolated` or `connected`, and that mode is immutable.
+- **Canvas mode.** Every layout is created as `isolated` or `connected`, and its mode can be changed later.
   Isolated behavior remains independent. Connected Overview is one gapless editable exact
   platform/device/locale/store-target strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
@@ -110,8 +110,10 @@ shelf is open at a time; clicking its active rail item collapses it.
 ## 4. Top bar & adding elements
 
 - The compact layout selector follows the project name and shows the active layout name plus its
-  immutable mode badge. Its ordered menu marks the active and preferred layouts and provides Rename,
-  Duplicate, Prefer for export, Delete, and New layout. Names are trimmed and case-insensitively
+  non-editable mode badge. Its ordered menu marks the active and preferred layouts and provides Rename,
+  Duplicate, Switch mode, Prefer for export, Delete, and New layout. Switching always preserves the
+  stored screen/element data; when Connected content extends outside an owner artboard, the menu warns
+  that those pixels are clipped while Isolated and reappear after switching back. Names are trimmed and case-insensitively
   unique. New layout asks only for name and mode and creates one clean screen using the active
   screen's platform/device/locale/direction/artboard, a solid `#101827` background, and no elements.
   Duplicate copies the selected layout's content with fresh layout, screen, and element ids.
@@ -131,8 +133,8 @@ shelf is open at a time; clicking its active rail item collapses it.
   platform/device/locale/store-target
   group. Reorder changes only that group's project slots; unrelated same-locale groups keep their
   indices. Thumbnails depend on the full group because neighbour-owned pixels may enter a crop.
-  Layers labels and follows the active owner screen. Mode is shown by the layout selector and has
-  no editor conversion control.
+  Layers labels and follows the active owner screen. Mode is shown by the layout selector and changes
+  from its row menu without coordinate conversion or a blocking overflow guard.
 - Fonts, Themes, and Templates open from Resources. Theme and template files are
   server-side project inputs; the browser receives validated definitions and durable projects.
   LTR-authored template geometry is baked once when instantiated into an RTL locale.
