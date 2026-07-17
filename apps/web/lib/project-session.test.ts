@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import {
-  fetchActiveProject,
-  openLocalProject,
-} from "./project-session.js";
+import { fetchActiveProject } from "./project-session.js";
 
 describe("project-session client helpers", () => {
   it("returns null for a 204 active-session response", async () => {
@@ -31,13 +28,13 @@ describe("project-session client helpers", () => {
     await expect(fetchActiveProject(fetcher)).resolves.toEqual(descriptor);
   });
 
-  it("returns the server error when opening fails", async () => {
+  it("returns the server error when active-session lookup fails", async () => {
     const fetcher = vi.fn(async () => Response.json(
-      { error: "Invalid project document" },
+      { error: "Invalid configured project document" },
       { status: 422 },
     ));
 
-    await expect(openLocalProject("/broken/project.json", fetcher))
-      .rejects.toThrow("Invalid project document");
+    await expect(fetchActiveProject(fetcher))
+      .rejects.toThrow("Invalid configured project document");
   });
 });

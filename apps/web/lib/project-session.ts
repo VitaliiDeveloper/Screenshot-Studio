@@ -36,16 +36,3 @@ export async function fetchActiveProject(
   if (!response.ok) throw await responseError(response);
   return await response.json() as ActiveProjectDescriptor;
 }
-
-export async function openLocalProject(
-  path: string,
-  fetcher: ProjectSessionFetcher = fetch,
-): Promise<ActiveProjectDescriptor> {
-  const response = await fetcher("/api/project-session", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ path }),
-  });
-  if (!response.ok) throw await responseError(response);
-  return await response.json() as ActiveProjectDescriptor;
-}

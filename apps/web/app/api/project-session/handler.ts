@@ -3,7 +3,6 @@ import {
   NoActiveProjectError,
   PROJECT_SESSION_COOKIE,
   projectSessionErrorResponse,
-  projectSessionRegistry,
   resolveActiveProjectSession,
   type ActiveProjectResolverDependencies,
 } from "../../../lib/project-session.server.js";
@@ -43,30 +42,6 @@ export async function handleProjectSessionGet(
         headers: { "cache-control": "no-store", "set-cookie": clearCookie(request) },
       });
     }
-    return projectSessionErrorResponse(error);
-  }
-}
-
-export async function handleProjectSessionPost(
-  request: Request,
-  dependencies: ActiveProjectResolverDependencies = {},
-): Promise<Response> {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
-  }
-  const path = typeof body === "object" && body !== null && !Array.isArray(body)
-    ? (body as { path?: unknown }).path
-    : undefined;
-  if (typeof path !== "string" || !path.trim()) {
-    return Response.json({ error: "path must be a non-empty string" }, { status: 400 });
-  }
-  try {
-    const session = await (dependencies.registry ?? projectSessionRegistry).openLocal(path.trim());
-    return descriptorResponse(session, request);
-  } catch (error) {
     return projectSessionErrorResponse(error);
   }
 }
