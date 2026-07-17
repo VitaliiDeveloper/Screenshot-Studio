@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useStore } from "zustand";
 import type {
   CanvasPattern,
@@ -153,6 +154,12 @@ export default function EditorPage() {
           >
             {reloading ? "Retrying workspace resources…" : "Retry workspace resources"}
           </button>
+          <Link
+            href="/?switch=1"
+            className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-red-700 underline hover:bg-red-50"
+          >
+            Open another project
+          </Link>
         </div>
       </main>
     );

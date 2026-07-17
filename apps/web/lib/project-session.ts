@@ -15,3 +15,37 @@ export interface ActiveProjectDescriptor {
   displayLocation?: string;
   capabilities: ProjectSourceCapabilities;
 }
+
+export type ProjectSessionFetcher = (
+  input: string,
+  init?: RequestInit,
+) => Promise<Response>;
+
+async function responseError(response: Response): Promise<Error> {
+  const body = await response.json().catch(() => ({})) as { error?: unknown };
+  return new Error(typeof body.error === "string"
+    ? body.error
+    : `Project session request failed (${response.status})`);
+}
+
+export async function fetchActiveProject(
+  fetcher: ProjectSessionFetcher = fetch,
+): Promise<ActiveProjectDescriptor | null> {
+  const response = await fetcher("/api/project-session", { cache: "no-store" });
+  if (response.status === 204) return null;
+  if (!response.ok) throw await responseError(response);
+  return await response.json() as ActiveProjectDescriptor;
+}
+
+export async function openLocalProject(
+  path: string,
+  fetcher: ProjectSessionFetcher = fetch,
+): Promise<ActiveProjectDescriptor> {
+  const response = await fetcher("/api/project-session", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  if (!response.ok) throw await responseError(response);
+  return await response.json() as ActiveProjectDescriptor;
+}
