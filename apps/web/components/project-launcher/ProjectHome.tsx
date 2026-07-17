@@ -50,7 +50,7 @@ export function ProjectHome() {
         </dl>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link href="/editor" className={editorUi.buttonPrimary}>Open workspace</Link>
-          <Link href="/?switch=1" className={editorUi.buttonSecondary}>Open another project</Link>
+          <Link href="/?switch=1" className={editorUi.buttonSecondary}>Project launcher</Link>
         </div>
       </section>
     </main>

@@ -158,7 +158,7 @@ export default function EditorPage() {
             href="/?switch=1"
             className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-red-700 underline hover:bg-red-50"
           >
-            Open another project
+            Return to project launcher
           </Link>
         </div>
       </main>
