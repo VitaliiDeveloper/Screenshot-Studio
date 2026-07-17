@@ -2,8 +2,9 @@
 import { produce } from "immer";
 import {
   cloneScreenWithFreshIds,
-  recomputeManifests,
+  getLayout,
   removeScreenFromProject,
+  replaceLayout,
   resizeStoreOutputArtboards,
   sameScreenGroup,
   type Background,
@@ -24,12 +25,18 @@ function moveInPlace<T>(items: T[], from: number, to: number): void {
   items.splice(to, 0, item as T);
 }
 
-export function reorderProjectScreens(project: Project, fromId: string, toId: string): Project {
+export function reorderProjectScreens(
+  project: Project,
+  layoutId: string,
+  fromId: string,
+  toId: string,
+): Project {
   if (fromId === toId) return project;
-  const fromScreen = project.screens.find((screen) => screen.id === fromId);
-  const toScreen = project.screens.find((screen) => screen.id === toId);
+  const layout = getLayout(project, layoutId);
+  const fromScreen = layout.screens.find((screen) => screen.id === fromId);
+  const toScreen = layout.screens.find((screen) => screen.id === toId);
   if (!fromScreen || !toScreen) return project;
-  const inScope = project.mode === "connected"
+  const inScope = layout.mode === "connected"
     ? (screen: typeof fromScreen) => sameScreenGroup(screen, fromScreen)
     : (screen: typeof fromScreen) => screen.locale === fromScreen.locale
       && screen.platform === fromScreen.platform
@@ -37,43 +44,54 @@ export function reorderProjectScreens(project: Project, fromId: string, toId: st
       && screen.storeTargetId === fromScreen.storeTargetId;
   if (!inScope(toScreen)) return project;
   return produce(project, (draft) => {
-    const indices = draft.screens
+    const screensDraft = draft.layouts.find((candidate) => candidate.id === layoutId)!.screens;
+    const indices = screensDraft
       .map((screen, index) => inScope(screen) ? index : -1)
       .filter((index) => index >= 0);
-    const screens = indices.map((index) => draft.screens[index]!);
+    const screens = indices.map((index) => screensDraft[index]!);
     const from = screens.findIndex((screen) => screen.id === fromId);
     const to = screens.findIndex((screen) => screen.id === toId);
     moveInPlace(screens, from, to);
-    indices.forEach((index, position) => { draft.screens[index] = screens[position]!; });
+    indices.forEach((index, position) => { screensDraft[index] = screens[position]!; });
   });
 }
 
-function sourceScreen(project: Project, activeScreenId: string | null) {
-  const active = project.screens.find((screen) => screen.id === activeScreenId)
-    ?? project.screens[0];
+function sourceScreen(project: Project, layoutId: string, activeScreenId: string | null) {
+  const layout = getLayout(project, layoutId);
+  const active = layout.screens.find((screen) => screen.id === activeScreenId)
+    ?? layout.screens[0];
   if (!active) return null;
   return active.variantOf
-    ? project.screens.find((screen) => screen.id === active.variantOf) ?? active
+    ? layout.screens.find((screen) => screen.id === active.variantOf) ?? active
     : active;
 }
 
-export function appendClonedScreen(project: Project, activeScreenId: string | null): ProjectMutationResult {
-  const source = sourceScreen(project, activeScreenId);
+export function appendClonedScreen(
+  project: Project,
+  layoutId: string,
+  activeScreenId: string | null,
+): ProjectMutationResult {
+  const source = sourceScreen(project, layoutId, activeScreenId);
   if (!source) return { project };
   const cloned = cloneScreenWithFreshIds(source);
   const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...copy } = cloned;
+  const layout = getLayout(project, layoutId);
   return {
-    project: recomputeManifests({
-      ...project,
-      screens: [...project.screens, copy as typeof cloned],
+    project: replaceLayout(project, {
+      ...layout,
+      screens: [...layout.screens, copy as typeof cloned],
     }),
     activeScreenId: copy.id,
     selectedItems: [],
   };
 }
 
-export function appendBlankScreen(project: Project, activeScreenId: string | null): ProjectMutationResult {
-  const source = sourceScreen(project, activeScreenId);
+export function appendBlankScreen(
+  project: Project,
+  layoutId: string,
+  activeScreenId: string | null,
+): ProjectMutationResult {
+  const source = sourceScreen(project, layoutId, activeScreenId);
   if (!source) return { project };
   const cloned = structuredClone(source);
   const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...added } = {
@@ -82,11 +100,9 @@ export function appendBlankScreen(project: Project, activeScreenId: string | nul
     name: "Untitled",
     elements: [],
   };
+  const layout = getLayout(project, layoutId);
   return {
-    project: recomputeManifests({
-      ...project,
-      screens: [...project.screens, added],
-    }),
+    project: replaceLayout(project, { ...layout, screens: [...layout.screens, added] }),
     activeScreenId: added.id,
     selectedItems: [],
   };
@@ -94,52 +110,58 @@ export function appendBlankScreen(project: Project, activeScreenId: string | nul
 
 export function removeProjectScreen(
   project: Project,
+  layoutId: string,
   id: string,
   activeScreenId: string | null,
   selectedItems: SelectionRef[],
 ): ProjectMutationResult {
-  const index = project.screens.findIndex((screen) => screen.id === id);
+  const layout = getLayout(project, layoutId);
+  const index = layout.screens.findIndex((screen) => screen.id === id);
   if (index === -1) return { project, activeScreenId, selectedItems };
-  const removed = project.screens[index]!;
-  const localeRootScreens = project.screens.filter((screen) =>
+  const removed = layout.screens[index]!;
+  const localeRootScreens = layout.screens.filter((screen) =>
     screen.variantOf === undefined && screen.locale === removed.locale,
   );
   if (removed.variantOf === undefined && localeRootScreens.length <= 1) {
     return { project, activeScreenId, selectedItems };
   }
-  const removedIds = new Set([id, ...project.screens
+  const removedIds = new Set([id, ...layout.screens
     .filter((screen) => screen.variantOf === id)
     .map((screen) => screen.id)]);
-  const nextProject = removeScreenFromProject(project, id, { cascadeVariants: true });
+  const nextProject = removeScreenFromProject(project, layoutId, id, { cascadeVariants: true });
+  const nextLayout = getLayout(nextProject, layoutId);
   const wasActive = activeScreenId ? removedIds.has(activeScreenId) : false;
   const nextActiveScreenId = wasActive
-    ? (nextProject.screens.find((screen) =>
+    ? (nextLayout.screens.find((screen) =>
       screen.locale === removed.locale && screen.storeTargetId === removed.storeTargetId,
-    ) ?? nextProject.screens.find((screen) => screen.locale === removed.locale)
-      ?? nextProject.screens[Math.min(index, nextProject.screens.length - 1)])!.id
+    ) ?? nextLayout.screens.find((screen) => screen.locale === removed.locale)
+      ?? nextLayout.screens[Math.min(index, nextLayout.screens.length - 1)])!.id
     : activeScreenId;
   const remainingSelection = selectedItems.filter((item) => !removedIds.has(item.screenId));
   return {
     project: nextProject,
     activeScreenId: nextActiveScreenId,
-    selectedItems: reconcileSelection(nextProject, nextActiveScreenId, remainingSelection),
+    selectedItems: reconcileSelection(nextLayout, nextActiveScreenId, remainingSelection),
   };
 }
 
 export function reorderScreenElements(
   project: Project,
+  layoutId: string,
   activeScreenId: string,
   from: number,
   to: number,
 ): Project {
   return produce(project, (draft) => {
-    const screen = draft.screens.find((candidate) => candidate.id === activeScreenId);
+    const screen = draft.layouts.find((layout) => layout.id === layoutId)?.screens
+      .find((candidate) => candidate.id === activeScreenId);
     if (screen) moveInPlace(screen.elements, from, to);
   });
 }
 
 export function removeScreenElement(
   project: Project,
+  layoutId: string,
   activeScreenId: string | null,
   selectedItems: SelectionRef[],
   id: string,
@@ -151,7 +173,8 @@ export function removeScreenElement(
     ?? activeScreenId;
   if (!ownerScreenId) return { project, selectedItems };
   const nextProject = produce(project, (draft) => {
-    const screen = draft.screens.find((candidate) => candidate.id === ownerScreenId);
+    const screen = draft.layouts.find((layout) => layout.id === layoutId)?.screens
+      .find((candidate) => candidate.id === ownerScreenId);
     if (!screen) return;
     for (let elementIndex = screen.elements.length - 1; elementIndex >= 0; elementIndex -= 1) {
       const element = screen.elements[elementIndex]!;
@@ -175,12 +198,14 @@ export function removeScreenElement(
 
 export function appendScreenElement(
   project: Project,
+  layoutId: string,
   activeScreenId: string,
   element: Element,
 ): ProjectMutationResult {
   return {
     project: produce(project, (draft) => {
-      const screen = draft.screens.find((candidate) => candidate.id === activeScreenId);
+      const screen = draft.layouts.find((layout) => layout.id === layoutId)?.screens
+        .find((candidate) => candidate.id === activeScreenId);
       if (screen) screen.elements.push(element);
     }),
     selectedItems: [{ screenId: activeScreenId, elementId: element.id }],
@@ -189,21 +214,24 @@ export function appendScreenElement(
 
 export function setScreenBackground(
   project: Project,
+  layoutId: string,
   activeScreenId: string,
   background: Background,
 ): Project {
   return produce(project, (draft) => {
-    const screen = draft.screens.find((candidate) => candidate.id === activeScreenId);
+    const screen = draft.layouts.find((layout) => layout.id === layoutId)?.screens
+      .find((candidate) => candidate.id === activeScreenId);
     if (screen) screen.background = background;
   });
 }
 
 export function resizeProjectArtboards(
   project: Project,
+  layoutId: string,
   activeScreenId: string,
   size: { width: number; height: number },
 ): Project {
-  const active = project.screens.find((screen) => screen.id === activeScreenId);
+  const active = getLayout(project, layoutId).screens.find((screen) => screen.id === activeScreenId);
   if (!active) return project;
-  return resizeStoreOutputArtboards(project, active.id, size);
+  return resizeStoreOutputArtboards(project, layoutId, active.id, size);
 }

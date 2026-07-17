@@ -11,7 +11,7 @@ import {
 } from "@screenshot-studio/core/model";
 import { backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { editorStore, type CommonElementPatch } from "../lib/editor-store";
+import { editorStore, selectEditorLayout, type CommonElementPatch } from "../lib/editor-store";
 import { isSelected } from "../lib/editor-selection";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { deriveStageModel } from "./editor-stage/stage-model";
@@ -62,7 +62,7 @@ export function EditorStage({
   interactive?: boolean;
   connectedOverview?: boolean;
 }) {
-  const project = useStore(editorStore, (state) => state.project);
+  const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const requestedScreenId = screenId ?? activeScreenId;
@@ -80,7 +80,7 @@ export function EditorStage({
     canEdit,
     selectedElement,
   } = deriveStageModel({
-    project,
+    layout,
     requestedScreenId,
     activeScreenId,
     selectedItems,
@@ -99,7 +99,7 @@ export function EditorStage({
 
   const liveElement = (ownerScreenId: string, id: string): Element | undefined => {
     const state = editorStore.getState();
-    return state.project?.screens
+    return state.project?.layouts.find((candidate) => candidate.id === state.activeLayoutId)?.screens
       .find((candidate) => candidate.id === ownerScreenId)
       ?.elements.find((element) => element.id === id);
   };
@@ -169,11 +169,11 @@ export function EditorStage({
     nodeRefs,
     canEdit,
     editingText: Boolean(editingElement),
-    project,
+    layout,
     selectedItems,
   });
 
-  if (!project || !requestedScreen || projections.length === 0) return null;
+  if (!layout || !requestedScreen || projections.length === 0) return null;
 
   const selectElement = (event: Konva.KonvaEventObject<Event>, screenId: string, elementId: string) => {
     const candidate = { screenId, elementId };
@@ -306,7 +306,7 @@ export function EditorStage({
             </Group>
           ))}
 
-          {project.mode === "connected" && connectedOverview
+          {layout.mode === "connected" && connectedOverview
             ? projections.map(({ screen, x, y }) => (
               <Rect
                 key={`boundary-${screen.id}`}

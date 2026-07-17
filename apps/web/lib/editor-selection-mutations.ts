@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import type {
+  DesignLayout,
   Element,
   GroupElement,
-  Project,
+  Screen,
 } from "@screenshot-studio/core/model";
 import type { SelectionRef } from "./editor-selection.js";
 
 export type SelectedElementIndex = Map<string, Set<string>>;
 
 export interface SelectedElementLocation {
-  screen: Project["screens"][number];
+  screen: Screen;
   element: Element;
   parent: GroupElement | null;
   elementIndex: number;
@@ -33,12 +34,12 @@ export function createSelectedElementIndex(
  * A selected group owns the mutation; its selected children are not visited separately.
  */
 export function forEachSelectedElement(
-  project: Project,
+  layout: DesignLayout,
   selections: readonly SelectionRef[],
   visit: (location: SelectedElementLocation) => void,
 ): void {
   const selectedByScreen = createSelectedElementIndex(selections);
-  for (const screen of project.screens) {
+  for (const screen of layout.screens) {
     const selectedIds = selectedByScreen.get(screen.id);
     if (!selectedIds) continue;
     for (let elementIndex = screen.elements.length - 1; elementIndex >= 0; elementIndex -= 1) {

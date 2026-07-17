@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "../model/schema.js";
 import { elementLeaves } from "../model/element-tree.js";
+import { getLayout } from "../model/project-layout.js";
 import type { ImageCache } from "../engine/node-config.js";
 
 /**
@@ -16,14 +17,17 @@ import type { ImageCache } from "../engine/node-config.js";
 export type { ImageCache } from "../engine/node-config.js";
 
 /** Every distinct raster assetUrl in the project. Pure. */
-export function collectImageUrls(project: Project): string[] {
+export function collectImageUrls(project: Project, layoutId?: string): string[] {
   const urls = new Set<string>();
-  for (const screen of project.screens) {
-    if (screen.background.type === "image") urls.add(screen.background.assetUrl);
-    for (const el of screen.elements) {
-      for (const leaf of elementLeaves(el)) {
-        if (leaf.type === "screenshot" || leaf.type === "image" || leaf.type === "device-frame") {
-          urls.add(leaf.assetUrl);
+  const layouts = layoutId ? [getLayout(project, layoutId)] : project.layouts;
+  for (const layout of layouts) {
+    for (const screen of layout.screens) {
+      if (screen.background.type === "image") urls.add(screen.background.assetUrl);
+      for (const el of screen.elements) {
+        for (const leaf of elementLeaves(el)) {
+          if (leaf.type === "screenshot" || leaf.type === "image" || leaf.type === "device-frame") {
+            urls.add(leaf.assetUrl);
+          }
         }
       }
     }
@@ -45,11 +49,12 @@ function loadOne(url: string): Promise<HTMLImageElement | null> {
 /** Load and decode every screenshot image, keyed by the document assetUrl. Failed assets omitted. */
 export async function loadProjectImages(
   project: Project,
+  layoutId: string,
   resolve: (assetUrl: string) => string,
 ): Promise<ImageCache> {
   const cache: ImageCache = new Map();
   await Promise.all(
-    collectImageUrls(project).map(async (assetUrl) => {
+    collectImageUrls(project, layoutId).map(async (assetUrl) => {
       const img = await loadOne(resolve(assetUrl));
       if (img) {
         try {

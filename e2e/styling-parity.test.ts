@@ -173,8 +173,8 @@ beforeAll(async () => {
   cpSync(fixtureRoot, directory, { recursive: true });
   projectPath = join(directory, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(projectPath, "utf8")) as Project;
-  const stylingScreen = project.screens.find((screen) => screen.id === "hero")!;
-  const imageBackgroundScreen = project.screens.find((screen) => screen.id === "save-fast")!;
+  const stylingScreen = project.layouts[0].screens.find((screen) => screen.id === "hero")!;
+  const imageBackgroundScreen = project.layouts[0].screens.find((screen) => screen.id === "save-fast")!;
 
   const magenta = new PNG({ width: 8, height: 8 });
   for (let offset = 0; offset < magenta.data.length; offset += 4) {
@@ -226,7 +226,7 @@ beforeAll(async () => {
     type: "image", assetUrl: magentaAssetUrl, fit: "cover", color: "#000000",
   };
   imageBackgroundScreen.elements = [];
-  project.screens = [stylingScreen, imageBackgroundScreen];
+  project.layouts[0].screens = [stylingScreen, imageBackgroundScreen];
   writeFileSync(projectPath, `${JSON.stringify(project, null, 2)}\n`);
   harness = await startParityRenderHarness(
     () => startWebServer(undefined, { projectPath, storeSpecsPath }),
@@ -244,10 +244,10 @@ describe("Expanded renderer styling parity", () => {
     const staticRasters = new Map<string, PNG>();
     for (const screenId of ["hero", "save-fast"]) {
       const headless = stripAlpha(await harness.headless.renderScreenToPng({
-        baseUrl: harness.server.url, projectPath, screenId, pixelRatio: 1,
+        baseUrl: harness.server.url, projectPath, layoutId: "default", screenId, pixelRatio: 1,
       }));
       const headed = stripAlpha(await harness.headed.renderScreenToPng({
-        baseUrl: harness.server.url, projectPath, screenId, pixelRatio: 1, timeoutMs: 60_000,
+        baseUrl: harness.server.url, projectPath, layoutId: "default", screenId, pixelRatio: 1, timeoutMs: 60_000,
       }));
       const expected = PNG.sync.read(headless);
       const actual = PNG.sync.read(headed);

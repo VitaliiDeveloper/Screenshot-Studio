@@ -135,7 +135,8 @@ function AddPanel({
   const [query, setQuery] = useState("");
   const defaultFont = useStore(editorStore, (state) => state.project?.fonts[0]);
   const activeDirection = useStore(editorStore, (state) =>
-    state.project?.screens.find((screen) => screen.id === state.activeScreenId)?.direction ?? "ltr",
+    state.project?.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens
+      .find((screen) => screen.id === state.activeScreenId)?.direction ?? "ltr",
   );
   const items = useMemo(() => filterAddCatalog(query), [query]);
 
@@ -235,7 +236,7 @@ export function LeftPanel({
   const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
 
   return (
-    <aside className="absolute inset-y-0 left-14 z-30 flex w-[min(18rem,calc(100vw-3.5rem))] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:static xl:w-72 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
+    <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
       <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
       {panel === "structure" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">

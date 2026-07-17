@@ -33,21 +33,26 @@ async function temporaryDirectory(): Promise<string> {
 function sampleProject(): Project {
   return {
     meta: { name: "CLI Project", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [
       {
-        id: "hero",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
+        id: "default",
+        name: "Default",
+        mode: "isolated",
+        screens: [
+          {
+            id: "hero",
+            name: "Hero",
+            platform: "apple",
+            device: "iphone",
+            locale: "en",
+            direction: "ltr",
+            artboard: { width: 1320, height: 2868 },
+            background: { type: "solid", color: "#101827" },
+            elements: [],
+          },
+        ],
       },
     ],
   };
@@ -401,9 +406,14 @@ describe("project IO", () => {
       return {
         project: {
           ...project,
-          screens: project.screens.map((screen, index) => index === 0
-            ? { ...screen, background: { type: "solid" as const, color: "#000000" } }
-            : screen),
+          layouts: project.layouts.map((layout) => layout.id === "default"
+            ? {
+                ...layout,
+                screens: layout.screens.map((screen, index) => index === 0
+                  ? { ...screen, background: { type: "solid" as const, color: "#000000" } }
+                  : screen),
+              }
+            : layout),
         },
         value: "second",
       };
@@ -428,7 +438,7 @@ describe("project IO", () => {
     await expect(access(projectMutationLockPath(projectPath))).rejects.toMatchObject({ code: "ENOENT" });
     const final = await loadProjectFile(projectPath);
     expect(final.meta.name).toBe("First mutation");
-    expect(final.screens[0]!.background).toEqual({ type: "solid", color: "#000000" });
+    expect(final.layouts[0]!.screens[0]!.background).toEqual({ type: "solid", color: "#000000" });
   });
 
   it("does not erase an atomic writer that lands after updateProjectFile reads", async () => {

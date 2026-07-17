@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  projectScreenGroup,
+  sameScreenGroup,
+  type DesignLayout,
   type Element,
-  type Project,
   type Screen,
 } from "@screenshot-studio/core/model";
 import { primarySelection, type SelectionRef } from "../../lib/editor-selection";
@@ -14,14 +14,14 @@ export interface StageProjection {
 }
 
 export function deriveStageModel({
-  project,
+  layout,
   requestedScreenId,
   activeScreenId,
   selectedItems,
   interactive,
   connectedOverview,
 }: {
-  project: Project | null;
+  layout: DesignLayout | null;
   requestedScreenId: string | null | undefined;
   activeScreenId: string | null;
   selectedItems: readonly SelectionRef[];
@@ -29,16 +29,23 @@ export function deriveStageModel({
   connectedOverview: boolean;
 }) {
   const requestedScreen = requestedScreenId
-    ? project?.screens.find((candidate) => candidate.id === requestedScreenId)
+    ? layout?.screens.find((candidate) => candidate.id === requestedScreenId)
     : undefined;
   let projections: StageProjection[] = [];
   let baseX = 0;
   let stageWidth = requestedScreen?.artboard.width ?? 0;
   let stageHeight = requestedScreen?.artboard.height ?? 0;
 
-  if (project && requestedScreen) {
-    if (project.mode === "connected") {
-      projections = projectScreenGroup(project, requestedScreen.id);
+  if (layout && requestedScreen) {
+    if (layout.mode === "connected") {
+      let x = 0;
+      projections = layout.screens
+        .filter((screen) => sameScreenGroup(screen, requestedScreen))
+        .map((screen) => {
+          const projection = { screen, x, y: 0 };
+          x += screen.artboard.width;
+          return projection;
+        });
       const target = projections.find((entry) => entry.screen.id === requestedScreen.id)!;
       if (connectedOverview) {
         const last = projections.at(-1)!;
@@ -53,10 +60,10 @@ export function deriveStageModel({
   }
 
   const canEdit = Boolean(
-    project
+    layout
     && requestedScreen
     && interactive
-    && (project.mode === "connected" ? connectedOverview : requestedScreen.id === activeScreenId),
+    && (layout.mode === "connected" ? connectedOverview : requestedScreen.id === activeScreenId),
   );
   const primary = primarySelection(selectedItems);
   const selectedProjection = primary

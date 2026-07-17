@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  projectScreenGroup,
   rotatedElementBounds,
   findElementLocation,
+  sameScreenGroup,
+  type DesignLayout,
   type ElementBounds,
-  type Project,
 } from "@screenshot-studio/core/model";
 
 /** Composite identity keeps duplicate element ids on different owner screens unambiguous. */
@@ -39,22 +39,22 @@ export function toggleSelection(
 }
 
 export function reconcileSelection(
-  project: Project,
+  layout: DesignLayout,
   activeScreenId: string | null,
   selections: readonly SelectionRef[],
 ): SelectionRef[] {
-  const active = project.screens.find((screen) => screen.id === activeScreenId);
+  const active = layout.screens.find((screen) => screen.id === activeScreenId);
   if (!active) return [];
   const allowedScreenIds = new Set(
-    project.mode === "connected"
-      ? projectScreenGroup(project, active.id).map((entry) => entry.screen.id)
+    layout.mode === "connected"
+      ? layout.screens.filter((screen) => sameScreenGroup(screen, active)).map((screen) => screen.id)
       : [active.id],
   );
   const seen = new Set<string>();
   return selections.filter((selection) => {
     const key = selectionKey(selection);
     if (seen.has(key) || !allowedScreenIds.has(selection.screenId)) return false;
-    const owner = project.screens.find((screen) => screen.id === selection.screenId);
+    const owner = layout.screens.find((screen) => screen.id === selection.screenId);
     const exists = owner ? findElementLocation(owner, selection.elementId) !== null : false;
     if (exists) seen.add(key);
     return exists;
@@ -62,20 +62,27 @@ export function reconcileSelection(
 }
 
 export function selectionBounds(
-  project: Project,
+  layout: DesignLayout,
   activeScreenId: string,
   selections: readonly SelectionRef[],
 ): ElementBounds | null {
-  const origins = new Map(
-    project.mode === "connected"
-      ? projectScreenGroup(project, activeScreenId).map((entry) => [entry.screen.id, entry.x] as const)
-      : [[activeScreenId, 0] as const],
-  );
+  const active = layout.screens.find((screen) => screen.id === activeScreenId);
+  let x = 0;
+  const connectedOrigins = active
+    ? layout.screens.filter((screen) => sameScreenGroup(screen, active)).map((screen) => {
+        const entry = [screen.id, x] as const;
+        x += screen.artboard.width;
+        return entry;
+      })
+    : [];
+  const origins = new Map(layout.mode === "connected"
+    ? connectedOrigins
+    : [[activeScreenId, 0] as const]);
   const bounds: ElementBounds[] = [];
   for (const selection of selections) {
     const origin = origins.get(selection.screenId);
     if (origin === undefined) continue;
-    const owner = project.screens.find((screen) => screen.id === selection.screenId);
+    const owner = layout.screens.find((screen) => screen.id === selection.screenId);
     const location = owner ? findElementLocation(owner, selection.elementId) : null;
     if (!location || location.parent) continue;
     const element = location.element;

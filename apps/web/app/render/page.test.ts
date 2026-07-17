@@ -21,20 +21,23 @@ async function projectFile(): Promise<{ path: string; revision: string }> {
   const path = join(root, "app-store-screenshots.json");
   const bytes = `${JSON.stringify({
     meta: { name: "Render", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [{
-      id: "hero",
-      name: "Hero",
-      platform: "apple",
-      device: "iphone",
-      locale: "en",
-      direction: "ltr",
-      artboard: { width: 660, height: 1434 },
-      background: { type: "solid", color: "#111111" },
-      elements: [],
+    preferredExportLayoutId: "primary",
+    layouts: [{
+      id: "primary",
+      name: "Primary",
+      mode: "isolated",
+      screens: [{
+        id: "hero",
+        name: "Hero",
+        platform: "apple",
+        device: "iphone",
+        locale: "en",
+        direction: "ltr",
+        artboard: { width: 660, height: 1434 },
+        background: { type: "solid", color: "#111111" },
+        elements: [],
+      }],
     }],
   })}\n`;
   await writeFile(path, bytes, "utf8");
@@ -54,6 +57,7 @@ describe("RenderPage project revision pin", () => {
     });
 
     expect(result.props.project.meta.name).toBe("Render");
+    expect(result.props.layoutId).toBe("primary");
     expect(result.props.screenId).toBe("hero");
     expect(result.props.projectPath).toBe(await realpath(project.path));
   });

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  Project,
   SCREEN_DEVICES_BY_PLATFORM,
   type Element,
   type Background,
@@ -10,7 +9,8 @@ import {
   type Screen,
 } from "./schema.js";
 import { cloneElementWithFreshIds } from "./element-tree.js";
-import { recomputeManifests, slugify, titleFromId, uniqueId } from "./project-manifest.js";
+import { slugify, titleFromId, uniqueId } from "./project-manifest.js";
+import { getLayout, replaceLayout } from "./project-layout.js";
 
 /** Platform + device pairs allowed by the schema (no invalid cross products). */
 export type ScreenPlacement = {
@@ -62,20 +62,25 @@ export function createScreen(input: CreateScreenInput): Screen {
   return { ...base, platform: "windows", device: input.device };
 }
 
-export function addScreenToProject(project: ProjectModel, input: CreateScreenInput): ProjectModel {
+export function addScreenToProject(
+  project: ProjectModel,
+  layoutId: string,
+  input: CreateScreenInput,
+): ProjectModel {
+  const layout = getLayout(project, layoutId);
   const baseId = slugify(
     input.id ?? input.name ?? `${input.platform}-${input.device}-${input.locale}`,
   );
-  const id = uniqueId(baseId, project.screens);
+  const id = uniqueId(baseId, layout.screens);
   const name = input.name ?? titleFromId(id);
-  const localeDirection = project.screens.find((screen) => screen.locale === input.locale)?.direction;
+  const localeDirection = layout.screens.find((screen) => screen.locale === input.locale)?.direction;
   const screen = createScreen({
     ...input,
     id,
     name,
     direction: input.direction ?? localeDirection ?? "ltr",
   });
-  return recomputeManifests({ ...project, screens: [...project.screens, screen] });
+  return replaceLayout(project, { ...layout, screens: [...layout.screens, screen] });
 }
 
 export interface RemoveScreenOptions {
@@ -84,46 +89,50 @@ export interface RemoveScreenOptions {
 
 export function removeScreenFromProject(
   project: ProjectModel,
+  layoutId: string,
   id: string,
   options: RemoveScreenOptions = {},
 ): ProjectModel {
-  const removed = project.screens.find((screen) => screen.id === id);
+  const layout = getLayout(project, layoutId);
+  const removed = layout.screens.find((screen) => screen.id === id);
   if (!removed) throw new Error(`Unknown screen "${id}"`);
   if (removed.variantOf === undefined) {
-    const localeRoots = project.screens.filter((screen) =>
+    const localeRoots = layout.screens.filter((screen) =>
       screen.variantOf === undefined && screen.locale === removed.locale
     );
     if (localeRoots.length === 1) {
       throw new Error(`Cannot remove the last root screen for locale "${removed.locale}"`);
     }
-    const variants = project.screens.filter((screen) => screen.variantOf === id);
+    const variants = layout.screens.filter((screen) => screen.variantOf === id);
     if (variants.length > 0 && !options.cascadeVariants) {
       throw new Error(
         `Screen "${id}" has ${variants.length} store target variant(s); rerun with cascade acknowledgement`,
       );
     }
   }
-  const screens = project.screens.filter((screen) =>
+  const screens = layout.screens.filter((screen) =>
     screen.id !== id && screen.variantOf !== id,
   );
-  return recomputeManifests({ ...project, screens });
+  return replaceLayout(project, { ...layout, screens });
 }
 
 /** 1-based position (CLI / human-facing). */
 export function reorderScreenInProject(
   project: ProjectModel,
+  layoutId: string,
   id: string,
   position: number,
 ): ProjectModel {
-  const from = project.screens.findIndex((screen) => screen.id === id);
+  const layout = getLayout(project, layoutId);
+  const from = layout.screens.findIndex((screen) => screen.id === id);
   if (from === -1) throw new Error(`Unknown screen "${id}"`);
-  if (!Number.isInteger(position) || position < 1 || position > project.screens.length) {
-    throw new Error(`Position must be between 1 and ${project.screens.length}`);
+  if (!Number.isInteger(position) || position < 1 || position > layout.screens.length) {
+    throw new Error(`Position must be between 1 and ${layout.screens.length}`);
   }
-  const screens = [...project.screens];
+  const screens = [...layout.screens];
   const [screen] = screens.splice(from, 1);
   screens.splice(position - 1, 0, screen!);
-  return Project.parse({ ...project, screens });
+  return replaceLayout(project, { ...layout, screens });
 }
 
 /** Deep-clone a screen with fresh screen + element ids (editor "duplicate screen"). */

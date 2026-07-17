@@ -26,51 +26,56 @@ async function temporaryDirectory(prefix: string): Promise<string> {
 function project(): Project {
   return {
     meta: { name: "Locales", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [
       {
-        id: "hero",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1000, height: 2000 },
-        background: { type: "solid", color: "#101827" },
-        elements: [{
-          id: "headline",
-          type: "text",
-          x: 100,
-          y: 80,
-          width: 400,
-          height: 160,
-          rotation: 0,
-          opacity: 1,
-          locked: false,
-          visible: true,
-          content: "Ship fast",
-          fontFamily: "Inter",
-          size: 72,
-          weight: 700,
-          lineHeight: 1.2,
-          letterSpacing: 0,
-          align: "left",
-          color: "#FFFFFF",
-        }],
-      },
-      {
-        id: "details",
-        name: "Details",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1000, height: 2000 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
+        id: "default",
+        name: "Default",
+        mode: "connected",
+        screens: [
+          {
+            id: "hero",
+            name: "Hero",
+            platform: "apple",
+            device: "iphone",
+            locale: "en",
+            direction: "ltr",
+            artboard: { width: 1000, height: 2000 },
+            background: { type: "solid", color: "#101827" },
+            elements: [{
+              id: "headline",
+              type: "text",
+              x: 100,
+              y: 80,
+              width: 400,
+              height: 160,
+              rotation: 0,
+              opacity: 1,
+              locked: false,
+              visible: true,
+              content: "Ship fast",
+              fontFamily: "Inter",
+              size: 72,
+              weight: 700,
+              lineHeight: 1.2,
+              letterSpacing: 0,
+              align: "left",
+              color: "#FFFFFF",
+            }],
+          },
+          {
+            id: "details",
+            name: "Details",
+            platform: "apple",
+            device: "iphone",
+            locale: "en",
+            direction: "ltr",
+            artboard: { width: 1000, height: 2000 },
+            background: { type: "solid", color: "#101827" },
+            elements: [],
+          },
+        ],
       },
     ],
   };
@@ -106,7 +111,7 @@ describe("locale command parsing", () => {
 
 describe("locale command workflow", () => {
   it("formats locale direction and screen count in manifest order", () => {
-    expect(formatLocaleList(project())).toBe("en ltr 2 screens");
+    expect(formatLocaleList(project(), "default")).toBe("en ltr 2 screens");
   });
 
   it("adds, converts, and removes persisted locale sets through core", async () => {
@@ -119,9 +124,8 @@ describe("locale command workflow", () => {
       direction: "rtl",
     });
     const rtl = await loadProjectFile(projectPath);
-    const arabic = rtl.screens.filter((screen) => screen.locale === "ar");
+    const arabic = rtl.layouts[0]!.screens.filter((screen) => screen.locale === "ar");
 
-    expect(rtl.locales).toEqual(["en", "ar"]);
     expect(arabic).toHaveLength(2);
     expect(arabic.map((screen) => screen.id)).not.toEqual(["hero", "details"]);
     expect(arabic.every((screen) => screen.direction === "rtl")).toBe(true);
@@ -129,13 +133,12 @@ describe("locale command workflow", () => {
 
     await runLocaleCommand(projectPath, ["direction", "ar"], { to: "ltr" });
     const ltr = await loadProjectFile(projectPath);
-    expect(ltr.screens.find((screen) => screen.locale === "ar")!.elements[0])
+    expect(ltr.layouts[0]!.screens.find((screen) => screen.locale === "ar")!.elements[0])
       .toMatchObject({ x: 100, align: "left" });
 
     await runLocaleCommand(projectPath, ["rm", "en"], {});
     const remaining = await loadProjectFile(projectPath);
-    expect(remaining.locales).toEqual(["ar"]);
-    expect(remaining.screens.every((screen) => screen.locale === "ar")).toBe(true);
+    expect(remaining.layouts[0]!.screens.every((screen) => screen.locale === "ar")).toBe(true);
   });
 
   it("defaults a cloned locale to the source direction and protects the last locale", async () => {
@@ -144,7 +147,7 @@ describe("locale command workflow", () => {
     await writeProjectFile(projectPath, project());
 
     await runLocaleCommand(projectPath, ["add", "uk"], { from: "en" });
-    expect((await loadProjectFile(projectPath)).screens
+    expect((await loadProjectFile(projectPath)).layouts[0]!.screens
       .filter((screen) => screen.locale === "uk")
       .every((screen) => screen.direction === "ltr")).toBe(true);
 
@@ -196,6 +199,6 @@ describe("locale command workflow", () => {
     expect(commandResult).toContain("uk ltr 2 screens");
     const saved = await loadProjectFile(projectPath);
     expect(saved.meta.name).toBe("Held writer");
-    expect(saved.locales).toEqual(["en", "uk"]);
+    expect([...new Set(saved.layouts[0]!.screens.map((screen) => screen.locale))]).toEqual(["en", "uk"]);
   });
 });

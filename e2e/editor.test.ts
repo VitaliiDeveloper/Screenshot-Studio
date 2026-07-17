@@ -25,7 +25,7 @@ beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "editor-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
   const fixture = JSON.parse(readFileSync(sample, "utf8"));
-  fixture.screens[0].elements.push({
+  fixture.layouts[0].screens[0].elements.push({
     id: "contain-shot",
     type: "screenshot",
     x: 10,
@@ -44,7 +44,7 @@ beforeAll(async () => {
   writeFileSync(projectFile, JSON.stringify(fixture));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -76,7 +76,7 @@ function project(): { screens: PersistedScreen[] } {
 }
 
 function heroScreen(): PersistedScreen {
-  return project().screens.find((screen) => screen.id === "hero")!;
+  return project().layouts[0].screens.find((screen) => screen.id === "hero")!;
 }
 
 function element(id: string): Geom {
@@ -134,7 +134,7 @@ describe("editor round-trip", () => {
 
     const overview = page.getByTestId("overview-artboards");
     await expect.poll(() => overview.locator("[data-artboard-screen-id]").count())
-      .toBe(project().screens.length);
+      .toBe(project().layouts[0].screens.length);
     await page.getByRole("list", { name: "Layers for Hero" }).waitFor({ state: "visible" });
     const canvas = await activeHeroCanvas(page);
     const box = (await canvas.boundingBox())!;

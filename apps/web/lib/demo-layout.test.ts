@@ -14,7 +14,7 @@ describe("demo project layout", () => {
       ["save-fast-headline", "save-fast-support"],
       ["organized-headline", "organized-support"],
     ] as const;
-    const elements = project.screens.flatMap((screen) => screen.elements);
+    const elements = project.layouts[0]!.screens.flatMap((screen) => screen.elements);
 
     for (const [headlineId, supportId] of pairs) {
       const headline = elements.find((element) => element.id === headlineId)!;

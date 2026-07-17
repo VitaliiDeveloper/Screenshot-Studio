@@ -9,6 +9,7 @@ import {
   parseScreenPlacement,
   slugify,
   uniqueId,
+  getLayout,
 } from "@screenshot-studio/core/model";
 import { inspectPng } from "@screenshot-studio/core/export";
 import {
@@ -20,10 +21,12 @@ import {
   publishManagedResourceFile,
   removeManagedResourceFile,
 } from "./managed-resource-file.js";
+import { resolveMutationLayout } from "./layout-commands.js";
 
 export interface ImportCapturesOptions {
   projectPath: string;
   inputDir: string;
+  layout?: string;
 }
 
 export interface ImportCapturesResult {
@@ -99,6 +102,7 @@ async function collectCaptureFiles(inputDir: string): Promise<CaptureFile[]> {
 export async function importCaptures({
   projectPath,
   inputDir,
+  layout: layoutReference,
 }: ImportCapturesOptions, {
   projectFileDependencies = {},
   publishFile = publishManagedResourceFile,
@@ -132,6 +136,7 @@ export async function importCaptures({
 
   const updated = await updateProjectFile(canonicalProjectPath, async (current, transaction) => {
     let project = current;
+    const layoutId = resolveMutationLayout(current, layoutReference).id;
     for (const capture of prepared) {
       const publication = await publishFile({
         root: projectDir,
@@ -148,13 +153,13 @@ export async function importCaptures({
       // Resolve the final unique screen id first so the element id stays deterministic after collisions.
       const screenId = uniqueId(
         slugify(`${capture.platform}-${capture.device}-${capture.locale}-${stem}`),
-        project.screens,
+        getLayout(project, layoutId).screens,
       );
       const name = `${capture.platform.slice(0, 1).toUpperCase()}${capture.platform.slice(1)} ${displayDevice(
         capture.device,
       )} ${capture.locale} ${stem}`;
 
-      project = addScreenToProject(project, {
+      project = addScreenToProject(project, layoutId, {
         ...capture.placement,
         id: screenId,
         name,

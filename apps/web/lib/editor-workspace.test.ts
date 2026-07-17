@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { Project } from "@screenshot-studio/core/model";
+import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
 import {
   clampZoom,
   compactStoreSizeLabel,
@@ -14,12 +14,12 @@ import {
   workspaceOverviewRows,
 } from "./editor-workspace";
 
-function scopeProject(mode: Project["mode"]): Project {
+function scopeProject(mode: CanvasMode): DesignLayout {
   const screen = (
     id: string,
     platform: "apple" | "android",
     device: "iphone" | "phone",
-  ): Project["screens"][number] => ({
+  ): DesignLayout["screens"][number] => ({
     id,
     name: id,
     platform,
@@ -29,13 +29,11 @@ function scopeProject(mode: Project["mode"]): Project {
     artboard: { width: 660, height: 1434 },
     background: { type: "solid", color: "#000000" },
     elements: [],
-  } as Project["screens"][number]);
+  } as DesignLayout["screens"][number]);
   return {
-    meta: { name: "Scope", schemaVersion: 1 },
+    id: "primary",
+    name: "Primary",
     mode,
-    platforms: ["apple", "android"],
-    locales: ["en"],
-    fonts: [],
     screens: [
       screen("first", "apple", "iphone"),
       screen("unrelated", "android", "phone"),

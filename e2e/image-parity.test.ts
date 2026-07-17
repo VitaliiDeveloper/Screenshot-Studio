@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium } from "playwright";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { stripAlpha } from "../packages/core/src/export/png.js";
@@ -13,6 +14,8 @@ import {
   startParityRenderHarness,
   type ParityRenderHarness,
 } from "./support/parity-render-harness.js";
+
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 let harness: ParityRenderHarness;
 let directory: string;
@@ -52,11 +55,9 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Image parity", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "connected", screens: [
       {
         id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 200, height: 200 }, background: { type: "solid", color: "#0000FF" },
@@ -74,10 +75,13 @@ beforeAll(async () => {
         artboard: { width: 200, height: 200 }, background: { type: "solid", color: "#00FF00" },
         elements: [image("cover", 20, 20, "cover", { x: 0, y: 0.5, zoom: 2 })],
       },
-    ],
+    ] }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
+  harness = await startParityRenderHarness(
+    () => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }),
+    () => chromium.launch(),
+  );
 }, 180_000);
 
 afterAll(async () => {
@@ -94,13 +98,13 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
 describe("Phase 7 decorative image parity", () => {
   it("matches UI/CLI pixels for contain, cover, alpha, groups, and connected crops", async () => {
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "first", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "first", pixelRatio: 1,
     }));
     const secondBytes = stripAlpha(await harness.headless.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "second", pixelRatio: 1,
     }));
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
-      baseUrl: harness.server.url, projectPath, screenId: "second", pixelRatio: 1,
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "second", pixelRatio: 1,
       timeoutMs: 60_000,
     }));
     const first = PNG.sync.read(firstBytes);

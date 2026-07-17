@@ -4,7 +4,7 @@ import {
   type Project as ProjectModel,
   type Screen,
 } from "./schema.js";
-import { recomputeManifests } from "./project-manifest.js";
+import { getLayout, replaceLayout } from "./project-layout.js";
 import {
   cloneScreenWithFreshIds,
   parseScreenPlacement,
@@ -52,21 +52,23 @@ function deriveAuthoringArtboard(
 /** Resize every screen in one target-specific store output set. */
 export function resizeStoreOutputArtboards(
   project: ProjectModel,
+  layoutId: string,
   sourceScreenId: string,
   target: { width: number; height: number },
 ): ProjectModel {
-  const source = project.screens.find((screen) => screen.id === sourceScreenId);
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
 
   let next = project;
-  for (const screen of project.screens) {
+  for (const screen of layout.screens) {
     if (
       screen.platform === source.platform
       && screen.device === source.device
       && screen.locale === source.locale
       && screen.storeTargetId === source.storeTargetId
     ) {
-      next = resizeScreenArtboard(next, screen.id, target);
+      next = resizeScreenArtboard(next, layoutId, screen.id, target);
     }
   }
   return next;
@@ -91,6 +93,7 @@ export interface StoreOutputFamilyResult {
  */
 export function ensureStoreOutputFamily(
   project: ProjectModel,
+  layoutId: string,
   sourceScreenId: string,
   platform: string,
   device: string,
@@ -99,15 +102,16 @@ export function ensureStoreOutputFamily(
   const placement = parseScreenPlacement(platform, device);
   if (!placement) throw new Error(`Unsupported platform/device pair: ${platform}/${device}`);
 
-  const source = project.screens.find((screen) => screen.id === sourceScreenId);
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
   const sourceRootId = source.variantOf ?? source.id;
-  const sourceRoot = project.screens.find((screen) => screen.id === sourceRootId);
+  const sourceRoot = layout.screens.find((screen) => screen.id === sourceRootId);
   if (!sourceRoot || sourceRoot.variantOf !== undefined) {
     throw new Error(`Invalid root screen "${sourceRootId}"`);
   }
 
-  const existing = project.screens.find((screen) =>
+  const existing = layout.screens.find((screen) =>
     screen.variantOf === undefined
     && screen.platform === placement.platform
     && screen.device === placement.device
@@ -115,7 +119,7 @@ export function ensureStoreOutputFamily(
   );
   if (existing) return { project, firstScreen: existing, created: false };
 
-  const sourceRoots = project.screens.filter((screen) =>
+  const sourceRoots = layout.screens.filter((screen) =>
     screen.variantOf === undefined
     && screen.platform === sourceRoot.platform
     && screen.device === sourceRoot.device
@@ -136,29 +140,31 @@ export function ensureStoreOutputFamily(
       elements: fitElementsToArtboard(copy.elements, root.artboard, masterArtboard),
     });
   });
-  const next = recomputeManifests({ ...project, screens: [...project.screens, ...copies] });
+  const next = replaceLayout(project, { ...layout, screens: [...layout.screens, ...copies] });
   return { project: next, firstScreen: copies[0]!, created: true };
 }
 
 /** Create one independent target copy, or return the existing variant idempotently. */
 export function ensureStoreTargetVariant(
   project: ProjectModel,
+  layoutId: string,
   sourceScreenId: string,
   target: StoreTargetDimensions,
 ): StoreTargetVariantResult {
-  const source = project.screens.find((screen) => screen.id === sourceScreenId);
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
   const rootId = source.variantOf ?? source.id;
-  const root = project.screens.find((screen) => screen.id === rootId);
+  const root = layout.screens.find((screen) => screen.id === rootId);
   if (!root || root.variantOf !== undefined) throw new Error(`Invalid root screen "${rootId}"`);
 
-  const existing = project.screens.find((screen) =>
+  const existing = layout.screens.find((screen) =>
     screen.variantOf === root.id && screen.storeTargetId === target.id,
   );
   if (existing) return { project, variant: existing, created: false };
 
   const copy = cloneScreenWithFreshIds(root);
-  const targetSetScreen = project.screens.find((screen) =>
+  const targetSetScreen = layout.screens.find((screen) =>
     screen.platform === root.platform
     && screen.device === root.device
     && screen.locale === root.locale
@@ -175,21 +181,20 @@ export function ensureStoreTargetVariant(
     artboard: variantArtboard,
     elements: fitElementsToArtboard(copy.elements, root.artboard, variantArtboard),
   });
-  const next = recomputeManifests({
-    ...project,
-    screens: [...project.screens, variant],
-  });
+  const next = replaceLayout(project, { ...layout, screens: [...layout.screens, variant] });
   return { project: next, variant, created: true };
 }
 
 export function removeStoreTargetVariant(
   project: ProjectModel,
+  layoutId: string,
   rootScreenId: string,
   storeTargetId: string,
 ): ProjectModel {
-  const variant = project.screens.find((screen) =>
+  const layout = getLayout(project, layoutId);
+  const variant = layout.screens.find((screen) =>
     screen.variantOf === rootScreenId && screen.storeTargetId === storeTargetId,
   );
   if (!variant) throw new Error(`Store target variant "${storeTargetId}" does not exist`);
-  return removeScreenFromProject(project, variant.id);
+  return removeScreenFromProject(project, layoutId, variant.id);
 }

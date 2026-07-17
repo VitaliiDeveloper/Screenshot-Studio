@@ -41,7 +41,12 @@ export async function handleThemeGet(): Promise<Response> {
 export async function handleThemePost(req: Request): Promise<Response> {
   try {
     const body = await jsonBody(req);
-    const { project, revision } = await applyThemeFile(resolveProjectPath(), body.id);
+    const { project, revision } = await applyThemeFile(
+      resolveProjectPath(),
+      body.id,
+      {},
+      typeof body.layoutId === "string" ? body.layoutId : undefined,
+    );
     return Response.json(project, { headers: { etag: `"${revision}"` } });
   } catch (error) {
     return errorResponse(error);

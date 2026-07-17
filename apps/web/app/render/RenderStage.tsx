@@ -25,10 +25,12 @@ declare global {
 
 export function RenderStage({
   project,
+  layoutId,
   screenId,
   projectPath,
 }: {
   project: Project;
+  layoutId: string;
   screenId: string;
   projectPath: string;
 }) {
@@ -55,11 +57,11 @@ export function RenderStage({
           `/api/asset?project=${encodeURIComponent(projectPath)}&path=${encodeURIComponent(assetUrl)}`;
         const [, images] = await Promise.all([
           registerProjectFonts(project.fonts, resolveAsset),
-          loadProjectImages(project, resolveAsset),
+          loadProjectImages(project, layoutId, resolveAsset),
         ]);
         if (cancelled) return;
 
-        stage = renderScreen(container, project, screenId, images);
+        stage = renderScreen(container, project, layoutId, screenId, images);
 
         window.__exportPng = (pixelRatio: number) =>
           stage!.toDataURL({ pixelRatio, mimeType: "image/png" });
@@ -77,7 +79,7 @@ export function RenderStage({
       delete window.__stageReady;
       delete window.__exportPng;
     };
-  }, [project, screenId, projectPath]);
+  }, [project, layoutId, screenId, projectPath]);
 
   if (error) return <main data-render-error="render-failed">{error}</main>;
   return <div ref={containerRef} data-render-stage />;

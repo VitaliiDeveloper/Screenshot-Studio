@@ -62,7 +62,7 @@ Monorepo (pnpm workspaces):
 
 - `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
   asset loading, storage. The single source of truth for rendering (architecture.md §2).
-- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, screen/import/font/theme/locale/canvas
+- `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, layout/screen/import/font/theme/locale
   management, and non-destructive local asset processing).
 - `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`
   (the headless render target the CLI drives for export), and the `/api/project` +
@@ -75,19 +75,21 @@ Monorepo (pnpm workspaces):
 - `docs/` — current architecture, operational guides, and tracked product contracts.
 - `store-specs.json` — Apple, Google, and Microsoft export sizes (data, not hardcoded).
 
-A screenshots *project* (the JSON file a user edits, as opposed to this repo) has its own
-layout — see [the management-interface contract](docs/architecture.md).
+A screenshots *project* (the JSON file a user edits, as opposed to this repo) owns one or more
+independent layouts — see [the management-interface contract](docs/architecture.md).
 
 ## Current capabilities
 
-- **One strict project document.** A complete strict schema v1 JSON file owns project metadata, output
-  families, locales, fonts, screens, backgrounds, elements, groups, crop/style literals, and store
-  target variants. Historical internal development formats are intentionally unsupported.
+- **One strict project document.** A complete strict schema v1 JSON file owns shared metadata/fonts
+  plus ordered independent design layouts. Each layout owns immutable mode, output families,
+  locales, screens, backgrounds, elements, groups, crop/style literals, and store target variants.
+  Historical internal development formats are intentionally unsupported.
 - **One UI/CLI renderer.** The editor, previews, exact exports, bundles, and packaged CLI all use the
   same Konva stage through the Chromium render host. Store PNGs are exact-size and opaque.
-- **Visual authoring.** The responsive workbench supports Focus and Overview, isolated or connected
-  canvases, owner-aware multi-selection, one-level groups, Layers, history, snapping/guides, zoom,
-  inline text editing, and schema-bounded inspectors.
+- **Visual authoring.** The responsive workbench supports unconditional layout switching, clean
+  creation, fresh-id duplication, rename/prefer/delete lifecycle actions, Focus and Overview,
+  isolated or connected canvases, owner-aware multi-selection, one-level groups, per-layout
+  history, snapping/guides, zoom, inline text editing, and schema-bounded inspectors.
 - **Complete element surface.** Text, shapes, screenshots, decorative images, trusted vector icons,
   trusted device frames, editable badge groups, solid/gradient/project-image backgrounds, media
   crop controls, text shadow, shape gradients, and strokes share render/export parity.
@@ -97,8 +99,8 @@ layout — see [the management-interface contract](docs/architecture.md).
 - **Store and locale workflows.** Independent Apple, Android, and Windows output families, explicit
   fresh-id store target variants, complete locale sets, baked RTL layout, and collision-safe
   platform/device/locale bundles are supported.
-- **CLI and agent workflows.** The installable `screenshots` CLI manages projects, screens, imports,
-  fonts, themes, locales, canvas mode, local assets, and exports. Generated project-local agent
+- **CLI and agent workflows.** The installable `screenshots` CLI manages layouts, screens, imports,
+  fonts, themes, locales, local assets, and preferred or explicitly selected layout exports. Generated project-local agent
   guidance and the optional thin skill operate on the same strict JSON and CLI contract.
 
 Version `0.1.0` remains an unpublished dry-run candidate. Building or verifying it does not create
@@ -143,8 +145,18 @@ pnpm exec playwright install firefox webkit
 # Scaffold a project (writes JSON, standard directories, AGENTS.md, and CLAUDE.md)
 pnpm screenshots init --dir ./my-app-screenshots
 
-# Export every locale root at its lead target plus every explicit persisted variant
+# Manage independent layouts
+pnpm screenshots layout list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots layout add "Feature campaign" --mode connected --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots layout duplicate "Feature campaign" --name "Feature campaign B" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots layout rename "Feature campaign B" "Feature story" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots layout mode "Feature story" --mode isolated --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots layout prefer "Feature story" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots layout rm "Feature story" --project ./my-app-screenshots/app-store-screenshots.json
+
+# Export the preferred layout, or select one explicitly with --layout
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots export --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
 
 # Export a filtered root-and-variant bundle
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --platform apple --locale en
@@ -152,34 +164,37 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 # Export one screen to an explicit store size
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json --screen hero --size 6.9
 
-# Manage project order (the relative order within each export group)
-pnpm screenshots screen list --project ./my-app-screenshots/app-store-screenshots.json
-pnpm screenshots screen add --project ./my-app-screenshots/app-store-screenshots.json --platform apple --device iphone --locale en --name "Hero"
-pnpm screenshots screen reorder hero --to 1 --project ./my-app-screenshots/app-store-screenshots.json
-pnpm screenshots screen rm hero --cascade --project ./my-app-screenshots/app-store-screenshots.json
+# Manage layout-local screen order (multi-layout projects require --layout)
+pnpm screenshots screen list --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots screen add --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json --platform apple --device iphone --locale en --name "Hero"
+pnpm screenshots screen reorder hero --to 1 --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots screen rm hero --cascade --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
 
 # Clone and manage complete locale sets; RTL conversion is baked into project geometry
-pnpm screenshots locale add ar --from en --direction rtl --project ./my-app-screenshots/app-store-screenshots.json
-pnpm screenshots locale list --project ./my-app-screenshots/app-store-screenshots.json
-pnpm screenshots locale direction ar --to ltr --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots locale add ar --from en --direction rtl --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots locale list --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots locale direction ar --to ltr --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
 
 # Import PNG captures from screenshots/apple/{iphone,ipad}/{locale}/NN.png or screenshots/android/phone/{locale}/NN.png
-pnpm screenshots import ./my-app-screenshots/screenshots --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots import ./my-app-screenshots/screenshots --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
 
 # Manage deterministic font files and bake a theme into role-tagged elements
 pnpm screenshots font add ./Inter.ttf --family Inter --weight 700 --project ./my-app-screenshots/app-store-screenshots.json
-pnpm screenshots theme set midnight --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots theme set midnight --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
 
 # Create non-destructive local processed assets (printed paths can then be assigned to assetUrl)
 pnpm screenshots asset auto-crop assets/icons/product.png --threshold 10 --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots asset remove-background assets/icons/product.png --background FFFFFF --tolerance 24 --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
-`dev`, `screen`, and `export` accept `--store-specs <path>` when a project needs an explicit
+Layout-aware mutation commands infer the target only for one-layout projects; otherwise pass
+`--layout <id-or-full-name>`. `export` instead defaults to `preferredExportLayoutId`, while the
+editor exports its locally active layout. `dev`, `screen`, and `export` accept
+`--store-specs <path>` when a project needs an explicit
 store-spec override; otherwise the source checkout or packaged CLI uses its bundled
 [store-specs.json](store-specs.json).
 
-Bundle `export` flags: optional `--platform <apple|android|windows>`,
+Bundle `export` flags: optional `--layout <id-or-full-name>`, `--platform <apple|android|windows>`,
 `--device <iphone|ipad|macos|tvos|watchos|phone|desktop>`,
 `--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode exports each
 locale root at its device lead target and all explicit persisted variants at their own target,
@@ -194,7 +209,7 @@ Single-screen `export` flags: `--screen <id>`, optional `--size <id>`, and `--ou
 precedence is explicit `--size`, the screen’s persisted `storeTargetId`, then that device’s lead
 target from the active store specs.
 
-Screen commands mutate the same strict JSON source of truth. `screen list` prints project order;
+Screen commands mutate the same strict JSON source of truth. `screen list` prints layout-local order;
 within each export group that relative order becomes the `01`, `02`, … store-slot order.
 `screen add --size` accepts only the selected device’s lead target because non-lead outputs are
 persisted variants. `screen rm <id>` protects the last root in a locale and refuses to remove a

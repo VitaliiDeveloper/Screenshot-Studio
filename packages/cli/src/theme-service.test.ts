@@ -65,8 +65,8 @@ async function fixture() {
   const dir = await temporaryDirectory("theme-service-");
   const projectPath = join(dir, "app-store-screenshots.json");
   const project = {
-    meta: { name: "Themes", schemaVersion: 1 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
-    screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "accent", type: "shape", role: "accent", x: 0, y: 0, width: 100, height: 10, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 }] }],
+    meta: { name: "Themes", schemaVersion: 1 }, fonts: [], preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "isolated", screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [{ id: "accent", type: "shape", role: "accent", x: 0, y: 0, width: 100, height: 10, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#FFFFFF", radius: 0 }] }] }],
   };
   const theme = { id: "midnight", name: "Midnight", colors: { heading: "#F8FAFC", body: "#CBD5E1", accent: "#38BDF8", surface: "#0F172A" }, fonts: {} };
   await mkdir(join(dir, "themes"));
@@ -272,7 +272,7 @@ describe("theme-service", () => {
     expect((await loadTheme(projectPath, "midnight")).name).toBe("Midnight");
     await applyThemeFile(projectPath, "midnight");
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
-    expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
+    expect(saved.layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
   });
 
   it("resolves list, load, and apply resources beside a symlinked project target", async () => {
@@ -286,7 +286,7 @@ describe("theme-service", () => {
     await applyThemeFile(aliasPath, "midnight");
 
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
-    expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
+    expect(saved.layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
   });
 
   it("queues apply behind the project lease while list remains lock-free", async () => {
@@ -325,6 +325,6 @@ describe("theme-service", () => {
     expect(applyResult.theme.id).toBe("midnight");
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.meta.name).toBe("Held writer");
-    expect(saved.screens[0].elements[0].fill).toBe("#38BDF8");
+    expect(saved.layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
   });
 });

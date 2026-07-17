@@ -29,6 +29,7 @@ type PendingAction = "upload" | "google" | "remove" | null;
 
 export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
+  const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -41,11 +42,11 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const [warning, setWarning] = useState<string | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
 
-  if (!open || !project || !activeScreenId) return null;
+  if (!open || !project || !activeLayoutId || !activeScreenId) return null;
 
   const primary = primarySelection(selectedItems);
   const selected = selectedItems.length === 1 && primary
-    ? findElementLocation(getScreen(project, primary.screenId), primary.elementId)?.element
+    ? findElementLocation(getScreen(project, activeLayoutId, primary.screenId), primary.elementId)?.element
     : undefined;
   const selectedText = selected?.type === "text" ? selected : undefined;
   const close = () => {

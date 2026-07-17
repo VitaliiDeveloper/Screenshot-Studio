@@ -3,12 +3,12 @@ import { z } from "zod";
 import {
   FontWeight,
   HexColor,
-  Project,
   THEME_ROLES,
   type Project as ProjectModel,
 } from "../model/schema.js";
 import { fontIdentityKey } from "../model/font-identity.js";
 import { mapElementLeaves } from "../model/element-tree.js";
+import { getLayout, replaceLayout } from "../model/project-layout.js";
 
 const ThemeFont = z
   .object({
@@ -76,11 +76,12 @@ function assertThemeFontsRegistered(project: ProjectModel, theme: Theme): void {
 }
 
 /** Bake theme tokens into literal project fields; rendering stays theme-agnostic. */
-export function applyTheme(project: ProjectModel, input: Theme): ProjectModel {
+export function applyTheme(project: ProjectModel, layoutId: string, input: Theme): ProjectModel {
   const theme = Theme.parse(input);
   assertThemeFontsRegistered(project, theme);
+  const layout = getLayout(project, layoutId);
 
-  const screens = project.screens.map((screen) => ({
+  const screens = layout.screens.map((screen) => ({
     ...screen,
     elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => {
       if (!leaf.role) return leaf;
@@ -99,5 +100,5 @@ export function applyTheme(project: ProjectModel, input: Theme): ProjectModel {
     })),
   }));
 
-  return Project.parse({ ...project, screens });
+  return replaceLayout(project, { ...layout, screens });
 }

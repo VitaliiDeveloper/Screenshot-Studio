@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { sameScreenGroup, type Project, type Screen } from "@screenshot-studio/core/model";
+import { sameScreenGroup, type DesignLayout, type Screen } from "@screenshot-studio/core/model";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
@@ -100,11 +100,11 @@ export function groupScreensByOutput(screens: readonly Screen[]): OutputFamily[]
 }
 
 /** Exact screens that may be selected, reordered, authored, or transformed together. */
-export function workspaceEditingScope(project: Project, activeScreen: Screen): Screen[] {
-  if (project.mode === "connected") {
-    return project.screens.filter((screen) => sameScreenGroup(screen, activeScreen));
+export function workspaceEditingScope(layout: DesignLayout, activeScreen: Screen): Screen[] {
+  if (layout.mode === "connected") {
+    return layout.screens.filter((screen) => sameScreenGroup(screen, activeScreen));
   }
-  return project.screens.filter((screen) => {
+  return layout.screens.filter((screen) => {
     if (activeScreen.storeTargetId === undefined) {
       return screen.locale === activeScreen.locale && screen.storeTargetId === undefined;
     }
@@ -117,11 +117,11 @@ export function workspaceEditingScope(project: Project, activeScreen: Screen): S
 
 /** Every independent output row visible in Overview for the active locale. */
 export function workspaceOverviewRows(
-  project: Project,
+  layout: DesignLayout,
   activeScreen: Screen,
 ): WorkspaceOutputFamily[] {
   const families = new Map<string, Screen[]>();
-  for (const screen of project.screens) {
+  for (const screen of layout.screens) {
     if (screen.locale !== activeScreen.locale) continue;
     const key = outputFamilyKey(screen);
     const screens = families.get(key) ?? [];
@@ -129,7 +129,7 @@ export function workspaceOverviewRows(
     families.set(key, screens);
   }
 
-  if (project.mode === "isolated") {
+  if (layout.mode === "isolated") {
     return Array.from(families).flatMap(([key, familyScreens]) => {
       const roots = familyScreens.filter((screen) => screen.storeTargetId === undefined);
       const variantsByTarget = new Map<string, Screen[]>();
@@ -161,7 +161,7 @@ export function workspaceOverviewRows(
     const roots = familyScreens.filter((screen) => screen.storeTargetId === undefined);
     const anchor = editing ? activeScreen : roots[0] ?? familyScreens[0]!;
     const screens = editing || roots.length === 0
-      ? project.screens.filter((screen) => sameScreenGroup(screen, anchor))
+      ? layout.screens.filter((screen) => sameScreenGroup(screen, anchor))
       : roots;
     const targetId = screens[0]?.storeTargetId;
     const familyLabel = storeOutputLabel(anchor.platform, anchor.device);

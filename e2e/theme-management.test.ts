@@ -20,7 +20,7 @@ beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "theme-management-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(sample, "utf8"));
-  const headline = project.screens[0].elements.find((element: { id: string }) => element.id === "headline");
+  const headline = project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === "headline");
   headline.name = "Theme headline";
   writeFileSync(projectFile, JSON.stringify(project));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
@@ -32,7 +32,7 @@ beforeAll(async () => {
     fonts: { heading: { family: "Pacifico", weight: 400 } },
   }));
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -45,7 +45,7 @@ afterAll(async () => {
 
 function headline() {
   const project = JSON.parse(readFileSync(projectFile, "utf8"));
-  return project.screens[0].elements.find((element: { id: string }) => element.id === "headline");
+  return project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === "headline");
 }
 
 describe("theme management UI", () => {

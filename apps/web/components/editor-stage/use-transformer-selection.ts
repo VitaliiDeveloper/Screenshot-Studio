@@ -3,7 +3,7 @@
 
 import { useEffect, type RefObject } from "react";
 import type Konva from "konva";
-import type { Project } from "@screenshot-studio/core/model";
+import type { DesignLayout } from "@screenshot-studio/core/model";
 import type { SelectionRef } from "../../lib/editor-selection";
 
 function nodeSelectionKey(screenId: string, elementId: string): string {
@@ -15,14 +15,14 @@ export function useTransformerSelection({
   nodeRefs,
   canEdit,
   editingText,
-  project,
+  layout,
   selectedItems,
 }: {
   transformerRef: RefObject<Konva.Transformer | null>;
   nodeRefs: RefObject<Map<string, Konva.Node>>;
   canEdit: boolean;
   editingText: boolean;
-  project: Project | null;
+  layout: DesignLayout | null;
   selectedItems: readonly SelectionRef[];
 }) {
   useEffect(() => {
@@ -36,7 +36,7 @@ export function useTransformerSelection({
     transformer.nodes(nodes);
     transformer.forceUpdate();
     transformer.getLayer()?.batchDraw();
-  }, [canEdit, editingText, nodeRefs, project, selectedItems, transformerRef]);
+  }, [canEdit, editingText, layout, nodeRefs, selectedItems, transformerRef]);
 }
 
 export { nodeSelectionKey };

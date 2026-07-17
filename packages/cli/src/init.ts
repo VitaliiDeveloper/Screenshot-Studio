@@ -32,25 +32,28 @@ Follow the project workflow and schema instructions in \`AGENTS.md\`.
 function starterProject(name: string): Project {
   return {
     meta: { name, schemaVersion: SCHEMA_VERSION },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
-      {
-        id: "hero",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#0B1020" },
-        // A blank starter is exportable everywhere. Adding a system-font headline here would
-        // immediately violate the file-backed font parity contract.
-        elements: [],
-      },
-    ],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default",
+      name: "Default",
+      mode: "isolated",
+      screens: [
+        {
+          id: "hero",
+          name: "Hero",
+          platform: "apple",
+          device: "iphone",
+          locale: "en",
+          direction: "ltr",
+          artboard: { width: 1320, height: 2868 },
+          background: { type: "solid", color: "#0B1020" },
+          // A blank starter is exportable everywhere. Adding a system-font headline here would
+          // immediately violate the file-backed font parity contract.
+          elements: [],
+        },
+      ],
+    }],
   };
 }
 

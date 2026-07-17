@@ -19,6 +19,7 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
 
 export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
+  const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const [templates, setTemplates] = useState<ScreenTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +40,9 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
     return () => controller.abort();
   }, []);
 
-  const activeScreen = project && activeScreenId ? getScreen(project, activeScreenId) : null;
+  const activeScreen = project && activeLayoutId && activeScreenId
+    ? getScreen(project, activeLayoutId, activeScreenId)
+    : null;
   const close = () => {
     setError(null);
     onClose();
@@ -53,7 +56,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
         const response = await fetch("/api/templates", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ id, locale: activeScreen.locale }),
+          body: JSON.stringify({ id, locale: activeScreen.locale, layoutId: activeLayoutId }),
         });
         const body = await responseBody(response);
         const nextProject = parseProject(body.project);

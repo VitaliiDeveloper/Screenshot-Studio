@@ -100,7 +100,8 @@ export function useEditorKeyboardRouting(onOpenDialog: (dialog: ResourceDialog) 
         case "add-text": {
           const current = editorStore.getState();
           const font = current.project?.fonts[0];
-          const direction = current.project?.screens
+          const direction = current.project?.layouts
+            .find((layout) => layout.id === current.activeLayoutId)?.screens
             .find((screen) => screen.id === current.activeScreenId)?.direction;
           if (!font) onOpenDialog("fonts");
           else mutateAndSave(() => editorStore.getState().addElement(createTextElement({ font, direction })));

@@ -23,7 +23,7 @@ beforeAll(async () => {
   mkdirSync(join(directory, "assets"), { recursive: true });
   cpSync(imagePath, join(directory, "assets", "demo-logistics-app.png"), { recursive: true });
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -57,8 +57,8 @@ describe("Project asset picker", () => {
     ))).toBe(true);
     await screenshotOption.click();
 
-    await expect.poll(() => project().screens[0].elements.length).toBe(2);
-    expect(project().screens[0].elements.at(-1)).toMatchObject({
+    await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(2);
+    expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       type: "screenshot",
       assetUrl: "assets/demo-logistics-app.png",
       fit: "cover",
@@ -67,15 +67,15 @@ describe("Project asset picker", () => {
       width: 300,
       height: 300,
     });
-    expect(project().screens[1].elements).toHaveLength(1);
+    expect(project().layouts[0].screens[1].elements).toHaveLength(1);
 
     await page.getByRole("button", { name: "Image", exact: true }).click();
     const imageDialog = page.getByRole("dialog", { name: "Image asset picker" });
     await imageDialog.waitFor({ state: "visible" });
     await imageDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
 
-    await expect.poll(() => project().screens[0].elements.length).toBe(3);
-    expect(project().screens[0].elements.at(-1)).toMatchObject({
+    await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(3);
+    expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       type: "image",
       assetUrl: "assets/demo-logistics-app.png",
       fit: "contain",
@@ -95,8 +95,8 @@ describe("Project asset picker", () => {
     await page.getByLabel("Focal Y %", { exact: true }).blur();
     await page.getByLabel("Crop zoom", { exact: true }).fill("2");
     await page.getByLabel("Crop zoom", { exact: true }).blur();
-    await expect.poll(() => project().screens[0].elements.at(-1).cornerRadius).toBe(24);
-    expect(project().screens[0].elements.at(-1)).toMatchObject({
+    await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
+      cornerRadius: 24,
       fit: "cover", crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
 
@@ -105,8 +105,8 @@ describe("Project asset picker", () => {
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
 
-    await expect.poll(() => project().screens[0].elements.length).toBe(4);
-    expect(project().screens[0].elements.at(-1)).toMatchObject({
+    await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(4);
+    expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       type: "device-frame",
       deviceType: "iphone",
       assetUrl: "assets/demo-logistics-app.png",
@@ -116,11 +116,11 @@ describe("Project asset picker", () => {
       width: 300,
       height: 650,
     });
-    expect(project().screens[1].elements).toHaveLength(1);
+    expect(project().layouts[0].screens[1].elements).toHaveLength(1);
 
     await page.getByLabel("Frame preset", { exact: true }).click();
     await page.getByRole("menuitemradio", { name: "desktop", exact: true }).click();
-    await expect.poll(() => project().screens[0].elements.at(-1)).toMatchObject({
+    await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       deviceType: "desktop", width: 300, height: 187.5,
     });
 

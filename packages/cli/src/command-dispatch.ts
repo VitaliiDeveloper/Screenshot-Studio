@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
 import { runAssetCommand } from "./asset-commands.js";
-import { runCanvasCommand } from "./canvas-commands.js";
 import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
 import { runExportCommand } from "./export-command.js";
 import { runFontCommand } from "./font-commands.js";
 import { runInit } from "./init.js";
+import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
@@ -54,7 +54,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|canvas> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -78,7 +78,7 @@ export async function dispatchCommand(
       await runFontManagementCommand(args, flags);
       break;
     case "theme":
-      console.log(await runThemeCommand(resolveProjectPath(flags), args));
+      console.log(await runThemeCommand(resolveProjectPath(flags), args, flags));
       break;
     case "locale":
       console.log(await runLocaleCommand(resolveProjectPath(flags), args, flags));
@@ -86,8 +86,8 @@ export async function dispatchCommand(
     case "asset":
       console.log(await runAssetCommand(resolveProjectPath(flags), args, flags));
       break;
-    case "canvas":
-      console.log(await runCanvasCommand(resolveProjectPath(flags), args));
+    case "layout":
+      console.log(await runLayoutCommand(resolveProjectPath(flags), args, flags));
       break;
   }
 }

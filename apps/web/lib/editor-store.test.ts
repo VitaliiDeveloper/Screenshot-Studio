@@ -41,12 +41,13 @@ function patchGroup(id: string, patch: ElementPatchFor<"group">, screenId?: stri
 function project(): Project {
   return {
     meta: { name: "T", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
-      {
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default",
+      name: "Default",
+      mode: "isolated",
+      screens: [{
         id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 660, height: 1434 },
         background: { type: "solid", color: "#000000" },
@@ -62,14 +63,14 @@ function project(): Project {
         artboard: { width: 660, height: 1434 },
         background: { type: "solid", color: "#111111" },
         elements: [],
-      },
-    ],
+      }],
+    }],
   };
 }
 
 describe("editorStore", () => {
   beforeEach(() => {
-    editorStore.setState({ project: null, activeScreenId: null, selectedItems: [] });
+    editorStore.setState({ project: null, activeLayoutId: null, activeScreenId: null, selectedItems: [] });
   });
 
   it("load sets the project and the first screen as active", () => {
@@ -96,8 +97,8 @@ describe("editorStore", () => {
     patchText("headline", { x: 123, y: 456 });
     const after = editorStore.getState().project!;
     expect(after).not.toBe(before); // new reference — patch, not in-place mutation
-    expect(after.screens[0]!.elements[0]!).toMatchObject({ x: 123, y: 456 });
-    expect(before.screens[0]!.elements[0]!.x).toBe(40); // original untouched
+    expect(after.layouts[0]!.screens[0]!.elements[0]!).toMatchObject({ x: 123, y: 456 });
+    expect(before.layouts[0]!.screens[0]!.elements[0]!.x).toBe(40); // original untouched
   });
 
   it("patchElement ignores a request whose type does not match the located element", () => {
@@ -117,23 +118,23 @@ describe("editorStore", () => {
 
   it("patchElement scopes duplicate ids to the active screen", () => {
     const duplicateIds = project();
-    const duplicate = structuredClone(duplicateIds.screens[0]!.elements[0]!);
+    const duplicate = structuredClone(duplicateIds.layouts[0]!.screens[0]!.elements[0]!);
     if (duplicate.type !== "text") throw new Error("expected text fixture");
     duplicate.content = "Second screen";
-    duplicateIds.screens[1]!.elements = [duplicate];
+    duplicateIds.layouts[0]!.screens[1]!.elements = [duplicate];
     editorStore.getState().load(duplicateIds);
 
     patchText("headline", { x: 222 });
 
-    expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(222);
-    expect(editorStore.getState().project!.screens[1]!.elements[0]!.x).toBe(40);
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!.x).toBe(222);
+    expect(editorStore.getState().project!.layouts[0]!.screens[1]!.elements[0]!.x).toBe(40);
   });
 
   it("uses an owner-aware selection for duplicate ids in connected mode", () => {
     const connected = project();
-    connected.mode = "connected";
-    const duplicate = structuredClone(connected.screens[0]!.elements[0]!);
-    connected.screens[1]!.elements = [duplicate];
+    connected.layouts[0]!.mode = "connected";
+    const duplicate = structuredClone(connected.layouts[0]!.screens[0]!.elements[0]!);
+    connected.layouts[0]!.screens[1]!.elements = [duplicate];
     editorStore.getState().load(connected);
 
     editorStore.getState().select("headline", "second");
@@ -144,12 +145,12 @@ describe("editorStore", () => {
       activeScreenId: "second",
       selectedItems: [{ screenId: "second", elementId: "headline" }],
     });
-    expect(state.project!.screens[0]!.elements[0]!.x).toBe(40);
-    expect(state.project!.screens[1]!.elements[0]!.x).toBe(333);
+    expect(state.project!.layouts[0]!.screens[0]!.elements[0]!.x).toBe(40);
+    expect(state.project!.layouts[0]!.screens[1]!.elements[0]!.x).toBe(333);
   });
 
   it("applies valid type-specific patches at the typed boundary", () => {
-    const text = structuredClone(project().screens[0]!.elements[0]!) as TextElement;
+    const text = structuredClone(project().layouts[0]!.screens[0]!.elements[0]!) as TextElement;
     const shape: ShapeElement = {
       id: "shape", type: "shape", x: 0, y: 0, width: 100, height: 100,
       rotation: 0, opacity: 1, locked: false, visible: true,
@@ -185,9 +186,9 @@ describe("editorStore screens (slice 4)", () => {
   });
 
   it("addScreen duplicates the active screen with fresh ids, appended and active", () => {
-    const before = editorStore.getState().project!.screens.length;
+    const before = editorStore.getState().project!.layouts[0]!.screens.length;
     editorStore.getState().addScreen();
-    const screens = editorStore.getState().project!.screens;
+    const screens = editorStore.getState().project!.layouts[0]!.screens;
     expect(screens).toHaveLength(before + 1);
     const added = screens[screens.length - 1]!;
     expect(added.id).not.toBe("hero");
@@ -199,7 +200,7 @@ describe("editorStore screens (slice 4)", () => {
 
   it("addBlankScreen keeps the active output settings without copying layers", () => {
     editorStore.getState().addBlankScreen();
-    const screens = editorStore.getState().project!.screens;
+    const screens = editorStore.getState().project!.layouts[0]!.screens;
     const added = screens[screens.length - 1]!;
     expect(added).toMatchObject({
       name: "Untitled",
@@ -218,22 +219,22 @@ describe("editorStore screens (slice 4)", () => {
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
     const created = editorStore.getState();
-    const variant = created.project!.screens.find((screen) => screen.storeTargetId === "6.5")!;
+    const variant = created.project!.layouts[0]!.screens.find((screen) => screen.storeTargetId === "6.5")!;
     expect(variant).toMatchObject({ variantOf: "hero", artboard: { width: 1284, height: 2778 } });
-    expect(created.project!.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
+    expect(created.project!.layouts[0]!.screens[0]!.artboard).toEqual({ width: 660, height: 1434 });
     expect(created.activeScreenId).toBe("hero");
 
     editorStore.getState().ensureStoreTargetVariant({
       id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
     });
-    expect(editorStore.getState().project!.screens.filter((screen) => screen.storeTargetId === "6.5")).toHaveLength(1);
+    expect(editorStore.getState().project!.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "6.5")).toHaveLength(1);
     expect(editorStore.getState().activeScreenId).toBe("hero");
 
     editorStore.getState().selectScreen(variant.id);
     expect(editorStore.getState().activeScreenId).toBe(variant.id);
 
     editorStore.getState().removeStoreTargetVariant("hero", "6.5");
-    expect(editorStore.getState().project!.screens).toHaveLength(2);
+    expect(editorStore.getState().project!.layouts[0]!.screens).toHaveLength(2);
     expect(editorStore.getState().activeScreenId).toBe("hero");
   });
 
@@ -242,7 +243,7 @@ describe("editorStore screens (slice 4)", () => {
       id: "4k", label: "Windows desktop 4K", width: 3840, height: 2160, orientation: "landscape",
     });
     const created = editorStore.getState();
-    const windowsRoots = created.project!.screens.filter((screen) => screen.platform === "windows");
+    const windowsRoots = created.project!.layouts[0]!.screens.filter((screen) => screen.platform === "windows");
     expect(windowsRoots).toHaveLength(2);
     expect(windowsRoots.every((screen) =>
       screen.device === "desktop"
@@ -250,13 +251,13 @@ describe("editorStore screens (slice 4)", () => {
       && screen.artboard.width === 3840
       && screen.artboard.height === 2160
     )).toBe(true);
-    expect(created.project!.screens.find((screen) => screen.id === "hero")!.artboard).toEqual({ width: 660, height: 1434 });
+    expect(created.project!.layouts[0]!.screens.find((screen) => screen.id === "hero")!.artboard).toEqual({ width: 660, height: 1434 });
     expect(created.activeScreenId).toBe(windowsRoots[0]!.id);
 
     editorStore.getState().ensureStoreOutputFamily("windows", "desktop", {
       id: "4k", label: "Windows desktop 4K", width: 3840, height: 2160, orientation: "landscape",
     });
-    expect(editorStore.getState().project!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
+    expect(editorStore.getState().project!.layouts[0]!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
   });
 
   it("creates and selects a watchOS family with 3.5x custom masters", () => {
@@ -269,7 +270,7 @@ describe("editorStore screens (slice 4)", () => {
     });
 
     const state = editorStore.getState();
-    const watchRoots = state.project!.screens.filter((screen) =>
+    const watchRoots = state.project!.layouts[0]!.screens.filter((screen) =>
       screen.device === "watchos" && screen.variantOf === undefined,
     );
     expect(watchRoots).toHaveLength(2);
@@ -277,7 +278,7 @@ describe("editorStore screens (slice 4)", () => {
       screen.artboard.width === 1477 && screen.artboard.height === 1799
     )).toBe(true);
     expect(state.activeScreenId).toBe(watchRoots[0]!.id);
-    expect(state.project!.screens.find((screen) => screen.id === "hero")!.artboard)
+    expect(state.project!.layouts[0]!.screens.find((screen) => screen.id === "hero")!.artboard)
       .toEqual({ width: 660, height: 1434 });
 
     editorStore.getState().ensureStoreTargetVariant({
@@ -287,7 +288,7 @@ describe("editorStore screens (slice 4)", () => {
       height: 496,
       orientation: "portrait",
     });
-    const variant = editorStore.getState().project!.screens.find((screen) =>
+    const variant = editorStore.getState().project!.layouts[0]!.screens.find((screen) =>
       screen.variantOf === watchRoots[0]!.id && screen.storeTargetId === "series-11"
     );
     expect(variant?.artboard).toEqual({ width: 1456, height: 1736 });
@@ -295,29 +296,29 @@ describe("editorStore screens (slice 4)", () => {
 
   it("reorders variants only inside the visible platform/device target layer", () => {
     const current = editorStore.getState().project!;
-    const heroVariant: Project["screens"][number] = {
-      ...structuredClone(current.screens[0]!),
+    const heroVariant: Project["layouts"][number]["screens"][number] = {
+      ...structuredClone(current.layouts[0]!.screens[0]!),
       id: "hero-65",
       platform: "apple",
       device: "iphone",
       variantOf: "hero",
       storeTargetId: "6.5",
     };
-    const secondVariant: Project["screens"][number] = {
-      ...structuredClone(current.screens[1]!),
+    const secondVariant: Project["layouts"][number]["screens"][number] = {
+      ...structuredClone(current.layouts[0]!.screens[1]!),
       id: "second-65",
       platform: "apple",
       device: "iphone",
       variantOf: "second",
       storeTargetId: "6.5",
     };
-    const ipadRoot: Project["screens"][number] = {
-      ...structuredClone(current.screens[0]!),
+    const ipadRoot: Project["layouts"][number]["screens"][number] = {
+      ...structuredClone(current.layouts[0]!.screens[0]!),
       id: "ipad-root",
       platform: "apple",
       device: "ipad",
     };
-    const ipadVariant: Project["screens"][number] = {
+    const ipadVariant: Project["layouts"][number]["screens"][number] = {
       ...structuredClone(ipadRoot),
       id: "ipad-65",
       platform: "apple",
@@ -327,19 +328,22 @@ describe("editorStore screens (slice 4)", () => {
     };
     editorStore.getState().replaceProject({
       ...current,
-      screens: [current.screens[0]!, current.screens[1]!, heroVariant, ipadRoot, ipadVariant, secondVariant],
+      layouts: [{
+        ...current.layouts[0]!,
+        screens: [current.layouts[0]!.screens[0]!, current.layouts[0]!.screens[1]!, heroVariant, ipadRoot, ipadVariant, secondVariant],
+      }],
     });
 
     editorStore.getState().reorderScreens("hero-65", "second-65");
 
-    expect(editorStore.getState().project!.screens.map((screen) => screen.id)).toEqual([
+    expect(editorStore.getState().project!.layouts[0]!.screens.map((screen) => screen.id)).toEqual([
       "hero", "second", "second-65", "ipad-root", "ipad-65", "hero-65",
     ]);
   });
 
   it("removeScreen deletes and reassigns active when the active screen goes", () => {
     editorStore.getState().removeScreen("hero"); // hero was active
-    const screens = editorStore.getState().project!.screens;
+    const screens = editorStore.getState().project!.layouts[0]!.screens;
     expect(screens.map((s) => s.id)).toEqual(["second"]);
     expect(editorStore.getState().activeScreenId).toBe("second");
   });
@@ -347,7 +351,7 @@ describe("editorStore screens (slice 4)", () => {
   it("removeScreen is a no-op on the last remaining screen", () => {
     editorStore.getState().removeScreen("second");
     editorStore.getState().removeScreen("hero"); // now the only one
-    expect(editorStore.getState().project!.screens.map((s) => s.id)).toEqual(["hero"]);
+    expect(editorStore.getState().project!.layouts[0]!.screens.map((s) => s.id)).toEqual(["hero"]);
   });
 });
 
@@ -363,7 +367,7 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
 
     expect(editorStore.getState().activeScreenId).toBe("hero");
     editorStore.getState().selectLocale("ar");
-    const active = editorStore.getState().project!.screens
+    const active = editorStore.getState().project!.layouts[0]!.screens
       .find((screen) => screen.id === editorStore.getState().activeScreenId);
     expect(active?.locale).toBe("ar");
   });
@@ -371,9 +375,10 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
   it("adds an RTL locale with fresh ids and makes it active", () => {
     editorStore.getState().addLocale("en", "ar", "rtl");
     const state = editorStore.getState();
-    const arabic = state.project!.screens.filter((screen) => screen.locale === "ar");
+    const arabic = state.project!.layouts[0]!.screens.filter((screen) => screen.locale === "ar");
 
-    expect(state.project!.locales).toEqual(["en", "ar"]);
+    expect([...new Set(state.project!.layouts[0]!.screens.map((screen) => screen.locale))])
+      .toEqual(["en", "ar"]);
     expect(arabic).toHaveLength(2);
     expect(arabic.every((screen) => screen.direction === "rtl")).toBe(true);
     expect(arabic.map((screen) => screen.id)).not.toEqual(["hero", "second"]);
@@ -387,28 +392,29 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
     expect(editorStore.getState().project).toEqual(rtl);
 
     editorStore.getState().setLocaleDirection("ar", "ltr");
-    expect(editorStore.getState().project!.screens
+    expect(editorStore.getState().project!.layouts[0]!.screens
       .filter((screen) => screen.locale === "ar")
       .every((screen) => screen.direction === "ltr")).toBe(true);
 
     editorStore.getState().removeLocale("ar");
-    expect(editorStore.getState().project!.locales).toEqual(["en"]);
+    expect([...new Set(editorStore.getState().project!.layouts[0]!.screens.map((screen) => screen.locale))])
+      .toEqual(["en"]);
     expect(editorStore.getState().activeScreenId).toBe("hero");
   });
 
   it("reorders locale screens by id without moving other locale slots", () => {
     editorStore.getState().addLocale("en", "ar", "ltr");
     const current = editorStore.getState().project!;
-    const [enFirst, enSecond] = current.screens.filter((screen) => screen.locale === "en");
-    const [arFirst, arSecond] = current.screens.filter((screen) => screen.locale === "ar");
+    const [enFirst, enSecond] = current.layouts[0]!.screens.filter((screen) => screen.locale === "en");
+    const [arFirst, arSecond] = current.layouts[0]!.screens.filter((screen) => screen.locale === "ar");
     editorStore.getState().replaceProject({
       ...current,
-      screens: [enFirst!, arFirst!, enSecond!, arSecond!],
+      layouts: [{ ...current.layouts[0]!, screens: [enFirst!, arFirst!, enSecond!, arSecond!] }],
     });
 
     editorStore.getState().reorderScreens(arFirst!.id, arSecond!.id);
 
-    expect(editorStore.getState().project!.screens.map((screen) => screen.id)).toEqual([
+    expect(editorStore.getState().project!.layouts[0]!.screens.map((screen) => screen.id)).toEqual([
       enFirst!.id,
       arSecond!.id,
       enSecond!.id,
@@ -419,11 +425,11 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
   it("keeps screen selection in the active locale after an interleaved deletion", () => {
     editorStore.getState().addLocale("en", "ar", "ltr");
     const current = editorStore.getState().project!;
-    const [enFirst, enSecond] = current.screens.filter((screen) => screen.locale === "en");
-    const [arFirst, arSecond] = current.screens.filter((screen) => screen.locale === "ar");
+    const [enFirst, enSecond] = current.layouts[0]!.screens.filter((screen) => screen.locale === "en");
+    const [arFirst, arSecond] = current.layouts[0]!.screens.filter((screen) => screen.locale === "ar");
     editorStore.getState().replaceProject({
       ...current,
-      screens: [enFirst!, arFirst!, enSecond!, arSecond!],
+      layouts: [{ ...current.layouts[0]!, screens: [enFirst!, arFirst!, enSecond!, arSecond!] }],
     });
     editorStore.getState().selectScreen(enFirst!.id);
 
@@ -434,18 +440,19 @@ describe("editorStore locale workspace (phase 4 slice 4)", () => {
 
   it("protects the final screen in a locale from screen-level removal", () => {
     editorStore.getState().addLocale("en", "ar", "rtl");
-    const arabic = editorStore.getState().project!.screens
+    const arabic = editorStore.getState().project!.layouts[0]!.screens
       .filter((screen) => screen.locale === "ar");
     editorStore.getState().removeScreen(arabic[1]!.id);
-    const remaining = editorStore.getState().project!.screens
+    const remaining = editorStore.getState().project!.layouts[0]!.screens
       .find((screen) => screen.locale === "ar")!;
 
     editorStore.getState().removeScreen(remaining.id);
 
-    expect(editorStore.getState().project!.screens
+    expect(editorStore.getState().project!.layouts[0]!.screens
       .filter((screen) => screen.locale === "ar"))
       .toEqual([remaining]);
-    expect(editorStore.getState().project!.locales).toContain("ar");
+    expect(editorStore.getState().project!.layouts[0]!.screens.some((screen) => screen.locale === "ar"))
+      .toBe(true);
   });
 });
 
@@ -456,7 +463,7 @@ describe("editorStore elements (slice 4)", () => {
     // give the active screen a second element so reorder is observable
     editorStore.setState((s) => {
       const p = structuredClone(s.project!);
-      p.screens[0]!.elements.push({
+      p.layouts[0]!.screens[0]!.elements.push({
         id: "accent", type: "shape", x: 0, y: 0, width: 100, height: 100,
         rotation: 0, opacity: 1, locked: false, visible: true,
         kind: "rect", fill: "#FF0000", radius: 0,
@@ -466,24 +473,24 @@ describe("editorStore elements (slice 4)", () => {
   });
 
   it("reorderElements changes z-order (array order)", () => {
-    expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.map((e) => e.id))
       .toEqual(["headline", "accent"]);
     editorStore.getState().reorderElements(0, 1);
-    expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.map((e) => e.id))
       .toEqual(["accent", "headline"]);
   });
 
   it("removeElement drops the element and clears matching selection", () => {
     editorStore.getState().select("accent");
     editorStore.getState().removeElement("accent");
-    expect(editorStore.getState().project!.screens[0]!.elements.map((e) => e.id))
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.map((e) => e.id))
       .toEqual(["headline"]);
     expect(editorStore.getState().selectedItems).toEqual([]);
   });
 
   it("patchElement can set locked, visible and name", () => {
     patchText("headline", { locked: true, visible: false, name: "Big" });
-    const el = editorStore.getState().project!.screens[0]!.elements
+    const el = editorStore.getState().project!.layouts[0]!.screens[0]!.elements
       .find((e) => e.id === "headline")!;
     expect(el).toMatchObject({ locked: true, visible: false, name: "Big" });
   });
@@ -502,7 +509,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       kind: "rect", fill: "#00FF00", radius: 0,
     } as const;
     editorStore.getState().addElement(el);
-    const screen = editorStore.getState().project!.screens[0]!;
+    const screen = editorStore.getState().project!.layouts[0]!.screens[0]!;
     expect(screen.elements.map((e) => e.id)).toContain("new-shape");
     expect(editorStore.getState().selectedItems).toEqual([{ screenId: "hero", elementId: "new-shape" }]);
   });
@@ -511,7 +518,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     patchText("headline", {
       color: "#123456", size: 99, align: "center", opacity: 0.5,
     });
-    const el = editorStore.getState().project!.screens[0]!.elements
+    const el = editorStore.getState().project!.layouts[0]!.screens[0]!.elements
       .find((e) => e.id === "headline")! as { color: string; size: number; align: string; opacity: number };
     expect(el).toMatchObject({ color: "#123456", size: 99, align: "center", opacity: 0.5 });
   });
@@ -520,9 +527,9 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     patchText("headline", {
       shadow: { color: "#000000", blur: 8, offsetX: 1, offsetY: 3, opacity: 0.5 },
     });
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).toHaveProperty("shadow.blur", 8);
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).toHaveProperty("shadow.blur", 8);
     patchText("headline", { shadow: null });
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).not.toHaveProperty("shadow");
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).not.toHaveProperty("shadow");
 
     editorStore.getState().addElement({
       id: "styled-shape", type: "shape", x: 0, y: 0, width: 100, height: 80,
@@ -534,10 +541,10 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       gradient: { from: "#000000", to: "#FFFFFF", angle: 90 },
       stroke: { color: "#FF00FF", width: 4 },
     });
-    const shape = editorStore.getState().project!.screens[0]!.elements.find((item) => item.id === "styled-shape");
+    const shape = editorStore.getState().project!.layouts[0]!.screens[0]!.elements.find((item) => item.id === "styled-shape");
     expect(shape).toMatchObject({ kind: "ellipse", gradient: { angle: 90 }, stroke: { width: 4 } });
     patchShape("styled-shape", { gradient: null, stroke: null });
-    expect(editorStore.getState().project!.screens[0]!.elements.find((item) => item.id === "styled-shape"))
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.find((item) => item.id === "styled-shape"))
       .not.toHaveProperty("gradient");
   });
 
@@ -551,12 +558,12 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
       assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
       crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
-    expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.at(-1)).toMatchObject({
       type: "image", assetUrl: "assets/new.png", fit: "cover", cornerRadius: 18,
       crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
     patchImage("decor", { crop: null });
-    expect(editorStore.getState().project!.screens[0]!.elements.at(-1))
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.at(-1))
       .not.toHaveProperty("crop");
   });
 
@@ -569,14 +576,14 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     patchIcon("icon", {
       icon: "heart", color: "#FF0000", strokeWidth: 5,
     });
-    expect(editorStore.getState().project!.screens[0]!.elements.at(-1)).toMatchObject({
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.at(-1)).toMatchObject({
       type: "icon", icon: "heart", color: "#FF0000", strokeWidth: 5,
     });
   });
 
   it("applies a font family and weight in one project patch", () => {
     patchText("headline", { fontFamily: "Inter", weight: 700 });
-    const element = editorStore.getState().project!.screens[0]!.elements[0]!;
+    const element = editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!;
     expect(element).toMatchObject({ fontFamily: "Inter", weight: 700 });
   });
 
@@ -593,7 +600,7 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
   });
 
   it("patchElement ignores fields that do not belong to the element type", () => {
-    const text = structuredClone(editorStore.getState().project!.screens[0]!.elements
+    const text = structuredClone(editorStore.getState().project!.layouts[0]!.screens[0]!.elements
       .find((element) => element.id === "headline"));
     if (!text || text.type !== "text") throw new Error("expected text fixture");
     applyElementPatch(text, {
@@ -606,22 +613,22 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
 
   it("sets and clears an optional theme role", () => {
     patchText("headline", { role: "heading" });
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ role: "heading" });
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ role: "heading" });
     patchText("headline", { role: null });
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).not.toHaveProperty("role");
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).not.toHaveProperty("role");
   });
 
   it("replaces a durable project while preserving valid active and selected ids", () => {
     editorStore.getState().select("headline");
     const next = structuredClone(editorStore.getState().project!);
-    const headline = next.screens[0]!.elements[0]!;
+    const headline = next.layouts[0]!.screens[0]!.elements[0]!;
     if (headline.type === "text") headline.color = "#123456";
     editorStore.getState().replaceProject(next);
     expect(editorStore.getState()).toMatchObject({
       activeScreenId: "hero",
       selectedItems: [{ screenId: "hero", elementId: "headline" }],
     });
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ color: "#123456" });
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ color: "#123456" });
   });
 });
 
@@ -635,21 +642,21 @@ describe("editorStore screen editors (slice 5)", () => {
     editorStore.getState().setBackground({
       type: "linear-gradient", from: "#ABCDEF", to: "#123456", angle: 45,
     });
-    const bg = editorStore.getState().project!.screens[0]!.background;
+    const bg = editorStore.getState().project!.layouts[0]!.screens[0]!.background;
     expect(bg).toEqual({ type: "linear-gradient", from: "#ABCDEF", to: "#123456", angle: 45 });
   });
 
   it("resizeArtboard updates the active root and scales its composition", () => {
     editorStore.getState().resizeArtboard({ width: 1320, height: 2868 });
-    expect(editorStore.getState().project!.screens[0]!.artboard)
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.artboard)
       .toEqual({ width: 1320, height: 2868 });
-    expect(editorStore.getState().project!.screens[0]!.elements[0])
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0])
       .toMatchObject({ x: 80, y: 200, width: 1160, height: 400, size: 144 });
   });
 
   it("resizeArtboard updates every master screen in the active output set", () => {
     editorStore.getState().resizeArtboard({ width: 1320, height: 2868 });
-    expect(editorStore.getState().project!.screens[1]!.artboard)
+    expect(editorStore.getState().project!.layouts[0]!.screens[1]!.artboard)
       .toEqual({ width: 1320, height: 2868 });
   });
 
@@ -663,9 +670,9 @@ describe("editorStore screen editors (slice 5)", () => {
     });
     const before = editorStore.getState().project!;
     const originalRoots = structuredClone(
-      before.screens.filter((screen) => screen.storeTargetId === undefined),
+      before.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined),
     );
-    const variant = before.screens.find(
+    const variant = before.layouts[0]!.screens.find(
       (screen) => screen.variantOf === "hero" && screen.storeTargetId === "6.5",
     )!;
 
@@ -673,14 +680,14 @@ describe("editorStore screen editors (slice 5)", () => {
     editorStore.getState().resizeArtboard({ width: 642, height: 1389 });
 
     const resized = editorStore.getState().project!;
-    const targetScreens = resized.screens.filter(
+    const targetScreens = resized.layouts[0]!.screens.filter(
       (screen) => screen.storeTargetId === "6.5",
     );
     expect(targetScreens).toHaveLength(2);
     expect(targetScreens.every((screen) =>
       screen.artboard.width === 642 && screen.artboard.height === 1389
     )).toBe(true);
-    expect(resized.screens.filter((screen) => screen.storeTargetId === undefined))
+    expect(resized.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined))
       .toEqual(originalRoots);
   });
 });
@@ -696,11 +703,11 @@ describe("editorStore history (phase 6 slice 4)", () => {
     expect(editorStore.getState().historyPast).toHaveLength(1);
 
     editorStore.getState().undo();
-    expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(40);
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!.x).toBe(40);
     expect(editorStore.getState().historyFuture).toHaveLength(1);
 
     editorStore.getState().redo();
-    expect(editorStore.getState().project!.screens[0]!.elements[0]!.x).toBe(240);
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!.x).toBe(240);
   });
 
   it("starts a new undo step after an explicit history boundary", () => {
@@ -710,7 +717,7 @@ describe("editorStore history (phase 6 slice 4)", () => {
     expect(editorStore.getState().historyPast).toHaveLength(2);
 
     editorStore.getState().undo();
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ x: 120, y: 100 });
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ x: 120, y: 100 });
   });
 
   it("clears redo after a new mutation and resets history on load/replace", () => {
@@ -781,32 +788,10 @@ describe("editorStore history (phase 6 slice 4)", () => {
 });
 
 describe("editorStore connected workspace hardening (phase 6 slice 7)", () => {
-  it("records a successful canvas-mode change and makes it undoable", () => {
-    editorStore.getState().load(project());
-    editorStore.getState().setCanvasMode("connected");
-    expect(editorStore.getState().project?.mode).toBe("connected");
-    expect(editorStore.getState().historyPast).toHaveLength(1);
-
-    editorStore.getState().undo();
-    expect(editorStore.getState().project?.mode).toBe("isolated");
-  });
-
-  it("refuses a lossy isolated switch without changing history", () => {
-    const connected = project();
-    connected.mode = "connected";
-    connected.screens[0]!.elements[0]!.x = 100;
-    editorStore.getState().load(connected);
-
-    expect(() => editorStore.getState().setCanvasMode("isolated")).toThrow(/crosses its owner artboard/);
-    expect(editorStore.getState().project?.mode).toBe("connected");
-    expect(editorStore.getState().historyPast).toHaveLength(0);
-  });
-
   it("reorders only exact connected-group slots", () => {
     const connected = project();
-    connected.mode = "connected";
-    connected.platforms = ["apple", "android"];
-    const unrelated: Project["screens"][number] = {
+    connected.layouts[0]!.mode = "connected";
+    const unrelated: Project["layouts"][number]["screens"][number] = {
       id: "unrelated",
       name: "Unrelated",
       platform: "android",
@@ -817,11 +802,11 @@ describe("editorStore connected workspace hardening (phase 6 slice 7)", () => {
       background: { type: "solid", color: "#222222" },
       elements: [],
     };
-    connected.screens = [connected.screens[0]!, unrelated, connected.screens[1]!];
+    connected.layouts[0]!.screens = [connected.layouts[0]!.screens[0]!, unrelated, connected.layouts[0]!.screens[1]!];
     editorStore.getState().load(connected);
 
     editorStore.getState().reorderScreens("hero", "second");
-    expect(editorStore.getState().project!.screens.map((screen) => screen.id))
+    expect(editorStore.getState().project!.layouts[0]!.screens.map((screen) => screen.id))
       .toEqual(["second", "unrelated", "hero"]);
   });
 });
@@ -829,10 +814,10 @@ describe("editorStore connected workspace hardening (phase 6 slice 7)", () => {
 describe("editorStore multi-selection (phase 7 slice 1)", () => {
   beforeEach(() => {
     const connected = project();
-    connected.mode = "connected";
-    const duplicate = structuredClone(connected.screens[0]!.elements[0]!);
+    connected.layouts[0]!.mode = "connected";
+    const duplicate = structuredClone(connected.layouts[0]!.screens[0]!.elements[0]!);
     duplicate.locked = true;
-    connected.screens[1]!.elements = [duplicate];
+    connected.layouts[0]!.screens[1]!.elements = [duplicate];
     editorStore.getState().load(connected);
   });
 
@@ -863,20 +848,20 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
 
   it("traverses selected top-level elements and group children with owner disambiguation", () => {
     const fixture = structuredClone(editorStore.getState().project!);
-    const child = structuredClone(fixture.screens[0]!.elements[0]!) as TextElement;
+    const child = structuredClone(fixture.layouts[0]!.screens[0]!.elements[0]!) as TextElement;
     child.id = "nested";
-    fixture.screens[0]!.elements.push({
+    fixture.layouts[0]!.screens[0]!.elements.push({
       id: "hero-group", type: "group", x: 0, y: 0, width: 580, height: 200,
       rotation: 0, opacity: 1, locked: false, visible: true, children: [child],
     });
     const secondChild = structuredClone(child);
-    fixture.screens[1]!.elements.push({
+    fixture.layouts[0]!.screens[1]!.elements.push({
       id: "second-group", type: "group", x: 0, y: 0, width: 580, height: 200,
       rotation: 0, opacity: 1, locked: false, visible: true, children: [secondChild],
     });
 
     const visited: string[] = [];
-    forEachSelectedElement(fixture, [
+    forEachSelectedElement(fixture.layouts[0]!, [
       { screenId: "hero", elementId: "nested" },
       { screenId: "second", elementId: "headline" },
     ], ({ screen, element, parent }) => {
@@ -896,13 +881,13 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
     ]);
     editorStore.getState().moveSelected({ x: 15, y: -5 });
 
-    const [first, second] = editorStore.getState().project!.screens;
+    const [first, second] = editorStore.getState().project!.layouts[0]!.screens;
     expect(first!.elements[0]).toMatchObject({ x: 55, y: 95 });
     expect(second!.elements[0]).toMatchObject({ x: 40, y: 100 });
     expect(editorStore.getState().historyPast).toHaveLength(1);
 
     editorStore.getState().undo();
-    expect(editorStore.getState().project!.screens[0]!.elements[0]).toMatchObject({ x: 40, y: 100 });
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ x: 40, y: 100 });
   });
 
   it("locks and hides the complete selection atomically", () => {
@@ -911,11 +896,11 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
       { screenId: "second", elementId: "headline" },
     ]);
     editorStore.getState().setSelectedLocked(true);
-    expect(editorStore.getState().project!.screens.every((screen) => screen.elements[0]!.locked)).toBe(true);
+    expect(editorStore.getState().project!.layouts[0]!.screens.every((screen) => screen.elements[0]!.locked)).toBe(true);
     expect(editorStore.getState().selectedItems).toHaveLength(2);
 
     editorStore.getState().setSelectedVisible(false);
-    expect(editorStore.getState().project!.screens.every((screen) => !screen.elements[0]!.visible)).toBe(true);
+    expect(editorStore.getState().project!.layouts[0]!.screens.every((screen) => !screen.elements[0]!.visible)).toBe(true);
     expect(editorStore.getState().selectedItems).toEqual([]);
     expect(editorStore.getState().historyPast).toHaveLength(2);
   });
@@ -926,31 +911,21 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
       { screenId: "second", elementId: "headline" },
     ]);
     editorStore.getState().removeSelected();
-    expect(editorStore.getState().project!.screens.every((screen) => screen.elements.length === 0)).toBe(true);
+    expect(editorStore.getState().project!.layouts[0]!.screens.every((screen) => screen.elements.length === 0)).toBe(true);
     expect(editorStore.getState().selectedItems).toEqual([]);
     expect(editorStore.getState().historyPast).toHaveLength(1);
 
     editorStore.getState().undo();
-    expect(editorStore.getState().project!.screens.every((screen) => screen.elements.length === 1)).toBe(true);
+    expect(editorStore.getState().project!.layouts[0]!.screens.every((screen) => screen.elements.length === 1)).toBe(true);
     expect(editorStore.getState().selectedItems).toEqual([]);
   });
 
-  it("reconciles connected selection when switching to isolated mode", () => {
-    editorStore.getState().setSelection([
-      { screenId: "hero", elementId: "headline" },
-      { screenId: "second", elementId: "headline" },
-    ]);
-    editorStore.getState().setCanvasMode("isolated");
-    expect(editorStore.getState().selectedItems).toEqual([
-      { screenId: "hero", elementId: "headline" },
-    ]);
-  });
 });
 
 describe("editorStore group authoring (phase 7 slice 3)", () => {
   beforeEach(() => {
     const fixture = project();
-    fixture.screens[0]!.elements.push({
+    fixture.layouts[0]!.screens[0]!.elements.push({
       id: "card", type: "shape", x: 100, y: 340, width: 200, height: 120,
       rotation: 0, opacity: 1, locked: false, visible: true,
       kind: "rect", fill: "#3366FF", radius: 12,
@@ -966,7 +941,7 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
     editorStore.getState().groupSelected();
 
     const state = editorStore.getState();
-    const group = state.project!.screens[0]!.elements[0]!;
+    const group = state.project!.layouts[0]!.screens[0]!.elements[0]!;
     expect(group.type).toBe("group");
     if (group.type !== "group") throw new Error("expected group");
     expect(group.children.map((child) => child.id)).toEqual(["headline", "card"]);
@@ -974,15 +949,15 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
     expect(state.historyPast).toHaveLength(1);
 
     editorStore.getState().undo();
-    expect(editorStore.getState().project!.screens[0]!.elements.map((element) => element.id))
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.map((element) => element.id))
       .toEqual(["headline", "card"]);
   });
 
   it("does not group selections from different owner screens", () => {
     const loaded = structuredClone(editorStore.getState().project!);
-    const secondShape = structuredClone(loaded.screens[0]!.elements[1]!);
+    const secondShape = structuredClone(loaded.layouts[0]!.screens[0]!.elements[1]!);
     secondShape.id = "second-card";
-    loaded.screens[1]!.elements.push(secondShape);
+    loaded.layouts[0]!.screens[1]!.elements.push(secondShape);
     editorStore.getState().load(loaded);
     editorStore.getState().setSelection([
       { screenId: "hero", elementId: "headline" },
@@ -1003,12 +978,12 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
     editorStore.getState().groupSelected();
     patchShape("card", { fill: "#FF0000", x: 25 }, "hero");
 
-    const group = editorStore.getState().project!.screens[0]!.elements[0]!;
+    const group = editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!;
     expect(group.type === "group" && group.children[1]).toMatchObject({ fill: "#FF0000", x: 25 });
 
     editorStore.getState().removeElement("headline", "hero");
     editorStore.getState().removeElement("card", "hero");
-    expect(editorStore.getState().project!.screens[0]!.elements).toEqual([]);
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements).toEqual([]);
   });
 
   it("resizes uniformly and scales child geometry", () => {
@@ -1017,13 +992,13 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
       { screenId: "hero", elementId: "card" },
     ]);
     editorStore.getState().groupSelected();
-    const group = editorStore.getState().project!.screens[0]!.elements[0]!;
+    const group = editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!;
     if (group.type !== "group") throw new Error("expected group");
     const before = structuredClone(group);
 
     patchGroup(group.id, { width: group.width * 2 }, "hero");
 
-    const resized = editorStore.getState().project!.screens[0]!.elements[0]!;
+    const resized = editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!;
     if (resized.type !== "group") throw new Error("expected group");
     expect(resized).toMatchObject({ width: before.width * 2, height: before.height * 2 });
     expect(resized.children[0]).toMatchObject({
@@ -1040,11 +1015,11 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
       { screenId: "hero", elementId: "card" },
     ]);
     editorStore.getState().groupSelected();
-    const original = editorStore.getState().project!.screens[0]!.elements[0]!;
+    const original = editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!;
     if (original.type !== "group") throw new Error("expected group");
 
     editorStore.getState().duplicateSelected();
-    const elements = editorStore.getState().project!.screens[0]!.elements;
+    const elements = editorStore.getState().project!.layouts[0]!.screens[0]!.elements;
     expect(elements).toHaveLength(2);
     const copy = elements[1]!;
     if (copy.type !== "group") throw new Error("expected copied group");
@@ -1055,7 +1030,7 @@ describe("editorStore group authoring (phase 7 slice 3)", () => {
 
     patchGroup(copy.id, { rotation: 30, opacity: 0.5 }, "hero");
     editorStore.getState().ungroupSelected();
-    const ungrouped = editorStore.getState().project!.screens[0]!.elements.slice(1);
+    const ungrouped = editorStore.getState().project!.layouts[0]!.screens[0]!.elements.slice(1);
     expect(ungrouped).toHaveLength(2);
     expect(ungrouped[0]).toMatchObject({
       rotation: copy.children[0]!.rotation + 30,

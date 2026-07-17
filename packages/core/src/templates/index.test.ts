@@ -5,9 +5,13 @@ import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Templa
 
 function project(): Project {
   return {
-    meta: { name: "Templates", schemaVersion: 1 }, mode: "connected", platforms: ["apple"], locales: ["en"],
+    meta: { name: "Templates", schemaVersion: 1 },
     fonts: [{ family: "Inter", source: "uploaded", path: "assets/fonts/inter-700.ttf", weight: 700 }],
-    screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "connected",
+      screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", direction: "ltr", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#111111" }, elements: [] }],
+    }],
   };
 }
 
@@ -30,15 +34,15 @@ describe("ScreenTemplate", () => {
 });
 
 describe("createScreenFromTemplate", () => {
-  it("appends a fresh-id screen, injects locale, and recomputes manifests", () => {
-    const result = createScreenFromTemplate(project(), template, "uk");
+  it("appends a fresh-id screen and injects its locale into one layout", () => {
+    const result = createScreenFromTemplate(project(), "default", template, "uk");
     expect(result.screen).toMatchObject({ platform: "android", device: "phone", locale: "uk", name: "Feature card" });
     expect(result.screen.id).toBe("feature-card");
     expect(result.screen.elements.map((element) => element.id)).not.toEqual(["title", "accent"]);
     expect(new Set(result.screen.elements.map((element) => element.id)).size).toBe(2);
-    expect(result.project.mode).toBe("connected");
-    expect(result.project.platforms).toEqual(["apple", "android"]);
-    expect(result.project.locales).toEqual(["en", "uk"]);
+    expect(result.project.layouts[0]!.mode).toBe("connected");
+    expect(result.project.layouts[0]!.screens.map((screen) => screen.platform)).toEqual(["apple", "android"]);
+    expect(result.project.layouts[0]!.screens.map((screen) => screen.locale)).toEqual(["en", "uk"]);
   });
 
   it("preserves structured backgrounds instead of flattening them", () => {
@@ -46,14 +50,14 @@ describe("createScreenFromTemplate", () => {
       ...template,
       background: { type: "linear-gradient", from: "#112233", to: "#AABBCC", angle: 35 },
     };
-    expect(createScreenFromTemplate(project(), gradient, "en").screen.background).toEqual(
+    expect(createScreenFromTemplate(project(), "default", gradient, "en").screen.background).toEqual(
       gradient.background,
     );
   });
 
   it("bakes LTR template geometry for an existing RTL locale", () => {
     const rtlProject = project();
-    rtlProject.screens[0]!.direction = "rtl";
+    rtlProject.layouts[0]!.screens[0]!.direction = "rtl";
     const title = template.elements[0]!;
     if (title.type !== "text") throw new Error("Expected template title text");
     const rtlTemplate: Template = {
@@ -67,7 +71,7 @@ describe("createScreenFromTemplate", () => {
       }],
     };
 
-    const result = createScreenFromTemplate(rtlProject, rtlTemplate, "en");
+    const result = createScreenFromTemplate(rtlProject, "default", rtlTemplate, "en");
 
     expect(result.screen.direction).toBe("rtl");
     expect(result.screen.elements[0]).toMatchObject({ x: 680, align: "right" });
@@ -75,8 +79,8 @@ describe("createScreenFromTemplate", () => {
   });
 
   it("uses a unique screen id on repeated creation", () => {
-    const first = createScreenFromTemplate(project(), template, "en").project;
-    expect(createScreenFromTemplate(first, template, "en").screen.id).toBe("feature-card-2");
+    const first = createScreenFromTemplate(project(), "default", template, "en").project;
+    expect(createScreenFromTemplate(first, "default", template, "en").screen.id).toBe("feature-card-2");
   });
 
   it("validates grouped fonts and regenerates group plus child ids", () => {
@@ -92,7 +96,7 @@ describe("createScreenFromTemplate", () => {
       }],
     };
 
-    const result = createScreenFromTemplate(project(), grouped, "en");
+    const result = createScreenFromTemplate(project(), "default", grouped, "en");
     const group = result.screen.elements[0]!;
     expect(group.id).not.toBe("group");
     expect(group.type === "group" && group.children[0]!.id).not.toBe("group-title");
@@ -104,7 +108,7 @@ describe("createScreenFromTemplate", () => {
         children: [{ ...title, id: "missing", fontFamily: "Missing" }],
       } as never],
     };
-    expect(() => createScreenFromTemplate(project(), missing, "en")).toThrow(/unregistered font/);
+    expect(() => createScreenFromTemplate(project(), "default", missing, "en")).toThrow(/unregistered font/);
   });
 
   it("preserves decorative image fields and freshens its id", () => {
@@ -117,7 +121,7 @@ describe("createScreenFromTemplate", () => {
         assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 16,
       }],
     };
-    const result = createScreenFromTemplate(project(), withImage, "en");
+    const result = createScreenFromTemplate(project(), "default", withImage, "en");
     expect(result.screen.elements[0]).toMatchObject({
       type: "image", assetUrl: "assets/decor.png", fit: "contain", cornerRadius: 16,
     });
@@ -134,7 +138,7 @@ describe("createScreenFromTemplate", () => {
         icon: "check", color: "#22C55E", strokeWidth: 4,
       }],
     };
-    const result = createScreenFromTemplate(project(), withIcon, "en");
+    const result = createScreenFromTemplate(project(), "default", withIcon, "en");
     expect(result.screen.elements[0]).toMatchObject({
       type: "icon", icon: "check", color: "#22C55E", strokeWidth: 4,
     });
@@ -143,6 +147,6 @@ describe("createScreenFromTemplate", () => {
 
   it("rejects template text with an unregistered font", () => {
     const missing = { ...template, elements: [{ ...template.elements[0]!, fontFamily: "Missing" }] } as Template;
-    expect(() => createScreenFromTemplate(project(), missing, "en")).toThrow(/unregistered font/);
+    expect(() => createScreenFromTemplate(project(), "default", missing, "en")).toThrow(/unregistered font/);
   });
 });

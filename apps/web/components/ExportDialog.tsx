@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useStore } from "zustand";
 import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
+import { layoutLocales } from "@screenshot-studio/core/model";
 import { withFlushedProject } from "../lib/debounced-save";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import { launchExportArtifactDownload } from "./export-dialog-model";
@@ -16,6 +17,7 @@ import { launchExportArtifactDownload } from "./export-dialog-model";
  */
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
+  const activeLayoutId = useStore(editorStore, (s) => s.activeLayoutId);
   const [platform, setPlatform] = useState("all");
   const [device, setDevice] = useState("all");
   const [locale, setLocale] = useState<string>("all");
@@ -23,10 +25,11 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [error, setError] = useState<string | null>(null);
   const [doneDir, setDoneDir] = useState<string | null>(null);
 
-  if (!open || !project) return null;
+  if (!open || !project || !activeLayoutId) return null;
 
-  const platforms = Array.from(new Set(project.screens.map((screen) => screen.platform)));
-  const devices = Array.from(new Set(project.screens
+  const layout = project.layouts.find((candidate) => candidate.id === activeLayoutId)!;
+  const platforms = Array.from(new Set(layout.screens.map((screen) => screen.platform)));
+  const devices = Array.from(new Set(layout.screens
     .filter((screen) => platform === "all" || screen.platform === platform)
     .map((screen) => screen.device)));
 
@@ -40,6 +43,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
+            layoutId: activeLayoutId,
             platform: platform === "all" ? undefined : platform,
             device: device === "all" ? undefined : device,
             locale: locale === "all" ? undefined : locale,
@@ -101,7 +105,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <MenuSelect
             ariaLabel="Locale"
             value={locale}
-            options={[{ value: "all", label: "all" }, ...project.locales.map((entry) => ({ value: entry, label: entry }))]}
+            options={[{ value: "all", label: "all" }, ...layoutLocales(layout).map((entry) => ({ value: entry, label: entry }))]}
             onChange={setLocale}
             className="w-40"
           />

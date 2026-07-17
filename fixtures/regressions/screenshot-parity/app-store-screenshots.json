@@ -1,29 +1,43 @@
 {
-  "meta": { "name": "Screenshot Parity", "schemaVersion": 1 },
-  "mode": "isolated",
-  "platforms": ["apple"],
-  "locales": ["en"],
+  "meta": {
+    "name": "Screenshot Parity",
+    "schemaVersion": 1
+  },
   "fonts": [],
-  "screens": [
+  "preferredExportLayoutId": "default",
+  "layouts": [
     {
-      "id": "shot",
-      "name": "Shot",
-      "platform": "apple",
-      "device": "iphone",
-      "locale": "en",
-      "artboard": { "width": 660, "height": 1434 },
-      "background": { "type": "solid", "color": "#101010" },
-      "elements": [
+      "id": "default",
+      "name": "Default",
+      "mode": "isolated",
+      "screens": [
         {
-          "id": "hero-shot",
-          "type": "screenshot",
-          "x": 80,
-          "y": 300,
-          "width": 500,
-          "height": 800,
-          "assetUrl": "assets/shot.png",
-          "fit": "cover",
-          "cornerRadius": 48
+          "id": "shot",
+          "name": "Shot",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": {
+            "width": 660,
+            "height": 1434
+          },
+          "background": {
+            "type": "solid",
+            "color": "#101010"
+          },
+          "elements": [
+            {
+              "id": "hero-shot",
+              "type": "screenshot",
+              "x": 80,
+              "y": 300,
+              "width": 500,
+              "height": 800,
+              "assetUrl": "assets/shot.png",
+              "fit": "cover",
+              "cornerRadius": 48
+            }
+          ]
         }
       ]
     }

@@ -29,14 +29,15 @@ import {
 
 const baseProject = {
   meta: { name: "Fonts", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"],
-  locales: ["en"],
   fonts: [],
-  screens: [{
-    id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
-    artboard: { width: 660, height: 1434 },
-    background: { type: "solid", color: "#111111" }, elements: [],
+  preferredExportLayoutId: "default",
+  layouts: [{
+    id: "default", name: "Default", mode: "isolated",
+    screens: [{
+      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+      artboard: { width: 660, height: 1434 },
+      background: { type: "solid", color: "#111111" }, elements: [],
+    }],
   }],
 };
 
@@ -64,9 +65,12 @@ async function projectFile(options: {
   await writeFile(path, JSON.stringify({
     ...baseProject,
     fonts: options.fonts ?? [],
-    screens: [{
-      ...baseProject.screens[0],
-      elements: options.elements ?? [],
+    layouts: [{
+      ...baseProject.layouts[0],
+      screens: [{
+        ...baseProject.layouts[0]!.screens[0],
+        elements: options.elements ?? [],
+      }],
     }],
   }));
   return { dir, path };

@@ -40,7 +40,7 @@ afterAll(async () => {
 
 function elements(): Array<{ id: string; type: string; width: number; opacity: number }> {
   const p = JSON.parse(readFileSync(projectFile, "utf8"));
-  return p.screens[0].elements;
+  return p.layouts[0].screens[0].elements;
 }
 
 describe("inspector + toolbar", () => {
@@ -55,13 +55,13 @@ describe("inspector + toolbar", () => {
     const productName = page.getByText("Screenshot Studio", { exact: true });
     const projectName = page.getByText("Store Launch Demo", { exact: true });
 
-    expect(await productName.isVisible()).toBe(true);
+    expect(await productName.isVisible()).toBe(false);
     expect(await projectName.isVisible()).toBe(false);
     expect(await focusLabel.isVisible()).toBe(false);
     expect(await overviewLabel.isVisible()).toBe(false);
     expect(await exportLabel.isVisible()).toBe(false);
-    expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(false);
-    expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(false);
+    expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
+    expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
 
     const measureToolbar = async () => {
       return page.locator("header", { has: page.getByLabel("Canvas view") }).evaluate((header) => {
@@ -92,13 +92,23 @@ describe("inspector + toolbar", () => {
     };
 
     await expectNoOverlap(320);
+    await page.getByRole("button", { name: "More toolbar actions" }).click();
+    const overflowMenu = page.getByRole("menu", { name: "More toolbar actions" });
+    expect(await overflowMenu.getByRole("menuitem", { name: "Undo" }).isVisible()).toBe(true);
+    expect(await overflowMenu.getByRole("menuitem", { name: "Redo" }).isVisible()).toBe(true);
+    await page.keyboard.press("Escape");
+    const layoutSelector = page.getByRole("button", { name: "Active layout: Default" });
+    await layoutSelector.click();
+    await page.getByRole("menu", { name: "Design layouts" }).waitFor({ state: "visible" });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.keyboard.press("Escape");
     await expectNoOverlap(828);
 
     await page.setViewportSize({ width: 640, height: 900 });
     expect(await productName.isVisible()).toBe(false);
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    expect(await productName.isVisible()).toBe(true);
+    await expect.poll(() => productName.isVisible()).toBe(true);
     expect(await projectName.isVisible()).toBe(true);
     expect(await focusLabel.isVisible()).toBe(true);
     expect(await overviewLabel.isVisible()).toBe(true);

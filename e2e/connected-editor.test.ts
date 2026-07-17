@@ -19,7 +19,7 @@ beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "connected-editor-"));
   projectPath = join(directory, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(fixturePath, "utf8"));
-  project.screens[1].elements.push({
+  project.layouts[0].screens[1].elements.push({
     id: "cross-copy",
     type: "text",
     x: 50,
@@ -42,7 +42,7 @@ beforeAll(async () => {
   });
   writeFileSync(projectPath, JSON.stringify(project));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -55,10 +55,10 @@ afterAll(async () => {
 
 function project() {
   return JSON.parse(readFileSync(projectPath, "utf8")) as {
-    screens: Array<{
-      id: string;
-      elements: Array<{ id: string; x: number; content?: string }>;
-    }>;
+    layouts: Array<{ screens: Array<{
+        id: string;
+        elements: Array<{ id: string; x: number; content?: string }>;
+      }> }>;
   };
 }
 
@@ -93,7 +93,7 @@ describe("Phase 6 connected editor stage", () => {
     await page.mouse.move(bridgeX + 60 * scale, bridgeY, { steps: 8 });
     await page.mouse.up();
     await expect.poll(() => {
-      const first = project().screens.find((screen) => screen.id === "connected-first")!;
+      const first = project().layouts[0].screens.find((screen) => screen.id === "connected-first")!;
       return first.elements.find((element) => element.id === "bridge")!.x;
     }).toBeCloseTo(620, 0);
 
@@ -106,7 +106,7 @@ describe("Phase 6 connected editor stage", () => {
     await editor.fill("Connected copy");
     await editor.press("Control+Enter");
     await expect.poll(() => {
-      const second = project().screens.find((screen) => screen.id === "connected-second")!;
+      const second = project().layouts[0].screens.find((screen) => screen.id === "connected-second")!;
       return second.elements.find((element) => element.id === "cross-copy")!.content;
     }).toBe("Connected copy");
 

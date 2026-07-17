@@ -71,8 +71,8 @@ async function fixture() {
   };
   await mkdir(join(dir, "templates"));
   await writeFile(projectPath, JSON.stringify({
-    meta: { name: "Templates", schemaVersion: 1 }, mode: "isolated", platforms: ["apple"], locales: ["en"], fonts: [],
-    screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [] }],
+    meta: { name: "Templates", schemaVersion: 1 }, fonts: [], preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "isolated", screens: [{ id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en", artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [] }] }],
   }));
   await writeFile(join(dir, "templates/accent-card.json"), JSON.stringify(template));
   return { dir, projectPath, template };
@@ -278,8 +278,9 @@ describe("template-service", () => {
     const result = await createTemplateScreen(projectPath, "accent-card", "uk");
     expect(result.screen).toMatchObject({ id: "accent-card", locale: "uk" });
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
-    expect(saved.screens).toHaveLength(2);
-    expect(saved.locales).toEqual(["en", "uk"]);
+    expect(saved.layouts[0].screens).toHaveLength(2);
+    expect([...new Set(saved.layouts[0].screens.map((screen: { locale: string }) => screen.locale))])
+      .toEqual(["en", "uk"]);
   });
 
   it("resolves list, load, and create resources beside a symlinked project target", async () => {
@@ -294,8 +295,9 @@ describe("template-service", () => {
     await createTemplateScreen(aliasPath, "accent-card", "uk");
 
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
-    expect(saved.screens).toHaveLength(2);
-    expect(saved.locales).toEqual(["en", "uk"]);
+    expect(saved.layouts[0].screens).toHaveLength(2);
+    expect([...new Set(saved.layouts[0].screens.map((screen: { locale: string }) => screen.locale))])
+      .toEqual(["en", "uk"]);
   });
 
   it("queues create behind the project lease while list remains lock-free", async () => {
@@ -340,7 +342,8 @@ describe("template-service", () => {
     expect(createResult.screen.locale).toBe("uk");
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.meta.name).toBe("Held writer");
-    expect(saved.screens).toHaveLength(2);
-    expect(saved.locales).toEqual(["en", "uk"]);
+    expect(saved.layouts[0].screens).toHaveLength(2);
+    expect([...new Set(saved.layouts[0].screens.map((screen: { locale: string }) => screen.locale))])
+      .toEqual(["en", "uk"]);
   });
 });

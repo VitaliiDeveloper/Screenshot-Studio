@@ -2,21 +2,25 @@
 import type { Project as ProjectModel } from "./schema.js";
 import { fontIdentityKey, type FontIdentity } from "./font-identity.js";
 import { elementLeaves } from "./element-tree.js";
+import { getLayout } from "./project-layout.js";
 
 /** Text font identities that have no file-backed project font. Pure: filesystem loading stays in hosts. */
-export function findUnresolvedFonts(project: ProjectModel): FontIdentity[] {
+export function findUnresolvedFonts(project: ProjectModel, layoutId?: string): FontIdentity[] {
   const registered = new Set(project.fonts.map(fontIdentityKey));
   const unresolved: FontIdentity[] = [];
   const seen = new Set<string>();
 
-  for (const screen of project.screens) {
-    for (const element of screen.elements) {
-      for (const leaf of elementLeaves(element)) {
-        if (leaf.type !== "text") continue;
-        const key = fontIdentityKey({ family: leaf.fontFamily, weight: leaf.weight });
-        if (!registered.has(key) && !seen.has(key)) {
-          unresolved.push({ family: leaf.fontFamily, weight: leaf.weight });
-          seen.add(key);
+  const layouts = layoutId ? [getLayout(project, layoutId)] : project.layouts;
+  for (const layout of layouts) {
+    for (const screen of layout.screens) {
+      for (const element of screen.elements) {
+        for (const leaf of elementLeaves(element)) {
+          if (leaf.type !== "text") continue;
+          const key = fontIdentityKey({ family: leaf.fontFamily, weight: leaf.weight });
+          if (!registered.has(key) && !seen.has(key)) {
+            unresolved.push({ family: leaf.fontFamily, weight: leaf.weight });
+            seen.add(key);
+          }
         }
       }
     }
@@ -30,7 +34,7 @@ export function formatUnresolvedFontsError(unresolved: readonly FontIdentity[]):
 }
 
 /** Reject nondeterministic system-font fallbacks before a render host or browser is created. */
-export function assertProjectFontsResolved(project: ProjectModel): void {
-  const unresolved = findUnresolvedFonts(project);
+export function assertProjectFontsResolved(project: ProjectModel, layoutId?: string): void {
+  const unresolved = findUnresolvedFonts(project, layoutId);
   if (unresolved.length > 0) throw new Error(formatUnresolvedFontsError(unresolved));
 }

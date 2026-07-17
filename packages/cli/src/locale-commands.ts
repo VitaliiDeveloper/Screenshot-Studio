@@ -3,12 +3,15 @@ import {
   cloneLocaleSet,
   removeLocaleSet,
   setLocaleDirection,
+  getLayout,
+  layoutLocales,
   type LayoutDirection,
   type Project,
 } from "@screenshot-studio/core/model";
 import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { parseLayoutDirection } from "./direction.js";
 import { loadProjectFile, updateProjectFile } from "./project-io.js";
+import { resolveMutationLayout } from "./layout-commands.js";
 
 export type LocaleAction =
   | { kind: "list" }
@@ -52,9 +55,10 @@ export function resolveLocaleAction(
   }
 }
 
-export function formatLocaleList(project: Project): string {
-  return project.locales.map((locale) => {
-    const screens = project.screens.filter((screen) => screen.locale === locale);
+export function formatLocaleList(project: Project, layoutId: string): string {
+  const layout = getLayout(project, layoutId);
+  return layoutLocales(layout).map((locale) => {
+    const screens = layout.screens.filter((screen) => screen.locale === locale);
     const direction = screens[0]!.direction;
     return `${locale} ${direction} ${screens.length} ${screens.length === 1 ? "screen" : "screens"}`;
   }).join("\n");
@@ -67,16 +71,21 @@ export async function runLocaleCommand(
   lockOptions: ProjectLockOptions = {},
 ): Promise<string> {
   const action = resolveLocaleAction(args, flags);
-  if (action.kind === "list") return formatLocaleList(await loadProjectFile(projectPath));
+  if (action.kind === "list") {
+    const project = await loadProjectFile(projectPath);
+    const layout = resolveMutationLayout(project, flags.layout);
+    return formatLocaleList(project, layout.id);
+  }
 
   const updated = await updateProjectFile(projectPath, (project) => {
+    const layout = resolveMutationLayout(project, flags.layout);
     const nextProject = action.kind === "add"
-      ? cloneLocaleSet(project, action.source, action.target, action.direction)
+      ? cloneLocaleSet(project, layout.id, action.source, action.target, action.direction)
       : action.kind === "direction"
-        ? setLocaleDirection(project, action.locale, action.direction)
-        : removeLocaleSet(project, action.locale);
+        ? setLocaleDirection(project, layout.id, action.locale, action.direction)
+        : removeLocaleSet(project, layout.id, action.locale);
 
-    return { project: nextProject, value: undefined };
+    return { project: nextProject, value: layout.id };
   }, lockOptions);
-  return formatLocaleList(updated.project);
+  return formatLocaleList(updated.project, updated.value);
 }

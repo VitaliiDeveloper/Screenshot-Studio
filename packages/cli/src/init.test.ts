@@ -12,11 +12,15 @@ describe("runInit", () => {
 
     await runInit(dir, "Launch Deck");
 
-    const project = parseProjectJson(await readFile(join(dir, "app-store-screenshots.json"), "utf8"));
+    const bytes = await readFile(join(dir, "app-store-screenshots.json"), "utf8");
+    const raw = JSON.parse(bytes) as Record<string, unknown>;
+    const project = parseProjectJson(bytes);
     expect(project.meta.name).toBe("Launch Deck");
-    expect(project).toMatchObject({ mode: "isolated", meta: { schemaVersion: 1 } });
-    expect(project.screens).toHaveLength(1);
-    expect(project.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(Object.keys(raw).sort()).toEqual(["fonts", "layouts", "meta", "preferredExportLayoutId"]);
+    expect(project).toMatchObject({ preferredExportLayoutId: "default", meta: { schemaVersion: 1 } });
+    expect(project.layouts[0]).toMatchObject({ id: "default", name: "Default", mode: "isolated" });
+    expect(project.layouts[0]!.screens).toHaveLength(1);
+    expect(project.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
 
     for (const path of [
       "screenshots/apple/iphone/en",

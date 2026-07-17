@@ -38,12 +38,12 @@ describe("Phase 4 multi-locale UI export", () => {
 
     const project = parseProjectJson(await readFile(projectPath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-    const expected = buildBundleEntries(project, specs, {});
+    const expected = buildBundleEntries(project, project.preferredExportLayoutId, specs, {});
     expect(expected.map((entry) => entry.relativePath)).toEqual(expectedPaths);
 
     let server: Awaited<ReturnType<typeof startWebServer>> | undefined;
     try {
-      server = await startWebServer();
+      server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
       const res = await fetch(`${server.url}/api/export`, {
         method: "POST",
         headers: { "content-type": "application/json" },

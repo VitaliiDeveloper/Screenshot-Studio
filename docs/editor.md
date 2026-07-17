@@ -3,7 +3,7 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 2.0, 12 July 2026.
+Version 2.1, 17 July 2026.
 
 > **Status: this document describes the current as-built strict v1 editor.**
 > Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
@@ -15,7 +15,7 @@ Version 2.0, 12 July 2026.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Top bar: project · locale/manage · Focus/Overview · Export     │
+│ Top bar: project · layout · locale/manage · Focus/Overview · Export │
 ├────┬──────────────┬────────────────────────────┬──────────────┤
 │Tool│ Context shelf│ Canvas viewport            │ Inspector    │
 │rail│ (collapsible)│ artboards · pattern        │ (collapsible)│
@@ -52,8 +52,8 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   two-axis wheel/trackpad scrolling remains native.
 - Canvas chrome supports `Dots`, `Grid`, and `None`. The pattern is ephemeral workspace state and
   never appears in project JSON or exported pixels.
-- **Canvas mode.** The enforced v1 project stores `mode: isolated | connected`. Isolated behavior
-  remains unchanged. Connected Overview is one gapless editable exact
+- **Canvas mode.** Every layout is created as `isolated` or `connected`, and that mode is immutable.
+  Isolated behavior remains independent. Connected Overview is one gapless editable exact
   platform/device/locale/store-target strip;
   screen-offset groups preserve owner-local coordinates, cross-boundary selection resolves to the
   owner screen, and Focus is the exact non-interactive crop preview used to check each artboard.
@@ -72,6 +72,10 @@ inside the remaining canvas viewport, so they never slide behind the inspector.
   on the canvas or in the Screens list. It drives the Layers section (§3), the insert target for
   new elements (§4), and the no-selection inspector (§5). The active locale is derived from this
   screen rather than persisted as a second workspace selection.
+- **Active layout.** Exactly one layout is active in the editor. Switching always succeeds, performs
+  no conversion or save, clears screen/element selection, and restores that layout's in-memory
+  content history. The selection is remembered locally per canonical project and falls back to
+  `preferredExportLayoutId`; it is never written to project JSON.
 - Placing two device mockups on one artboard (a 2-device slide) is possible manually or through
   an exact project-local template. Templates create screens; they do not add responsive layout
   behavior to the canvas.
@@ -85,8 +89,8 @@ shelf is open at a time; clicking its active rail item collapses it.
 
 - **Structure / Screens** (compact): shared-renderer thumbnail + name + device label, add, delete,
   and drag-reorder (dnd-kit) for the active locale in isolated mode or exact group in connected
-  mode. Reorder changes only that scope's slots in the project array, preserving unrelated slots.
-  Project order is the one ordering source
+  mode. Reorder changes only that scope's slots in the layout screen array, preserving unrelated slots.
+  Layout-local order is the one ordering source
   shared by UI and CLI; each platform/device/locale export group derives its relative `01`, `02`, …
   slot order from it. The final screen in a locale is protected here so whole-locale removal always
   goes through the confirmed locale-manager action.
@@ -105,6 +109,12 @@ shelf is open at a time; clicking its active rail item collapses it.
 
 ## 4. Top bar & adding elements
 
+- The compact layout selector follows the project name and shows the active layout name plus its
+  immutable mode badge. Its ordered menu marks the active and preferred layouts and provides Rename,
+  Duplicate, Prefer for export, Delete, and New layout. Names are trimmed and case-insensitively
+  unique. New layout asks only for name and mode and creates one clean screen using the active
+  screen's platform/device/locale/direction/artboard, a solid `#101827` background, and no elements.
+  Duplicate copies the selected layout's content with fresh layout, screen, and element ids.
 - Element entries in the Add shelf insert at a deterministic active-screen origin
   (insert-on-click, not drag-to-draw — simpler). `text` and `shape` insert directly;
   `screenshot` and `device-frame` choose a PNG/JPEG/WebP under project-local `assets/` or
@@ -112,8 +122,8 @@ shelf is open at a time; clicking its active rail item collapses it.
   serving reject traversal and symlink escapes. The picker does not upload or mutate files. The
   decorative `image` element inserts from the same secure project asset picker.
 - Zoom controls live on the canvas rather than in the top bar; Fit is implemented.
-- Export button opens a dialog (platform / device / locale) and produces **the same result as the
-  CLI `export`** — one export path, not two.
+- Export button opens a dialog (platform / device / locale) and exports the active layout through
+  **the same renderer as CLI `export`** — one export path, not two.
 - The locale selector switches complete sets. Its manager clones a source set, chooses explicit
   LTR/RTL direction, mirrors an existing set with confirmation, and removes all screens for a
   locale while protecting the final locale.
@@ -121,8 +131,8 @@ shelf is open at a time; clicking its active rail item collapses it.
   platform/device/locale/store-target
   group. Reorder changes only that group's project slots; unrelated same-locale groups keep their
   indices. Thumbnails depend on the full group because neighbour-owned pixels may enter a crop.
-  Layers labels and follows the active owner screen. The toolbar's mode control surfaces guarded
-  connected→isolated refusal and successful mode changes use ordinary history/save.
+  Layers labels and follows the active owner screen. Mode is shown by the layout selector and has
+  no editor conversion control.
 - Fonts, Themes, and Templates open from Resources. Theme and template files are
   server-side project inputs; the browser receives validated definitions and durable projects.
   LTR-authored template geometry is baked once when instantiated into an RTL locale.
@@ -176,6 +186,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   service boundaries rather than implicit adapter storage.
   Load validates the raw complete v1 document directly through the strict Zod schema. Historical
   internal development formats are unsupported and are not rewritten on load.
+- Layout switching and the locally remembered active layout are workspace state only. Content
+  undo/redo is independent per layout and stores screen snapshots only; layout add, duplicate,
+  rename, mode, prefer, and delete are durable lifecycle actions outside content history.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
   saves surface a visible workspace alert; the editor never silently presents a rejected value as
   durable state.
@@ -192,11 +205,12 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   reverting to the platform default. Each variant remains available to open explicitly, and removing
   one preserves its master. Existing output families and variants open unchanged, and creation
   actions never resize an existing screen in place.
-- **Export** from the UI uses the same `core` path as the CLI: alpha channel stripped, sizes from
+- **Export** from the UI uses the active layout and the same `core` path as the CLI: alpha channel stripped, sizes from
   `store-specs.json`, and zip bundles at
   `platform/device/<safe-locale>/NN-<screen>-<size>.png`. The collision-safe locale segment is
   shared with CLI export; numbering restarts per exact platform/device/locale/target group in relative
-  project order. The UI export button and `cli export` meet the parity contract —
+  layout order. CLI export accepts `--layout <id-or-name>` and otherwise uses
+  `preferredExportLayoutId`. The UI export button and `cli export` meet the parity contract —
   exact target dimensions, no alpha channel, and a visual diff within tolerance (*not*
   byte-identical; PNG metadata/compression may differ). See `architecture.md` §2.
   The POST returns `201` with a short-lived one-shot same-origin ticket; a separate GET consumes the
@@ -206,8 +220,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   registered identities, apply one to the selected text element, or remove it. CLI and UI reuse
   the same add-time Node service; render/export never fetch fonts from the network.
 - **Theme management** assigns roles in text/shape inspectors and applies strict `themes/*.json`
-  through a serialized server mutation. Only literal project fields reach rendering.
-- **Template library** lists strict `templates/*.json`, creates a fresh-id screen using the active
+  to the active layout through a serialized server mutation. Only literal project fields reach rendering.
+- **Template library** lists strict `templates/*.json`, creates a fresh-id screen in the active
+  layout using the active
   locale and direction, persists it, and selects it. LTR-authored template placement/alignment is
   mirrored once for an RTL target. Templates never enter the render contract.
 

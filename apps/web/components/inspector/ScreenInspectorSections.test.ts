@@ -36,20 +36,23 @@ const series11Target: StoreSize = {
 function sourceProject(): Project {
   return {
     meta: { name: "Inspector watchOS", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [{
-      id: "iphone-root",
-      name: "Hero",
-      platform: "apple",
-      device: "iphone",
-      locale: "en",
-      direction: "ltr",
-      artboard: { width: 1320, height: 2868 },
-      background: { type: "solid", color: "#091226" },
-      elements: [],
+    preferredExportLayoutId: "primary",
+    layouts: [{
+      id: "primary",
+      name: "Primary",
+      mode: "isolated",
+      screens: [{
+        id: "iphone-root",
+        name: "Hero",
+        platform: "apple",
+        device: "iphone",
+        locale: "en",
+        direction: "ltr",
+        artboard: { width: 1320, height: 2868 },
+        background: { type: "solid", color: "#091226" },
+        elements: [],
+      }],
     }],
   };
 }
@@ -60,6 +63,7 @@ const leadOnlyWatchSpecs = parseStoreSpecs({ apple: { watchos: [leadTarget] } })
 function createWatchFamily() {
   return ensureStoreOutputFamily(
     sourceProject(),
+    "primary",
     "iphone-root",
     "apple",
     "watchos",
@@ -71,28 +75,32 @@ function createWatchVariant() {
   const family = createWatchFamily();
   return ensureStoreTargetVariant(
     family.project,
+    "primary",
     family.firstScreen.id,
     series11Target,
   );
 }
 
-function replaceScreen(project: Project, screen: Project["screens"][number]): Project {
+function replaceScreen(project: Project, screen: Project["layouts"][number]["screens"][number]): Project {
   return {
     ...project,
-    screens: project.screens.map((candidate) => candidate.id === screen.id ? screen : candidate),
+    layouts: project.layouts.map((layout) => ({
+      ...layout,
+      screens: layout.screens.map((candidate) => candidate.id === screen.id ? screen : candidate),
+    })),
   };
 }
 
 function renderInspector(
   project: Project,
-  screen: Project["screens"][number],
+  screen: Project["layouts"][number]["screens"][number],
   specs: StoreSpecs,
 ): string {
   const target = screen.storeTargetId
     ? specs[screen.platform]?.[screen.device]?.find((candidate) => candidate.id === screen.storeTargetId)
     : leadTarget;
   return renderToStaticMarkup(React.createElement(ScreenInspectorSections, {
-    project,
+    layout: project.layouts[0]!,
     screen,
     specs,
     target,

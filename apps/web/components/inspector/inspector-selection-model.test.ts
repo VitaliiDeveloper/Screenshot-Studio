@@ -21,11 +21,9 @@ function fixture(): Project {
   });
   return {
     meta: { name: "Inspector", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "primary",
+    layouts: [{ id: "primary", name: "Primary", mode: "connected", screens: [
       {
         id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 100, height: 200 }, background: { type: "solid", color: "#ffffff" },
@@ -36,7 +34,7 @@ function fixture(): Project {
         artboard: { width: 100, height: 200 }, background: { type: "solid", color: "#ffffff" },
         elements: [element(false, true)],
       },
-    ],
+    ] }],
   };
 }
 
@@ -44,6 +42,7 @@ describe("inspector selection model", () => {
   it("resolves a duplicate element id through its owner screen", () => {
     const model = deriveInspectorSelection(
       fixture(),
+      "primary",
       "first",
       [{ screenId: "other", elementId: "same" }],
     );
@@ -52,7 +51,7 @@ describe("inspector selection model", () => {
   });
 
   it("derives same-owner leaf batch actions and aggregate state", () => {
-    const model = deriveInspectorSelection(fixture(), "first", [
+    const model = deriveInspectorSelection(fixture(), "primary", "first", [
       { screenId: "first", elementId: "same" },
       { screenId: "first", elementId: "second" },
     ]);
@@ -64,7 +63,7 @@ describe("inspector selection model", () => {
   });
 
   it("refuses grouping across owner screens even when element ids match", () => {
-    const model = deriveInspectorSelection(fixture(), "first", [
+    const model = deriveInspectorSelection(fixture(), "primary", "first", [
       { screenId: "first", elementId: "same" },
       { screenId: "other", elementId: "same" },
     ]);

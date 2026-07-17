@@ -36,10 +36,11 @@ export function Inspector({
   className?: string;
 }) {
   const project = useStore(editorStore, (state) => state.project);
+  const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
 
-  if (!project || !activeScreenId) {
+  if (!project || !activeLayoutId || !activeScreenId) {
     return <aside className={cx("w-72 shrink-0 border-l border-slate-200 bg-white", className)} />;
   }
   const {
@@ -50,7 +51,8 @@ export function Inspector({
     everyHidden,
     canGroup,
     canUngroup,
-  } = deriveInspectorSelection(project, activeScreenId, selectedItems);
+  } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
+  const layout = project.layouts.find((candidate) => candidate.id === activeLayoutId)!;
   const target = specs
     ? (() => {
         try {
@@ -190,7 +192,7 @@ export function Inspector({
         </>
       ) : (
         <ScreenInspectorSections
-          project={project}
+          layout={layout}
           screen={screen}
           specs={specs}
           target={target}

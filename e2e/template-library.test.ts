@@ -21,7 +21,7 @@ beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "template-library-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(sample, "utf8"));
-  initialScreenCount = project.screens.length;
+  initialScreenCount = project.layouts[0].screens.length;
   writeFileSync(projectFile, JSON.stringify(project));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
   cpSync(join(dir, "assets/demo-logistics-app.png"), join(dir, "assets/template-only.png"));
@@ -41,7 +41,7 @@ beforeAll(async () => {
     ],
   }));
   process.env.PROJECT_PATH = projectFile;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -94,8 +94,8 @@ describe("template library UI", () => {
 
     expect((await templateAssetLoaded).ok()).toBe(true);
 
-    await expect.poll(() => project().screens.length).toBe(initialScreenCount + 1);
-    const created = project().screens.at(-1);
+    await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 1);
+    const created = project().layouts[0].screens.at(-1);
     expect(created).toMatchObject({ id: "promo-card", name: "Promo card", locale: "en" });
     expect(created.elements.map((element: { id: string }) => element.id))
       .not.toContain("template-title");

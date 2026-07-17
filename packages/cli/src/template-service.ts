@@ -7,12 +7,13 @@ import {
   parseTemplateJson,
   type ScreenTemplate,
 } from "@screenshot-studio/core/templates";
-import type { Project, Screen } from "@screenshot-studio/core/model";
+import { getLayout, type Project, type Screen } from "@screenshot-studio/core/model";
 import {
   resolveExistingProjectPath,
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
 import { updateProjectFile } from "./project-io.js";
+import { resolveMutationLayout } from "./layout-commands.js";
 
 const TEMPLATE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -411,6 +412,7 @@ export async function createTemplateScreen(
   rawId: unknown,
   rawLocale: unknown,
   lockOptions: ProjectLockOptions = {},
+  layoutReference?: string,
 ): Promise<{ project: Project; revision: string; screen: Screen; template: ScreenTemplate }> {
   const id = templateId(rawId);
   const canonicalPath = await resolveExistingProjectPath(projectPath);
@@ -418,12 +420,14 @@ export async function createTemplateScreen(
   const locale = templateLocale(rawLocale);
   const updated = await updateProjectFile(canonicalPath, (current) => {
     try {
-      const result = createScreenFromTemplate(current, template, locale);
-      return { project: result.project, value: result.screen.id };
+      const layout = resolveMutationLayout(current, layoutReference);
+      const result = createScreenFromTemplate(current, layout.id, template, locale);
+      return { project: result.project, value: { layoutId: layout.id, screenId: result.screen.id } };
     } catch (error) {
       throw new TemplateCreateError((error as Error).message, { cause: error });
     }
   }, lockOptions);
-  const screen = updated.project.screens.find((candidate) => candidate.id === updated.value)!;
+  const screen = getLayout(updated.project, updated.value.layoutId).screens
+    .find((candidate) => candidate.id === updated.value.screenId)!;
   return { project: updated.project, revision: updated.revision, screen, template };
 }

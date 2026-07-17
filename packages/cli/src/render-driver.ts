@@ -33,6 +33,8 @@ export interface RenderOptions {
   projectPath: string;
   /** Exact persisted project revision that the render host must load. */
   projectRevision?: string;
+  /** Immutable layout id selected by the host. */
+  layoutId: string;
   screenId: string;
   pixelRatio: number;
   headless?: boolean;
@@ -85,12 +87,13 @@ export async function createRenderBrowserSession({
         baseUrl,
         projectPath,
         projectRevision,
+        layoutId,
         screenId,
         pixelRatio,
         timeoutMs = 30_000,
       } = opts;
       const abs = resolve(projectPath);
-      const search = new URLSearchParams({ project: abs, screen: screenId });
+      const search = new URLSearchParams({ project: abs, layout: layoutId, screen: screenId });
       if (projectRevision !== undefined) search.set("revision", projectRevision);
       const url = `${baseUrl}/render?${search}`;
 

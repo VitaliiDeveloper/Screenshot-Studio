@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Project, SCHEMA_VERSION, type Project as ProjectType } from "./schema.js";
+import { getLayout } from "./project-layout.js";
 
 export * from "./schema.js";
 export * from "./project-resource-path.js";
@@ -69,12 +70,13 @@ export function parseProjectJson(json: string): ProjectType {
   return parseProject(raw);
 }
 
-/** Look up a screen by id, or throw with a clear message. */
-export function getScreen(project: ProjectType, screenId: string) {
-  const screen = project.screens.find((s) => s.id === screenId);
+/** Look up a layout-scoped screen by id, or throw with a clear message. */
+export function getScreen(project: ProjectType, layoutId: string, screenId: string) {
+  const layout = getLayout(project, layoutId);
+  const screen = layout.screens.find((candidate) => candidate.id === screenId);
   if (!screen) {
-    const known = project.screens.map((s) => s.id).join(", ");
-    throw new Error(`Screen "${screenId}" not found. Known screens: ${known}`);
+    const known = layout.screens.map((candidate) => candidate.id).join(", ");
+    throw new Error(`Screen "${screenId}" not found in layout "${layoutId}". Known screens: ${known}`);
   }
   return screen;
 }

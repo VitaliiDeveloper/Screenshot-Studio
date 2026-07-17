@@ -23,7 +23,10 @@ let harness: ParityRenderHarness;
 
 beforeAll(async () => {
   process.env.PROJECT_PATH = fixturePath;
-  harness = await startParityRenderHarness(() => startWebServer(), () => chromium.launch());
+  harness = await startParityRenderHarness(
+    () => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }),
+    () => chromium.launch(),
+  );
 }, 180_000);
 
 afterAll(async () => {
@@ -49,6 +52,7 @@ describe("Phase 7 group render parity", () => {
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "group-second",
       pixelRatio,
       timeoutMs: 60_000,
@@ -56,12 +60,14 @@ describe("Phase 7 group render parity", () => {
     const headlessSecond = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "group-second",
       pixelRatio,
     }));
     const headlessFirst = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url,
       projectPath: fixturePath,
+      layoutId: "default",
       screenId: "group-first",
       pixelRatio,
     }));

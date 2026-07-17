@@ -53,7 +53,7 @@ describe("Phase 4 multi-locale bundle export", () => {
     await cp(fixtureDirectory, projectDirectory, { recursive: true });
     const project = parseProjectJson(await readFile(projectPath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-    const entries = buildBundleEntries(project, specs, {});
+    const entries = buildBundleEntries(project, project.preferredExportLayoutId, specs, {});
     expect(entries.map((entry) => entry.relativePath)).toEqual(expectedPaths);
     const server = await startWebServer(undefined, { storeSpecsPath });
     const session = await createRenderBrowserSession();
@@ -62,6 +62,7 @@ describe("Phase 4 multi-locale bundle export", () => {
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
+        layoutId: project.preferredExportLayoutId,
         outDir,
         entries,
         renderSession: session,
@@ -94,8 +95,13 @@ describe("Phase 4 multi-locale bundle export", () => {
     const target = specs.apple?.iphone?.find((candidate) => candidate.id === "6.5");
     expect(target).toBeDefined();
 
-    const masterBefore = structuredClone(source.screens[0]!);
-    const variantResult = ensureStoreTargetVariant(source, masterBefore.id, target!);
+    const masterBefore = structuredClone(source.layouts[0].screens[0]!);
+    const variantResult = ensureStoreTargetVariant(
+      source,
+      source.preferredExportLayoutId,
+      masterBefore.id,
+      target!,
+    );
     const { project, variant } = variantResult;
 
     const directory = await mkdtemp(join(tmpdir(), "store-target-variant-export-"));
@@ -104,7 +110,7 @@ describe("Phase 4 multi-locale bundle export", () => {
     await writeFile(projectPath, JSON.stringify(project));
     await cp(resolve(repoRoot, "fixtures/sample/assets"), join(directory, "assets"), { recursive: true });
 
-    const entry = buildBundleEntries(project, specs, {}).find((candidate) => candidate.screen.id === variant.id);
+    const entry = buildBundleEntries(project, project.preferredExportLayoutId, specs, {}).find((candidate) => candidate.screen.id === variant.id);
     expect(entry).toMatchObject({
       target: { id: "6.5", width: 1284, height: 2778 },
       relativePath: "apple/iphone/locale-en/01-hero-6.5.png",
@@ -117,6 +123,7 @@ describe("Phase 4 multi-locale bundle export", () => {
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
+        layoutId: project.preferredExportLayoutId,
         outDir,
         entries: [entry!],
         renderSession: session,
@@ -124,7 +131,7 @@ describe("Phase 4 multi-locale bundle export", () => {
       }));
       const info = inspectPng(await readFile(join(outDir, entry!.relativePath)));
       expect(info).toMatchObject({ width: 1284, height: 2778, hasAlpha: false });
-      expect(project.screens.find((screen) => screen.id === masterBefore.id)).toEqual(masterBefore);
+      expect(project.layouts[0].screens.find((screen) => screen.id === masterBefore.id)).toEqual(masterBefore);
     } finally {
       await session.close();
       await server.stop();
@@ -137,34 +144,37 @@ describe("Phase 4 multi-locale bundle export", () => {
     const watchCardRgb = Array.from(Buffer.from(watchCardFill.slice(1), "hex"));
     const source = parseProjectJson(JSON.stringify({
       meta: { name: "watchOS export", schemaVersion: 1 },
-      mode: "isolated",
-      platforms: ["apple"],
-      locales: ["en"],
       fonts: [],
-      screens: [{
-        id: "iphone-root",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#091226" },
-        elements: [
-          {
-            id: "card", type: "shape", x: 70, y: 80, width: 282, height: 210,
-            rotation: 0, opacity: 1, locked: false, visible: true,
-            kind: "rect", fill: watchCardFill, radius: 28,
-            stroke: { color: "#FFFFFF", width: 6 },
-          },
-          {
-            id: "headline", type: "text", x: 76, y: 330, width: 270, height: 80,
-            rotation: 0, opacity: 1, locked: false, visible: true,
-            content: "Built for Watch", fontFamily: "Arial", size: 28, weight: 700,
-            lineHeight: 1.2, letterSpacing: 1, align: "center", color: "#FFFFFF",
-            shadow: { color: "#000000", blur: 12, offsetX: 3, offsetY: 6, opacity: 0.55 },
-          },
-        ],
+      preferredExportLayoutId: "default",
+      layouts: [{
+        id: "default",
+        name: "Default",
+        mode: "isolated",
+        screens: [{
+          id: "iphone-root",
+          name: "Hero",
+          platform: "apple",
+          device: "iphone",
+          locale: "en",
+          direction: "ltr",
+          artboard: { width: 1320, height: 2868 },
+          background: { type: "solid", color: "#091226" },
+          elements: [
+            {
+              id: "card", type: "shape", x: 70, y: 80, width: 282, height: 210,
+              rotation: 0, opacity: 1, locked: false, visible: true,
+              kind: "rect", fill: watchCardFill, radius: 28,
+              stroke: { color: "#FFFFFF", width: 6 },
+            },
+            {
+              id: "headline", type: "text", x: 76, y: 330, width: 270, height: 80,
+              rotation: 0, opacity: 1, locked: false, visible: true,
+              content: "Built for Watch", fontFamily: "Arial", size: 28, weight: 700,
+              lineHeight: 1.2, letterSpacing: 1, align: "center", color: "#FFFFFF",
+              shadow: { color: "#000000", blur: 12, offsetX: 3, offsetY: 6, opacity: 0.55 },
+            },
+          ],
+        }],
       }],
     }));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
@@ -172,7 +182,14 @@ describe("Phase 4 multi-locale bundle export", () => {
     const series11Target = specs.apple?.watchos?.find((candidate) => candidate.id === "series-11");
     expect(target).toBeDefined();
     expect(series11Target).toBeDefined();
-    const result = ensureStoreOutputFamily(source, source.screens[0]!.id, "apple", "watchos", target!);
+    const result = ensureStoreOutputFamily(
+      source,
+      source.preferredExportLayoutId,
+      source.layouts[0]!.screens[0]!.id,
+      "apple",
+      "watchos",
+      target!,
+    );
     expect(result.firstScreen).toMatchObject({
       platform: "apple",
       device: "watchos",
@@ -182,6 +199,7 @@ describe("Phase 4 multi-locale bundle export", () => {
     });
     const variantResult = ensureStoreTargetVariant(
       result.project,
+      result.project.preferredExportLayoutId,
       result.firstScreen.id,
       series11Target!,
     );
@@ -191,7 +209,7 @@ describe("Phase 4 multi-locale bundle export", () => {
       artboard: { width: 1456, height: 1736 },
     });
     const project = variantResult.project;
-    const entries = buildBundleEntries(project, specs, {});
+    const entries = buildBundleEntries(project, project.preferredExportLayoutId, specs, {});
     const entry = entries
       .find((candidate) => candidate.screen.id === result.firstScreen.id);
     const variantEntry = entries
@@ -216,6 +234,7 @@ describe("Phase 4 multi-locale bundle export", () => {
         baseUrl: server.url,
         projectPath: context.projectPath,
         projectRevision: context.revision,
+        layoutId: project.preferredExportLayoutId,
         outDir,
         entries: [entry!, variantEntry!],
         renderSession: session,

@@ -5,6 +5,7 @@ import {
   parseScreenPlacement,
   removeScreenFromProject,
   reorderScreenInProject,
+  getLayout,
   type CreateScreenInput,
   type LayoutDirection,
   type Project as ProjectModel,
@@ -19,6 +20,7 @@ import {
 import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { loadProjectFile, updateProjectFile } from "./project-io.js";
 import { parseLayoutDirection } from "./direction.js";
+import { resolveMutationLayout } from "./layout-commands.js";
 
 export interface AddScreenOptions {
   id?: string;
@@ -87,8 +89,8 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
   }
 }
 
-export function formatScreenList(project: ProjectModel): string {
-  return project.screens
+export function formatScreenList(project: ProjectModel, layoutId: string): string {
+  return getLayout(project, layoutId).screens
     .map(
       (screen, index) => {
         const variant = screen.variantOf
@@ -103,6 +105,7 @@ export function formatScreenList(project: ProjectModel): string {
 /** Resolve lead (or explicit) store size into artboard dims, then append via core. */
 export function addScreenToProject(
   project: ProjectModel,
+  layoutId: string,
   specs: StoreSpecs,
   options: AddScreenOptions,
 ): ProjectModel {
@@ -130,7 +133,7 @@ export function addScreenToProject(
     direction: options.direction,
     artboard: { width: target.width, height: target.height },
   };
-  return addScreenToProjectCore(project, input);
+  return addScreenToProjectCore(project, layoutId, input);
 }
 
 export { removeScreenFromProject, reorderScreenInProject };
@@ -143,22 +146,27 @@ export async function runScreenCommand(
   lockOptions: ProjectLockOptions = {},
 ): Promise<string> {
   const action = resolveScreenAction(args, flags);
-  if (action.kind === "list") return formatScreenList(await loadProjectFile(projectPath));
+  if (action.kind === "list") {
+    const project = await loadProjectFile(projectPath);
+    const layout = resolveMutationLayout(project, flags.layout);
+    return formatScreenList(project, layout.id);
+  }
 
   const updated = await updateProjectFile(projectPath, async (project) => {
+    const layout = resolveMutationLayout(project, flags.layout);
     let nextProject: ProjectModel;
     if (action.kind === "add") {
       const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-      nextProject = addScreenToProject(project, specs, action.options);
+      nextProject = addScreenToProject(project, layout.id, specs, action.options);
     } else if (action.kind === "rm") {
-      nextProject = removeScreenFromProject(project, action.id, {
+      nextProject = removeScreenFromProject(project, layout.id, action.id, {
         cascadeVariants: action.cascadeVariants,
       });
     } else {
-      nextProject = reorderScreenInProject(project, action.id, action.to);
+      nextProject = reorderScreenInProject(project, layout.id, action.id, action.to);
     }
 
-    return { project: nextProject, value: undefined };
+    return { project: nextProject, value: layout.id };
   }, lockOptions);
-  return formatScreenList(updated.project);
+  return formatScreenList(updated.project, updated.value);
 }

@@ -3,8 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser } from "playwright";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 let server: RunningServer;
 let browser: Browser;
@@ -21,11 +24,9 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Group authoring", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "connected", screens: [
       {
         id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
         artboard: { width: 300, height: 300 }, background: { type: "solid", color: "#FFFFFF" },
@@ -36,10 +37,10 @@ beforeAll(async () => {
         artboard: { width: 300, height: 300 }, background: { type: "solid", color: "#F8FAFC" },
         elements: [shape("blue", "Blue", 40, "#0000FF")],
       },
-    ],
+    ] }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -65,12 +66,12 @@ interface PersistedElement {
 
 function project() {
   return JSON.parse(readFileSync(projectPath, "utf8")) as {
-    screens: Array<{ id: string; elements: PersistedElement[] }>;
+    layouts: Array<{ screens: Array<{ id: string; elements: PersistedElement[] }> }>;
   };
 }
 
 function firstElements() {
-  return project().screens.find((screen) => screen.id === "first")!.elements;
+  return project().layouts[0].screens.find((screen) => screen.id === "first")!.elements;
 }
 
 describe("Phase 7 group authoring", () => {

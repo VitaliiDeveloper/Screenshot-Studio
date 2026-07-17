@@ -43,32 +43,37 @@ const specs = parseStoreSpecs({
 function sampleProject(): Project {
   return {
     meta: { name: "CLI Project", schemaVersion: 1 },
-    mode: "connected",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [
+    preferredExportLayoutId: "default",
+    layouts: [
       {
-        id: "hero",
-        name: "Hero",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
-      },
-      {
-        id: "details",
-        name: "Details",
-        platform: "apple",
-        device: "iphone",
-        locale: "en",
-        direction: "ltr",
-        artboard: { width: 1320, height: 2868 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
+        id: "default",
+        name: "Default",
+        mode: "connected",
+        screens: [
+          {
+            id: "hero",
+            name: "Hero",
+            platform: "apple",
+            device: "iphone",
+            locale: "en",
+            direction: "ltr",
+            artboard: { width: 1320, height: 2868 },
+            background: { type: "solid", color: "#101827" },
+            elements: [],
+          },
+          {
+            id: "details",
+            name: "Details",
+            platform: "apple",
+            device: "iphone",
+            locale: "en",
+            direction: "ltr",
+            artboard: { width: 1320, height: 2868 },
+            background: { type: "solid", color: "#101827" },
+            elements: [],
+          },
+        ],
       },
     ],
   };
@@ -113,20 +118,21 @@ describe("screen commands", () => {
 
   it("formats screens in export order", () => {
     const source = sampleProject();
-    source.screens.push({
-      ...structuredClone(source.screens[0]!),
+    const screens = source.layouts[0]!.screens;
+    screens.push({
+      ...structuredClone(screens[0]!),
       id: "hero-65",
       variantOf: "hero",
       storeTargetId: "6.5",
     });
-    expect(formatScreenList(source)).toBe(
+    expect(formatScreenList(source, "default")).toBe(
       "1 hero apple/iphone en Hero\n2 details apple/iphone en Details\n"
       + "3 hero-65 apple/iphone en Hero target=6.5 variant-of=hero",
     );
   });
 
-  it("adds a lead-size screen and recomputes manifests", () => {
-    const project = addScreenToProject(sampleProject(), specs, {
+  it("adds a lead-size screen to the selected layout", () => {
+    const project = addScreenToProject(sampleProject(), "default", specs, {
       id: "ipad-hero",
       name: "iPad Hero",
       platform: "apple",
@@ -134,9 +140,7 @@ describe("screen commands", () => {
       locale: "uk",
     });
 
-    expect(project.platforms).toEqual(["apple"]);
-    expect(project.locales).toEqual(["en", "uk"]);
-    expect(project.screens.at(-1)).toMatchObject({
+    expect(project.layouts[0]!.screens.at(-1)).toMatchObject({
       id: "ipad-hero",
       name: "iPad Hero",
       platform: "apple",
@@ -149,7 +153,7 @@ describe("screen commands", () => {
   });
 
   it("rejects a non-lead target for a new root screen", () => {
-    expect(() => addScreenToProject(sampleProject(), specs, {
+    expect(() => addScreenToProject(sampleProject(), "default", specs, {
       name: "Invalid root target",
       platform: "apple",
       device: "iphone",
@@ -159,7 +163,7 @@ describe("screen commands", () => {
   });
 
   it("reports an unknown target before applying the non-lead root policy", () => {
-    expect(() => addScreenToProject(sampleProject(), specs, {
+    expect(() => addScreenToProject(sampleProject(), "default", specs, {
       name: "Unknown target",
       platform: "apple",
       device: "iphone",
@@ -169,19 +173,18 @@ describe("screen commands", () => {
   });
 
   it("derives a unique id from the name when id is omitted", () => {
-    const project = addScreenToProject(sampleProject(), specs, {
+    const project = addScreenToProject(sampleProject(), "default", specs, {
       name: "Hero",
       platform: "android",
       device: "phone",
       locale: "en",
     });
 
-    expect(project.platforms).toEqual(["apple", "android"]);
-    expect(project.screens.at(-1)?.id).toBe("hero-2");
+    expect(project.layouts[0]!.screens.at(-1)?.id).toBe("hero-2");
   });
 
   it("passes an explicit direction when a lower-level screen starts a locale", () => {
-    const project = addScreenToProject(sampleProject(), specs, {
+    const project = addScreenToProject(sampleProject(), "default", specs, {
       name: "Arabic Hero",
       platform: "apple",
       device: "iphone",
@@ -189,18 +192,18 @@ describe("screen commands", () => {
       direction: "rtl",
     });
 
-    expect(project.screens.at(-1)).toMatchObject({ locale: "ar", direction: "rtl" });
+    expect(project.layouts[0]!.screens.at(-1)).toMatchObject({ locale: "ar", direction: "rtl" });
   });
 
   it("removes a screen and refuses to remove the last one", () => {
-    const project = removeScreenFromProject(sampleProject(), "details");
-    expect(project.screens.map((screen) => screen.id)).toEqual(["hero"]);
-    expect(() => removeScreenFromProject(project, "hero")).toThrow(/last root screen.*en/);
+    const project = removeScreenFromProject(sampleProject(), "default", "details");
+    expect(project.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["hero"]);
+    expect(() => removeScreenFromProject(project, "default", "hero")).toThrow(/last root screen.*en/);
   });
 
   it("moves a screen to a 1-based position", () => {
-    const project = reorderScreenInProject(sampleProject(), "details", 1);
-    expect(project.screens.map((screen) => screen.id)).toEqual(["details", "hero"]);
+    const project = reorderScreenInProject(sampleProject(), "default", "details", 1);
+    expect(project.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["details", "hero"]);
   });
 
   it("runs screen commands against a project file", async () => {
@@ -223,8 +226,7 @@ describe("screen commands", () => {
     await runScreenCommand(projectPath, specsPath, ["rm", "details"], {});
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
-    expect(written.platforms).toEqual(["android", "apple"]);
-    expect(written.screens.map((screen) => screen.id)).toEqual(["android-hero", "hero"]);
+    expect(written.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["android-hero", "hero"]);
   });
 
   it("requires cascade acknowledgement and atomically removes a root with its variants", async () => {
@@ -232,8 +234,9 @@ describe("screen commands", () => {
     const projectPath = join(dir, "app-store-screenshots.json");
     const specsPath = join(dir, "store-specs.json");
     const project = sampleProject();
-    project.screens.push({
-      ...structuredClone(project.screens[1]!),
+    const screens = project.layouts[0]!.screens;
+    screens.push({
+      ...structuredClone(screens[1]!),
       id: "details-65",
       variantOf: "details",
       storeTargetId: "6.5",
@@ -249,7 +252,7 @@ describe("screen commands", () => {
 
     await runScreenCommand(projectPath, specsPath, ["rm", "details"], { cascade: "true" });
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
-    expect(written.screens.map((screen) => screen.id)).toEqual(["hero"]);
+    expect(written.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["hero"]);
   });
 
   it("queues mutation behind the project lease while list remains lock-free", async () => {
@@ -307,6 +310,6 @@ describe("screen commands", () => {
     expect(commandResult).toContain("queued-screen android/phone en Queued screen");
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     expect(written.meta.name).toBe("Held writer");
-    expect(written.screens.some((screen) => screen.name === "Queued screen")).toBe(true);
+    expect(written.layouts[0]!.screens.some((screen) => screen.name === "Queued screen")).toBe(true);
   });
 });

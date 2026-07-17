@@ -36,8 +36,7 @@ interface PersistedScreen {
 }
 
 interface PersistedProject {
-  locales: string[];
-  screens: PersistedScreen[];
+  layouts: Array<{ screens: PersistedScreen[] }>;
 }
 
 let server: RunningServer;
@@ -68,7 +67,11 @@ function project(): PersistedProject {
 }
 
 function localeScreens(locale: string): PersistedScreen[] {
-  return project().screens.filter((screen) => screen.locale === locale);
+  return project().layouts[0].screens.filter((screen) => screen.locale === locale);
+}
+
+function locales(): string[] {
+  return [...new Set(project().layouts[0]!.screens.map((screen) => screen.locale))];
 }
 
 function localeScreenIds(locale: string): string[] {
@@ -107,7 +110,7 @@ async function selectLocale(page: import("playwright").Page, locale: string): Pr
 describe("Phase 4 locale workspace", () => {
   it("creates, edits, reorders, and removes complete locale sets", async () => {
     const source = project();
-    const sourceScreens = source.screens.filter((screen) => screen.locale === "en");
+    const sourceScreens = source.layouts[0].screens.filter((screen) => screen.locale === "en");
     const sourceScreenIds = sourceScreens.map((screen) => screen.id);
     const sourceOutputScreenIds = outputScreenIds(sourceScreens, sourceScreens[0]!);
     const sourceElementIds = new Set(sourceScreens.flatMap((screen) => screen.elements.map((element) => element.id)));
@@ -124,7 +127,7 @@ describe("Phase 4 locale workspace", () => {
     await manager.getByLabel("Layout direction").selectOption("rtl");
     await manager.getByRole("button", { name: "Create locale" }).click();
 
-    await expect.poll(() => project().locales.join(","), { timeout: 10_000 }).toBe("en,ar");
+    await expect.poll(() => locales().join(","), { timeout: 10_000 }).toBe("en,ar");
     const arabicScreens = localeScreens("ar");
     const arabicScreenIds = arabicScreens.map((screen) => screen.id);
     const arabicOutputScreenIds = outputScreenIds(arabicScreens, arabicScreens[0]!);
@@ -210,7 +213,7 @@ describe("Phase 4 locale workspace", () => {
     await arabicRow
       .getByRole("button", { name: "Delete locale ar" })
       .click();
-    await expect.poll(() => project().locales.join(","), { timeout: 10_000 }).toBe("en");
+    await expect.poll(() => locales().join(","), { timeout: 10_000 }).toBe("en");
     expect(localeScreenIds("en")).toEqual(sourceScreenIds);
     expect(await reopenedManager.locator('[data-locale="en"]')
       .getByRole("button", { name: "Delete locale en" })
@@ -224,8 +227,10 @@ describe("Phase 4 locale workspace", () => {
     await expect.poll(() => renderedIds(page.getByTestId("overview-artboards").locator("[data-screen-id]")))
       .toBe(sourceScreenIds.join(","));
     await page.setViewportSize({ width: 320, height: 800 });
-    const localeTrigger = page.getByRole("button", { name: "Active locale: en" });
-    const localeBounds = await localeTrigger.boundingBox();
+    await page.getByRole("button", { name: "More toolbar actions" }).click();
+    const localeOption = page.getByRole("menu", { name: "More toolbar actions" })
+      .getByRole("menuitemradio", { name: "en" });
+    const localeBounds = await localeOption.boundingBox();
     expect(localeBounds).not.toBeNull();
     expect(localeBounds!.x).toBeGreaterThanOrEqual(0);
     expect(localeBounds!.x + localeBounds!.width).toBeLessThanOrEqual(320);

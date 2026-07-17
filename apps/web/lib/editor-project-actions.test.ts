@@ -14,27 +14,30 @@ const target: StoreSize = {
 };
 const project: Project = {
   meta: { name: "Targets", schemaVersion: 1 },
-  mode: "isolated",
-  platforms: ["apple"],
-  locales: ["en"],
   fonts: [],
-  screens: [{
-    id: rootId,
-    name: "Root A",
-    platform: "apple",
-    device: "iphone",
-    locale: "en",
-    direction: "ltr",
-    artboard: { width: 660, height: 1434 },
-    background: { type: "solid", color: "#000000" },
-    elements: [],
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary",
+    name: "Primary",
+    mode: "isolated",
+    screens: [{
+      id: rootId,
+      name: "Root A",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      direction: "ltr",
+      artboard: { width: 660, height: 1434 },
+      background: { type: "solid", color: "#000000" },
+      elements: [],
+    }],
   }],
 };
 
 describe("editor project actions", () => {
   it("creating a target variant preserves the active screen and clears selection", () => {
-    const result = createStoreTargetVariant(project, rootId, target);
-    expect(result.project.screens.some((screen: Project["screens"][number]) =>
+    const result = createStoreTargetVariant(project, "primary", rootId, target);
+    expect(result.project.layouts[0]!.screens.some((screen) =>
       screen.storeTargetId === target.id,
     )).toBe(true);
     expect(result.activeScreenId).toBe(rootId);

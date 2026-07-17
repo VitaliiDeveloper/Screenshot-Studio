@@ -24,18 +24,19 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, JSON.stringify({
     meta: { name: "Badge authoring", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [{
-      id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
-      artboard: { width: 660, height: 600 }, background: { type: "solid", color: "#FFFFFF" },
-      elements: [],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "isolated",
+      screens: [{
+        id: "first", name: "First", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
+        artboard: { width: 660, height: 600 }, background: { type: "solid", color: "#FFFFFF" },
+        elements: [],
+      }],
     }],
   }));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -49,12 +50,14 @@ afterAll(async () => {
 function project() {
   return JSON.parse(readFileSync(projectPath, "utf8")) as {
     fonts: Array<Record<string, unknown>>;
-    screens: Array<{ elements: Array<Record<string, unknown> & { children?: Array<Record<string, unknown>> }> }>;
+    layouts: Array<{
+      screens: Array<{ elements: Array<Record<string, unknown> & { children?: Array<Record<string, unknown>> }> }>;
+    }>;
   };
 }
 
 function elements() {
-  return project().screens[0]!.elements;
+  return project().layouts[0].screens[0]!.elements;
 }
 
 describe("Phase 7 badge authoring", () => {

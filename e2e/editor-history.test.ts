@@ -20,7 +20,7 @@ beforeAll(async () => {
   projectPath = join(directory, "app-store-screenshots.json");
   writeFileSync(projectPath, readFileSync(fixturePath));
   process.env.PROJECT_PATH = projectPath;
-  server = await startWebServer();
+  server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
 }, 180_000);
 
@@ -33,7 +33,7 @@ afterAll(async () => {
 
 function bridgeX(): number {
   const project = JSON.parse(readFileSync(projectPath, "utf8"));
-  return project.screens[0].elements.find((element: { id: string }) => element.id === "bridge").x;
+  return project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === "bridge").x;
 }
 
 describe("Phase 6 editor history", () => {

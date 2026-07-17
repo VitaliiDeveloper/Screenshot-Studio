@@ -11,15 +11,18 @@ const temporaryDirectories: string[] = [];
 function completeProject(elements: unknown[] = []) {
   return {
     meta: { name: "Export route test", schemaVersion: 1 },
-    mode: "isolated",
-    platforms: ["apple"],
-    locales: ["en"],
     fonts: [],
-    screens: [{
-      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
-      artboard: { width: 660, height: 1434 },
-      background: { type: "solid", color: "#111111" },
-      elements,
+    preferredExportLayoutId: "primary",
+    layouts: [{
+      id: "primary",
+      name: "Primary",
+      mode: "isolated",
+      screens: [{
+        id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+        artboard: { width: 660, height: 1434 },
+        background: { type: "solid", color: "#111111" },
+        elements,
+      }],
     }],
   };
 }

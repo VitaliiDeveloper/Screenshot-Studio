@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   Background,
   Element,
-  Project,
   SCREEN_DEVICES_BY_PLATFORM,
   addScreenToProject,
   cloneElementWithFreshIds,
@@ -13,6 +12,7 @@ import {
   type Screen,
 } from "../model/index.js";
 import { fontIdentityKey } from "../model/font-identity.js";
+import { getLayout, replaceLayout } from "../model/project-layout.js";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -65,6 +65,7 @@ function assertTemplateFontsRegistered(project: ProjectModel, template: ScreenTe
 
 export function createScreenFromTemplate(
   project: ProjectModel,
+  layoutId: string,
   input: ScreenTemplate,
   locale: string,
 ): { project: ProjectModel; screen: Screen } {
@@ -81,17 +82,18 @@ export function createScreenFromTemplate(
     elements,
   };
   const nextProject = template.platform === "apple"
-    ? addScreenToProject(project, { ...common, platform: "apple", device: template.device })
-    : addScreenToProject(project, { ...common, platform: "android", device: template.device });
-  const screen = nextProject.screens.at(-1)!;
-  if (screen.direction === "ltr") return { project: Project.parse(nextProject), screen };
+    ? addScreenToProject(project, layoutId, { ...common, platform: "apple", device: template.device })
+    : addScreenToProject(project, layoutId, { ...common, platform: "android", device: template.device });
+  const nextLayout = getLayout(nextProject, layoutId);
+  const screen = nextLayout.screens.at(-1)!;
+  if (screen.direction === "ltr") return { project: nextProject, screen };
 
   // Template geometry is authored as physical LTR literals. Bake the target locale direction
   // once before persistence; render must never mirror template geometry implicitly.
   const localized = setScreenDirection({ ...screen, direction: "ltr" }, screen.direction);
-  const localizedProject = Project.parse({
-    ...nextProject,
-    screens: [...nextProject.screens.slice(0, -1), localized],
+  const localizedProject = replaceLayout(nextProject, {
+    ...nextLayout,
+    screens: [...nextLayout.screens.slice(0, -1), localized],
   });
   return { project: localizedProject, screen: localized };
 }
