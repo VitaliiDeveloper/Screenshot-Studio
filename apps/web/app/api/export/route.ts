@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { handleExportPost } from "./handler.js";
+import { withActiveProjectSession } from "../../../lib/project-session.server.js";
 
 /**
  * UI export writes the same lead-size roots plus opt-in exact variants that the CLI writes, from the same
@@ -11,5 +12,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
-  return handleExportPost(req);
+  return withActiveProjectSession(
+    req,
+    ({ projectPath }) => handleExportPost(projectPath, req),
+  );
 }

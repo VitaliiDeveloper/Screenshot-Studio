@@ -6,7 +6,6 @@ import {
   ThemeNotFoundError,
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
-import { resolveProjectPath } from "../../../lib/project-path.js";
 
 function errorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : String(error);
@@ -30,19 +29,19 @@ async function jsonBody(req: Request): Promise<Record<string, unknown>> {
   return body as Record<string, unknown>;
 }
 
-export async function handleThemeGet(): Promise<Response> {
+export async function handleThemeGet(projectPath: string): Promise<Response> {
   try {
-    return Response.json({ themes: await listThemes(resolveProjectPath()) });
+    return Response.json({ themes: await listThemes(projectPath) });
   } catch (error) {
     return errorResponse(error);
   }
 }
 
-export async function handleThemePost(req: Request): Promise<Response> {
+export async function handleThemePost(projectPath: string, req: Request): Promise<Response> {
   try {
     const body = await jsonBody(req);
     const { project, revision } = await applyThemeFile(
-      resolveProjectPath(),
+      projectPath,
       body.id,
       {},
       typeof body.layoutId === "string" ? body.layoutId : undefined,

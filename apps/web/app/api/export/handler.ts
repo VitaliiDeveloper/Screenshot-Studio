@@ -14,7 +14,6 @@ import {
 } from "@screenshot-studio/core/storage";
 import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/export";
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
-import { resolveProjectPath } from "../../../lib/project-path.js";
 import { resolveStoreSpecsPath } from "../../../lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "../../../lib/export-artifacts.server.js";
 
@@ -48,13 +47,13 @@ function withBrowserCleanupError(primary: unknown, cleanup: unknown): AggregateE
  * same on-disk project JSON and shared headless render path, while reusing this Next host.
  */
 export async function handleExportPost(
+  projectPath: string,
   req: Request,
   dependencies: ExportRouteDependencies = {},
 ): Promise<Response> {
   const createSession = dependencies.createRenderBrowserSession ?? createRenderBrowserSession;
   const exportBundleOutputs = dependencies.exportBundle ?? exportBundle;
   const stageExportArtifact = dependencies.stageExportArtifact ?? stageExportArtifactDefault;
-  const projectPath = resolveProjectPath();
   // Missing/invalid JSON coalesces to an empty body, meaning an unfiltered export.
   const rawBody: unknown = await req.json().catch(() => ({}));
   const body = typeof rawBody === "object" && rawBody !== null && !Array.isArray(rawBody)

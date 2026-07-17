@@ -13,7 +13,6 @@ import {
   removeFontMutation,
   type FontServiceDependencies,
 } from "@screenshot-studio/cli/font-service";
-import { resolveProjectPath } from "../../../lib/project-path.js";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -64,9 +63,9 @@ async function jsonBody(req: Request): Promise<Record<string, unknown>> {
   }
 }
 
-export async function handleFontGet(): Promise<Response> {
+export async function handleFontGet(projectPath: string): Promise<Response> {
   try {
-    const project = await loadFontProject(resolveProjectPath());
+    const project = await loadFontProject(projectPath);
     return Response.json({ fonts: project.fonts });
   } catch (error) {
     return errorResponse(error);
@@ -74,11 +73,11 @@ export async function handleFontGet(): Promise<Response> {
 }
 
 export async function handleFontPost(
+  projectPath: string,
   req: Request,
   dependencies: FontServiceDependencies = {},
 ): Promise<Response> {
   try {
-    const projectPath = resolveProjectPath();
     const contentType = req.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -108,12 +107,13 @@ export async function handleFontPost(
 }
 
 export async function handleFontDelete(
+  projectPath: string,
   req: Request,
   dependencies: FontServiceDependencies = {},
 ): Promise<Response> {
   try {
     const body = await jsonBody(req);
-    const result = await removeFontMutation(resolveProjectPath(), {
+    const result = await removeFontMutation(projectPath, {
       family: fontFamily(body.family),
       weight: fontWeight(body.weight),
     }, dependencies);

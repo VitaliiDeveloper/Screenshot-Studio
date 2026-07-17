@@ -4,10 +4,16 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectRevision } from "@screenshot-studio/core/storage";
+import {
+  PROJECT_SESSION_COOKIE,
+  projectSessionRegistry,
+} from "../../../lib/project-session.server.js";
 import { handleThemeGet, handleThemePost } from "./handler.js";
+import { GET, POST } from "./route.js";
 
 let dir: string;
 let projectPath: string;
+const originalInitCwd = process.env.INIT_CWD;
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "theme-route-"));
@@ -23,20 +29,21 @@ beforeEach(async () => {
     colors: { heading: "#F8FAFC", body: "#CBD5E1", accent: "#38BDF8", surface: "#0F172A" },
     fonts: {},
   }));
-  process.env.PROJECT_PATH = projectPath;
 });
 
 afterEach(async () => {
   delete process.env.PROJECT_PATH;
+  if (originalInitCwd === undefined) delete process.env.INIT_CWD;
+  else process.env.INIT_CWD = originalInitCwd;
   await rm(dir, { recursive: true, force: true });
 });
 
 describe("/api/themes", () => {
   it("lists definitions and applies one durably", async () => {
-    const listed = await handleThemeGet();
+    const listed = await handleThemeGet(projectPath);
     expect((await listed.json()).themes).toMatchObject([{ id: "midnight", name: "Midnight" }]);
 
-    const response = await handleThemePost(new Request("http://localhost/api/themes", {
+    const response = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST",
       body: JSON.stringify({ id: "midnight" }),
     }));
@@ -48,19 +55,53 @@ describe("/api/themes", () => {
   });
 
   it("returns explicit errors for missing and invalid ids", async () => {
-    const nullBody = await handleThemePost(new Request("http://localhost/api/themes", {
+    const nullBody = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: "null",
     }));
     expect(nullBody.status).toBe(400);
     expect((await nullBody.json()).error).toMatch(/JSON object/i);
 
-    const missing = await handleThemePost(new Request("http://localhost/api/themes", {
+    const missing = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "missing" }),
     }));
     expect(missing.status).toBe(404);
-    const invalid = await handleThemePost(new Request("http://localhost/api/themes", {
+    const invalid = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "../bad" }),
     }));
     expect(invalid.status).toBe(400);
+  });
+
+  it("routes reads and mutations through the cookie-selected project session", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    process.env.PROJECT_PATH = join(dir, "configured-missing.json");
+    const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+
+    const listed = await GET(new Request("http://localhost/api/themes", { headers: { cookie } }));
+    expect((await listed.json()).themes).toMatchObject([{ id: "midnight" }]);
+
+    const applied = await POST(new Request("http://localhost/api/themes", {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify({ id: "midnight" }),
+    }));
+    expect(applied.status).toBe(200);
+    expect((await applied.json()).layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
+  });
+
+  it("returns 409 without a session before changing themes or the project revision", async () => {
+    delete process.env.PROJECT_PATH;
+    process.env.INIT_CWD = dir;
+    const projectBefore = await readFile(projectPath);
+    const themePath = join(dir, "themes/midnight.json");
+    const themeBefore = await readFile(themePath);
+
+    expect((await GET(new Request("http://localhost/api/themes"))).status).toBe(409);
+    expect((await POST(new Request("http://localhost/api/themes", {
+      method: "POST",
+      body: JSON.stringify({ id: "midnight" }),
+    }))).status).toBe(409);
+
+    expect(projectRevision(await readFile(projectPath))).toBe(projectRevision(projectBefore));
+    expect(await readFile(themePath)).toEqual(themeBefore);
   });
 });

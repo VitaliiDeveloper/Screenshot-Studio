@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { projectRevision } from "@screenshot-studio/core/storage";
+import {
+  PROJECT_SESSION_COOKIE,
+  projectSessionRegistry,
+} from "../../../lib/project-session.server.js";
 import { handleExportPost } from "./handler.js";
 import { POST } from "./route.js";
 
 const temporaryDirectories: string[] = [];
+const originalInitCwd = process.env.INIT_CWD;
 
 function completeProject(elements: unknown[] = []) {
   return {
@@ -32,7 +38,6 @@ async function useProject(project = completeProject()): Promise<{ directory: str
   temporaryDirectories.push(directory);
   const projectPath = join(directory, "app-store-screenshots.json");
   await writeFile(projectPath, JSON.stringify(project));
-  process.env.PROJECT_PATH = projectPath;
   return { directory, projectPath };
 }
 
@@ -44,8 +49,23 @@ function req(body: unknown): Request {
   });
 }
 
+async function sessionReq(projectPath: string, body: unknown): Promise<Request> {
+  const session = await projectSessionRegistry.openLocal(projectPath);
+  process.env.PROJECT_PATH = join(dirname(projectPath), "configured-missing.json");
+  return new Request("http://localhost/api/export", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 afterEach(async () => {
   delete process.env.PROJECT_PATH;
+  if (originalInitCwd === undefined) delete process.env.INIT_CWD;
+  else process.env.INIT_CWD = originalInitCwd;
   await Promise.all(temporaryDirectories.splice(0).map((directory) => (
     rm(directory, { recursive: true, force: true })
   )));
@@ -53,12 +73,12 @@ afterEach(async () => {
 
 describe("POST /api/export", () => {
   it("treats valid non-object JSON as an unfiltered request", async () => {
-    const { directory } = await useProject();
+    const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
     await writeFile(zipPath, "zip bytes");
     const exportBundle = vi.fn(async () => zipPath);
 
-    const response = await handleExportPost(req(null), {
+    const response = await handleExportPost(projectPath, req(null), {
       createRenderBrowserSession: vi.fn(async () => ({
         renderScreenToPng: vi.fn(),
         close: vi.fn(async () => undefined),
@@ -76,7 +96,7 @@ describe("POST /api/export", () => {
   });
 
   it("returns a one-shot artifact ticket without placing archive bytes in the POST response", async () => {
-    const { directory } = await useProject();
+    const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
     await writeFile(zipPath, "zip bytes that must not be returned here");
     const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
@@ -86,7 +106,7 @@ describe("POST /api/export", () => {
       expiresAt: "2026-07-15T00:05:00.000Z",
     }));
 
-    const response = await handleExportPost(req({}), {
+    const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
       exportBundle: vi.fn(async () => zipPath),
       stageExportArtifact,
@@ -107,7 +127,7 @@ describe("POST /api/export", () => {
   });
 
   it("stages the exact archive before browser cleanup can expose the path to replacement", async () => {
-    const { directory } = await useProject();
+    const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
     await writeFile(zipPath, "request-owned zip bytes");
     let stagedBytes = "";
@@ -116,7 +136,7 @@ describe("POST /api/export", () => {
       close: vi.fn(async () => { await writeFile(zipPath, "replacement zip bytes"); }),
     };
 
-    const response = await handleExportPost(req({}), {
+    const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
       exportBundle: vi.fn(async () => zipPath),
       stageExportArtifact: vi.fn(async (source, outputDir) => {
@@ -135,12 +155,12 @@ describe("POST /api/export", () => {
   });
 
   it("returns a structured 500 when artifact staging fails", async () => {
-    const { directory } = await useProject();
+    const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
     await writeFile(zipPath, "zip bytes");
     const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
 
-    const response = await handleExportPost(req({}), {
+    const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
       exportBundle: vi.fn(async () => zipPath),
       stageExportArtifact: vi.fn(async () => { throw new Error("artifact staging failed"); }),
@@ -152,7 +172,7 @@ describe("POST /api/export", () => {
   });
 
   it("returns a structured error when a successful export cannot close its browser session", async () => {
-    const { directory } = await useProject();
+    const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
     await writeFile(zipPath, "zip bytes");
     const closeError = new Error("browser close failed");
@@ -161,7 +181,7 @@ describe("POST /api/export", () => {
       close: vi.fn(async () => { throw closeError; }),
     };
 
-    const response = await handleExportPost(req({}), {
+    const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
       exportBundle: vi.fn(async () => zipPath),
     });
@@ -171,7 +191,7 @@ describe("POST /api/export", () => {
   });
 
   it("aggregates export and browser cleanup failures in one structured response", async () => {
-    await useProject();
+    const { projectPath } = await useProject();
     const exportError = new Error("render failed");
     const closeError = new Error("browser close failed");
     const session = {
@@ -179,7 +199,7 @@ describe("POST /api/export", () => {
       close: vi.fn(async () => { throw closeError; }),
     };
 
-    const response = await handleExportPost(req({}), {
+    const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
       exportBundle: vi.fn(async () => { throw exportError; }),
     });
@@ -189,21 +209,34 @@ describe("POST /api/export", () => {
   });
 
   it("returns 422 without rendering when filters match no screens", async () => {
-    await useProject();
-    const res = await POST(req({ locale: "does-not-exist" }));
+    const { projectPath } = await useProject();
+    const res = await POST(await sessionReq(projectPath, { locale: "does-not-exist" }));
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toMatch(/No screens match/);
   });
 
   it("returns 422 before rendering when text has no file-backed font", async () => {
-    await useProject(completeProject([{
+    const { projectPath } = await useProject(completeProject([{
       id: "title", type: "text", x: 0, y: 0, width: 100, height: 100,
       content: "Title", fontFamily: "sans-serif", size: 24, color: "#FFFFFF",
     }]));
 
-    const res = await POST(req({}));
+    const res = await POST(await sessionReq(projectPath, {}));
     expect(res.status).toBe(422);
     expect((await res.json()).error).toMatch(/unresolved project fonts.*sans-serif/);
+  });
+
+  it("returns 409 without a session before creating export resources or changing the revision", async () => {
+    delete process.env.PROJECT_PATH;
+    const { directory, projectPath } = await useProject();
+    process.env.INIT_CWD = directory;
+    const before = await readFile(projectPath);
+
+    const response = await POST(req({}));
+
+    expect(response.status).toBe(409);
+    expect(projectRevision(await readFile(projectPath))).toBe(projectRevision(before));
+    await expect(readFile(join(directory, "export", "bundle.zip"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
