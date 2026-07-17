@@ -49,6 +49,10 @@ describe("inspector + toolbar", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
+    const toolbar = page.locator("header", { has: page.getByLabel("Canvas view") });
+    expect(await toolbar.getAttribute("data-density-ready")).toBe("true");
+    expect(await toolbar.evaluate((element) => getComputedStyle(element).visibility)).toBe("visible");
+
     const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
     const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
     const exportLabel = page.getByRole("button", { name: "Export" }).locator("span");

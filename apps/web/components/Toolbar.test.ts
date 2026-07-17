@@ -33,6 +33,15 @@ describe("toolbar responsive labels", () => {
     expect(source).toContain("overflowRef.current?.contains(document.activeElement)");
   });
 
+  it("keeps the first toolbar paint hidden until measured density stabilizes", () => {
+    const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("const [densityReady, setDensityReady] = useState(false);");
+    expect(source).toContain("data-density-ready={densityReady}");
+    expect(source).toContain('!densityReady && "invisible"');
+    expect(source).toContain("setDensityReady(true);");
+  });
+
   it("owns the controlled overflow state and trigger focus ref", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
 

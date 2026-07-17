@@ -115,6 +115,7 @@ export function Toolbar({
   const [exportOpen, setExportOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [density, setDensity] = useState<ToolbarDensity>("full");
+  const [densityReady, setDensityReady] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
   const viewSwitchRef = useRef<HTMLDivElement>(null);
@@ -285,7 +286,10 @@ export function Toolbar({
           ? "overflow-trigger"
           : null;
         densityProbeRef.current = probe;
+        return;
       }
+
+      setDensityReady(true);
     };
 
     const scheduleSync = () => {
@@ -319,7 +323,11 @@ export function Toolbar({
     <header
       ref={headerRef}
       data-density={density}
-      className="relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4"
+      data-density-ready={densityReady}
+      className={cx(
+        "relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4",
+        !densityReady && "invisible",
+      )}
     >
       <div className="flex w-full min-w-0 items-center justify-self-start">
         <div ref={leftRef} data-toolbar-left-content className="flex min-w-0 items-center gap-2.5">
