@@ -16,12 +16,19 @@ import {
   readActiveLayoutPreference,
   writeActiveLayoutPreference,
 } from "../../lib/editor-layout-preference";
-import { requireProjectRevision, setProjectRevision } from "../../lib/save-project";
+import {
+  createProjectAssetResolver,
+  requireProjectRevision,
+  resolveActiveProjectAssetUrl,
+  setProjectPersistenceIdentity,
+  type ProjectAssetResolver,
+} from "../../lib/save-project";
 import { withFlushedProject } from "../../lib/debounced-save";
 
-const resolveAsset = (assetUrl: string) => `/api/asset?path=${encodeURIComponent(assetUrl)}`;
-
-async function loadAllProjectImages(project: Project): Promise<ImageCache> {
+async function loadAllProjectImages(
+  project: Project,
+  resolveAsset: ProjectAssetResolver,
+): Promise<ImageCache> {
   const caches = await Promise.all(
     project.layouts.map((layout) => loadProjectImages(project, layout.id, resolveAsset)),
   );
@@ -43,8 +50,11 @@ export interface EditorResourceResult {
 
 export interface EditorResourceDependencies {
   fetchProject?: () => Promise<Response>;
-  loadImages?: (project: Project) => Promise<ImageCache>;
-  registerFonts?: (fonts: Project["fonts"]) => Promise<void>;
+  loadImages?: (project: Project, resolveAsset: ProjectAssetResolver) => Promise<ImageCache>;
+  registerFonts?: (
+    fonts: Project["fonts"],
+    resolveAsset: ProjectAssetResolver,
+  ) => Promise<void>;
   fetchStoreSpecs?: () => Promise<Response>;
 }
 
@@ -86,7 +96,7 @@ export async function loadProjectFontWarnings(
   fonts: Project["fonts"],
   registerFonts: (fonts: Project["fonts"]) => Promise<void> = (
     projectFonts,
-  ) => registerProjectFonts(projectFonts, resolveAsset),
+  ) => registerProjectFonts(projectFonts, resolveActiveProjectAssetUrl),
 ): Promise<FontRegistrationFailure[]> {
   try {
     await registerFonts(fonts);
@@ -109,7 +119,7 @@ export async function loadEditorResources(
   const loadImages = dependencies.loadImages
     ?? loadAllProjectImages;
   const registerFonts = dependencies.registerFonts
-    ?? ((fonts: Project["fonts"]) => registerProjectFonts(fonts, resolveAsset));
+    ?? registerProjectFonts;
   const fetchStoreSpecs = dependencies.fetchStoreSpecs ?? (() => fetch("/api/store-specs"));
 
   const projectResponse = await fetchProject();
@@ -118,9 +128,13 @@ export async function loadEditorResources(
   const projectId = projectResponse.headers.get("x-project-id")?.trim();
   if (!projectId) throw new Error("Project response is missing its project identifier");
   const project = parseProject(await projectResponse.json());
-  const images = await loadImages(project);
+  const resolveAsset = createProjectAssetResolver({ projectId, revision });
+  const images = await loadImages(project, resolveAsset);
 
-  const fontWarnings = await loadProjectFontWarnings(project.fonts, registerFonts);
+  const fontWarnings = await loadProjectFontWarnings(
+    project.fonts,
+    (fonts) => registerFonts(fonts, resolveAsset),
+  );
 
   const specsResponse = await fetchStoreSpecs();
   if (!specsResponse.ok) throw await responseError(specsResponse, "Failed to load store specs");
@@ -158,7 +172,7 @@ export function useEditorResources() {
       apply: (resources) => {
         // A revision becomes globally usable only after every required resource validated and this
         // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
-        setProjectRevision(resources.revision);
+        setProjectPersistenceIdentity(resources.projectId, resources.revision);
         projectId.current = resources.projectId;
         editorStore.getState().load(
           resources.project,
@@ -211,7 +225,7 @@ export function useEditorResources() {
     const missing = missingImageUrls(project, images);
     if (missing.length === 0) return;
     let cancelled = false;
-    void loadAllProjectImages(project).then((loaded) => {
+    void loadAllProjectImages(project, resolveActiveProjectAssetUrl).then((loaded) => {
       if (cancelled) return;
       setImages((current) => {
         if (!current) return loaded;

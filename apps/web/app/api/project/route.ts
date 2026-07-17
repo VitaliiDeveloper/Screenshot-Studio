@@ -54,7 +54,7 @@ function projectWriteErrorResponse(error: unknown): Response {
   return Response.json({ error: message }, { status });
 }
 
-export async function GET(req?: Request): Promise<Response> {
+export async function GET(req: Request): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
     try {
       const snapshot = await readProjectSnapshot(session.projectPath);
@@ -80,14 +80,28 @@ export async function PUT(req: Request): Promise<Response> {
     return Response.json({ error: "If-Match must be one strong quoted ETag" }, { status: 400 });
   }
 
-  let project;
-  try {
-    project = parseProject(await req.json());
-  } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 400 });
-  }
+  return withActiveProjectSession(req, async ({ projectId, projectPath }) => {
+    const expectedProjectId = req.headers.get("x-project-id")?.trim();
+    if (!expectedProjectId) {
+      return Response.json(
+        { error: "X-Project-Id is required to save the project" },
+        { status: 428 },
+      );
+    }
+    if (expectedProjectId !== projectId) {
+      return Response.json(
+        { error: "Active project changed; reload it before saving again" },
+        { status: 409 },
+      );
+    }
 
-  return withActiveProjectSession(req, async ({ projectPath }) => {
+    let project;
+    try {
+      project = parseProject(await req.json());
+    } catch (err) {
+      return Response.json({ error: (err as Error).message }, { status: 400 });
+    }
+
     try {
       return await withProjectMutation(projectPath, async () => {
         const current = await readIdentifiedProjectSnapshot(projectPath);

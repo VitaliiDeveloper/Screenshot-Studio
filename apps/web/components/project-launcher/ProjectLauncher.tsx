@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, FolderOpen } from "lucide-react";
 import { editorUi } from "../editor-ui/styles";
 import { fetchActiveProject, openLocalProject } from "../../lib/project-session";
+import { switchActiveProject } from "../../lib/debounced-save";
 
 export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
     setOpening(true);
     setError(null);
     try {
-      await openLocalProject(path.trim());
+      await switchActiveProject(() => openLocalProject(path.trim()));
       router.push("/home");
     } catch (caught) {
       setError((caught as Error).message);

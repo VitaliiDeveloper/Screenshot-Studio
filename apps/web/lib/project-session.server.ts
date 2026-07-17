@@ -108,7 +108,24 @@ export class NoActiveProjectError extends Error {
   }
 }
 
-export const projectSessionRegistry = new ProjectSessionRegistry();
+const PROJECT_SESSION_REGISTRY_GLOBAL_KEY = Symbol.for(
+  "screenshot-studio.project-session-registry",
+);
+
+function sharedProjectSessionRegistry(): ProjectSessionRegistry {
+  const serverGlobal = globalThis as typeof globalThis & { [key: symbol]: unknown };
+  const existing = serverGlobal[PROJECT_SESSION_REGISTRY_GLOBAL_KEY] as
+    | ProjectSessionRegistry
+    | undefined;
+  if (existing) return existing;
+  const registry = new ProjectSessionRegistry();
+  serverGlobal[PROJECT_SESSION_REGISTRY_GLOBAL_KEY] = registry;
+  return registry;
+}
+
+// Next development recompiles route modules independently; keep the opaque registry alive across
+// those evaluations without turning any one project path into process-global current state.
+export const projectSessionRegistry = sharedProjectSessionRegistry();
 
 export function sessionIdFromRequest(request?: Pick<Request, "headers">): string | null {
   const cookie = request?.headers.get("cookie");

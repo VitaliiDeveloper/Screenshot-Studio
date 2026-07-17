@@ -2,6 +2,14 @@
 import type { Project } from "@screenshot-studio/core/model";
 
 let projectRevision: string | undefined;
+let projectId: string | undefined;
+
+export interface ProjectPersistenceIdentity {
+  projectId: string;
+  revision: string;
+}
+
+export type ProjectAssetResolver = (path: string) => string;
 
 function isStrongQuotedETag(value: string): boolean {
   if (value.length < 3 || value[0] !== '"' || value.at(-1) !== '"') return false;
@@ -25,6 +33,46 @@ export function setProjectRevision(revision: string | null): void {
   projectRevision = requireProjectRevision(revision);
 }
 
+/** Bind all client persistence to the project identity and revision returned by one GET. */
+export function setProjectPersistenceIdentity(
+  nextProjectId: string,
+  revision: string | null,
+): void {
+  const normalizedProjectId = nextProjectId.trim();
+  if (!normalizedProjectId) {
+    throw new Error("Project response is missing its project identifier");
+  }
+  const validatedRevision = requireProjectRevision(revision);
+  projectId = normalizedProjectId;
+  projectRevision = validatedRevision;
+}
+
+export function getProjectPersistenceIdentity(): ProjectPersistenceIdentity | undefined {
+  return projectId && projectRevision ? { projectId, revision: projectRevision } : undefined;
+}
+
+export function clearProjectPersistenceIdentity(): void {
+  projectId = undefined;
+  projectRevision = undefined;
+}
+
+export function createProjectAssetResolver(
+  identity: ProjectPersistenceIdentity,
+): ProjectAssetResolver {
+  const prefix = `/api/asset?projectId=${encodeURIComponent(identity.projectId)}`
+    + `&revision=${encodeURIComponent(identity.revision)}&path=`;
+  return (path) => `${prefix}${encodeURIComponent(path)}`;
+}
+
+/** Resolve an interactive asset against the currently loaded persistence identity. */
+export function resolveActiveProjectAssetUrl(path: string): string {
+  const identity = getProjectPersistenceIdentity();
+  if (!identity) {
+    throw new Error("Project identity is unavailable; reload the project before loading assets");
+  }
+  return createProjectAssetResolver(identity)(path);
+}
+
 export function getProjectRevision(): string | undefined {
   return projectRevision;
 }
@@ -38,16 +86,20 @@ export function advanceProjectRevisionFromResponse(
 
 /** Persist the project to disk through the API route (spec §4). Throws on any rejected save. */
 export async function saveProject(project: Project): Promise<void> {
-  const revision = getProjectRevision();
-  if (!revision) {
+  if (!getProjectRevision()) {
     throw new Error("Project revision is unavailable; reload the project before saving");
+  }
+  const identity = getProjectPersistenceIdentity();
+  if (!identity) {
+    throw new Error("Project identity is unavailable; reload the project before saving");
   }
 
   const res = await fetch("/api/project", {
     method: "PUT",
     headers: {
       "content-type": "application/json",
-      "if-match": revision,
+      "if-match": identity.revision,
+      "x-project-id": identity.projectId,
     },
     body: JSON.stringify(project),
   });

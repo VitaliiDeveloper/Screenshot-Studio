@@ -43,6 +43,20 @@ async function createProject(name: string): Promise<string> {
 }
 
 describe("ProjectSessionRegistry", () => {
+  it("keeps opaque sessions when the server module is re-evaluated", async () => {
+    const projectPath = await createProject("Reloaded module");
+    vi.resetModules();
+    const firstModule = await import("./project-session.server.js");
+    const opened = await firstModule.projectSessionRegistry.openLocal(projectPath);
+
+    vi.resetModules();
+    const reloadedModule = await import("./project-session.server.js");
+
+    expect(reloadedModule.projectSessionRegistry).toBe(firstModule.projectSessionRegistry);
+    expect(reloadedModule.projectSessionRegistry.get(opened.descriptor.sessionId)?.projectPath)
+      .toBe(await realpath(projectPath));
+  });
+
   it("registers validated local projects with deterministic active-session descriptors", async () => {
     const firstPath = await createProject("First");
     const secondPath = await createProject("Second");

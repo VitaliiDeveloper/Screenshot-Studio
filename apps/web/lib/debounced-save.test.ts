@@ -94,4 +94,71 @@ describe("createProjectSaveCoordinator", () => {
 
     expect(events).toEqual(["mutation:start", "mutation:end", "save:durable"]);
   });
+
+  it("drains the latest project before activation and resets before later saves can run", async () => {
+    const first = { meta: { name: "first" } } as unknown as Project;
+    const latest = { meta: { name: "latest" } } as unknown as Project;
+    let current: Project | undefined = first;
+    let releaseFirst!: () => void;
+    let releaseActivation!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const activationGate = new Promise<void>((resolve) => { releaseActivation = resolve; });
+    const events: string[] = [];
+    const coordinator = createProjectSaveCoordinator(async (project) => {
+      events.push(`save:${project.meta.name}:start`);
+      if (project === first) await firstGate;
+      events.push(`save:${project.meta.name}:end`);
+    }, () => current);
+
+    const inFlight = coordinator.saveLatest();
+    await vi.waitFor(() => expect(events).toEqual(["save:first:start"]));
+    current = latest;
+    const switching = coordinator.switchProject(async () => {
+      events.push("activate:start");
+      await activationGate;
+      events.push("activate:end");
+      return "opened";
+    }, () => {
+      current = undefined;
+      events.push("reset");
+    });
+    const laterSave = coordinator.saveLatest();
+
+    releaseFirst();
+    await vi.waitFor(() => expect(events).toEqual([
+      "save:first:start",
+      "save:first:end",
+      "save:latest:start",
+      "save:latest:end",
+      "activate:start",
+    ]));
+    releaseActivation();
+
+    await expect(switching).resolves.toBe("opened");
+    await Promise.all([inFlight, laterSave]);
+    expect(events).toEqual([
+      "save:first:start",
+      "save:first:end",
+      "save:latest:start",
+      "save:latest:end",
+      "activate:start",
+      "activate:end",
+      "reset",
+    ]);
+  });
+
+  it("does not activate or reset when the final drain fails", async () => {
+    const current = { meta: { name: "unsaved" } } as unknown as Project;
+    const coordinator = createProjectSaveCoordinator(
+      async () => { throw new Error("disk unavailable"); },
+      () => current,
+    );
+    const activate = vi.fn(async () => "opened");
+    const reset = vi.fn();
+
+    await expect(coordinator.switchProject(activate, reset)).rejects.toThrow("disk unavailable");
+
+    expect(activate).not.toHaveBeenCalled();
+    expect(reset).not.toHaveBeenCalled();
+  });
 });

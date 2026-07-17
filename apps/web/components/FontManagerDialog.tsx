@@ -21,7 +21,7 @@ import { editorStore } from "../lib/editor-store";
 import { primarySelection } from "../lib/editor-selection";
 import { withFlushedProject } from "../lib/debounced-save";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { setProjectRevision } from "../lib/save-project";
+import { resolveActiveProjectAssetUrl, setProjectRevision } from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { reconcileFontMutationResponse } from "./font-manager-model";
 
@@ -74,7 +74,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
       setProjectRevision,
       registerAddedFont: (font) => registerFont(
         font,
-        (path) => `/api/asset?path=${encodeURIComponent(path)}`,
+        resolveActiveProjectAssetUrl,
       ),
     });
     setWarning(result.warning);

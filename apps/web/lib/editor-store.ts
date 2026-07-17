@@ -90,6 +90,7 @@ export interface EditorState {
   saveStatus: "idle" | "saving" | "saved" | "error";
   saveError: string | null;
   load: (project: Project, locallyActiveLayoutId?: string) => void;
+  resetProjectState: () => void;
   setSaveState: (status: EditorState["saveStatus"], error?: string | null) => void;
   select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
   setSelection: (items: SelectionRef[]) => void;
@@ -194,6 +195,18 @@ export const editorStore = createStore<EditorState>((set) => ({
       saveError: null,
     });
   },
+  resetProjectState: () => set({
+    project: null,
+    activeLayoutId: null,
+    activeScreenId: null,
+    selectedItems: [],
+    historyPast: [],
+    historyFuture: [],
+    layoutHistories: {},
+    historyGroupKey: null,
+    saveStatus: "idle",
+    saveError: null,
+  }),
   setSaveState: (saveStatus, saveError = null) => set({ saveStatus, saveError }),
   select: (id, screenId, mode = "replace") => set((state) => {
     if (id === null) return { selectedItems: [], historyGroupKey: null };

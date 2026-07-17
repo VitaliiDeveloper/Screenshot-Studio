@@ -62,6 +62,7 @@ const validProject = {
 
 let dir: string;
 let file: string;
+let currentProjectId: string | undefined;
 
 function quotedRevision(bytes: string | Buffer): string {
   return `"${createHash("sha256").update(bytes).digest("hex")}"`;
@@ -76,16 +77,19 @@ function getRequest(cookie?: string): Request {
 }
 
 async function currentRevision(): Promise<string> {
-  const response = await GET();
+  const response = await GET(getRequest());
   expect(response.status).toBe(200);
   const revision = response.headers.get("etag");
+  currentProjectId = response.headers.get("x-project-id") ?? undefined;
   expect(revision).toBeTruthy();
+  expect(currentProjectId).toBeTruthy();
   return revision!;
 }
 
-function putRequest(project: unknown, revision?: string): Request {
+function putRequest(project: unknown, revision?: string, projectId = currentProjectId): Request {
   const headers = new Headers({ "content-type": "application/json" });
   if (revision) headers.set("if-match", revision);
+  if (projectId) headers.set("x-project-id", projectId);
   return new Request("http://x/api/project", {
     method: "PUT",
     headers,
@@ -95,6 +99,7 @@ function putRequest(project: unknown, revision?: string): Request {
 
 beforeEach(() => {
   storageHooks.beforeDestinationRevalidation = undefined;
+  currentProjectId = undefined;
   dir = mkdtempSync(join(tmpdir(), "proj-"));
   file = join(dir, "app-store-screenshots.json");
   writeFileSync(file, JSON.stringify(validProject));
@@ -151,7 +156,7 @@ describe("GET /api/project", () => {
     const bytes = `${JSON.stringify(validProject, null, 4)}\n`;
     writeFileSync(file, bytes);
 
-    const res = await GET();
+    const res = await GET(getRequest());
 
     expect(res.status).toBe(200);
     expect(res.headers.get("etag")).toBe(quotedRevision(bytes));
@@ -170,12 +175,12 @@ describe("GET /api/project", () => {
     const alias = join(dir, "project-alias.json");
     const bytes = `${JSON.stringify(validProject, null, 4)}\n`;
     writeFileSync(file, bytes);
-    const directResponse = await GET();
+    const directResponse = await GET(getRequest());
     const directProjectId = directResponse.headers.get("x-project-id");
     symlinkSync(file, alias);
     process.env.PROJECT_PATH = alias;
 
-    const res = await GET();
+    const res = await GET(getRequest());
 
     expect(res.status).toBe(200);
     expect(res.headers.get("etag")).toBe(quotedRevision(bytes));
@@ -186,6 +191,62 @@ describe("GET /api/project", () => {
 });
 
 describe("PUT /api/project", () => {
+  it("rejects a stale-tab identity before parsing and preserves matching-revision project bytes", async () => {
+    const first = await projectSessionRegistry.openLocal(file);
+    const secondDir = mkdtempSync(join(tmpdir(), "proj-second-"));
+    const secondFile = join(secondDir, "app-store-screenshots.json");
+    writeFileSync(secondFile, JSON.stringify(validProject));
+    const second = await projectSessionRegistry.openLocal(secondFile);
+    const firstResponse = await GET(getRequest(cookieFor(first.descriptor.sessionId)));
+    const secondBefore = readFileSync(secondFile);
+    expect(firstResponse.headers.get("etag")).toBe(quotedRevision(secondBefore));
+
+    try {
+      const staleProject = structuredClone(validProject);
+      staleProject.meta.name = "Stale A edit";
+      const stale = await PUT(new Request("http://x/api/project", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "if-match": firstResponse.headers.get("etag")!,
+          "x-project-id": first.projectId,
+          cookie: cookieFor(second.descriptor.sessionId),
+        },
+        body: JSON.stringify(staleProject),
+      }));
+
+      expect(stale.status).toBe(409);
+      await expect(stale.json()).resolves.toMatchObject({ error: expect.stringMatching(/project/i) });
+      expect(readFileSync(secondFile)).toEqual(secondBefore);
+
+      const malformed = await PUT(new Request("http://x/api/project", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "if-match": firstResponse.headers.get("etag")!,
+          "x-project-id": first.projectId,
+          cookie: cookieFor(second.descriptor.sessionId),
+        },
+        body: "not JSON",
+      }));
+      expect(malformed.status).toBe(409);
+    } finally {
+      rmSync(secondDir, { recursive: true, force: true });
+    }
+  });
+
+  it("requires the project identity returned by GET before accepting a write", async () => {
+    const revision = await currentRevision();
+    const before = readFileSync(file);
+    const next = structuredClone(validProject);
+    next.meta.name = "Missing identity";
+
+    const response = await PUT(putRequest(next, revision, ""));
+
+    expect(response.status).toBe(428);
+    expect(readFileSync(file)).toEqual(before);
+  });
+
   it("keeps an invalid selected-session write from changing the configured project", async () => {
     const secondDir = mkdtempSync(join(tmpdir(), "proj-second-"));
     const secondFile = join(secondDir, "app-store-screenshots.json");
@@ -203,6 +264,7 @@ describe("PUT /api/project", () => {
         headers: {
           "content-type": "application/json",
           "if-match": quotedRevision(secondBefore),
+          "x-project-id": second.projectId,
           cookie: cookieFor(second.descriptor.sessionId),
         },
         body: JSON.stringify(secondProject),
