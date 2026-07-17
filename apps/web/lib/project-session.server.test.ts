@@ -88,6 +88,13 @@ describe("ProjectSessionRegistry", () => {
       registry,
       configuredPath: () => null,
     })).resolves.toBe(first);
+
+    await expect(resolveActiveProjectSession(new Request("http://localhost/api/project", {
+      headers: { cookie: "screenshot_studio_project_session=%E0%A4%A" },
+    }), {
+      registry,
+      configuredPath: () => null,
+    })).rejects.toThrow("No active project is selected");
   });
 
   it("turns an opened local source into a session without reaching into core storage", async () => {
