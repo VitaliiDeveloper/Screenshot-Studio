@@ -55,12 +55,12 @@ describe("layout delete confirmation", () => {
 });
 
 describe("layout presentation", () => {
-  it("shrinks inside a narrow toolbar track instead of overflowing into the center", () => {
+  it("uses available toolbar width before truncating and still shrinks inside a narrow track", () => {
     const source = readFileSync(new URL("./LayoutSelector.tsx", import.meta.url), "utf8");
 
-    expect(source).toContain('<div ref={rootRef} className="relative size-9 shrink-0 sm:h-10 sm:w-[14.5rem] sm:max-w-full sm:min-w-0 sm:shrink">');
+    expect(source).toContain('<div ref={rootRef} className="relative size-9 shrink-0 sm:h-10 sm:w-auto sm:max-w-80 sm:min-w-0 sm:flex-1">');
     expect(source).toContain("sm:h-10 sm:w-full sm:min-w-0");
-    expect(source).not.toContain("flex-1 sm:max-w-72");
+    expect(source).not.toContain("sm:w-[14.5rem]");
     expect(source).not.toContain("sm:min-w-56");
   });
 

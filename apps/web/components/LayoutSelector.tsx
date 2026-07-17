@@ -126,7 +126,7 @@ export function LayoutSelector() {
 
   return (
     <>
-      <div ref={rootRef} className="relative size-9 shrink-0 sm:h-10 sm:w-[14.5rem] sm:max-w-full sm:min-w-0 sm:shrink">
+      <div ref={rootRef} className="relative size-9 shrink-0 sm:h-10 sm:w-auto sm:max-w-80 sm:min-w-0 sm:flex-1">
         <button
           ref={triggerRef}
           type="button"
