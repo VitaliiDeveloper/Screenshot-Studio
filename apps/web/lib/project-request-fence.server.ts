@@ -3,6 +3,7 @@ import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
 import { isStrongQuotedETag } from "./http-etag.js";
 import {
   withActiveProjectSession,
+  type ActiveProjectResolverDependencies,
   type LocalProjectSession,
 } from "./project-session.server.js";
 
@@ -37,11 +38,12 @@ function projectIdentityResponse(
 export function withProjectReadRequest(
   req: Request,
   operation: ProjectRequestOperation,
+  dependencies: ActiveProjectResolverDependencies = {},
 ): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
     return identityError ?? operation(session);
-  });
+  }, dependencies);
 }
 
 export function withProjectMutationRequest(

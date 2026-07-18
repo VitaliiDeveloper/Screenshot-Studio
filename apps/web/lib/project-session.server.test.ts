@@ -83,6 +83,33 @@ function createStubManagedSource() {
 }
 
 describe("ProjectSessionRegistry", () => {
+  it("activates an imported managed record without reopening it or exposing its server path", async () => {
+    const managedSource = createStubManagedSource();
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "imported-session",
+      managedSource,
+    });
+
+    const session = registry.openManagedRecord({
+      id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      name: "Imported",
+      projectDirectory: "/private/managed/project",
+      projectPath: "/private/managed/project/app-store-screenshots.json",
+    });
+
+    expect(managedSource.open).not.toHaveBeenCalled();
+    expect(session).toMatchObject({
+      projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      projectPath: "/private/managed/project/app-store-screenshots.json",
+      descriptor: {
+        sessionId: "imported-session",
+        name: "Imported",
+        sourceKind: "managed-project",
+      },
+    });
+    expect(session.descriptor).not.toHaveProperty("displayLocation");
+  });
+
   it("opens managed projects without exposing their server location", async () => {
     const registry = new ProjectSessionRegistry({
       createSessionId: () => "managed-session",

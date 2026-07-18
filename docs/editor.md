@@ -3,11 +3,38 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 2.1, 17 July 2026.
+Version 2.2, 18 July 2026.
 
 > **Status: this document describes the current as-built strict v1 editor.**
 > Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
 > widen together.
+
+---
+
+## 0. App Home and Project Home
+
+App Home is the responsive launcher shell when no project is active or the user explicitly returns
+to the launcher. It has one page heading and three stable product regions:
+
+- **Create project** is visible but disabled, with Launcher 5 ownership stated explicitly.
+- **Import project** is enabled. Its modal offers Folder (recommended), project ZIP, and eligible
+  standalone JSON; it explains before selection that the source is validated into a managed copy and
+  is not edited in place. Selecting a source opens an explicit managed-copy confirmation before any
+  upload begins. The confirmation links the localhost in-place case to the existing `PROJECT_PATH`
+  and `screenshots dev --project` entry points instead of presenting browser selection as a path.
+- **Recent projects** remains a labelled empty region owned by Launcher 8; import does not populate a
+  temporary imitation of recents.
+
+The import modal moves focus to its heading, traps forward/reverse Tab, returns focus to the Import
+trigger, and closes with Escape while choosing or uploading. Upload is cancellable; validation and
+atomic publication are announced as a separate non-cancellable state. Errors use alert semantics and
+list missing resource paths. Successful import activates the managed project and lands on Project
+Home. Managed Project Home offers **Export project archive** with busy/error feedback and native
+download behavior; its copy distinguishes the portable project backup from rendered store-image
+export. Import-card press feedback, dialog entrance and exit, and dialog state changes use calm,
+short transform/opacity motion. Close and Escape keep the dialog mounted until its exit finishes;
+reduced-motion preferences complete these transitions without animation. Local-file Project Home
+retains its exact-location behavior and does not offer this managed archive action.
 
 ---
 
@@ -232,13 +259,21 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 ## 7. States
 
-- **No active project** → App Home states that no source is active and explains explicit CLI/server
-  startup; it exposes no raw path field and never selects the bundled sample implicitly.
+- **No active project** → final App Home exposes enabled Import, disabled Create, and an empty Recents
+  region; it exposes no raw path field and never selects the bundled sample implicitly.
+- **Import choosing/confirming/uploading** → Folder/ZIP/JSON choices explain managed-copy behavior;
+  selection remains client-only until explicit confirmation, and browser transfer can be cancelled
+  without changing the prior session or catalog.
+- **Import publishing** → validation and atomic publication are announced and cannot be cancelled
+  after the upload boundary.
+- **Import failure** → an alert preserves the launcher and prior session, provides retry, and lists
+  missing resource paths when standalone JSON was incomplete.
 - **Invalid configured local project** → App Home shows the validation/path error without activating
   or mutating a project.
-- **Selected local project** → minimal Project Home shows source identity and the exact location only
-  because the local source reports `revealLocation`; managed-source identity and the full overview
-  belong to later launcher slices.
+- **Selected local project** → Project Home shows source identity and the exact location only because
+  the local source reports `revealLocation`.
+- **Selected managed project** → Project Home omits server location, opens the same Workspace, and
+  offers the distinct portable project-archive export action.
 - **Empty artboard** → Add remains available for creating the first element on the existing screen.
 - **Missing asset** → a visible placeholder on the canvas; never crash or block the rest of the screen.
 - **Invalid JSON on load** → a blocking error surfacing the validator message; never fail silently.

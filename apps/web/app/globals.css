@@ -47,6 +47,73 @@ button:disabled {
   background-image: none;
 }
 
+@keyframes launcher-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes launcher-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes launcher-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes launcher-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}
+
+@keyframes launcher-dialog-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.launcher-dialog-backdrop {
+  animation: launcher-backdrop-in 220ms ease-out;
+}
+
+.launcher-dialog-panel {
+  animation: launcher-dialog-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.launcher-dialog-state {
+  animation: launcher-dialog-state-in 150ms ease-out;
+}
+
+.launcher-dialog-backdrop[data-motion="closing"] {
+  animation: launcher-backdrop-out 180ms ease-in forwards;
+  pointer-events: none;
+}
+
+.launcher-dialog-backdrop[data-motion="closing"] .launcher-dialog-panel {
+  animation: launcher-dialog-out 180ms ease-in forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -55,6 +122,12 @@ button:disabled {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  .launcher-dialog-backdrop,
+  .launcher-dialog-panel,
+  .launcher-dialog-state {
+    animation: none !important;
   }
 }
 @keyframes menu-select-in {

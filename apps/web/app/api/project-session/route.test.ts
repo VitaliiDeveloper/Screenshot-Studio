@@ -57,16 +57,17 @@ describe("project session route handlers", () => {
     expect("POST" in projectSessionRoute).toBe(false);
   });
 
-  it("returns 204 when no project is active or configured", async () => {
+  it("returns a cookie-neutral 204 when a fresh client has no active or configured project", async () => {
     const response = await handleProjectSessionGet(
       new Request("http://localhost/api/project-session"),
       dependencies(),
     );
 
     expect(response.status).toBe(204);
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
-  it("clears stale selection and bootstraps an explicit configured path", async () => {
+  it("leaves stale selection cookie-neutral and bootstraps an explicit configured path", async () => {
     const projectPath = await createProject("Launcher");
     const registry = new ProjectSessionRegistry({ createSessionId: () => "session-1" });
     const stale = await handleProjectSessionGet(new Request(
@@ -75,13 +76,14 @@ describe("project session route handlers", () => {
     ), { registry, configuredPath: () => null });
 
     expect(stale.status).toBe(204);
-    expect(stale.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(stale.headers.get("set-cookie")).toBeNull();
 
     const configured = await handleProjectSessionGet(
       new Request("http://localhost/api/project-session"),
       { registry, configuredPath: () => projectPath },
     );
     expect(configured.status).toBe(200);
+    expect(configured.headers.get("x-project-id")).toBeTruthy();
     expect(configured.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=session-1",
     );

@@ -1,15 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FolderOpen } from "lucide-react";
-import { editorUi } from "../editor-ui/styles";
 import { fetchActiveProject } from "../../lib/project-session";
+import {
+  importProject,
+  ProjectImportClientError,
+  type BrowserProjectImportSource,
+} from "../../lib/project-import-client";
+import { AppHomeShell } from "./AppHomeShell";
+import {
+  launcherDialogExitDelay,
+  requestLauncherDialogExit,
+  type LauncherDialogExitAction,
+} from "./project-dialog-motion";
+import { reduceLauncherImportState } from "./project-launcher-model";
 
 export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
+  const [dialogClosing, setDialogClosing] = useState(false);
+  const importButtonRef = useRef<HTMLButtonElement>(null);
+  const importControllerRef = useRef<AbortController | null>(null);
+  const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
+  const exitActionRef = useRef<LauncherDialogExitAction>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const publishingRef = useRef(false);
 
   useEffect(() => {
     if (allowSwitch) return;
@@ -22,28 +41,111 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
     return () => { active = false; };
   }, [allowSwitch, router]);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+      importControllerRef.current?.abort();
+    };
+  }, []);
+
+  const returnFocus = () => queueMicrotask(() => importButtonRef.current?.focus());
+  const requestImportExit = (requested: Exclude<LauncherDialogExitAction, null>) => {
+    const action = requestLauncherDialogExit(
+      exitActionRef.current,
+      requested,
+      publishingRef.current || importState.status === "publishing",
+    );
+    if (!action || exitActionRef.current) return;
+
+    exitActionRef.current = action;
+    setDialogClosing(true);
+    if (action === "cancel") {
+      importControllerRef.current?.abort();
+      importControllerRef.current = null;
+    }
+
+    const finishExit = () => {
+      if (!mountedRef.current) return;
+      pendingImportSourceRef.current = null;
+      dispatchImport({ type: action });
+      exitActionRef.current = null;
+      exitTimerRef.current = null;
+      setDialogClosing(false);
+      returnFocus();
+    };
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const delay = launcherDialogExitDelay(reducedMotion);
+    if (delay === 0) finishExit();
+    else exitTimerRef.current = setTimeout(finishExit, delay);
+  };
+  const closeImport = () => requestImportExit("close");
+  const cancelImport = () => requestImportExit("cancel");
+  const selectSource = (source: BrowserProjectImportSource) => {
+    pendingImportSourceRef.current = source;
+    dispatchImport({ type: "select", kind: source.kind });
+  };
+  const confirmImport = () => {
+    const source = pendingImportSourceRef.current;
+    if (!source) {
+      dispatchImport({ type: "retry" });
+      return;
+    }
+    pendingImportSourceRef.current = null;
+    const controller = new AbortController();
+    publishingRef.current = false;
+    importControllerRef.current?.abort();
+    importControllerRef.current = controller;
+    dispatchImport({ type: "confirm" });
+    void importProject(source, {
+      signal: controller.signal,
+      onUploadComplete: () => {
+        if (!mountedRef.current || exitActionRef.current === "cancel") return;
+        publishingRef.current = true;
+        dispatchImport({ type: "publishing" });
+      },
+    }).then(() => {
+      if (!mountedRef.current) return;
+      dispatchImport({ type: "complete" });
+      router.push("/home");
+      router.refresh();
+    }).catch((caught: unknown) => {
+      publishingRef.current = false;
+      if (caught instanceof DOMException && caught.name === "AbortError") {
+        if (mountedRef.current && exitActionRef.current !== "cancel") {
+          dispatchImport({ type: "cancel" });
+        }
+        return;
+      }
+      if (!mountedRef.current) return;
+      dispatchImport({
+        type: "fail",
+        message: caught instanceof Error ? caught.message : String(caught),
+        missingResources: caught instanceof ProjectImportClientError
+          ? caught.missingResources
+          : [],
+      });
+    }).finally(() => {
+      if (importControllerRef.current === controller) importControllerRef.current = null;
+    });
+  };
+
   return (
-    <main className="min-h-dvh bg-[var(--editor-color-surface-subtle)] px-6 py-12">
-      <section className="mx-auto max-w-3xl">
-        <p className={editorUi.sectionLabel}>Screenshot Studio</p>
-        <h1 className="mt-3 flex items-center gap-3 text-4xl font-semibold text-[color:var(--editor-color-text-strong)]">
-          <FolderOpen aria-hidden="true" className="size-9 text-[color:var(--editor-color-accent)]" />
-          No active project
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm text-[color:var(--editor-color-text-secondary)]">
-          Browser project import is delivered by the next launcher workflow. This foundation build opens local projects through explicit CLI or server startup.
-        </p>
-        {error ? <p role="alert" className={`mt-6 ${editorUi.statusError}`}>{error}</p> : null}
-        <section
-          className="mt-8 rounded-2xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm"
-          aria-labelledby="local-startup-title"
-        >
-          <h2 id="local-startup-title" className="text-base font-semibold">Open a local project for now</h2>
-          <p className="mt-2 text-sm text-[color:var(--editor-color-text-secondary)]">
-            Start Screenshot Studio with <code>screenshots dev --project …</code> or set <code>PROJECT_PATH</code>. App Home never asks you to paste that path into a web form.
-          </p>
-        </section>
-      </section>
-    </main>
+    <AppHomeShell
+      state={importState}
+      dialogClosing={dialogClosing}
+      sessionError={error}
+      importButtonRef={importButtonRef}
+      onOpenImport={() => dispatchImport({ type: "choose" })}
+      onCloseImport={closeImport}
+      onCancelImport={cancelImport}
+      onConfirmImport={confirmImport}
+      onRetryImport={() => {
+        pendingImportSourceRef.current = null;
+        dispatchImport({ type: "retry" });
+      }}
+      onSelectSource={selectSource}
+    />
   );
 }

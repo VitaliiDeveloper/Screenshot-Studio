@@ -56,6 +56,35 @@ afterEach(async () => {
 });
 
 describe("export artifact store", () => {
+  it("rejects unsafe configured download metadata", () => {
+    expect(() => createExportArtifactStore({
+      downloadPathPrefix: "https://example.com/archive",
+    })).toThrow(/path prefix/i);
+    expect(() => createExportArtifactStore({
+      downloadFilename: "archive\r\nContent-Type: text/html.zip",
+    })).toThrow(/filename/i);
+  });
+
+  it("supports a separate download namespace and filename without changing defaults", async () => {
+    await store.close();
+    store = createExportArtifactStore({
+      rootDirectory: artifactRoot,
+      now: () => now,
+      ttlMs: 60_000,
+      downloadPathPrefix: "/api/project-archive/artifacts",
+      downloadFilename: "screenshot-studio-project.zip",
+    });
+
+    const ticket = await store.stage(sourcePath, "Portable project");
+    expect(ticket.downloadUrl).toMatch(/^\/api\/project-archive\/artifacts\//);
+    const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
+    expect(consumed.status).toBe("ready");
+    if (consumed.status !== "ready") return;
+    expect(consumed.artifact.filename).toBe("screenshot-studio-project.zip");
+    consumed.artifact.stream.resume();
+    await consumed.artifact.cleanup;
+  });
+
   it("shares the default ticket store across independently evaluated route modules", async () => {
     vi.resetModules();
     const producer = await import("./export-artifacts.server.js");

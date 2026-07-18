@@ -194,7 +194,7 @@ revision, and only then creates an active session. The response exposes a genera
 project name, the exact display path, and local capabilities. Project Home, Workspace, asset routes,
 preview, and export resolve the same session. A failed open leaves the previous active session intact.
 
-Normal browser project selection later imports Folder/ZIP/JSON input into managed storage and opens a
+Normal browser project selection imports Folder/ZIP/JSON input into managed storage and opens a
 `managed-project` session. An Electron shell instead supplies a canonical local path from a native
 dialog to the same `local-file` behavior, so Project Home, Workspace, persistence, and export do not
 change.
@@ -210,7 +210,8 @@ concurrency behavior differ behind the adapter boundary.
 #### Compatibility and first delivery
 
 Launcher 1/8 implements the local-file source and active-session seam; Launcher 2/8 adds the
-managed repository and catalog behind that same seam:
+managed repository/catalog; Launcher 3/8 adds browser import and portable project archives behind
+those seams:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
@@ -225,7 +226,7 @@ managed repository and catalog behind that same seam:
   stable-export lease;
 - conditional revisions, mutation locks, strict validation, and shared render/export behavior remain
   unchanged;
-- managed browser import/archive export belongs to Launcher 3/8; Electron-specific and cloud
+- managed browser import/archive export is implemented in Launcher 3/8; Electron-specific and cloud
   implementations are not created until their product surfaces exist.
 
 Future adapters must prove the same behavioral contract: validate before activation, preserve the
@@ -240,6 +241,7 @@ The managed repository owns deployment metadata outside the strict Project docum
 `${INIT_CWD ?? process.cwd()}/.screenshot-studio` by default, or the absolute/relative
 `SCREENSHOT_STUDIO_DATA_ROOT` resolved from that invocation directory. Deployments may set positive
 integer limits with `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, and
+`SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES`, plus a positive
 `SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has four application-owned children:
 
 ```
@@ -268,8 +270,45 @@ filesystem scan.
 The `managed-project` adapter opens a catalog id into the same request-scoped session as `local-file`.
 Its server-only `projectPath` remains available to existing project/resource APIs, but its browser
 descriptor intentionally omits `displayLocation`. Local-file behavior remains unchanged. Browser
-transport belongs to Launcher 3/8, creation/templates to Launcher 5/8, and user-facing
+transport is implemented in Launcher 3/8; creation/templates belong to Launcher 5/8, and user-facing
 Trash/restore/purge to Launcher 7/8.
+
+#### Managed browser transfer (Launcher 3/8)
+
+`POST /api/project-import` is the only browser-import publication boundary. Folder selections arrive
+as aligned file/portable-relative-path pairs; project ZIPs first pass a bounded central-directory
+admission parser; eligible standalone JSON is normalized to the root
+`app-store-screenshots.json`. All three become the same `ProjectImportFile[]` service input. The
+service requires exactly one root document, rejects unsafe, colliding, unsupported, and sensitive
+paths, applies explicit upload/file/decompressed-byte limits, writes only into one owned private
+stage with exclusive no-follow files, runs the strict core parser, and verifies every referenced
+project-local resource before Launcher 2's atomic publication.
+
+The browser selection is an import source, never a retained file handle. Success registers the
+already-published opaque managed record, sets the HttpOnly same-site session cookie, and lands on
+Project Home. Cancellation or any pre-publication failure discards only the owned stage and returns
+no session cookie, so the prior active session and catalog visibility remain unchanged. App Home has
+stable disabled/empty extension slots for Launcher 5 creation and Launcher 8 recents; neither is
+simulated by import.
+
+Source selection first enters a client-only confirmation state. No upload, server staging, catalog
+write, cookie replacement, or navigation starts until the user confirms **Import managed copy**.
+Declining the confirmation only releases the browser `File` references and returns to source choice.
+This boundary is identical whether the web host runs on localhost or remotely: browser input never
+becomes a trusted server path. Localhost in-place work continues through `PROJECT_PATH` or
+`screenshots dev --project`; a future desktop shell may supply a canonical path through the same
+`local-file` adapter without changing Project Home, Workspace, renderer, or export consumers.
+
+Managed Project Home exposes `POST /api/project-archive` as a read-only transfer operation. The
+archive enumerates a verified regular-file tree and includes only the root project document, project
+guides, and supported `assets/`, `screenshots/`, `themes/`, and `templates/` resources. It excludes
+catalog/session/recovery metadata, locks, stages, temp files, credentials, hidden paths, and rendered
+store output. Generation uses the same configured file/byte bounds, verifies directory bindings
+around recursive enumeration, and applies no-follow file identity checks before streaming;
+the resulting `screenshot-studio-project.zip` is copied into a short-lived, one-shot artifact under
+`/api/project-archive/artifacts/<token>`. That namespace and filename are deliberately separate from
+the rendered store-image export route. The allowlisted archive service is also the stable backup
+extension point for Launcher 7 lifecycle work; it does not implement Trash or schema widening.
 
 ### Render / export parity — the #1 technical risk
 

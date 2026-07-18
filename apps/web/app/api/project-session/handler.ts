@@ -7,14 +7,9 @@ import {
   type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
 
-function cookieValue(sessionId: string, request: Request): string {
+export function projectSessionCookieValue(sessionId: string, request: Request): string {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax${secure}`;
-}
-
-function clearCookie(request: Request): string {
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${PROJECT_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }
 
 function descriptorResponse(
@@ -24,7 +19,8 @@ function descriptorResponse(
   return Response.json(session.descriptor, {
     headers: {
       "cache-control": "no-store",
-      "set-cookie": cookieValue(session.descriptor.sessionId, request),
+      "set-cookie": projectSessionCookieValue(session.descriptor.sessionId, request),
+      "x-project-id": session.projectId,
     },
   });
 }
@@ -39,7 +35,7 @@ export async function handleProjectSessionGet(
     if (error instanceof NoActiveProjectError) {
       return new Response(null, {
         status: 204,
-        headers: { "cache-control": "no-store", "set-cookie": clearCookie(request) },
+        headers: { "cache-control": "no-store" },
       });
     }
     return projectSessionErrorResponse(error);
