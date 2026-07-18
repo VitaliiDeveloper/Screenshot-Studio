@@ -79,7 +79,7 @@ describe("GET /api/assets", () => {
   });
 
   it("returns safe project image descriptors", async () => {
-    const response = await GET();
+    const response = await GET(new Request("http://x/api/assets"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       assets: [{ path: "assets/shot.png", name: "shot.png", source: "assets" }],

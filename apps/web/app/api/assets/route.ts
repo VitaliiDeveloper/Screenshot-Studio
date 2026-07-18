@@ -4,7 +4,7 @@ import { withActiveProjectSession } from "../../../lib/project-session.server.js
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req?: Request): Promise<Response> {
+export async function GET(req: Request): Promise<Response> {
   return withActiveProjectSession(req, async ({ projectPath }) => {
     try {
       return Response.json({ assets: await listProjectImageAssets(projectPath) });
