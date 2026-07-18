@@ -170,8 +170,8 @@ access; possession of a `sessionId` is never authorization by itself.
 
 | Deployment | Selection experience | Adapter locator | Visible location | Implementation boundary |
 |---|---|---|---|---|
-| CLI-seeded local web | `PROJECT_PATH` or `screenshots dev --project` | Canonical local JSON path | Exact path | `local-file`; implemented in Launcher 1/7 |
-| Managed browser web | Folder/ZIP/JSON import | Opaque managed project id | Project name / managed label | `managed-project`; Launcher 2/7–3/7 |
+| CLI-seeded local web | `PROJECT_PATH` or `screenshots dev --project` | Canonical local JSON path | Exact path | `local-file`; implemented in Launcher 1/8 |
+| Managed browser web | Folder/ZIP/JSON import | Opaque managed project id | Project name / managed label | `managed-project`; Launcher 2/8–3/8 |
 | Electron or another desktop shell | Native OS open dialog | Canonical local JSON path | Exact path | The same `local-file` adapter; future shell |
 | Hosted cloud project | Authenticated project catalog | Provider-owned project id | Project/workspace label or URL | `cloud-project`; cloud storage, authorization, and distributed concurrency |
 
@@ -209,14 +209,15 @@ concurrency behavior differ behind the adapter boundary.
 
 #### Compatibility and first delivery
 
-Launcher 1/7 implements only the local-file source and the active-session seam:
+Launcher 1/8 implements the local-file source and active-session seam; Launcher 2/8 adds the
+managed repository and catalog behind that same seam:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
 - `PROJECT_PATH` and `screenshots dev --project` seed a local-file session for backward compatibility;
 - App Home does not expose a browser path form or arbitrary local-path activation endpoint;
 - the initial local registry may be in-process, so a server restart can require reopening the project;
-  managed storage/catalog belongs to Launcher 2/7 and durable recents to Launcher 7/7;
+  managed storage/catalog belongs to Launcher 2/8 and durable recents to Launcher 8/8;
 - every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
   independently;
 - interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
@@ -224,7 +225,7 @@ Launcher 1/7 implements only the local-file source and the active-session seam:
   stable-export lease;
 - conditional revisions, mutation locks, strict validation, and shared render/export behavior remain
   unchanged;
-- managed browser import/archive export belongs to Launcher 3/7; Electron-specific and cloud
+- managed browser import/archive export belongs to Launcher 3/8; Electron-specific and cloud
   implementations are not created until their product surfaces exist.
 
 Future adapters must prove the same behavioral contract: validate before activation, preserve the
@@ -232,6 +233,43 @@ previous session on open failure, detect stale writes, avoid partial publication
 honestly, and keep `app-store-screenshots.json` free of source locators, recent history, credentials,
 and shell state. Resource storage beyond the narrow core `StorageAdapter` remains coordinated with the
 dedicated resource-system contracts rather than being hidden inside this session layer.
+
+#### Managed project storage and catalog (Launcher 2/8)
+
+The managed repository owns deployment metadata outside the strict Project document. Its data root is
+`${INIT_CWD ?? process.cwd()}/.screenshot-studio` by default, or the absolute/relative
+`SCREENSHOT_STUDIO_DATA_ROOT` resolved from that invocation directory. Deployments may set positive
+integer limits with `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, and
+`SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has four application-owned children:
+
+```
+.screenshot-studio/
+  catalog.json       # versioned active-project metadata only
+  projects/<id>/     # published project directories
+  staging/<token>/   # bounded, private pre-publication directories
+  recovery/<id>.json # publication intent while a directory/catalog transition is in progress
+```
+
+Catalog ids (`project_<32 lowercase hex>`), names, lifecycle state, timestamps, source locators, and
+recovery state never become fields in `app-store-screenshots.json`. `catalog.json` is strict and
+atomically replaced under a bounded filesystem lease. Its entries remain invisible until the staged
+directory has passed the core strict Project parser and the catalog entry is durable.
+
+Publication writes a synced `prepared` intent, renames the validated owned stage to its opaque project
+directory, advances to `directory-published`, atomically inserts the active catalog entry, then records
+`catalog-published` and removes the intent. A failed publication restores its owned stage and removes
+the intent; if rollback fails, the intent remains for startup reconciliation. Reconciliation only
+enumerates `staging/`, `recovery/`, and exact catalog-owned directories: it completes a valid
+directory-published catalog insert, removes already-complete intents, quarantines an invalid
+un-catalogued directory back to its owned stage, and fails closed when a catalog entry lacks its exact
+project directory. Expired owned stages are removed only after the configured TTL; there is no broad
+filesystem scan.
+
+The `managed-project` adapter opens a catalog id into the same request-scoped session as `local-file`.
+Its server-only `projectPath` remains available to existing project/resource APIs, but its browser
+descriptor intentionally omits `displayLocation`. Local-file behavior remains unchanged. Browser
+transport belongs to Launcher 3/8, creation/templates to Launcher 5/8, and user-facing
+Trash/restore/purge to Launcher 7/8.
 
 ### Render / export parity — the #1 technical risk
 

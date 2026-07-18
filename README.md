@@ -18,7 +18,7 @@ pnpm dev             # App Home → http://localhost:3000
 ```
 
 Without an explicit project source, App Home reports that no project is active and never opens or
-autosaves the bundled sample. The Launcher 1/7 foundation intentionally does not expose a browser
+autosaves the bundled sample. The Launcher 1/8 foundation intentionally does not expose a browser
 filesystem-path form. Start a local project explicitly with `PROJECT_PATH=... pnpm dev` or
 `screenshots dev --project ...`; browser Folder/ZIP/JSON import is delivered through managed project
 storage in later launcher slices.
