@@ -148,19 +148,22 @@ export default function EditorPage() {
 
   useEffect(() => {
     if (!activeProjectId) return;
-    const restored = readWorkspaceNavigationState(activeProjectId);
-    if (restored) {
-      setZoom(restored.zoom);
-      setView(restored.view);
-      setTool(restored.tool);
-      setPattern(restored.pattern);
-      setPanel(restored.panel);
-      setLastPanel(restored.lastPanel);
-      setInspectorOpen(window.matchMedia("(max-width: 959px)").matches
-        ? false
-        : restored.inspectorOpen);
-    }
-    setWorkspaceRestoredFor(activeProjectId);
+    const frame = requestAnimationFrame(() => {
+      const restored = readWorkspaceNavigationState(activeProjectId);
+      if (restored) {
+        setZoom(restored.zoom);
+        setView(restored.view);
+        setTool(restored.tool);
+        setPattern(restored.pattern);
+        setPanel(restored.panel);
+        setLastPanel(restored.lastPanel);
+        setInspectorOpen(window.matchMedia("(max-width: 959px)").matches
+          ? false
+          : restored.inspectorOpen);
+      }
+      setWorkspaceRestoredFor(activeProjectId);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [activeProjectId, setPanel]);
 
   useEffect(() => {
@@ -173,11 +176,14 @@ export default function EditorPage() {
 
   useEffect(() => {
     if (!activeProjectId || workspaceRestoredFor !== activeProjectId) return;
-    const intent = new URLSearchParams(window.location.search).get("intent");
-    if (intent === "locales") setLocaleDialogOpen(true);
-    if (intent === "export") setExportRequestKey((current) => current + 1);
-    if (intent === "add-screen" || intent === "layouts") setPanel("structure");
-    if (intent) router.replace("/editor", { scroll: false });
+    const frame = requestAnimationFrame(() => {
+      const intent = new URLSearchParams(window.location.search).get("intent");
+      if (intent === "locales") setLocaleDialogOpen(true);
+      if (intent === "export") setExportRequestKey((current) => current + 1);
+      if (intent === "add-screen" || intent === "layouts") setPanel("structure");
+      if (intent) router.replace("/editor", { scroll: false });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [activeProjectId, router, setPanel, workspaceRestoredFor]);
 
   useEffect(() => {

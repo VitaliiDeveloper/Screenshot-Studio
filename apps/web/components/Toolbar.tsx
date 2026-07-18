@@ -169,7 +169,9 @@ export function Toolbar({
   ].join("\u0000");
 
   useEffect(() => {
-    if (exportRequestKey > 0) setExportOpen(true);
+    if (exportRequestKey <= 0) return;
+    const frame = requestAnimationFrame(() => setExportOpen(true));
+    return () => cancelAnimationFrame(frame);
   }, [exportRequestKey]);
 
   useLayoutEffect(() => {
