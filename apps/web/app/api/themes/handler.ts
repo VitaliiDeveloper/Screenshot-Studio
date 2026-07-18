@@ -6,8 +6,11 @@ import {
   ThemeNotFoundError,
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
+import { projectRevisionConflictResponse } from "../../../lib/project-request-fence.server.js";
 
 function errorResponse(error: unknown): Response {
+  const revisionConflict = projectRevisionConflictResponse(error);
+  if (revisionConflict) return revisionConflict;
   const message = error instanceof Error ? error.message : String(error);
   const status = error instanceof ThemeValidationError ? 400
     : error instanceof ThemeNotFoundError ? 404
@@ -37,7 +40,11 @@ export async function handleThemeGet(projectPath: string): Promise<Response> {
   }
 }
 
-export async function handleThemePost(projectPath: string, req: Request): Promise<Response> {
+export async function handleThemePost(
+  projectPath: string,
+  req: Request,
+  expectedRevision?: string,
+): Promise<Response> {
   try {
     const body = await jsonBody(req);
     const { project, revision } = await applyThemeFile(
@@ -45,6 +52,7 @@ export async function handleThemePost(projectPath: string, req: Request): Promis
       body.id,
       {},
       typeof body.layoutId === "string" ? body.layoutId : undefined,
+      { expectedRevision },
     );
     return Response.json(project, { headers: { etag: `"${revision}"` } });
   } catch (error) {

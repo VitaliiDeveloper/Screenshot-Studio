@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 import { handleThemeGet, handleThemePost } from "./handler.js";
-import { withActiveProjectSession } from "../../../lib/project-session.server.js";
+import {
+  withProjectMutationRequest,
+  withProjectReadRequest,
+} from "../../../lib/project-request-fence.server.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: Request): Promise<Response> {
-  return withActiveProjectSession(
+  return withProjectReadRequest(
     req,
     ({ projectPath }) => handleThemeGet(projectPath),
   );
 }
 
 export async function POST(req: Request): Promise<Response> {
-  return withActiveProjectSession(
+  return withProjectMutationRequest(
     req,
-    ({ projectPath }) => handleThemePost(projectPath, req),
+    ({ projectPath }, expectedRevision) => handleThemePost(projectPath, req, expectedRevision),
   );
 }

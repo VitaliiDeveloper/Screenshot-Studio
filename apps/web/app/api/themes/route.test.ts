@@ -75,17 +75,87 @@ describe("/api/themes", () => {
     const session = await projectSessionRegistry.openLocal(projectPath);
     process.env.PROJECT_PATH = join(dir, "configured-missing.json");
     const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+    const revision = projectRevision(await readFile(projectPath));
 
-    const listed = await GET(new Request("http://localhost/api/themes", { headers: { cookie } }));
+    const listed = await GET(new Request("http://localhost/api/themes", {
+      headers: { cookie, "x-project-id": session.projectId },
+    }));
     expect((await listed.json()).themes).toMatchObject([{ id: "midnight" }]);
 
     const applied = await POST(new Request("http://localhost/api/themes", {
       method: "POST",
-      headers: { cookie },
+      headers: {
+        cookie,
+        "if-match": `"${revision}"`,
+        "x-project-id": session.projectId,
+      },
       body: JSON.stringify({ id: "midnight" }),
     }));
     expect(applied.status).toBe(200);
     expect((await applied.json()).layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
+  });
+
+  it("rejects a stale project identity before applying a theme", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+    const before = await readFile(projectPath);
+
+    const response = await POST(new Request("http://localhost/api/themes", {
+      method: "POST",
+      headers: {
+        cookie,
+        "if-match": `"${projectRevision(before)}"`,
+        "x-project-id": "stale-project",
+      },
+      body: JSON.stringify({ id: "midnight" }),
+    }));
+
+    expect(response.status).toBe(409);
+    expect(await readFile(projectPath)).toEqual(before);
+  });
+
+  it("rejects a stale project revision before applying a theme", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+    const before = await readFile(projectPath);
+
+    const response = await POST(new Request("http://localhost/api/themes", {
+      method: "POST",
+      headers: {
+        cookie,
+        "if-match": '"stale-revision"',
+        "x-project-id": session.projectId,
+      },
+      body: JSON.stringify({ id: "midnight" }),
+    }));
+
+    expect(response.status).toBe(412);
+    expect(await readFile(projectPath)).toEqual(before);
+  });
+
+  it("requires project identity and one strong conditional ETag", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+
+    expect((await GET(new Request("http://localhost/api/themes", {
+      headers: { cookie },
+    }))).status).toBe(428);
+
+    expect((await POST(new Request("http://localhost/api/themes", {
+      method: "POST",
+      headers: { cookie, "x-project-id": session.projectId },
+      body: JSON.stringify({ id: "midnight" }),
+    }))).status).toBe(428);
+
+    expect((await POST(new Request("http://localhost/api/themes", {
+      method: "POST",
+      headers: {
+        cookie,
+        "if-match": 'W/"weak-revision"',
+        "x-project-id": session.projectId,
+      },
+      body: JSON.stringify({ id: "midnight" }),
+    }))).status).toBe(400);
   });
 
   it("returns 409 without a session before changing themes or the project revision", async () => {

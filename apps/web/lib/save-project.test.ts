@@ -33,6 +33,7 @@ interface RevisionAwareSaveProjectModule {
   clearProjectPersistenceIdentity(): void;
   resolveActiveProjectAssetUrl(path: string): string;
   advanceProjectRevisionFromResponse(response: Pick<Response, "headers">): void;
+  projectRequestHeaders(options?: { conditional?: boolean }): Headers;
 }
 
 const initialRevision = '"revision-one"';
@@ -76,6 +77,18 @@ describe("project revision tracking", () => {
     api.clearProjectPersistenceIdentity();
     expect(() => api.resolveActiveProjectAssetUrl("assets/Hero image.png"))
       .toThrow(/identity/i);
+  });
+
+  it("constructs project-bound read and conditional mutation headers", () => {
+    api.setProjectPersistenceIdentity("project-one", initialRevision);
+
+    const readHeaders = api.projectRequestHeaders();
+    expect(readHeaders.get("x-project-id")).toBe("project-one");
+    expect(readHeaders.has("if-match")).toBe(false);
+
+    const mutationHeaders = api.projectRequestHeaders({ conditional: true });
+    expect(mutationHeaders.get("x-project-id")).toBe("project-one");
+    expect(mutationHeaders.get("if-match")).toBe(initialRevision);
   });
 
   it("seeds and exposes an opaque quoted ETag", () => {

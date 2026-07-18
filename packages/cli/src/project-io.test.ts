@@ -176,6 +176,25 @@ describe("project IO", () => {
     expect(snapshot.revision).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it("rejects a stale expected revision inside the project mutation lease", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeProjectFile(projectPath, sampleProject());
+
+    await expect(updateProjectFile(
+      projectPath,
+      (project) => ({
+        project: { ...project, meta: { ...project.meta, name: "Stale update" } },
+        value: undefined,
+      }),
+      {},
+      {},
+      { expectedRevision: "stale-revision" },
+    )).rejects.toBeInstanceOf(ProjectRevisionConflictError);
+
+    expect((await loadProjectFile(projectPath)).meta.name).toBe("CLI Project");
+  });
+
   it("runs registered rollbacks in reverse order after the updater fails", async () => {
     const dir = await temporaryDirectory();
     const projectPath = join(dir, "app-store-screenshots.json");

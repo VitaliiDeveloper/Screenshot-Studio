@@ -57,14 +57,6 @@ function uploadRequest(family = "Inter", weight = "700"): Request {
   return new Request("http://localhost/api/fonts", { method: "POST", body: form });
 }
 
-function sessionRequest(sessionId: string, method = "GET", body?: BodyInit): Request {
-  return new Request("http://localhost/api/fonts", {
-    method,
-    headers: { cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}` },
-    body,
-  });
-}
-
 describe("/api/fonts", () => {
   it("uploads, lists, and removes a custom font", async () => {
     const added = await handleFontPost(projectPath, uploadRequest());
@@ -231,25 +223,82 @@ describe("/api/fonts", () => {
     const session = await projectSessionRegistry.openLocal(projectPath);
     process.env.PROJECT_PATH = join(dir, "configured-missing.json");
     const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+    let revision = projectRevision(await readFile(projectPath));
     const upload = uploadRequest();
 
     const added = await POST(new Request(upload.url, {
       method: "POST",
-      headers: { ...Object.fromEntries(upload.headers), cookie },
+      headers: {
+        ...Object.fromEntries(upload.headers),
+        cookie,
+        "if-match": `"${revision}"`,
+        "x-project-id": session.projectId,
+      },
       body: await upload.arrayBuffer(),
     }));
     expect(added.status).toBe(201);
 
-    const listed = await GET(sessionRequest(session.descriptor.sessionId));
+    revision = projectRevision(await readFile(projectPath));
+    const listed = await GET(new Request("http://localhost/api/fonts", {
+      headers: { cookie, "x-project-id": session.projectId },
+    }));
     expect((await listed.json()).fonts).toHaveLength(1);
 
-    const removed = await DELETE(sessionRequest(
-      session.descriptor.sessionId,
-      "DELETE",
-      JSON.stringify({ family: "Inter", weight: 700 }),
-    ));
+    const removed = await DELETE(new Request("http://localhost/api/fonts", {
+      method: "DELETE",
+      headers: {
+        cookie,
+        "if-match": `"${revision}"`,
+        "x-project-id": session.projectId,
+      },
+      body: JSON.stringify({ family: "Inter", weight: 700 }),
+    }));
     expect(removed.status).toBe(200);
     expect((await removed.json()).fonts).toEqual([]);
+  });
+
+  it("rejects a stale project identity before publishing an uploaded font", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    const before = await readFile(projectPath);
+    const upload = uploadRequest();
+
+    const response = await POST(new Request(upload.url, {
+      method: "POST",
+      headers: {
+        ...Object.fromEntries(upload.headers),
+        cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`,
+        "if-match": `"${projectRevision(before)}"`,
+        "x-project-id": "stale-project",
+      },
+      body: await upload.arrayBuffer(),
+    }));
+
+    expect(response.status).toBe(409);
+    expect(await readFile(projectPath)).toEqual(before);
+    await expect(readFile(join(dir, "assets/fonts/inter-700.ttf")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects a stale project revision before publishing an uploaded font", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    const before = await readFile(projectPath);
+    const upload = uploadRequest();
+
+    const response = await POST(new Request(upload.url, {
+      method: "POST",
+      headers: {
+        ...Object.fromEntries(upload.headers),
+        cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`,
+        "if-match": '"stale-revision"',
+        "x-project-id": session.projectId,
+      },
+      body: await upload.arrayBuffer(),
+    }));
+
+    expect(response.status).toBe(412);
+    expect(await readFile(projectPath)).toEqual(before);
+    await expect(readFile(join(dir, "assets/fonts/inter-700.ttf")))
+      .rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("returns 409 without a session before changing fonts or the project revision", async () => {

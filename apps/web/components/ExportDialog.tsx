@@ -6,6 +6,7 @@ import { useStore } from "zustand";
 import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
+import { projectRequestHeaders } from "../lib/save-project";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import {
   DEFAULT_EXPORT_FILTERS,
@@ -49,7 +50,10 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
       await withFlushedProject(async () => {
         const res = await fetch("/api/export", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: projectRequestHeaders({
+            conditional: true,
+            headers: { "content-type": "application/json" },
+          }),
           body: JSON.stringify({
             layoutId: activeLayoutId,
             platform: filters.platform === "all" ? undefined : filters.platform,

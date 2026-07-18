@@ -8,7 +8,7 @@ import {
   resolveExistingProjectPath,
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
-import { updateProjectFile } from "./project-io.js";
+import { updateProjectFile, type ProjectUpdatePreconditions } from "./project-io.js";
 import { resolveMutationLayout } from "./layout-commands.js";
 
 const THEME_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -393,6 +393,7 @@ export async function applyThemeFile(
   rawId: unknown,
   lockOptions: ProjectLockOptions = {},
   layoutReference?: string,
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<{
   project: Project;
   revision: string;
@@ -408,6 +409,6 @@ export async function applyThemeFile(
     } catch (error) {
       throw new ThemeApplyError((error as Error).message, { cause: error });
     }
-  }, lockOptions);
+  }, lockOptions, {}, preconditions);
   return { project: updated.project, revision: updated.revision, theme };
 }

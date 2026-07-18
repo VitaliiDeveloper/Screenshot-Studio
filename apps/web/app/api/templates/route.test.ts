@@ -70,17 +70,54 @@ describe("/api/templates", () => {
     const session = await projectSessionRegistry.openLocal(projectPath);
     process.env.PROJECT_PATH = join(dir, "configured-missing.json");
     const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+    const revision = projectRevision(await readFile(projectPath));
 
-    const listed = await GET(new Request("http://localhost/api/templates", { headers: { cookie } }));
+    const listed = await GET(new Request("http://localhost/api/templates", {
+      headers: { cookie, "x-project-id": session.projectId },
+    }));
     expect((await listed.json()).templates).toMatchObject([{ id: "accent-card" }]);
 
     const created = await POST(new Request("http://localhost/api/templates", {
       method: "POST",
-      headers: { cookie },
+      headers: {
+        cookie,
+        "if-match": `"${revision}"`,
+        "x-project-id": session.projectId,
+      },
       body: JSON.stringify({ id: "accent-card", locale: "uk" }),
     }));
     expect(created.status).toBe(200);
     expect((await created.json()).screenId).toBe("accent-card");
+  });
+
+  it("rejects stale project identity and revision before creating a screen", async () => {
+    const session = await projectSessionRegistry.openLocal(projectPath);
+    const cookie = `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`;
+    const before = await readFile(projectPath);
+
+    const staleProject = await POST(new Request("http://localhost/api/templates", {
+      method: "POST",
+      headers: {
+        cookie,
+        "if-match": `"${projectRevision(before)}"`,
+        "x-project-id": "stale-project",
+      },
+      body: JSON.stringify({ id: "accent-card", locale: "uk" }),
+    }));
+    expect(staleProject.status).toBe(409);
+    expect(await readFile(projectPath)).toEqual(before);
+
+    const staleRevision = await POST(new Request("http://localhost/api/templates", {
+      method: "POST",
+      headers: {
+        cookie,
+        "if-match": '"stale-revision"',
+        "x-project-id": session.projectId,
+      },
+      body: JSON.stringify({ id: "accent-card", locale: "uk" }),
+    }));
+    expect(staleRevision.status).toBe(412);
+    expect(await readFile(projectPath)).toEqual(before);
   });
 
   it("returns 409 without a session before changing templates or the project revision", async () => {

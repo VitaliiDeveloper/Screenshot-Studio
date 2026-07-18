@@ -219,6 +219,9 @@ Launcher 1/7 implements only the local-file source and the active-session seam:
   managed storage/catalog belongs to Launcher 2/7 and durable recents to Launcher 7/7;
 - every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
   independently;
+- interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
+  export additionally require a strong `If-Match` revision that is rechecked inside their mutation or
+  stable-export lease;
 - conditional revisions, mutation locks, strict validation, and shared render/export behavior remain
   unchanged;
 - managed browser import/archive export belongs to Launcher 3/7; Electron-specific and cloud

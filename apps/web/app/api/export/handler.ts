@@ -9,6 +9,7 @@ import {
   type BundleFilters,
 } from "@screenshot-studio/core/export";
 import {
+  ProjectRevisionConflictError,
   readProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
@@ -16,6 +17,7 @@ import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/ex
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
 import { resolveStoreSpecsPath } from "../../../lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "../../../lib/export-artifacts.server.js";
+import { projectRevisionConflictResponse } from "../../../lib/project-request-fence.server.js";
 
 interface ExportRequest {
   layoutId?: string;
@@ -50,6 +52,7 @@ export async function handleExportPost(
   projectPath: string,
   req: Request,
   dependencies: ExportRouteDependencies = {},
+  expectedRevision?: string,
 ): Promise<Response> {
   const createSession = dependencies.createRenderBrowserSession ?? createRenderBrowserSession;
   const exportBundleOutputs = dependencies.exportBundle ?? exportBundle;
@@ -65,9 +68,16 @@ export async function handleExportPost(
   let specs: ReturnType<typeof parseStoreSpecs>;
   let layoutId: string;
   try {
-    const project = (await readProjectSnapshot(
+    const snapshot = await readProjectSnapshot(
       await resolveExistingProjectPath(projectPath),
-    )).project;
+    );
+    if (expectedRevision !== undefined && expectedRevision !== snapshot.revision) {
+      return projectRevisionConflictResponse(new ProjectRevisionConflictError(
+        expectedRevision,
+        snapshot.revision,
+      ))!;
+    }
+    const project = snapshot.project;
     layoutId = getLayout(project, body.layoutId ?? project.preferredExportLayoutId).id;
     assertProjectFontsResolved(project, layoutId);
     specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
@@ -84,6 +94,9 @@ export async function handleExportPost(
   try {
     session = await createSession();
     result = await withStableProjectExport(projectPath, async (context) => {
+      if (expectedRevision !== undefined && expectedRevision !== context.revision) {
+        throw new ProjectRevisionConflictError(expectedRevision, context.revision);
+      }
       getLayout(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
       const entries = buildBundleEntries(context.project, layoutId, specs, filters);
@@ -120,6 +133,10 @@ export async function handleExportPost(
   }
 
   if (hasOperationError || hasCleanupError) {
+    if (hasOperationError && !hasCleanupError) {
+      const revisionConflict = projectRevisionConflictResponse(operationError);
+      if (revisionConflict) return revisionConflict;
+    }
     const error = hasOperationError && hasCleanupError
       ? withBrowserCleanupError(operationError, cleanupError)
       : hasOperationError ? operationError : cleanupError;

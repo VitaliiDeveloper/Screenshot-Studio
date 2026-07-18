@@ -20,7 +20,11 @@ import {
   FontValidationError,
   parseSupportedFont,
 } from "./font-validation.js";
-import { loadProjectFile, updateProjectFile } from "./project-io.js";
+import {
+  loadProjectFile,
+  updateProjectFile,
+  type ProjectUpdatePreconditions,
+} from "./project-io.js";
 import {
   ManagedResourceConflictError,
   publishManagedResourceFile,
@@ -200,6 +204,7 @@ async function addMaterializedFontMutation(
   projectPath: string,
   input: AddFontInput & { source: FontAsset["source"]; extension: string; bytes: Uint8Array },
   dependencies: FontServiceDependencies = {},
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<FontMutationResult> {
   const family = fontFamily(input.family);
   const weight = fontWeight(input.weight);
@@ -234,7 +239,7 @@ async function addMaterializedFontMutation(
       fonts: [...project.fonts, { family, source: input.source, path, weight }],
     };
     return { project: nextProject, value: undefined };
-  }, dependencies.lockOptions, dependencies.fileDependencies);
+  }, dependencies.lockOptions, dependencies.fileDependencies, preconditions);
 
   return { project: updated.project, revision: updated.revision };
 }
@@ -243,6 +248,7 @@ export async function addUploadedFontMutation(
   projectPath: string,
   input: AddUploadedFontInput,
   dependencies: FontServiceDependencies = {},
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<FontMutationResult> {
   const family = fontFamily(input.family);
   const weight = fontWeight(input.weight);
@@ -253,7 +259,7 @@ export async function addUploadedFontMutation(
     source: "uploaded",
     extension: `.${parsed.format}`,
     bytes: input.bytes,
-  }, dependencies);
+  }, dependencies, preconditions);
 }
 
 export async function addUploadedFont(
@@ -291,6 +297,7 @@ export async function addGoogleFontMutation(
   projectPath: string,
   input: AddFontInput,
   dependencies: FontServiceDependencies = {},
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<FontMutationResult> {
   const family = fontFamily(input.family);
   const weight = fontWeight(input.weight);
@@ -313,7 +320,7 @@ export async function addGoogleFontMutation(
     source: "google",
     extension: downloaded.extension,
     bytes: downloaded.bytes,
-  }, dependencies);
+  }, dependencies, preconditions);
 }
 
 export async function addGoogleFont(
@@ -328,6 +335,7 @@ export async function removeFontMutation(
   projectPath: string,
   input: AddFontInput,
   dependencies: FontServiceDependencies = {},
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<FontMutationResult> {
   const family = fontFamily(input.family);
   const weight = fontWeight(input.weight);
@@ -355,7 +363,7 @@ export async function removeFontMutation(
       }
     }
     return { project: nextProject, value: undefined };
-  }, dependencies.lockOptions, dependencies.fileDependencies);
+  }, dependencies.lockOptions, dependencies.fileDependencies, preconditions);
 
   return { project: updated.project, revision: updated.revision };
 }

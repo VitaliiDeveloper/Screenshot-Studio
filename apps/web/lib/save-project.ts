@@ -43,6 +43,21 @@ export function getProjectPersistenceIdentity(): ProjectPersistenceIdentity | un
   return projectId && projectRevision ? { projectId, revision: projectRevision } : undefined;
 }
 
+/** Build headers that fence a project-bound request to the editor's loaded workspace. */
+export function projectRequestHeaders(options: {
+  conditional?: boolean;
+  headers?: HeadersInit;
+} = {}): Headers {
+  const identity = getProjectPersistenceIdentity();
+  if (!identity) {
+    throw new Error("Project identity is unavailable; reload the project before continuing");
+  }
+  const headers = new Headers(options.headers);
+  headers.set("x-project-id", identity.projectId);
+  if (options.conditional) headers.set("if-match", identity.revision);
+  return headers;
+}
+
 export function clearProjectPersistenceIdentity(): void {
   projectId = undefined;
   projectRevision = undefined;

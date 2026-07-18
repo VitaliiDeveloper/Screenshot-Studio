@@ -21,7 +21,11 @@ import { editorStore } from "../lib/editor-store";
 import { primarySelection } from "../lib/editor-selection";
 import { withFlushedProject } from "../lib/debounced-save";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { resolveActiveProjectAssetUrl, setProjectRevision } from "../lib/save-project";
+import {
+  projectRequestHeaders,
+  resolveActiveProjectAssetUrl,
+  setProjectRevision,
+} from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { reconcileFontMutationResponse } from "./font-manager-model";
 
@@ -93,7 +97,11 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         form.set("family", uploadFamily);
         form.set("weight", String(uploadWeight));
         await reconcileAdd(
-          await fetch("/api/fonts", { method: "POST", body: form }),
+          await fetch("/api/fonts", {
+            method: "POST",
+            headers: projectRequestHeaders({ conditional: true }),
+            body: form,
+          }),
           previousProject,
         );
       });
@@ -116,7 +124,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         const previousProject = editorStore.getState().project!;
         const response = await fetch("/api/fonts", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: projectRequestHeaders({
+            conditional: true,
+            headers: { "content-type": "application/json" },
+          }),
           body: JSON.stringify({ source: "google", family: googleFamily, weight: googleWeight }),
         });
         await reconcileAdd(response, previousProject);
@@ -138,7 +149,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         const previousProject = editorStore.getState().project!;
         const response = await fetch("/api/fonts", {
           method: "DELETE",
-          headers: { "content-type": "application/json" },
+          headers: projectRequestHeaders({
+            conditional: true,
+            headers: { "content-type": "application/json" },
+          }),
           body: JSON.stringify({ family: font.family, weight: font.weight }),
         });
         await reconcileFontMutationResponse({

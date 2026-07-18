@@ -49,14 +49,21 @@ function req(body: unknown): Request {
   });
 }
 
-async function sessionReq(projectPath: string, body: unknown): Promise<Request> {
+async function sessionReq(
+  projectPath: string,
+  body: unknown,
+  override: { projectId?: string; revision?: string } = {},
+): Promise<Request> {
   const session = await projectSessionRegistry.openLocal(projectPath);
+  const revision = projectRevision(await readFile(projectPath));
   process.env.PROJECT_PATH = join(dirname(projectPath), "configured-missing.json");
   return new Request("http://localhost/api/export", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`,
+      "if-match": override.revision ?? `"${revision}"`,
+      "x-project-id": override.projectId ?? session.projectId,
     },
     body: JSON.stringify(body),
   });
@@ -72,6 +79,24 @@ afterEach(async () => {
 });
 
 describe("POST /api/export", () => {
+  it("rejects a stale expected revision inside the stable export lease", async () => {
+    const { directory, projectPath } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const exportBundle = vi.fn(async () => zipPath);
+
+    const response = await handleExportPost(projectPath, req({}), {
+      createRenderBrowserSession: vi.fn(async () => ({
+        renderScreenToPng: vi.fn(),
+        close: vi.fn(async () => undefined),
+      })),
+      exportBundle,
+    }, "stale-revision");
+
+    expect(response.status).toBe(412);
+    expect(exportBundle).not.toHaveBeenCalled();
+  });
+
   it("treats valid non-object JSON as an unfiltered request", async () => {
     const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
@@ -225,6 +250,24 @@ describe("POST /api/export", () => {
     const res = await POST(await sessionReq(projectPath, {}));
     expect(res.status).toBe(422);
     expect((await res.json()).error).toMatch(/unresolved project fonts.*sans-serif/);
+  });
+
+  it("rejects stale project identity and revision before export validation", async () => {
+    const { projectPath } = await useProject();
+
+    const staleProject = await POST(await sessionReq(
+      projectPath,
+      { locale: "does-not-exist" },
+      { projectId: "stale-project" },
+    ));
+    expect(staleProject.status).toBe(409);
+
+    const staleRevision = await POST(await sessionReq(
+      projectPath,
+      { locale: "does-not-exist" },
+      { revision: '"stale-revision"' },
+    ));
+    expect(staleRevision.status).toBe(412);
   });
 
   it("returns 409 without a session before creating export resources or changing the revision", async () => {
