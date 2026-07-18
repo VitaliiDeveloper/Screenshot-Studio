@@ -127,6 +127,11 @@ asset boundary. An opened source supplies the adapter-specific `projectId` used 
 where supported, the project-local context required by the dedicated font, theme, template, import,
 processed-asset, and export services.
 
+The in-process session registry is a bounded least-recently-used cache of at most 30 opened projects.
+Resolving a session id or reopening the same canonical local path refreshes its recency; opening a
+31st distinct project evicts the oldest session from both id and path lookup. Eviction drops only
+application session metadata and never deletes or mutates the project document or its resources.
+
 An illustrative browser-safe descriptor is:
 
 ```ts

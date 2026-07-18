@@ -11,6 +11,8 @@ import type { ActiveProjectDescriptor } from "./project-session.js";
 
 export const PROJECT_SESSION_COOKIE = "screenshot_studio_project_session";
 
+const MAX_PROJECT_SESSIONS = 30;
+
 const LOCAL_CAPABILITIES = {
   writeInPlace: true,
   revealLocation: true,
@@ -78,6 +80,7 @@ export class ProjectSessionRegistry {
     const existing = this.#byPath.get(opened.projectPath);
     if (existing) {
       existing.descriptor.name = opened.name;
+      this.#touch(existing);
       return existing;
     }
     const sessionId = this.#createSessionId();
@@ -94,11 +97,29 @@ export class ProjectSessionRegistry {
     };
     this.#byId.set(sessionId, session);
     this.#byPath.set(opened.projectPath, session);
+    this.#evictLeastRecentlyUsed();
     return session;
   }
 
   get(sessionId: string): LocalProjectSession | undefined {
-    return this.#byId.get(sessionId);
+    const session = this.#byId.get(sessionId);
+    if (session) this.#touch(session);
+    return session;
+  }
+
+  #touch(session: LocalProjectSession): void {
+    this.#byId.delete(session.descriptor.sessionId);
+    this.#byId.set(session.descriptor.sessionId, session);
+    this.#byPath.delete(session.projectPath);
+    this.#byPath.set(session.projectPath, session);
+  }
+
+  #evictLeastRecentlyUsed(): void {
+    if (this.#byId.size <= MAX_PROJECT_SESSIONS) return;
+    const leastRecentlyUsed = this.#byId.values().next().value;
+    if (!leastRecentlyUsed) return;
+    this.#byId.delete(leastRecentlyUsed.descriptor.sessionId);
+    this.#byPath.delete(leastRecentlyUsed.projectPath);
   }
 }
 

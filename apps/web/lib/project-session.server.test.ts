@@ -42,7 +42,89 @@ async function createProject(name: string): Promise<string> {
   return path;
 }
 
+function createStubLocalSource() {
+  return {
+    kind: "local-file",
+    open: vi.fn(async (requestedPath: string) => ({
+      name: requestedPath,
+      projectId: `project:${requestedPath}`,
+      projectPath: `/canonical/${requestedPath}.json`,
+      displayLocation: `/canonical/${requestedPath}.json`,
+      capabilities: {
+        writeInPlace: true,
+        revealLocation: true,
+        watchExternalChanges: true,
+        nativePicker: false,
+        projectLocalResources: true,
+      },
+    })),
+  } satisfies Pick<LocalFileProjectSourceAdapter, "kind" | "open">;
+}
+
 describe("ProjectSessionRegistry", () => {
+  it("evicts the least-recently-used session from both indexes after 30 projects", async () => {
+    let nextSessionId = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSessionId}`,
+      localSource: createStubLocalSource(),
+    });
+    const opened = [];
+
+    for (let index = 0; index < 31; index += 1) {
+      opened.push(await registry.openLocal(`project-${index}`));
+    }
+    const oldest = opened[0]!;
+    const nextOldest = opened[1]!;
+
+    expect(registry.get(oldest.descriptor.sessionId)).toBeUndefined();
+    expect(registry.get(nextOldest.descriptor.sessionId)).toBe(nextOldest);
+
+    const reopened = await registry.openLocal("project-0");
+    expect(reopened.descriptor.sessionId).not.toBe(oldest.descriptor.sessionId);
+  });
+
+  it("refreshes recency when a session is resolved by id", async () => {
+    let nextSessionId = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSessionId}`,
+      localSource: createStubLocalSource(),
+    });
+    const opened = [];
+
+    for (let index = 0; index < 30; index += 1) {
+      opened.push(await registry.openLocal(`project-${index}`));
+    }
+    const oldest = opened[0]!;
+    const nextOldest = opened[1]!;
+    expect(registry.get(oldest.descriptor.sessionId)).toBe(oldest);
+
+    await registry.openLocal("project-30");
+
+    expect(registry.get(oldest.descriptor.sessionId)).toBe(oldest);
+    expect(registry.get(nextOldest.descriptor.sessionId)).toBeUndefined();
+  });
+
+  it("refreshes recency when the same canonical path is opened again", async () => {
+    let nextSessionId = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSessionId}`,
+      localSource: createStubLocalSource(),
+    });
+    const opened = [];
+
+    for (let index = 0; index < 30; index += 1) {
+      opened.push(await registry.openLocal(`project-${index}`));
+    }
+    const oldest = opened[0]!;
+    const nextOldest = opened[1]!;
+    await expect(registry.openLocal("project-0")).resolves.toBe(oldest);
+
+    await registry.openLocal("project-30");
+
+    expect(registry.get(oldest.descriptor.sessionId)).toBe(oldest);
+    expect(registry.get(nextOldest.descriptor.sessionId)).toBeUndefined();
+  });
+
   it("keeps opaque sessions when the server module is re-evaluated", async () => {
     const projectPath = await createProject("Reloaded module");
     vi.resetModules();
