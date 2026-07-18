@@ -188,4 +188,49 @@ describe("Project Home and Workspace round trip", () => {
       await server.stop();
     }
   });
+
+  it("closes an imported replacement without saving the previously loaded workspace", async () => {
+    const replacementRoot = join(directory, "replacement-project");
+    cpSync(projectRoot, replacementRoot, { recursive: true });
+    const replacementPath = join(replacementRoot, "app-store-screenshots.json");
+    const replacement = JSON.parse(readFileSync(replacementPath, "utf8")) as Project;
+    replacement.meta.name = "Replacement project";
+    writeFileSync(replacementPath, `${JSON.stringify(replacement, null, 2)}\n`);
+
+    const server = await startWebServer(undefined, {
+      storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+    });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    try {
+      const page = await context.newPage();
+      await page.goto(`${server.url}/?switch=1`, { waitUntil: "load" });
+      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
+      await page.getByRole("button", { name: "Import managed copy" }).click();
+      await page.waitForURL(`${server.url}/home`);
+
+      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
+      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForSelector("canvas");
+      await page.getByRole("button", { name: "Project Home", exact: true }).click();
+      await page.waitForURL(`${server.url}/home`);
+
+      await page.getByRole("link", { name: "Import another project", exact: true }).click();
+      await page.waitForURL(`${server.url}/?switch=1`);
+      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByLabel("Choose project folder").setInputFiles(replacementRoot);
+      await page.getByRole("button", { name: "Import managed copy" }).click();
+      await page.waitForURL(`${server.url}/home`);
+      await page.getByRole("heading", { name: replacement.meta.name, exact: true }).waitFor();
+
+      await page.getByRole("button", { name: "Close project", exact: true }).click();
+      await page.waitForURL(`${server.url}/?switch=1`);
+      expect(await page.evaluate(async () => (
+        await fetch("/api/project-session", { cache: "no-store" })
+      ).status)).toBe(204);
+    } finally {
+      await context.close();
+      await server.stop();
+    }
+  });
 });
