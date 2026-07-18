@@ -17,11 +17,12 @@ pnpm install
 pnpm dev             # App Home → http://localhost:3000
 ```
 
-Without an explicit project source, App Home reports that no project is active and never opens or
-autosaves the bundled sample. The Launcher 1/8 foundation intentionally does not expose a browser
-filesystem-path form. Start a local project explicitly with `PROJECT_PATH=... pnpm dev` or
-`screenshots dev --project ...`; browser Folder/ZIP/JSON import is delivered through managed project
-storage in later launcher slices.
+Without an explicit project source, App Home never opens or autosaves the bundled sample. Import an
+existing complete project from a **Folder** (recommended), a project ZIP, or an eligible standalone
+`app-store-screenshots.json`. Browser import validates the selection and creates a managed copy; it
+does not edit the selected source in place. Local self-hosted workflows may still start explicitly
+with `PROJECT_PATH=... pnpm dev` or `screenshots dev --project ...`. App Home intentionally exposes no
+browser filesystem-path form.
 
 For example:
 
@@ -236,11 +237,22 @@ semantic object/person segmentation for complex scenes.
 
 ### Editor
 
-`pnpm dev` (see **Quick start**) runs the no-active-project App Home at http://localhost:3000. To open
-a local project in the current foundation, set `PROJECT_PATH` to an existing absolute
-`app-store-screenshots.json` path before starting the host, or run
-`screenshots dev --project /absolute/path/to/app-store-screenshots.json`. Both seed the same
-local-file session; App Home itself does not ask the user to paste a filesystem path.
+`pnpm dev` (see **Quick start**) runs App Home at http://localhost:3000. **Import project** accepts a
+complete Folder, project ZIP, or standalone JSON. Folder/ZIP is required when the strict project
+references screenshots, uploaded fonts, an app icon, or other project-local resources; a failed JSON
+import lists the missing paths so the complete source can be chosen. Import is bounded by
+`SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES` (256 MiB by default),
+`SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, and `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, then atomically
+activates the managed copy and opens Project Home. Cancellation or failure preserves the previous
+active session.
+
+Managed Project Home can **Export project archive** as `screenshot-studio-project.zip`. This portable
+archive contains the strict document and supported project resources, and can be imported again from
+App Home. It excludes managed catalog/session state, locks, staging/temp files, credentials, rendered
+store output, and other unsupported paths. Project archive export is a backup/transfer action; it is
+separate from Workspace store-image export. To open an existing local project in place instead, set
+`PROJECT_PATH` to an absolute `app-store-screenshots.json` before starting the host, or run
+`screenshots dev --project /absolute/path/to/app-store-screenshots.json`.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
 strict `templates/*.json`. The Add shelf inserts text, shape, and trusted built-in icons directly;
@@ -265,7 +277,7 @@ pnpm test:e2e:parity:foundation # base renderer/font/media/RTL/connected parity
 pnpm test:e2e:parity:elements   # group/image/icon/badge parity
 pnpm test:e2e:export   # CLI + UI export paths
 pnpm test:e2e:editor:interaction # canvas/panels/inspector/history/snapping
-pnpm test:e2e:editor:workspace   # locale/connected/responsive workspace
+pnpm test:e2e:editor:workspace   # launcher/import + locale/connected/responsive workspace
 pnpm test:e2e:editor:authoring   # fonts/themes/templates/assets/group authoring
 pnpm test:e2e:accessibility # desktop + compact Axe states
 pnpm test:e2e:browsers # Chromium/Firefox/WebKit editor smoke

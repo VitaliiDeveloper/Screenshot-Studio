@@ -45,7 +45,7 @@ maintaining a second file list.
 | `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering | one of those element contracts changes |
 | `test:e2e:export` | CLI/UI bundles, dimensions, alpha, safe paths | export or render-host orchestration |
 | `test:e2e:editor:interaction` | canvas editing, panels, inspector, history, snapping | direct interaction behavior |
-| `test:e2e:editor:workspace` | isolated/connected workspace, locale scope, responsive state | workspace or locale ownership |
+| `test:e2e:editor:workspace` | launcher/import/archive round trip, isolated/connected workspace, locale scope, responsive state | launcher, workspace, or locale ownership |
 | `test:e2e:editor:authoring` | fonts, themes, templates, assets, selection, groups, icons, badges, styling/frame controls | authoring entry points |
 | `test:e2e:accessibility` | serious/critical Axe findings at desktop and compact widths | semantics, dialogs, menus, responsive UI |
 | `test:e2e:browsers` | Chromium, Firefox, and WebKit author/persist/reload smoke | browser-sensitive code or release readiness |
@@ -56,6 +56,18 @@ maintaining a second file list.
 The full config keeps files sequential because each file owns mutable project state and usually its
 own server/browser lifecycle. Reuse a session inside one file only when isolation and fresh-page
 assertions remain explicit.
+
+Launcher 3 browser ownership is intentionally one exact file. It proves compact App Home boundaries,
+configured-local compatibility, Folder import into a managed copy, Project Home archive download,
+ZIP re-import, and Workspace landing:
+
+```bash
+pnpm exec vitest run --config vitest.e2e.config.ts e2e/project-launcher.test.ts
+```
+
+ZIP admission, path/credential policy, limits, cancellation cleanup, atomic catalog/session behavior,
+one-shot artifacts, and byte-level archive round trip stay in `test:web`; do not duplicate them in
+additional browser scenarios.
 
 ## Cost rules
 
