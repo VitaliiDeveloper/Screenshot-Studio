@@ -3,9 +3,11 @@ import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
 import { AppHomeShell } from "./AppHomeShell.js";
 
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
+const creationDialogSource = readFileSync(new URL("./ProjectCreationDialog.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 function render(
@@ -14,9 +16,15 @@ function render(
 ) {
   return renderToStaticMarkup(createElement(AppHomeShell, {
     state,
+    creationState: { status: "closed" },
+    projectTemplates: listStarterProjectTemplates(),
     dialogClosing,
     sessionError: null,
     onOpenImport: vi.fn(),
+    onOpenCreate: vi.fn(),
+    onCloseCreate: vi.fn(),
+    onChangeCreation: vi.fn(),
+    onSubmitCreation: vi.fn(),
     onCloseImport: vi.fn(),
     onCancelImport: vi.fn(),
     onConfirmImport: vi.fn(),
@@ -26,18 +34,55 @@ function render(
 }
 
 describe("AppHomeShell", () => {
-  it("renders one App Home heading with enabled Import and explicit future slots", () => {
+  it("renders one App Home heading with enabled Create and Import plus the future recents slot", () => {
     const markup = render();
 
     expect(markup.match(/<h1/g)).toHaveLength(1);
     expect(markup).toContain("Screenshot Studio");
     expect(markup).toContain("Create project");
-    expect(markup).toContain("Coming in Launcher 5");
-    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("Coming in Launcher 5");
+    expect(markup).toContain("Choose starting point");
     expect(markup).toContain("Import project");
     expect(markup).toContain("Recent projects");
     expect(markup).toContain("Launcher 8");
     expect(markup).not.toContain('type="text"');
+  });
+
+  it("shows a generic starter library with configuration, previews, and compatibility", () => {
+    const markup = renderToStaticMarkup(createElement(AppHomeShell, {
+      state: { status: "idle" },
+      creationState: {
+        status: "editing",
+        form: {
+          name: "Desktop launch",
+          platform: "windows",
+          layoutMode: "connected",
+          templateId: null,
+        },
+      },
+      projectTemplates: listStarterProjectTemplates(),
+      dialogClosing: false,
+      sessionError: null,
+      onOpenImport: vi.fn(),
+      onOpenCreate: vi.fn(),
+      onCloseCreate: vi.fn(),
+      onChangeCreation: vi.fn(),
+      onSubmitCreation: vi.fn(),
+      onCloseImport: vi.fn(), onCancelImport: vi.fn(), onConfirmImport: vi.fn(),
+      onRetryImport: vi.fn(), onSelectSource: vi.fn(),
+    }));
+
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain("Create a managed project");
+    expect(markup).toContain('value="Desktop launch"');
+    expect(markup).toContain("Target platform");
+    expect(markup).toContain("Layout mode");
+    expect(markup).toContain("Empty project");
+    expect(markup).toContain("Feature focus");
+    expect(markup).toContain("Product launch");
+    expect(markup).toContain("Not available for Windows");
+    expect(markup).not.toContain("PROJECT_PATH");
+    expect(markup).not.toContain("server path");
   });
 
   it("describes managed-copy behavior and all supported import choices", () => {
@@ -119,5 +164,16 @@ describe("AppHomeShell", () => {
     expect(dialogSource).toContain('event.key !== "Tab"');
     expect(dialogSource).toContain('event.key === "Escape" && state.status !== "publishing"');
     expect(dialogSource).toContain("tabIndex={-1}");
+  });
+
+  it("moves focus into creation, traps Tab, and reserves close while creating", () => {
+    expect(creationDialogSource).toContain("headingRef.current?.focus()");
+    expect(creationDialogSource).toContain("const focusableSelector =");
+    expect(creationDialogSource).toContain("button:not(:disabled)");
+    expect(creationDialogSource).not.toContain("button:not([disabled])");
+    expect(creationDialogSource).toContain("}, []);");
+    expect(creationDialogSource).toContain('event.key !== "Tab"');
+    expect(creationDialogSource).toContain('event.key === "Escape" && state.status !== "creating"');
+    expect(creationDialogSource).toContain("tabIndex={-1}");
   });
 });

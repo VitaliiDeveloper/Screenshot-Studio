@@ -43,4 +43,12 @@ describe("ProjectLauncher import integration", () => {
     expect(source).not.toContain('type="text"');
     expect(source).not.toContain("requestedPath");
   });
+
+  it("creates through the active-project switch fence and routes success to Project Home", () => {
+    expect(source).toContain("createProject");
+    expect(source).toContain("reduceProjectCreationState");
+    expect(source).toContain("switchActiveProject(() => createProject");
+    expect(source.match(/router\.push\("\/home"\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(source).toContain("creationButtonRef.current?.focus()");
+  });
 });

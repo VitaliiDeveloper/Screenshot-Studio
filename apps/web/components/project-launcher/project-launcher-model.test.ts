@@ -7,9 +7,9 @@ import {
 } from "./project-launcher-model.js";
 
 describe("project launcher model", () => {
-  it("keeps Import enabled while Create and Recents remain stable future extension points", () => {
+  it("enables project creation and import while Recents remains a stable future extension point", () => {
     expect(launcherActions).toEqual({
-      createEnabled: false,
+      createEnabled: true,
       importEnabled: true,
       recentProjects: [],
     });

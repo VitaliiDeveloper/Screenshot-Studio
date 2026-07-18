@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: Apache-2.0
+import {
+  ProjectScaffoldInput,
+  type ProjectScaffoldInput as ProjectCreationInput,
+} from "@screenshot-studio/core/scaffold";
+import type { ActiveProjectDescriptor } from "./project-session.js";
+
+export type ProjectCreationTransport = (
+  input: ProjectCreationInput,
+) => Promise<Response>;
+
+export interface CreateProjectOptions {
+  transport?: ProjectCreationTransport;
+}
+
+export class ProjectCreationClientError extends Error {
+  constructor(message: string, readonly code: string) {
+    super(message);
+    this.name = "ProjectCreationClientError";
+  }
+}
+
+const fetchProjectCreation: ProjectCreationTransport = (input) => fetch("/api/project-create", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(input),
+});
+
+export async function createProject(
+  input: ProjectCreationInput,
+  options: CreateProjectOptions = {},
+): Promise<ActiveProjectDescriptor> {
+  const parsedInput = ProjectScaffoldInput.parse(input);
+  const response = await (options.transport ?? fetchProjectCreation)(parsedInput);
+  const body = await response.json().catch(() => ({})) as {
+    project?: ActiveProjectDescriptor;
+    error?: unknown;
+    code?: unknown;
+  };
+  if (!response.ok) {
+    throw new ProjectCreationClientError(
+      typeof body.error === "string" ? body.error : `Project creation failed (${response.status})`,
+      typeof body.code === "string" ? body.code : "request-failed",
+    );
+  }
+  if (!body.project || typeof body.project.name !== "string"
+    || typeof body.project.sessionId !== "string"
+    || body.project.sourceKind !== "managed-project"
+    || typeof body.project.capabilities !== "object"
+    || body.project.capabilities === null) {
+    throw new ProjectCreationClientError("Project creation returned an invalid response", "invalid-response");
+  }
+  return body.project;
+}
