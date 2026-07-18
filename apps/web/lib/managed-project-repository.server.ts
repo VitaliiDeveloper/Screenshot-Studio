@@ -84,6 +84,12 @@ async function syncDirectoryBestEffort(path: string): Promise<void> {
   }
 }
 
+function isCanonicalIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const timestamp = new Date(value);
+  return !Number.isNaN(timestamp.valueOf()) && timestamp.toISOString() === value;
+}
+
 function parseIntent(value: unknown): ManagedProjectPublicationIntent {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError("Invalid recovery intent");
   const record = value as Record<string, unknown>;
@@ -93,7 +99,7 @@ function parseIntent(value: unknown): ManagedProjectPublicationIntent {
   }
   if (record.version !== 1 || record.operation !== "publish" || typeof record.id !== "string"
     || !PROJECT_ID_PATTERN.test(record.id) || typeof record.token !== "string" || !STAGE_TOKEN_PATTERN.test(record.token)
-    || typeof record.name !== "string" || record.name.length === 0 || typeof record.createdAt !== "string"
+    || typeof record.name !== "string" || record.name.length === 0 || !isCanonicalIsoTimestamp(record.createdAt)
     || !["prepared", "directory-published", "catalog-published"].includes(String(record.phase))) {
     throw new TypeError("Invalid recovery intent");
   }
@@ -186,10 +192,16 @@ export class ManagedProjectRepository {
       return { id, name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE) };
     } catch (error) {
       const rollbackErrors: unknown[] = [];
+      let catalogRollbackSucceeded = !catalogPublished;
       if (catalogPublished) {
-        try { await this.#catalog.remove(id); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+        try {
+          await this.#catalog.remove(id);
+          catalogRollbackSucceeded = true;
+        } catch (rollbackError) {
+          rollbackErrors.push(rollbackError);
+        }
       }
-      if (directoryPublished && await exists(projectDirectory)) {
+      if (directoryPublished && catalogRollbackSucceeded && await exists(projectDirectory)) {
         try { await this.#rename(projectDirectory, stagePath); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
       }
       if (rollbackErrors.length === 0) {
@@ -228,13 +240,9 @@ export class ManagedProjectRepository {
         continue;
       }
       if (await exists(projectDirectory)) {
+        let snapshot: Awaited<ReturnType<typeof readProjectSnapshot>>;
         try {
-          const snapshot = await this.#validateDirectory(projectDirectory);
-          if (!entry) {
-            const timestamp = this.#now().toISOString();
-            await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", createdAt: intent.createdAt, updatedAt: timestamp });
-          }
-          await this.#removeIntent(intent.id);
+          snapshot = await this.#validateDirectory(projectDirectory);
         } catch (error) {
           if (!entry) {
             await this.#rename(projectDirectory, stagePath);
@@ -243,6 +251,11 @@ export class ManagedProjectRepository {
           }
           throw error;
         }
+        if (!entry) {
+          const timestamp = this.#now().toISOString();
+          await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", createdAt: intent.createdAt, updatedAt: timestamp });
+        }
+        await this.#removeIntent(intent.id);
       }
     }
   }
