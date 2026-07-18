@@ -48,7 +48,7 @@ afterAll(async () => {
   await server?.stop();
 });
 
-describe("Phase 9 living examples", () => {
+describe("living examples", () => {
   for (const example of examples) {
     it(`validates and exports ${example.name}`, async () => {
       const source = await readFile(example.projectPath, "utf8");

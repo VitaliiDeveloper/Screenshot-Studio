@@ -100,7 +100,7 @@ async function waitForConnectedWorkspace(page: Page) {
   return connected;
 }
 
-describe("Phase 6 connected workspace hardening", () => {
+describe("connected workspace", () => {
   it("keeps group scope, owner surfaces, thumbnails, history, snapping, and layout switching coherent", async () => {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

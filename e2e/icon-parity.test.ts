@@ -80,7 +80,7 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
   return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
 }
 
-describe("Phase 7 trusted icon parity", () => {
+describe("trusted icon parity", () => {
   it("matches headed/headless exact crops and carries a grouped vector across owners", async () => {
     expect(JSON.parse(readFileSync(projectPath, "utf8")).meta.schemaVersion).toBe(SCHEMA_VERSION);
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({

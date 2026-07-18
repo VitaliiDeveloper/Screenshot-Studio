@@ -14,5 +14,9 @@ export default defineConfig({
     environment: "node",
     include: ["packages/**/*.test.ts", "apps/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "e2e/**"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary", "json-summary", "lcov", "html"],
+    },
   },
 });
