@@ -16,7 +16,10 @@ Version 2.3, 19 July 2026.
 App Home is the responsive launcher shell when no project is active or the user explicitly returns
 to the launcher. It has one page heading and three stable product regions:
 
-- **Create project** is visible but disabled, with Launcher 5 ownership stated explicitly.
+- **Create project** is enabled. Its modal captures project name, target platform, and initial
+  isolated/connected layout mode, then offers an empty project or a visible project-template library
+  with preview, intended use, and supported-platform metadata. It accepts no server path. Creation
+  validates the complete scaffold and resources before atomic managed publication.
 - **Import project** is enabled. Its modal offers Folder (recommended), project ZIP, and eligible
   standalone JSON; it explains before selection that the source is validated into a managed copy and
   is not edited in place. Selecting a source opens an explicit managed-copy confirmation before any
@@ -25,11 +28,13 @@ to the launcher. It has one page heading and three stable product regions:
 - **Recent projects** remains a labelled empty region owned by Launcher 8; import does not populate a
   temporary imitation of recents.
 
-The import modal moves focus to its heading, traps forward/reverse Tab, returns focus to the Import
-trigger, and closes with Escape while choosing or uploading. Upload is cancellable; validation and
-atomic publication are announced as a separate non-cancellable state. Errors use alert semantics and
-list missing resource paths. Successful import activates the managed project and lands on Project
-Home. Managed Project Home offers **Export project archive** with busy/error feedback and native
+The creation and import modals move focus to their headings, trap forward/reverse Tab, and return
+focus to their triggers. They reserve close while atomic publication is in progress. The import
+modal closes with Escape while choosing or uploading. Upload is cancellable; validation and
+atomic publication are announced as a separate non-cancellable state. Errors use alert semantics;
+import errors list missing resource paths. Successful creation or import activates the intended
+managed project and lands on Project Home. Managed Project Home offers **Export project archive**
+with busy/error feedback and native
 download behavior; its copy distinguishes the portable project backup from rendered store-image
 export. Import-card press feedback, dialog entrance and exit, and dialog state changes use calm,
 short transform/opacity motion. Close and Escape keep the dialog mounted until its exit finishes;
@@ -48,8 +53,8 @@ surfaces; project archive and rendered store-image export remain visibly distinc
 existing save-failure safeguard, clears only the active session plus that project's transient
 workspace navigation state, and returns to App Home. It never removes recents, trashes/deletes a
 managed project, or moves/deletes a local-file directory. The workflow guide distinguishes project
-templates, screen templates, layout modes, project import, capture import, project archive export,
-and store-image export without claiming out-of-scope launcher behavior.
+templates, screen templates, component presets, layout modes, project import, capture import,
+project archive export, and store-image export without claiming out-of-scope launcher behavior.
 
 ---
 
@@ -139,10 +144,10 @@ shelf is open at a time; clicking its active rail item collapses it.
 - **Structure / Layers** (for the selected screen): top-level elements in z-order (array order),
   with lock / hide / rename. Groups expose one indented child level for selection, inspection,
   lock, visibility, and deletion; top-level drag reorder remains group-atomic.
-- **Resources:** opens existing Fonts, Themes, and Templates dialogs.
+- **Resources:** opens existing Fonts, Themes, and Screen templates dialogs.
 - **Add:** searchable, data-driven groups (`Basic`, `Media`, `Frames`, `Library`). Text and Shape
   and trusted built-in Icon insert immediately. Screenshot, decorative Image, and Device Frame open the project image
-  picker. Templates opens the existing library. Adding a
+  picker. Screen templates opens the existing project-local library. Adding a
   future type extends catalog metadata and an action rather than restructuring the workbench.
   Library also inserts editable grouped Rating and As seen on badges when a registered font exists;
   Store badge opens the secure project picker and inserts a named contain-fit image.
@@ -270,7 +275,7 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   the same add-time Node service; render/export never fetch fonts from the network.
 - **Theme management** assigns roles in text/shape inspectors and applies strict `themes/*.json`
   to the active layout through a serialized server mutation. Only literal project fields reach rendering.
-- **Template library** lists strict `templates/*.json`, creates a fresh-id screen in the active
+- **Screen template library** lists strict `templates/*.json`, creates a fresh-id screen in the active
   layout using the active
   locale and direction, persists it, and selects it. LTR-authored template placement/alignment is
   mirrored once for an RTL target. Templates never enter the render contract.
@@ -279,8 +284,15 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 ## 7. States
 
-- **No active project** → final App Home exposes enabled Import, disabled Create, and an empty Recents
-  region; it exposes no raw path field and never selects the bundled sample implicitly.
+- **No active project** → App Home exposes enabled Create and Import plus an empty Recents region;
+  it exposes no raw path field and never selects the bundled sample implicitly.
+- **Create editing** → name, target platform, layout mode, empty start, and compatible visible project
+  templates remain client-side until submission; unsupported starters stay visible and disabled.
+- **Create publishing** → the full scaffold and dependencies are validated and atomically published
+  to managed storage; the dialog cannot close during this transaction.
+- **Pre-publication create failure** → an alert preserves the form for correction and retry without
+  changing the prior active session or exposing a catalog entry. Ambiguous publication failures keep
+  their owned recovery intent for repository reconciliation rather than deleting uncertain state.
 - **Import choosing/confirming/uploading** → Folder/ZIP/JSON choices explain managed-copy behavior;
   selection remains client-only until explicit confirmation, and browser transfer can be cancelled
   without changing the prior session or catalog.

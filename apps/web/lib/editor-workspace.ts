@@ -295,11 +295,11 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
   },
   {
     id: "components",
-    label: "Components",
+    label: "Screen templates",
     category: "Library",
     action: "open-templates",
     shortcut: "⌘/",
-    hint: "Project templates",
+    hint: "Create a screen from a project-local screen template",
   },
   {
     id: "rating-badge",
