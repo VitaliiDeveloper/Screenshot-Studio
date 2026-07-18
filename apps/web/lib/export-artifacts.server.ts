@@ -18,7 +18,8 @@ import type { Readable } from "node:stream";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN_BYTES = 32;
 const DEFAULT_TTL_MS = 5 * 60_000;
-const DOWNLOAD_FILENAME = "app-store-screenshots-bundle.zip";
+const DEFAULT_DOWNLOAD_PATH_PREFIX = "/api/export/artifacts";
+const DEFAULT_DOWNLOAD_FILENAME = "app-store-screenshots-bundle.zip";
 
 interface ArtifactIdentity {
   device: bigint;
@@ -71,6 +72,8 @@ export interface ExportArtifactStoreDependencies {
   ttlMs?: number;
   randomBytes?: (size: number) => Buffer;
   unlinkFile?: (path: string) => Promise<void>;
+  downloadPathPrefix?: string;
+  downloadFilename?: string;
 }
 
 function readFlags(): number {
@@ -173,8 +176,16 @@ export function createExportArtifactStore(
   const ttlMs = dependencies.ttlMs ?? DEFAULT_TTL_MS;
   const randomBytes = dependencies.randomBytes ?? nodeRandomBytes;
   const unlinkFile = dependencies.unlinkFile ?? unlink;
+  const downloadPathPrefix = dependencies.downloadPathPrefix ?? DEFAULT_DOWNLOAD_PATH_PREFIX;
+  const downloadFilename = dependencies.downloadFilename ?? DEFAULT_DOWNLOAD_FILENAME;
   if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0) {
     throw new Error("Export artifact TTL must be a positive safe integer");
+  }
+  if (!/^\/[A-Za-z0-9/_-]+$/.test(downloadPathPrefix) || downloadPathPrefix.endsWith("/")) {
+    throw new Error("Export artifact download path prefix must be a safe absolute path without a trailing slash");
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/.test(downloadFilename)) {
+    throw new Error("Export artifact download filename must be a safe ZIP filename");
   }
 
   const records = new Map<string, ArtifactRecord>();
@@ -352,7 +363,7 @@ export function createExportArtifactStore(
     records.set(token!, record);
     scheduleExpiry(token!, record);
     return {
-      downloadUrl: `/api/export/artifacts/${token!}`,
+      downloadUrl: `${downloadPathPrefix}/${token!}`,
       outputDir,
       expiresAt: new Date(expiresAt).toISOString(),
     };
@@ -447,7 +458,7 @@ export function createExportArtifactStore(
     const artifact: ExportArtifact = {
       stream,
       size: record.identity.size,
-      filename: DOWNLOAD_FILENAME,
+      filename: downloadFilename,
       cleanup,
       async dispose() {
         if (!stream.destroyed) stream.destroy();
