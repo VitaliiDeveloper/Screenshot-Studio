@@ -58,6 +58,20 @@ afterEach(async () => {
 });
 
 describe("ManagedProjectRepository", () => {
+  it("configures a bounded import upload and rejects invalid values", () => {
+    expect(resolveManagedProjectStorageConfig({
+      SCREENSHOT_STUDIO_DATA_ROOT: "/tmp/managed-project-config",
+    }).maxImportUploadBytes).toBe(268_435_456);
+    expect(resolveManagedProjectStorageConfig({
+      SCREENSHOT_STUDIO_DATA_ROOT: "/tmp/managed-project-config",
+      SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES: "1024",
+    }).maxImportUploadBytes).toBe(1024);
+    expect(() => resolveManagedProjectStorageConfig({
+      SCREENSHOT_STUDIO_DATA_ROOT: "/tmp/managed-project-config",
+      SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES: "0",
+    })).toThrow(/SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES/);
+  });
+
   it("creates opaque owned stages and rejects traversal tokens", async () => {
     const repository = await createRepository();
     const stage = await repository.createStage();
@@ -65,6 +79,16 @@ describe("ManagedProjectRepository", () => {
     expect(stage.token).toMatch(/^stage_[0-9a-f]{32}$/);
     expect(basename(stage.path)).toBe(stage.token);
     await expect(repository.publishStage({ token: "../escape" })).rejects.toThrow(/token/i);
+  });
+
+  it("discards only an exact owned unpublished stage", async () => {
+    const repository = await createRepository();
+    const stage = await validStage(repository);
+
+    await repository.discardStage(stage.token);
+
+    await expect(lstat(stage.path)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(repository.discardStage("../escape")).rejects.toThrow(/token/i);
   });
 
   it("rejects symlinks, hard links, missing project documents, and invalid project JSON", async () => {

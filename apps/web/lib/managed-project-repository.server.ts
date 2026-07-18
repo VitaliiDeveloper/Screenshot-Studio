@@ -155,6 +155,19 @@ export class ManagedProjectRepository {
     throw new Error("Unable to allocate a unique managed project stage");
   }
 
+  async discardStage(token: string): Promise<void> {
+    if (!STAGE_TOKEN_PATTERN.test(token)) throw new TypeError("Invalid managed project stage token");
+    let stagePath: string;
+    try {
+      stagePath = await this.#ownedStagePath(token);
+    } catch (error) {
+      if (errorCode(error) === "ENOENT") return;
+      throw error;
+    }
+    await rm(stagePath, { recursive: true, force: true });
+    await syncDirectoryBestEffort(this.config.stagingRoot);
+  }
+
   async publishStage(input: { token: string; name?: string }): Promise<ManagedProjectRecord> {
     await this.#ensureDirectories();
     await this.#catalog.read();

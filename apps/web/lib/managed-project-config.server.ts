@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 
 const DEFAULT_MAX_PROJECT_FILES = 10_000;
 const DEFAULT_MAX_PROJECT_BYTES = 1_073_741_824;
+const DEFAULT_MAX_IMPORT_UPLOAD_BYTES = 268_435_456;
 const DEFAULT_STAGING_TTL_MS = 86_400_000;
 
 export interface ManagedProjectStorageConfig {
@@ -13,12 +14,13 @@ export interface ManagedProjectStorageConfig {
   catalogPath: string;
   maxProjectFiles: number;
   maxProjectBytes: number;
+  maxImportUploadBytes: number;
   stagingTtlMs: number;
 }
 
 function positiveInteger(
   environment: NodeJS.ProcessEnv,
-  name: "SCREENSHOT_STUDIO_MAX_PROJECT_FILES" | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES" | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
+  name: "SCREENSHOT_STUDIO_MAX_PROJECT_FILES" | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES" | "SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES" | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
   fallback: number,
 ): number {
   const value = environment[name];
@@ -50,6 +52,11 @@ export function resolveManagedProjectStorageConfig(
       environment,
       "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES",
       DEFAULT_MAX_PROJECT_BYTES,
+    ),
+    maxImportUploadBytes: positiveInteger(
+      environment,
+      "SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES",
+      DEFAULT_MAX_IMPORT_UPLOAD_BYTES,
     ),
     stagingTtlMs: positiveInteger(
       environment,
