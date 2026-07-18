@@ -10,15 +10,25 @@ import {
   type BrowserProjectImportSource,
 } from "../../lib/project-import-client";
 import { AppHomeShell } from "./AppHomeShell";
+import {
+  launcherDialogExitDelay,
+  requestLauncherDialogExit,
+  type LauncherDialogExitAction,
+} from "./project-dialog-motion";
 import { reduceLauncherImportState } from "./project-launcher-model";
 
 export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
+  const [dialogClosing, setDialogClosing] = useState(false);
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
   const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
+  const exitActionRef = useRef<LauncherDialogExitAction>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const publishingRef = useRef(false);
 
   useEffect(() => {
     if (allowSwitch) return;
@@ -31,21 +41,47 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
     return () => { active = false; };
   }, [allowSwitch, router]);
 
-  useEffect(() => () => importControllerRef.current?.abort(), []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+      importControllerRef.current?.abort();
+    };
+  }, []);
 
   const returnFocus = () => queueMicrotask(() => importButtonRef.current?.focus());
-  const closeImport = () => {
-    pendingImportSourceRef.current = null;
-    dispatchImport({ type: "close" });
-    returnFocus();
+  const requestImportExit = (requested: Exclude<LauncherDialogExitAction, null>) => {
+    const action = requestLauncherDialogExit(
+      exitActionRef.current,
+      requested,
+      publishingRef.current || importState.status === "publishing",
+    );
+    if (!action || exitActionRef.current) return;
+
+    exitActionRef.current = action;
+    setDialogClosing(true);
+    if (action === "cancel") {
+      importControllerRef.current?.abort();
+      importControllerRef.current = null;
+    }
+
+    const finishExit = () => {
+      if (!mountedRef.current) return;
+      pendingImportSourceRef.current = null;
+      dispatchImport({ type: action });
+      exitActionRef.current = null;
+      exitTimerRef.current = null;
+      setDialogClosing(false);
+      returnFocus();
+    };
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const delay = launcherDialogExitDelay(reducedMotion);
+    if (delay === 0) finishExit();
+    else exitTimerRef.current = setTimeout(finishExit, delay);
   };
-  const cancelImport = () => {
-    importControllerRef.current?.abort();
-    importControllerRef.current = null;
-    pendingImportSourceRef.current = null;
-    dispatchImport({ type: "cancel" });
-    returnFocus();
-  };
+  const closeImport = () => requestImportExit("close");
+  const cancelImport = () => requestImportExit("cancel");
   const selectSource = (source: BrowserProjectImportSource) => {
     pendingImportSourceRef.current = source;
     dispatchImport({ type: "select", kind: source.kind });
@@ -58,21 +94,30 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
     }
     pendingImportSourceRef.current = null;
     const controller = new AbortController();
+    publishingRef.current = false;
     importControllerRef.current?.abort();
     importControllerRef.current = controller;
     dispatchImport({ type: "confirm" });
     void importProject(source, {
       signal: controller.signal,
-      onUploadComplete: () => dispatchImport({ type: "publishing" }),
+      onUploadComplete: () => {
+        if (!mountedRef.current || exitActionRef.current === "cancel") return;
+        publishingRef.current = true;
+        dispatchImport({ type: "publishing" });
+      },
     }).then(() => {
+      if (!mountedRef.current) return;
       dispatchImport({ type: "complete" });
       router.push("/home");
       router.refresh();
     }).catch((caught: unknown) => {
       if (caught instanceof DOMException && caught.name === "AbortError") {
-        dispatchImport({ type: "cancel" });
+        if (mountedRef.current && exitActionRef.current !== "cancel") {
+          dispatchImport({ type: "cancel" });
+        }
         return;
       }
+      if (!mountedRef.current) return;
       dispatchImport({
         type: "fail",
         message: caught instanceof Error ? caught.message : String(caught),
@@ -88,6 +133,7 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
   return (
     <AppHomeShell
       state={importState}
+      dialogClosing={dialogClosing}
       sessionError={error}
       importButtonRef={importButtonRef}
       onOpenImport={() => dispatchImport({ type: "choose" })}

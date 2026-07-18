@@ -9,6 +9,7 @@ import type { LauncherImportState } from "./project-launcher-model";
 
 export interface ProjectImportDialogProps {
   state: Exclude<LauncherImportState, { status: "idle" | "cancelled" }>;
+  closing: boolean;
   onClose(): void;
   onCancel(): void;
   onConfirm(): void;
@@ -18,6 +19,7 @@ export interface ProjectImportDialogProps {
 
 export function ProjectImportDialog({
   state,
+  closing,
   onClose,
   onCancel,
   onConfirm,
@@ -38,6 +40,7 @@ export function ProjectImportDialog({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (closing) return;
       if (event.key === "Escape" && state.status !== "publishing") {
         event.preventDefault();
         if (state.status === "uploading") onCancel();
@@ -68,7 +71,7 @@ export function ProjectImportDialog({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onCancel, onClose, state.status]);
+  }, [closing, onCancel, onClose, state.status]);
 
   const chooseFolder = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
@@ -82,7 +85,10 @@ export function ProjectImportDialog({
   };
 
   return (
-    <div className="launcher-dialog-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
+    <div
+      className="launcher-dialog-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-[2px]"
+      data-motion={closing ? "closing" : "open"}
+    >
       <section
         ref={dialogRef}
         role="dialog"
@@ -115,6 +121,7 @@ export function ProjectImportDialog({
           Your selection is validated and copied into managed storage. Screenshot Studio never claims to edit the selected Folder, ZIP, or JSON file in place.
         </p>
 
+        <div key={state.status} className="launcher-dialog-state">
         {state.status === "choosing" ? (
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={() => folderInputRef.current?.click()} className="group rounded-2xl border-2 border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 text-left transition hover:border-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
@@ -204,6 +211,7 @@ export function ProjectImportDialog({
             </div>
           </div>
         ) : null}
+        </div>
       </section>
     </div>
   );

@@ -10,6 +10,7 @@ import { ProjectImportDialog } from "./ProjectImportDialog";
 
 export interface AppHomeShellProps {
   state: LauncherImportState;
+  dialogClosing: boolean;
   sessionError: string | null;
   importButtonRef?: Ref<HTMLButtonElement>;
   onOpenImport(): void;
@@ -22,6 +23,7 @@ export interface AppHomeShellProps {
 
 export function AppHomeShell({
   state,
+  dialogClosing,
   sessionError,
   importButtonRef,
   onOpenImport,
@@ -81,7 +83,7 @@ export function AppHomeShell({
         </section>
       </div>
 
-      {dialogState ? <ProjectImportDialog state={dialogState} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} /> : null}
+      {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} /> : null}
     </main>
   );
 }

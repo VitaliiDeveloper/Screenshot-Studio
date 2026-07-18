@@ -18,6 +18,15 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("caught.missingResources");
   });
 
+  it("keeps the dialog mounted through its exit lifecycle and respects reduced motion", () => {
+    expect(source).toContain("requestLauncherDialogExit");
+    expect(source).toContain("launcherDialogExitDelay");
+    expect(source).toContain("prefers-reduced-motion: reduce");
+    expect(source).toContain("dialogClosing={dialogClosing}");
+    expect(source).toContain("publishingRef.current || importState.status");
+    expect(source).toContain('exitActionRef.current === "cancel"');
+  });
+
   it("never exposes browser local-path activation", () => {
     expect(source).not.toContain("PROJECT_PATH");
     expect(source).not.toContain('type="text"');

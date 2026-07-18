@@ -8,9 +8,13 @@ import { AppHomeShell } from "./AppHomeShell.js";
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
-function render(state: Parameters<typeof AppHomeShell>[0]["state"] = { status: "idle" }) {
+function render(
+  state: Parameters<typeof AppHomeShell>[0]["state"] = { status: "idle" },
+  dialogClosing = false,
+) {
   return renderToStaticMarkup(createElement(AppHomeShell, {
     state,
+    dialogClosing,
     sessionError: null,
     onOpenImport: vi.fn(),
     onCloseImport: vi.fn(),
@@ -64,13 +68,20 @@ describe("AppHomeShell", () => {
     expect(archiveMarkup).not.toContain("PROJECT_PATH");
   });
 
-  it("animates import entry while respecting reduced-motion preferences", () => {
+  it("animates dialog entry, state changes, and exit while respecting reduced motion", () => {
     const markup = render({ status: "choosing" });
+    const closingMarkup = render({ status: "choosing" }, true);
 
     expect(markup).toContain("active:scale-[0.98]");
     expect(markup).toContain("launcher-dialog-backdrop");
     expect(markup).toContain("launcher-dialog-panel");
+    expect(markup).toContain("launcher-dialog-state");
+    expect(markup).toContain('data-motion="open"');
+    expect(closingMarkup).toContain('data-motion="closing"');
     expect(globalStyles).toContain("@keyframes launcher-dialog-in");
+    expect(globalStyles).toContain("@keyframes launcher-dialog-out");
+    expect(globalStyles).toContain("@keyframes launcher-dialog-state-in");
+    expect(globalStyles).toContain('[data-motion="closing"]');
     expect(globalStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
