@@ -12,7 +12,8 @@
     "./themes": "./src/themes/index.ts",
     "./templates": "./src/templates/index.ts",
     "./assets": "./src/assets/index.ts",
-    "./storage": "./src/storage/index.ts"
+    "./storage": "./src/storage/index.ts",
+    "./scaffold": "./src/scaffold/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runAssetCommand } from "./asset-commands.js";
 import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
@@ -26,9 +28,10 @@ export function positionalArgs(argv: string[]): string[] {
   return args;
 }
 
-async function runInitCommand(flags: Record<string, string>): Promise<void> {
+async function runInitCommand(flags: Record<string, string>, storeSpecsPath: string): Promise<void> {
   const cwd = flags.dir ? resolve(flags.dir) : process.cwd();
-  await runInit(cwd, flags.name);
+  const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
+  await runInit(cwd, flags.name, specs);
   console.log(`Initialized project in ${cwd}`);
 }
 
@@ -60,7 +63,7 @@ export async function dispatchCommand(
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
   switch (command) {
     case "init":
-      await runInitCommand(flags);
+      await runInitCommand(flags, defaults.storeSpecsPath);
       break;
     case "export":
       await runExportCommand(flags, defaults.storeSpecsPath);

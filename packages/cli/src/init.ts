@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { SCHEMA_VERSION, type Project } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
+import { createProjectScaffold, projectScaffoldFiles } from "@screenshot-studio/core/scaffold";
 import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
 
 /**
@@ -29,34 +30,6 @@ Follow the project workflow and schema instructions in \`AGENTS.md\`.
 @AGENTS.md
 `;
 
-function starterProject(name: string): Project {
-  return {
-    meta: { name, schemaVersion: SCHEMA_VERSION },
-    fonts: [],
-    preferredExportLayoutId: "default",
-    layouts: [{
-      id: "default",
-      name: "Default",
-      mode: "isolated",
-      screens: [
-        {
-          id: "hero",
-          name: "Hero",
-          platform: "apple",
-          device: "iphone",
-          locale: "en",
-          direction: "ltr",
-          artboard: { width: 1320, height: 2868 },
-          background: { type: "solid", color: "#0B1020" },
-          // A blank starter is exportable everywhere. Adding a system-font headline here would
-          // immediately violate the file-backed font parity contract.
-          elements: [],
-        },
-      ],
-    }],
-  };
-}
-
 async function exists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -66,7 +39,11 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export async function runInit(cwd: string, projectName = "My App Screenshots"): Promise<void> {
+export async function runInit(
+  cwd: string,
+  projectName: string | undefined,
+  storeSpecs: StoreSpecs,
+): Promise<void> {
   for (const filename of CONTROL_FILES) {
     const path = join(cwd, filename);
     if (await exists(path)) {
@@ -75,14 +52,16 @@ export async function runInit(cwd: string, projectName = "My App Screenshots"): 
   }
 
   const agentGuide = await readFile(new URL("./project-agent-guide.md", import.meta.url), "utf8");
+  const scaffoldFiles = projectScaffoldFiles(createProjectScaffold({
+    name: projectName ?? "My App Screenshots",
+    platform: "apple",
+    layoutMode: "isolated",
+    templateId: null,
+  }, storeSpecs));
   await Promise.all(STANDARD_DIRS.map((d) => mkdir(join(cwd, d), { recursive: true })));
 
   await Promise.all([
-    writeFile(
-      join(cwd, DEFAULT_PROJECT_FILENAME),
-      `${JSON.stringify(starterProject(projectName), null, 2)}\n`,
-      { encoding: "utf8", flag: "wx" },
-    ),
+    ...scaffoldFiles.map((file) => writeFile(join(cwd, file.path), file.bytes, { flag: "wx" })),
     writeFile(join(cwd, AGENT_GUIDE_FILE), agentGuide, { encoding: "utf8", flag: "wx" }),
     writeFile(join(cwd, CLAUDE_GUIDE_FILE), CLAUDE_GUIDE, { encoding: "utf8", flag: "wx" }),
   ]);
