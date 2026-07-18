@@ -105,6 +105,7 @@ describe("POST /api/project-archive", () => {
             watchExternalChanges: true,
             nativePicker: false,
             projectLocalResources: true,
+            exportProjectArchive: false,
           },
         })),
       },

@@ -24,6 +24,7 @@ const LOCAL_CAPABILITIES = {
   watchExternalChanges: true,
   nativePicker: false,
   projectLocalResources: true,
+  exportProjectArchive: false,
 } as const;
 
 export interface ProjectSession {
@@ -73,6 +74,7 @@ const MANAGED_CAPABILITIES = {
   watchExternalChanges: false,
   nativePicker: false,
   projectLocalResources: true,
+  exportProjectArchive: true,
 } as const;
 
 export class ManagedProjectSourceAdapter implements ProjectSourceAdapter<string, OpenedProjectSource> {

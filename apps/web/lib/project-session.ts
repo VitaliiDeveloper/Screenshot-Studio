@@ -6,6 +6,7 @@ export interface ProjectSourceCapabilities {
   watchExternalChanges: boolean;
   nativePicker: boolean;
   projectLocalResources: boolean;
+  exportProjectArchive: boolean;
 }
 
 export interface ActiveProjectDescriptor {

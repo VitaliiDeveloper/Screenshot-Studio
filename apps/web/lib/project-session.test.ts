@@ -21,6 +21,7 @@ describe("project-session client helpers", () => {
         watchExternalChanges: true,
         nativePicker: false,
         projectLocalResources: true,
+        exportProjectArchive: false,
       },
     };
     const fetcher = vi.fn(async () => Response.json(descriptor, {

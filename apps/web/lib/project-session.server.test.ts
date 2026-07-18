@@ -56,6 +56,7 @@ function createStubLocalSource() {
         watchExternalChanges: true,
         nativePicker: false,
         projectLocalResources: true,
+        exportProjectArchive: false,
       },
     })),
   } satisfies Pick<LocalFileProjectSourceAdapter, "kind" | "open">;
@@ -76,6 +77,7 @@ function createStubManagedSource() {
           watchExternalChanges: false,
           nativePicker: false,
           projectLocalResources: true,
+          exportProjectArchive: true,
         },
       };
     }),
@@ -131,6 +133,7 @@ describe("ProjectSessionRegistry", () => {
           watchExternalChanges: false,
           nativePicker: false,
           projectLocalResources: true,
+          exportProjectArchive: true,
         },
       },
     });
@@ -244,6 +247,7 @@ describe("ProjectSessionRegistry", () => {
           watchExternalChanges: true,
           nativePicker: false,
           projectLocalResources: true,
+          exportProjectArchive: false,
         },
       },
     });
@@ -282,6 +286,7 @@ describe("ProjectSessionRegistry", () => {
         watchExternalChanges: true,
         nativePicker: false,
         projectLocalResources: true,
+        exportProjectArchive: false,
       },
     };
     const localSource = {
