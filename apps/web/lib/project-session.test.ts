@@ -23,9 +23,25 @@ describe("project-session client helpers", () => {
         projectLocalResources: true,
       },
     };
-    const fetcher = vi.fn(async () => Response.json(descriptor));
+    const fetcher = vi.fn(async () => Response.json(descriptor, {
+      headers: { "x-project-id": "project-one" },
+    }));
 
-    await expect(fetchActiveProject(fetcher)).resolves.toEqual(descriptor);
+    await expect(fetchActiveProject(fetcher)).resolves.toEqual({
+      ...descriptor,
+      projectId: "project-one",
+    });
+  });
+
+  it("rejects an active project response without its opaque identity", async () => {
+    const fetcher = vi.fn(async () => Response.json({
+      sessionId: "session-1",
+      name: "Launcher",
+      sourceKind: "managed-project",
+      capabilities: {},
+    }));
+
+    await expect(fetchActiveProject(fetcher)).rejects.toThrow("project identity");
   });
 
   it("returns the server error when active-session lookup fails", async () => {

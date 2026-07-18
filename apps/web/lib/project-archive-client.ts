@@ -20,11 +20,13 @@ interface ArchiveDownloadDocument {
 }
 
 export async function requestProjectArchive(
+  projectId: string,
   fetcher: ProjectArchiveFetcher = fetch,
 ): Promise<ProjectArchiveTicket> {
   const response = await fetcher("/api/project-archive", {
     method: "POST",
     cache: "no-store",
+    headers: { "x-project-id": projectId },
   });
   const body = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok) {

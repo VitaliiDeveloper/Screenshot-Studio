@@ -16,6 +16,10 @@ export interface ActiveProjectDescriptor {
   capabilities: ProjectSourceCapabilities;
 }
 
+export interface ActiveProjectSelection extends ActiveProjectDescriptor {
+  projectId: string;
+}
+
 export type ProjectSessionFetcher = (
   input: string,
   init?: RequestInit,
@@ -30,9 +34,14 @@ async function responseError(response: Response): Promise<Error> {
 
 export async function fetchActiveProject(
   fetcher: ProjectSessionFetcher = fetch,
-): Promise<ActiveProjectDescriptor | null> {
+): Promise<ActiveProjectSelection | null> {
   const response = await fetcher("/api/project-session", { cache: "no-store" });
   if (response.status === 204) return null;
   if (!response.ok) throw await responseError(response);
-  return await response.json() as ActiveProjectDescriptor;
+  const projectId = response.headers.get("x-project-id")?.trim();
+  if (!projectId) throw new Error("Project session response is missing its project identity");
+  return {
+    ...await response.json() as ActiveProjectDescriptor,
+    projectId,
+  };
 }

@@ -41,7 +41,10 @@ describe("POST /api/project-archive", () => {
     }));
     const request = new Request("http://localhost/api/project-archive", {
       method: "POST",
-      headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` },
+      headers: {
+        cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}`,
+        "x-project-id": session.projectId,
+      },
     });
 
     const response = await handleProjectArchivePost(request, {
@@ -59,6 +62,31 @@ describe("POST /api/project-archive", () => {
     expect(createArchive).toHaveBeenCalledWith(session.projectId);
     expect(stageArtifact).toHaveBeenCalledWith(archivePath);
     expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it("requires the Project Home identity and rejects a stale project before archiving", async () => {
+    const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session" });
+    const session = registry.openManagedRecord({
+      id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      name: "Managed",
+      projectDirectory: "/private/managed",
+      projectPath: "/private/managed/app-store-screenshots.json",
+    });
+    const createArchive = vi.fn();
+    const cookie = `screenshot_studio_project_session=${session.descriptor.sessionId}`;
+
+    const missing = await handleProjectArchivePost(new Request(
+      "http://localhost/api/project-archive",
+      { method: "POST", headers: { cookie } },
+    ), { session: { registry, configuredPath: () => null }, createArchive });
+    const stale = await handleProjectArchivePost(new Request(
+      "http://localhost/api/project-archive",
+      { method: "POST", headers: { cookie, "x-project-id": "stale-project" } },
+    ), { session: { registry, configuredPath: () => null }, createArchive });
+
+    expect(missing.status).toBe(428);
+    expect(stale.status).toBe(409);
+    expect(createArchive).not.toHaveBeenCalled();
   });
 
   it("rejects local-file sessions without generating an archive", async () => {
@@ -85,7 +113,10 @@ describe("POST /api/project-archive", () => {
     const createArchive = vi.fn();
     const response = await handleProjectArchivePost(new Request(
       "http://localhost/api/project-archive",
-      { method: "POST", headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` } },
+      { method: "POST", headers: {
+        cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}`,
+        "x-project-id": session.projectId,
+      } },
     ), {
       session: { registry, configuredPath: () => null },
       createArchive,
@@ -106,7 +137,10 @@ describe("POST /api/project-archive", () => {
     const dispose = vi.fn(async () => undefined);
     const response = await handleProjectArchivePost(new Request(
       "http://localhost/api/project-archive",
-      { method: "POST", headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` } },
+      { method: "POST", headers: {
+        cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}`,
+        "x-project-id": session.projectId,
+      } },
     ), {
       session: { registry, configuredPath: () => null },
       createArchive: vi.fn(async () => ({

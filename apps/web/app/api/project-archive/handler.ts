@@ -7,7 +7,9 @@ import {
   type ProjectArchiveArtifactTicket,
 } from "@web/lib/project-archive-artifacts.server.js";
 import {
-  withActiveProjectSession,
+  withProjectReadRequest,
+} from "@web/lib/project-request-fence.server.js";
+import {
   type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
 
@@ -23,7 +25,7 @@ export async function handleProjectArchivePost(
   request: Request,
   dependencies: ProjectArchiveRouteDependencies = {},
 ): Promise<Response> {
-  return withActiveProjectSession(request, async (session) => {
+  return withProjectReadRequest(request, async (session) => {
     if (session.descriptor.sourceKind !== "managed-project") {
       return Response.json({
         error: "Project archive export is available only for managed projects",

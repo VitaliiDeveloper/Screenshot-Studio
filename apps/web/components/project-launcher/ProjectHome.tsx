@@ -8,7 +8,7 @@ import { Download, LoaderCircle } from "lucide-react";
 import { editorUi } from "../editor-ui/styles";
 import {
   fetchActiveProject,
-  type ActiveProjectDescriptor,
+  type ActiveProjectSelection,
 } from "../../lib/project-session";
 import {
   downloadProjectArchive,
@@ -17,7 +17,7 @@ import {
 
 export function ProjectHome() {
   const router = useRouter();
-  const [project, setProject] = useState<ActiveProjectDescriptor | null>(null);
+  const [project, setProject] = useState<ActiveProjectSelection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
@@ -38,10 +38,11 @@ export function ProjectHome() {
   }, [router]);
 
   const exportProjectArchive = async () => {
+    if (!project) return;
     setArchiveBusy(true);
     setArchiveError(null);
     try {
-      downloadProjectArchive(await requestProjectArchive());
+      downloadProjectArchive(await requestProjectArchive(project.projectId));
     } catch (caught) {
       setArchiveError(caught instanceof Error ? caught.message : String(caught));
     } finally {

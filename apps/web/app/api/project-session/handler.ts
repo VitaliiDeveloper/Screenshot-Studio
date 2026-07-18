@@ -20,6 +20,7 @@ function descriptorResponse(
     headers: {
       "cache-control": "no-store",
       "set-cookie": projectSessionCookieValue(session.descriptor.sessionId, request),
+      "x-project-id": session.projectId,
     },
   });
 }

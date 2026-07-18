@@ -83,6 +83,7 @@ describe("project session route handlers", () => {
       { registry, configuredPath: () => projectPath },
     );
     expect(configured.status).toBe(200);
+    expect(configured.headers.get("x-project-id")).toBeTruthy();
     expect(configured.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=session-1",
     );

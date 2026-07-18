@@ -10,12 +10,13 @@ describe("project archive client", () => {
       filename: "screenshot-studio-project.zip",
     }, { status: 201 }));
 
-    await expect(requestProjectArchive(fetcher)).resolves.toMatchObject({
+    await expect(requestProjectArchive("project-one", fetcher)).resolves.toMatchObject({
       filename: "screenshot-studio-project.zip",
     });
     expect(fetcher).toHaveBeenCalledWith("/api/project-archive", {
       method: "POST",
       cache: "no-store",
+      headers: { "x-project-id": "project-one" },
     });
   });
 
@@ -43,7 +44,7 @@ describe("project archive client", () => {
   });
 
   it("surfaces API errors", async () => {
-    await expect(requestProjectArchive(vi.fn(async () => Response.json({
+    await expect(requestProjectArchive("project-one", vi.fn(async () => Response.json({
       error: "Managed project required",
     }, { status: 409 })))).rejects.toThrow("Managed project required");
   });
