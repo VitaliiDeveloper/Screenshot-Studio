@@ -5,7 +5,7 @@ import {
   projectSessionErrorResponse,
   resolveActiveProjectSession,
   type ActiveProjectResolverDependencies,
-} from "../../../lib/project-session.server.js";
+} from "@web/lib/project-session.server.js";
 
 function cookieValue(sessionId: string, request: Request): string {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";

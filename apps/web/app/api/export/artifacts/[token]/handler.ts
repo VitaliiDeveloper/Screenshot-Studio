@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import {
   consumeExportArtifact,
   type ExportArtifactLookup,
-} from "../../../../../lib/export-artifacts.server.js";
+} from "@web/lib/export-artifacts.server.js";
 
 export interface ExportArtifactRouteDependencies {
   consumeArtifact?: (token: string) => Promise<ExportArtifactLookup>;

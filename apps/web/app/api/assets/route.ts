@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { listProjectImageAssets } from "../../../lib/project-assets.server.js";
-import { withProjectReadRequest } from "../../../lib/project-request-fence.server.js";
+import { listProjectImageAssets } from "@web/lib/project-assets.server.js";
+import { withProjectReadRequest } from "@web/lib/project-request-fence.server.js";
 
 export const dynamic = "force-dynamic";
 

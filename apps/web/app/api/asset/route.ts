@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, isAbsolute, extname, sep } from "node:path";
-import { isStrongQuotedETag } from "../../../lib/http-etag.js";
-import { withActiveProjectSession } from "../../../lib/project-session.server.js";
+import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 /**
  * Serves the project's asset files over HTTP so /editor and the headless /render resolve the SAME

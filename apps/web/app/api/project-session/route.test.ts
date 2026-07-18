@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ProjectSessionRegistry,
   type ActiveProjectResolverDependencies,
-} from "../../../lib/project-session.server.js";
+} from "@web/lib/project-session.server.js";
 import {
   handleProjectSessionGet,
 } from "./handler.js";

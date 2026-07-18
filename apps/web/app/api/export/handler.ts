@@ -15,9 +15,9 @@ import {
 } from "@screenshot-studio/core/storage";
 import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/export";
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
-import { resolveStoreSpecsPath } from "../../../lib/store-specs-path.js";
-import { stageExportArtifact as stageExportArtifactDefault } from "../../../lib/export-artifacts.server.js";
-import { projectRevisionConflictResponse } from "../../../lib/project-request-fence.server.js";
+import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
+import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
+import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
 
 interface ExportRequest {
   layoutId?: string;

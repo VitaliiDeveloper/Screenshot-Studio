@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "../../../lib/project-session.server.js";
+} from "@web/lib/project-session.server.js";
 import { handleExportPost } from "./handler.js";
 import { POST } from "./route.js";
 

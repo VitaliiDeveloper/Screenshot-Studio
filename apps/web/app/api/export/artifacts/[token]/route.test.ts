@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createExportArtifactStore, type ExportArtifactStore } from "../../../../../lib/export-artifacts.server.js";
+import { createExportArtifactStore, type ExportArtifactStore } from "@web/lib/export-artifacts.server.js";
 import { handleExportArtifactGet } from "./handler.js";
 import { GET } from "./route.js";
 
