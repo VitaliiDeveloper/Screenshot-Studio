@@ -4,16 +4,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Download, LoaderCircle } from "lucide-react";
 import { editorUi } from "../editor-ui/styles";
 import {
   fetchActiveProject,
   type ActiveProjectDescriptor,
 } from "../../lib/project-session";
+import {
+  downloadProjectArchive,
+  requestProjectArchive,
+} from "../../lib/project-archive-client";
 
 export function ProjectHome() {
   const router = useRouter();
   const [project, setProject] = useState<ActiveProjectDescriptor | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +36,18 @@ export function ProjectHome() {
     });
     return () => { active = false; };
   }, [router]);
+
+  const exportProjectArchive = async () => {
+    setArchiveBusy(true);
+    setArchiveError(null);
+    try {
+      downloadProjectArchive(await requestProjectArchive());
+    } catch (caught) {
+      setArchiveError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
 
   if (error) {
     return <main className="grid min-h-dvh place-items-center p-6"><p role="alert" className={editorUi.statusError}>{error}</p></main>;
@@ -51,7 +70,15 @@ export function ProjectHome() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link href="/editor" className={editorUi.buttonPrimary}>Open workspace</Link>
           <Link href="/?switch=1" className={editorUi.buttonSecondary}>Project launcher</Link>
+          {project.sourceKind === "managed-project" ? (
+            <button type="button" className={editorUi.buttonSecondary} disabled={archiveBusy} onClick={() => { void exportProjectArchive(); }}>
+              {archiveBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Download aria-hidden="true" className="size-4" />}
+              {archiveBusy ? "Preparing project archive…" : "Export project archive"}
+            </button>
+          ) : null}
         </div>
+        {project.sourceKind === "managed-project" ? <p className="mt-4 text-xs leading-5 text-[color:var(--editor-color-text-muted)]">Project archive export creates a portable backup for later project import. It is separate from rendered store-image export.</p> : null}
+        {archiveError ? <p role="alert" className={`mt-4 ${editorUi.statusError}`}>{archiveError}</p> : null}
       </section>
     </main>
   );

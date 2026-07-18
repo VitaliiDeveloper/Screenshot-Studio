@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: Apache-2.0
+import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import { AppHomeShell } from "./AppHomeShell.js";
+
+const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
+
+function render(state: Parameters<typeof AppHomeShell>[0]["state"] = { status: "idle" }) {
+  return renderToStaticMarkup(createElement(AppHomeShell, {
+    state,
+    sessionError: null,
+    onOpenImport: vi.fn(),
+    onCloseImport: vi.fn(),
+    onCancelImport: vi.fn(),
+    onRetryImport: vi.fn(),
+    onSelectSource: vi.fn(),
+  }));
+}
+
+describe("AppHomeShell", () => {
+  it("renders one App Home heading with enabled Import and explicit future slots", () => {
+    const markup = render();
+
+    expect(markup.match(/<h1/g)).toHaveLength(1);
+    expect(markup).toContain("Screenshot Studio");
+    expect(markup).toContain("Create project");
+    expect(markup).toContain("Coming in Launcher 5");
+    expect(markup).toContain("disabled");
+    expect(markup).toContain("Import project");
+    expect(markup).toContain("Recent projects");
+    expect(markup).toContain("Launcher 8");
+    expect(markup).not.toContain('type="text"');
+  });
+
+  it("describes managed-copy behavior and all supported import choices", () => {
+    const markup = render({ status: "choosing" });
+
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain("managed copy");
+    expect(markup).toContain("Folder");
+    expect(markup).toContain("Recommended");
+    expect(markup).toContain("Project ZIP");
+    expect(markup).toContain("Standalone JSON");
+    expect(markup).toContain('accept=".zip,application/zip"');
+    expect(markup).toContain('accept=".json,application/json"');
+  });
+
+  it("uses alert and list semantics for missing resources", () => {
+    const markup = render({
+      status: "error",
+      message: "Project import is missing resources",
+      missingResources: ["screenshots/hero.png", "assets/icon.png"],
+    });
+
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain("screenshots/hero.png");
+    expect(markup).toContain("assets/icon.png");
+    expect(markup).toContain("Try another source");
+  });
+
+  it("offers cancellation only while upload remains cancellable", () => {
+    const uploading = render({ status: "uploading", kind: "archive", cancellable: true });
+    const publishing = render({ status: "publishing", kind: "archive", cancellable: false });
+
+    expect(uploading).toContain("Cancel import");
+    expect(uploading).toContain('role="status"');
+    expect(publishing).toContain("Validating and publishing");
+    expect(publishing).not.toContain("Cancel import");
+  });
+
+  it("moves focus into the modal, traps Tab, and reserves Escape during publication", () => {
+    expect(dialogSource).toContain("headingRef.current?.focus()");
+    expect(dialogSource).toContain('event.key !== "Tab"');
+    expect(dialogSource).toContain('event.key === "Escape" && state.status !== "publishing"');
+    expect(dialogSource).toContain("tabIndex={-1}");
+  });
+});
