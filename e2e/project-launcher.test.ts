@@ -54,7 +54,7 @@ afterAll(async () => {
 });
 
 describe("project launcher", () => {
-  it("shows the final compact App Home without a path field or premature actions", async () => {
+  it("shows the compact App Home without a path field or premature recents", async () => {
     const server = await startWebServer(undefined, {
       storeSpecsPath: resolve(repoRoot, "store-specs.json"),
     });
@@ -64,7 +64,7 @@ describe("project launcher", () => {
       await page.goto(server.url, { waitUntil: "load" });
       await page.getByRole("heading", { name: "Turn product moments into store-ready stories." }).waitFor();
       expect(await page.getByRole("textbox").count()).toBe(0);
-      expect(await page.getByRole("button", { name: "Create project" }).isDisabled()).toBe(true);
+      expect(await page.getByRole("button", { name: "Create project" }).isEnabled()).toBe(true);
       expect(await page.getByRole("button", { name: "Import project" }).isEnabled()).toBe(true);
       await page.getByRole("button", { name: "Import project" }).click();
       const dialog = page.getByRole("dialog", { name: "Bring an existing project into Screenshot Studio" });
