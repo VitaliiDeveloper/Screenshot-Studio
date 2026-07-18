@@ -52,6 +52,7 @@ docs/superpowers/
 docs/archive/superpowers/
 .superpowers/
 .worktrees/
+/.screenshot-studio/
 
 # E2E scratch (parity harness temp renders)
 e2e/.tmp/
