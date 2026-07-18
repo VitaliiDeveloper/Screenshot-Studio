@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { listProjectImageAssets } from "../../../lib/project-assets.server.js";
-import { withActiveProjectSession } from "../../../lib/project-session.server.js";
+import { withProjectReadRequest } from "../../../lib/project-request-fence.server.js";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request): Promise<Response> {
-  return withActiveProjectSession(req, async ({ projectPath }) => {
+  return withProjectReadRequest(req, async ({ projectPath }) => {
     try {
       return Response.json({ assets: await listProjectImageAssets(projectPath) });
     } catch (error) {

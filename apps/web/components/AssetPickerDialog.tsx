@@ -15,7 +15,10 @@ import {
 } from "../lib/project-assets";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { resolveActiveProjectAssetUrl } from "../lib/save-project";
+import {
+  projectRequestHeaders,
+  resolveActiveProjectAssetUrl,
+} from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
@@ -33,7 +36,7 @@ export function AssetPickerDialog({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/assets")
+    void fetch("/api/assets", { headers: projectRequestHeaders() })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body.error ?? `Asset listing failed (${response.status})`);

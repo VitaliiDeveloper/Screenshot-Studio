@@ -44,6 +44,40 @@ afterEach(async () => {
 });
 
 describe("GET /api/assets", () => {
+  it("rejects a stale workspace identity after the session cookie changes", async () => {
+    const staleWorkspace = await projectSessionRegistry.openLocal(process.env.PROJECT_PATH!);
+    const activeDirectory = await mkdtemp(join(tmpdir(), "assets-route-active-"));
+    const activeProjectPath = join(activeDirectory, "app-store-screenshots.json");
+    await writeFile(activeProjectPath, projectJson("Active"));
+    await mkdir(join(activeDirectory, "assets"), { recursive: true });
+    await writeFile(join(activeDirectory, "assets", "active.png"), "image");
+
+    try {
+      const activeSession = await projectSessionRegistry.openLocal(activeProjectPath);
+      const response = await GET(new Request("http://x/api/assets", {
+        headers: {
+          cookie: `${PROJECT_SESSION_COOKIE}=${activeSession.descriptor.sessionId}`,
+          "x-project-id": staleWorkspace.projectId,
+        },
+      }));
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ error: expect.stringMatching(/changed/i) });
+    } finally {
+      await rm(activeDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("requires the loaded workspace identity when a project session exists", async () => {
+    const session = await projectSessionRegistry.openLocal(process.env.PROJECT_PATH!);
+
+    const response = await GET(new Request("http://x/api/assets", {
+      headers: { cookie: `${PROJECT_SESSION_COOKIE}=${session.descriptor.sessionId}` },
+    }));
+
+    expect(response.status).toBe(428);
+  });
+
   it("lists assets through each request's active project session", async () => {
     const first = await projectSessionRegistry.openLocal(process.env.PROJECT_PATH!);
     const secondDirectory = await mkdtemp(join(tmpdir(), "assets-route-second-"));
@@ -54,11 +88,17 @@ describe("GET /api/assets", () => {
 
     try {
       const firstResponse = await GET(new Request("http://x/api/assets", {
-        headers: { cookie: `${PROJECT_SESSION_COOKIE}=${first.descriptor.sessionId}` },
+        headers: {
+          cookie: `${PROJECT_SESSION_COOKIE}=${first.descriptor.sessionId}`,
+          "x-project-id": first.projectId,
+        },
       }));
       const second = await projectSessionRegistry.openLocal(secondProjectPath);
       const secondResponse = await GET(new Request("http://x/api/assets", {
-        headers: { cookie: `${PROJECT_SESSION_COOKIE}=${second.descriptor.sessionId}` },
+        headers: {
+          cookie: `${PROJECT_SESSION_COOKIE}=${second.descriptor.sessionId}`,
+          "x-project-id": second.projectId,
+        },
       }));
 
       expect(await firstResponse.json()).toEqual({
@@ -79,7 +119,10 @@ describe("GET /api/assets", () => {
   });
 
   it("returns safe project image descriptors", async () => {
-    const response = await GET(new Request("http://x/api/assets"));
+    const session = await projectSessionRegistry.openLocal(process.env.PROJECT_PATH!);
+    const response = await GET(new Request("http://x/api/assets", {
+      headers: { "x-project-id": session.projectId },
+    }));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       assets: [{ path: "assets/shot.png", name: "shot.png", source: "assets" }],
