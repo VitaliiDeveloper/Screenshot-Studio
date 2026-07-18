@@ -25,6 +25,21 @@ interface ArchiveSourceIdentity {
   size: bigint;
 }
 
+interface ArchivePathStat {
+  dev: bigint;
+  ino: bigint;
+  size: bigint;
+  nlink: bigint;
+  isDirectory(): boolean;
+  isFile(): boolean;
+  isSymbolicLink(): boolean;
+}
+
+interface ArchiveDirectoryIdentity {
+  device: bigint;
+  inode: bigint;
+}
+
 interface ArchiveSourceFile {
   absolutePath: string;
   relativePath: string;
@@ -39,6 +54,7 @@ export interface ManagedProjectArchiveArtifact {
 
 export interface ManagedProjectArchiveServiceDependencies {
   removeTemporaryRoot?: (path: string) => Promise<void>;
+  statPath?: (path: string) => Promise<ArchivePathStat>;
 }
 
 function readFlags(): number {
@@ -66,6 +82,7 @@ async function* verifiedFileChunks(source: ArchiveSourceFile): AsyncGenerator<Bu
 
 export class ManagedProjectArchiveService {
   readonly #removeTemporaryRoot: (path: string) => Promise<void>;
+  readonly #statPath: (path: string) => Promise<ArchivePathStat>;
 
   constructor(
     readonly repository: ManagedProjectRepository,
@@ -73,6 +90,8 @@ export class ManagedProjectArchiveService {
   ) {
     this.#removeTemporaryRoot = dependencies.removeTemporaryRoot
       ?? ((path) => rm(path, { recursive: true, force: true }));
+    this.#statPath = dependencies.statPath
+      ?? ((path) => lstat(path, { bigint: true }));
   }
 
   async create(projectId: string): Promise<ManagedProjectArchiveArtifact> {
@@ -81,11 +100,21 @@ export class ManagedProjectArchiveService {
     let entries = 0;
     let bytes = 0n;
 
-    const walk = async (directory: string, relativeDirectory = ""): Promise<void> => {
+    const walk = async (
+      directory: string,
+      relativeDirectory = "",
+      expectedIdentity?: ArchiveDirectoryIdentity,
+    ): Promise<void> => {
+      const before = await this.#statPath(directory);
+      if (!before.isDirectory() || before.isSymbolicLink()
+        || (expectedIdentity && (before.dev !== expectedIdentity.device
+          || before.ino !== expectedIdentity.inode))) {
+        throw new Error(`Managed project archive directory changed during export: ${relativeDirectory || "."}`);
+      }
       for (const name of (await readdir(directory)).sort((left, right) => left.localeCompare(right))) {
         const absolutePath = join(directory, name);
         const relativePath = relativeDirectory ? `${relativeDirectory}/${name}` : name;
-        const stat = await lstat(absolutePath, { bigint: true });
+        const stat = await this.#statPath(absolutePath);
         entries += 1;
         if (entries > this.repository.config.maxProjectFiles) {
           throw new Error("Managed project archive exceeds the configured file limit");
@@ -94,7 +123,7 @@ export class ManagedProjectArchiveService {
           throw new Error(`Managed project archive cannot contain a symbolic link: ${relativePath}`);
         }
         if (stat.isDirectory()) {
-          await walk(absolutePath, relativePath);
+          await walk(absolutePath, relativePath, { device: stat.dev, inode: stat.ino });
           continue;
         }
         if (!stat.isFile()) {
@@ -114,6 +143,11 @@ export class ManagedProjectArchiveService {
             identity: { device: stat.dev, inode: stat.ino, size: stat.size },
           });
         }
+      }
+      const after = await this.#statPath(directory);
+      if (!after.isDirectory() || after.isSymbolicLink()
+        || after.dev !== before.dev || after.ino !== before.ino) {
+        throw new Error(`Managed project archive directory changed during export: ${relativeDirectory || "."}`);
       }
     };
 

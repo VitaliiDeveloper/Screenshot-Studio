@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { link, lstat, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { link, lstat, mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
@@ -162,5 +162,25 @@ describe("ManagedProjectArchiveService", () => {
     );
     await expect(new ManagedProjectArchiveService(hardLinkFixture.repository)
       .create(hardLinkFixture.imported.id)).rejects.toThrow(/hard link/i);
+  });
+
+  it("fails closed when a directory binding changes during enumeration", async () => {
+    const { root, repository, imported } = await createFixture();
+    const assets = join(imported.projectDirectory, "assets");
+    const movedAssets = join(imported.projectDirectory, "assets-original");
+    const outside = join(root, "outside-assets");
+    await mkdir(outside);
+    await writeFile(join(outside, "icon.png"), "outside");
+    let assetsStats = 0;
+    const statPath = async (path: string) => {
+      if (path === assets && ++assetsStats === 3) {
+        await rename(assets, movedAssets);
+        await symlink(outside, assets);
+      }
+      return lstat(path, { bigint: true });
+    };
+
+    await expect(new ManagedProjectArchiveService(repository, { statPath })
+      .create(imported.id)).rejects.toThrow(/directory changed/i);
   });
 });

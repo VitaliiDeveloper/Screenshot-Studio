@@ -295,7 +295,8 @@ Managed Project Home exposes `POST /api/project-archive` as a read-only transfer
 archive enumerates a verified regular-file tree and includes only the root project document, project
 guides, and supported `assets/`, `screenshots/`, `themes/`, and `templates/` resources. It excludes
 catalog/session/recovery metadata, locks, stages, temp files, credentials, hidden paths, and rendered
-store output. Generation uses the same configured file/byte bounds and a no-follow identity check;
+store output. Generation uses the same configured file/byte bounds, verifies directory bindings
+around recursive enumeration, and applies no-follow file identity checks before streaming;
 the resulting `screenshot-studio-project.zip` is copied into a short-lived, one-shot artifact under
 `/api/project-archive/artifacts/<token>`. That namespace and filename are deliberately separate from
 the rendered store-image export route. The allowlisted archive service is also the stable backup
