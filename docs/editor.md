@@ -3,7 +3,7 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 2.2, 18 July 2026.
+Version 2.3, 19 July 2026.
 
 > **Status: this document describes the current as-built strict v1 editor.**
 > Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
@@ -36,13 +36,28 @@ short transform/opacity motion. Close and Escape keep the dialog mounted until i
 reduced-motion preferences complete these transitions without animation. Local-file Project Home
 retains its exact-location behavior and does not offer this managed archive action.
 
+Project Home is the informational/action surface for the validated active project, not a second
+editor. It reports project name, source label and safe location when available, supported platforms,
+layouts and immutable modes, preferred export layout, locales, output families/store targets, screen
+and empty-screen counts, and readiness conditions known by current asset/font/save services.
+Representative screens use the existing shared-renderer thumbnail projection. Its actions route to
+the existing Workspace/layout-screen, locale, import, store-image export, and project-archive export
+surfaces; project archive and rendered store-image export remain visibly distinct.
+
+**Close project** is source-neutral and non-destructive. It secures pending/latest writes, applies the
+existing save-failure safeguard, clears only the active session plus that project's transient
+workspace navigation state, and returns to App Home. It never removes recents, trashes/deletes a
+managed project, or moves/deletes a local-file directory. The workflow guide distinguishes project
+templates, screen templates, layout modes, project import, capture import, project archive export,
+and store-image export without claiming out-of-scope launcher behavior.
+
 ---
 
 ## 1. Layout — workbench regions
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Top bar: project · layout · locale/manage · Focus/Overview · Export │
+│ Top bar: Project Home · project · layout · locale/manage · Focus/Overview · Export │
 ├────┬──────────────┬────────────────────────────┬──────────────┤
 │Tool│ Context shelf│ Canvas viewport            │ Inspector    │
 │rail│ (collapsible)│ artboards · pattern        │ (collapsible)│
@@ -218,6 +233,11 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 - Layout switching and the locally remembered active layout are workspace state only. Content
   undo/redo is independent per layout and stores screen snapshots only; layout add, duplicate,
   rename, mode, prefer, and delete are durable lifecycle actions outside content history.
+- Home ↔ Workspace navigation preserves valid active layout, active screen, element selection,
+  Focus/Overview, zoom, tool, canvas pattern, shelf, and inspector state for the same project identity.
+  Transient chrome is project-keyed session state and never enters project JSON. Before Workspace
+  opens Project Home it drains pending writes and saves the latest snapshot; a failure blocks
+  navigation and keeps the editable state visible.
 - Inspector changes are coalesced, flushed on blur, and serialized with resource mutations. Failed
   saves surface a visible workspace alert; the editor never silently presents a rejected value as
   durable state.
@@ -274,6 +294,10 @@ to the strict schema before they can mutate the live project. Type-specific fiel
   the local source reports `revealLocation`.
 - **Selected managed project** → Project Home omits server location, opens the same Workspace, and
   offers the distinct portable project-archive export action.
+- **Workspace navigation save failure** → Project Home navigation is blocked; an alert explains that
+  the latest project changes could not be saved and Workspace remains active.
+- **Close project failure** → Project Home keeps the active session and project state and reports the
+  failure; successful close returns to App Home without changing project storage or recents.
 - **Empty artboard** → Add remains available for creating the first element on the existing screen.
 - **Missing asset** → a visible placeholder on the canvas; never crash or block the rest of the screen.
 - **Invalid JSON on load** → a blocking error surfacing the validator message; never fail silently.

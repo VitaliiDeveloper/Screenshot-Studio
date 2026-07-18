@@ -4,7 +4,7 @@ How the system is built and the contracts everything agrees on: tech stack, core
 split, render/export parity, data model & schema, store export spec, fonts, the management
 interface (CLI + conventions + generated project guidance), and design guardrails.
 
-Version 1.1, 17 July 2026.
+Version 1.2, 19 July 2026.
 
 ---
 
@@ -146,6 +146,7 @@ interface ActiveProjectDescriptor {
     watchExternalChanges: boolean
     nativePicker: boolean
     projectLocalResources: boolean
+    exportProjectArchive: boolean
   }
 }
 ```
@@ -211,7 +212,7 @@ concurrency behavior differ behind the adapter boundary.
 
 Launcher 1/8 implements the local-file source and active-session seam; Launcher 2/8 adds the
 managed repository/catalog; Launcher 3/8 adds browser import and portable project archives behind
-those seams:
+those seams; Launcher 4/8 builds Project Home and its Workspace round trip on the same contracts:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
@@ -228,6 +229,31 @@ those seams:
   unchanged;
 - managed browser import/archive export is implemented in Launcher 3/8; Electron-specific and cloud
   implementations are not created until their product surfaces exist.
+
+#### Project Home and Workspace round trip (Launcher 4/8)
+
+Project Home is a validated, read-only projection of the active session's strict Project snapshot,
+store specs, resolved assets/fonts, and source descriptor. It summarizes source-safe identity,
+platforms, locales, layouts and immutable modes, preferred export layout, screen and empty-screen
+counts, output families/store targets, and only readiness evidence already produced by those
+services. Managed server paths remain private. Representative previews reuse `ScreenThumbnail` and
+the shared renderer; Project Home does not create another Project model, editor store, renderer, or
+mutation channel.
+
+Actions are capability-backed links into existing Workspace, locale, import, and store-image export
+surfaces. Portable project-archive export remains a separately named managed-source capability.
+Workspace reloads of the same opaque project identity reconcile the validated snapshot with valid
+active layout, screen, and element selection; a different identity performs a fresh project load.
+Project-keyed session storage retains only transient view/chrome values (zoom, Focus/Overview, tool,
+canvas pattern, shelf, and inspector state), never Project content, paths, revisions, or credentials.
+
+Workspace → Project Home first drains queued saves and persists the latest store snapshot. A failed
+write keeps Workspace mounted and exposes an alert. **Close project** runs through that same exclusive
+save fence, sends an `X-Project-Id`-fenced `DELETE /api/project-session`, removes only the matching
+opaque registry entry, expires the HttpOnly session cookie, clears that project's transient workspace
+state, and returns to App Home. It does not change recents/catalog entries, Trash or delete a managed
+project, or move/delete a local project directory. A close failure preserves the active session and
+client project state.
 
 Future adapters must prove the same behavioral contract: validate before activation, preserve the
 previous session on open failure, detect stale writes, avoid partial publication, report capabilities

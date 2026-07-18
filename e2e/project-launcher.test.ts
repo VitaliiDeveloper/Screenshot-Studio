@@ -104,8 +104,8 @@ describe("project launcher", () => {
       await page.goto(server.url, { waitUntil: "load" });
       await page.waitForURL(`${server.url}/home`);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
-      expect(await page.getByText(realpathSync(projectPath), { exact: true }).count()).toBe(1);
-      await page.getByRole("link", { name: "Open workspace" }).click();
+      expect(await page.getByText(realpathSync(projectPath), { exact: false }).count()).toBe(1);
+      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
     } finally {
@@ -141,7 +141,7 @@ describe("project launcher", () => {
 
       await page.waitForURL(`${server.url}/home`);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
-      expect(await page.getByText("managed-project", { exact: true }).count()).toBe(1);
+      expect(await page.getByText("Managed browser project", { exact: true }).count()).toBe(1);
       const downloadPromise = page.waitForEvent("download");
       await page.getByRole("button", { name: "Export project archive" }).click();
       const download = await downloadPromise;
@@ -149,7 +149,7 @@ describe("project launcher", () => {
       const archivePath = join(directory, "round-trip-project.zip");
       await download.saveAs(archivePath);
 
-      await page.getByRole("link", { name: "Project launcher" }).click();
+      await page.getByRole("link", { name: "Import another project", exact: true }).click();
       await page.waitForURL(`${server.url}/?switch=1`);
       await page.getByRole("button", { name: "Import project" }).click();
       await page.getByLabel("Choose project ZIP").setInputFiles(archivePath);
@@ -158,7 +158,7 @@ describe("project launcher", () => {
 
       await page.waitForURL(`${server.url}/home`);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
-      await page.getByRole("link", { name: "Open workspace" }).click();
+      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
     } finally {
