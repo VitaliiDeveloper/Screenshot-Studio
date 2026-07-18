@@ -5,6 +5,7 @@ import { Project, type Project as ProjectModel } from "@screenshot-studio/core/m
 import {
   createProjectAtomic,
   ProjectPathError,
+  ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
   readProjectSnapshot,
   resolveExistingProjectPath,
@@ -20,6 +21,10 @@ export const DEFAULT_PROJECT_FILENAME = "app-store-screenshots.json";
 export interface ProjectUpdateTransaction {
   onRollback(action: () => void | Promise<void>): void;
   onCommit(action: () => void | Promise<void>): void;
+}
+
+export interface ProjectUpdatePreconditions {
+  expectedRevision?: string;
 }
 
 export function resolveProjectPath(flags: Record<string, string>): string {
@@ -87,10 +92,20 @@ export async function updateProjectFile<T>(
     | Promise<{ project: ProjectModel; value: T }>,
   lockOptions: ProjectLockOptions = {},
   fileDependencies: ProjectFileDependencies = {},
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<{ project: ProjectModel; revision: string; value: T }> {
   const canonicalPath = await resolveExistingProjectPath(projectPath);
   return withProjectMutation(canonicalPath, async () => {
     const current = await readIdentifiedProjectSnapshot(canonicalPath, fileDependencies);
+    if (
+      preconditions.expectedRevision !== undefined
+      && preconditions.expectedRevision !== current.revision
+    ) {
+      throw new ProjectRevisionConflictError(
+        preconditions.expectedRevision,
+        current.revision,
+      );
+    }
     const rollbackActions: Array<() => void | Promise<void>> = [];
     const commitActions: Array<() => void | Promise<void>> = [];
     const transaction: ProjectUpdateTransaction = {

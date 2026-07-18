@@ -14,14 +14,19 @@ reproducible, automatable in CI, and give an AI agent a clean contract to work a
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
 corepack enable      # resolves the pinned pnpm 11 on a fresh machine
 pnpm install
-pnpm dev             # editor → http://localhost:3000/editor (opens the bundled sample project)
+pnpm dev             # App Home → http://localhost:3000
 ```
 
-To edit your own project instead of the bundled sample, point `PROJECT_PATH` at its JSON —
-relative paths resolve from the directory you run the command in:
+Without an explicit project source, App Home reports that no project is active and never opens or
+autosaves the bundled sample. The Launcher 1/7 foundation intentionally does not expose a browser
+filesystem-path form. Start a local project explicitly with `PROJECT_PATH=... pnpm dev` or
+`screenshots dev --project ...`; browser Folder/ZIP/JSON import is delivered through managed project
+storage in later launcher slices.
+
+For example:
 
 ```bash
-PROJECT_PATH=./my-app-screenshots/app-store-screenshots.json pnpm dev
+PROJECT_PATH=/absolute/path/to/my-app-screenshots/app-store-screenshots.json pnpm dev
 ```
 
 Exporting store-ready PNGs (and the e2e suite) additionally needs a one-time Playwright
@@ -231,14 +236,11 @@ semantic object/person segmentation for complex scenes.
 
 ### Editor
 
-`pnpm dev` (see **Quick start**) runs the web host; open http://localhost:3000/editor.
-`pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json` runs the same
-editor through the CLI and prints the selected local URL.
-
-Without `PROJECT_PATH` the editor opens the committed sample
-(`fixtures/sample/app-store-screenshots.json`) — fine for a first look, but the
-editor **autosaves to disk**, so point `PROJECT_PATH` at your own project before real edits,
-or `git checkout` the fixture afterwards.
+`pnpm dev` (see **Quick start**) runs the no-active-project App Home at http://localhost:3000. To open
+a local project in the current foundation, set `PROJECT_PATH` to an existing absolute
+`app-store-screenshots.json` path before starting the host, or run
+`screenshots dev --project /absolute/path/to/app-store-screenshots.json`. Both seed the same
+local-file session; App Home itself does not ask the user to paste a filesystem path.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
 strict `templates/*.json`. The Add shelf inserts text, shape, and trusted built-in icons directly;

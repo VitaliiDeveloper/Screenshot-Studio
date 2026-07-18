@@ -15,13 +15,13 @@ import {
 } from "../lib/project-assets";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
+import {
+  projectRequestHeaders,
+  resolveActiveProjectAssetUrl,
+} from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
-
-function assetUrl(path: string): string {
-  return `/api/asset?path=${encodeURIComponent(path)}`;
-}
 
 export function AssetPickerDialog({
   elementType,
@@ -36,7 +36,7 @@ export function AssetPickerDialog({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/assets")
+    void fetch("/api/assets", { headers: projectRequestHeaders() })
       .then(async (response) => {
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body.error ?? `Asset listing failed (${response.status})`);
@@ -134,7 +134,7 @@ export function AssetPickerDialog({
             >
               <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,#f8fafc_25%,transparent_25%),linear-gradient(-45deg,#f8fafc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f8fafc_75%),linear-gradient(-45deg,transparent_75%,#f8fafc_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
                 <NextImage
-                  src={assetUrl(asset.path)}
+                  src={resolveActiveProjectAssetUrl(asset.path)}
                   alt=""
                   fill
                   unoptimized

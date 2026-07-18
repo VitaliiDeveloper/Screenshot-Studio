@@ -81,6 +81,28 @@ describe("editorStore", () => {
     expect(s.selectedItems).toEqual([]);
   });
 
+  it("resets every project-scoped editor field before another project loads", () => {
+    editorStore.getState().load(project());
+    patchText("headline", { x: 123 });
+    editorStore.getState().select("headline");
+    editorStore.getState().setSaveState("error", "disk unavailable");
+
+    (editorStore.getState() as unknown as { resetProjectState(): void }).resetProjectState();
+
+    expect(editorStore.getState()).toMatchObject({
+      project: null,
+      activeLayoutId: null,
+      activeScreenId: null,
+      selectedItems: [],
+      historyPast: [],
+      historyFuture: [],
+      layoutHistories: {},
+      historyGroupKey: null,
+      saveStatus: "idle",
+      saveError: null,
+    });
+  });
+
   it("does not expose a partial durable-font replacement action", () => {
     expect(editorStore.getState()).not.toHaveProperty("replaceFonts");
   });

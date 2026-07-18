@@ -4,7 +4,7 @@ How the system is built and the contracts everything agrees on: tech stack, core
 split, render/export parity, data model & schema, store export spec, fonts, the management
 interface (CLI + conventions + generated project guidance), and design guardrails.
 
-Version 1.0, 12 July 2026.
+Version 1.1, 17 July 2026.
 
 ---
 
@@ -93,6 +93,145 @@ checks, identity/link-count evidence, ambiguous commit reconciliation, and the r
 namespace-race limitation are documented in [Safe file publication](safe-file-publication.md).
 Project JSON transactions and complete ZIP/output batches retain their dedicated commit paths; this
 is not a generic storage layer.
+
+### Active project sessions and deployment-specific sources
+
+The editor must not treat one process-global filesystem path as the identity of the active project.
+That shortcut works only for one local process and prevents multiple browser sessions, an Electron
+shell, managed browser projects, and hosted projects from sharing the same Project Home and Workspace.
+The portable boundary is therefore an **active project session**, not a universal file picker.
+
+The shell owns how a project is selected. A registered project-source adapter owns how that source is
+opened. The editor, APIs, renderer, and export flow consume the resulting request-scoped session and
+do not need to know whether the source began as a local path, a managed project id, or a cloud id.
+
+```mermaid
+flowchart LR
+    Launcher["Launcher or shell"] --> Registry["Project source registry"]
+    Registry --> Local["local-file adapter"]
+    Registry --> Managed["managed-project adapter"]
+    Registry --> Cloud["cloud-project adapter"]
+    Local --> Session["Active project session"]
+    Managed --> Session
+    Cloud --> Session
+    Session --> Storage["StorageAdapter plus resource services"]
+    Storage --> Snapshot["Validated Project snapshot and revision"]
+    Snapshot --> Home["Project Home"]
+    Snapshot --> Workspace["Workspace"]
+    Snapshot --> Render["Shared renderer and export"]
+```
+
+The source registry is an application/shell concern. It does not enter `packages/core` merely to
+make one launcher's picker reusable. The existing `StorageAdapter` remains the core JSON-and-explicit-
+asset boundary. An opened source supplies the adapter-specific `projectId` used by that interface and,
+where supported, the project-local context required by the dedicated font, theme, template, import,
+processed-asset, and export services.
+
+The in-process session registry is a bounded least-recently-used cache of at most 30 opened projects.
+Resolving a session id or reopening the same canonical local path refreshes its recency; opening a
+31st distinct project evicts the oldest session from both id and path lookup. Eviction drops only
+application session metadata and never deletes or mutates the project document or its resources.
+
+An illustrative browser-safe descriptor is:
+
+```ts
+interface ActiveProjectDescriptor {
+  sessionId: string
+  name: string
+  sourceKind: string // registered id, for example "local-file" or "managed-project"
+  displayLocation?: string
+  capabilities: {
+    writeInPlace: boolean
+    revealLocation: boolean
+    watchExternalChanges: boolean
+    nativePicker: boolean
+    projectLocalResources: boolean
+  }
+}
+```
+
+This descriptor is application state, not persisted Project data. It intentionally contains no
+filesystem path field that every consumer can depend on. `displayLocation` is present only when the
+source can safely expose a useful location. A local self-hosted source can display the exact canonical
+`app-store-screenshots.json` path; a managed project exposes a project name or managed label; a hosted
+source may show a workspace/project label or URL. Capabilities combine what the selected source and
+the current shell can actually provide: the same local-file source can report `nativePicker: false`
+in the web shell and `nativePicker: true` in Electron.
+
+The session owner retains the opaque source locator, current revision evidence, and the adapter needed
+to load or save the project. Local-file, managed-project, and cloud sessions are server-owned. Browser
+Folder/ZIP/JSON inputs are bounded import inputs that publish a managed copy; they are not retained
+filesystem handles and do not imply in-place mutation of the selected source.
+Project-bound operations resolve the session from request or client-workspace scope. They must not read
+or mutate one global "current project" path. In a hosted deployment the authenticated user/session owns
+access; possession of a `sessionId` is never authorization by itself.
+
+#### Deployment mapping
+
+| Deployment | Selection experience | Adapter locator | Visible location | Implementation boundary |
+|---|---|---|---|---|
+| CLI-seeded local web | `PROJECT_PATH` or `screenshots dev --project` | Canonical local JSON path | Exact path | `local-file`; implemented in Launcher 1/7 |
+| Managed browser web | Folder/ZIP/JSON import | Opaque managed project id | Project name / managed label | `managed-project`; Launcher 2/7–3/7 |
+| Electron or another desktop shell | Native OS open dialog | Canonical local JSON path | Exact path | The same `local-file` adapter; future shell |
+| Hosted cloud project | Authenticated project catalog | Provider-owned project id | Project/workspace label or URL | `cloud-project`; cloud storage, authorization, and distributed concurrency |
+
+There is deliberately no promise that all rows support the same actions. The UI reads capabilities
+instead of inferring behavior from `NODE_ENV`, hostname, or source-name conditionals. For example, a
+hosted source without project-local resource support may allow validated JSON editing while hiding
+font/template management. It must not silently emulate an unsupported operation or claim that an
+imported copy still edits its original source.
+
+#### Local self-hosted example
+
+A user explicitly starts the open-source editor with a local project:
+
+```bash
+PROJECT_PATH=/Users/alex/Projects/MyAppScreenshots/app-store-screenshots.json pnpm dev
+```
+
+The local source canonicalizes and validates the path, loads the strict document, captures its
+revision, and only then creates an active session. The response exposes a generated `sessionId`, the
+project name, the exact display path, and local capabilities. Project Home, Workspace, asset routes,
+preview, and export resolve the same session. A failed open leaves the previous active session intact.
+
+Normal browser project selection later imports Folder/ZIP/JSON input into managed storage and opens a
+`managed-project` session. An Electron shell instead supplies a canonical local path from a native
+dialog to the same `local-file` behavior, so Project Home, Workspace, persistence, and export do not
+change.
+
+#### Hosted example
+
+A hosted user selects `project_123` from an authenticated catalog. The cloud source loads the same
+strict Project model through its storage implementation and creates the same kind of active session.
+The descriptor might show `Team / Launch Campaign` instead of an absolute path. Editor consumers use
+the session exactly as they do locally; only storage, authorization, resource availability, and
+concurrency behavior differ behind the adapter boundary.
+
+#### Compatibility and first delivery
+
+Launcher 1/7 implements only the local-file source and the active-session seam:
+
+- without an explicit source, the application shows App Home rather than silently opening the bundled
+  sample;
+- `PROJECT_PATH` and `screenshots dev --project` seed a local-file session for backward compatibility;
+- App Home does not expose a browser path form or arbitrary local-path activation endpoint;
+- the initial local registry may be in-process, so a server restart can require reopening the project;
+  managed storage/catalog belongs to Launcher 2/7 and durable recents to Launcher 7/7;
+- every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
+  independently;
+- interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
+  export additionally require a strong `If-Match` revision that is rechecked inside their mutation or
+  stable-export lease;
+- conditional revisions, mutation locks, strict validation, and shared render/export behavior remain
+  unchanged;
+- managed browser import/archive export belongs to Launcher 3/7; Electron-specific and cloud
+  implementations are not created until their product surfaces exist.
+
+Future adapters must prove the same behavioral contract: validate before activation, preserve the
+previous session on open failure, detect stale writes, avoid partial publication, report capabilities
+honestly, and keep `app-store-screenshots.json` free of source locators, recent history, credentials,
+and shell state. Resource storage beyond the narrow core `StorageAdapter` remains coordinated with the
+dedicated resource-system contracts rather than being hidden inside this session layer.
 
 ### Render / export parity — the #1 technical risk
 
@@ -252,9 +391,12 @@ entries and symlinks, and returns stable portable relative paths. The Add picker
 `screenshot`, decorative `image`, and `device-frame` schema members through core factories; insertion uses
 the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
 the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
-reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
-project replacement. The `image` leaf has a non-cropping `contain` default, deterministic centred
-`cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder.
+reading image or font bytes. Interactive asset URLs carry the active session cookie, project id, and
+one strong quoted project revision; the headless render host instead supplies its explicit project
+path. There is no implicit `PROJECT_PATH` fallback for an unscoped asset URL. The picker performs no
+upload, copy, delete, rename, external fetch, or project replacement. The `image` leaf has a
+non-cropping `contain` default, deterministic centred `cover` crop, alpha-preserving composition, and
+the screenshot missing-asset placeholder.
 
 **Connected workspace behavior.** Workspace derivation has two explicit
 contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and

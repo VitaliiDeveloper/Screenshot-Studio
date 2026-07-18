@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
 import { editorStore } from "./editor-store.js";
-import { saveProject } from "./save-project.js";
+import { clearProjectPersistenceIdentity, saveProject } from "./save-project.js";
 
 /**
  * Returns a debounced version of `saveFn` that coalesces rapid calls into one, keeping only the
@@ -61,6 +61,16 @@ export function createProjectSaveCoordinator(
       });
     },
     runExclusive,
+    /** Drain the latest project, activate the replacement, then clear state before queued saves run. */
+    switchProject<T>(activate: () => Promise<T>, reset: () => void): Promise<T> {
+      return runExclusive(async () => {
+        const project = getLatestProject();
+        if (project) await saveFn(project);
+        const result = await activate();
+        reset();
+        return result;
+      });
+    },
     whenIdle(): Promise<void> {
       return tail;
     },
@@ -99,6 +109,19 @@ export function flushScheduledSave(): Promise<void> {
 /** Cancel a queued stale snapshot before an operation performs its own awaited flush. */
 export function cancelScheduledSave(): void {
   scheduleSave.cancel();
+}
+
+/**
+ * Keep the old cookie active until every old-project save is durable. The activation callback may
+ * change the cookie; client persistence is reset before this exclusive queue slot is released.
+ */
+export function switchActiveProject<T>(activate: () => Promise<T>): Promise<T> {
+  cancelScheduledSave();
+  return projectSaves.switchProject(activate, () => {
+    cancelScheduledSave();
+    clearProjectPersistenceIdentity();
+    editorStore.getState().resetProjectState();
+  });
 }
 
 /**

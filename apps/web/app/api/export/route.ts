@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { handleExportPost } from "./handler.js";
+import { withProjectMutationRequest } from "../../../lib/project-request-fence.server.js";
 
 /**
  * UI export writes the same lead-size roots plus opt-in exact variants that the CLI writes, from the same
@@ -11,5 +12,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
-  return handleExportPost(req);
+  return withProjectMutationRequest(
+    req,
+    ({ projectPath }, expectedRevision) => (
+      handleExportPost(projectPath, req, {}, expectedRevision)
+    ),
+  );
 }

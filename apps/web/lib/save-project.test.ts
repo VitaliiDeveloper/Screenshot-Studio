@@ -28,7 +28,12 @@ interface RevisionAwareSaveProjectModule {
   saveProject(project: Project): Promise<void>;
   getProjectRevision(): string | undefined;
   setProjectRevision(revision: string | null): void;
+  setProjectPersistenceIdentity(projectId: string, revision: string | null): void;
+  getProjectPersistenceIdentity(): { projectId: string; revision: string } | undefined;
+  clearProjectPersistenceIdentity(): void;
+  resolveActiveProjectAssetUrl(path: string): string;
   advanceProjectRevisionFromResponse(response: Pick<Response, "headers">): void;
+  projectRequestHeaders(options?: { conditional?: boolean }): Headers;
 }
 
 const initialRevision = '"revision-one"';
@@ -48,6 +53,44 @@ afterEach(() => {
 });
 
 describe("project revision tracking", () => {
+  it("sets and clears project identity and revision as one persistence boundary", () => {
+    api.setProjectPersistenceIdentity("project-one", initialRevision);
+
+    expect(api.getProjectPersistenceIdentity()).toEqual({
+      projectId: "project-one",
+      revision: initialRevision,
+    });
+
+    api.clearProjectPersistenceIdentity();
+
+    expect(api.getProjectPersistenceIdentity()).toBeUndefined();
+    expect(api.getProjectRevision()).toBeUndefined();
+  });
+
+  it("constructs interactive asset URLs from the active project id and revision", () => {
+    api.setProjectPersistenceIdentity("project one", initialRevision);
+
+    expect(api.resolveActiveProjectAssetUrl("assets/Hero image.png")).toBe(
+      "/api/asset?projectId=project%20one&revision=%22revision-one%22&path=assets%2FHero%20image.png",
+    );
+
+    api.clearProjectPersistenceIdentity();
+    expect(() => api.resolveActiveProjectAssetUrl("assets/Hero image.png"))
+      .toThrow(/identity/i);
+  });
+
+  it("constructs project-bound read and conditional mutation headers", () => {
+    api.setProjectPersistenceIdentity("project-one", initialRevision);
+
+    const readHeaders = api.projectRequestHeaders();
+    expect(readHeaders.get("x-project-id")).toBe("project-one");
+    expect(readHeaders.has("if-match")).toBe(false);
+
+    const mutationHeaders = api.projectRequestHeaders({ conditional: true });
+    expect(mutationHeaders.get("x-project-id")).toBe("project-one");
+    expect(mutationHeaders.get("if-match")).toBe(initialRevision);
+  });
+
   it("seeds and exposes an opaque quoted ETag", () => {
     expect(api.setProjectRevision).toBeTypeOf("function");
     expect(api.getProjectRevision).toBeTypeOf("function");
@@ -79,9 +122,9 @@ describe("project revision tracking", () => {
 
 describe("saveProject", () => {
   it("sends If-Match and advances the revision only after a successful save", async () => {
-    expect(api.setProjectRevision).toBeTypeOf("function");
+    expect(api.setProjectPersistenceIdentity).toBeTypeOf("function");
     expect(api.getProjectRevision).toBeTypeOf("function");
-    api.setProjectRevision(initialRevision);
+    api.setProjectPersistenceIdentity("project-one", initialRevision);
     fetchMock.mockResolvedValue(Response.json(project, {
       headers: { etag: savedRevision },
     }));
@@ -91,13 +134,14 @@ describe("saveProject", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(new Headers(init.headers).get("if-match")).toBe(initialRevision);
+    expect(new Headers(init.headers).get("x-project-id")).toBe("project-one");
     expect(api.getProjectRevision()).toBe(savedRevision);
   });
 
   it("surfaces a conflict without retrying or replacing the revision", async () => {
     expect(api.setProjectRevision).toBeTypeOf("function");
     expect(api.getProjectRevision).toBeTypeOf("function");
-    api.setProjectRevision(initialRevision);
+    api.setProjectPersistenceIdentity("project-one", initialRevision);
     fetchMock.mockResolvedValue(Response.json({
       error: "Project changed on disk",
       expectedRevision: initialRevision,
@@ -122,7 +166,7 @@ describe("saveProject", () => {
   it("retains the previous revision when a successful response has no valid ETag", async () => {
     expect(api.setProjectRevision).toBeTypeOf("function");
     expect(api.getProjectRevision).toBeTypeOf("function");
-    api.setProjectRevision(initialRevision);
+    api.setProjectPersistenceIdentity("project-one", initialRevision);
     fetchMock.mockResolvedValue(Response.json(project));
 
     await expect(api.saveProject(project)).rejects.toThrow(/ETag/i);

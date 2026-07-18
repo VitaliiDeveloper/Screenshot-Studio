@@ -8,7 +8,10 @@ import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core
 import type { Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
-import { advanceProjectRevisionFromResponse } from "../lib/save-project";
+import {
+  advanceProjectRevisionFromResponse,
+  projectRequestHeaders,
+} from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
@@ -20,7 +23,10 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
 async function applyTheme(id: string, layoutId: string): Promise<Project> {
   const response = await fetch("/api/themes", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: projectRequestHeaders({
+      conditional: true,
+      headers: { "content-type": "application/json" },
+    }),
     body: JSON.stringify({ id, layoutId }),
   });
   const project = parseProject(await responseBody(response));
@@ -37,7 +43,10 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/themes", { signal: controller.signal })
+    void fetch("/api/themes", {
+      headers: projectRequestHeaders(),
+      signal: controller.signal,
+    })
       .then(responseBody)
       .then((body) => setThemes((body.themes ?? []) as Theme[]))
       .catch((fetchError) => {

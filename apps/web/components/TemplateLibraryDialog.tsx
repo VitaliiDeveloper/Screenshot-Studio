@@ -8,7 +8,10 @@ import { getScreen, parseProject } from "@screenshot-studio/core/model";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
-import { advanceProjectRevisionFromResponse } from "../lib/save-project";
+import {
+  advanceProjectRevisionFromResponse,
+  projectRequestHeaders,
+} from "../lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {
@@ -28,7 +31,10 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/templates", { signal: controller.signal })
+    void fetch("/api/templates", {
+      headers: projectRequestHeaders(),
+      signal: controller.signal,
+    })
       .then(responseBody)
       .then((body) => setTemplates((body.templates ?? []) as ScreenTemplate[]))
       .catch((fetchError) => {
@@ -55,7 +61,10 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       await withFlushedProject(async () => {
         const response = await fetch("/api/templates", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: projectRequestHeaders({
+            conditional: true,
+            headers: { "content-type": "application/json" },
+          }),
           body: JSON.stringify({ id, locale: activeScreen.locale, layoutId: activeLayoutId }),
         });
         const body = await responseBody(response);

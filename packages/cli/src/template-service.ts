@@ -12,7 +12,7 @@ import {
   resolveExistingProjectPath,
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
-import { updateProjectFile } from "./project-io.js";
+import { updateProjectFile, type ProjectUpdatePreconditions } from "./project-io.js";
 import { resolveMutationLayout } from "./layout-commands.js";
 
 const TEMPLATE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -413,6 +413,7 @@ export async function createTemplateScreen(
   rawLocale: unknown,
   lockOptions: ProjectLockOptions = {},
   layoutReference?: string,
+  preconditions: ProjectUpdatePreconditions = {},
 ): Promise<{ project: Project; revision: string; screen: Screen; template: ScreenTemplate }> {
   const id = templateId(rawId);
   const canonicalPath = await resolveExistingProjectPath(projectPath);
@@ -426,7 +427,7 @@ export async function createTemplateScreen(
     } catch (error) {
       throw new TemplateCreateError((error as Error).message, { cause: error });
     }
-  }, lockOptions);
+  }, lockOptions, {}, preconditions);
   const screen = getLayout(updated.project, updated.value.layoutId).screens
     .find((candidate) => candidate.id === updated.value.screenId)!;
   return { project: updated.project, revision: updated.revision, screen, template };

@@ -66,6 +66,18 @@ const brokenFont: FontAsset = {
   path: "assets/fonts/broken.ttf",
 };
 
+class ScopedTestFontFace {
+  constructor(
+    readonly family: string,
+    readonly source: ArrayBuffer,
+    readonly descriptors: FontFaceDescriptors,
+  ) {}
+
+  async load() {
+    return this;
+  }
+}
+
 function successfulDependencies(events: string[] = []) {
   return {
     fetchProject: vi.fn(async () => {
@@ -107,6 +119,79 @@ describe("editor resources", () => {
     });
     expect(result.images.has("assets/image.png")).toBe(true);
     expect(events).toEqual(["project", "images", "fonts", "specs"]);
+    const imageResolver = (dependencies.loadImages.mock.calls[0] as unknown as [
+      Project,
+      (path: string) => string,
+    ])[1];
+    const fontResolver = (dependencies.registerFonts.mock.calls[0] as unknown as [
+      Project["fonts"],
+      (path: string) => string,
+    ])[1];
+    expect(imageResolver("assets/image.png")).toContain(
+      "projectId=project-1&revision=%22revision-1%22&path=assets%2Fimage.png",
+    );
+    expect(fontResolver("assets/fonts/example.ttf")).toContain(
+      "projectId=project-1&revision=%22revision-1%22&path=assets%2Ffonts%2Fexample.ttf",
+    );
+  });
+
+  it("replaces same-metadata managed fonts when the project resource scope changes", async () => {
+    const sharedFont: FontAsset = {
+      family: "Shared Project Font",
+      weight: 400,
+      source: "uploaded",
+      path: "assets/fonts/shared.ttf",
+    };
+    const fontProject = { ...structuredClone(project), fonts: [sharedFont] };
+    const registered = new Set<ScopedTestFontFace | object>();
+    const unrelatedFace = { family: sharedFont.family, weight: String(sharedFont.weight) };
+    registered.add(unrelatedFace);
+    const add = vi.fn((face: ScopedTestFontFace) => { registered.add(face); });
+    const remove = vi.fn((face: ScopedTestFontFace) => registered.delete(face));
+    const fetchFont = vi.fn(async (url: string) => new Response(
+      Uint8Array.of(url.includes("project-b") ? 0x42 : 0x41),
+    ));
+    vi.stubGlobal("FontFace", ScopedTestFontFace);
+    vi.stubGlobal("fetch", fetchFont);
+    vi.stubGlobal("document", {
+      fonts: {
+        add,
+        delete: remove,
+        has: (face: ScopedTestFontFace) => registered.has(face),
+        ready: Promise.resolve(),
+        load: vi.fn(),
+      },
+    });
+    const dependenciesFor = (projectId: string) => ({
+      fetchProject: vi.fn(async () => Response.json(fontProject, {
+        headers: { etag: '"shared-revision"', "x-project-id": projectId },
+      })),
+      loadImages: vi.fn(async () => new Map()),
+      fetchStoreSpecs: vi.fn(async () => Response.json(specs)),
+    });
+
+    try {
+      await loadEditorResources(dependenciesFor("project-a"));
+      const firstFace = [...registered].find(
+        (face): face is ScopedTestFontFace => face instanceof ScopedTestFontFace,
+      )!;
+      await loadEditorResources(dependenciesFor("project-b"));
+
+      expect(fetchFont).toHaveBeenCalledTimes(2);
+      expect(fetchFont.mock.calls.map(([url]) => url)).toEqual([
+        expect.stringContaining("projectId=project-a"),
+        expect.stringContaining("projectId=project-b"),
+      ]);
+      expect(remove).toHaveBeenCalledWith(firstFace);
+      expect(remove).not.toHaveBeenCalledWith(unrelatedFace);
+      const projectFaces = [...registered].filter(
+        (face): face is ScopedTestFontFace => face instanceof ScopedTestFontFace,
+      );
+      expect(projectFaces).toHaveLength(1);
+      expect(new Uint8Array(projectFaces[0]!.source)[0]).toBe(0x42);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it.each([

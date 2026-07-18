@@ -13,7 +13,17 @@ const DEFAULT_PROJECT = "fixtures/sample/app-store-screenshots.json";
  * user invoked the command from, i.e. the repo root per the README). Absolute paths are
  * unaffected.
  */
+function invocationBase(): string {
+  return process.env.INIT_CWD ?? process.cwd();
+}
+
+/** Resolves only an explicit PROJECT_PATH; local session selection must not infer the sample. */
+export function resolveConfiguredProjectPath(): string | null {
+  const configured = process.env.PROJECT_PATH?.trim();
+  return configured ? resolve(invocationBase(), configured) : null;
+}
+
+/** Retained for legacy/headless callers that need the bundled sample fallback. */
 export function resolveProjectPath(): string {
-  const base = process.env.INIT_CWD ?? process.cwd();
-  return resolve(base, process.env.PROJECT_PATH ?? DEFAULT_PROJECT);
+  return resolveConfiguredProjectPath() ?? resolve(invocationBase(), DEFAULT_PROJECT);
 }

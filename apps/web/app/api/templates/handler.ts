@@ -6,9 +6,11 @@ import {
   TemplateNotFoundError,
   TemplateValidationError,
 } from "@screenshot-studio/cli/template-service";
-import { resolveProjectPath } from "../../../lib/project-path.js";
+import { projectRevisionConflictResponse } from "../../../lib/project-request-fence.server.js";
 
 function errorResponse(error: unknown): Response {
+  const revisionConflict = projectRevisionConflictResponse(error);
+  if (revisionConflict) return revisionConflict;
   const message = error instanceof Error ? error.message : String(error);
   const status = error instanceof TemplateValidationError ? 400
     : error instanceof TemplateNotFoundError ? 404
@@ -30,23 +32,28 @@ async function jsonBody(req: Request): Promise<Record<string, unknown>> {
   return body as Record<string, unknown>;
 }
 
-export async function handleTemplateGet(): Promise<Response> {
+export async function handleTemplateGet(projectPath: string): Promise<Response> {
   try {
-    return Response.json({ templates: await listTemplates(resolveProjectPath()) });
+    return Response.json({ templates: await listTemplates(projectPath) });
   } catch (error) {
     return errorResponse(error);
   }
 }
 
-export async function handleTemplatePost(req: Request): Promise<Response> {
+export async function handleTemplatePost(
+  projectPath: string,
+  req: Request,
+  expectedRevision?: string,
+): Promise<Response> {
   try {
     const body = await jsonBody(req);
     const { project, revision, screen } = await createTemplateScreen(
-      resolveProjectPath(),
+      projectPath,
       body.id,
       body.locale,
       {},
       typeof body.layoutId === "string" ? body.layoutId : undefined,
+      { expectedRevision },
     );
     return Response.json(
       { project, screenId: screen.id },

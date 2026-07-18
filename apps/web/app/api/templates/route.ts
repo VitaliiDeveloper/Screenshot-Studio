@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 import { handleTemplateGet, handleTemplatePost } from "./handler.js";
+import {
+  withProjectMutationRequest,
+  withProjectReadRequest,
+} from "../../../lib/project-request-fence.server.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(): Promise<Response> {
-  return handleTemplateGet();
+export async function GET(req: Request): Promise<Response> {
+  return withProjectReadRequest(
+    req,
+    ({ projectPath }) => handleTemplateGet(projectPath),
+  );
 }
 
 export async function POST(req: Request): Promise<Response> {
-  return handleTemplatePost(req);
+  return withProjectMutationRequest(
+    req,
+    ({ projectPath }, expectedRevision) => (
+      handleTemplatePost(projectPath, req, expectedRevision)
+    ),
+  );
 }
