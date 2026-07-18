@@ -38,7 +38,7 @@ export function withProjectReadRequest(
   req: Request,
   operation: ProjectRequestOperation,
 ): Promise<Response> {
-  return withActiveProjectSession(req, (session) => {
+  return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
     return identityError ?? operation(session);
   });
@@ -48,7 +48,7 @@ export function withProjectMutationRequest(
   req: Request,
   operation: ProjectRequestOperation,
 ): Promise<Response> {
-  return withActiveProjectSession(req, (session) => {
+  return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
     if (identityError) return identityError;
 
