@@ -48,7 +48,7 @@ function elements() {
   }).layouts[0]!.screens[0]!.elements;
 }
 
-describe("Phase 7 icon authoring", () => {
+describe("icon authoring", () => {
   it("inserts a trusted icon, edits its literals, and reloads persisted state", async () => {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

@@ -32,7 +32,7 @@ function pixel(png: PNG, x: number, y: number): [number, number, number] {
   return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
 }
 
-describe("Phase 6 connected bundle export", () => {
+describe("connected bundle export", () => {
   it("exports exact alpha-free crops and isolates unrelated groups", async () => {
     const directory = await mkdtemp(join(tmpdir(), "connected-canvas-export-"));
     const projectDirectory = join(directory, "project");

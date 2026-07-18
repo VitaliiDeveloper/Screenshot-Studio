@@ -39,7 +39,7 @@ function countMismatch(a: Buffer, b: Buffer): number {
   });
 }
 
-describe("Phase 4 RTL render parity", () => {
+describe("RTL render parity", () => {
   it("renders explicit RTL identically in headed and headless Chromium", async () => {
     const headed = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,

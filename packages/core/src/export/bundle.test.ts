@@ -64,7 +64,7 @@ function screen(
 }
 
 describe("leadStoreSizeId", () => {
-  it("returns the Phase 2 lead target per platform/device", () => {
+  it("returns the lead target per platform/device", () => {
     expect(leadStoreSizeId("apple", "iphone")).toBe("6.9");
     expect(leadStoreSizeId("apple", "ipad")).toBe("13");
     expect(leadStoreSizeId("apple", "macos")).toBe("2880x1800");

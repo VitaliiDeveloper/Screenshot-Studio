@@ -26,7 +26,7 @@ afterEach(() => {
   delete process.env.STORE_SPECS_PATH;
 });
 
-describe("Phase 4 multi-locale UI export", () => {
+describe("multi-locale UI export", () => {
   it("exports safe per-group-numbered paths with exact dims and no alpha", async () => {
     // Copy the whole fixture (assets resolve relative to the project dir) into a temp workspace,
     // and point the server's resolveProjectPath at it, so export writes to <temp>/export.

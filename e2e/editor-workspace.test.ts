@@ -91,7 +91,7 @@ afterEach(async () => {
   }
 });
 
-describe("Phase 3.6 editor workspace", () => {
+describe("editor workspace", () => {
   it("surfaces store-spec failures and recovers through the visible workspace retry", async () => {
     page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     let attempts = 0;

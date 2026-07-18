@@ -48,7 +48,7 @@ afterAll(async () => {
   await rm(directory, { recursive: true, force: true });
 });
 
-describe("Phase 6 optional skill", () => {
+describe("optional skill", () => {
   it("installs as a thin delegating skill and initializes a clean project with the packaged CLI", async () => {
     const skill = await readFile(join(installedSkill, "SKILL.md"), "utf8");
     expect(skill).toContain("generated project-local");

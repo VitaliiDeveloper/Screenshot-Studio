@@ -47,7 +47,7 @@ function mismatch(first: Buffer, second: Buffer): number {
   return pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1 });
 }
 
-describe("Phase 7 group render parity", () => {
+describe("group render parity", () => {
   it("matches headed/headless exact crops and the interactive shared node tree", async () => {
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,

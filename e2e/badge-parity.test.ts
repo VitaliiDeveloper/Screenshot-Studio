@@ -65,7 +65,7 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
   return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
 }
 
-describe("Phase 7 badge composition parity", () => {
+describe("badge composition parity", () => {
   it("matches generated group pixels in static, UI, headed/headless, and connected crops", async () => {
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "first", pixelRatio: 1,

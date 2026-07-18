@@ -539,7 +539,7 @@ describe("getScreen", () => {
   });
 });
 
-describe("Phase 9 styling literals", () => {
+describe("styling literals", () => {
   it("accepts strict bounded text shadow", () => {
     const text = validProject().layouts[0]!.screens[0]!.elements[0]!;
     expect(Element.parse({

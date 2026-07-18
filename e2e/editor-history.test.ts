@@ -36,7 +36,7 @@ function bridgeX(): number {
   return project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === "bridge").x;
 }
 
-describe("Phase 6 editor history", () => {
+describe("editor history", () => {
   it("persists toolbar and keyboard undo/redo for an owner-local connected drag", async () => {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

@@ -107,7 +107,7 @@ async function selectLocale(page: import("playwright").Page, locale: string): Pr
     .click();
 }
 
-describe("Phase 4 locale workspace", () => {
+describe("locale workspace", () => {
   it("creates, edits, reorders, and removes complete locale sets", async () => {
     const source = project();
     const sourceScreens = source.layouts[0].screens.filter((screen) => screen.locale === "en");

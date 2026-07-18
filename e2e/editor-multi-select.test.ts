@@ -68,7 +68,7 @@ function element(screenId: string, elementId: string) {
     .find((candidate) => candidate.id === elementId)!;
 }
 
-describe("Phase 7 multi-select foundation", () => {
+describe("multi-select foundation", () => {
   it("composes modified click, marquee, owner-local movement, batch actions, and keyboard deletion", async () => {
     const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
