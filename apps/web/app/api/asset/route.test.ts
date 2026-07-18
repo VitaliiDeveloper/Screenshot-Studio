@@ -164,6 +164,37 @@ describe("GET /api/asset", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
+  it.each([
+    ["unquoted", "revision-1"],
+    ["weak", 'W/"revision-1"'],
+    ["control character", '"revision\n1"'],
+  ])("rejects a %s interactive revision", async (_kind, revision) => {
+    const session = await projectSessionRegistry.openLocal(projectFile);
+    const response = await GET(scopedRequest(
+      session.projectId,
+      session.descriptor.sessionId,
+      "assets/shot.png",
+      revision,
+    ));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "revision must be one strong quoted ETag",
+    });
+  });
+
+  it("rejects an empty interactive revision", async () => {
+    const session = await projectSessionRegistry.openLocal(projectFile);
+    const response = await GET(scopedRequest(
+      session.projectId,
+      session.descriptor.sessionId,
+      "assets/shot.png",
+      "",
+    ));
+
+    expect(response.status).toBe(400);
+  });
+
   it("400s on a missing path param", async () => {
     expect((await GET(await activeRequest(null))).status).toBe(400);
   });

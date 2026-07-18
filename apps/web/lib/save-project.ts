@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
+import { isStrongQuotedETag } from "./http-etag.js";
 
 let projectRevision: string | undefined;
 let projectId: string | undefined;
@@ -10,15 +11,6 @@ export interface ProjectPersistenceIdentity {
 }
 
 export type ProjectAssetResolver = (path: string) => string;
-
-function isStrongQuotedETag(value: string): boolean {
-  if (value.length < 3 || value[0] !== '"' || value.at(-1) !== '"') return false;
-  for (const character of value.slice(1, -1)) {
-    const codePoint = character.codePointAt(0)!;
-    if (codePoint <= 0x20 || codePoint === 0x22 || codePoint === 0x7f) return false;
-  }
-  return true;
-}
 
 /** Validate and return the opaque strong ETag used by editor resource loads and saves. */
 export function requireProjectRevision(revision: string | null): string {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, isAbsolute, extname, sep } from "node:path";
+import { isStrongQuotedETag } from "../../../lib/http-etag.js";
 import { withActiveProjectSession } from "../../../lib/project-session.server.js";
 
 /**
@@ -44,6 +45,12 @@ export async function GET(req: Request): Promise<Response> {
     if (!requestedProjectId || !resourceRevision) {
       return Promise.resolve(Response.json(
         { error: "projectId and revision are required for interactive assets" },
+        { status: 400 },
+      ));
+    }
+    if (!isStrongQuotedETag(resourceRevision)) {
+      return Promise.resolve(Response.json(
+        { error: "revision must be one strong quoted ETag" },
         { status: 400 },
       ));
     }

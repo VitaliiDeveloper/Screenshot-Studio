@@ -8,6 +8,7 @@ import {
   withProjectMutation,
   writeProjectConditionalAtomic,
 } from "@screenshot-studio/core/storage";
+import { isStrongQuotedETag } from "../../../lib/http-etag.js";
 import { withActiveProjectSession } from "../../../lib/project-session.server.js";
 
 /**
@@ -20,15 +21,6 @@ export const dynamic = "force-dynamic";
 
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
-}
-
-function isStrongQuotedETag(value: string): boolean {
-  if (value.length < 3 || value[0] !== '"' || value.at(-1) !== '"') return false;
-  for (const character of value.slice(1, -1)) {
-    const codePoint = character.codePointAt(0)!;
-    if (codePoint <= 0x20 || codePoint === 0x22 || codePoint === 0x7f) return false;
-  }
-  return true;
 }
 
 function revisionConflictResponse(expectedRevision: string, actualRevision: string): Response {

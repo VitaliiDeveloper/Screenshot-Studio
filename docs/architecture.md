@@ -388,9 +388,12 @@ entries and symlinks, and returns stable portable relative paths. The Add picker
 `screenshot`, decorative `image`, and `device-frame` schema members through core factories; insertion uses
 the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
 the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
-reading image or font bytes. The picker performs no upload, copy, delete, rename, external fetch, or
-project replacement. The `image` leaf has a non-cropping `contain` default, deterministic centred
-`cover` crop, alpha-preserving composition, and the screenshot missing-asset placeholder.
+reading image or font bytes. Interactive asset URLs carry the active session cookie, project id, and
+one strong quoted project revision; the headless render host instead supplies its explicit project
+path. There is no implicit `PROJECT_PATH` fallback for an unscoped asset URL. The picker performs no
+upload, copy, delete, rename, external fetch, or project replacement. The `image` leaf has a
+non-cropping `contain` default, deterministic centred `cover` crop, alpha-preserving composition, and
+the screenshot missing-asset placeholder.
 
 **Connected workspace behavior.** Workspace derivation has two explicit
 contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
