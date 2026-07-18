@@ -44,9 +44,20 @@ describe("Phase 4 multi-locale UI export", () => {
     let server: Awaited<ReturnType<typeof startWebServer>> | undefined;
     try {
       server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
+      const projectResponse = await fetch(`${server.url}/api/project`);
+      expect(projectResponse.status).toBe(200);
+      const projectId = projectResponse.headers.get("x-project-id");
+      const revision = projectResponse.headers.get("etag");
+      expect(projectId).toBeTruthy();
+      expect(revision).toMatch(/^"[^"]+"$/);
+
       const res = await fetch(`${server.url}/api/export`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "if-match": revision!,
+          "x-project-id": projectId!,
+        },
         body: JSON.stringify({}),
       });
       if (res.status !== 201) throw new Error(`UI export failed (${res.status}): ${await res.text()}`);

@@ -16,8 +16,17 @@ export interface ManagedProjectStorageConfig {
   stagingTtlMs: number;
 }
 
+type ManagedProjectStorageEnvironment = Partial<Record<
+  | "INIT_CWD"
+  | "SCREENSHOT_STUDIO_DATA_ROOT"
+  | "SCREENSHOT_STUDIO_MAX_PROJECT_FILES"
+  | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES"
+  | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
+  string
+>>;
+
 function positiveInteger(
-  environment: NodeJS.ProcessEnv,
+  environment: ManagedProjectStorageEnvironment,
   name: "SCREENSHOT_STUDIO_MAX_PROJECT_FILES" | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES" | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
   fallback: number,
 ): number {
@@ -31,7 +40,7 @@ function positiveInteger(
 }
 
 export function resolveManagedProjectStorageConfig(
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: ManagedProjectStorageEnvironment = process.env as ManagedProjectStorageEnvironment,
 ): ManagedProjectStorageConfig {
   const invocationDirectory = environment.INIT_CWD ?? process.cwd();
   const root = resolve(invocationDirectory, environment.SCREENSHOT_STUDIO_DATA_ROOT ?? ".screenshot-studio");
