@@ -17,6 +17,7 @@ import { editorStore } from "../../lib/editor-store";
 import { getProjectPersistenceIdentity } from "../../lib/save-project";
 import { missingImageUrls } from "../../app/editor/editor-resources";
 import { loadProjectHomeData, type ProjectHomeData } from "../../lib/project-home-client";
+import { closeProjectSession } from "../../lib/project-close";
 import {
   buildProjectHomeSummary,
   type ProjectHomeAction,
@@ -56,6 +57,8 @@ export function ProjectHome() {
   const [error, setError] = useState<string | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [closeBusy, setCloseBusy] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const saveError = useStore(editorStore, (state) => state.saveError);
 
   useEffect(() => {
@@ -86,7 +89,7 @@ export function ProjectHome() {
   }) : null, [data, saveError]);
 
   const exportProjectArchive = async () => {
-    if (!data) return;
+    if (!data || closeBusy) return;
     setArchiveBusy(true);
     setArchiveError(null);
     try {
@@ -95,6 +98,20 @@ export function ProjectHome() {
       setArchiveError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setArchiveBusy(false);
+    }
+  };
+
+  const closeCurrentProject = async () => {
+    if (!data || closeBusy || archiveBusy) return;
+    setCloseBusy(true);
+    setCloseError(null);
+    try {
+      await closeProjectSession(data.selection.projectId, {
+        navigate: () => router.push("/?switch=1"),
+      });
+    } catch (caught) {
+      setCloseError(caught instanceof Error ? caught.message : String(caught));
+      setCloseBusy(false);
     }
   };
 
@@ -129,8 +146,13 @@ export function ProjectHome() {
             <div className="flex shrink-0 flex-wrap gap-3">
               {continueAction?.enabled && continueAction.href ? <Link href={continueAction.href} className={editorUi.buttonPrimary}>Continue in Workspace</Link> : null}
               {importAction?.enabled && importAction.href ? <Link href={importAction.href} className={editorUi.buttonSecondary}>Import another project</Link> : null}
+              <button type="button" className={editorUi.buttonSecondary} disabled={closeBusy || archiveBusy} onClick={() => { void closeCurrentProject(); }}>
+                {closeBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}
+                {closeBusy ? "Closing project…" : "Close project"}
+              </button>
             </div>
           </div>
+          {closeError ? <p role="alert" className={`mt-5 ${editorUi.statusError}`}>Project was not closed. The active session and project data remain unchanged: {closeError}</p> : null}
         </header>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(20rem,0.8fr)]">
@@ -163,7 +185,7 @@ export function ProjectHome() {
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{primaryActions.map((action) => <ActionLink key={action.id} action={action} />)}</div>
               {archiveAction?.enabled ? (
                 <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-semibold text-slate-950">Export project archive</h3><p className="mt-1 text-xs leading-5 text-slate-600">Project archive export creates a portable backup for later project import. It is separate from rendered store-image export.</p></div><button type="button" className={editorUi.buttonSecondary} disabled={archiveBusy} onClick={() => { void exportProjectArchive(); }}>{archiveBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Download aria-hidden="true" className="size-4" />}{archiveBusy ? "Preparing project archive…" : "Export project archive"}</button></div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-semibold text-slate-950">Export project archive</h3><p className="mt-1 text-xs leading-5 text-slate-600">Project archive export creates a portable backup for later project import. It is separate from rendered store-image export.</p></div><button type="button" className={editorUi.buttonSecondary} disabled={archiveBusy || closeBusy} onClick={() => { void exportProjectArchive(); }}>{archiveBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Download aria-hidden="true" className="size-4" />}{archiveBusy ? "Preparing project archive…" : "Export project archive"}</button></div>
                   {archiveError ? <p role="alert" className={`mt-3 ${editorUi.statusError}`}>{archiveError}</p> : null}
                 </div>
               ) : null}

@@ -166,6 +166,14 @@ export class ProjectSessionRegistry {
     return session;
   }
 
+  close(sessionId: string, projectId: string): boolean {
+    const session = this.#byId.get(sessionId);
+    if (!session || session.projectId !== projectId) return false;
+    this.#byId.delete(sessionId);
+    this.#bySourceKey.delete(`${session.descriptor.sourceKind}:${session.projectId}`);
+    return true;
+  }
+
   #touch(session: ProjectSession): void {
     this.#byId.delete(session.descriptor.sessionId);
     this.#byId.set(session.descriptor.sessionId, session);

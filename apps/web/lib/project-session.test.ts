@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { fetchActiveProject } from "./project-session.js";
+import { closeActiveProject, fetchActiveProject } from "./project-session.js";
 
 describe("project-session client helpers", () => {
   it("returns null for a 204 active-session response", async () => {
@@ -53,5 +53,26 @@ describe("project-session client helpers", () => {
 
     await expect(fetchActiveProject(fetcher))
       .rejects.toThrow("Invalid configured project document");
+  });
+
+  it("closes the active project through the opaque project identity", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await expect(closeActiveProject("project-one", fetcher)).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledWith("/api/project-session", {
+      method: "DELETE",
+      headers: { "x-project-id": "project-one" },
+    });
+  });
+
+  it("surfaces a rejected close without treating the session as cleared", async () => {
+    const fetcher = vi.fn(async () => Response.json(
+      { error: "Active project changed; reload it before continuing" },
+      { status: 409 },
+    ));
+
+    await expect(closeActiveProject("project-one", fetcher)).rejects.toThrow(
+      "Active project changed",
+    );
   });
 });

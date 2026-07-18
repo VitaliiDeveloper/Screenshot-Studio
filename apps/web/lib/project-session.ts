@@ -46,3 +46,14 @@ export async function fetchActiveProject(
     projectId,
   };
 }
+
+export async function closeActiveProject(
+  projectId: string,
+  fetcher: ProjectSessionFetcher = fetch,
+): Promise<void> {
+  const response = await fetcher("/api/project-session", {
+    method: "DELETE",
+    headers: { "x-project-id": projectId },
+  });
+  if (!response.ok) throw await responseError(response);
+}

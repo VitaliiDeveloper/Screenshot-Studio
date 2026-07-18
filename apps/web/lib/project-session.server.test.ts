@@ -205,6 +205,25 @@ describe("ProjectSessionRegistry", () => {
     expect(registry.get(nextOldest.descriptor.sessionId)).toBeUndefined();
   });
 
+  it("closes only the identity-fenced session and removes its source lookup", async () => {
+    let nextSessionId = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSessionId}`,
+      localSource: createStubLocalSource(),
+    });
+    const first = await registry.openLocal("first");
+    const second = await registry.openLocal("second");
+
+    expect(registry.close(first.descriptor.sessionId, "wrong-project")).toBe(false);
+    expect(registry.get(first.descriptor.sessionId)).toBe(first);
+    expect(registry.close(first.descriptor.sessionId, first.projectId)).toBe(true);
+    expect(registry.get(first.descriptor.sessionId)).toBeUndefined();
+    expect(registry.get(second.descriptor.sessionId)).toBe(second);
+
+    const reopened = await registry.openLocal("first");
+    expect(reopened.descriptor.sessionId).not.toBe(first.descriptor.sessionId);
+  });
+
   it("keeps opaque sessions when the server module is re-evaluated", async () => {
     const projectPath = await createProject("Reloaded module");
     vi.resetModules();

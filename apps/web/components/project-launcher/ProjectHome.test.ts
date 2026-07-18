@@ -35,6 +35,14 @@ describe("ProjectHome overview", () => {
     expect(source).toContain('role="alert"');
   });
 
+  it("closes only the active session behind the shared save fence", () => {
+    expect(source).toContain("closeProjectSession");
+    expect(source).toContain("Close project");
+    expect(source).toContain('router.push("/?switch=1")');
+    expect(source).toContain("closeError");
+    expect(source).not.toContain("deleteManagedProject");
+  });
+
   it("covers the complete informational and action-oriented contract", () => {
     for (const copy of [
       "Preferred export layout",
