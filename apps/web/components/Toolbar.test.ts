@@ -7,6 +7,15 @@ import {
 } from "./Toolbar";
 
 describe("toolbar responsive labels", () => {
+  it("keeps Project Home reachable without replacing existing Workspace controls", () => {
+    const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    expect(source).toContain('aria-label="Project Home"');
+    expect(source).toContain("onOpenProjectHome");
+    expect(source).toContain("projectHomeBusy");
+    expect(source).toContain('aria-label="Export"');
+    expect(source).toContain("<LayoutSelector />");
+  });
+
   it("integrates the measured five-state density model", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
 

@@ -18,6 +18,7 @@ import {
 } from "../../lib/editor-layout-preference";
 import {
   createProjectAssetResolver,
+  getProjectPersistenceIdentity,
   requireProjectRevision,
   resolveActiveProjectAssetUrl,
   setProjectPersistenceIdentity,
@@ -65,6 +66,25 @@ export interface EditorResourceReloadOptions {
   load: () => Promise<EditorResourceResult>;
   apply: (resources: EditorResourceResult) => void;
   isCurrent: () => boolean;
+}
+
+export function applyEditorResourceResult(
+  resources: EditorResourceResult,
+  dependencies: {
+    readLayoutPreference?: (projectId: string) => string | null;
+  } = {},
+): void {
+  const sameProject = getProjectPersistenceIdentity()?.projectId === resources.projectId
+    && editorStore.getState().project !== null;
+  setProjectPersistenceIdentity(resources.projectId, resources.revision);
+  if (sameProject) {
+    editorStore.getState().reloadProject(resources.project);
+    return;
+  }
+  const activeLayoutId = (dependencies.readLayoutPreference ?? readActiveLayoutPreference)(
+    resources.projectId,
+  );
+  editorStore.getState().load(resources.project, activeLayoutId ?? undefined);
 }
 
 const runDirectly: EditorResourceSerializer = (operation) => operation();
@@ -150,6 +170,7 @@ export function useEditorResources() {
   const [fontWarnings, setFontWarnings] = useState<FontRegistrationFailure[]>([]);
   const [reloading, setReloading] = useState(false);
   const [fontRetrying, setFontRetrying] = useState(false);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const resourceGeneration = useRef(0);
   const fontGeneration = useRef(0);
   const projectId = useRef<string | null>(null);
@@ -172,12 +193,9 @@ export function useEditorResources() {
       apply: (resources) => {
         // A revision becomes globally usable only after every required resource validated and this
         // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
-        setProjectPersistenceIdentity(resources.projectId, resources.revision);
+        applyEditorResourceResult(resources);
         projectId.current = resources.projectId;
-        editorStore.getState().load(
-          resources.project,
-          readActiveLayoutPreference(resources.projectId) ?? undefined,
-        );
+        setActiveProjectId(resources.projectId);
         setImages(resources.images);
         setSpecs(resources.specs);
         setFontWarnings(resources.fontWarnings);
@@ -278,5 +296,6 @@ export function useEditorResources() {
     reloading,
     retryFonts,
     fontRetrying,
+    activeProjectId,
   };
 }

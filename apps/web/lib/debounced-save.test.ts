@@ -48,6 +48,15 @@ describe("createDebouncedSaver", () => {
     vi.advanceTimersByTime(300);
     expect(save).toHaveBeenCalledOnce();
   });
+
+  it("reports whether a debounced project snapshot is waiting", async () => {
+    const debounced = createDebouncedSaver(vi.fn(), 300);
+    expect(debounced.hasPending()).toBe(false);
+    debounced(fakeProject);
+    expect(debounced.hasPending()).toBe(true);
+    await debounced.flush();
+    expect(debounced.hasPending()).toBe(false);
+  });
 });
 
 describe("createProjectSaveCoordinator", () => {

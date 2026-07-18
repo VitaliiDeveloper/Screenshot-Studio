@@ -11,7 +11,11 @@ import { clearProjectPersistenceIdentity, saveProject } from "./save-project.js"
 export function createDebouncedSaver(
   saveFn: (project: Project) => void | Promise<void>,
   delayMs: number,
-): ((project: Project) => void) & { cancel: () => void; flush: () => Promise<void> } {
+): ((project: Project) => void) & {
+  cancel: () => void;
+  flush: () => Promise<void>;
+  hasPending: () => boolean;
+} {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending: Project | undefined;
   const invoke = async () => {
@@ -37,6 +41,7 @@ export function createDebouncedSaver(
     timer = undefined;
     await invoke();
   };
+  schedule.hasPending = () => pending !== undefined;
   return schedule;
 }
 
@@ -104,6 +109,10 @@ export const scheduleSave = createDebouncedSaver(() => saveLatestProject(), 300)
 /** Commit a pending Inspector edit immediately (for blur, reload, and resource operations). */
 export function flushScheduledSave(): Promise<void> {
   return scheduleSave.flush();
+}
+
+export function hasPendingProjectSave(): boolean {
+  return scheduleSave.hasPending();
 }
 
 /** Cancel a queued stale snapshot before an operation performs its own awaited flush. */

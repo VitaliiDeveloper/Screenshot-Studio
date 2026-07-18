@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ProjectFontRegistrationError } from "@screenshot-studio/core/fonts";
 import type { FontAsset, Project } from "@screenshot-studio/core/model";
 import {
+  applyEditorResourceResult,
   loadEditorResources,
   loadProjectFontWarnings,
   missingImageUrls,
@@ -10,6 +11,11 @@ import {
   selectEditorResourceSerializer,
   type EditorResourceSerializer,
 } from "./editor-resources";
+import { editorStore } from "../../lib/editor-store";
+import {
+  clearProjectPersistenceIdentity,
+  setProjectPersistenceIdentity,
+} from "../../lib/save-project";
 
 const project = {
   meta: { name: "Resources", schemaVersion: 1 },
@@ -99,6 +105,40 @@ function successfulDependencies(events: string[] = []) {
 }
 
 describe("editor resources", () => {
+  it("preserves valid editor context only when reapplying the same project identity", () => {
+    editorStore.getState().load(project);
+    editorStore.getState().select("image", "screen");
+    setProjectPersistenceIdentity("project-1", '"revision-0"');
+    applyEditorResourceResult({
+      project,
+      projectId: "project-1",
+      revision: '"revision-1"',
+      images: new Map(),
+      specs,
+      fontWarnings: [],
+    }, { readLayoutPreference: () => null });
+
+    expect(editorStore.getState().selectedItems).toEqual([{ screenId: "screen", elementId: "image" }]);
+    clearProjectPersistenceIdentity();
+  });
+
+  it("uses a fresh load when the validated project identity changes", () => {
+    editorStore.getState().load(project);
+    editorStore.getState().select("image", "screen");
+    setProjectPersistenceIdentity("project-old", '"revision-0"');
+    applyEditorResourceResult({
+      project,
+      projectId: "project-new",
+      revision: '"revision-1"',
+      images: new Map(),
+      specs,
+      fontWarnings: [],
+    }, { readLayoutPreference: () => "primary" });
+
+    expect(editorStore.getState().selectedItems).toEqual([]);
+    clearProjectPersistenceIdentity();
+  });
+
   it("returns only project image URLs absent from the current cache", () => {
     const cache = new Map([["assets/background.png", {} as HTMLImageElement]]);
     expect(missingImageUrls(project, cache)).toEqual(["assets/image.png"]);

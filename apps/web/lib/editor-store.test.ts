@@ -81,6 +81,39 @@ describe("editorStore", () => {
     expect(s.selectedItems).toEqual([]);
   });
 
+  it("reloads the same project while preserving valid screen selection and resetting history", () => {
+    const initial = project();
+    initial.layouts[0]!.screens[1]!.elements = [structuredClone(initial.layouts[0]!.screens[0]!.elements[0]!)];
+    editorStore.getState().load(initial);
+    editorStore.getState().selectScreen("second");
+    editorStore.getState().select("headline", "second");
+    patchText("headline", { x: 120 }, "second");
+    expect(editorStore.getState().historyPast.length).toBeGreaterThan(0);
+
+    editorStore.getState().reloadProject(structuredClone(editorStore.getState().project!));
+
+    expect(editorStore.getState()).toMatchObject({
+      activeLayoutId: "default",
+      activeScreenId: "second",
+      selectedItems: [{ screenId: "second", elementId: "headline" }],
+      historyPast: [],
+      historyFuture: [],
+      layoutHistories: {},
+    });
+  });
+
+  it("falls back and clears stale selection when same-project context no longer exists", () => {
+    editorStore.getState().load(project());
+    editorStore.getState().selectScreen("second");
+    const reloaded = project();
+    reloaded.layouts[0]!.screens = [reloaded.layouts[0]!.screens[0]!];
+
+    editorStore.getState().reloadProject(reloaded);
+
+    expect(editorStore.getState().activeScreenId).toBe("hero");
+    expect(editorStore.getState().selectedItems).toEqual([]);
+  });
+
   it("resets every project-scoped editor field before another project loads", () => {
     editorStore.getState().load(project());
     patchText("headline", { x: 123 });
