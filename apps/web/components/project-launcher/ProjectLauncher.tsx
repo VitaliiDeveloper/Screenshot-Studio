@@ -111,6 +111,7 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
       router.push("/home");
       router.refresh();
     }).catch((caught: unknown) => {
+      publishingRef.current = false;
       if (caught instanceof DOMException && caught.name === "AbortError") {
         if (mountedRef.current && exitActionRef.current !== "cancel") {
           dispatchImport({ type: "cancel" });

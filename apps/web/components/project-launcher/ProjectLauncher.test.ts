@@ -27,6 +27,17 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain('exitActionRef.current === "cancel"');
   });
 
+  it("releases the publication close guard when an import request fails", () => {
+    const importRequest = source.indexOf("void importProject");
+    const importFailure = source.indexOf("}).catch((caught: unknown) => {", importRequest);
+    const failureBranch = source.slice(
+      importFailure,
+      source.indexOf("}).finally(() => {", importFailure),
+    );
+
+    expect(failureBranch).toContain("publishingRef.current = false");
+  });
+
   it("never exposes browser local-path activation", () => {
     expect(source).not.toContain("PROJECT_PATH");
     expect(source).not.toContain('type="text"');
