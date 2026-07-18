@@ -12,11 +12,6 @@ export function projectSessionCookieValue(sessionId: string, request: Request): 
   return `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax${secure}`;
 }
 
-function clearCookie(request: Request): string {
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${PROJECT_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
-}
-
 function descriptorResponse(
   session: Awaited<ReturnType<typeof resolveActiveProjectSession>>,
   request: Request,
@@ -39,7 +34,7 @@ export async function handleProjectSessionGet(
     if (error instanceof NoActiveProjectError) {
       return new Response(null, {
         status: 204,
-        headers: { "cache-control": "no-store", "set-cookie": clearCookie(request) },
+        headers: { "cache-control": "no-store" },
       });
     }
     return projectSessionErrorResponse(error);
