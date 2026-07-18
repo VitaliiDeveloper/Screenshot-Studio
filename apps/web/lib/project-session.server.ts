@@ -6,6 +6,8 @@ import {
   readProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
+import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { resolveConfiguredProjectPath } from "./project-path.js";
 import type { ActiveProjectDescriptor } from "./project-session.js";
 
@@ -21,19 +23,22 @@ const LOCAL_CAPABILITIES = {
   projectLocalResources: true,
 } as const;
 
-export interface LocalProjectSession {
+export interface ProjectSession {
   descriptor: ActiveProjectDescriptor;
   projectId: string;
   projectPath: string;
 }
 
-export interface OpenedLocalProjectSource {
+export interface OpenedProjectSource {
   name: string;
   projectId: string;
   projectPath: string;
-  displayLocation: string;
+  displayLocation?: string;
   capabilities: ActiveProjectDescriptor["capabilities"];
 }
+
+export type LocalProjectSession = ProjectSession;
+export type OpenedLocalProjectSource = OpenedProjectSource;
 
 export interface ProjectSourceAdapter<TRequest, TOpenedSource> {
   readonly kind: string;
@@ -42,11 +47,11 @@ export interface ProjectSourceAdapter<TRequest, TOpenedSource> {
 
 export class LocalFileProjectSourceAdapter implements ProjectSourceAdapter<
   string,
-  OpenedLocalProjectSource
+  OpenedProjectSource
 > {
   readonly kind = "local-file";
 
-  async open(requestedPath: string): Promise<OpenedLocalProjectSource> {
+  async open(requestedPath: string): Promise<OpenedProjectSource> {
     const projectPath = await resolveExistingProjectPath(requestedPath);
     const snapshot = await readProjectSnapshot(projectPath);
     return {
@@ -59,59 +64,96 @@ export class LocalFileProjectSourceAdapter implements ProjectSourceAdapter<
   }
 }
 
+const MANAGED_CAPABILITIES = {
+  writeInPlace: true,
+  revealLocation: false,
+  watchExternalChanges: false,
+  nativePicker: false,
+  projectLocalResources: true,
+} as const;
+
+export class ManagedProjectSourceAdapter implements ProjectSourceAdapter<string, OpenedProjectSource> {
+  readonly kind = "managed-project";
+
+  constructor(private readonly repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig())) {}
+
+  async open(projectId: string): Promise<OpenedProjectSource> {
+    const project = await this.repository.open(projectId);
+    return {
+      name: project.name,
+      projectId: project.id,
+      projectPath: project.projectPath,
+      capabilities: MANAGED_CAPABILITIES,
+    };
+  }
+}
+
 export interface ProjectSessionRegistryDependencies {
   createSessionId?: () => string;
-  localSource?: ProjectSourceAdapter<string, OpenedLocalProjectSource>;
+  localSource?: ProjectSourceAdapter<string, OpenedProjectSource>;
+  managedSource?: ProjectSourceAdapter<string, OpenedProjectSource>;
 }
 
 export class ProjectSessionRegistry {
-  readonly #byId = new Map<string, LocalProjectSession>();
-  readonly #byPath = new Map<string, LocalProjectSession>();
+  readonly #byId = new Map<string, ProjectSession>();
+  readonly #bySourceKey = new Map<string, ProjectSession>();
   readonly #createSessionId: () => string;
-  readonly #localSource: ProjectSourceAdapter<string, OpenedLocalProjectSource>;
+  readonly #localSource: ProjectSourceAdapter<string, OpenedProjectSource>;
+  readonly #managedSource: ProjectSourceAdapter<string, OpenedProjectSource>;
 
   constructor(dependencies: ProjectSessionRegistryDependencies = {}) {
     this.#createSessionId = dependencies.createSessionId ?? randomUUID;
     this.#localSource = dependencies.localSource ?? new LocalFileProjectSourceAdapter();
+    this.#managedSource = dependencies.managedSource ?? new ManagedProjectSourceAdapter();
   }
 
-  async openLocal(requestedPath: string): Promise<LocalProjectSession> {
-    const opened = await this.#localSource.open(requestedPath);
-    const existing = this.#byPath.get(opened.projectPath);
+  async openLocal(requestedPath: string): Promise<ProjectSession> {
+    return this.#open(this.#localSource, requestedPath);
+  }
+
+  async openManaged(projectId: string): Promise<ProjectSession> {
+    return this.#open(this.#managedSource, projectId);
+  }
+
+  async #open(source: ProjectSourceAdapter<string, OpenedProjectSource>, request: string): Promise<ProjectSession> {
+    const opened = await source.open(request);
+    const sourceKey = `${source.kind}:${opened.projectId}`;
+    const existing = this.#bySourceKey.get(sourceKey);
     if (existing) {
       existing.descriptor.name = opened.name;
       this.#touch(existing);
       return existing;
     }
     const sessionId = this.#createSessionId();
-    const session: LocalProjectSession = {
+    const session: ProjectSession = {
       descriptor: {
         sessionId,
         name: opened.name,
-        sourceKind: this.#localSource.kind,
-        displayLocation: opened.displayLocation,
+        sourceKind: source.kind,
+        ...(opened.displayLocation === undefined ? {} : { displayLocation: opened.displayLocation }),
         capabilities: opened.capabilities,
       },
       projectId: opened.projectId,
       projectPath: opened.projectPath,
     };
     this.#byId.set(sessionId, session);
-    this.#byPath.set(opened.projectPath, session);
+    this.#bySourceKey.set(sourceKey, session);
     this.#evictLeastRecentlyUsed();
     return session;
   }
 
-  get(sessionId: string): LocalProjectSession | undefined {
+  get(sessionId: string): ProjectSession | undefined {
     const session = this.#byId.get(sessionId);
     if (session) this.#touch(session);
     return session;
   }
 
-  #touch(session: LocalProjectSession): void {
+  #touch(session: ProjectSession): void {
     this.#byId.delete(session.descriptor.sessionId);
     this.#byId.set(session.descriptor.sessionId, session);
-    this.#byPath.delete(session.projectPath);
-    this.#byPath.set(session.projectPath, session);
+    const sourceKey = `${session.descriptor.sourceKind}:${session.projectId}`;
+    this.#bySourceKey.delete(sourceKey);
+    this.#bySourceKey.set(sourceKey, session);
   }
 
   #evictLeastRecentlyUsed(): void {
@@ -119,7 +161,7 @@ export class ProjectSessionRegistry {
     const leastRecentlyUsed = this.#byId.values().next().value;
     if (!leastRecentlyUsed) return;
     this.#byId.delete(leastRecentlyUsed.descriptor.sessionId);
-    this.#byPath.delete(leastRecentlyUsed.projectPath);
+    this.#bySourceKey.delete(`${leastRecentlyUsed.descriptor.sourceKind}:${leastRecentlyUsed.projectId}`);
   }
 }
 
@@ -194,10 +236,10 @@ export function projectSessionErrorResponse(error: unknown): Response {
 
 export async function withActiveProjectSession(
   request: Pick<Request, "headers"> | undefined,
-  operation: (session: LocalProjectSession) => Promise<Response>,
+  operation: (session: ProjectSession) => Promise<Response>,
   dependencies: ActiveProjectResolverDependencies = {},
 ): Promise<Response> {
-  let session: LocalProjectSession;
+  let session: ProjectSession;
   try {
     session = await resolveActiveProjectSession(request, dependencies);
   } catch (error) {
