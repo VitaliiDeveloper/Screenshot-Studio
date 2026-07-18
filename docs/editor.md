@@ -31,9 +31,10 @@ atomic publication are announced as a separate non-cancellable state. Errors use
 list missing resource paths. Successful import activates the managed project and lands on Project
 Home. Managed Project Home offers **Export project archive** with busy/error feedback and native
 download behavior; its copy distinguishes the portable project backup from rendered store-image
-export. Import-card press feedback and the dialog entrance use short transform/opacity motion and are
-disabled when reduced motion is requested. Local-file Project Home retains its exact-location behavior
-and does not offer this managed archive action.
+export. Import-card press feedback, dialog entrance and exit, and dialog state changes use calm,
+short transform/opacity motion. Close and Escape keep the dialog mounted until its exit finishes;
+reduced-motion preferences complete these transitions without animation. Local-file Project Home
+retains its exact-location behavior and does not offer this managed archive action.
 
 ---
 

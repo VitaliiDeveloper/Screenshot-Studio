@@ -68,9 +68,24 @@ describe("project launcher", () => {
       expect(await page.getByRole("button", { name: "Import project" }).isEnabled()).toBe(true);
       await page.getByRole("button", { name: "Import project" }).click();
       const dialog = page.getByRole("dialog", { name: "Bring an existing project into Screenshot Studio" });
+      const backdrop = page.locator(".launcher-dialog-backdrop");
       await dialog.waitFor();
       expect(await dialog.evaluate((element) => getComputedStyle(element).animationName))
         .toContain("launcher-dialog-in");
+      await page.getByRole("button", { name: "Close project import" }).click();
+      expect(await backdrop.getAttribute("data-motion")).toBe("closing");
+      expect(await dialog.evaluate((element) => getComputedStyle(element).animationName))
+        .toContain("launcher-dialog-out");
+      await dialog.waitFor({ state: "detached" });
+      expect(await page.getByRole("button", { name: "Import project" }).evaluate(
+        (element) => element === document.activeElement,
+      )).toBe(true);
+
+      await page.getByRole("button", { name: "Import project" }).click();
+      await dialog.waitFor();
+      await page.keyboard.press("Escape");
+      expect(await backdrop.getAttribute("data-motion")).toBe("closing");
+      await dialog.waitFor({ state: "detached" });
       await page.getByRole("heading", { name: "Recent projects" }).waitFor();
     } finally {
       await context.close();
