@@ -102,6 +102,7 @@ export interface ProjectSessionRegistryDependencies {
 export class ProjectSessionRegistry {
   readonly #byId = new Map<string, ProjectSession>();
   readonly #bySourceKey = new Map<string, ProjectSession>();
+  readonly #reservedSessionIds = new Set<string>();
   readonly #createSessionId: () => string;
   readonly #localSource: ProjectSourceAdapter<string, OpenedProjectSource>;
   readonly #managedSource: ProjectSourceAdapter<string, OpenedProjectSource>;
@@ -120,13 +121,27 @@ export class ProjectSessionRegistry {
     return this.#open(this.#managedSource, projectId);
   }
 
-  openManagedRecord(record: ManagedProjectRecord): ProjectSession {
+  reserveSessionId(): string {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const sessionId = this.#createSessionId();
+      if (this.#byId.has(sessionId) || this.#reservedSessionIds.has(sessionId)) continue;
+      this.#reservedSessionIds.add(sessionId);
+      return sessionId;
+    }
+    throw new Error("Unable to allocate a unique project session id");
+  }
+
+  releaseReservedSessionId(sessionId: string): void {
+    this.#reservedSessionIds.delete(sessionId);
+  }
+
+  openManagedRecord(record: ManagedProjectRecord, reservedSessionId?: string): ProjectSession {
     return this.#register("managed-project", {
       name: record.name,
       projectId: record.id,
       projectPath: record.projectPath,
       capabilities: MANAGED_CAPABILITIES,
-    });
+    }, reservedSessionId);
   }
 
   async #open(source: ProjectSourceAdapter<string, OpenedProjectSource>, request: string): Promise<ProjectSession> {
@@ -134,15 +149,23 @@ export class ProjectSessionRegistry {
     return this.#register(source.kind, opened);
   }
 
-  #register(sourceKind: string, opened: OpenedProjectSource): ProjectSession {
+  #register(
+    sourceKind: string,
+    opened: OpenedProjectSource,
+    reservedSessionId?: string,
+  ): ProjectSession {
     const sourceKey = `${sourceKind}:${opened.projectId}`;
     const existing = this.#bySourceKey.get(sourceKey);
     if (existing) {
+      if (reservedSessionId) this.releaseReservedSessionId(reservedSessionId);
       existing.descriptor.name = opened.name;
       this.#touch(existing);
       return existing;
     }
-    const sessionId = this.#createSessionId();
+    const sessionId = reservedSessionId ?? this.reserveSessionId();
+    if (!this.#reservedSessionIds.delete(sessionId)) {
+      throw new Error("Project session id was not reserved by this registry");
+    }
     const session: ProjectSession = {
       descriptor: {
         sessionId,

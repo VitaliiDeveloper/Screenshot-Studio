@@ -157,6 +157,8 @@ export class ManagedProjectRepository {
 
   async discardStage(token: string): Promise<void> {
     if (!STAGE_TOKEN_PATTERN.test(token)) throw new TypeError("Invalid managed project stage token");
+    await this.#ensureDirectories();
+    await this.#assertStageNotClaimedByRecovery(token);
     let stagePath: string;
     try {
       stagePath = await this.#ownedStagePath(token);
@@ -280,6 +282,23 @@ export class ManagedProjectRepository {
       mkdir(this.config.stagingRoot, { recursive: true, mode: 0o700 }),
       mkdir(this.config.recoveryRoot, { recursive: true, mode: 0o700 }),
     ]);
+  }
+
+  async #assertStageNotClaimedByRecovery(token: string): Promise<void> {
+    for (const name of await readdir(this.config.recoveryRoot)) {
+      if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
+      let intent: ManagedProjectPublicationIntent;
+      try {
+        intent = parseIntent(JSON.parse(await readFile(join(this.config.recoveryRoot, name), "utf8")));
+      } catch (error) {
+        throw new Error("Cannot discard a managed stage while recovery state is invalid", {
+          cause: error,
+        });
+      }
+      if (intent.token === token) {
+        throw new Error(`Cannot discard managed stage ${token} because publication recovery owns it`);
+      }
+    }
   }
 
   async #ownedStagePath(token: string): Promise<string> {
