@@ -31,6 +31,18 @@ For example:
 PROJECT_PATH=/absolute/path/to/my-app-screenshots/app-store-screenshots.json pnpm dev
 ```
 
+To open the bundled sample directly in place from the repository root:
+
+```bash
+PROJECT_PATH="$PWD/fixtures/sample/app-store-screenshots.json" pnpm dev
+# Equivalent monorepo CLI entry point:
+pnpm screenshots dev --project "$PWD/fixtures/sample/app-store-screenshots.json"
+```
+
+Both commands start the host with the sample as a `local-file` project and land on Project Home;
+**Open workspace** then opens `/editor`. Editor saves update `fixtures/sample` directly, so copy the
+fixture to a separate directory first when experimenting with changes you do not want to keep.
+
 Exporting store-ready PNGs (and the e2e suite) additionally needs a one-time Playwright
 browser download — see **Requirements** below.
 
