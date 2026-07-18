@@ -3,6 +3,7 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { switchActiveProject } from "../../lib/debounced-save";
 import { fetchActiveProject } from "../../lib/project-session";
 import {
   importProject,
@@ -98,14 +99,14 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
     importControllerRef.current?.abort();
     importControllerRef.current = controller;
     dispatchImport({ type: "confirm" });
-    void importProject(source, {
+    void switchActiveProject(() => importProject(source, {
       signal: controller.signal,
       onUploadComplete: () => {
         if (!mountedRef.current || exitActionRef.current === "cancel") return;
         publishingRef.current = true;
         dispatchImport({ type: "publishing" });
       },
-    }).then(() => {
+    })).then(() => {
       if (!mountedRef.current) return;
       dispatchImport({ type: "complete" });
       router.push("/home");

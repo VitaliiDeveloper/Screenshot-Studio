@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useStore } from "zustand";
 import type {
   CanvasPattern,
@@ -23,7 +24,15 @@ import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
 import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
 import { AssetPickerDialog } from "../../components/AssetPickerDialog";
 import { EditorSidePanel } from "../../components/editor-shell/EditorSidePanel";
-import { flushScheduledSave } from "../../lib/debounced-save";
+import {
+  flushScheduledSave,
+  hasPendingProjectSave,
+} from "../../lib/debounced-save";
+import {
+  navigateToProjectHome,
+  readWorkspaceNavigationState,
+  writeWorkspaceNavigationState,
+} from "../../lib/editor-workspace-navigation";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
 import { useEditorResources } from "./editor-resources";
 
@@ -37,6 +46,7 @@ const SIDE_PANEL_WIDTH = 288;
 const NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID = "screenshot-studio-next-devtools-alignment";
 
 export default function EditorPage() {
+  const router = useRouter();
   const {
     error,
     images,
@@ -46,6 +56,7 @@ export default function EditorPage() {
     reloading,
     retryFonts,
     fontRetrying,
+    activeProjectId,
   } = useEditorResources();
   const [zoom, setZoom] = useState(0.5);
   const [view, setView] = useState<WorkspaceView>("overview");
@@ -57,8 +68,21 @@ export default function EditorPage() {
   const [dialog, setDialog] = useState<ResourceDialog | null>(null);
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
+  const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
+  const [navigationBusy, setNavigationBusy] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [exportRequestKey, setExportRequestKey] = useState(0);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
+  const workspaceNavigationState = useMemo(() => ({
+    zoom,
+    view,
+    tool,
+    pattern,
+    panel,
+    lastPanel,
+    inspectorOpen,
+  }), [zoom, view, tool, pattern, panel, lastPanel, inspectorOpen]);
   const setPanel = useCallback((next: WorkspacePanel | null) => {
     setPanelState(next);
     if (next) setLastPanel(next);
@@ -123,10 +147,74 @@ export default function EditorPage() {
   }, [setPanel]);
 
   useEffect(() => {
+    if (!activeProjectId) return;
+    const frame = requestAnimationFrame(() => {
+      const restored = readWorkspaceNavigationState(activeProjectId);
+      if (restored) {
+        setZoom(restored.zoom);
+        setView(restored.view);
+        setTool(restored.tool);
+        setPattern(restored.pattern);
+        setPanel(restored.panel);
+        setLastPanel(restored.lastPanel);
+        setInspectorOpen(window.matchMedia("(max-width: 959px)").matches
+          ? false
+          : restored.inspectorOpen);
+      }
+      setWorkspaceRestoredFor(activeProjectId);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeProjectId, setPanel]);
+
+  useEffect(() => {
+    if (!activeProjectId || workspaceRestoredFor !== activeProjectId) return;
+    const timer = setTimeout(() => {
+      writeWorkspaceNavigationState(activeProjectId, workspaceNavigationState);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [activeProjectId, workspaceNavigationState, workspaceRestoredFor]);
+
+  useEffect(() => {
+    if (!activeProjectId || workspaceRestoredFor !== activeProjectId) return;
+    const frame = requestAnimationFrame(() => {
+      const intent = new URLSearchParams(window.location.search).get("intent");
+      if (intent === "locales") setLocaleDialogOpen(true);
+      if (intent === "export") setExportRequestKey((current) => current + 1);
+      if (intent === "add-screen" || intent === "layouts") setPanel("structure");
+      if (intent) router.replace("/editor", { scroll: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeProjectId, router, setPanel, workspaceRestoredFor]);
+
+  useEffect(() => {
     const onPageHide = () => { void flushScheduledSave().catch(() => undefined); };
     window.addEventListener("pagehide", onPageHide);
     return () => window.removeEventListener("pagehide", onPageHide);
   }, []);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasPendingProjectSave() && saveStatus !== "saving" && saveStatus !== "error") return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [saveStatus]);
+
+  const openProjectHome = useCallback(() => {
+    if (navigationBusy) return;
+    if (activeProjectId) {
+      writeWorkspaceNavigationState(activeProjectId, workspaceNavigationState);
+    }
+    setNavigationBusy(true);
+    setNavigationError(null);
+    void navigateToProjectHome({ navigate: () => router.push("/home") })
+      .catch((caught: unknown) => {
+        setNavigationError(caught instanceof Error ? caught.message : String(caught));
+        setNavigationBusy(false);
+      });
+  }, [activeProjectId, navigationBusy, router, workspaceNavigationState]);
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
@@ -170,6 +258,9 @@ export default function EditorPage() {
       <Toolbar
         view={view}
         inspectorOpen={inspectorOpen}
+        onOpenProjectHome={openProjectHome}
+        projectHomeBusy={navigationBusy}
+        exportRequestKey={exportRequestKey}
         onViewChange={setView}
         onOpenLocales={() => setLocaleDialogOpen(true)}
         onToggleInspector={() => {
@@ -225,6 +316,11 @@ export default function EditorPage() {
       {saveStatus === "error" && saveError ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
+        </div>
+      ) : null}
+      {navigationError ? (
+        <div role="alert" className="absolute left-1/2 top-16 z-40 max-w-sm -translate-x-1/2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+          Project Home was not opened because the latest project changes could not be saved: {navigationError}
         </div>
       ) : null}
       {fontWarnings.length > 0 ? (

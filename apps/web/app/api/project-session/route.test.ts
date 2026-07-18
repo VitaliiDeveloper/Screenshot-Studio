@@ -8,6 +8,7 @@ import {
   type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
 import {
+  handleProjectSessionDelete,
   handleProjectSessionGet,
 } from "./handler.js";
 import * as projectSessionRoute from "./route.js";
@@ -55,6 +56,7 @@ function dependencies(): ActiveProjectResolverDependencies {
 describe("project session route handlers", () => {
   it("does not expose browser local-path activation", () => {
     expect("POST" in projectSessionRoute).toBe(false);
+    expect("DELETE" in projectSessionRoute).toBe(true);
   });
 
   it("returns a cookie-neutral 204 when a fresh client has no active or configured project", async () => {
@@ -87,5 +89,56 @@ describe("project session route handlers", () => {
     expect(configured.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=session-1",
     );
+  });
+
+  it("closes only the identity-fenced active session and expires its cookie", async () => {
+    const firstPath = await createProject("First");
+    const secondPath = await createProject("Second");
+    let nextSessionId = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSessionId}`,
+    });
+    const first = await registry.openLocal(firstPath);
+    const second = await registry.openLocal(secondPath);
+
+    const response = await handleProjectSessionDelete(new Request(
+      "https://localhost/api/project-session",
+      {
+        method: "DELETE",
+        headers: {
+          cookie: `screenshot_studio_project_session=${first.descriptor.sessionId}`,
+          "x-project-id": first.projectId,
+        },
+      },
+    ), { registry, configuredPath: () => { throw new Error("must not bootstrap"); } });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(response.headers.get("set-cookie")).toContain("Secure");
+    expect(registry.get(first.descriptor.sessionId)).toBeUndefined();
+    expect(registry.get(second.descriptor.sessionId)).toBe(second);
+  });
+
+  it("keeps the active session when the close project identity is missing or stale", async () => {
+    const path = await createProject("Identity fence");
+    const registry = new ProjectSessionRegistry({ createSessionId: () => "session-1" });
+    const session = await registry.openLocal(path);
+    const base = {
+      method: "DELETE",
+      headers: { cookie: "screenshot_studio_project_session=session-1" },
+    };
+
+    const missing = await handleProjectSessionDelete(
+      new Request("http://localhost/api/project-session", base),
+      { registry, configuredPath: () => null },
+    );
+    const stale = await handleProjectSessionDelete(new Request(
+      "http://localhost/api/project-session",
+      { ...base, headers: { ...base.headers, "x-project-id": "another-project" } },
+    ), { registry, configuredPath: () => null });
+
+    expect(missing.status).toBe(428);
+    expect(stale.status).toBe(409);
+    expect(registry.get(session.descriptor.sessionId)).toBe(session);
   });
 });

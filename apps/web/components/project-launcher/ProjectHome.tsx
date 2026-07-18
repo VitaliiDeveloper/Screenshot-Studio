@@ -1,48 +1,99 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, LoaderCircle } from "lucide-react";
-import { editorUi } from "../editor-ui/styles";
+import { useEffect, useMemo, useState } from "react";
+import { useStore } from "zustand";
 import {
-  fetchActiveProject,
-  type ActiveProjectSelection,
-} from "../../lib/project-session";
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Download,
+  LoaderCircle,
+} from "lucide-react";
+import { editorStore } from "../../lib/editor-store";
+import { getProjectPersistenceIdentity } from "../../lib/save-project";
+import { missingImageUrls } from "../../app/editor/editor-resources";
+import { loadProjectHomeData, type ProjectHomeData } from "../../lib/project-home-client";
+import { closeProjectSession } from "../../lib/project-close";
+import {
+  buildProjectHomeSummary,
+  type ProjectHomeAction,
+} from "../../lib/project-home-model";
 import {
   downloadProjectArchive,
   requestProjectArchive,
 } from "../../lib/project-archive-client";
+import { editorUi } from "../editor-ui/styles";
+
+const DynamicScreenThumbnail = dynamic(
+  () => import("../ScreenThumbnail").then((module) => module.ScreenThumbnail),
+  { ssr: false },
+);
+
+function ActionLink({ action }: { action: ProjectHomeAction }) {
+  const className = "group flex min-h-28 flex-col justify-between rounded-2xl border border-[var(--editor-color-border)] bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--editor-color-border-strong)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] motion-reduce:transform-none";
+  if (!action.enabled || !action.href) {
+    return (
+      <div aria-disabled="true" className={`${className} cursor-not-allowed opacity-60`}>
+        <div><p className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{action.label}</p><p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{action.description}</p></div>
+        <span className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--editor-color-text-muted)]">Not available in this launcher slice</span>
+      </div>
+    );
+  }
+  return (
+    <Link href={action.href} className={className}>
+      <div><p className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{action.label}</p><p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{action.description}</p></div>
+      <ArrowRight aria-hidden="true" className="mt-3 size-4 text-blue-600 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" />
+    </Link>
+  );
+}
 
 export function ProjectHome() {
   const router = useRouter();
-  const [project, setProject] = useState<ActiveProjectSelection | null>(null);
+  const [data, setData] = useState<ProjectHomeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [closeBusy, setCloseBusy] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
+  const saveError = useStore(editorStore, (state) => state.saveError);
 
   useEffect(() => {
     let active = true;
-    void fetchActiveProject().then((selected) => {
+    void loadProjectHomeData().then((loaded) => {
       if (!active) return;
-      if (!selected) {
+      if (!loaded) {
         router.replace("/");
         return;
       }
-      setProject(selected);
+      setData(loaded);
     }).catch((caught: unknown) => {
-      if (active) setError((caught as Error).message);
+      if (active) setError(caught instanceof Error ? caught.message : String(caught));
     });
     return () => { active = false; };
   }, [router]);
 
+  const summary = useMemo(() => data ? buildProjectHomeSummary({
+    project: data.resources.project,
+    selection: data.selection,
+    specs: data.resources.specs,
+    missingAssets: missingImageUrls(data.resources.project, data.resources.images),
+    fontWarnings: data.resources.fontWarnings.map(({ font, error: warning }) =>
+      `${font.family} ${font.weight}: ${warning.message}`),
+    saveError: getProjectPersistenceIdentity()?.projectId === data.selection.projectId
+      ? saveError
+      : null,
+  }) : null, [data, saveError]);
+
   const exportProjectArchive = async () => {
-    if (!project) return;
+    if (!data || closeBusy) return;
     setArchiveBusy(true);
     setArchiveError(null);
     try {
-      downloadProjectArchive(await requestProjectArchive(project.projectId));
+      downloadProjectArchive(await requestProjectArchive(data.selection.projectId));
     } catch (caught) {
       setArchiveError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -50,37 +101,128 @@ export function ProjectHome() {
     }
   };
 
+  const closeCurrentProject = async () => {
+    if (!data || closeBusy || archiveBusy) return;
+    setCloseBusy(true);
+    setCloseError(null);
+    try {
+      await closeProjectSession(data.selection.projectId, {
+        navigate: () => router.push("/?switch=1"),
+      });
+    } catch (caught) {
+      setCloseError(caught instanceof Error ? caught.message : String(caught));
+      setCloseBusy(false);
+    }
+  };
+
   if (error) {
     return <main className="grid min-h-dvh place-items-center p-6"><p role="alert" className={editorUi.statusError}>{error}</p></main>;
   }
-  if (!project) {
-    return <main className="grid min-h-dvh place-items-center p-6 text-sm text-[color:var(--editor-color-text-secondary)]">Loading project…</main>;
+  if (!data || !summary) {
+    return <main className="grid min-h-dvh place-items-center p-6 text-sm text-[color:var(--editor-color-text-secondary)]">Loading project overview…</main>;
   }
 
+  const archiveAction = summary.actions.find((action) => action.id === "project-archive-export");
+  const continueAction = summary.actions.find((action) => action.id === "continue-editing");
+  const importAction = summary.actions.find((action) => action.id === "import-project");
+  const primaryActions = summary.actions.filter((action) => action.id !== "project-archive-export");
+
   return (
-    <main className="min-h-dvh bg-[var(--editor-color-surface-subtle)] px-6 py-12">
-      <section className="mx-auto max-w-3xl rounded-2xl border border-[var(--editor-color-border)] bg-white p-8 shadow-sm">
-        <p className={editorUi.sectionLabel}>Active project</p>
-        <h1 className="mt-3 text-3xl font-semibold text-[color:var(--editor-color-text-strong)]">{project.name}</h1>
-        <dl className="mt-6 grid gap-3 text-sm">
-          <div><dt className="font-semibold">Source</dt><dd>{project.sourceKind}</dd></div>
-          {project.capabilities.revealLocation && project.displayLocation ? (
-            <div><dt className="font-semibold">Project file</dt><dd className="break-all">{project.displayLocation}</dd></div>
-          ) : null}
-        </dl>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/editor" className={editorUi.buttonPrimary}>Open workspace</Link>
-          <Link href="/?switch=1" className={editorUi.buttonSecondary}>Project launcher</Link>
-          {project.sourceKind === "managed-project" ? (
-            <button type="button" className={editorUi.buttonSecondary} disabled={archiveBusy} onClick={() => { void exportProjectArchive(); }}>
-              {archiveBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Download aria-hidden="true" className="size-4" />}
-              {archiveBusy ? "Preparing project archive…" : "Export project archive"}
-            </button>
-          ) : null}
+    <main className="min-h-dvh bg-[var(--editor-color-surface-subtle)] px-4 py-8 sm:px-6 lg:py-12">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className={editorUi.sectionLabel}>Project Home</p>
+              <h1 className="mt-3 truncate text-3xl font-semibold text-[color:var(--editor-color-text-strong)] sm:text-4xl">{summary.name}</h1>
+              <dl className="mt-5 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <div><dt className="text-[color:var(--editor-color-text-muted)]">Source</dt><dd className="mt-1 font-semibold text-[color:var(--editor-color-text-strong)]">{summary.source.label}</dd></div>
+                <div><dt className="text-[color:var(--editor-color-text-muted)]">Preferred export layout</dt><dd className="mt-1 font-semibold text-[color:var(--editor-color-text-strong)]">{summary.preferredLayout.name}</dd></div>
+                <div><dt className="text-[color:var(--editor-color-text-muted)]">Screens</dt><dd className="mt-1 font-semibold text-[color:var(--editor-color-text-strong)]">{summary.screenCount}</dd></div>
+                <div><dt className="text-[color:var(--editor-color-text-muted)]">Layouts</dt><dd className="mt-1 font-semibold text-[color:var(--editor-color-text-strong)]">{summary.layouts.length}</dd></div>
+              </dl>
+              {summary.source.location ? <p className="mt-4 break-all rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700"><span className="font-sans font-semibold">Project file: </span>{summary.source.location}</p> : null}
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-3">
+              {continueAction?.enabled && continueAction.href ? <Link href={continueAction.href} className={editorUi.buttonPrimary}>Continue in Workspace</Link> : null}
+              {importAction?.enabled && importAction.href ? <Link href={importAction.href} className={editorUi.buttonSecondary}>Import another project</Link> : null}
+              <button type="button" className={editorUi.buttonSecondary} disabled={closeBusy || archiveBusy} onClick={() => { void closeCurrentProject(); }}>
+                {closeBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}
+                {closeBusy ? "Closing project…" : "Close project"}
+              </button>
+            </div>
+          </div>
+          {closeError ? <p role="alert" className={`mt-5 ${editorUi.statusError}`}>Project was not closed. The active session and project data remain unchanged: {closeError}</p> : null}
+        </header>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(20rem,0.8fr)]">
+          <div className="space-y-6">
+            <section aria-labelledby="project-structure" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
+              <h2 id="project-structure" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Project structure</h2>
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {summary.layouts.map((layout) => (
+                  <article key={layout.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-slate-950">{layout.name}</h3><span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 ring-1 ring-slate-200">{layout.mode}</span></div>
+                    <p className="mt-2 text-xs text-slate-600">{layout.screenCount} screen{layout.screenCount === 1 ? "" : "s"} · {layout.emptyScreenCount} empty{layout.preferred ? " · Preferred for export" : ""}</p>
+                  </article>
+                ))}
+              </div>
+              <dl className="mt-5 grid gap-4 border-t border-slate-200 pt-5 sm:grid-cols-2">
+                <div><dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Supported platforms</dt><dd className="mt-2 text-sm text-slate-800">{summary.platforms.join(", ")}</dd></div>
+                <div><dt className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Locales</dt><dd className="mt-2 text-sm text-slate-800">{summary.locales.join(", ")}</dd></div>
+              </dl>
+            </section>
+
+            <section aria-labelledby="project-outputs" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
+              <h2 id="project-outputs" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Output families and store targets</h2>
+              <div className="mt-5 divide-y divide-slate-200">
+                {summary.outputFamilies.map((family) => <div key={family.key} className="grid gap-1 py-4 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,13rem)_1fr]"><div><p className="text-sm font-semibold text-slate-950">{family.label}</p><p className="text-xs text-slate-500">{family.screenCount} screen{family.screenCount === 1 ? "" : "s"}</p></div><p className="text-sm text-slate-700">{family.storeTargets.join(", ")}</p></div>)}
+              </div>
+            </section>
+
+            <section aria-labelledby="project-actions" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
+              <h2 id="project-actions" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Next actions</h2>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{primaryActions.map((action) => <ActionLink key={action.id} action={action} />)}</div>
+              {archiveAction?.enabled ? (
+                <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-semibold text-slate-950">Export project archive</h3><p className="mt-1 text-xs leading-5 text-slate-600">Project archive export creates a portable backup for later project import. It is separate from rendered store-image export.</p></div><button type="button" className={editorUi.buttonSecondary} disabled={archiveBusy || closeBusy} onClick={() => { void exportProjectArchive(); }}>{archiveBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Download aria-hidden="true" className="size-4" />}{archiveBusy ? "Preparing project archive…" : "Export project archive"}</button></div>
+                  {archiveError ? <p role="alert" className={`mt-3 ${editorUi.statusError}`}>{archiveError}</p> : null}
+                </div>
+              ) : null}
+            </section>
+          </div>
+
+          <aside className="space-y-6">
+            <section aria-labelledby="project-previews" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
+              <h2 id="project-previews" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Representative previews</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Each preview is rasterized by the existing shared renderer.</p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                {summary.representativeScreens.map((screen) => (
+                  <figure key={screen.layoutId} className="min-w-0"><div className="aspect-[9/16] overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-sm"><DynamicScreenThumbnail project={data.resources.project} layoutId={screen.layoutId} screenId={screen.screenId} images={data.resources.images} /></div><figcaption className="mt-2"><p className="truncate text-xs font-semibold text-slate-900">{screen.name}</p><p className="truncate text-[10px] text-slate-500">{screen.layoutName}</p></figcaption></figure>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby="project-readiness" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
+              <h2 id="project-readiness" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Readiness</h2>
+              {summary.readiness.length === 0 ? <div className="mt-4 flex gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-900"><CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0" /><p className="text-sm">No known blockers from the current project services.</p></div> : <ul className="mt-4 space-y-3">{summary.readiness.map((item) => <li key={item.kind} className="flex gap-3 rounded-2xl bg-amber-50 p-4 text-amber-950"><AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0" /><div><p className="text-sm font-semibold">{item.label}</p><p className="mt-1 break-words text-xs leading-5">{item.detail}</p></div></li>)}</ul>}
+            </section>
+
+            <section aria-labelledby="project-guidance" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
+              <h2 id="project-guidance" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Workflow guide</h2>
+              <dl className="mt-4 space-y-4 text-xs leading-5 text-slate-600">
+                <div><dt className="font-semibold text-slate-900">Project templates</dt><dd>Starter projects belong to Create project and are not available in this launcher slice.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Screen templates</dt><dd>Project-local reusable screens are applied from the existing Workspace Templates library.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Layout modes</dt><dd>Isolated and connected describe how a layout composes screens; Project Home reports them without editing content.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Project import</dt><dd>Folder, ZIP, or JSON input is validated into a separate managed copy.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Capture import</dt><dd>Raw capture ingestion remains available through the existing CLI workflow, not this launcher slice.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Project archive export</dt><dd>Downloads portable project files and resources for later import.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Store-image export</dt><dd>Renders exact PNG output bundles from a selected layout through the shared renderer.</dd></div>
+              </dl>
+            </section>
+          </aside>
         </div>
-        {project.sourceKind === "managed-project" ? <p className="mt-4 text-xs leading-5 text-[color:var(--editor-color-text-muted)]">Project archive export creates a portable backup for later project import. It is separate from rendered store-image export.</p> : null}
-        {archiveError ? <p role="alert" className={`mt-4 ${editorUi.statusError}`}>{archiveError}</p> : null}
-      </section>
+      </div>
     </main>
   );
 }

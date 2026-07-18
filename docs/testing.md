@@ -69,6 +69,19 @@ ZIP admission, path/credential policy, limits, cancellation cleanup, atomic cata
 one-shot artifacts, and byte-level archive round trip stay in `test:web`; do not duplicate them in
 additional browser scenarios.
 
+Launcher 4 browser ownership is also one exact file. It proves validated managed Project Home,
+source-safe identity, Home ↔ Workspace layout/screen/selection/chrome preservation, failed-save
+navigation blocking and recovery, source-neutral Close project, storage/catalog non-mutation, and
+serious/critical accessibility coverage as one dependent journey:
+
+```bash
+pnpm exec vitest run --config vitest.e2e.config.ts e2e/project-home-round-trip.test.ts
+```
+
+Session-registry isolation, cookie and project-id fences, transient-state validation, direct client
+failure branches, and same-project store reconciliation stay in `test:web`; do not repeat those
+deterministic branches in more browser files.
+
 ## Cost rules
 
 - Do not run browser E2E for pure fixture assertions, calculations, or schema/model branches with a

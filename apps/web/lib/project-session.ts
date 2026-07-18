@@ -6,6 +6,7 @@ export interface ProjectSourceCapabilities {
   watchExternalChanges: boolean;
   nativePicker: boolean;
   projectLocalResources: boolean;
+  exportProjectArchive: boolean;
 }
 
 export interface ActiveProjectDescriptor {
@@ -44,4 +45,15 @@ export async function fetchActiveProject(
     ...await response.json() as ActiveProjectDescriptor,
     projectId,
   };
+}
+
+export async function closeActiveProject(
+  projectId: string,
+  fetcher: ProjectSessionFetcher = fetch,
+): Promise<void> {
+  const response = await fetcher("/api/project-session", {
+    method: "DELETE",
+    headers: { "x-project-id": projectId },
+  });
+  if (!response.ok) throw await responseError(response);
 }

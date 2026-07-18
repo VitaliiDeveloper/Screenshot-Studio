@@ -24,6 +24,7 @@ const LOCAL_CAPABILITIES = {
   watchExternalChanges: true,
   nativePicker: false,
   projectLocalResources: true,
+  exportProjectArchive: false,
 } as const;
 
 export interface ProjectSession {
@@ -73,6 +74,7 @@ const MANAGED_CAPABILITIES = {
   watchExternalChanges: false,
   nativePicker: false,
   projectLocalResources: true,
+  exportProjectArchive: true,
 } as const;
 
 export class ManagedProjectSourceAdapter implements ProjectSourceAdapter<string, OpenedProjectSource> {
@@ -162,6 +164,14 @@ export class ProjectSessionRegistry {
     const session = this.#byId.get(sessionId);
     if (session) this.#touch(session);
     return session;
+  }
+
+  close(sessionId: string, projectId: string): boolean {
+    const session = this.#byId.get(sessionId);
+    if (!session || session.projectId !== projectId) return false;
+    this.#byId.delete(sessionId);
+    this.#bySourceKey.delete(`${session.descriptor.sourceKind}:${session.projectId}`);
+    return true;
   }
 
   #touch(session: ProjectSession): void {
