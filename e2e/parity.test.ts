@@ -65,7 +65,7 @@ function countMismatch(a: Buffer, b: Buffer): { mismatch: number; total: number 
   return { mismatch, total: pa.width * pa.height };
 }
 
-describe("Phase 0 render/export parity", () => {
+describe("render/export parity", () => {
   it("headed and headless renders match at the exact target size with no alpha", async () => {
     const headedRaw = await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,

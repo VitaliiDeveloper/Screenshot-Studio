@@ -60,7 +60,7 @@ function elements() {
   return project().layouts[0].screens[0]!.elements;
 }
 
-describe("Phase 7 badge authoring", () => {
+describe("badge authoring", () => {
   it("guards missing fonts and inserts editable grouped and official-image badges", async () => {
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

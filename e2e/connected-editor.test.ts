@@ -62,7 +62,7 @@ function project() {
   };
 }
 
-describe("Phase 6 connected editor stage", () => {
+describe("connected editor stage", () => {
   it("edits one gapless group with owner-local transforms and exact Focus crop", async () => {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

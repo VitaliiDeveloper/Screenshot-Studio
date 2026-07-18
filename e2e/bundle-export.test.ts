@@ -44,7 +44,7 @@ afterAll(async () => {
   await expect(stat(projectMutationLockPath(fixturePath))).rejects.toMatchObject({ code: "ENOENT" });
 });
 
-describe("Phase 4 multi-locale bundle export", () => {
+describe("multi-locale bundle export", () => {
   it("exports safe per-group-numbered PNGs and a zip using one server/browser session", async () => {
     const directory = await mkdtemp(join(tmpdir(), "phase-4-bundle-"));
     const projectDirectory = join(directory, "project");

@@ -42,6 +42,26 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+  coverage:
+    # Coverage is a quality signal for long-lived branches, not a PR merge gate.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:coverage
+      - uses: actions/upload-artifact@v7
+        with:
+          name: unit-coverage-${{ github.sha }}
+          path: coverage/
+          if-no-files-found: error
+          retention-days: 30
+
   e2e-targeted:
     # Development pushes get the highest-value Chromium contracts without the full browser gate.
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'

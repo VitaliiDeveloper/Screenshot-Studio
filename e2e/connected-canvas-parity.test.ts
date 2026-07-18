@@ -41,7 +41,7 @@ function mismatch(first: Buffer, second: Buffer): number {
   return pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1 });
 }
 
-describe("Phase 6 connected crop parity", () => {
+describe("connected crop parity", () => {
   it("matches headed/headless and carries one owner element across both exact screen crops", async () => {
     const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
       baseUrl: harness.server.url,

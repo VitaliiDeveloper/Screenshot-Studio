@@ -18,7 +18,15 @@ export interface ManagedProjectStorageConfig {
   stagingTtlMs: number;
 }
 
-export type ManagedProjectEnvironment = Readonly<Record<string, string | undefined>>;
+export type ManagedProjectEnvironment = Partial<Record<
+  | "INIT_CWD"
+  | "SCREENSHOT_STUDIO_DATA_ROOT"
+  | "SCREENSHOT_STUDIO_MAX_PROJECT_FILES"
+  | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES"
+  | "SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES"
+  | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
+  string
+>>;
 
 function positiveInteger(
   environment: ManagedProjectEnvironment,
@@ -35,7 +43,7 @@ function positiveInteger(
 }
 
 export function resolveManagedProjectStorageConfig(
-  environment: ManagedProjectEnvironment = process.env,
+  environment: ManagedProjectEnvironment = process.env as ManagedProjectEnvironment,
 ): ManagedProjectStorageConfig {
   const invocationDirectory = environment.INIT_CWD ?? process.cwd();
   const root = resolve(invocationDirectory, environment.SCREENSHOT_STUDIO_DATA_ROOT ?? ".screenshot-studio");

@@ -62,7 +62,7 @@ function elements(): Array<Record<string, unknown>> {
   }).layouts[0]!.screens[0]!.elements;
 }
 
-describe("Phase 9 background authoring", () => {
+describe("background authoring", () => {
   it("persists backgrounds plus text and shape styling from named controls", async () => {
     const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

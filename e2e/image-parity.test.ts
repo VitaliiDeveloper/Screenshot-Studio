@@ -95,7 +95,7 @@ function rgb(png: PNG, x: number, y: number): [number, number, number] {
   return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
 }
 
-describe("Phase 7 decorative image parity", () => {
+describe("decorative image parity", () => {
   it("matches UI/CLI pixels for contain, cover, alpha, groups, and connected crops", async () => {
     const firstBytes = stripAlpha(await harness.headless.renderScreenToPng({
       baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "first", pixelRatio: 1,

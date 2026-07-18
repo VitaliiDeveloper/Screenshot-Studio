@@ -10,10 +10,10 @@ interface PackageManifest {
 
 const root = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as PackageManifest;
-function discoverE2eFiles(directory: string, prefix = ""): string[] {
+function discoverTestFiles(directory: string, prefix = ""): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) return discoverE2eFiles(resolve(directory, entry.name), relativePath);
+    if (entry.isDirectory()) return discoverTestFiles(resolve(directory, entry.name), relativePath);
     return entry.isFile() && entry.name.endsWith(".test.ts") ? [relativePath] : [];
   }).sort();
 }
@@ -45,7 +45,10 @@ function reachableE2eScripts(scripts: Record<string, string>, rootScript: string
   return reachable;
 }
 
-const e2eFiles = discoverE2eFiles(resolve(root, "e2e"));
+const e2eFiles = discoverTestFiles(resolve(root, "e2e"));
+const testSourceFiles = ["e2e", "packages", "apps", "scripts"].flatMap((directory) => (
+  discoverTestFiles(resolve(root, directory), directory)
+));
 
 const leafGroups = Object.entries(manifest.scripts)
   .filter(([name, command]) => name.startsWith("test:e2e:") && command.startsWith("vitest run"));
@@ -55,6 +58,14 @@ function listedFiles(command: string): string[] {
 }
 
 describe("E2E group ownership", () => {
+  it("uses capability names instead of completed roadmap phases", () => {
+    const phaseLabels = testSourceFiles.filter((file) => (
+      /\bPhase\s+\d/.test(readFileSync(resolve(root, file), "utf8"))
+    ));
+
+    expect(phaseLabels).toEqual([]);
+  });
+
   it("discovers E2E tests recursively", () => {
     const directory = mkdtempSync(join(tmpdir(), "e2e-groups-"));
     try {
@@ -62,7 +73,7 @@ describe("E2E group ownership", () => {
       writeFileSync(resolve(directory, "root.test.ts"), "");
       writeFileSync(resolve(directory, "nested", "child.test.ts"), "");
 
-      expect(discoverE2eFiles(directory)).toEqual(["nested/child.test.ts", "root.test.ts"]);
+      expect(discoverTestFiles(directory)).toEqual(["nested/child.test.ts", "root.test.ts"]);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

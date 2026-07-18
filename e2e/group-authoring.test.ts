@@ -74,7 +74,7 @@ function firstElements() {
   return project().layouts[0].screens.find((screen) => screen.id === "first")!.elements;
 }
 
-describe("Phase 7 group authoring", () => {
+describe("group authoring", () => {
   it("groups, inspects children, resizes, duplicates, ungroups, and persists through reload", async () => {
     const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

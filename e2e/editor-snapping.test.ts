@@ -78,7 +78,7 @@ async function beginBridgeDrag(page: Page, logicalDeltaX: number) {
   return { connected, scale };
 }
 
-describe("Phase 6 editor snapping", () => {
+describe("editor snapping", () => {
   it("uses a zoom-correct threshold and ephemeral connected-space guide", async () => {
     const page = await browser.newPage({ viewport: { width: 1800, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });

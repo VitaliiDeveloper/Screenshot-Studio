@@ -101,7 +101,7 @@ async function activeHeroCanvas(page: Page) {
 describe("editor round-trip", () => {
   it("dragging an element persists its new position to disk", async () => {
     const start = headline();
-    // The Phase 3.6 viewport fits the active artboard automatically between the contextual shelf
+    // The viewport fits the active artboard automatically between the contextual shelf
     // and inspector, so derive the live stage scale instead of assuming a 1:1 canvas.
     const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
     // Match the project's proven readiness pattern (render-driver.ts): "load", not "networkidle"
