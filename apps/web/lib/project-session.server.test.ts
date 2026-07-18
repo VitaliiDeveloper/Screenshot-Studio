@@ -61,7 +61,57 @@ function createStubLocalSource() {
   } satisfies Pick<LocalFileProjectSourceAdapter, "kind" | "open">;
 }
 
+function createStubManagedSource() {
+  return {
+    kind: "managed-project",
+    open: vi.fn(async (projectId: string) => {
+      if (projectId === "missing") throw new Error("Managed project does not exist");
+      return {
+        name: "Managed",
+        projectId,
+        projectPath: `/managed/${projectId}/app-store-screenshots.json`,
+        capabilities: {
+          writeInPlace: true,
+          revealLocation: false,
+          watchExternalChanges: false,
+          nativePicker: false,
+          projectLocalResources: true,
+        },
+      };
+    }),
+  } satisfies { kind: string; open(projectId: string): Promise<unknown> };
+}
+
 describe("ProjectSessionRegistry", () => {
+  it("opens managed projects without exposing their server location", async () => {
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "managed-session",
+      managedSource: createStubManagedSource(),
+    });
+    const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    const session = await registry.openManaged(projectId);
+
+    expect(session).toMatchObject({
+      projectId,
+      descriptor: {
+        sessionId: "managed-session",
+        name: "Managed",
+        sourceKind: "managed-project",
+        capabilities: {
+          writeInPlace: true,
+          revealLocation: false,
+          watchExternalChanges: false,
+          nativePicker: false,
+          projectLocalResources: true,
+        },
+      },
+    });
+    expect(session.descriptor).not.toHaveProperty("displayLocation");
+    await expect(registry.openManaged("missing")).rejects.toThrow("Managed project does not exist");
+    expect(registry.get("managed-session")).toBe(session);
+  });
+
   it("evicts the least-recently-used session from both indexes after 30 projects", async () => {
     let nextSessionId = 0;
     const registry = new ProjectSessionRegistry({
