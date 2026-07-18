@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { listProjectImageAssets } from "../../../lib/project-assets.server.js";
-import { withActiveProjectSession } from "../../../lib/project-session.server.js";
+import { listProjectImageAssets } from "@web/lib/project-assets.server.js";
+import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 export const dynamic = "force-dynamic";
 

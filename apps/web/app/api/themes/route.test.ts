@@ -4,11 +4,10 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectRevision } from "@screenshot-studio/core/storage";
-// FIXME: Replace deep web-relative imports with one alias shared by Next.js, Vitest, and TypeScript.
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "../../../lib/project-session.server.js";
+} from "@web/lib/project-session.server.js";
 import { handleThemeGet, handleThemePost } from "./handler.js";
 import { GET, POST } from "./route.js";
 

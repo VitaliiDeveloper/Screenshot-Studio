@@ -8,8 +8,8 @@ import {
   withProjectMutation,
   writeProjectConditionalAtomic,
 } from "@screenshot-studio/core/storage";
-import { isStrongQuotedETag } from "../../../lib/http-etag.js";
-import { withActiveProjectSession } from "../../../lib/project-session.server.js";
+import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 /**
  * The editor's only persistence channel (spec §5): the browser reads/writes the same on-disk

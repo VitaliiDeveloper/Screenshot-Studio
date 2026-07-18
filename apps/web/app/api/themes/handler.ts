@@ -6,7 +6,7 @@ import {
   ThemeNotFoundError,
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
-import { projectRevisionConflictResponse } from "../../../lib/project-request-fence.server.js";
+import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
 
 function errorResponse(error: unknown): Response {
   const revisionConflict = projectRevisionConflictResponse(error);

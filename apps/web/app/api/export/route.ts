@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { handleExportPost } from "./handler.js";
-import { withProjectMutationRequest } from "../../../lib/project-request-fence.server.js";
+import { withProjectMutationRequest } from "@web/lib/project-request-fence.server.js";
 
 /**
  * UI export writes the same lead-size roots plus opt-in exact variants that the CLI writes, from the same

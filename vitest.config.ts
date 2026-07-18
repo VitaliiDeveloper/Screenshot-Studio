@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@web": fileURLToPath(new URL("./apps/web", import.meta.url)),
+    },
+  },
   test: {
     // Unit tests run in Node. The browser-dependent parity harness (Playwright) lives in its
     // own package/config so it does not pull a headless browser into every unit run.
