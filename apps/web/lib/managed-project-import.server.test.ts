@@ -57,7 +57,7 @@ function importFile(relativePath: string, value: string | Uint8Array, declaredSi
   };
 }
 
-async function createService(environment: NodeJS.ProcessEnv = {}) {
+async function createService(environment: Readonly<Record<string, string | undefined>> = {}) {
   const root = await mkdtemp(join(tmpdir(), "managed-project-import-"));
   temporaryRoots.push(root);
   const repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({

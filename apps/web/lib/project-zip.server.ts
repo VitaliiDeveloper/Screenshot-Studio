@@ -164,7 +164,9 @@ export async function readProjectZipFiles(
       relativePath: metadata.name,
       declaredSize: metadata.size,
       async *open() {
-        const source = entry.nodeStream("nodebuffer");
+        const source = entry.nodeStream("nodebuffer") as NodeJS.ReadableStream & {
+          destroy(): void;
+        };
         const bridge = new PassThrough();
         source.on("error", (error) => bridge.destroy(error));
         source.pipe(bridge);

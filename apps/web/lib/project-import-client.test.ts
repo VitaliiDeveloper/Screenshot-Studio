@@ -5,6 +5,7 @@ import {
   buildProjectImportForm,
   importProject,
   type BrowserProjectImportSource,
+  type ProjectImportTransportOptions,
 } from "./project-import-client.js";
 
 function browserFile(name: string, contents: string, relativePath?: string): File {
@@ -49,10 +50,10 @@ describe("project import client", () => {
     const onUploadComplete = vi.fn();
     const transport = vi.fn(async (
       _form: FormData,
-      options: { signal: AbortSignal; onUploadComplete(): void },
+      options: ProjectImportTransportOptions,
     ) => {
       expect(options.signal).toBe(controller.signal);
-      options.onUploadComplete();
+      options.onUploadComplete?.();
       return Response.json({
         project: {
           sessionId: "session",

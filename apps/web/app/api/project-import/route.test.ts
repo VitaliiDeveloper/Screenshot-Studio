@@ -109,7 +109,7 @@ describe("POST /api/project-import", () => {
     const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 
     const response = await handleProjectImportPost(uploadRequest("archive", [
-      ["project.zip", new Blob([bytes], { type: "application/zip" }), "project.zip"],
+      ["project.zip", new Blob([new Uint8Array(bytes)], { type: "application/zip" }), "project.zip"],
     ]), { repository, registry });
 
     expect(response.status).toBe(201);
