@@ -7,7 +7,7 @@ import {
   type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
 
-function cookieValue(sessionId: string, request: Request): string {
+export function projectSessionCookieValue(sessionId: string, request: Request): string {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax${secure}`;
 }
@@ -24,7 +24,7 @@ function descriptorResponse(
   return Response.json(session.descriptor, {
     headers: {
       "cache-control": "no-store",
-      "set-cookie": cookieValue(session.descriptor.sessionId, request),
+      "set-cookie": projectSessionCookieValue(session.descriptor.sessionId, request),
     },
   });
 }

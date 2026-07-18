@@ -6,7 +6,10 @@ import {
   readProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import {
+  ManagedProjectRepository,
+  type ManagedProjectRecord,
+} from "./managed-project-repository.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { resolveConfiguredProjectPath } from "./project-path.js";
 import type { ActiveProjectDescriptor } from "./project-session.js";
@@ -115,9 +118,22 @@ export class ProjectSessionRegistry {
     return this.#open(this.#managedSource, projectId);
   }
 
+  openManagedRecord(record: ManagedProjectRecord): ProjectSession {
+    return this.#register("managed-project", {
+      name: record.name,
+      projectId: record.id,
+      projectPath: record.projectPath,
+      capabilities: MANAGED_CAPABILITIES,
+    });
+  }
+
   async #open(source: ProjectSourceAdapter<string, OpenedProjectSource>, request: string): Promise<ProjectSession> {
     const opened = await source.open(request);
-    const sourceKey = `${source.kind}:${opened.projectId}`;
+    return this.#register(source.kind, opened);
+  }
+
+  #register(sourceKind: string, opened: OpenedProjectSource): ProjectSession {
+    const sourceKey = `${sourceKind}:${opened.projectId}`;
     const existing = this.#bySourceKey.get(sourceKey);
     if (existing) {
       existing.descriptor.name = opened.name;
@@ -129,7 +145,7 @@ export class ProjectSessionRegistry {
       descriptor: {
         sessionId,
         name: opened.name,
-        sourceKind: source.kind,
+        sourceKind,
         ...(opened.displayLocation === undefined ? {} : { displayLocation: opened.displayLocation }),
         capabilities: opened.capabilities,
       },

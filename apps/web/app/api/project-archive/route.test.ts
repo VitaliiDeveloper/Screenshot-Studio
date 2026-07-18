@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: Apache-2.0
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { handleProjectArchivePost } from "./handler.js";
+import { POST } from "./route.js";
+
+let root: string;
+
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), "project-archive-route-"));
+});
+
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+describe("POST /api/project-archive", () => {
+  it("creates a separate archive ticket for an active managed project and disposes the source", async () => {
+    const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session" });
+    const session = registry.openManagedRecord({
+      id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      name: "Managed",
+      projectDirectory: "/private/managed",
+      projectPath: "/private/managed/app-store-screenshots.json",
+    });
+    const archivePath = join(root, "archive.zip");
+    await writeFile(archivePath, "zip");
+    const dispose = vi.fn(async () => undefined);
+    const createArchive = vi.fn(async () => ({
+      path: archivePath,
+      filename: "screenshot-studio-project.zip",
+      dispose,
+    }));
+    const stageArtifact = vi.fn(async () => ({
+      downloadUrl: "/api/project-archive/artifacts/token",
+      expiresAt: "2026-07-18T21:00:00.000Z",
+      filename: "screenshot-studio-project.zip" as const,
+    }));
+    const request = new Request("http://localhost/api/project-archive", {
+      method: "POST",
+      headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` },
+    });
+
+    const response = await handleProjectArchivePost(request, {
+      session: { registry, configuredPath: () => null },
+      createArchive,
+      stageArtifact,
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      downloadUrl: "/api/project-archive/artifacts/token",
+      expiresAt: "2026-07-18T21:00:00.000Z",
+      filename: "screenshot-studio-project.zip",
+    });
+    expect(createArchive).toHaveBeenCalledWith(session.projectId);
+    expect(stageArtifact).toHaveBeenCalledWith(archivePath);
+    expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it("rejects local-file sessions without generating an archive", async () => {
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "local-session",
+      localSource: {
+        kind: "local-file",
+        open: vi.fn(async () => ({
+          name: "Local",
+          projectId: "local",
+          projectPath: "/local/app-store-screenshots.json",
+          displayLocation: "/local/app-store-screenshots.json",
+          capabilities: {
+            writeInPlace: true,
+            revealLocation: true,
+            watchExternalChanges: true,
+            nativePicker: false,
+            projectLocalResources: true,
+          },
+        })),
+      },
+    });
+    const session = await registry.openLocal("local");
+    const createArchive = vi.fn();
+    const response = await handleProjectArchivePost(new Request(
+      "http://localhost/api/project-archive",
+      { method: "POST", headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` } },
+    ), {
+      session: { registry, configuredPath: () => null },
+      createArchive,
+    });
+
+    expect(response.status).toBe(409);
+    expect(createArchive).not.toHaveBeenCalled();
+  });
+
+  it("disposes a generated temporary archive when artifact staging fails", async () => {
+    const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session" });
+    const session = registry.openManagedRecord({
+      id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      name: "Managed",
+      projectDirectory: "/private/managed",
+      projectPath: "/private/managed/app-store-screenshots.json",
+    });
+    const dispose = vi.fn(async () => undefined);
+    const response = await handleProjectArchivePost(new Request(
+      "http://localhost/api/project-archive",
+      { method: "POST", headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` } },
+    ), {
+      session: { registry, configuredPath: () => null },
+      createArchive: vi.fn(async () => ({
+        path: join(root, "archive.zip"),
+        filename: "screenshot-studio-project.zip",
+        dispose,
+      })),
+      stageArtifact: vi.fn(async () => { throw new Error("private path"); }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Project archive export failed",
+      code: "archive-failed",
+    });
+    expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it("wires the node route", () => {
+    expect(POST).toBeTypeOf("function");
+  });
+});
