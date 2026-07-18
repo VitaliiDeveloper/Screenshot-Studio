@@ -49,7 +49,7 @@ export function ProjectImportDialog({
       }
       if (event.key !== "Tab") return;
       const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), a[href], input:not([disabled]):not([tabindex="-1"]), select:not([disabled]), textarea:not([disabled])',
+        'button:not([disabled]), a[href], input:not([disabled]):not([tabindex="-1"]), select:not([disabled]), textarea:not([disabled]), summary',
       ) ?? []);
       if (focusable.length === 0) {
         event.preventDefault();

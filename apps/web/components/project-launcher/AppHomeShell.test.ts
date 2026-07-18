@@ -68,6 +68,12 @@ describe("AppHomeShell", () => {
     expect(archiveMarkup).not.toContain("PROJECT_PATH");
   });
 
+  it("keeps the folder confirmation disclosure inside the dialog focus trap", () => {
+    const focusableSelector = dialogSource.match(/querySelectorAll<HTMLElement>\(\s*'([^']+)'/)?.[1];
+
+    expect(focusableSelector).toContain("summary");
+  });
+
   it("animates dialog entry, state changes, and exit while respecting reduced motion", () => {
     const markup = render({ status: "choosing" });
     const closingMarkup = render({ status: "choosing" }, true);

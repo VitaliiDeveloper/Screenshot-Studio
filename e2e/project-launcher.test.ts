@@ -127,7 +127,14 @@ describe("project launcher", () => {
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
       expect(new URL(page.url()).pathname).toBe("/");
-      await page.getByRole("button", { name: "Choose another source" }).click();
+      const chooseAnotherSource = page.getByRole("button", { name: "Choose another source" });
+      await chooseAnotherSource.focus();
+      await page.keyboard.press("Tab");
+      expect(await page.locator("summary").evaluate((element) => element === document.activeElement)).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await page.getByRole("button", { name: "Close project import" })
+        .evaluate((element) => element === document.activeElement)).toBe(true);
+      await chooseAnotherSource.click();
       await page.getByRole("button", { name: /^Folder Recommended/ }).waitFor();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("button", { name: "Import managed copy" }).click();
