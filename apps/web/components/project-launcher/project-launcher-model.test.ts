@@ -15,15 +15,26 @@ describe("project launcher model", () => {
     });
   });
 
-  it("models choosing, cancellable upload, non-cancellable publication, and success", () => {
+  it("requires confirmation after source selection before upload starts", () => {
     let state: LauncherImportState = { status: "idle" };
     state = reduceLauncherImportState(state, { type: "choose" });
     expect(state).toEqual({ status: "choosing" });
-    state = reduceLauncherImportState(state, { type: "upload", kind: "folder" });
+    state = reduceLauncherImportState(state, { type: "select", kind: "folder" });
+    expect(state).toEqual({ status: "confirming", kind: "folder" });
+    state = reduceLauncherImportState(state, { type: "confirm" });
     expect(state).toEqual({ status: "uploading", kind: "folder", cancellable: true });
     state = reduceLauncherImportState(state, { type: "publishing" });
     expect(state).toEqual({ status: "publishing", kind: "folder", cancellable: false });
     expect(reduceLauncherImportState(state, { type: "complete" })).toEqual({ status: "idle" });
+  });
+
+  it("returns from managed-copy confirmation without starting an upload", () => {
+    const confirming: LauncherImportState = { status: "confirming", kind: "archive" };
+
+    expect(reduceLauncherImportState(confirming, { type: "retry" }))
+      .toEqual({ status: "choosing" });
+    expect(reduceLauncherImportState(confirming, { type: "close" }))
+      .toEqual({ status: "idle" });
   });
 
   it("supports cancellation, error details, and retry without inventing a recent", () => {

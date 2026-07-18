@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AppHomeShell } from "./AppHomeShell.js";
 
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
+const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 function render(state: Parameters<typeof AppHomeShell>[0]["state"] = { status: "idle" }) {
   return renderToStaticMarkup(createElement(AppHomeShell, {
@@ -14,6 +15,7 @@ function render(state: Parameters<typeof AppHomeShell>[0]["state"] = { status: "
     onOpenImport: vi.fn(),
     onCloseImport: vi.fn(),
     onCancelImport: vi.fn(),
+    onConfirmImport: vi.fn(),
     onRetryImport: vi.fn(),
     onSelectSource: vi.fn(),
   }));
@@ -45,6 +47,31 @@ describe("AppHomeShell", () => {
     expect(markup).toContain("Standalone JSON");
     expect(markup).toContain('accept=".zip,application/zip"');
     expect(markup).toContain('accept=".json,application/json"');
+  });
+
+  it("confirms the managed copy before transfer and explains local in-place opening", () => {
+    const markup = render({ status: "confirming", kind: "folder" });
+
+    expect(markup).toContain("Import a managed copy?");
+    expect(markup).toContain("Your original folder stays unchanged");
+    expect(markup).toContain("Import managed copy");
+    expect(markup).toContain("Choose another source");
+    expect(markup).toContain("PROJECT_PATH");
+    expect(markup).toContain("screenshots dev --project");
+    expect(markup).toMatch(/<h2[^>]*>Import a managed copy\?<\/h2>/);
+
+    const archiveMarkup = render({ status: "confirming", kind: "archive" });
+    expect(archiveMarkup).not.toContain("PROJECT_PATH");
+  });
+
+  it("animates import entry while respecting reduced-motion preferences", () => {
+    const markup = render({ status: "choosing" });
+
+    expect(markup).toContain("active:scale-[0.98]");
+    expect(markup).toContain("launcher-dialog-backdrop");
+    expect(markup).toContain("launcher-dialog-panel");
+    expect(globalStyles).toContain("@keyframes launcher-dialog-in");
+    expect(globalStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
   it("uses alert and list semantics for missing resources", () => {

@@ -19,7 +19,9 @@ to the launcher. It has one page heading and three stable product regions:
 - **Create project** is visible but disabled, with Launcher 5 ownership stated explicitly.
 - **Import project** is enabled. Its modal offers Folder (recommended), project ZIP, and eligible
   standalone JSON; it explains before selection that the source is validated into a managed copy and
-  is not edited in place.
+  is not edited in place. Selecting a source opens an explicit managed-copy confirmation before any
+  upload begins. The confirmation links the localhost in-place case to the existing `PROJECT_PATH`
+  and `screenshots dev --project` entry points instead of presenting browser selection as a path.
 - **Recent projects** remains a labelled empty region owned by Launcher 8; import does not populate a
   temporary imitation of recents.
 
@@ -29,8 +31,9 @@ atomic publication are announced as a separate non-cancellable state. Errors use
 list missing resource paths. Successful import activates the managed project and lands on Project
 Home. Managed Project Home offers **Export project archive** with busy/error feedback and native
 download behavior; its copy distinguishes the portable project backup from rendered store-image
-export. Local-file Project Home retains its exact-location behavior and does not offer this managed
-archive action.
+export. Import-card press feedback and the dialog entrance use short transform/opacity motion and are
+disabled when reduced motion is requested. Local-file Project Home retains its exact-location behavior
+and does not offer this managed archive action.
 
 ---
 
@@ -257,8 +260,9 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 - **No active project** → final App Home exposes enabled Import, disabled Create, and an empty Recents
   region; it exposes no raw path field and never selects the bundled sample implicitly.
-- **Import choosing/uploading** → Folder/ZIP/JSON choices explain managed-copy behavior; browser
-  transfer can be cancelled without changing the prior session or catalog.
+- **Import choosing/confirming/uploading** → Folder/ZIP/JSON choices explain managed-copy behavior;
+  selection remains client-only until explicit confirmation, and browser transfer can be cancelled
+  without changing the prior session or catalog.
 - **Import publishing** → validation and atomic publication are announced and cannot be cancelled
   after the upload boundary.
 - **Import failure** → an alert preserves the launcher and prior session, provides retry, and lists

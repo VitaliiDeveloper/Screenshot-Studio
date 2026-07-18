@@ -18,6 +18,7 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
   const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
+  const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
 
   useEffect(() => {
     if (allowSwitch) return;
@@ -34,20 +35,32 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
 
   const returnFocus = () => queueMicrotask(() => importButtonRef.current?.focus());
   const closeImport = () => {
+    pendingImportSourceRef.current = null;
     dispatchImport({ type: "close" });
     returnFocus();
   };
   const cancelImport = () => {
     importControllerRef.current?.abort();
     importControllerRef.current = null;
+    pendingImportSourceRef.current = null;
     dispatchImport({ type: "cancel" });
     returnFocus();
   };
   const selectSource = (source: BrowserProjectImportSource) => {
+    pendingImportSourceRef.current = source;
+    dispatchImport({ type: "select", kind: source.kind });
+  };
+  const confirmImport = () => {
+    const source = pendingImportSourceRef.current;
+    if (!source) {
+      dispatchImport({ type: "retry" });
+      return;
+    }
+    pendingImportSourceRef.current = null;
     const controller = new AbortController();
     importControllerRef.current?.abort();
     importControllerRef.current = controller;
-    dispatchImport({ type: "upload", kind: source.kind });
+    dispatchImport({ type: "confirm" });
     void importProject(source, {
       signal: controller.signal,
       onUploadComplete: () => dispatchImport({ type: "publishing" }),
@@ -80,7 +93,11 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
       onOpenImport={() => dispatchImport({ type: "choose" })}
       onCloseImport={closeImport}
       onCancelImport={cancelImport}
-      onRetryImport={() => dispatchImport({ type: "retry" })}
+      onConfirmImport={confirmImport}
+      onRetryImport={() => {
+        pendingImportSourceRef.current = null;
+        dispatchImport({ type: "retry" });
+      }}
       onSelectSource={selectSource}
     />
   );

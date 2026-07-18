@@ -291,6 +291,14 @@ no session cookie, so the prior active session and catalog visibility remain unc
 stable disabled/empty extension slots for Launcher 5 creation and Launcher 8 recents; neither is
 simulated by import.
 
+Source selection first enters a client-only confirmation state. No upload, server staging, catalog
+write, cookie replacement, or navigation starts until the user confirms **Import managed copy**.
+Declining the confirmation only releases the browser `File` references and returns to source choice.
+This boundary is identical whether the web host runs on localhost or remotely: browser input never
+becomes a trusted server path. Localhost in-place work continues through `PROJECT_PATH` or
+`screenshots dev --project`; a future desktop shell may supply a canonical path through the same
+`local-file` adapter without changing Project Home, Workspace, renderer, or export consumers.
+
 Managed Project Home exposes `POST /api/project-archive` as a read-only transfer operation. The
 archive enumerates a verified regular-file tree and includes only the root project document, project
 guides, and supported `assets/`, `screenshots/`, `themes/`, and `templates/` resources. It excludes

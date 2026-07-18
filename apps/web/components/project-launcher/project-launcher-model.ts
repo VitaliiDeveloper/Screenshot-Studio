@@ -12,6 +12,7 @@ export const launcherActions = {
 export type LauncherImportState =
   | { status: "idle" }
   | { status: "choosing" }
+  | { status: "confirming"; kind: LauncherImportKind }
   | { status: "uploading"; kind: LauncherImportKind; cancellable: true }
   | { status: "publishing"; kind: LauncherImportKind; cancellable: false }
   | { status: "error"; message: string; missingResources: readonly string[] }
@@ -19,7 +20,8 @@ export type LauncherImportState =
 
 export type LauncherImportAction =
   | { type: "choose" }
-  | { type: "upload"; kind: LauncherImportKind }
+  | { type: "select"; kind: LauncherImportKind }
+  | { type: "confirm" }
   | { type: "publishing" }
   | { type: "complete" }
   | { type: "cancel" }
@@ -35,8 +37,12 @@ export function reduceLauncherImportState(
     case "choose":
     case "retry":
       return { status: "choosing" };
-    case "upload":
-      return { status: "uploading", kind: action.kind, cancellable: true };
+    case "select":
+      return { status: "confirming", kind: action.kind };
+    case "confirm":
+      return state.status === "confirming"
+        ? { status: "uploading", kind: state.kind, cancellable: true }
+        : state;
     case "publishing":
       return state.status === "uploading"
         ? { status: "publishing", kind: state.kind, cancellable: false }

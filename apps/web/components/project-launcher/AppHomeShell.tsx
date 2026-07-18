@@ -15,6 +15,7 @@ export interface AppHomeShellProps {
   onOpenImport(): void;
   onCloseImport(): void;
   onCancelImport(): void;
+  onConfirmImport(): void;
   onRetryImport(): void;
   onSelectSource(source: BrowserProjectImportSource): void;
 }
@@ -26,6 +27,7 @@ export function AppHomeShell({
   onOpenImport,
   onCloseImport,
   onCancelImport,
+  onConfirmImport,
   onRetryImport,
   onSelectSource,
 }: AppHomeShellProps) {
@@ -61,7 +63,7 @@ export function AppHomeShell({
               <span id="create-project-help" className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Start from a guided store-ready project setup.</span>
               <span className="mt-5 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Coming in Launcher 5</span>
             </button>
-            <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} className="group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-xl shadow-blue-950/15 transition hover:-translate-y-0.5 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none">
+            <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} className="group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-xl shadow-blue-950/15 transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-2xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none">
               <span className="grid size-11 place-items-center rounded-2xl bg-white/15"><FolderInput aria-hidden="true" className="size-5" /></span>
               <span className="mt-8 block text-xl font-semibold">Import project</span>
               <span className="mt-2 block text-sm leading-6 text-blue-50">Choose a complete Folder, project ZIP, or eligible standalone JSON.</span>
@@ -79,7 +81,7 @@ export function AppHomeShell({
         </section>
       </div>
 
-      {dialogState ? <ProjectImportDialog state={dialogState} onClose={onCloseImport} onCancel={onCancelImport} onRetry={onRetryImport} onSelectSource={onSelectSource} /> : null}
+      {dialogState ? <ProjectImportDialog state={dialogState} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} /> : null}
     </main>
   );
 }

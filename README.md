@@ -22,7 +22,8 @@ existing complete project from a **Folder** (recommended), a project ZIP, or an 
 `app-store-screenshots.json`. Browser import validates the selection and creates a managed copy; it
 does not edit the selected source in place. Local self-hosted workflows may still start explicitly
 with `PROJECT_PATH=... pnpm dev` or `screenshots dev --project ...`. App Home intentionally exposes no
-browser filesystem-path form.
+browser filesystem-path form. After source selection, App Home asks for managed-copy confirmation
+before upload or server staging begins.
 
 For example:
 
@@ -243,7 +244,8 @@ references screenshots, uploaded fonts, an app icon, or other project-local reso
 import lists the missing paths so the complete source can be chosen. Import is bounded by
 `SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES` (256 MiB by default),
 `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, and `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, then atomically
-activates the managed copy and opens Project Home. Cancellation or failure preserves the previous
+activates the managed copy and opens Project Home. Selection remains in the browser until the user
+confirms the managed copy; choosing another source, cancellation, or failure preserves the previous
 active session.
 
 Managed Project Home can **Export project archive** as `screenshot-studio-project.zip`. This portable

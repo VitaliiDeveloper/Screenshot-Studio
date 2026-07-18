@@ -11,6 +11,7 @@ export interface ProjectImportDialogProps {
   state: Exclude<LauncherImportState, { status: "idle" | "cancelled" }>;
   onClose(): void;
   onCancel(): void;
+  onConfirm(): void;
   onRetry(): void;
   onSelectSource(source: BrowserProjectImportSource): void;
 }
@@ -19,6 +20,7 @@ export function ProjectImportDialog({
   state,
   onClose,
   onCancel,
+  onConfirm,
   onRetry,
   onSelectSource,
 }: ProjectImportDialogProps) {
@@ -80,14 +82,14 @@ export function ProjectImportDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
+    <div className="launcher-dialog-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
       <section
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="max-h-[min(44rem,calc(100dvh-2rem))] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-5 shadow-2xl sm:p-7"
+        className="launcher-dialog-panel max-h-[min(44rem,calc(100dvh-2rem))] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-5 shadow-2xl sm:p-7"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -98,7 +100,9 @@ export function ProjectImportDialog({
               id={titleId}
               className="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--editor-color-text-strong)] outline-none"
             >
-              Bring an existing project into Screenshot Studio
+              {state.status === "confirming"
+                ? "Import a managed copy?"
+                : "Bring an existing project into Screenshot Studio"}
             </h2>
           </div>
           {state.status !== "publishing" ? (
@@ -142,6 +146,29 @@ export function ProjectImportDialog({
             />
             <input ref={archiveInputRef} type="file" tabIndex={-1} accept=".zip,application/zip" aria-label="Choose project ZIP" className="sr-only" onChange={chooseSingle("archive")} />
             <input ref={jsonInputRef} type="file" tabIndex={-1} accept=".json,application/json" aria-label="Choose standalone project JSON" className="sr-only" onChange={chooseSingle("json")} />
+          </div>
+        ) : null}
+
+        {state.status === "confirming" ? (
+          <div className="mt-6 rounded-2xl border border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-accent)]">
+              {state.kind === "folder" ? "Folder selected" : state.kind === "archive" ? "Project ZIP selected" : "Standalone JSON selected"}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">
+              {state.kind === "folder" ? "Your original folder stays unchanged." : "Your original file stays unchanged."} Screenshot Studio will validate the selection, copy it into managed storage on this host, and open the managed project on Project Home.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" className={editorUi.buttonPrimary} onClick={onConfirm}>Import managed copy</button>
+              <button type="button" className={editorUi.buttonSecondary} onClick={onRetry}>Choose another source</button>
+            </div>
+            {state.kind === "folder" ? (
+              <details className="mt-5 border-t border-blue-200 pt-4 text-sm text-[color:var(--editor-color-text-secondary)]">
+                <summary className="cursor-pointer font-semibold text-[color:var(--editor-color-text-strong)]">Want to work in this exact local folder?</summary>
+                <p className="mt-2 leading-6">
+                  A browser cannot pass a trusted server filesystem path, even on localhost. Start the local host with <code className="rounded bg-white px-1.5 py-0.5 text-xs">PROJECT_PATH=/absolute/.../app-store-screenshots.json pnpm dev</code> or <code className="rounded bg-white px-1.5 py-0.5 text-xs">screenshots dev --project /absolute/.../app-store-screenshots.json</code> to work in place.
+                </p>
+              </details>
+            ) : null}
           </div>
         ) : null}
 

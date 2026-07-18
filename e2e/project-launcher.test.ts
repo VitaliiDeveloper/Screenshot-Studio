@@ -66,6 +66,11 @@ describe("project launcher", () => {
       expect(await page.getByRole("textbox").count()).toBe(0);
       expect(await page.getByRole("button", { name: "Create project" }).isDisabled()).toBe(true);
       expect(await page.getByRole("button", { name: "Import project" }).isEnabled()).toBe(true);
+      await page.getByRole("button", { name: "Import project" }).click();
+      const dialog = page.getByRole("dialog", { name: "Bring an existing project into Screenshot Studio" });
+      await dialog.waitFor();
+      expect(await dialog.evaluate((element) => getComputedStyle(element).animationName))
+        .toContain("launcher-dialog-in");
       await page.getByRole("heading", { name: "Recent projects" }).waitFor();
     } finally {
       await context.close();
@@ -105,6 +110,12 @@ describe("project launcher", () => {
       await page.getByRole("button", { name: "Import project" }).click();
       await page.getByRole("dialog", { name: "Bring an existing project into Screenshot Studio" }).waitFor();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
+      await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
+      expect(new URL(page.url()).pathname).toBe("/");
+      await page.getByRole("button", { name: "Choose another source" }).click();
+      await page.getByRole("button", { name: /^Folder Recommended/ }).waitFor();
+      await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
+      await page.getByRole("button", { name: "Import managed copy" }).click();
 
       await page.waitForURL(`${server.url}/home`);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
@@ -120,6 +131,8 @@ describe("project launcher", () => {
       await page.waitForURL(`${server.url}/?switch=1`);
       await page.getByRole("button", { name: "Import project" }).click();
       await page.getByLabel("Choose project ZIP").setInputFiles(archivePath);
+      await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
+      await page.getByRole("button", { name: "Import managed copy" }).click();
 
       await page.waitForURL(`${server.url}/home`);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
