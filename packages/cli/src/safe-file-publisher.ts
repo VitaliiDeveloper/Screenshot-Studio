@@ -46,7 +46,14 @@ export interface PreparedPublicationDependencies {
   linkFile?: (source: string, destination: string) => Promise<void>;
   syncDirectory?: (directory: string) => Promise<void>;
   openDirectory?: (directory: string) => Promise<Pick<FileHandle, "sync" | "close">>;
+  openVerification?: (path: string, flags: number) => Promise<VerificationHandle>;
 }
+
+export interface PublicationInspectionDependencies {
+  openVerification?: (path: string, flags: number) => Promise<InspectionHandle>;
+}
+
+export type FilePublicationDestinationState = "missing" | "matching" | "conflicting";
 
 export interface DeterministicRemovalDependencies {
   moveFile?: (source: string, destination: string) => Promise<void>;
@@ -68,14 +75,18 @@ export class SafeFileConflictError extends Error {
   override name = "SafeFileConflictError";
   readonly code = "SAFE_FILE_CONFLICT" as const;
 
-  constructor(readonly path: string) {
-    super(`Publication destination already exists with different bytes: ${path}`);
+  constructor(
+    readonly path: string,
+    message = `Publication destination already exists with different bytes: ${path}`,
+  ) {
+    super(message);
   }
 }
 
 type StageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">
   & Partial<Pick<FileHandle, "stat">>;
-type VerificationHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
+type VerificationHandle = Pick<FileHandle, "stat" | "read" | "readFile" | "close">;
+type InspectionHandle = Pick<FileHandle, "stat" | "read" | "close">;
 
 type StageIdentity = SafeFileOwnership;
 
@@ -331,19 +342,22 @@ function verificationFlags(): number {
     | (typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0);
 }
 
-async function readRegularLeaf(
-  path: string,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
-): Promise<TrackedFileEvidence | null> {
-  const initial = await inspectRegularLeaf(path, publicationDestinationError);
-  if (!initial) return null;
-  const evidence = await readBoundRegularFileEvidence(
-    path,
-    openVerification,
-    "Publication destination changed during byte comparison",
-    false,
-  );
-  return evidence;
+function compareBoundedFileIdentity(
+  actual: BigIntStats,
+  expected: BigIntStats,
+): "stable" | "link-transition" | "changed" {
+  if (actual.dev !== expected.dev
+    || actual.ino !== expected.ino
+    || actual.size !== expected.size
+    || actual.mtimeNs !== expected.mtimeNs) {
+    return "changed";
+  }
+  if (actual.ctimeNs === expected.ctimeNs && actual.nlink === expected.nlink) {
+    return "stable";
+  }
+  return actual.ctimeNs !== expected.ctimeNs && actual.nlink !== expected.nlink
+    ? "link-transition"
+    : "changed";
 }
 
 async function destinationMatches(
@@ -351,8 +365,8 @@ async function destinationMatches(
   bytes: Uint8Array,
   openVerification: NonNullable<PublicationDependencies["openVerification"]>,
 ): Promise<TrackedFileEvidence | null> {
-  const current = await readRegularLeaf(path, openVerification);
-  return current !== null && current.bytes.equals(Buffer.from(bytes)) ? current : null;
+  const inspection = await inspectBoundedDestinationBytes(path, bytes, openVerification);
+  return inspection.state === "matching" ? inspection.evidence : null;
 }
 
 function contentRevision(bytes: Uint8Array): string {
@@ -480,6 +494,126 @@ async function readBoundRegularFileEvidence(
     throw new Error(`${changedMessage}: ${path}`);
   }
   return evidence;
+}
+
+async function inspectBoundedDestinationBytes(
+  path: string,
+  expected: Uint8Array,
+  openVerification: NonNullable<PublicationInspectionDependencies["openVerification"]>,
+): Promise<{
+  state: FilePublicationDestinationState;
+  evidence: TrackedFileEvidence | null;
+}> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const initial = await lstatBigIntIfExists(path);
+    if (!initial) return { state: "missing", evidence: null };
+    if (!initial.isFile()) throw publicationDestinationError(path, await lstat(path));
+    if (initial.size !== BigInt(expected.byteLength)) {
+      return { state: "conflicting", evidence: null };
+    }
+
+    let handle: InspectionHandle;
+    try {
+      handle = await openVerification(path, verificationFlags());
+    } catch (error) {
+      throw new Error(`Publication destination changed during bounded comparison: ${path}`, { cause: error });
+    }
+
+    let primaryError: CapturedError | null = null;
+    let retryForLinkTransition = false;
+    let inspection: {
+      state: FilePublicationDestinationState;
+      evidence: TrackedFileEvidence;
+      identity: BigIntStats;
+    } | null = null;
+    try {
+      const opened = await handle.stat({ bigint: true });
+      const namedBeforeRead = await lstatBigIntIfExists(path);
+      if (!opened.isFile() || !namedBeforeRead?.isFile()) {
+        throw new Error(`Publication destination changed during bounded comparison: ${path}`);
+      }
+      const beforeStates = [
+        compareBoundedFileIdentity(opened, initial),
+        compareBoundedFileIdentity(namedBeforeRead, opened),
+      ];
+      if (beforeStates.includes("changed")) {
+        throw new Error(`Publication destination changed during bounded comparison: ${path}`);
+      }
+      retryForLinkTransition = beforeStates.includes("link-transition");
+
+      if (!retryForLinkTransition) {
+        const bytes = Buffer.alloc(expected.byteLength);
+        let offset = 0;
+        while (offset < bytes.length) {
+          const result = await handle.read(bytes, offset, bytes.length - offset, offset);
+          if (result.bytesRead === 0) break;
+          offset += result.bytesRead;
+        }
+        const openedAfterRead = await handle.stat({ bigint: true });
+        const namedWhileOpen = await lstatBigIntIfExists(path);
+        if (!openedAfterRead.isFile() || !namedWhileOpen?.isFile()) {
+          throw new Error(`Publication destination changed during bounded comparison: ${path}`);
+        }
+        const afterStates = [
+          compareBoundedFileIdentity(openedAfterRead, opened),
+          compareBoundedFileIdentity(namedWhileOpen, openedAfterRead),
+        ];
+        if (afterStates.includes("changed")) {
+          throw new Error(`Publication destination changed during bounded comparison: ${path}`);
+        }
+        retryForLinkTransition = afterStates.includes("link-transition");
+        if (!retryForLinkTransition) {
+          inspection = {
+            state: offset === bytes.length && bytes.equals(Buffer.from(expected))
+              ? "matching"
+              : "conflicting",
+            evidence: {
+              device: openedAfterRead.dev,
+              inode: openedAfterRead.ino,
+              links: namedWhileOpen.nlink,
+              revision: contentRevision(bytes),
+              bytes,
+            },
+            identity: namedWhileOpen,
+          };
+        }
+      }
+    } catch (error) {
+      primaryError = { value: error };
+    }
+
+    try {
+      await handle.close();
+    } catch (closeError) {
+      primaryError = primaryError === null
+        ? { value: closeError }
+        : { value: new AggregateError(
+            [primaryError.value, closeError],
+            `${errorText(primaryError.value)}; publication inspection close failed: ${errorText(closeError)}`,
+            { cause: primaryError.value },
+          ) };
+    }
+    if (primaryError !== null) throw primaryError.value;
+    if (retryForLinkTransition) continue;
+    if (inspection === null) {
+      throw new Error(`Publication destination changed during bounded comparison: ${path}`);
+    }
+
+    const named = await lstatBigIntIfExists(path);
+    if (!named?.isFile()) {
+      throw new Error(`Publication destination changed after bounded comparison: ${path}`);
+    }
+    const finalState = compareBoundedFileIdentity(named, inspection.identity);
+    if (finalState === "link-transition") continue;
+    if (finalState === "changed") {
+      throw new Error(`Publication destination changed after bounded comparison: ${path}`);
+    }
+    return { state: inspection.state, evidence: inspection.evidence };
+  }
+  throw new SafeFileConflictError(
+    path,
+    `Publication destination did not stabilize during bounded comparison: ${path}`,
+  );
 }
 
 async function inspectOwnedPublicationFile(
@@ -1501,7 +1635,8 @@ export async function prepareFilePublication(
   assertCanonicalContainment(boundary.canonicalRoot, destinationPath);
   const ancestors = await ensureAncestors(boundary, segments.slice(0, -1), true);
   if (!ancestors) throw new Error("Publication ancestor creation failed");
-  const openVerification = (path: string, flags: number) => open(path, flags);
+  const openVerification = dependencies.openVerification
+    ?? ((path: string, flags: number) => open(path, flags));
   const existing = await destinationMatches(destinationPath, options.bytes, openVerification);
   if (existing) {
     const ownership = ownershipFromEvidence(existing);
@@ -1598,6 +1733,26 @@ export async function prepareFilePublication(
       settled = true;
     },
   };
+}
+
+/** Inspect one create-only destination through the same canonical, no-follow boundary as publish. */
+export async function inspectFilePublicationDestination(
+  options: SafeFilePublication,
+  dependencies: PublicationInspectionDependencies = {},
+): Promise<FilePublicationDestinationState> {
+  if (options.replace) throw new Error("Destination inspection supports create-only resources");
+  assertPortableRelativePath(options.relativePath);
+  const boundary = await resolveRootBoundaryIfExists(options.root);
+  if (!boundary) return "missing";
+  const segments = options.relativePath.split("/");
+  const destinationPath = join(boundary.canonicalRoot, ...segments);
+  assertCanonicalContainment(boundary.canonicalRoot, destinationPath);
+  const ancestors = await ensureAncestors(boundary, segments.slice(0, -1), false);
+  if (!ancestors) return "missing";
+  await revalidateAncestors(boundary, ancestors);
+  const openVerification = dependencies.openVerification
+    ?? ((path: string, flags: number) => open(path, flags));
+  return (await inspectBoundedDestinationBytes(destinationPath, options.bytes, openVerification)).state;
 }
 
 export async function removeFileWithDeterministicQuarantine(

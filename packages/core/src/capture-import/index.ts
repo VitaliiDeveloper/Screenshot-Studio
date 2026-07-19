@@ -533,6 +533,21 @@ function planFingerprint(plan: Omit<CaptureImportPlan, "confirmationFingerprint"
   });
 }
 
+export function withCaptureImportInvalidEntries(
+  plan: CaptureImportPlan,
+  entries: readonly CaptureImportIssue[],
+): CaptureImportPlan {
+  if (entries.length === 0) return plan;
+  const { confirmationFingerprint: _confirmationFingerprint, ...withoutFingerprint } = plan;
+  const next = {
+    ...withoutFingerprint,
+    invalidEntries: [...withoutFingerprint.invalidEntries, ...structuredClone(entries)]
+      .sort((left, right) => comparePortable(left.path, right.path)),
+    canApply: false,
+  };
+  return { ...next, confirmationFingerprint: planFingerprint(next) };
+}
+
 export function applyCaptureImportPlan(
   project: ProjectModel,
   plan: CaptureImportPlan,

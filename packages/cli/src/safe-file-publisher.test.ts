@@ -15,14 +15,16 @@ import {
   rm,
   symlink,
   unlink,
+  utimes,
   writeFile,
   type FileHandle,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  inspectFilePublicationDestination,
   publishFileSafely,
   publishFileSafelyWithOwnership,
   prepareFilePublication,
@@ -37,6 +39,175 @@ const temporaryRoots: string[] = [];
 const execFileAsync = promisify(execFile);
 
 describe("prepared safe publication", () => {
+  it("rejects a differently sized receiver without opening or reading its bytes", async () => {
+    const root = await workspace("safe-file-inspect-size-");
+    await writeFile(join(root, "receiver.bin"), Buffer.alloc(8 * 1024 * 1024, 1));
+    const openVerification = vi.fn(async () => {
+      throw new Error("differently sized destination must not be opened");
+    });
+
+    await expect(inspectFilePublicationDestination({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("tiny"),
+    }, { openVerification })).resolves.toBe("conflicting");
+    expect(openVerification).not.toHaveBeenCalled();
+  });
+
+  it("rejects a differently sized receiver during final publication without opening it", async () => {
+    const root = await workspace("safe-file-prepare-size-");
+    await writeFile(join(root, "receiver.bin"), Buffer.alloc(8 * 1024 * 1024, 1));
+    const openVerification = vi.fn(async () => {
+      throw new Error("differently sized destination must not be opened");
+    });
+
+    await expect(prepareFilePublication({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("tiny"),
+      stageToken: "9".repeat(32),
+    }, { openVerification })).rejects.toBeInstanceOf(SafeFileConflictError);
+    expect(openVerification).not.toHaveBeenCalled();
+  });
+
+  it("rejects an A-to-B-to-A destination replacement during final comparison", async () => {
+    const root = await workspace("safe-file-prepare-rebind-");
+    const destination = join(root, "receiver.bin");
+    const heldDestination = join(root, "held-receiver.bin");
+    await writeFile(destination, "same bytes");
+
+    await expect(prepareFilePublication({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("same bytes"),
+      stageToken: "8".repeat(32),
+    }, {
+      openVerification: async (path, flags) => {
+        await rename(destination, heldDestination);
+        await writeFile(destination, "same bytes", { flag: "wx" });
+        const handle = await open(path, flags);
+        return {
+          stat: handle.stat.bind(handle),
+          read: handle.read.bind(handle),
+          readFile: handle.readFile.bind(handle),
+          close: async () => {
+            await handle.close();
+            await unlink(destination);
+            await rename(heldDestination, destination);
+          },
+        };
+      },
+    })).rejects.toThrow(/destination.*changed/i);
+
+    await expect(readFile(destination, "utf8")).resolves.toBe("same bytes");
+    await expect(lstat(heldDestination)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects a same-inode rewrite after final comparison", async () => {
+    const root = await workspace("safe-file-prepare-rewrite-");
+    const destination = join(root, "receiver.bin");
+    await writeFile(destination, "same bytes");
+
+    await expect(prepareFilePublication({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("same bytes"),
+      stageToken: "7".repeat(32),
+    }, {
+      openVerification: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: handle.stat.bind(handle),
+          read: handle.read.bind(handle),
+          readFile: handle.readFile.bind(handle),
+          close: async () => {
+            await handle.close();
+            await writeFile(destination, "other byte");
+          },
+        };
+      },
+    })).rejects.toThrow(/destination.*changed/i);
+
+    await expect(readFile(destination, "utf8")).resolves.toBe("other byte");
+  });
+
+  it("rejects a same-inode rewrite hidden by a link-count transition", async () => {
+    const root = await workspace("safe-file-prepare-rewrite-link-");
+    const destination = join(root, "receiver.bin");
+    const alias = join(root, "receiver-alias.bin");
+    const fixedTime = new Date("2020-01-01T00:00:00.000Z");
+    let rewritten = false;
+    await writeFile(destination, "same bytes");
+    await utimes(destination, fixedTime, fixedTime);
+
+    await expect(prepareFilePublication({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("same bytes"),
+      stageToken: "6".repeat(32),
+    }, {
+      openVerification: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: handle.stat.bind(handle),
+          read: handle.read.bind(handle),
+          readFile: handle.readFile.bind(handle),
+          close: async () => {
+            await handle.close();
+            if (!rewritten) {
+              await writeFile(destination, "other byte");
+              await utimes(destination, fixedTime, fixedTime);
+              await link(destination, alias);
+              rewritten = true;
+            }
+          },
+        };
+      },
+    })).rejects.toBeInstanceOf(SafeFileConflictError);
+
+    expect(rewritten).toBe(true);
+    await expect(readFile(destination, "utf8")).resolves.toBe("other byte");
+  });
+
+  it("classifies repeated link transitions as a create-only conflict", async () => {
+    const root = await workspace("safe-file-prepare-unstable-link-");
+    const destination = join(root, "receiver.bin");
+    const alias = join(root, "receiver-alias.bin");
+    let aliasPresent = false;
+    let transitions = 0;
+    await writeFile(destination, "same bytes");
+
+    await expect(prepareFilePublication({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("same bytes"),
+      stageToken: "5".repeat(32),
+    }, {
+      openVerification: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: (async (options?: { bigint?: boolean }) => {
+            const stats = options?.bigint
+              ? await handle.stat({ bigint: true })
+              : await handle.stat();
+            if (options?.bigint) {
+              if (aliasPresent) await unlink(alias);
+              else await link(destination, alias);
+              aliasPresent = !aliasPresent;
+              transitions += 1;
+            }
+            return stats;
+          }) as VerificationHandle["stat"],
+          read: handle.read.bind(handle),
+          readFile: handle.readFile.bind(handle),
+          close: handle.close.bind(handle),
+        };
+      },
+    })).rejects.toBeInstanceOf(SafeFileConflictError);
+
+    expect(transitions).toBe(3);
+  });
+
   it("exposes synced stage ownership before creating the destination", async () => {
     const root = await workspace("safe-file-prepared-");
     const prepared = await prepareFilePublication({
@@ -118,7 +289,7 @@ function utf8(value: string): Uint8Array {
 
 type StageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">
   & Partial<Pick<FileHandle, "stat">>;
-type VerificationHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
+type VerificationHandle = Pick<FileHandle, "stat" | "read" | "readFile" | "close">;
 
 interface TestPublicationDependencies {
   randomId?: () => string;
@@ -1321,6 +1492,7 @@ describe("publishFileSafely", () => {
                 ? handle.stat({ bigint: true })
                 : handle.stat();
             }) as typeof handle.stat,
+            read: handle.read.bind(handle),
             readFile: handle.readFile.bind(handle),
             close: handle.close.bind(handle),
           };
@@ -1513,6 +1685,7 @@ describe("publishFileSafely", () => {
               ? handle.stat({ bigint: true })
               : handle.stat();
           }) as typeof handle.stat,
+          read: handle.read.bind(handle),
           readFile: handle.readFile.bind(handle),
           close: handle.close.bind(handle),
         };
@@ -1539,6 +1712,10 @@ describe("publishFileSafely", () => {
     }, {
       openVerification: async () => ({
         stat: (async () => directoryStats) as VerificationHandle["stat"],
+        read: (async () => {
+          readCalled = true;
+          throw new Error("must not read non-regular verification fd");
+        }) as VerificationHandle["read"],
         readFile: (async () => {
           readCalled = true;
           return Buffer.from("device bytes");
@@ -1566,6 +1743,15 @@ describe("publishFileSafely", () => {
         const handle = await open(path, flags);
         return {
           stat: handle.stat.bind(handle),
+          read: (async (buffer, offset, length, position) => {
+            const result = await handle.read(buffer, offset, length, position);
+            if (!swapped) {
+              await rename(destination, heldDestination);
+              await writeFile(destination, "competitor", { flag: "wx" });
+              swapped = true;
+            }
+            return result;
+          }) as VerificationHandle["read"],
           readFile: (async () => {
             const bytes = await handle.readFile();
             if (!swapped) {
@@ -1809,6 +1995,10 @@ describe("publishFileSafely", () => {
         }
         return {
           stat: handle.stat.bind(handle),
+          read: (async (buffer, offset, length, position) => {
+            readCalled = true;
+            return handle.read(buffer, offset, length, position);
+          }) as VerificationHandle["read"],
           readFile: (async () => {
             readCalled = true;
             return handle.readFile();
@@ -1832,7 +2022,7 @@ describe("publishFileSafely", () => {
     const error = await publishFileSafely({
       root,
       relativePath: "resource.txt",
-      bytes: utf8("different bytes"),
+      bytes: utf8("new bytes"),
     }).catch((caught: unknown) => caught);
 
     expect(error).toMatchObject({
@@ -1856,7 +2046,7 @@ describe("publishFileSafely", () => {
     const error = await publishWithDependencies({
       root,
       relativePath: "resource.txt",
-      bytes: utf8("different bytes"),
+      bytes: utf8("new bytes"),
     }, {
       openVerification: async (path, flags) => {
         const handle = await open(path, flags);
@@ -1871,6 +2061,7 @@ describe("publishFileSafely", () => {
             }
             return stats;
           }) as typeof handle.stat,
+          read: handle.read.bind(handle),
           readFile: handle.readFile.bind(handle),
           close: handle.close.bind(handle),
         };

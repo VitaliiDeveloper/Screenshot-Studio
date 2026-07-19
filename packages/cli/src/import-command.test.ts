@@ -165,6 +165,41 @@ describe("importCaptures", () => {
     });
   });
 
+  it("marks a different existing receiver asset invalid during no-write preview", async () => {
+    const receiver = await workspace("screenshot-studio-import-receiver-conflict-");
+    const source = await workspace("screenshot-studio-import-source-conflict-");
+    const projectPath = join(receiver, "app-store-screenshots.json");
+    const receiverAsset = join(receiver, "assets", "icons", "product.png");
+    const sourceAsset = join(source, "assets", "icons", "product.png");
+    const captureDir = join(source, "screenshots", "apple", "iphone", "en");
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await mkdir(join(receiver, "assets", "icons"), { recursive: true });
+    await mkdir(join(source, "assets", "icons"), { recursive: true });
+    await mkdir(captureDir, { recursive: true });
+    await writeFile(receiverAsset, "receiver bytes");
+    await writeFile(sourceAsset, "different source bytes");
+    await writeFile(join(captureDir, "01.png"), png);
+
+    const preview = await previewCaptures({ projectPath, inputDir: source });
+
+    expect(preview.canApply).toBe(false);
+    expect(preview.invalidEntries).toContainEqual({
+      code: "destination-conflict",
+      path: "assets/icons/product.png",
+      message: expect.stringMatching(/already exists.*different bytes/i),
+    });
+    await expect(readFile(receiverAsset, "utf8")).resolves.toBe("receiver bytes");
+
+    await writeFile(receiverAsset, "different source bytes");
+    const matchingPreview = await previewCaptures({ projectPath, inputDir: source });
+    expect(matchingPreview.canApply).toBe(true);
+    expect(matchingPreview.invalidEntries).not.toContainEqual(expect.objectContaining({
+      code: "destination-conflict",
+      path: "assets/icons/product.png",
+    }));
+  });
+
   it("rejects symbolic links in capture input without rewriting the Project", async () => {
     const dir = await workspace("screenshot-studio-import-input-link-");
     const projectPath = join(dir, "app-store-screenshots.json");

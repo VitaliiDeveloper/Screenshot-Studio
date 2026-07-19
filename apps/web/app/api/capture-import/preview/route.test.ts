@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,6 +51,7 @@ function captureRequest(input: {
   revision?: string;
   projectId?: string;
   extra?: [string, string];
+  assetBytes?: string;
 }): Request {
   const form = new FormData();
   form.set("destinationKind", input.destinationKind);
@@ -63,6 +64,10 @@ function captureRequest(input: {
   }
   form.append("paths", "Selected/screenshots/apple/iphone/en/01.png");
   form.append("files", new Blob([png]), "01.png");
+  if (input.assetBytes) {
+    form.append("paths", "Selected/assets/icons/product.png");
+    form.append("files", new Blob([input.assetBytes]), "product.png");
+  }
   if (input.extra) form.set(...input.extra);
   return new Request("http://localhost/api/capture-import/preview", {
     method: "POST",
@@ -134,6 +139,31 @@ describe("POST /api/capture-import/preview", () => {
     expect(first.headers.get("set-cookie")).toBeNull();
     expect(await readFile(projectPath)).toEqual(before);
     await expect(repository.list()).resolves.toEqual([]);
+  });
+
+  it("shows an existing receiver-resource mismatch as invalid before confirmation", async () => {
+    const assetPath = join(root, "current", "assets", "icons", "product.png");
+    await mkdir(join(root, "current", "assets", "icons"), { recursive: true });
+    await writeFile(assetPath, "receiver bytes");
+    const beforeProject = await readFile(projectPath);
+
+    const response = await handleCaptureImportPreviewPost(captureRequest({
+      destinationKind: "current-project",
+      assetBytes: "different source bytes",
+    }), { repository, creationService, registry });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.preview).toMatchObject({
+      canApply: false,
+      invalidEntries: [{
+        code: "destination-conflict",
+        path: "assets/icons/product.png",
+        message: expect.stringMatching(/already exists.*different bytes/i),
+      }],
+    });
+    expect(await readFile(projectPath)).toEqual(beforeProject);
+    await expect(readFile(assetPath, "utf8")).resolves.toBe("receiver bytes");
   });
 
   it("previews a new managed destination without staging, catalog, or session activation", async () => {

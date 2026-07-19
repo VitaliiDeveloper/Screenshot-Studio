@@ -14,7 +14,11 @@ import {
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
 } from "@screenshot-studio/core/storage";
-import { applyCaptureImportToProject } from "@screenshot-studio/cli/capture-import-transaction";
+import {
+  applyCaptureImportToProject,
+  preflightCaptureImportPlanResources,
+  SafeFileConflictError,
+} from "@screenshot-studio/cli/capture-import-transaction";
 import {
   createManagedProjectFromCaptureImport,
   previewManagedProjectCaptureImport,
@@ -270,6 +274,13 @@ function routeError(error: unknown): Response {
   if (error instanceof CaptureImportConfirmationError) {
     return errorResponse(409, error.message, "preview-changed");
   }
+  if (error instanceof SafeFileConflictError) {
+    return errorResponse(
+      409,
+      "Capture import preview changed; preview again before applying",
+      "preview-changed",
+    );
+  }
   if (error instanceof CaptureImportCancelledError) {
     return errorResponse(499, error.message, "cancelled");
   }
@@ -333,12 +344,12 @@ export async function handleCaptureImportPreviewPost(
       if (snapshot.revision !== expectedRevision) {
         throw new ProjectRevisionConflictError(expectedRevision, snapshot.revision);
       }
-      const plan = planCaptureImport({
+      const plan = await preflightCaptureImportPlanResources(session.projectPath, planCaptureImport({
         project: snapshot.project,
         layoutId: destination.layoutId,
         destinationKind: "current-project",
         discovery: parsed.discovery,
-      });
+      }));
       return Response.json({
         preview: publicPlan(plan, parsed.discovery.fingerprint, snapshot.revision),
       }, {

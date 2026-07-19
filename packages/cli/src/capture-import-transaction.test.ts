@@ -157,7 +157,7 @@ describe("capture import transaction", () => {
       projectPath: input.projectPath,
       discovery: input.discovery,
       layoutId: "default",
-    })).rejects.toThrow(/already exists|conflict|different bytes/i);
+    })).rejects.toThrow(/invalid entries|already exists|conflict|different bytes/i);
 
     await expect(readFile(join(input.root, relativePath), "utf8")).resolves.toBe("later occupant");
     expect(await readFile(input.projectPath, "utf8")).toBe(serializeProject(project()));

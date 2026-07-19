@@ -6,7 +6,9 @@ import {
   assertCaptureImportConfirmation,
   assertCaptureImportNotCancelled,
   planCaptureImport,
+  withCaptureImportInvalidEntries,
   type CaptureImportDiscovery,
+  type CaptureImportIssue,
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
 import type { Project } from "@screenshot-studio/core/model";
@@ -28,9 +30,13 @@ import {
   type CaptureImportIntent,
 } from "./capture-import-recovery.js";
 import {
+  inspectFilePublicationDestination,
   prepareFilePublication,
+  SafeFileConflictError,
   type PreparedPublicationDependencies,
 } from "./safe-file-publisher.js";
+
+export { SafeFileConflictError };
 
 export type CaptureImportDurabilityBoundary =
   | "intent-prepared"
@@ -85,6 +91,35 @@ function ownershipStrings(ownership: { device: bigint; inode: bigint; revision: 
   };
 }
 
+export async function preflightCaptureImportPlanResources(
+  projectPath: string,
+  plan: CaptureImportPlan,
+): Promise<CaptureImportPlan> {
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const root = dirname(canonicalPath);
+  const conflicts: CaptureImportIssue[] = [];
+  for (const resource of plan.resources) {
+    let state: Awaited<ReturnType<typeof inspectFilePublicationDestination>>;
+    try {
+      state = await inspectFilePublicationDestination({
+        root,
+        relativePath: resource.destinationPath,
+        bytes: resource.bytes,
+      });
+    } catch {
+      state = "conflicting";
+    }
+    if (state === "conflicting") {
+      conflicts.push({
+        code: "destination-conflict",
+        path: resource.destinationPath,
+        message: `Receiver resource already exists with different bytes: ${resource.destinationPath}`,
+      });
+    }
+  }
+  return withCaptureImportInvalidEntries(plan, conflicts);
+}
+
 export async function applyCaptureImportToProject(input: {
   projectPath: string;
   expectedRevision?: string;
@@ -109,12 +144,12 @@ export async function applyCaptureImportToProject(input: {
     if (input.expectedRevision !== undefined && input.expectedRevision !== current.revision) {
       throw new ProjectRevisionConflictError(input.expectedRevision, current.revision);
     }
-    const plan = planCaptureImport({
+    const plan = await preflightCaptureImportPlanResources(canonicalPath, planCaptureImport({
       project: current.project,
       layoutId: input.layoutId,
       destinationKind: "current-project",
       discovery: input.discovery,
-    });
+    }));
     if (input.confirmationFingerprint !== undefined) {
       assertCaptureImportConfirmation(plan, input.confirmationFingerprint);
     }

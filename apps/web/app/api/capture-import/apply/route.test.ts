@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { type Project } from "@screenshot-studio/core/model";
 import { projectRevision, serializeProject } from "@screenshot-studio/core/storage";
-import { applyCaptureImportToProject } from "@screenshot-studio/cli/capture-import-transaction";
+import {
+  applyCaptureImportToProject,
+  SafeFileConflictError,
+} from "@screenshot-studio/cli/capture-import-transaction";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
@@ -263,5 +266,26 @@ describe("POST /api/capture-import/apply", () => {
     expect(body).not.toContain(root);
     expect(body).not.toContain("private-stage");
     expect(POST).toBeTypeOf("function");
+  });
+
+  it("classifies a final publication collision as a changed preview", async () => {
+    const plan = await preview("current-project");
+    const response = await handleCaptureImportApplyPost(request({
+      destinationKind: "current-project",
+      confirmationFingerprint: plan.confirmationFingerprint,
+    }), {
+      repository,
+      creationService,
+      registry,
+      applyCurrent: async () => {
+        throw new SafeFileConflictError(join(root, "current", "assets", "occupied.png"));
+      },
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Capture import preview changed; preview again before applying",
+      code: "preview-changed",
+    });
   });
 });

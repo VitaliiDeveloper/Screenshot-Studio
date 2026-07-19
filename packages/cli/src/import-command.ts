@@ -12,7 +12,10 @@ import {
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
 import { resolveExistingProjectPath, type ProjectFileDependencies } from "@screenshot-studio/core/storage";
-import { applyCaptureImportToProject } from "./capture-import-transaction.js";
+import {
+  applyCaptureImportToProject,
+  preflightCaptureImportPlanResources,
+} from "./capture-import-transaction.js";
 import { loadProjectSnapshot } from "./project-io.js";
 import { resolveMutationLayout } from "./layout-commands.js";
 
@@ -213,12 +216,12 @@ export async function previewCaptures({
     captureDiscovery(inputDir),
   ]);
   const layoutId = resolveMutationLayout(project, layoutReference).id;
-  return planCaptureImport({
+  return preflightCaptureImportPlanResources(canonicalProjectPath, planCaptureImport({
     project,
     layoutId,
     destinationKind: "current-project",
     discovery,
-  });
+  }));
 }
 
 export async function importCaptures({
