@@ -55,6 +55,23 @@ describe("ManagedProjectCreationService", () => {
     expect(starterProject.layouts[0]!.screens).toHaveLength(3);
   });
 
+  it("publishes a prevalidated scaffold through the same managed stage path", async () => {
+    const managed = await repository();
+    const service = new ManagedProjectCreationService(managed, { storeSpecs: specs });
+    const input = {
+      name: "Prepared", platform: "apple", layoutMode: "isolated", templateId: null,
+    } as const;
+    const scaffold = await service.buildScaffold(input);
+    scaffold.project.meta.name = "Prepared exact";
+
+    const record = await service.createFromValidatedScaffold(scaffold);
+
+    expect(JSON.parse(await readFile(record.projectPath, "utf8"))).toMatchObject({
+      meta: { name: "Prepared exact" },
+    });
+    await expect(managed.list()).resolves.toHaveLength(1);
+  });
+
   it("validates generated dependencies before allocating a managed stage", async () => {
     const managed = await repository();
     const createStage = vi.spyOn(managed, "createStage");
@@ -183,5 +200,25 @@ describe("ManagedProjectCreationService", () => {
       isDirectory: expect.any(Function),
     });
     await expect(lstat(intentPath)).resolves.toMatchObject({ isFile: expect.any(Function) });
+  });
+
+  it("cancels after staged revalidation and before managed publication", async () => {
+    const managed = await repository();
+    const controller = new AbortController();
+    const publish = vi.spyOn(managed, "publishStage");
+    const service = new ManagedProjectCreationService(managed, {
+      storeSpecs: specs,
+      async revalidateStage() {
+        controller.abort();
+      },
+    });
+
+    await expect(service.createFromValidatedScaffold(await service.buildScaffold({
+      name: "Cancelled", platform: "apple", layoutMode: "isolated", templateId: null,
+    }), { signal: controller.signal })).rejects.toThrow(/cancelled/i);
+
+    expect(publish).not.toHaveBeenCalled();
+    await expect(managed.list()).resolves.toEqual([]);
+    await expect(readdir(managed.config.stagingRoot)).resolves.toEqual([]);
   });
 });

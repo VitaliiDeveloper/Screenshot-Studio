@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runInit } from "./init.js";
 import { autoCropAsset, removeBackgroundAsset } from "./asset-service.js";
+import { captureImportIntentPath } from "./capture-import-recovery.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
 
 const cleanupPaths: string[] = [];
@@ -270,6 +271,18 @@ describe("asset processing", () => {
     });
 
     expect(events).toEqual(["lease-enter", "publish", "lease-exit"]);
+  });
+
+  it("blocks direct resource mutations while capture-import recovery is malformed", async () => {
+    const { dir, projectPath } = await initializedProject("screenshot-studio-asset-recovery-");
+    const sourcePath = join(dir, "assets", "icons", "product.png");
+    await writeFile(sourcePath, await rgbaPng(3, 3, () => [255, 255, 255, 255]));
+    await writeFile(captureImportIntentPath(projectPath), "{}\n");
+
+    await expect(autoCropAsset(projectPath, "assets/icons/product.png"))
+      .rejects.toThrow(/invalid capture import recovery intent/i);
+    await expect(readFile(join(dir, "assets", "processed", "product-auto-crop.png")))
+      .rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("removes only matching edge-connected background pixels", async () => {

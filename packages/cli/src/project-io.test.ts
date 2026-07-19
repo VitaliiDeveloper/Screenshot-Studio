@@ -17,6 +17,7 @@ import {
   updateProjectFile,
   writeProjectFile,
 } from "./project-io.js";
+import { captureImportIntentPath } from "./capture-import-recovery.js";
 
 const temporaryRoots: string[] = [];
 
@@ -59,6 +60,25 @@ function sampleProject(): Project {
 }
 
 describe("project IO", () => {
+  it("blocks Project mutations while capture-import recovery is malformed", async () => {
+    const dir = await temporaryDirectory();
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const exact = JSON.stringify(sampleProject());
+    await writeFile(projectPath, exact);
+    await writeFile(captureImportIntentPath(projectPath), "{}\n");
+
+    await expect(updateProjectFile(projectPath, (current) => ({
+      project: { ...current, meta: { ...current.meta, name: "Blocked" } },
+      value: undefined,
+    }))).rejects.toThrow(/invalid capture import recovery intent/i);
+    await expect(writeProjectFile(projectPath, {
+      ...sampleProject(),
+      meta: { ...sampleProject().meta, name: "Direct write blocked" },
+    })).rejects.toThrow(/invalid capture import recovery intent/i);
+
+    expect(await readFile(projectPath, "utf8")).toBe(exact);
+  });
+
   it("resolves the canonical project filename by default", () => {
     expect(DEFAULT_PROJECT_FILENAME).toBe("app-store-screenshots.json");
     expect(resolveProjectPath({})).toBe(resolve(DEFAULT_PROJECT_FILENAME));

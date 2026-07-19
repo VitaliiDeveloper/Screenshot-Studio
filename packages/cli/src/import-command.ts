@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { constants, type BigIntStats, type Dirent } from "node:fs";
 import { lstat, open, opendir, realpath } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
-  applyCaptureImportPlan,
   discoverCaptureImport,
   planCaptureImport,
   resolveCaptureImportLimits,
@@ -12,15 +11,9 @@ import {
   type CaptureImportLimits,
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
-import {
-  resolveExistingProjectPath,
-  type ProjectFileDependencies,
-} from "@screenshot-studio/core/storage";
-import { loadProjectSnapshot, updateProjectFile } from "./project-io.js";
-import {
-  publishManagedResourceFile,
-  removeManagedResourceFile,
-} from "./managed-resource-file.js";
+import { resolveExistingProjectPath, type ProjectFileDependencies } from "@screenshot-studio/core/storage";
+import { applyCaptureImportToProject } from "./capture-import-transaction.js";
+import { loadProjectSnapshot } from "./project-io.js";
 import { resolveMutationLayout } from "./layout-commands.js";
 
 export interface ImportCapturesOptions {
@@ -36,8 +29,6 @@ export interface ImportCapturesResult {
 
 interface ImportCapturesDependencies {
   projectFileDependencies?: ProjectFileDependencies;
-  publishFile?: typeof publishManagedResourceFile;
-  removeFile?: typeof removeManagedResourceFile;
 }
 
 function hasSameIdentity(left: BigIntStats, right: BigIntStats): boolean {
@@ -236,8 +227,6 @@ export async function importCaptures({
   layout: layoutReference,
 }: ImportCapturesOptions, {
   projectFileDependencies = {},
-  publishFile = publishManagedResourceFile,
-  removeFile = removeManagedResourceFile,
 }: ImportCapturesDependencies = {}): Promise<ImportCapturesResult> {
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const discovery = await captureDiscovery(inputDir);
@@ -245,32 +234,12 @@ export async function importCaptures({
   if (discovery.captures.length === 0 && discovery.invalidEntries.length === 0) {
     return { imported: 0, warnings };
   }
-  const projectDir = dirname(canonicalProjectPath);
-  const updated = await updateProjectFile(canonicalProjectPath, async (current, transaction) => {
-    const layoutId = resolveMutationLayout(current, layoutReference).id;
-    const plan = planCaptureImport({
-      project: current,
-      layoutId,
-      destinationKind: "current-project",
-      discovery,
-    });
-    const applied = applyCaptureImportPlan(current, plan);
-    for (const resource of applied.resources) {
-      const publication = await publishFile({
-        root: projectDir,
-        relativePath: resource.destinationPath,
-        bytes: resource.bytes,
-      });
-      if (publication.created) {
-        transaction.onRollback(async () => {
-          await removeFile(projectDir, resource.destinationPath, publication.ownership);
-        });
-      }
-    }
-    return {
-      project: applied.project,
-      value: { imported: plan.screens.length, warnings },
-    };
-  }, {}, projectFileDependencies);
-  return updated.value;
+  const { project } = await loadProjectSnapshot(canonicalProjectPath);
+  const layoutId = resolveMutationLayout(project, layoutReference).id;
+  const applied = await applyCaptureImportToProject({
+    projectPath: canonicalProjectPath,
+    discovery,
+    layoutId,
+  }, { fileDependencies: projectFileDependencies });
+  return { imported: applied.imported, warnings };
 }

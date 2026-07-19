@@ -19,6 +19,7 @@ import {
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
 import { GET, PUT } from "./route.js";
+import { captureImportIntentPath } from "@screenshot-studio/cli/capture-import-recovery";
 
 const storageHooks = vi.hoisted(() => ({
   beforeDestinationRevalidation: undefined as undefined | ((projectPath: string) => Promise<void>),
@@ -191,6 +192,22 @@ describe("GET /api/project", () => {
 });
 
 describe("PUT /api/project", () => {
+  it("blocks editor saves while capture-import recovery is malformed", async () => {
+    const revision = await currentRevision();
+    const exact = readFileSync(file, "utf8");
+    writeFileSync(captureImportIntentPath(file), "{}\n");
+    const next = structuredClone(validProject);
+    next.meta.name = "Blocked";
+
+    const response = await PUT(putRequest(next, revision));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringMatching(/invalid capture import recovery intent/i),
+    });
+    expect(readFileSync(file, "utf8")).toBe(exact);
+  });
+
   it("rejects a stale-tab identity before parsing and preserves matching-revision project bytes", async () => {
     const first = await projectSessionRegistry.openLocal(file);
     const secondDir = mkdtempSync(join(tmpdir(), "proj-second-"));

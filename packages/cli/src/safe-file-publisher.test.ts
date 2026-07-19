@@ -25,6 +25,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   publishFileSafely,
   publishFileSafelyWithOwnership,
+  prepareFilePublication,
   quarantineRegularFileSafely,
   removeRegularFileSafely,
   SafeFileConflictError,
@@ -34,6 +35,72 @@ import {
 
 const temporaryRoots: string[] = [];
 const execFileAsync = promisify(execFile);
+
+describe("prepared safe publication", () => {
+  it("exposes synced stage ownership before creating the destination", async () => {
+    const root = await workspace("safe-file-prepared-");
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath: "assets/imports/capture.png",
+      bytes: utf8("capture"),
+      stageToken: "a".repeat(32),
+    });
+
+    expect(prepared.created).toBe(true);
+    await expect(readFile(prepared.stagePath!, "utf8")).resolves.toBe("capture");
+    await expect(readFile(prepared.path)).rejects.toMatchObject({ code: "ENOENT" });
+
+    const committed = await prepared.commit();
+
+    expect(committed).toMatchObject({ created: true, ownership: prepared.ownership });
+    await expect(readFile(prepared.path, "utf8")).resolves.toBe("capture");
+    await expect(readFile(prepared.stagePath!)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("retains exact stage and destination evidence when directory sync fails", async () => {
+    const root = await workspace("safe-file-prepared-sync-");
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath: "assets/imports/capture.png",
+      bytes: utf8("capture"),
+      stageToken: "b".repeat(32),
+    }, {
+      openDirectory: async () => {
+        const error = new Error("injected directory sync failure") as NodeJS.ErrnoException;
+        error.code = "EIO";
+        throw error;
+      },
+    });
+
+    await expect(prepared.commit()).rejects.toThrow(/directory sync failure/i);
+    await expect(readFile(prepared.path, "utf8")).resolves.toBe("capture");
+    await expect(readFile(prepared.stagePath!, "utf8")).resolves.toBe("capture");
+    expect((await lstat(prepared.path, { bigint: true })).ino).toBe(
+      (await lstat(prepared.stagePath!, { bigint: true })).ino,
+    );
+  });
+
+  it("recognizes a hard link that committed even when link reported an error", async () => {
+    const root = await workspace("safe-file-prepared-ambiguous-link-");
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath: "assets/imports/capture.png",
+      bytes: utf8("capture"),
+      stageToken: "c".repeat(32),
+    }, {
+      async linkFile(source, destination) {
+        await link(source, destination);
+        const error = new Error("ambiguous link result") as NodeJS.ErrnoException;
+        error.code = "EEXIST";
+        throw error;
+      },
+    });
+
+    await expect(prepared.commit()).resolves.toMatchObject({ created: true });
+    await expect(readFile(prepared.path, "utf8")).resolves.toBe("capture");
+    await expect(readFile(prepared.stagePath!)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+});
 
 afterEach(async () => {
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));

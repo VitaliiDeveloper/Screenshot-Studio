@@ -4,6 +4,7 @@ import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import sharp from "sharp";
 import { resolveExistingProjectPath, withProjectMutation } from "@screenshot-studio/core/storage";
+import { reconcileCaptureImport } from "./capture-import-recovery.js";
 import { loadProjectFile } from "./project-io.js";
 import {
   ManagedResourceConflictError,
@@ -248,6 +249,7 @@ async function withAssetLease<T>(
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const runWithMutation = dependencies.withProjectMutation ?? withProjectMutation;
   return runWithMutation(canonicalProjectPath, async () => {
+    await reconcileCaptureImport(canonicalProjectPath);
     const paths = await resolveAssetPaths(canonicalProjectPath, source);
     const input = await readAssetSource(paths, dependencies);
     return operation(paths, input);

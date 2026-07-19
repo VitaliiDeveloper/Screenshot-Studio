@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import { mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import { inspectPng } from "@screenshot-studio/core/export";
 import type { ProjectFileDependencies } from "@screenshot-studio/core/storage";
@@ -13,10 +13,6 @@ import {
   importCaptures,
   previewCaptures,
 } from "./import-command.js";
-import {
-  publishFileSafelyWithOwnership,
-  removeRegularFileSafely,
-} from "./safe-file-publisher.js";
 
 const temporaryRoots: string[] = [];
 
@@ -289,20 +285,11 @@ describe("importCaptures", () => {
     const projectFileDependencies: ProjectFileDependencies = {
       beforeDestinationRevalidation: async () => { throw writeFailure; },
     };
-    const publishFile = vi.fn(publishFileSafelyWithOwnership);
-    const removeFile = vi.fn(removeRegularFileSafely);
-
     await expect(importCaptures(
       { projectPath, inputDir },
-      { projectFileDependencies, publishFile, removeFile },
+      { projectFileDependencies },
     )).rejects.toBe(writeFailure);
 
-    const publication = await publishFile.mock.results[0]!.value;
-    expect(removeFile).toHaveBeenCalledWith(
-      await realpath(dir),
-      assetRelativePath,
-      publication.ownership,
-    );
     await expect(readFile(assetPath)).rejects.toMatchObject({ code: "ENOENT" });
     expect((JSON.parse(await readFile(projectPath, "utf8")) as Project).layouts[0]!.screens).toHaveLength(1);
   });

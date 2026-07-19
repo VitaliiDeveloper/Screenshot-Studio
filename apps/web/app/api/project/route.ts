@@ -8,6 +8,7 @@ import {
   withProjectMutation,
   writeProjectConditionalAtomic,
 } from "@screenshot-studio/core/storage";
+import { reconcileCaptureImport } from "@screenshot-studio/cli/capture-import-recovery";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
@@ -96,6 +97,7 @@ export async function PUT(req: Request): Promise<Response> {
 
     try {
       return await withProjectMutation(projectPath, async () => {
+        await reconcileCaptureImport(projectPath);
         const current = await readIdentifiedProjectSnapshot(projectPath);
         const actualRevision = quotedRevision(current.revision);
         if (expectedRevision !== actualRevision) {

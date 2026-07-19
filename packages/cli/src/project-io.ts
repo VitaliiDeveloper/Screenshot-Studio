@@ -15,6 +15,7 @@ import {
   type ProjectLockOptions,
   type ProjectSnapshot,
 } from "@screenshot-studio/core/storage";
+import { reconcileCaptureImport } from "./capture-import-recovery.js";
 
 export const DEFAULT_PROJECT_FILENAME = "app-store-screenshots.json";
 
@@ -80,9 +81,11 @@ export async function writeProjectFile(
     await createProjectAtomic(target.path, validated, fileDependencies);
     return;
   }
-
-  const observed = await readIdentifiedProjectSnapshot(target.path, fileDependencies);
-  await writeProjectConditionalAtomic(target.path, validated, observed, fileDependencies);
+  await withProjectMutation(target.path, async () => {
+    await reconcileCaptureImport(target.path);
+    const observed = await readIdentifiedProjectSnapshot(target.path, fileDependencies);
+    await writeProjectConditionalAtomic(target.path, validated, observed, fileDependencies);
+  });
 }
 
 export async function updateProjectFile<T>(
@@ -96,6 +99,7 @@ export async function updateProjectFile<T>(
 ): Promise<{ project: ProjectModel; revision: string; value: T }> {
   const canonicalPath = await resolveExistingProjectPath(projectPath);
   return withProjectMutation(canonicalPath, async () => {
+    await reconcileCaptureImport(canonicalPath);
     const current = await readIdentifiedProjectSnapshot(canonicalPath, fileDependencies);
     if (
       preconditions.expectedRevision !== undefined
