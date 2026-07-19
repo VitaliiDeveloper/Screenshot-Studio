@@ -56,8 +56,8 @@ afterAll(async () => {
 });
 
 describe("managed project creation", () => {
-  it("creates empty and starter projects, preserves retry focus, and activates only the new project", async () => {
-    const server = await startWebServer(undefined, {
+  it("creates empty and starter projects, recovers activation, and preserves retry focus", async () => {
+    let server = await startWebServer(undefined, {
       storeSpecsPath: resolve(repoRoot, "store-specs.json"),
     });
     let context: BrowserContext | undefined;
@@ -108,6 +108,17 @@ describe("managed project creation", () => {
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/home`);
       await page.getByRole("heading", { name: "Empty desktop story", exact: true }).waitFor();
+
+      await server.stop();
+      server = await startWebServer(undefined, {
+        storeSpecsPath: resolve(repoRoot, "store-specs.json"),
+      });
+      await page.goto(`${server.url}/home`, { waitUntil: "load" });
+      await page.getByRole("heading", { name: "Empty desktop story", exact: true }).waitFor();
+      const recoveredCatalog = JSON.parse(
+        readFileSync(join(managedDataRoot, "catalog.json"), "utf8"),
+      ) as { entries: Array<{ name: string }> };
+      expect(recoveredCatalog.entries.map(({ name }) => name)).toEqual(["Empty desktop story"]);
 
       await page.getByRole("link", { name: "Import another project", exact: true }).click();
       await page.waitForURL(`${server.url}/?switch=1`);

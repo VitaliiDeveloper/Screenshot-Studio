@@ -50,6 +50,13 @@ export interface ManagedProjectRecord {
   projectPath: string;
 }
 
+export class ManagedProjectNotFoundError extends Error {
+  constructor() {
+    super("Managed project does not exist");
+    this.name = "ManagedProjectNotFoundError";
+  }
+}
+
 export interface ManagedProjectRepositoryDependencies {
   catalog?: CatalogStore;
   randomId?: () => string;
@@ -232,7 +239,7 @@ export class ManagedProjectRepository {
   async open(id: string): Promise<ManagedProjectRecord> {
     await this.initialize();
     const entry = await this.#catalog.get(id);
-    if (!entry) throw new Error(`Managed project does not exist: ${id}`);
+    if (!entry) throw new ManagedProjectNotFoundError();
     return this.#record(entry);
   }
 

@@ -15,7 +15,10 @@ import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import {
+  ManagedProjectNotFoundError,
+  ManagedProjectRepository,
+} from "./managed-project-repository.server.js";
 
 const temporaryRoots: string[] = [];
 
@@ -144,6 +147,13 @@ describe("ManagedProjectRepository", () => {
     await expect(lstat(published.projectDirectory)).resolves.toMatchObject({ isDirectory: expect.any(Function) });
     await expect(repository.list()).resolves.toMatchObject([{ id: published.id, name: "Alpha" }]);
     await expect(repository.open(published.id)).resolves.toEqual(published);
+  });
+
+  it("reports a missing catalog entry with the dedicated recovery error", async () => {
+    const repository = await createRepository();
+
+    await expect(repository.open("project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+      .rejects.toBeInstanceOf(ManagedProjectNotFoundError);
   });
 
   it("rolls a published directory back to its owned stage when catalog insertion fails", async () => {

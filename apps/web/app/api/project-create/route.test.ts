@@ -57,6 +57,9 @@ describe("POST /api/project-create", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=created-session",
     );
+    expect(response.headers.get("set-cookie")).toContain(
+      "screenshot_studio_managed_project=project_",
+    );
     expect(await response.json()).toMatchObject({
       project: {
         sessionId: "created-session",

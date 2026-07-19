@@ -7,6 +7,7 @@ import {
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
 import {
+  ManagedProjectNotFoundError,
   ManagedProjectRepository,
   type ManagedProjectRecord,
 } from "./managed-project-repository.server.js";
@@ -15,6 +16,9 @@ import { resolveConfiguredProjectPath } from "./project-path.js";
 import type { ActiveProjectDescriptor } from "./project-session.js";
 
 export const PROJECT_SESSION_COOKIE = "screenshot_studio_project_session";
+export const MANAGED_PROJECT_RECOVERY_COOKIE = "screenshot_studio_managed_project";
+
+const MANAGED_PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 
 const MAX_PROJECT_SESSIONS = 30;
 
@@ -220,6 +224,13 @@ export class NoActiveProjectError extends Error {
   }
 }
 
+class ManagedProjectRecoveryError extends Error {
+  constructor(cause: unknown) {
+    super("Unable to reopen the managed project", { cause });
+    this.name = "ManagedProjectRecoveryError";
+  }
+}
+
 const PROJECT_SESSION_REGISTRY_GLOBAL_KEY = Symbol.for(
   "screenshot-studio.project-session-registry",
 );
@@ -239,12 +250,15 @@ function sharedProjectSessionRegistry(): ProjectSessionRegistry {
 // those evaluations without turning any one project path into process-global current state.
 export const projectSessionRegistry = sharedProjectSessionRegistry();
 
-export function sessionIdFromRequest(request?: Pick<Request, "headers">): string | null {
+function cookieValueFromRequest(
+  request: Pick<Request, "headers"> | undefined,
+  cookieName: string,
+): string | null {
   const cookie = request?.headers.get("cookie");
   if (!cookie) return null;
   for (const part of cookie.split(";")) {
     const [name, ...value] = part.trim().split("=");
-    if (name !== PROJECT_SESSION_COOKIE) continue;
+    if (name !== cookieName) continue;
     try {
       return decodeURIComponent(value.join("="));
     } catch {
@@ -252,6 +266,30 @@ export function sessionIdFromRequest(request?: Pick<Request, "headers">): string
     }
   }
   return null;
+}
+
+function requestHasCookie(
+  request: Pick<Request, "headers"> | undefined,
+  cookieName: string,
+): boolean {
+  const cookie = request?.headers.get("cookie");
+  if (!cookie) return false;
+  return cookie.split(";").some((part) => part.trim().split("=", 1)[0] === cookieName);
+}
+
+export function sessionIdFromRequest(request?: Pick<Request, "headers">): string | null {
+  return cookieValueFromRequest(request, PROJECT_SESSION_COOKIE);
+}
+
+export function managedProjectIdFromRequest(request?: Pick<Request, "headers">): string | null {
+  const projectId = cookieValueFromRequest(request, MANAGED_PROJECT_RECOVERY_COOKIE);
+  return projectId && MANAGED_PROJECT_ID_PATTERN.test(projectId) ? projectId : null;
+}
+
+export function hasManagedProjectRecoveryCookie(
+  request?: Pick<Request, "headers">,
+): boolean {
+  return requestHasCookie(request, MANAGED_PROJECT_RECOVERY_COOKIE);
 }
 
 export interface ActiveProjectResolverDependencies {
@@ -267,6 +305,17 @@ export async function resolveActiveProjectSession(
   const sessionId = sessionIdFromRequest(request);
   const selected = sessionId ? registry.get(sessionId) : undefined;
   if (selected) return selected;
+  const managedProjectId = managedProjectIdFromRequest(request);
+  if (managedProjectId) {
+    try {
+      return await registry.openManaged(managedProjectId);
+    } catch (error) {
+      if (!(error instanceof ManagedProjectNotFoundError)) {
+        throw new ManagedProjectRecoveryError(error);
+      }
+      // A missing project makes the recovery hint stale; configured local startup may proceed.
+    }
+  }
   const configured = (dependencies.configuredPath ?? resolveConfiguredProjectPath)();
   if (configured) return registry.openLocal(configured);
   throw new NoActiveProjectError();

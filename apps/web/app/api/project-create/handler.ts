@@ -10,7 +10,7 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { projectSessionCookieValue } from "../project-session/handler.js";
+import { projectSessionResponseHeaders } from "../project-session/handler.js";
 
 const MAX_CREATE_REQUEST_BYTES = 16_384;
 
@@ -104,10 +104,7 @@ export async function handleProjectCreatePost(
     const session = registry.openManagedRecord(record, reservedSessionId);
     return Response.json({ project: session.descriptor }, {
       status: 201,
-      headers: {
-        "cache-control": "no-store",
-        "set-cookie": projectSessionCookieValue(session.descriptor.sessionId, request),
-      },
+      headers: projectSessionResponseHeaders(session, request),
     });
   } catch (error) {
     registry.releaseReservedSessionId(reservedSessionId);

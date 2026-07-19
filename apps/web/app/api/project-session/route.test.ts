@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { ManagedProjectNotFoundError } from "@web/lib/managed-project-repository.server.js";
 import {
   ProjectSessionRegistry,
   type ActiveProjectResolverDependencies,
@@ -69,6 +70,77 @@ describe("project session route handlers", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
   });
 
+  it("expires a stale managed recovery hint that cannot be reopened", async () => {
+    const response = await handleProjectSessionGet(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: "screenshot_studio_managed_project=project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        },
+      },
+    ), {
+      registry: new ProjectSessionRegistry({
+        createSessionId: () => "unused-session",
+        managedSource: {
+          kind: "managed-project",
+          open: async () => { throw new ManagedProjectNotFoundError(); },
+        },
+      }),
+      configuredPath: () => null,
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("set-cookie") ?? "").toContain(
+      "screenshot_studio_managed_project=;",
+    );
+    expect(response.headers.get("set-cookie") ?? "").toContain("Max-Age=0");
+  });
+
+  it("expires a malformed managed recovery hint", async () => {
+    const response = await handleProjectSessionGet(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: "screenshot_studio_managed_project=../../private",
+        },
+      },
+    ), dependencies());
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("set-cookie") ?? "").toContain(
+      "screenshot_studio_managed_project=;",
+    );
+    expect(response.headers.get("set-cookie") ?? "").toContain("Max-Age=0");
+  });
+
+  it("retains the recovery hint when reopening fails for a reason other than missing", async () => {
+    const response = await handleProjectSessionGet(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: "screenshot_studio_managed_project=project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
+      },
+    ), {
+      registry: new ProjectSessionRegistry({
+        createSessionId: () => "unused-session",
+        managedSource: {
+          kind: "managed-project",
+          open: async () => {
+            throw new Error("EACCES: lstat '/private/managed-root/catalog.json'");
+          },
+        },
+      }),
+      configuredPath: () => null,
+    });
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    await expect(response.json()).resolves.toEqual({
+      error: "Unable to reopen the managed project",
+    });
+  });
+
   it("leaves stale selection cookie-neutral and bootstraps an explicit configured path", async () => {
     const projectPath = await createProject("Launcher");
     const registry = new ProjectSessionRegistry({ createSessionId: () => "session-1" });
@@ -89,6 +161,47 @@ describe("project session route handlers", () => {
     expect(configured.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=session-1",
     );
+    expect(configured.headers.get("set-cookie")).toContain(
+      "screenshot_studio_managed_project=;",
+    );
+  });
+
+  it("rehydrates a managed project and refreshes both activation cookies", async () => {
+    const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "recovered-session",
+      managedSource: {
+        kind: "managed-project",
+        open: async (requestedId: string) => ({
+          name: "Recovered",
+          projectId: requestedId,
+          projectPath: "/private/managed/app-store-screenshots.json",
+          capabilities: {
+            writeInPlace: true,
+            revealLocation: false,
+            watchExternalChanges: false,
+            nativePicker: false,
+            projectLocalResources: true,
+            exportProjectArchive: true,
+          },
+        }),
+      },
+    });
+
+    const response = await handleProjectSessionGet(new Request(
+      "https://localhost/api/project-session",
+      { headers: { cookie: `screenshot_studio_managed_project=${projectId}` } },
+    ), { registry, configuredPath: () => null });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-project-id")).toBe(projectId);
+    expect(response.headers.get("set-cookie")).toContain(
+      "screenshot_studio_project_session=recovered-session",
+    );
+    expect(response.headers.get("set-cookie")).toContain(
+      `screenshot_studio_managed_project=${projectId}`,
+    );
+    expect(response.headers.get("set-cookie")).toContain("Secure");
   });
 
   it("closes only the identity-fenced active session and expires its cookie", async () => {
@@ -115,6 +228,9 @@ describe("project session route handlers", () => {
     expect(response.status).toBe(204);
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
     expect(response.headers.get("set-cookie")).toContain("Secure");
+    expect(response.headers.get("set-cookie")).toContain(
+      "screenshot_studio_managed_project=;",
+    );
     expect(registry.get(first.descriptor.sessionId)).toBeUndefined();
     expect(registry.get(second.descriptor.sessionId)).toBe(second);
   });

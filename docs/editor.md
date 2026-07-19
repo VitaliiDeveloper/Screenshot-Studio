@@ -33,7 +33,10 @@ focus to their triggers. They reserve close while atomic publication is in progr
 modal closes with Escape while choosing or uploading. Upload is cancellable; validation and
 atomic publication are announced as a separate non-cancellable state. Errors use alert semantics;
 import errors list missing resource paths. Successful creation or import activates the intended
-managed project and lands on Project Home. Managed Project Home offers **Export project archive**
+managed project and lands on Project Home. If the server runtime resets during that handoff, an
+HttpOnly, path-free managed-project hint reopens the same catalog entry instead of publishing a
+duplicate; local-file sources still require their explicit source after restart. Managed Project Home
+offers **Export project archive**
 with busy/error feedback and native
 download behavior; its copy distinguishes the portable project backup from rendered store-image
 export. Import-card press feedback, dialog entrance and exit, and dialog state changes use calm,

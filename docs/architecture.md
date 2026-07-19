@@ -163,6 +163,10 @@ The session owner retains the opaque source locator, current revision evidence, 
 to load or save the project. Local-file, managed-project, and cloud sessions are server-owned. Browser
 Folder/ZIP/JSON inputs are bounded import inputs that publish a managed copy; they are not retained
 filesystem handles and do not imply in-place mutation of the selected source.
+Managed activation also sets an HttpOnly recovery hint containing only the opaque managed project id.
+If the in-process registry is reset, that hint may reopen the project through the same managed adapter
+and catalog validation before issuing a fresh session id. The hint contains no path, is not persisted
+in the Project document, and is never authorization by itself.
 Project-bound operations resolve the session from request or client-workspace scope. They must not read
 or mutate one global "current project" path. In a hosted deployment the authenticated user/session owns
 access; possession of a `sessionId` is never authorization by itself.
@@ -218,8 +222,9 @@ those seams; Launcher 4/8 builds Project Home and its Workspace round trip on th
   sample;
 - `PROJECT_PATH` and `screenshots dev --project` seed a local-file session for backward compatibility;
 - App Home does not expose a browser path form or arbitrary local-path activation endpoint;
-- the initial local registry may be in-process, so a server restart can require reopening the project;
-  managed storage/catalog belongs to Launcher 2/8 and durable recents to Launcher 8/8;
+- the initial registry remains in-process; a local-file source can require reopening after server
+  restart, while a managed source can rehydrate from its HttpOnly project-id hint through the catalog;
+  durable recents remain Launcher 8/8;
 - every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
   independently;
 - interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
@@ -351,8 +356,10 @@ and resources, and only then enters the existing atomic repository publication p
 reserves the new session identity before publication and activates that exact managed record after
 publication. Any pre-publication failure removes only the owned stage and reservation; ambiguous
 publication recovery state remains owned by reconciliation rather than being blindly discarded.
-Success replaces the active HttpOnly session cookie and lands on Project Home. Project templates are
-complete creation inputs; project-local screen templates and reusable component presets remain
+Success replaces the active HttpOnly session cookie, sets the path-free managed recovery hint, and
+lands on Project Home. If the server runtime resets before Project Home resolves the session, the
+managed adapter reopens that exact catalog entry rather than publishing a duplicate. Project templates
+are complete creation inputs; project-local screen templates and reusable component presets remain
 separate authoring concepts.
 
 ### Render / export parity — the #1 technical risk

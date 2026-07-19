@@ -12,7 +12,7 @@ import {
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
 import { ProjectZipError, readProjectZipFiles } from "@web/lib/project-zip.server.js";
-import { projectSessionCookieValue } from "../project-session/handler.js";
+import { projectSessionResponseHeaders } from "../project-session/handler.js";
 
 export interface ProjectImportRouteDependencies {
   repository?: ManagedProjectRepository;
@@ -178,10 +178,7 @@ export async function handleProjectImportPost(
     const session = registry.openManagedRecord(record);
     return Response.json({ project: session.descriptor }, {
       status: 201,
-      headers: {
-        "cache-control": "no-store",
-        "set-cookie": projectSessionCookieValue(session.descriptor.sessionId, request),
-      },
+      headers: projectSessionResponseHeaders(session, request),
     });
   } catch (error) {
     if (error instanceof ManagedProjectImportError) {
