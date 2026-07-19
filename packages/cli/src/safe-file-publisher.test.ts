@@ -231,7 +231,7 @@ describe("prepared safe publication", () => {
             if (options?.bigint && statCalls === 2) {
               return new Proxy(stats, {
                 get(target, property) {
-                  if (property === "nlink") return target.nlink + 1n;
+                  if (property === "nlink") return BigInt(target.nlink) + 1n;
                   const value = Reflect.get(target, property, target);
                   return typeof value === "function" ? value.bind(target) : value;
                 },

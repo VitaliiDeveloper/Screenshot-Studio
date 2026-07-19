@@ -7,6 +7,9 @@ export interface ProjectSourceCapabilities {
   nativePicker: boolean;
   projectLocalResources: boolean;
   exportProjectArchive: boolean;
+  trashProject: boolean;
+  restoreProject: boolean;
+  purgeProject: boolean;
 }
 
 export interface ActiveProjectDescriptor {
@@ -14,6 +17,7 @@ export interface ActiveProjectDescriptor {
   name: string;
   sourceKind: string;
   displayLocation?: string;
+  lifecycleRevision?: number;
   capabilities: ProjectSourceCapabilities;
 }
 

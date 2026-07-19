@@ -29,6 +29,9 @@ describe("createProject", () => {
             nativePicker: false,
             projectLocalResources: true,
             exportProjectArchive: true,
+        trashProject: true,
+        restoreProject: false,
+        purgeProject: false,
           },
         },
       }, { status: 201 });

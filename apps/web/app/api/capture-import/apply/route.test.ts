@@ -114,6 +114,7 @@ beforeEach(async () => {
     name: "Current receiver",
     projectDirectory: join(root, "current"),
     projectPath,
+    lifecycleRevision: 1,
   }).descriptor.sessionId;
 });
 

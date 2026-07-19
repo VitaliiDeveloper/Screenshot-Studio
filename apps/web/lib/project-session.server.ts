@@ -29,6 +29,9 @@ const LOCAL_CAPABILITIES = {
   nativePicker: false,
   projectLocalResources: true,
   exportProjectArchive: false,
+  trashProject: false,
+  restoreProject: false,
+  purgeProject: false,
 } as const;
 
 export interface ProjectSession {
@@ -42,6 +45,7 @@ export interface OpenedProjectSource {
   projectId: string;
   projectPath: string;
   displayLocation?: string;
+  lifecycleRevision?: number;
   capabilities: ActiveProjectDescriptor["capabilities"];
 }
 
@@ -79,6 +83,9 @@ const MANAGED_CAPABILITIES = {
   nativePicker: false,
   projectLocalResources: true,
   exportProjectArchive: true,
+  trashProject: true,
+  restoreProject: false,
+  purgeProject: false,
 } as const;
 
 export class ManagedProjectSourceAdapter implements ProjectSourceAdapter<string, OpenedProjectSource> {
@@ -92,6 +99,7 @@ export class ManagedProjectSourceAdapter implements ProjectSourceAdapter<string,
       name: project.name,
       projectId: project.id,
       projectPath: project.projectPath,
+      lifecycleRevision: project.lifecycleRevision,
       capabilities: MANAGED_CAPABILITIES,
     };
   }
@@ -144,6 +152,7 @@ export class ProjectSessionRegistry {
       name: record.name,
       projectId: record.id,
       projectPath: record.projectPath,
+      lifecycleRevision: record.lifecycleRevision,
       capabilities: MANAGED_CAPABILITIES,
     }, reservedSessionId);
   }
@@ -176,6 +185,7 @@ export class ProjectSessionRegistry {
         name: opened.name,
         sourceKind,
         ...(opened.displayLocation === undefined ? {} : { displayLocation: opened.displayLocation }),
+        ...(opened.lifecycleRevision === undefined ? {} : { lifecycleRevision: opened.lifecycleRevision }),
         capabilities: opened.capabilities,
       },
       projectId: opened.projectId,

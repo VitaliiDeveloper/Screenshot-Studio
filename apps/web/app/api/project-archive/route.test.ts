@@ -25,6 +25,7 @@ describe("POST /api/project-archive", () => {
       name: "Managed",
       projectDirectory: "/private/managed",
       projectPath: "/private/managed/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
     const archivePath = join(root, "archive.zip");
     await writeFile(archivePath, "zip");
@@ -71,6 +72,7 @@ describe("POST /api/project-archive", () => {
       name: "Managed",
       projectDirectory: "/private/managed",
       projectPath: "/private/managed/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
     const createArchive = vi.fn();
     const cookie = `screenshot_studio_project_session=${session.descriptor.sessionId}`;
@@ -106,6 +108,9 @@ describe("POST /api/project-archive", () => {
             nativePicker: false,
             projectLocalResources: true,
             exportProjectArchive: false,
+        trashProject: false,
+        restoreProject: false,
+        purgeProject: false,
           },
         })),
       },
@@ -134,6 +139,7 @@ describe("POST /api/project-archive", () => {
       name: "Managed",
       projectDirectory: "/private/managed",
       projectPath: "/private/managed/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
     const dispose = vi.fn(async () => undefined);
     const response = await handleProjectArchivePost(new Request(

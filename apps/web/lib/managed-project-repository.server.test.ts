@@ -13,7 +13,8 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry, ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   ManagedProjectNotFoundError,
@@ -156,17 +157,35 @@ describe("ManagedProjectRepository", () => {
       .rejects.toBeInstanceOf(ManagedProjectNotFoundError);
   });
 
+  it("excludes trashed records from active lookup and exposes only a bounded Trash listing", async () => {
+    const repository = await createRepository();
+    const published = await repository.publishStage({ token: (await validStage(repository, "Trash me")).token });
+    const catalog = new ManagedProjectCatalogStore(repository.config);
+    await catalog.transitionToTrashed(published.id, 1, "2026-07-19T00:00:00.000Z");
+
+    await expect(repository.open(published.id)).rejects.toBeInstanceOf(ManagedProjectNotFoundError);
+    await expect(repository.list()).resolves.toEqual([]);
+    await expect(repository.listTrash(1)).resolves.toMatchObject([{
+      id: published.id,
+      name: "Trash me",
+      lifecycleRevision: 2,
+      trashedAt: "2026-07-19T00:00:00.000Z",
+      capabilities: { restoreProject: true, purgeProject: true },
+    }]);
+  });
+
   it("rolls a published directory back to its owned stage when catalog insertion fails", async () => {
     const root = await mkdtemp(join(tmpdir(), "managed-project-repository-"));
     temporaryRoots.push(root);
     const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
     const repository = new ManagedProjectRepository(config, {
       catalog: {
-        read: async () => ({ version: 1, entries: [] }),
+        read: async () => ({ version: 2, generation: 0, entries: [], lifecycleCommits: [] }),
         get: async () => undefined,
         list: async () => [],
+        listTrashed: async () => [],
         insert: async () => { throw new Error("injected catalog failure"); },
-        remove: async () => undefined,
+        removeActive: async () => undefined,
       },
     });
     const stage = await validStage(repository);
@@ -228,11 +247,12 @@ describe("ManagedProjectRepository", () => {
     const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
     const repository = new ManagedProjectRepository(config, {
       catalog: {
-        read: async () => ({ version: 1, entries: [] }),
+        read: async () => ({ version: 2, generation: 0, entries: [], lifecycleCommits: [] }),
         get: async () => undefined,
         list: async () => [],
+        listTrashed: async () => [],
         insert: async () => { throw new Error("injected recovery insert failure"); },
-        remove: async () => undefined,
+        removeActive: async () => undefined,
       },
     });
     await repository.initialize();
@@ -264,7 +284,7 @@ describe("ManagedProjectRepository", () => {
     temporaryRoots.push(root);
     const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
     let catalogEntry: ManagedProjectCatalogEntry | undefined;
-    const entries: ManagedProjectCatalogEntry[] = [];
+    const entries: ActiveManagedProjectCatalogEntry[] = [];
     let renameCalls = 0;
     const repository = new ManagedProjectRepository(config, {
       randomId: () => "cccccccccccccccccccccccccccccccc",
@@ -274,11 +294,12 @@ describe("ManagedProjectRepository", () => {
         await rename(oldPath, newPath);
       },
       catalog: {
-        read: async () => ({ version: 1, entries }),
+        read: async () => ({ version: 2, generation: 0, entries, lifecycleCommits: [] }),
         get: async (id) => entries.find((entry) => entry.id === id),
         list: async () => entries,
+        listTrashed: async () => [],
         insert: async (entry) => { entries.push(entry); catalogEntry = entry; },
-        remove: async () => { throw new Error("injected catalog rollback failure"); },
+        removeActive: async () => { throw new Error("injected catalog rollback failure"); },
       },
     });
     const stage = await validStage(repository, "Committed");

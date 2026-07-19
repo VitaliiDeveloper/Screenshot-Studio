@@ -5,17 +5,23 @@ const DEFAULT_MAX_PROJECT_FILES = 10_000;
 const DEFAULT_MAX_PROJECT_BYTES = 1_073_741_824;
 const DEFAULT_MAX_IMPORT_UPLOAD_BYTES = 268_435_456;
 const DEFAULT_STAGING_TTL_MS = 86_400_000;
+const DEFAULT_TRASH_RETENTION_BATCH_SIZE = 25;
 
 export interface ManagedProjectStorageConfig {
   root: string;
   projectsRoot: string;
   stagingRoot: string;
   recoveryRoot: string;
+  trashRoot: string;
+  tombstonesRoot: string;
+  lifecycleLocksRoot: string;
   catalogPath: string;
   maxProjectFiles: number;
   maxProjectBytes: number;
   maxImportUploadBytes: number;
   stagingTtlMs: number;
+  trashRetentionMs: number | null;
+  trashRetentionBatchSize: number;
 }
 
 export type ManagedProjectEnvironment = Partial<Record<
@@ -24,13 +30,15 @@ export type ManagedProjectEnvironment = Partial<Record<
   | "SCREENSHOT_STUDIO_MAX_PROJECT_FILES"
   | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES"
   | "SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES"
-  | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
+  | "SCREENSHOT_STUDIO_STAGING_TTL_MS"
+  | "SCREENSHOT_STUDIO_TRASH_RETENTION_MS"
+  | "SCREENSHOT_STUDIO_TRASH_RETENTION_BATCH_SIZE",
   string
 >>;
 
 function positiveInteger(
   environment: ManagedProjectEnvironment,
-  name: "SCREENSHOT_STUDIO_MAX_PROJECT_FILES" | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES" | "SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES" | "SCREENSHOT_STUDIO_STAGING_TTL_MS",
+  name: "SCREENSHOT_STUDIO_MAX_PROJECT_FILES" | "SCREENSHOT_STUDIO_MAX_PROJECT_BYTES" | "SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES" | "SCREENSHOT_STUDIO_STAGING_TTL_MS" | "SCREENSHOT_STUDIO_TRASH_RETENTION_MS" | "SCREENSHOT_STUDIO_TRASH_RETENTION_BATCH_SIZE",
   fallback: number,
 ): number {
   const value = environment[name];
@@ -47,11 +55,17 @@ export function resolveManagedProjectStorageConfig(
 ): ManagedProjectStorageConfig {
   const invocationDirectory = environment.INIT_CWD ?? process.cwd();
   const root = resolve(invocationDirectory, environment.SCREENSHOT_STUDIO_DATA_ROOT ?? ".screenshot-studio");
+  const trashRetentionMs = environment.SCREENSHOT_STUDIO_TRASH_RETENTION_MS === undefined
+    ? null
+    : positiveInteger(environment, "SCREENSHOT_STUDIO_TRASH_RETENTION_MS", 1);
   return {
     root,
     projectsRoot: join(root, "projects"),
     stagingRoot: join(root, "staging"),
     recoveryRoot: join(root, "recovery"),
+    trashRoot: join(root, "trash"),
+    tombstonesRoot: join(root, "tombstones"),
+    lifecycleLocksRoot: join(root, "lifecycle-locks"),
     catalogPath: join(root, "catalog.json"),
     maxProjectFiles: positiveInteger(
       environment,
@@ -72,6 +86,12 @@ export function resolveManagedProjectStorageConfig(
       environment,
       "SCREENSHOT_STUDIO_STAGING_TTL_MS",
       DEFAULT_STAGING_TTL_MS,
+    ),
+    trashRetentionMs,
+    trashRetentionBatchSize: positiveInteger(
+      environment,
+      "SCREENSHOT_STUDIO_TRASH_RETENTION_BATCH_SIZE",
+      DEFAULT_TRASH_RETENTION_BATCH_SIZE,
     ),
   };
 }

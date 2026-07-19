@@ -150,6 +150,7 @@ describe("POST /api/project-create", () => {
       name: "Previous",
       projectDirectory: "/private/previous",
       projectPath: "/private/previous/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
     const failed = request({
       name: "Unsupported", platform: "windows", layoutMode: "isolated", templateId: "product-launch",

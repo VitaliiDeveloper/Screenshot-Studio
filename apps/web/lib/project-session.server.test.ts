@@ -59,6 +59,9 @@ function createStubLocalSource() {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: false,
+        trashProject: false,
+        restoreProject: false,
+        purgeProject: false,
       },
     })),
   } satisfies Pick<LocalFileProjectSourceAdapter, "kind" | "open">;
@@ -76,6 +79,7 @@ function createStubManagedSource() {
         name: "Managed",
         projectId,
         projectPath: `/managed/${projectId}/app-store-screenshots.json`,
+        lifecycleRevision: 3,
         capabilities: {
           writeInPlace: true,
           revealLocation: false,
@@ -83,6 +87,9 @@ function createStubManagedSource() {
           nativePicker: false,
           projectLocalResources: true,
           exportProjectArchive: true,
+          trashProject: true,
+          restoreProject: false,
+          purgeProject: false,
         },
       };
     }),
@@ -205,6 +212,7 @@ describe("ProjectSessionRegistry", () => {
       name: "Imported",
       projectDirectory: "/private/managed/project",
       projectPath: "/private/managed/project/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
 
     expect(managedSource.open).not.toHaveBeenCalled();
@@ -215,6 +223,7 @@ describe("ProjectSessionRegistry", () => {
         sessionId: "imported-session",
         name: "Imported",
         sourceKind: "managed-project",
+        lifecycleRevision: 1,
       },
     });
     expect(session.descriptor).not.toHaveProperty("displayLocation");
@@ -235,6 +244,7 @@ describe("ProjectSessionRegistry", () => {
         sessionId: "managed-session",
         name: "Managed",
         sourceKind: "managed-project",
+        lifecycleRevision: 3,
         capabilities: {
           writeInPlace: true,
           revealLocation: false,
@@ -242,6 +252,9 @@ describe("ProjectSessionRegistry", () => {
           nativePicker: false,
           projectLocalResources: true,
           exportProjectArchive: true,
+          trashProject: true,
+          restoreProject: false,
+          purgeProject: false,
         },
       },
     });

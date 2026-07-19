@@ -16,6 +16,8 @@ import { dirname, join } from "node:path";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
 import {
   ManagedProjectCatalogStore,
+  type ActiveManagedProjectCatalogEntry,
+  type TrashedManagedProjectCatalogEntry,
   type ManagedProjectCatalogDocument,
   type ManagedProjectCatalogEntry,
 } from "./managed-project-catalog.server.js";
@@ -38,9 +40,10 @@ interface ManagedProjectPublicationIntent {
 interface CatalogStore {
   read(): Promise<ManagedProjectCatalogDocument>;
   get(id: string): Promise<ManagedProjectCatalogEntry | undefined>;
-  list(): Promise<ManagedProjectCatalogEntry[]>;
-  insert(entry: ManagedProjectCatalogEntry): Promise<void>;
-  remove(id: string): Promise<void>;
+  list(): Promise<ActiveManagedProjectCatalogEntry[]>;
+  listTrashed(limit: number): Promise<TrashedManagedProjectCatalogEntry[]>;
+  insert(entry: ActiveManagedProjectCatalogEntry): Promise<void>;
+  removeActive(id: string, expectedLifecycleRevision: number): Promise<void>;
 }
 
 export interface ManagedProjectRecord {
@@ -48,6 +51,18 @@ export interface ManagedProjectRecord {
   name: string;
   projectDirectory: string;
   projectPath: string;
+  lifecycleRevision: number;
+}
+
+export interface ManagedProjectTrashRecord {
+  id: string;
+  name: string;
+  lifecycleRevision: number;
+  trashedAt: string;
+  capabilities: {
+    restoreProject: true;
+    purgeProject: true;
+  };
 }
 
 export class ManagedProjectNotFoundError extends Error {
@@ -206,18 +221,18 @@ export class ManagedProjectRepository {
       intent.phase = "directory-published";
       await this.#writeIntent(intent);
       const timestamp = this.#now().toISOString();
-      await this.#catalog.insert({ id, directoryName: id, name, lifecycle: "active", createdAt: timestamp, updatedAt: timestamp });
+      await this.#catalog.insert({ id, directoryName: id, name, lifecycle: "active", lifecycleRevision: 1, createdAt: timestamp, updatedAt: timestamp });
       catalogPublished = true;
       intent.phase = "catalog-published";
       await this.#writeIntent(intent);
       await this.#removeIntent(id);
-      return { id, name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE) };
+      return { id, name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE), lifecycleRevision: 1 };
     } catch (error) {
       const rollbackErrors: unknown[] = [];
       let catalogRollbackSucceeded = !catalogPublished;
       if (catalogPublished) {
         try {
-          await this.#catalog.remove(id);
+          await this.#catalog.removeActive(id, 1);
           catalogRollbackSucceeded = true;
         } catch (rollbackError) {
           rollbackErrors.push(rollbackError);
@@ -239,13 +254,24 @@ export class ManagedProjectRepository {
   async open(id: string): Promise<ManagedProjectRecord> {
     await this.initialize();
     const entry = await this.#catalog.get(id);
-    if (!entry) throw new ManagedProjectNotFoundError();
+    if (!entry || entry.lifecycle !== "active") throw new ManagedProjectNotFoundError();
     return this.#record(entry);
   }
 
   async list(): Promise<ManagedProjectCatalogEntry[]> {
     await this.initialize();
     return this.#catalog.list();
+  }
+
+  async listTrash(limit: number): Promise<ManagedProjectTrashRecord[]> {
+    await this.initialize();
+    return (await this.#catalog.listTrashed(limit)).map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      lifecycleRevision: entry.lifecycleRevision,
+      trashedAt: entry.trashedAt,
+      capabilities: { restoreProject: true, purgeProject: true },
+    }));
   }
 
   async reconcile(): Promise<void> {
@@ -286,7 +312,7 @@ export class ManagedProjectRepository {
         }
         if (!entry) {
           const timestamp = this.#now().toISOString();
-          await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", createdAt: intent.createdAt, updatedAt: timestamp });
+          await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", lifecycleRevision: 1, createdAt: intent.createdAt, updatedAt: timestamp });
         }
         await this.#removeIntent(intent.id);
       }
@@ -358,16 +384,16 @@ export class ManagedProjectRepository {
     return readProjectSnapshot(projectPath);
   }
 
-  async #validatePublishedEntry(entry: ManagedProjectCatalogEntry): Promise<void> {
+  async #validatePublishedEntry(entry: ActiveManagedProjectCatalogEntry): Promise<void> {
     if (entry.directoryName !== entry.id) throw new Error(`Managed catalog entry has an invalid directory name: ${entry.id}`);
     const projectDirectory = join(this.config.projectsRoot, entry.id);
     if (!await exists(projectDirectory)) throw new Error(`Managed catalog entry is missing its project directory: ${entry.id}`);
     await this.#validateDirectory(projectDirectory);
   }
 
-  #record(entry: ManagedProjectCatalogEntry): ManagedProjectRecord {
+  #record(entry: ActiveManagedProjectCatalogEntry): ManagedProjectRecord {
     const projectDirectory = join(this.config.projectsRoot, entry.id);
-    return { id: entry.id, name: entry.name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE) };
+    return { id: entry.id, name: entry.name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE), lifecycleRevision: entry.lifecycleRevision };
   }
 
   #intentPath(id: string): string { return join(this.config.recoveryRoot, `${id}.json`); }

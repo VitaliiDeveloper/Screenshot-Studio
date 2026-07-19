@@ -100,6 +100,7 @@ beforeEach(async () => {
     name: "Current receiver",
     projectDirectory: join(root, "current"),
     projectPath,
+    lifecycleRevision: 1,
   }).descriptor.sessionId;
 });
 
@@ -209,6 +210,7 @@ describe("POST /api/capture-import/preview", () => {
       name: "Current receiver",
       projectDirectory: join(root, "current"),
       projectPath,
+      lifecycleRevision: 1,
     }).descriptor.sessionId;
     for (let index = 1; index < 30; index += 1) {
       lruRegistry.openManagedRecord({
@@ -216,6 +218,7 @@ describe("POST /api/capture-import/preview", () => {
         name: `Other ${index}`,
         projectDirectory: join(root, `other-${index}`),
         projectPath,
+        lifecycleRevision: 1,
       });
     }
 
@@ -231,6 +234,7 @@ describe("POST /api/capture-import/preview", () => {
       name: "Overflow",
       projectDirectory: join(root, "overflow"),
       projectPath,
+      lifecycleRevision: 1,
     });
     expect(lruRegistry.get(lruSessionId)).toBeUndefined();
   });
@@ -240,6 +244,7 @@ describe("POST /api/capture-import/preview", () => {
       name: "Recovered",
       projectId,
       projectPath,
+      lifecycleRevision: 1,
       capabilities: {
         writeInPlace: true,
         revealLocation: false,
@@ -247,6 +252,9 @@ describe("POST /api/capture-import/preview", () => {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: true,
+        trashProject: true,
+        restoreProject: false,
+        purgeProject: false,
       },
     }));
     const readOnlyRegistry = new ProjectSessionRegistry({
