@@ -24,7 +24,7 @@ const preview = {
   receiving: { kind: "current-project" as const, projectName: "Current", layoutId: "primary", layoutName: "Primary" },
   summary: { screenCount: 1, assetCount: 0, platforms: [], devices: [], locales: [] },
   screens: [], resources: [], warnings: [], invalidEntries: [], canApply: true,
-  confirmationFingerprint: "2".repeat(64), sourceFingerprint: "3".repeat(64),
+  confirmationFingerprint: "2".repeat(64),
 };
 
 describe("capture import model", () => {

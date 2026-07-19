@@ -6,10 +6,14 @@ import { basename, dirname, join } from "node:path";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
 import { readIdentifiedProjectSnapshot, resolveExistingProjectPath } from "@screenshot-studio/core/storage";
 import {
+  preparedFileStagePaths,
   publishFileSafelyWithOwnership,
   removeFileWithDeterministicQuarantine,
   type SafeFileOwnership,
 } from "./safe-file-publisher.js";
+
+export const CAPTURE_IMPORT_INTENT_VERSION = 1 as const;
+export const CAPTURE_IMPORT_INTENT_OPERATION = "capture-import" as const;
 
 export type CaptureImportIntentPhase = "prepared" | "resources-published" | "project-committed";
 
@@ -25,8 +29,8 @@ export interface CaptureImportIntentResource {
 }
 
 export interface CaptureImportIntent {
-  version: 1;
-  operation: "capture-import";
+  version: typeof CAPTURE_IMPORT_INTENT_VERSION;
+  operation: typeof CAPTURE_IMPORT_INTENT_OPERATION;
   projectPath: string;
   projectDevice: string;
   projectInode: string;
@@ -85,10 +89,13 @@ async function syncDirectoryDurably(
   }
 }
 
-function expectedStageRelativePath(relativePath: string, token: string): string {
-  const segments = relativePath.split("/");
-  const stageName = `.${segments.at(-1)!}.${token}.capture-stage`;
-  return [...segments.slice(0, -1), stageName].join("/");
+export function captureImportRecoveryResourcePaths(relativePath: string, token: string) {
+  const { stageRelativePath, stageCleanupRelativePath } = preparedFileStagePaths(relativePath, token);
+  return {
+    stageRelativePath,
+    destinationCleanupRelativePath: `${stageRelativePath}.destination-cleanup`,
+    stageCleanupRelativePath,
+  };
 }
 
 function strictKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
@@ -115,7 +122,8 @@ function parseIntent(value: unknown): CaptureImportIntent {
   if (!strictKeys(record, [
     "version", "operation", "projectPath", "projectDevice", "projectInode",
     "initialRevision", "expectedRevision", "phase", "resources",
-  ]) || record.version !== 1 || record.operation !== "capture-import"
+  ]) || record.version !== CAPTURE_IMPORT_INTENT_VERSION
+    || record.operation !== CAPTURE_IMPORT_INTENT_OPERATION
     || typeof record.projectPath !== "string"
     || typeof record.projectDevice !== "string" || !/^\d+$/u.test(record.projectDevice)
     || typeof record.projectInode !== "string" || !/^\d+$/u.test(record.projectInode)
@@ -148,13 +156,19 @@ function parseIntent(value: unknown): CaptureImportIntent {
     const parsedOwnership = resource.ownership === undefined
       ? undefined
       : parseOwnership(resource.ownership);
+    let expectedPaths: ReturnType<typeof captureImportRecoveryResourcePaths>;
+    try {
+      expectedPaths = captureImportRecoveryResourcePaths(resource.relativePath, resource.stageToken);
+    } catch {
+      throw new TypeError("Invalid capture import recovery resource relationship");
+    }
     if (!isProjectRelativePath(resource.relativePath)
       || !isProjectRelativePath(resource.stageRelativePath)
       || !isProjectRelativePath(resource.destinationCleanupRelativePath)
       || !isProjectRelativePath(resource.stageCleanupRelativePath)
-      || resource.stageRelativePath !== expectedStageRelativePath(resource.relativePath, resource.stageToken)
-      || resource.destinationCleanupRelativePath !== `${resource.stageRelativePath}.destination-cleanup`
-      || resource.stageCleanupRelativePath !== `${resource.stageRelativePath}.cleanup`
+      || resource.stageRelativePath !== expectedPaths.stageRelativePath
+      || resource.destinationCleanupRelativePath !== expectedPaths.destinationCleanupRelativePath
+      || resource.stageCleanupRelativePath !== expectedPaths.stageCleanupRelativePath
       || (parsedOwnership === undefined) !== (created === undefined)
       || (parsedOwnership !== undefined && parsedOwnership.revision !== resource.digest)) {
       throw new TypeError("Invalid capture import recovery resource relationship");
@@ -187,8 +201,8 @@ function parseIntent(value: unknown): CaptureImportIntent {
     throw new TypeError("Invalid incomplete capture import recovery phase");
   }
   return {
-    version: 1,
-    operation: "capture-import",
+    version: CAPTURE_IMPORT_INTENT_VERSION,
+    operation: CAPTURE_IMPORT_INTENT_OPERATION,
     projectPath: record.projectPath,
     projectDevice: record.projectDevice,
     projectInode: record.projectInode,

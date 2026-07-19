@@ -96,6 +96,7 @@ function CapturePreview({ state }: { state: Extract<OpenCaptureImportState, { st
               {screens.map((screen) => (
                 <li key={`${screen.sourcePath}:${screen.screenId}`} className="min-w-0 rounded-xl bg-slate-50 p-3 text-xs">
                   <p className="break-all font-semibold text-slate-900">{screen.screenId}</p>
+                  <p className="mt-1 break-all font-mono text-[10px] text-slate-500">Element: {screen.elementId}</p>
                   <p className="mt-1 break-all text-slate-600">{screen.sourcePath}</p>
                   <p className="mt-1 break-all font-mono text-[10px] text-slate-500">{screen.resourcePath}</p>
                 </li>

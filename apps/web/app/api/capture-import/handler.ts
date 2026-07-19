@@ -241,7 +241,7 @@ async function parseCaptureRequest(
   };
 }
 
-function publicPlan(plan: CaptureImportPlan, sourceFingerprint: string, targetRevision?: string) {
+function publicPlan(plan: CaptureImportPlan) {
   return {
     receiving: plan.receiving,
     summary: plan.summary,
@@ -255,8 +255,6 @@ function publicPlan(plan: CaptureImportPlan, sourceFingerprint: string, targetRe
     invalidEntries: plan.invalidEntries,
     canApply: plan.canApply,
     confirmationFingerprint: plan.confirmationFingerprint,
-    sourceFingerprint,
-    ...(targetRevision === undefined ? {} : { targetRevision: quotedRevision(targetRevision) }),
   };
 }
 
@@ -330,7 +328,7 @@ export async function handleCaptureImportPreviewPost(
         creationService: resolved.creationService,
         signal: request.signal,
       });
-      return Response.json({ preview: publicPlan(plan, parsed.discovery.fingerprint) }, {
+      return Response.json({ preview: publicPlan(plan) }, {
         headers: { "cache-control": "no-store" },
       });
     } catch (error) {
@@ -351,7 +349,7 @@ export async function handleCaptureImportPreviewPost(
         discovery: parsed.discovery,
       }));
       return Response.json({
-        preview: publicPlan(plan, parsed.discovery.fingerprint, snapshot.revision),
+        preview: publicPlan(plan),
       }, {
         headers: {
           "cache-control": "no-store",

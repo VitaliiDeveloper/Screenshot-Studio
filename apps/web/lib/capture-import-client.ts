@@ -67,8 +67,6 @@ export interface CaptureImportPreview {
   invalidEntries: Array<{ code: string; path: string; message: string }>;
   canApply: boolean;
   confirmationFingerprint: string;
-  sourceFingerprint: string;
-  targetRevision?: string;
 }
 
 export interface CaptureImportApplyResult {
@@ -203,11 +201,7 @@ function validPreview(value: unknown): value is CaptureImportPreview {
     && issueList(candidate.warnings) && issueList(candidate.invalidEntries)
     && typeof candidate.canApply === "boolean"
     && typeof candidate.confirmationFingerprint === "string"
-    && /^[0-9a-f]{64}$/u.test(candidate.confirmationFingerprint)
-    && typeof candidate.sourceFingerprint === "string"
-    && /^[0-9a-f]{64}$/u.test(candidate.sourceFingerprint)
-    && (candidate.targetRevision === undefined
-      || (typeof candidate.targetRevision === "string" && isStrongQuotedETag(candidate.targetRevision)));
+    && /^[0-9a-f]{64}$/u.test(candidate.confirmationFingerprint);
 }
 
 async function responseBody(response: Response): Promise<Record<string, unknown>> {

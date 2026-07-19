@@ -57,8 +57,6 @@ const preview = {
   invalidEntries: [],
   canApply: true,
   confirmationFingerprint: "3".repeat(64),
-  sourceFingerprint: "4".repeat(64),
-  targetRevision: currentDestination.revision,
 };
 
 describe("capture import client", () => {

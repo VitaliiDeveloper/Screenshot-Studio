@@ -36,7 +36,6 @@ const preview = {
   invalidEntries: [],
   canApply: true,
   confirmationFingerprint: "3".repeat(64),
-  sourceFingerprint: "4".repeat(64),
 };
 
 function render(state: Exclude<CaptureImportState, { status: "closed" }>) {
@@ -115,6 +114,7 @@ describe("CaptureImportDialog", () => {
     expect(markup).toContain("2 screens");
     expect(markup).toContain("1 related asset");
     expect(markup).toContain("apple-iphone-en-01");
+    expect(markup).toContain("apple-iphone-en-01-screenshot");
     expect(markup).toContain("assets/imports/apple-iphone-en-01-aabbccddeeff.png");
     expect(markup).toContain("assets/icon.png");
     expect(markup).toContain("notes.txt");

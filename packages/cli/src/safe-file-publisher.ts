@@ -42,6 +42,23 @@ export interface PreparedSafeFilePublication {
   discard(): Promise<void>;
 }
 
+const PREPARED_FILE_STAGE_SUFFIX = ".capture-stage";
+const PREPARED_FILE_STAGE_TOKEN = /^[A-Za-z0-9_-]{16,128}$/u;
+
+export function preparedFileStagePaths(relativePath: string, stageToken: string) {
+  if (!PREPARED_FILE_STAGE_TOKEN.test(stageToken)) {
+    throw new TypeError("Prepared publication requires a bounded opaque stage token");
+  }
+  assertPortableRelativePath(relativePath);
+  const segments = relativePath.split("/");
+  const stageName = `.${segments.at(-1)!}.${stageToken}${PREPARED_FILE_STAGE_SUFFIX}`;
+  const stageRelativePath = [...segments.slice(0, -1), stageName].join("/");
+  return {
+    stageRelativePath,
+    stageCleanupRelativePath: `${stageRelativePath}.cleanup`,
+  };
+}
+
 export interface PreparedPublicationDependencies {
   linkFile?: (source: string, destination: string) => Promise<void>;
   syncDirectory?: (directory: string) => Promise<void>;
@@ -355,9 +372,7 @@ function compareBoundedFileIdentity(
   if (actual.ctimeNs === expected.ctimeNs && actual.nlink === expected.nlink) {
     return "stable";
   }
-  return actual.ctimeNs !== expected.ctimeNs && actual.nlink !== expected.nlink
-    ? "link-transition"
-    : "changed";
+  return actual.nlink !== expected.nlink ? "link-transition" : "changed";
 }
 
 async function destinationMatches(
@@ -1625,10 +1640,10 @@ export async function prepareFilePublication(
   dependencies: PreparedPublicationDependencies = {},
 ): Promise<PreparedSafeFilePublication> {
   if (options.replace) throw new Error("Prepared publication supports create-only resources");
-  if (!/^[A-Za-z0-9_-]{16,128}$/u.test(options.stageToken)) {
-    throw new TypeError("Prepared publication requires a bounded opaque stage token");
-  }
-  assertPortableRelativePath(options.relativePath);
+  const { stageRelativePath, stageCleanupRelativePath } = preparedFileStagePaths(
+    options.relativePath,
+    options.stageToken,
+  );
   const boundary = await resolveOrCreateRootBoundary(options.root);
   const segments = options.relativePath.split("/");
   const destinationPath = join(boundary.canonicalRoot, ...segments);
@@ -1653,13 +1668,8 @@ export async function prepareFilePublication(
     throw new SafeFileConflictError(destinationPath);
   }
 
-  const stageName = `.${basename(destinationPath)}.${options.stageToken}.capture-stage`;
+  const stageName = basename(stageRelativePath);
   const stagePath = join(dirname(destinationPath), stageName);
-  const stageRelativePath = [
-    ...segments.slice(0, -1),
-    stageName,
-  ].join("/");
-  const stageCleanupRelativePath = `${stageRelativePath}.cleanup`;
   const revalidate = () => revalidateAncestors(boundary, ancestors);
   const ownership = await createOwnedStage(
     stagePath,

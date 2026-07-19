@@ -128,7 +128,6 @@ describe("POST /api/capture-import/preview", () => {
         receiving: { kind: "current-project", projectName: "Current receiver", layoutId: "default" },
         summary: { screenCount: 1, platforms: [{ id: "apple", count: 1 }] },
         canApply: true,
-        targetRevision: `"${revision}"`,
       },
     });
     expect(firstBody.preview.screens[0]).toMatchObject({
@@ -136,6 +135,8 @@ describe("POST /api/capture-import/preview", () => {
     });
     expect(firstBody.preview.resources[0]).not.toHaveProperty("bytes");
     expect(firstBody.preview).not.toHaveProperty("project");
+    expect(firstBody.preview).not.toHaveProperty("sourceFingerprint");
+    expect(firstBody.preview).not.toHaveProperty("targetRevision");
     expect(first.headers.get("set-cookie")).toBeNull();
     expect(await readFile(projectPath)).toEqual(before);
     await expect(repository.list()).resolves.toEqual([]);

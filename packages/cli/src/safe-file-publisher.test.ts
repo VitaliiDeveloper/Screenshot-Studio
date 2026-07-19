@@ -208,6 +208,48 @@ describe("prepared safe publication", () => {
     expect(transitions).toBe(3);
   });
 
+  it("retries a link-count-only transition when ctime is unchanged", async () => {
+    const root = await workspace("safe-file-prepare-nlink-only-");
+    const destination = join(root, "receiver.bin");
+    let statCalls = 0;
+    await writeFile(destination, "same bytes");
+
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath: "receiver.bin",
+      bytes: utf8("same bytes"),
+      stageToken: "4".repeat(32),
+    }, {
+      openVerification: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: (async (options?: { bigint?: boolean }) => {
+            const stats = options?.bigint
+              ? await handle.stat({ bigint: true })
+              : await handle.stat();
+            statCalls += 1;
+            if (options?.bigint && statCalls === 2) {
+              return new Proxy(stats, {
+                get(target, property) {
+                  if (property === "nlink") return target.nlink + 1n;
+                  const value = Reflect.get(target, property, target);
+                  return typeof value === "function" ? value.bind(target) : value;
+                },
+              });
+            }
+            return stats;
+          }) as VerificationHandle["stat"],
+          read: handle.read.bind(handle),
+          readFile: handle.readFile.bind(handle),
+          close: handle.close.bind(handle),
+        };
+      },
+    });
+
+    expect(statCalls).toBeGreaterThanOrEqual(4);
+    expect(prepared).toMatchObject({ created: false, stagePath: null });
+  });
+
   it("exposes synced stage ownership before creating the destination", async () => {
     const root = await workspace("safe-file-prepared-");
     const prepared = await prepareFilePublication({

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from "node:crypto";
-import { dirname, posix } from "node:path";
+import { dirname } from "node:path";
 import {
   applyCaptureImportPlan,
   assertCaptureImportConfirmation,
@@ -24,6 +24,9 @@ import {
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
 import {
+  CAPTURE_IMPORT_INTENT_OPERATION,
+  CAPTURE_IMPORT_INTENT_VERSION,
+  captureImportRecoveryResourcePaths,
   captureImportIntentPath,
   reconcileCaptureImport,
   writeCaptureImportIntent,
@@ -75,12 +78,6 @@ export interface ApplyCaptureImportResult {
   project: Project;
   revision: string;
   plan: CaptureImportPlan;
-}
-
-function stageRelativePath(relativePath: string, token: string): string {
-  const directory = posix.dirname(relativePath);
-  const name = `.${posix.basename(relativePath)}.${token}.capture-stage`;
-  return directory === "." ? name : posix.join(directory, name);
 }
 
 function ownershipStrings(ownership: { device: bigint; inode: bigint; revision: string }) {
@@ -156,8 +153,8 @@ export async function applyCaptureImportToProject(input: {
     const applied = applyCaptureImportPlan(current.project, plan);
     const expectedRevision = projectRevision(serializeProject(applied.project));
     const intent: CaptureImportIntent = {
-      version: 1,
-      operation: "capture-import",
+      version: CAPTURE_IMPORT_INTENT_VERSION,
+      operation: CAPTURE_IMPORT_INTENT_OPERATION,
       projectPath: canonicalPath,
       projectDevice: current.identity.device.toString(),
       projectInode: current.identity.inode.toString(),
@@ -166,14 +163,11 @@ export async function applyCaptureImportToProject(input: {
       phase: "prepared",
       resources: applied.resources.map((resource) => {
         const token = randomId();
-        const preparedStagePath = stageRelativePath(resource.destinationPath, token);
         return {
           relativePath: resource.destinationPath,
           digest: resource.digest,
           stageToken: token,
-          stageRelativePath: preparedStagePath,
-          destinationCleanupRelativePath: `${preparedStagePath}.destination-cleanup`,
-          stageCleanupRelativePath: `${preparedStagePath}.cleanup`,
+          ...captureImportRecoveryResourcePaths(resource.destinationPath, token),
         };
       }),
     };
