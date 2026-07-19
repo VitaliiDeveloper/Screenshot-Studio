@@ -2,6 +2,7 @@
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, isAbsolute, extname, sep } from "node:path";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import { withManagedProjectReadGuard } from "@web/lib/managed-project-mutation-guard.server.js";
 import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 /**
@@ -41,7 +42,8 @@ export async function GET(req: Request): Promise<Response> {
   if (explicitProjectPath) return finish(await serveProjectAsset(explicitProjectPath, rel));
   const requestedProjectId = url.searchParams.get("projectId")?.trim();
   const resourceRevision = url.searchParams.get("revision")?.trim();
-  const response = await withActiveProjectSession(req, ({ projectId, projectPath }) => {
+  const response = await withActiveProjectSession(req, (session) => {
+    const { projectId, projectPath } = session;
     if (!requestedProjectId || !resourceRevision) {
       return Promise.resolve(Response.json(
         { error: "projectId and revision are required for interactive assets" },
@@ -60,7 +62,7 @@ export async function GET(req: Request): Promise<Response> {
         { status: 409 },
       ));
     }
-    return serveProjectAsset(projectPath, rel);
+    return withManagedProjectReadGuard(session, () => serveProjectAsset(projectPath, rel));
   });
   return finish(response);
 }

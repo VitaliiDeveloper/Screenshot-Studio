@@ -3,7 +3,8 @@ import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import {
-  acquireManagedProjectLifecycleLock,
+  withManagedProjectLifecycleLock,
+  type ManagedProjectLifecycleLock,
   type ManagedProjectLifecycleLockOptions,
 } from "./managed-project-lifecycle-lock.server.js";
 import {
@@ -17,9 +18,9 @@ export interface ManagedProjectMutationGuardDependencies {
   lockOptions?: ManagedProjectLifecycleLockOptions;
 }
 
-export async function withManagedProjectMutationGuard<T>(
+async function withManagedProjectLifecycleGuard<T>(
   session: ProjectSession,
-  operation: () => Promise<T>,
+  operation: (lock?: ManagedProjectLifecycleLock) => Promise<T>,
   dependencies: ManagedProjectMutationGuardDependencies = {},
 ): Promise<T> {
   if (session.descriptor.sourceKind !== "managed-project") return operation();
@@ -28,15 +29,10 @@ export async function withManagedProjectMutationGuard<T>(
     throw new Error("Managed project session is missing its lifecycle revision");
   }
   const config = dependencies.config ?? resolveManagedProjectStorageConfig();
-  const lock = await acquireManagedProjectLifecycleLock(
+  return withManagedProjectLifecycleLock(
     config,
     session.projectId,
-    dependencies.lockOptions,
-  );
-  let completed = false;
-  let result: T | undefined;
-  let operationError: unknown;
-  try {
+    async (lock) => {
     const entry = await new ManagedProjectCatalogStore(config).getActive(session.projectId);
     if (!entry || entry.lifecycleRevision !== expectedLifecycleRevision) {
       throw new Error("Managed project lifecycle changed; reload it before continuing");
@@ -44,23 +40,24 @@ export async function withManagedProjectMutationGuard<T>(
     const expectedPath = await realpath(join(config.projectsRoot, session.projectId, "app-store-screenshots.json"));
     const sessionPath = await realpath(session.projectPath);
     if (sessionPath !== expectedPath) throw new Error("Managed project session path is outside managed storage");
-    result = await operation();
-    completed = true;
-  } catch (error) {
-    operationError = error;
-  }
-  try {
-    await lock.release();
-  } catch (releaseError) {
-    if (!completed) {
-      throw new AggregateError(
-        [operationError, releaseError],
-        "Managed project mutation and lifecycle-lock release both failed",
-        { cause: releaseError },
-      );
-    }
-    throw releaseError;
-  }
-  if (!completed) throw operationError;
-  return result as T;
+      return operation(lock);
+    },
+    dependencies.lockOptions,
+  );
+}
+
+export function withManagedProjectReadGuard<T>(
+  session: ProjectSession,
+  operation: (lock?: ManagedProjectLifecycleLock) => Promise<T>,
+  dependencies: ManagedProjectMutationGuardDependencies = {},
+): Promise<T> {
+  return withManagedProjectLifecycleGuard(session, operation, dependencies);
+}
+
+export function withManagedProjectMutationGuard<T>(
+  session: ProjectSession,
+  operation: () => Promise<T>,
+  dependencies: ManagedProjectMutationGuardDependencies = {},
+): Promise<T> {
+  return withManagedProjectLifecycleGuard(session, operation, dependencies);
 }

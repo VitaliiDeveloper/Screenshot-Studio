@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
+import { lstat, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { lock as acquireFileLock } from "proper-lockfile";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { ensureManagedStorageRoot } from "./managed-project-lifecycle-lock.server.js";
+import {
+  assertManagedProjectLifecycleLockHeld,
+  ensureManagedStorageRoot,
+  validateManagedStorageChildRoot,
+  type ManagedProjectLifecycleLock,
+} from "./managed-project-lifecycle-lock.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -51,10 +56,13 @@ export interface ManagedProjectDeletionReservation extends ManagedProjectDeletio
 
 export interface ManagedProjectDeletionPending extends ManagedProjectDeletionEvidenceBase {
   state: "cleanup-pending";
+  projectRevision: string;
+  sourceIdentity: ManagedDirectoryIdentity;
 }
 
 export interface ManagedProjectDeletionComplete extends ManagedProjectDeletionEvidenceBase {
   state: "complete";
+  projectRevision: string;
   completedAt: string;
 }
 
@@ -165,6 +173,12 @@ function parseEntry(value: unknown, legacy = false): ActiveManagedProjectCatalog
   return { ...base, lifecycle: "active" };
 }
 
+export function parseActiveManagedProjectCatalogEntry(
+  value: unknown,
+): ActiveManagedProjectCatalogEntry {
+  return parseEntry(value);
+}
+
 function parseIdentity(value: unknown): ManagedDirectoryIdentity {
   if (!isRecord(value)) throw new TypeError("directory identity must be an object");
   requireExactKeys(value, ["device", "inode"], "directory identity");
@@ -180,7 +194,8 @@ function parseDeletion(value: unknown): ManagedProjectDeletionEvidence {
   const commonKeys = ["operationId", "operation", "state", "projectId", "lifecycleRevision", "statusSecretHash"];
   const keys = value.state === "reserved"
     ? [...commonKeys, "projectRevision", "priorEntry", "sourceIdentity"]
-    : value.state === "complete" ? [...commonKeys, "completedAt"] : commonKeys;
+    : value.state === "cleanup-pending" ? [...commonKeys, "projectRevision", "sourceIdentity"]
+    : value.state === "complete" ? [...commonKeys, "projectRevision", "completedAt"] : commonKeys;
   requireExactKeys(value, keys, "deletion evidence");
   if (typeof value.operationId !== "string" || !OPERATION_ID_PATTERN.test(value.operationId)) {
     throw new TypeError("deletion operationId must be opaque");
@@ -199,9 +214,27 @@ function parseDeletion(value: unknown): ManagedProjectDeletionEvidence {
     lifecycleRevision: requirePositiveInteger(value.lifecycleRevision, "deletion lifecycleRevision"),
     statusSecretHash: value.statusSecretHash,
   };
-  if (value.state === "cleanup-pending") return { ...base, state: "cleanup-pending" };
+  if (value.state === "cleanup-pending") {
+    if (typeof value.projectRevision !== "string" || !HASH_PATTERN.test(value.projectRevision)) {
+      throw new TypeError("deletion project revision must be lowercase SHA-256 hex");
+    }
+    return {
+      ...base,
+      state: "cleanup-pending",
+      projectRevision: value.projectRevision,
+      sourceIdentity: parseIdentity(value.sourceIdentity),
+    };
+  }
   if (value.state === "complete") {
-    return { ...base, state: "complete", completedAt: requireTimestamp(value.completedAt, "completedAt") };
+    if (typeof value.projectRevision !== "string" || !HASH_PATTERN.test(value.projectRevision)) {
+      throw new TypeError("deletion project revision must be lowercase SHA-256 hex");
+    }
+    return {
+      ...base,
+      state: "complete",
+      projectRevision: value.projectRevision,
+      completedAt: requireTimestamp(value.completedAt, "completedAt"),
+    };
   }
   if (value.state !== "reserved") {
     throw new TypeError("deletion evidence state must be reserved, cleanup-pending, or complete");
@@ -321,6 +354,18 @@ function requireOperationId(operationId: string): void {
   if (!OPERATION_ID_PATTERN.test(operationId)) {
     throw new TypeError("Deletion operation id must be opaque");
   }
+}
+
+function trimCompletedDeletions(
+  deletions: ManagedProjectDeletionEvidence[],
+): ManagedProjectDeletionEvidence[] {
+  const pending = deletions.filter((evidence) => evidence.state !== "complete");
+  const completed = deletions
+    .filter((evidence): evidence is ManagedProjectDeletionComplete => evidence.state === "complete")
+    .sort((left, right) => right.completedAt.localeCompare(left.completedAt)
+      || right.operationId.localeCompare(left.operationId))
+    .slice(0, MAX_COMPLETED_DELETIONS);
+  return [...pending, ...completed];
 }
 
 export function serializeManagedProjectCatalog(catalog: ManagedProjectCatalogDocument): string {
@@ -530,6 +575,8 @@ export class ManagedProjectCatalogStore {
         projectId: evidence.projectId,
         lifecycleRevision: evidence.lifecycleRevision,
         statusSecretHash: evidence.statusSecretHash,
+        projectRevision: evidence.projectRevision,
+        sourceIdentity: evidence.sourceIdentity,
       };
       await this.#write({
         ...catalog,
@@ -539,6 +586,49 @@ export class ManagedProjectCatalogStore {
           candidate.operationId === operationId ? pending : candidate),
       });
       return pending;
+    });
+  }
+
+  async completeDeletionAfterIntentRemoval(
+    operationId: string,
+    completedAt: string,
+    lifecycleLock: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectDeletionComplete> {
+    requireOperationId(operationId);
+    const timestamp = requireTimestamp(completedAt, "completedAt");
+    return this.#withLock(async () => {
+      const catalog = await this.#readOrInitialize();
+      const evidence = catalog.deletions.find((candidate) => candidate.operationId === operationId);
+      if (!evidence) throw new Error("Deletion operation does not exist");
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.config, evidence.projectId);
+      if (evidence.state !== "cleanup-pending" && evidence.state !== "complete") {
+        throw new Error("Deletion cleanup cannot complete before catalog admission commits");
+      }
+      await validateManagedStorageChildRoot(this.config, this.config.recoveryRoot);
+      try {
+        await lstat(join(this.config.recoveryRoot, `${evidence.projectId}.json`));
+        throw new Error("Deletion recovery intent must be removed before completion");
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT") throw error;
+      }
+      if (evidence.state === "complete") return evidence;
+      const complete: ManagedProjectDeletionComplete = {
+        operationId: evidence.operationId,
+        operation: "delete",
+        state: "complete",
+        projectId: evidence.projectId,
+        lifecycleRevision: evidence.lifecycleRevision,
+        statusSecretHash: evidence.statusSecretHash,
+        projectRevision: evidence.projectRevision,
+        completedAt: timestamp,
+      };
+      await this.#write({
+        ...catalog,
+        generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
+        deletions: trimCompletedDeletions(catalog.deletions.map((candidate) =>
+          candidate.operationId === operationId ? complete : candidate)),
+      });
+      return complete;
     });
   }
 

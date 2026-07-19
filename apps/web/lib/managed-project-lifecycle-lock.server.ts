@@ -18,7 +18,27 @@ export interface ManagedProjectLifecycleLockOptions {
 }
 
 export interface ManagedProjectLifecycleLock {
+  readonly projectId: string;
   release(): Promise<void>;
+}
+
+const activeLifecycleLocks = new WeakMap<
+  ManagedProjectLifecycleLock,
+  { projectId: string; storageRoot: string; lockPath: string }
+>();
+
+export function assertManagedProjectLifecycleLockHeld(
+  lock: ManagedProjectLifecycleLock,
+  config: ManagedProjectStorageConfig,
+  projectId: string,
+): void {
+  requireProjectId(projectId);
+  const proof = activeLifecycleLocks.get(lock);
+  if (!proof || proof.projectId !== projectId || proof.storageRoot !== config.root
+    || proof.lockPath !== managedProjectLifecycleLockPath(config, projectId)
+    || lock.projectId !== projectId) {
+    throw new Error("Matching managed project lifecycle lock must be held");
+  }
 }
 
 function requireProjectId(id: string): void {
@@ -123,12 +143,54 @@ export async function acquireManagedProjectLifecycleLock(
     throw new Error(`Failed to acquire managed project lifecycle lock for ${id}`, { cause: error });
   }
   let releasePromise: Promise<void> | undefined;
-  return {
+  const lock: ManagedProjectLifecycleLock = {
+    projectId: id,
     release() {
-      releasePromise ??= releaseFileLock().catch((error: unknown) => {
-        throw new Error(`Failed to release managed project lifecycle lock for ${id}`, { cause: error });
-      });
+      if (!releasePromise) activeLifecycleLocks.delete(lock);
+      releasePromise ??= releaseFileLock()
+        .catch((error: unknown) => {
+          throw new Error(`Failed to release managed project lifecycle lock for ${id}`, { cause: error });
+        });
       return releasePromise;
     },
   };
+  activeLifecycleLocks.set(lock, {
+    projectId: id,
+    storageRoot: config.root,
+    lockPath: managedProjectLifecycleLockPath(config, id),
+  });
+  return lock;
+}
+
+export async function withManagedProjectLifecycleLock<T>(
+  config: ManagedProjectStorageConfig,
+  id: string,
+  operation: (lock: ManagedProjectLifecycleLock) => Promise<T>,
+  options: ManagedProjectLifecycleLockOptions = {},
+): Promise<T> {
+  requireProjectId(id);
+  const lease = await acquireManagedProjectLifecycleLock(config, id, options);
+  let completed = false;
+  let result: T | undefined;
+  let operationError: unknown;
+  try {
+    result = await operation(lease);
+    completed = true;
+  } catch (error) {
+    operationError = error;
+  }
+  try {
+    await lease.release();
+  } catch (releaseError) {
+    if (!completed) {
+      throw new AggregateError(
+        [operationError, releaseError],
+        "Managed project operation and lifecycle-lock release both failed",
+        { cause: releaseError },
+      );
+    }
+    throw releaseError;
+  }
+  if (!completed) throw operationError;
+  return result as T;
 }

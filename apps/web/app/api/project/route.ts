@@ -10,7 +10,10 @@ import {
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "@screenshot-studio/cli/capture-import-recovery";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
-import { withManagedProjectMutationGuard } from "@web/lib/managed-project-mutation-guard.server.js";
+import {
+  withManagedProjectMutationGuard,
+  withManagedProjectReadGuard,
+} from "@web/lib/managed-project-mutation-guard.server.js";
 import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 /**
@@ -50,18 +53,20 @@ function projectWriteErrorResponse(error: unknown): Response {
 
 export async function GET(req: Request): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
-    try {
-      const snapshot = await readProjectSnapshot(session.projectPath);
-      return Response.json(snapshot.project, {
-        headers: {
-          etag: quotedRevision(snapshot.revision),
-          "x-project-id": session.projectId,
-        },
-      });
-    } catch (err) {
-      const status = err instanceof ProjectValidationError ? 422 : 404;
-      return Response.json({ error: (err as Error).message }, { status });
-    }
+    return withManagedProjectReadGuard(session, async () => {
+      try {
+        const snapshot = await readProjectSnapshot(session.projectPath);
+        return Response.json(snapshot.project, {
+          headers: {
+            etag: quotedRevision(snapshot.revision),
+            "x-project-id": session.projectId,
+          },
+        });
+      } catch (err) {
+        const status = err instanceof ProjectValidationError ? 422 : 404;
+        return Response.json({ error: (err as Error).message }, { status });
+      }
+    });
   });
 }
 

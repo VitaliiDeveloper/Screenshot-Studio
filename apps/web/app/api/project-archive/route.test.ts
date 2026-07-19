@@ -74,6 +74,7 @@ describe("POST /api/project-archive", () => {
 
     const response = await handleProjectArchivePost(request, {
       session: { registry, configuredPath: () => null },
+      managedReadGuard: (_session, operation) => operation(),
       createArchive,
       stageArtifact,
     });
@@ -84,7 +85,7 @@ describe("POST /api/project-archive", () => {
       expiresAt: "2026-07-18T21:00:00.000Z",
       filename: "screenshot-studio-project.zip",
     });
-    expect(createArchive).toHaveBeenCalledWith(session.projectId);
+    expect(createArchive).toHaveBeenCalledWith(session.projectId, undefined);
     expect(stageArtifact).toHaveBeenCalledWith(archivePath);
     expect(dispose).toHaveBeenCalledOnce();
   });
@@ -172,6 +173,7 @@ describe("POST /api/project-archive", () => {
       } },
     ), {
       session: { registry, configuredPath: () => null },
+      managedReadGuard: (_session, operation) => operation(),
       createArchive: vi.fn(async () => ({
         path: join(root, "archive.zip"),
         filename: "screenshot-studio-project.zip",

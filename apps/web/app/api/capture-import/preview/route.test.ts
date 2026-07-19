@@ -186,8 +186,7 @@ describe("POST /api/capture-import/preview", () => {
 
     expect(response.status).toBe(409);
     expect(registry.peek(sessionId)).toBeUndefined();
-    expect(JSON.parse(await readFile(projectPath, "utf8")))
-      .toMatchObject({ meta: { name: "Current receiver" } });
+    await expect(access(projectPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("shows an existing receiver-resource mismatch as invalid before confirmation", async () => {

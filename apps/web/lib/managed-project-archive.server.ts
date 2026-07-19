@@ -14,6 +14,11 @@ import { pipeline } from "node:stream/promises";
 import JSZip from "jszip";
 import { isSupportedProjectArchivePath } from "./project-archive-policy.js";
 import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import {
+  assertManagedProjectLifecycleLockHeld,
+  withManagedProjectLifecycleLock,
+  type ManagedProjectLifecycleLock,
+} from "./managed-project-lifecycle-lock.server.js";
 
 const PROJECT_FILE = "app-store-screenshots.json";
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip";
@@ -94,8 +99,26 @@ export class ManagedProjectArchiveService {
       ?? ((path) => lstat(path, { bigint: true }));
   }
 
-  async create(projectId: string): Promise<ManagedProjectArchiveArtifact> {
-    const record = await this.repository.open(projectId);
+  async create(
+    projectId: string,
+    lifecycleLock?: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectArchiveArtifact> {
+    if (lifecycleLock) {
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.repository.config, projectId);
+      return this.#createUnderLifecycleLock(projectId, lifecycleLock);
+    }
+    return withManagedProjectLifecycleLock(
+      this.repository.config,
+      projectId,
+      (lock) => this.#createUnderLifecycleLock(projectId, lock),
+    );
+  }
+
+  async #createUnderLifecycleLock(
+    projectId: string,
+    lifecycleLock: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectArchiveArtifact> {
+    const record = await this.repository.open(projectId, lifecycleLock);
     const sources: ArchiveSourceFile[] = [];
     let entries = 0;
     let bytes = 0n;

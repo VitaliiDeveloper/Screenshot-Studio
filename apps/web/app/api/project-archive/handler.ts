@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ManagedProjectArchiveService } from "@web/lib/managed-project-archive.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import {
+  resolveManagedProjectStorageConfig,
+  type ManagedProjectStorageConfig,
+} from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 import {
   stageProjectArchiveArtifact,
@@ -8,16 +11,23 @@ import {
 } from "@web/lib/project-archive-artifacts.server.js";
 import {
   withProjectReadRequest,
+  type ProjectReadRequestDependencies,
 } from "@web/lib/project-request-fence.server.js";
 import {
   type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
+import type { ManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
 
 type CreatedArchive = Awaited<ReturnType<ManagedProjectArchiveService["create"]>>;
 
 export interface ProjectArchiveRouteDependencies {
   session?: ActiveProjectResolverDependencies;
-  createArchive?: (projectId: string) => Promise<CreatedArchive>;
+  managedStorageConfig?: ManagedProjectStorageConfig;
+  managedReadGuard?: ProjectReadRequestDependencies["managedReadGuard"];
+  createArchive?: (
+    projectId: string,
+    lifecycleLock?: ManagedProjectLifecycleLock,
+  ) => Promise<CreatedArchive>;
   stageArtifact?: (path: string) => Promise<ProjectArchiveArtifactTicket>;
 }
 
@@ -25,24 +35,26 @@ export async function handleProjectArchivePost(
   request: Request,
   dependencies: ProjectArchiveRouteDependencies = {},
 ): Promise<Response> {
-  return withProjectReadRequest(request, async (session) => {
+  const managedStorageConfig = dependencies.managedStorageConfig
+    ?? resolveManagedProjectStorageConfig();
+  return withProjectReadRequest(request, async (session, _expectedRevision, lifecycleLock) => {
     if (session.descriptor.sourceKind !== "managed-project") {
       return Response.json({
         error: "Project archive export is available only for managed projects",
         code: "managed-project-required",
       }, { status: 409, headers: { "cache-control": "no-store" } });
     }
-    const createArchive = dependencies.createArchive ?? ((projectId) => (
+    const createArchive = dependencies.createArchive ?? ((projectId, heldLock) => (
       new ManagedProjectArchiveService(
-        new ManagedProjectRepository(resolveManagedProjectStorageConfig()),
-      ).create(projectId)
+        new ManagedProjectRepository(managedStorageConfig),
+      ).create(projectId, heldLock)
     ));
     const stageArtifact = dependencies.stageArtifact ?? stageProjectArchiveArtifact;
     let archive: CreatedArchive | undefined;
     let operationError: unknown;
     let ticket: ProjectArchiveArtifactTicket | undefined;
     try {
-      archive = await createArchive(session.projectId);
+      archive = await createArchive(session.projectId, lifecycleLock);
       ticket = await stageArtifact(archive.path);
     } catch (error) {
       operationError = error;
@@ -70,5 +82,9 @@ export async function handleProjectArchivePost(
       status: 201,
       headers: { "cache-control": "no-store" },
     });
-  }, dependencies.session);
+  }, {
+    ...dependencies.session,
+    managedStorageConfig,
+    managedReadGuard: dependencies.managedReadGuard,
+  });
 }

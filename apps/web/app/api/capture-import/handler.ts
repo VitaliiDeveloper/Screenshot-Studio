@@ -360,7 +360,10 @@ export async function handleCaptureImportPreviewPost(
     } catch (error) {
       return routeError(error);
     }
-  }, { registry: resolved.registry });
+  }, {
+    registry: resolved.registry,
+    managedStorageConfig: resolved.repository.config,
+  });
 }
 
 export async function handleCaptureImportApplyPost(

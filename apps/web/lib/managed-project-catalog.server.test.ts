@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { acquireManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
 import {
   parseManagedProjectCatalog,
   serializeManagedProjectCatalog,
@@ -22,7 +23,7 @@ function catalogEntry(overrides: Record<string, unknown> = {}) {
     id: PROJECT_ID,
     directoryName: PROJECT_ID,
     name: "Alpha",
-    lifecycle: "active",
+    lifecycle: "active" as const,
     createdAt: "2026-07-18T00:00:00.000Z",
     updatedAt: "2026-07-18T00:00:00.000Z",
     ...overrides,
@@ -35,7 +36,7 @@ function activeCatalogEntry(overrides: Record<string, unknown> = {}) {
 
 function catalogDocument(overrides: Record<string, unknown> = {}) {
   return {
-    version: 2,
+    version: 2 as const,
     generation: 0,
     idNamespace: ID_NAMESPACE,
     nextProjectOrdinal: 1,
@@ -48,8 +49,8 @@ function catalogDocument(overrides: Record<string, unknown> = {}) {
 function deletionReservation(overrides: Record<string, unknown> = {}) {
   return {
     operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    operation: "delete",
-    state: "reserved",
+    operation: "delete" as const,
+    state: "reserved" as const,
     projectId: PROJECT_ID,
     lifecycleRevision: 1,
     statusSecretHash: STATUS_SECRET_HASH,
@@ -266,7 +267,7 @@ describe("ManagedProjectCatalogStore", () => {
       (index % 2 === 0 ? first : second).reserveProjectId()));
 
     expect(new Set(ids).size).toBe(40);
-    expect(ids.toSorted()).toEqual(Array.from({ length: 40 }, (_, index) =>
+    expect([...ids].sort()).toEqual(Array.from({ length: 40 }, (_, index) =>
       `project_${ID_NAMESPACE}${(index + 1).toString(16).padStart(16, "0")}`));
     await expect(first.read()).resolves.toMatchObject({ nextProjectOrdinal: 41 });
   });
@@ -323,6 +324,7 @@ describe("ManagedProjectCatalogStore", () => {
         projectId: PROJECT_ID,
         lifecycleRevision: 1,
         statusSecretHash: STATUS_SECRET_HASH,
+        projectRevision: PROJECT_REVISION,
         completedAt: "2026-07-19T00:00:00.000Z",
       }],
     }, null, 2)}\n`;
@@ -394,6 +396,84 @@ describe("ManagedProjectCatalogStore", () => {
     expect(store).not.toHaveProperty("completeDeletion");
   });
 
+  it("completes pending evidence only with its held lifecycle lease after intent removal", async () => {
+    const config = await storageConfig();
+    const store = new ManagedProjectCatalogStore(config);
+    await store.insert(entry(PROJECT_ID, "Alpha"));
+    await store.reserveDeletion(deletionReservation());
+    await store.commitDeletion("operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    await mkdir(config.recoveryRoot, { recursive: true });
+    const intentPath = join(config.recoveryRoot, `${PROJECT_ID}.json`);
+    await writeFile(intentPath, "{}\n");
+    const lease = await acquireManagedProjectLifecycleLock(config, PROJECT_ID);
+    const forgedLease = { projectId: PROJECT_ID, release: async () => undefined };
+
+    await expect(store.completeDeletionAfterIntentRemoval(
+      "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "2026-07-19T00:00:00.000Z",
+      forgedLease,
+    )).rejects.toThrow(/lifecycle lock must be held/i);
+
+    await expect(store.completeDeletionAfterIntentRemoval(
+      "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "2026-07-19T00:00:00.000Z",
+      lease,
+    )).rejects.toThrow(/recovery intent/i);
+    await rm(intentPath);
+    await expect(store.completeDeletionAfterIntentRemoval(
+      "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "2026-07-19T00:00:00.000Z",
+      lease,
+    )).resolves.toMatchObject({ state: "complete" });
+    await lease.release();
+    await expect(store.completeDeletionAfterIntentRemoval(
+      "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "2026-07-19T00:00:00.000Z",
+      lease,
+    )).rejects.toThrow(/lifecycle lock must be held/i);
+  });
+
+  it("evicts only the oldest completed status when the 257th operation completes", async () => {
+    const config = await storageConfig();
+    const completed = Array.from({ length: 256 }, (_, index) => ({
+      operationId: `operation_${index.toString(16).padStart(32, "0")}`,
+      operation: "delete" as const,
+      state: "complete" as const,
+      projectId: `project_${index.toString(16).padStart(32, "0")}`,
+      lifecycleRevision: 1,
+      statusSecretHash: STATUS_SECRET_HASH,
+      projectRevision: PROJECT_REVISION,
+      completedAt: new Date(index * 1_000).toISOString(),
+    }));
+    const operationId = `operation_${"f".repeat(32)}`;
+    const projectId = `project_${"f".repeat(32)}`;
+    await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
+      deletions: [...completed, {
+        operationId,
+        operation: "delete",
+        state: "cleanup-pending",
+        projectId,
+        lifecycleRevision: 1,
+        statusSecretHash: STATUS_SECRET_HASH,
+        projectRevision: PROJECT_REVISION,
+        sourceIdentity: { device: "1", inode: "999" },
+      }],
+    })));
+    await mkdir(config.recoveryRoot, { recursive: true });
+    const store = new ManagedProjectCatalogStore(config);
+    const lease = await acquireManagedProjectLifecycleLock(config, projectId);
+
+    await store.completeDeletionAfterIntentRemoval(operationId, new Date(256_000).toISOString(), lease);
+    await lease.release();
+
+    const evidence = (await store.read()).deletions;
+    expect(evidence).toHaveLength(256);
+    expect(evidence).toContainEqual(expect.objectContaining({ operationId, state: "complete" }));
+    expect(evidence).not.toContainEqual(expect.objectContaining({
+      operationId: "operation_00000000000000000000000000000000",
+    }));
+  });
+
   it("rejects new admission at the pending-operation bound without changing catalog bytes", async () => {
     const config = await storageConfig();
     const pending = Array.from({ length: 1_000 }, (_, index) => ({
@@ -403,6 +483,8 @@ describe("ManagedProjectCatalogStore", () => {
       projectId: `project_${index.toString(16).padStart(32, "0")}`,
       lifecycleRevision: 1,
       statusSecretHash: STATUS_SECRET_HASH,
+      projectRevision: PROJECT_REVISION,
+      sourceIdentity: { device: "1", inode: String(index + 1) },
     }));
     await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
       entries: [activeCatalogEntry()],
@@ -424,6 +506,8 @@ describe("ManagedProjectCatalogStore", () => {
       projectId: `project_${index.toString(16).padStart(32, "0")}`,
       lifecycleRevision: 1,
       statusSecretHash: STATUS_SECRET_HASH,
+      projectRevision: PROJECT_REVISION,
+      sourceIdentity: { device: "1", inode: String(index + 1) },
     }));
     const betaId = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
@@ -461,6 +545,7 @@ describe("ManagedProjectCatalogStore", () => {
       projectId: `project_${ID_NAMESPACE}${(index + 2).toString(16).padStart(16, "0")}`,
       lifecycleRevision: 1,
       statusSecretHash: STATUS_SECRET_HASH,
+      projectRevision: PROJECT_REVISION,
       completedAt: new Date(index * 1_000).toISOString(),
     }));
     await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({

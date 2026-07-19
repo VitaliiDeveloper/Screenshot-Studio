@@ -22,9 +22,13 @@ import {
 } from "./managed-project-catalog.server.js";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
+  assertManagedProjectLifecycleLockHeld,
   ensureManagedStorageRoot,
+  withManagedProjectLifecycleLock,
   validateManagedStorageChildRoot,
+  type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
+import { ManagedProjectLifecycleService } from "./managed-project-lifecycle.server.js";
 
 const STAGE_TOKEN_PATTERN = /^stage_[0-9a-f]{32}$/;
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
@@ -158,6 +162,7 @@ export class ManagedProjectRepository {
   async initialize(): Promise<void> {
     await this.#ensureDirectories();
     await this.#catalog.read();
+    await new ManagedProjectLifecycleService(this.config).reconcileAll();
     await this.reconcile();
     for (const entry of await this.#catalog.list()) {
       await this.#validatePublishedEntry(entry);
@@ -254,11 +259,22 @@ export class ManagedProjectRepository {
     }
   }
 
-  async open(id: string): Promise<ManagedProjectRecord> {
+  async open(
+    id: string,
+    lifecycleLock?: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectRecord> {
     await this.initialize();
-    const entry = await this.#catalog.get(id);
-    if (!entry || entry.lifecycle !== "active") throw new ManagedProjectNotFoundError();
-    return this.#record(entry);
+    const openActive = async () => {
+      const entry = await this.#catalog.get(id);
+      if (!entry || entry.lifecycle !== "active") throw new ManagedProjectNotFoundError();
+      await this.#validatePublishedEntry(entry);
+      return this.#record(entry);
+    };
+    if (lifecycleLock) {
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.config, id);
+      return openActive();
+    }
+    return withManagedProjectLifecycleLock(this.config, id, openActive);
   }
 
   async list(): Promise<ActiveManagedProjectCatalogEntry[]> {
@@ -271,7 +287,9 @@ export class ManagedProjectRepository {
     for (const name of await readdir(this.config.recoveryRoot)) {
       if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
       const intentPath = join(this.config.recoveryRoot, name);
-      const intent = parseIntent(JSON.parse(await readFile(intentPath, "utf8")));
+      const value = JSON.parse(await readFile(intentPath, "utf8")) as unknown;
+      if (isRecord(value) && value.operation === "delete") continue;
+      const intent = parseIntent(value);
       const stagePath = join(this.config.stagingRoot, intent.token);
       const projectDirectory = join(this.config.projectsRoot, intent.id);
       const entry = await this.#catalog.get(intent.id);
@@ -334,7 +352,9 @@ export class ManagedProjectRepository {
       if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
       let intent: ManagedProjectRecoveryIntent;
       try {
-        intent = parseIntent(JSON.parse(await readFile(join(this.config.recoveryRoot, name), "utf8")));
+        const value = JSON.parse(await readFile(join(this.config.recoveryRoot, name), "utf8")) as unknown;
+        if (isRecord(value) && value.operation === "delete") continue;
+        intent = parseIntent(value);
       } catch (error) {
         throw new Error("Cannot discard a managed stage while recovery state is invalid", {
           cause: error,
