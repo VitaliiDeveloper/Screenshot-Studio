@@ -165,6 +165,51 @@ describe("parseManagedProjectCatalog", () => {
     }, null, 2)}\n`);
   });
 
+  it("migrates the abandoned active-only lifecycle catalog without reusing project ids", () => {
+    const existingId = "project_1111111111111111ffffffffffffffff";
+    const candidates = ["1111111111111111", ID_NAMESPACE];
+
+    expect(parseManagedProjectCatalog({
+      version: 2,
+      generation: 4,
+      entries: [activeCatalogEntry({ id: existingId, directoryName: existingId })],
+      lifecycleCommits: [],
+    }, () => candidates.shift()!)).toMatchObject({
+      version: 2,
+      generation: 4,
+      idNamespace: ID_NAMESPACE,
+      nextProjectOrdinal: 1,
+      entries: [{ id: existingId, lifecycle: "active", lifecycleRevision: 1 }],
+      deletions: [],
+    });
+    expect(candidates).toEqual([]);
+  });
+
+  it.each([
+    ["a trashed entry", {
+      version: 2,
+      generation: 1,
+      entries: [activeCatalogEntry({
+        lifecycle: "trashed",
+        trashedAt: "2026-07-19T00:00:00.000Z",
+      })],
+      lifecycleCommits: [],
+    }],
+    ["purge evidence", {
+      version: 2,
+      generation: 1,
+      entries: [],
+      lifecycleCommits: [{
+        operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        operation: "purge",
+        projectId: PROJECT_ID,
+        lifecycleRevision: 2,
+      }],
+    }],
+  ])("fails closed instead of migrating an abandoned lifecycle catalog with %s", (_case, value) => {
+    expect(() => parseManagedProjectCatalog(value, () => ID_NAMESPACE)).toThrow();
+  });
+
   it("rejects the unshipped long-lived trashed catalog state", () => {
     expect(() => parseManagedProjectCatalog(catalogDocument({
       entries: [activeCatalogEntry(), activeCatalogEntry({
@@ -291,6 +336,34 @@ describe("ManagedProjectCatalogStore", () => {
 
     await expect(new ManagedProjectCatalogStore(config).read()).resolves.toMatchObject({ version: 2 });
     await expect(readFile(config.catalogPath, "utf8")).resolves.toContain('"version": 2');
+  });
+
+  it("atomically persists an abandoned empty lifecycle catalog in the permanent-deletion format", async () => {
+    const config = await storageConfig();
+    await writeFile(config.catalogPath, `${JSON.stringify({
+      version: 2,
+      generation: 0,
+      entries: [],
+      lifecycleCommits: [],
+    })}\n`);
+
+    await expect(new ManagedProjectCatalogStore(config, {
+      createIdNamespace: () => ID_NAMESPACE,
+    }).read()).resolves.toMatchObject({
+      version: 2,
+      idNamespace: ID_NAMESPACE,
+      nextProjectOrdinal: 1,
+      entries: [],
+      deletions: [],
+    });
+    await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(`${JSON.stringify({
+      version: 2,
+      generation: 0,
+      idNamespace: ID_NAMESPACE,
+      nextProjectOrdinal: 1,
+      entries: [],
+      deletions: [],
+    }, null, 2)}\n`);
   });
 
   it("initializes an empty catalog and reloads it after a restart", async () => {

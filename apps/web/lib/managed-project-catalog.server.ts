@@ -145,6 +145,10 @@ function createMigrationNamespace(
   throw new Error("Unable to allocate a non-conflicting managed project id namespace");
 }
 
+function isAbandonedLifecycleCatalog(value: unknown): boolean {
+  return isRecord(value) && value.version === 2 && "lifecycleCommits" in value;
+}
+
 function parseEntry(value: unknown, legacy = false): ActiveManagedProjectCatalogEntry {
   if (!isRecord(value)) throw new TypeError("catalog entry must be an object");
   const lifecycle = value.lifecycle;
@@ -268,6 +272,32 @@ export function parseManagedProjectCatalog(
     return validateCatalog({
       version: 2,
       generation: 0,
+      idNamespace,
+      nextProjectOrdinal: 1,
+      entries,
+      deletions: [],
+    });
+  }
+  if (isAbandonedLifecycleCatalog(value)) {
+    requireExactKeys(
+      value,
+      ["version", "generation", "entries", "lifecycleCommits"],
+      "managed project catalog",
+    );
+    if (!Number.isSafeInteger(value.generation) || (value.generation as number) < 0) {
+      throw new TypeError("managed project catalog generation must be a non-negative integer");
+    }
+    if (!Array.isArray(value.entries)) {
+      throw new TypeError("managed project catalog entries must be an array");
+    }
+    if (!Array.isArray(value.lifecycleCommits) || value.lifecycleCommits.length !== 0) {
+      throw new TypeError("abandoned lifecycle catalog must not contain purge evidence");
+    }
+    const entries = value.entries.map((entry) => parseEntry(entry));
+    const idNamespace = createMigrationNamespace(entries.map((entry) => entry.id), createIdNamespace);
+    return validateCatalog({
+      version: 2,
+      generation: value.generation as number,
       idNamespace,
       nextProjectOrdinal: 1,
       entries,
@@ -636,7 +666,7 @@ export class ManagedProjectCatalogStore {
     const value = JSON.parse(await readFile(this.config.catalogPath, "utf8")) as unknown;
     return {
       catalog: parseManagedProjectCatalog(value, this.#createIdNamespace),
-      migrated: isRecord(value) && value.version === 1,
+      migrated: isRecord(value) && (value.version === 1 || isAbandonedLifecycleCatalog(value)),
     };
   }
 
