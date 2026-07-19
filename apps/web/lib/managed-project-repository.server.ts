@@ -250,11 +250,22 @@ export class ManagedProjectRepository {
       const stagePath = join(this.config.stagingRoot, intent.token);
       const projectDirectory = join(this.config.projectsRoot, intent.id);
       const entry = await this.#catalog.get(intent.id);
-      if (intent.phase === "prepared" && await exists(stagePath) && !await exists(projectDirectory)) {
+      const stageExists = await exists(stagePath);
+      const projectDirectoryExists = await exists(projectDirectory);
+      if (intent.phase === "prepared" && stageExists && !projectDirectoryExists) {
         await this.#removeIntent(intent.id);
         continue;
       }
-      if (await exists(projectDirectory)) {
+      if (intent.phase === "directory-published" && !entry && !projectDirectoryExists) {
+        if (stageExists) {
+          const ownedStagePath = await this.#ownedStagePath(intent.token);
+          await rm(ownedStagePath, { recursive: true, force: true });
+          await syncDirectoryBestEffort(this.config.stagingRoot);
+        }
+        await this.#removeIntent(intent.id);
+        continue;
+      }
+      if (projectDirectoryExists) {
         let snapshot: Awaited<ReturnType<typeof readProjectSnapshot>>;
         try {
           snapshot = await this.#validateDirectory(projectDirectory);

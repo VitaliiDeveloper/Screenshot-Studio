@@ -38,7 +38,10 @@ async function readBoundedJson(request: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > MAX_CREATE_REQUEST_BYTES) throw new CreateRequestLimitError();
+      if (total > MAX_CREATE_REQUEST_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new CreateRequestLimitError();
+      }
       chunks.push(value);
     }
   } finally {
@@ -68,6 +71,7 @@ export async function handleProjectCreatePost(
       return errorResponse(400, "Project creation content length is invalid", "invalid-request");
     }
     if (bytes > MAX_CREATE_REQUEST_BYTES) {
+      await request.body?.cancel().catch(() => undefined);
       return errorResponse(413, "Project creation request exceeds the byte limit", "limit");
     }
   }

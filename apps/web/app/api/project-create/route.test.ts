@@ -96,6 +96,51 @@ describe("POST /api/project-create", () => {
     await expect(repository.list()).resolves.toEqual([]);
   });
 
+  it("cancels an unknown-length request stream after it exceeds the byte limit", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(16_385));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const streamedRequest = new Request("http://localhost/api/project-create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    const response = await handleProjectCreatePost(streamedRequest, { service, registry });
+
+    expect(response.status).toBe(413);
+    expect(cancelled).toBe(true);
+    await expect(repository.list()).resolves.toEqual([]);
+  });
+
+  it("cancels a declared oversized request stream before returning the byte-limit response", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const streamedRequest = new Request("http://localhost/api/project-create", {
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": "20000" },
+      body,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    const response = await handleProjectCreatePost(streamedRequest, { service, registry });
+
+    expect(response.status).toBe(413);
+    expect(cancelled).toBe(true);
+    await expect(repository.list()).resolves.toEqual([]);
+  });
+
   it("preserves the prior session and catalog when template compatibility fails", async () => {
     const previous = registry.openManagedRecord({
       id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

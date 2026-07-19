@@ -165,6 +165,29 @@ describe("ManagedProjectRepository", () => {
     await expect(readFile(join(stage.path, "app-store-screenshots.json"), "utf8")).resolves.toContain("Managed");
   });
 
+  it("cleans a rolled-back stage whose directory-published intent outlived cleanup", async () => {
+    const repository = await createRepository();
+    await repository.initialize();
+    const stage = await validStage(repository, "Rolled back");
+    const id = "project_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const intentPath = join(repository.config.recoveryRoot, `${id}.json`);
+    await writeFile(intentPath, `${JSON.stringify({
+      version: 1,
+      operation: "publish",
+      id,
+      token: stage.token,
+      name: "Rolled back",
+      createdAt: "2026-07-19T00:00:00.000Z",
+      phase: "directory-published",
+    })}\n`);
+
+    await repository.initialize();
+
+    await expect(repository.list()).resolves.toEqual([]);
+    await expect(lstat(stage.path)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(intentPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("reconciles a published directory that has not reached catalog visibility", async () => {
     const repository = await createRepository();
     await repository.initialize();
