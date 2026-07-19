@@ -201,9 +201,14 @@ describe("buildProjectHomeSummary", () => {
 
     expect(writable.actions.find((action) => action.id === "store-image-export")).toMatchObject({ enabled: true, label: "Export store images" });
     expect(writable.actions.find((action) => action.id === "project-archive-export")).toMatchObject({ enabled: true, label: "Export project archive" });
+    expect(writable.actions.find((action) => action.id === "permanently-delete-project")).toMatchObject({
+      enabled: true,
+      label: "Permanently delete project",
+    });
     expect(readOnly.actions.find((action) => action.id === "continue-editing")?.enabled).toBe(false);
     expect(readOnly.actions.find((action) => action.id === "manage-layouts")?.enabled).toBe(false);
     expect(readOnly.actions.find((action) => action.id === "project-archive-export")?.enabled).toBe(false);
+    expect(readOnly.actions.find((action) => action.id === "permanently-delete-project")?.enabled).toBe(false);
     expect(readOnly.actions.find((action) => action.id === "import-project")?.enabled).toBe(true);
     expect(writable.actions.find((action) => action.id === "capture-import")).toMatchObject({
       enabled: true,

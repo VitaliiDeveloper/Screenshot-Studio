@@ -63,6 +63,19 @@ describe("ProjectHome overview", () => {
     expect(source).not.toContain("deleteManagedProject");
   });
 
+  it("gates irreversible deletion by capability and keeps it distinct from Close", () => {
+    expect(completeSource).toContain("permanently-delete-project");
+    expect(source).toContain("ProjectDeletionDialog");
+    expect(source).toContain("deleteProjectPermanently");
+    expect(source).toContain("hasPendingProjectSave");
+    expect(source).toContain("advanceProjectHomeDeletion");
+    expect(source).toContain('router.replace("/")');
+    expect(source).toContain("discardActiveProjectPersistence");
+    expect(source).not.toContain("disabled={closeBusy || archiveBusy || deletionDialog !== null}");
+    expect(source).not.toContain("Move to Trash");
+    expect(source).not.toContain("Restore project");
+  });
+
   it("covers the complete informational and action-oriented contract", () => {
     for (const copy of [
       "Preferred export layout",

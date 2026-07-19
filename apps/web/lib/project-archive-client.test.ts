@@ -11,14 +11,15 @@ describe("project archive client", () => {
       projectRevision: "1".repeat(64),
     }, { status: 201 }));
 
-    await expect(requestProjectArchive("project-one", "1".repeat(64), fetcher)).resolves.toMatchObject({
+    const projectETag = `"${"1".repeat(64)}"`;
+    await expect(requestProjectArchive("project-one", projectETag, fetcher)).resolves.toMatchObject({
       filename: "screenshot-studio-project.zip",
       projectRevision: "1".repeat(64),
     });
     expect(fetcher).toHaveBeenCalledWith("/api/project-archive", {
       method: "POST",
       cache: "no-store",
-      headers: { "if-match": `"${"1".repeat(64)}"`, "x-project-id": "project-one" },
+      headers: { "if-match": projectETag, "x-project-id": "project-one" },
     });
   });
 
@@ -47,8 +48,15 @@ describe("project archive client", () => {
   });
 
   it("surfaces API errors", async () => {
-    await expect(requestProjectArchive("project-one", "1".repeat(64), vi.fn(async () => Response.json({
+    await expect(requestProjectArchive("project-one", `"${"1".repeat(64)}"`, vi.fn(async () => Response.json({
       error: "Managed project required",
     }, { status: 409 })))).rejects.toThrow("Managed project required");
+  });
+
+  it("rejects an unquoted or malformed Project revision before requesting an archive", async () => {
+    const fetcher = vi.fn();
+    await expect(requestProjectArchive("project-one", "1".repeat(64), fetcher))
+      .rejects.toThrow(/strong project revision/i);
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

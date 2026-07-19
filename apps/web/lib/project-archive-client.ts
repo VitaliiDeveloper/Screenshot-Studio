@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { isStrongQuotedETag } from "./http-etag.js";
 
 const ARCHIVE_URL_PATTERN = /^\/api\/project-archive\/artifacts\/[A-Za-z0-9_-]{43}$/;
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip";
@@ -25,10 +26,13 @@ export async function requestProjectArchive(
   expectedRevision: string,
   fetcher: ProjectArchiveFetcher = fetch,
 ): Promise<ProjectArchiveTicket> {
+  if (!isStrongQuotedETag(expectedRevision)) {
+    throw new TypeError("Project archive requires one strong Project revision");
+  }
   const response = await fetcher("/api/project-archive", {
     method: "POST",
     cache: "no-store",
-    headers: { "if-match": `"${expectedRevision}"`, "x-project-id": projectId },
+    headers: { "if-match": expectedRevision, "x-project-id": projectId },
   });
   const body = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok) {

@@ -41,7 +41,7 @@
     "test:e2e:export": "vitest run --config vitest.e2e.config.ts e2e/bundle-export.test.ts e2e/ui-export.test.ts e2e/connected-canvas-export.test.ts",
     "test:e2e:editor": "pnpm test:e2e:editor:interaction && pnpm test:e2e:editor:workspace && pnpm test:e2e:editor:authoring",
     "test:e2e:editor:interaction": "vitest run --config vitest.e2e.config.ts e2e/editor.test.ts e2e/left-panel.test.ts e2e/inspector-toolbar.test.ts e2e/editor-history.test.ts e2e/editor-snapping.test.ts",
-    "test:e2e:editor:workspace": "vitest run --config vitest.e2e.config.ts e2e/project-launcher.test.ts e2e/project-creation.test.ts e2e/project-home-round-trip.test.ts e2e/capture-import.test.ts e2e/editor-workspace.test.ts e2e/locale-workspace.test.ts e2e/connected-editor.test.ts e2e/connected-workspace.test.ts",
+    "test:e2e:editor:workspace": "vitest run --config vitest.e2e.config.ts e2e/project-launcher.test.ts e2e/project-creation.test.ts e2e/project-home-round-trip.test.ts e2e/capture-import.test.ts e2e/permanent-project-deletion.test.ts e2e/editor-workspace.test.ts e2e/locale-workspace.test.ts e2e/connected-editor.test.ts e2e/connected-workspace.test.ts",
     "test:e2e:editor:authoring": "vitest run --config vitest.e2e.config.ts e2e/font-management.test.ts e2e/theme-management.test.ts e2e/template-library.test.ts e2e/asset-picker.test.ts e2e/editor-multi-select.test.ts e2e/group-authoring.test.ts e2e/icon-authoring.test.ts e2e/badge-authoring.test.ts e2e/background-authoring.test.ts",
     "test:e2e:accessibility": "vitest run --config vitest.e2e.config.ts e2e/accessibility.test.ts",
     "test:e2e:browsers": "vitest run --config vitest.e2e.config.ts e2e/browser-smoke.test.ts",

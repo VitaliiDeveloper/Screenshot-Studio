@@ -166,6 +166,9 @@ describe("POST /api/project-delete", () => {
     });
 
     expect(deleted.status).toBe(200);
+    expect(deleted.headers.get("set-cookie")).toContain("screenshot_studio_project_session=");
+    expect(deleted.headers.get("set-cookie")).toContain("screenshot_studio_managed_project=");
+    expect(deleted.headers.get("set-cookie")).toContain("Max-Age=0");
     expect(await deleted.json()).toEqual({ operationId: OPERATION_ID, status: "deleted-complete" });
     expect(registry.peek(session.descriptor.sessionId)).toBeUndefined();
     await expect(repository.open(project.id)).rejects.toBeInstanceOf(ManagedProjectNotFoundError);
@@ -296,6 +299,8 @@ describe("POST /api/project-delete", () => {
     });
 
     expect(response.status).toBe(202);
+    expect(response.headers.get("set-cookie")).toContain("screenshot_studio_project_session=");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
     const body = await response.json();
     expect(body).toEqual({
       operationId: OPERATION_ID,

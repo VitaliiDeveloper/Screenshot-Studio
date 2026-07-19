@@ -13,10 +13,19 @@ export type ProjectDeletionResult =
   | { operationId: string; status: ProjectDeletionStatus }
   | { status: "expired-or-unknown" };
 
+export type ProjectDeletionRetryResult =
+  | {
+    kind: "accepted";
+    result: Exclude<ProjectDeletionResult, { status: "expired-or-unknown" }>;
+  }
+  | { kind: "unknown-after-admission" };
+
 export interface ProjectDeletionCredentials {
   operationId: string;
   statusSecret: string;
 }
+
+export type ProjectDeletionRandomBytes = (length: number) => Uint8Array;
 
 export interface ProjectDeletionRequest extends ProjectDeletionCredentials {
   projectId: string;
@@ -28,6 +37,15 @@ export interface ProjectDeletionRequest extends ProjectDeletionCredentials {
     | { kind: "archive"; projectRevision: string };
 }
 
+export interface ProjectDeletionAttempt {
+  request: ProjectDeletionRequest;
+  admitted: boolean;
+}
+
+export type ProjectDeletionAttemptResult =
+  | { kind: "verified" }
+  | { kind: "unknown-after-admission" };
+
 export type ProjectDeletionFetcher = (
   input: string,
   init?: RequestInit,
@@ -37,6 +55,30 @@ function validateCredentials(input: ProjectDeletionCredentials): void {
   if (!OPERATION_ID_PATTERN.test(input.operationId) || !SECRET_PATTERN.test(input.statusSecret)) {
     throw new TypeError("Invalid project deletion credentials");
   }
+}
+
+function secureRandomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+function hex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export function createProjectDeletionCredentials(
+  randomBytes: ProjectDeletionRandomBytes = secureRandomBytes,
+): ProjectDeletionCredentials {
+  const operationBytes = randomBytes(16);
+  const secretBytes = randomBytes(32);
+  if (operationBytes.byteLength !== 16 || secretBytes.byteLength !== 32) {
+    throw new TypeError("Project deletion credential generator returned invalid bytes");
+  }
+  return {
+    operationId: `operation_${hex(operationBytes)}`,
+    statusSecret: hex(secretBytes),
+  };
 }
 
 function parseResult(
@@ -119,4 +161,74 @@ export async function requestProjectDeletionStatus(
       : `Deletion status failed (${response.status})`);
   }
   return parseResult(body, credentials.operationId, false);
+}
+
+export async function retryProjectDeletion(
+  input: ProjectDeletionRequest,
+  admitted: boolean,
+  fetcher: ProjectDeletionFetcher = fetch,
+): Promise<ProjectDeletionRetryResult> {
+  const recovered = await requestProjectDeletionStatus(input, fetcher);
+  if (recovered.status !== "expired-or-unknown") {
+    return { kind: "accepted", result: recovered };
+  }
+  if (admitted) return { kind: "unknown-after-admission" };
+  return {
+    kind: "accepted",
+    result: await requestProjectDeletion(input, fetcher),
+  };
+}
+
+export async function settleProjectDeletion(
+  credentials: ProjectDeletionCredentials,
+  initial: Exclude<ProjectDeletionResult, { status: "expired-or-unknown" }>,
+  dependencies: {
+    fetcher?: ProjectDeletionFetcher;
+    wait?: (milliseconds: number) => Promise<void>;
+    maxAttempts?: number;
+  } = {},
+): Promise<Exclude<ProjectDeletionResult, { status: "expired-or-unknown" | "in-progress" }>> {
+  if (initial.status !== "in-progress") return initial;
+  const maxAttempts = dependencies.maxAttempts ?? 12;
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts <= 0 || maxAttempts > 60) {
+    throw new TypeError("Invalid project deletion status attempt limit");
+  }
+  const wait = dependencies.wait ?? ((milliseconds) => new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  }));
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await wait(250);
+    const result = await requestProjectDeletionStatus(credentials, dependencies.fetcher);
+    if (result.status === "expired-or-unknown") {
+      throw new Error("Permanent deletion could not be verified; reload App Home before trying again");
+    }
+    if (result.status !== "in-progress") return result;
+  }
+  throw new Error("Permanent deletion is still in progress; retry its status shortly");
+}
+
+export async function advanceProjectDeletionAttempt(
+  attempt: ProjectDeletionAttempt,
+  recovering: boolean,
+  dependencies: {
+    fetcher?: ProjectDeletionFetcher;
+    wait?: (milliseconds: number) => Promise<void>;
+    maxAttempts?: number;
+  } = {},
+): Promise<ProjectDeletionAttemptResult> {
+  let initial: Exclude<ProjectDeletionResult, { status: "expired-or-unknown" }>;
+  if (recovering) {
+    const recovered = await retryProjectDeletion(
+      attempt.request,
+      attempt.admitted,
+      dependencies.fetcher,
+    );
+    if (recovered.kind === "unknown-after-admission") return recovered;
+    initial = recovered.result;
+  } else {
+    initial = await requestProjectDeletion(attempt.request, dependencies.fetcher);
+  }
+  attempt.admitted = true;
+  await settleProjectDeletion(attempt.request, initial, dependencies);
+  return { kind: "verified" };
 }

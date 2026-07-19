@@ -105,6 +105,18 @@ Capture discovery/path safety, deterministic plans and fresh ids, current-projec
 fences, atomic rollback/recovery, managed staging/catalog cleanup, API failure branches, and CLI parity
 stay in focused core/CLI/web tests.
 
+Launcher 7 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves the visible
+archive-before-delete choice, exact irreversible confirmation, keyboard focus restoration, one
+destructive request, App Home handoff, cleared session, managed-directory removal, and preservation
+of the imported local source:
+
+```bash
+pnpm exec vitest run --config vitest.e2e.config.ts e2e/permanent-project-deletion.test.ts
+```
+
+Operation idempotency, lifecycle/version fences, save draining, containment and symlink rejection,
+failure injection, tombstone recovery, and restart reconciliation stay in focused `test:web` tests.
+
 ## Cost rules
 
 - Do not run browser E2E for pure fixture assertions, calculations, or schema/model branches with a

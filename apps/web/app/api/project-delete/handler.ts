@@ -19,6 +19,7 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
+import { expiredProjectSessionResponseHeaders } from "../project-session/handler.js";
 
 const MAX_DELETE_REQUEST_BYTES = 2_048;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -167,6 +168,20 @@ function publicStatus(evidence: ManagedProjectDeletionEvidence):
   return "deleted-complete";
 }
 
+function acceptedDeletionResponse(
+  request: Request,
+  operationId: string,
+  evidence: ManagedProjectDeletionEvidence,
+): Response {
+  return Response.json({
+    operationId,
+    status: publicStatus(evidence),
+  }, {
+    status: evidence.state === "complete" ? 200 : 202,
+    headers: expiredProjectSessionResponseHeaders(request),
+  });
+}
+
 function deletionFailureResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : "";
   if (/project revision/i.test(message)) {
@@ -248,10 +263,7 @@ export async function handleProjectDeletePost(
       };
       try {
         const evidence = await resolved.lifecycle.permanentlyDelete(deletionInput, lifecycleLock);
-        return Response.json({
-          operationId: parsed.operationId,
-          status: publicStatus(evidence),
-        }, { headers: { "cache-control": "no-store" } });
+        return acceptedDeletionResponse(request, parsed.operationId, evidence);
       } catch (error) {
         let evidence: ManagedProjectDeletionEvidence | undefined;
         try {
@@ -263,13 +275,7 @@ export async function handleProjectDeletePost(
           return errorResponse(500, "Permanent deletion status is temporarily unavailable", "internal");
         }
         if (evidence) {
-          return Response.json({
-            operationId: parsed.operationId,
-            status: publicStatus(evidence),
-          }, {
-            status: evidence.state === "complete" ? 200 : 202,
-            headers: { "cache-control": "no-store" },
-          });
+          return acceptedDeletionResponse(request, parsed.operationId, evidence);
         }
         return deletionFailureResponse(error);
       }
