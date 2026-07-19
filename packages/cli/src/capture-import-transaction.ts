@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { dirname, posix } from "node:path";
 import {
   applyCaptureImportPlan,
+  assertCaptureImportConfirmation,
+  assertCaptureImportNotCancelled,
   planCaptureImport,
   type CaptureImportDiscovery,
   type CaptureImportPlan,
@@ -75,10 +77,6 @@ function stageRelativePath(relativePath: string, token: string): string {
   return directory === "." ? name : posix.join(directory, name);
 }
 
-function throwIfCancelled(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new Error("Capture import was cancelled");
-}
-
 function ownershipStrings(ownership: { device: bigint; inode: bigint; revision: string }) {
   return {
     device: ownership.device.toString(),
@@ -92,6 +90,7 @@ export async function applyCaptureImportToProject(input: {
   expectedRevision?: string;
   discovery: CaptureImportDiscovery;
   layoutId: string;
+  confirmationFingerprint?: string;
   signal?: AbortSignal;
 }, dependencies: CaptureImportTransactionDependencies = {}): Promise<ApplyCaptureImportResult> {
   const canonicalPath = await resolveExistingProjectPath(input.projectPath);
@@ -105,7 +104,7 @@ export async function applyCaptureImportToProject(input: {
 
   return withProjectMutation(canonicalPath, async () => {
     await reconcileCaptureImport(canonicalPath);
-    throwIfCancelled(input.signal);
+    assertCaptureImportNotCancelled(input.signal);
     const current = await readIdentifiedProjectSnapshot(canonicalPath, dependencies.fileDependencies);
     if (input.expectedRevision !== undefined && input.expectedRevision !== current.revision) {
       throw new ProjectRevisionConflictError(input.expectedRevision, current.revision);
@@ -116,6 +115,9 @@ export async function applyCaptureImportToProject(input: {
       destinationKind: "current-project",
       discovery: input.discovery,
     });
+    if (input.confirmationFingerprint !== undefined) {
+      assertCaptureImportConfirmation(plan, input.confirmationFingerprint);
+    }
     const applied = applyCaptureImportPlan(current.project, plan);
     const expectedRevision = projectRevision(serializeProject(applied.project));
     const intent: CaptureImportIntent = {
@@ -148,7 +150,7 @@ export async function applyCaptureImportToProject(input: {
       await writeCaptureImportIntent(intent, intentPersistence);
       await boundary("intent-prepared");
       for (let index = 0; index < applied.resources.length; index += 1) {
-        throwIfCancelled(input.signal);
+        assertCaptureImportNotCancelled(input.signal);
         const resource = applied.resources[index]!;
         const intentResource = intent.resources[index]!;
         const prepared = await prepareFilePublication({
@@ -179,7 +181,7 @@ export async function applyCaptureImportToProject(input: {
       intent.phase = "resources-published";
       await writeCaptureImportIntent(intent, intentPersistence);
       await boundary("resources-published");
-      throwIfCancelled(input.signal);
+      assertCaptureImportNotCancelled(input.signal);
       const persisted = await writeProjectConditionalAtomic(
         canonicalPath,
         applied.project,

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { Project, type Project as ProjectModel } from "../model/index.js";
 import {
   applyCaptureImportPlan,
+  assertCaptureImportConfirmation,
   discoverCaptureImport,
   planCaptureImport,
   type CaptureImportInputFile,
@@ -192,6 +193,19 @@ describe("discoverCaptureImport", () => {
 });
 
 describe("planCaptureImport", () => {
+  it("accepts only the exact server-planned confirmation fingerprint", () => {
+    const plan = planCaptureImport({
+      project: sampleProject(),
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files: [file("apple/iphone/en/01.png")] }),
+    });
+
+    expect(() => assertCaptureImportConfirmation(plan, plan.confirmationFingerprint)).not.toThrow();
+    expect(() => assertCaptureImportConfirmation(plan, "0".repeat(64))).toThrow(/preview changed/i);
+    expect(() => assertCaptureImportConfirmation(plan, undefined)).toThrow(/preview changed/i);
+  });
+
   it("previews the explicit receiver with deterministic fresh IDs, paths, and a strict Project", () => {
     const project = sampleProject();
     const discovery = discoverCaptureImport({

@@ -8,7 +8,10 @@ import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { ManagedProjectCreationService } from "./managed-project-creation.server.js";
 import { ManagedProjectRepository } from "./managed-project-repository.server.js";
-import { createManagedProjectFromCaptureImport } from "./managed-capture-import.server.js";
+import {
+  createManagedProjectFromCaptureImport,
+  previewManagedProjectCaptureImport,
+} from "./managed-capture-import.server.js";
 
 const roots: string[] = [];
 const specs = parseStoreSpecs({
@@ -35,6 +38,40 @@ async function setup() {
 }
 
 describe("createManagedProjectFromCaptureImport", () => {
+  it("previews without staging or catalog writes and requires that exact confirmation on apply", async () => {
+    const { repository, service } = await setup();
+    const png = new Uint8Array(await readFile(new URL(
+      "../../../fixtures/regressions/screenshot-parity/assets/shot.png",
+      import.meta.url,
+    )));
+    const discovery = discoverCaptureImport({
+      files: [{ relativePath: "apple/iphone/en/01.png", bytes: png }],
+    });
+    const scaffoldInput = {
+      name: "Preview only", platform: "apple", layoutMode: "isolated", templateId: null,
+    } as const;
+    const createStage = vi.spyOn(repository, "createStage");
+
+    const preview = await previewManagedProjectCaptureImport({
+      scaffoldInput, discovery, creationService: service,
+    });
+
+    expect(preview.receiving).toMatchObject({
+      kind: "new-project", projectName: "Preview only", layoutId: "default",
+    });
+    expect(createStage).not.toHaveBeenCalled();
+    await expect(repository.list()).resolves.toEqual([]);
+
+    await expect(createManagedProjectFromCaptureImport({
+      scaffoldInput,
+      discovery,
+      confirmationFingerprint: "0".repeat(64),
+      creationService: service,
+    })).rejects.toThrow(/preview changed/i);
+    expect(createStage).not.toHaveBeenCalled();
+    await expect(repository.list()).resolves.toEqual([]);
+  });
+
   it("replaces only starter screens and publishes once through the creation seam", async () => {
     const { repository, service } = await setup();
     const png = new Uint8Array(await readFile(new URL(

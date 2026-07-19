@@ -92,6 +92,22 @@ describe("capture import transaction", () => {
     await expect(readFile(captureImportIntentPath(input.projectPath))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("rejects a changed preview confirmation before resource or intent publication", async () => {
+    const input = await setup();
+
+    await expect(applyCaptureImportToProject({
+      projectPath: input.projectPath,
+      expectedRevision: input.revision,
+      confirmationFingerprint: "0".repeat(64),
+      discovery: input.discovery,
+      layoutId: "default",
+    })).rejects.toThrow(/preview changed/i);
+
+    expect(await readFile(input.projectPath, "utf8")).toBe(serializeProject(project()));
+    await expect(readdir(join(input.root, "assets"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(captureImportIntentPath(input.projectPath))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("rolls published resources back when the conditional Project write fails", async () => {
     const input = await setup();
 

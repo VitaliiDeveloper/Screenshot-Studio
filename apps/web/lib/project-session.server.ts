@@ -193,6 +193,10 @@ export class ProjectSessionRegistry {
     return session;
   }
 
+  peek(sessionId: string): ProjectSession | undefined {
+    return this.#byId.get(sessionId);
+  }
+
   close(sessionId: string, projectId: string): boolean {
     const session = this.#byId.get(sessionId);
     if (!session || session.projectId !== projectId) return false;
@@ -343,5 +347,17 @@ export async function withActiveProjectSession(
   } catch (error) {
     return projectSessionErrorResponse(error);
   }
+  return operation(session);
+}
+
+export async function withExistingProjectSessionReadOnly(
+  request: Pick<Request, "headers"> | undefined,
+  operation: (session: ProjectSession) => Promise<Response>,
+  dependencies: ActiveProjectResolverDependencies = {},
+): Promise<Response> {
+  const registry = dependencies.registry ?? projectSessionRegistry;
+  const sessionId = sessionIdFromRequest(request);
+  const session = sessionId ? registry.peek(sessionId) : undefined;
+  if (!session) return projectSessionErrorResponse(new NoActiveProjectError());
   return operation(session);
 }

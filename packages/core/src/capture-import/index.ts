@@ -140,6 +140,35 @@ export interface CaptureImportPlan {
   baseProjectFingerprint: string;
 }
 
+export class CaptureImportConfirmationError extends Error {
+  override name = "CaptureImportConfirmationError";
+
+  constructor() {
+    super("Capture import preview changed; preview again before applying");
+  }
+}
+
+export class CaptureImportCancelledError extends Error {
+  override name = "CaptureImportCancelledError";
+
+  constructor() {
+    super("Capture import was cancelled");
+  }
+}
+
+export function assertCaptureImportNotCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new CaptureImportCancelledError();
+}
+
+export function assertCaptureImportConfirmation(
+  plan: Pick<CaptureImportPlan, "confirmationFingerprint">,
+  confirmationFingerprint: string | undefined,
+): void {
+  if (confirmationFingerprint !== plan.confirmationFingerprint) {
+    throw new CaptureImportConfirmationError();
+  }
+}
+
 function digest(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
