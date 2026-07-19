@@ -207,12 +207,40 @@ export class ProjectSessionRegistry {
     return this.#byId.get(sessionId);
   }
 
+  async revalidateManagedSession(session: ProjectSession, touch = true): Promise<ProjectSession> {
+    if (session.descriptor.sourceKind !== "managed-project") return session;
+    try {
+      const opened = await this.#managedSource.open(session.projectId);
+      if (opened.projectId !== session.projectId) throw new Error("Managed project identity changed");
+      session.projectPath = opened.projectPath;
+      session.descriptor.name = opened.name;
+      session.descriptor.lifecycleRevision = opened.lifecycleRevision;
+      session.descriptor.capabilities = opened.capabilities;
+      if (touch) this.#touch(session);
+      return session;
+    } catch (error) {
+      this.invalidateManagedProject(session.projectId);
+      throw error;
+    }
+  }
+
   close(sessionId: string, projectId: string): boolean {
     const session = this.#byId.get(sessionId);
     if (!session || session.projectId !== projectId) return false;
     this.#byId.delete(sessionId);
     this.#bySourceKey.delete(`${session.descriptor.sourceKind}:${session.projectId}`);
     return true;
+  }
+
+  invalidateManagedProject(projectId: string): number {
+    let removed = 0;
+    for (const [sessionId, session] of this.#byId) {
+      if (session.descriptor.sourceKind !== "managed-project" || session.projectId !== projectId) continue;
+      this.#byId.delete(sessionId);
+      this.#bySourceKey.delete(`managed-project:${projectId}`);
+      removed += 1;
+    }
+    return removed;
   }
 
   #touch(session: ProjectSession): void {
@@ -318,7 +346,15 @@ export async function resolveActiveProjectSession(
   const registry = dependencies.registry ?? projectSessionRegistry;
   const sessionId = sessionIdFromRequest(request);
   const selected = sessionId ? registry.get(sessionId) : undefined;
-  if (selected) return selected;
+  if (selected) {
+    if (selected.descriptor.sourceKind !== "managed-project") return selected;
+    try {
+      return await registry.revalidateManagedSession(selected);
+    } catch (error) {
+      if (error instanceof ManagedProjectNotFoundError) throw new NoActiveProjectError();
+      throw new ManagedProjectRecoveryError(error);
+    }
+  }
   const managedProjectId = managedProjectIdFromRequest(request);
   if (managedProjectId) {
     try {
@@ -369,5 +405,12 @@ export async function withExistingProjectSessionReadOnly(
   const sessionId = sessionIdFromRequest(request);
   const session = sessionId ? registry.peek(sessionId) : undefined;
   if (!session) return projectSessionErrorResponse(new NoActiveProjectError());
-  return operation(session);
+  if (session.descriptor.sourceKind !== "managed-project") return operation(session);
+  try {
+    return operation(await registry.revalidateManagedSession(session, false));
+  } catch (error) {
+    return projectSessionErrorResponse(
+      error instanceof ManagedProjectNotFoundError ? new NoActiveProjectError() : new ManagedProjectRecoveryError(error),
+    );
+  }
 }

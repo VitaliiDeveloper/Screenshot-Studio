@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ManagedProjectNotFoundError } from "./managed-project-repository.server.js";
 import {
+  ManagedProjectSourceAdapter,
   NoActiveProjectError,
   ProjectSessionRegistry,
   resolveActiveProjectSession,
@@ -97,6 +98,52 @@ function createStubManagedSource() {
 }
 
 describe("ProjectSessionRegistry", () => {
+  it("invalidates a cached managed session after its repository entry is trashed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "project-session-trash-"));
+    temporaryRoots.push(root);
+    const { resolveManagedProjectStorageConfig } = await import("./managed-project-config.server.js");
+    const { ManagedProjectRepository } = await import("./managed-project-repository.server.js");
+    const repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({
+      SCREENSHOT_STUDIO_DATA_ROOT: root,
+    }));
+    const stage = await repository.createStage();
+    await writeFile(join(stage.path, "app-store-screenshots.json"), JSON.stringify({
+      meta: { name: "Managed", schemaVersion: 1 }, fonts: [], preferredExportLayoutId: "primary",
+      layouts: [{ id: "primary", name: "Primary", mode: "isolated", screens: [{
+        id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+        artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [],
+      }] }],
+    }));
+    const project = await repository.publishStage({ token: stage.token });
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "managed-session",
+      managedSource: new ManagedProjectSourceAdapter(repository),
+    });
+    const session = await registry.openManaged(project.id);
+    await repository.moveToTrash(project.id, 1);
+
+    await expect(resolveActiveProjectSession(new Request("http://localhost", {
+      headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` },
+    }), { registry, configuredPath: () => null })).rejects.toBeInstanceOf(NoActiveProjectError);
+    expect(registry.peek(session.descriptor.sessionId)).toBeUndefined();
+  });
+
+  it("invalidates only managed sessions for a trashed opaque project id", async () => {
+    let nextSession = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSession}`,
+      localSource: createStubLocalSource(),
+      managedSource: createStubManagedSource(),
+    });
+    const managed = await registry.openManaged("project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    const local = await registry.openLocal("local-project");
+
+    expect(registry.invalidateManagedProject(managed.projectId)).toBe(1);
+    expect(registry.peek(managed.descriptor.sessionId)).toBeUndefined();
+    expect(registry.peek(local.descriptor.sessionId)).toBe(local);
+    expect(registry.invalidateManagedProject(managed.projectId)).toBe(0);
+  });
+
   it("rehydrates a managed session from its recovery hint after registry loss", async () => {
     const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const managedSource = createStubManagedSource();

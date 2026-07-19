@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
 import { isStrongQuotedETag } from "./http-etag.js";
+import { withManagedProjectMutationGuard } from "./managed-project-mutation-guard.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   withActiveProjectSession,
   withExistingProjectSessionReadOnly,
@@ -17,6 +19,10 @@ type ProjectVersionedRequestOperation = (
   session: LocalProjectSession,
   expectedRevision: string,
 ) => Promise<Response> | Response;
+
+export interface ProjectMutationRequestDependencies extends ActiveProjectResolverDependencies {
+  managedStorageConfig?: ManagedProjectStorageConfig;
+}
 
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
@@ -87,7 +93,7 @@ export function withProjectVersionedReadRequest(
 export function withProjectMutationRequest(
   req: Request,
   operation: ProjectVersionedRequestOperation,
-  dependencies: ActiveProjectResolverDependencies = {},
+  dependencies: ProjectMutationRequestDependencies = {},
 ): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
@@ -96,7 +102,11 @@ export function withProjectMutationRequest(
     const expectedRevision = expectedRevisionResponse(req);
     return expectedRevision instanceof Response
       ? expectedRevision
-      : operation(session, expectedRevision);
+      : withManagedProjectMutationGuard(
+        session,
+        () => Promise.resolve(operation(session, expectedRevision)),
+        { config: dependencies.managedStorageConfig },
+      );
   }, dependencies);
 }
 

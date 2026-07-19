@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
+import { open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { lock as acquireFileLock } from "proper-lockfile";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { ensureManagedStorageRoot } from "./managed-project-lifecycle-lock.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -386,7 +387,7 @@ export class ManagedProjectCatalogStore {
   }
 
   async #withLock<T>(operation: () => Promise<T>): Promise<T> {
-    await mkdir(this.config.root, { recursive: true, mode: 0o700 });
+    await ensureManagedStorageRoot(this.config);
     const release = await acquireFileLock(this.config.root, {
       lockfilePath: join(this.config.root, ".catalog.lock"),
       realpath: true,

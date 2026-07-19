@@ -9,6 +9,32 @@ import { POST } from "./route.js";
 
 let root: string;
 
+function managedRegistry() {
+  return new ProjectSessionRegistry({
+    createSessionId: () => "managed-session",
+    managedSource: {
+      kind: "managed-project",
+      open: vi.fn(async (projectId: string) => ({
+        name: "Managed",
+        projectId,
+        projectPath: "/private/managed/app-store-screenshots.json",
+        lifecycleRevision: 1,
+        capabilities: {
+          writeInPlace: true,
+          revealLocation: false,
+          watchExternalChanges: false,
+          nativePicker: false,
+          projectLocalResources: true,
+          exportProjectArchive: true,
+          trashProject: true,
+          restoreProject: false,
+          purgeProject: false,
+        },
+      })),
+    },
+  });
+}
+
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "project-archive-route-"));
 });
@@ -19,7 +45,7 @@ afterEach(async () => {
 
 describe("POST /api/project-archive", () => {
   it("creates a separate archive ticket for an active managed project and disposes the source", async () => {
-    const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session" });
+    const registry = managedRegistry();
     const session = registry.openManagedRecord({
       id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       name: "Managed",
@@ -66,7 +92,7 @@ describe("POST /api/project-archive", () => {
   });
 
   it("requires the Project Home identity and rejects a stale project before archiving", async () => {
-    const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session" });
+    const registry = managedRegistry();
     const session = registry.openManagedRecord({
       id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       name: "Managed",
@@ -133,7 +159,7 @@ describe("POST /api/project-archive", () => {
   });
 
   it("disposes a generated temporary archive when artifact staging fails", async () => {
-    const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session" });
+    const registry = managedRegistry();
     const session = registry.openManagedRecord({
       id: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       name: "Managed",

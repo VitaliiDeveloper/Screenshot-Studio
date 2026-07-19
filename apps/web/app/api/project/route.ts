@@ -10,6 +10,7 @@ import {
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "@screenshot-studio/cli/capture-import-recovery";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import { withManagedProjectMutationGuard } from "@web/lib/managed-project-mutation-guard.server.js";
 import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 /**
@@ -73,7 +74,8 @@ export async function PUT(req: Request): Promise<Response> {
     return Response.json({ error: "If-Match must be one strong quoted ETag" }, { status: 400 });
   }
 
-  return withActiveProjectSession(req, async ({ projectId, projectPath }) => {
+  return withActiveProjectSession(req, async (session) => {
+    const { projectId, projectPath } = session;
     const expectedProjectId = req.headers.get("x-project-id")?.trim();
     if (!expectedProjectId) {
       return Response.json(
@@ -96,7 +98,7 @@ export async function PUT(req: Request): Promise<Response> {
     }
 
     try {
-      return await withProjectMutation(projectPath, async () => {
+      return await withManagedProjectMutationGuard(session, () => withProjectMutation(projectPath, async () => {
         await reconcileCaptureImport(projectPath);
         const current = await readIdentifiedProjectSnapshot(projectPath);
         const actualRevision = quotedRevision(current.revision);
@@ -108,7 +110,7 @@ export async function PUT(req: Request): Promise<Response> {
         return Response.json(persisted.project, {
           headers: { etag: quotedRevision(persisted.revision) },
         });
-      });
+      }));
     } catch (error) {
       return projectWriteErrorResponse(error);
     }

@@ -426,5 +426,8 @@ export async function handleCaptureImportApplyPost(
     } catch (error) {
       return routeError(error);
     }
-  }, { registry: resolved.registry });
+  }, {
+    registry: resolved.registry,
+    managedStorageConfig: resolved.repository.config,
+  });
 }

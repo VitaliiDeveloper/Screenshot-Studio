@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -192,6 +192,19 @@ describe("parseManagedProjectCatalog", () => {
 });
 
 describe("ManagedProjectCatalogStore", () => {
+  it("rejects a symlinked configured root before creating catalog state in its target", async () => {
+    const container = await mkdtemp(join(tmpdir(), "managed-project-catalog-root-"));
+    temporaryRoots.push(container);
+    const outside = join(container, "outside");
+    const declared = join(container, "declared");
+    await mkdir(outside);
+    await symlink(outside, declared);
+    const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: declared });
+
+    await expect(new ManagedProjectCatalogStore(config).read()).rejects.toThrow(/storage root/i);
+    await expect(readdir(outside)).resolves.toEqual([]);
+  });
+
   it("atomically persists a version-one migration on first read", async () => {
     const config = await storageConfig();
     await writeFile(config.catalogPath, `${JSON.stringify({ version: 1, entries: [catalogEntry()] })}\n`);

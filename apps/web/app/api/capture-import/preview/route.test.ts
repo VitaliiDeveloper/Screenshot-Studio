@@ -7,14 +7,16 @@ import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { type Project } from "@screenshot-studio/core/model";
 import { projectRevision, serializeProject } from "@screenshot-studio/core/storage";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/project-session.server.js";
 import { handleCaptureImportPreviewPost } from "../handler.js";
 import { POST } from "./route.js";
 
 let root: string;
 let projectPath: string;
+let projectDirectory: string;
 let revision: string;
 let repository: ManagedProjectRepository;
 let creationService: ManagedProjectCreationService;
@@ -82,23 +84,39 @@ function captureRequest(input: {
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "capture-preview-route-"));
-  projectPath = join(root, "current", "app-store-screenshots.json");
-  await import("node:fs/promises").then(({ mkdir }) => mkdir(join(root, "current"), { recursive: true }));
-  const bytes = serializeProject(currentProject());
-  await writeFile(projectPath, bytes);
-  revision = projectRevision(bytes);
-  repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({
+  const config = resolveManagedProjectStorageConfig({
     SCREENSHOT_STUDIO_DATA_ROOT: join(root, "managed"),
     SCREENSHOT_STUDIO_MAX_PROJECT_FILES: "20",
     SCREENSHOT_STUDIO_MAX_PROJECT_BYTES: "10000000",
     SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES: "10000000",
-  }));
+  });
+  repository = new ManagedProjectRepository(config);
+  await repository.initialize();
+  projectDirectory = join(config.projectsRoot, projectId);
+  await mkdir(projectDirectory);
+  projectPath = join(projectDirectory, "app-store-screenshots.json");
+  const bytes = serializeProject(currentProject());
+  await writeFile(projectPath, bytes);
+  revision = projectRevision(bytes);
+  const timestamp = "2026-07-19T00:00:00.000Z";
+  await new ManagedProjectCatalogStore(config).insert({
+    id: projectId,
+    directoryName: projectId,
+    name: "Current receiver",
+    lifecycle: "active",
+    lifecycleRevision: 1,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
   creationService = new ManagedProjectCreationService(repository, { storeSpecs: specs });
-  registry = new ProjectSessionRegistry({ createSessionId: () => "current-session" });
+  registry = new ProjectSessionRegistry({
+    createSessionId: () => "current-session",
+    managedSource: new ManagedProjectSourceAdapter(repository),
+  });
   sessionId = registry.openManagedRecord({
     id: projectId,
     name: "Current receiver",
-    projectDirectory: join(root, "current"),
+    projectDirectory,
     projectPath,
     lifecycleRevision: 1,
   }).descriptor.sessionId;
@@ -140,12 +158,32 @@ describe("POST /api/capture-import/preview", () => {
     expect(firstBody.preview).not.toHaveProperty("targetRevision");
     expect(first.headers.get("set-cookie")).toBeNull();
     expect(await readFile(projectPath)).toEqual(before);
-    await expect(repository.list()).resolves.toEqual([]);
+    await expect(repository.list()).resolves.toHaveLength(1);
+  });
+
+  it("rejects a cached current-project preview after the managed project is trashed", async () => {
+    const request = captureRequest({ destinationKind: "current-project" });
+    await repository.moveToTrash(projectId, 1);
+
+    const response = await handleCaptureImportPreviewPost(request, {
+      repository,
+      creationService,
+      registry,
+    });
+
+    expect(response.status).toBe(409);
+    expect(registry.peek(sessionId)).toBeUndefined();
+    const trashedProject = await readFile(join(
+      repository.config.trashRoot,
+      projectId,
+      "app-store-screenshots.json",
+    ), "utf8");
+    expect(JSON.parse(trashedProject)).toMatchObject({ meta: { name: "Current receiver" } });
   });
 
   it("shows an existing receiver-resource mismatch as invalid before confirmation", async () => {
-    const assetPath = join(root, "current", "assets", "icons", "product.png");
-    await mkdir(join(root, "current", "assets", "icons"), { recursive: true });
+    const assetPath = join(projectDirectory, "assets", "icons", "product.png");
+    await mkdir(join(projectDirectory, "assets", "icons"), { recursive: true });
     await writeFile(assetPath, "receiver bytes");
     const beforeProject = await readFile(projectPath);
 
@@ -180,8 +218,8 @@ describe("POST /api/capture-import/preview", () => {
       preview: { receiving: { kind: "new-project", projectName: "New receiver", layoutId: "default" } },
     });
     expect(createStage).not.toHaveBeenCalled();
-    await expect(access(repository.config.root)).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(repository.list()).resolves.toEqual([]);
+    await expect(access(repository.config.stagingRoot)).resolves.toBeUndefined();
+    await expect(repository.list()).resolves.toHaveLength(1);
   });
 
   it("rejects missing, stale, or cross-project current target fences before reading a plan", async () => {
@@ -204,11 +242,12 @@ describe("POST /api/capture-import/preview", () => {
     let lruIndex = 0;
     const lruRegistry = new ProjectSessionRegistry({
       createSessionId: () => `lru-session-${lruIndex++}`,
+      managedSource: new ManagedProjectSourceAdapter(repository),
     });
     const lruSessionId = lruRegistry.openManagedRecord({
       id: projectId,
       name: "Current receiver",
-      projectDirectory: join(root, "current"),
+      projectDirectory,
       projectPath,
       lifecycleRevision: 1,
     }).descriptor.sessionId;
@@ -357,7 +396,7 @@ describe("POST /api/capture-import/preview", () => {
     expect(misaligned.status).toBe(400);
     expect(missingTemplate.status).toBe(400);
     expect(overLimit.status).toBe(413);
-    await expect(repository.list()).resolves.toEqual([]);
+    await expect(repository.list()).resolves.toHaveLength(1);
   });
 
   it("wires the dedicated preview route", () => {
