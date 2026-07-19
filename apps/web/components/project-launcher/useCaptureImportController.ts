@@ -111,6 +111,16 @@ function isCancellation(error: unknown): boolean {
       && (error.code === "cancelled" || error.status === 499));
 }
 
+export function captureImportApplyFailureAction(error: unknown): CaptureImportAction {
+  return isCancellation(error)
+    ? { type: "cancelled", phase: "apply" }
+    : {
+        type: "failed",
+        message: error instanceof Error ? error.message : String(error),
+        staleTarget: true,
+      };
+}
+
 export function useCaptureImportController({
   currentTarget,
   activateNewProject = directActivation,
@@ -201,13 +211,7 @@ export function useCaptureImportController({
       dispatch({ type: "complete" });
     }).catch((error: unknown) => {
       if (!mountedRef.current || controllerRef.current !== controller) return;
-      dispatch(isCancellation(error)
-        ? { type: "cancelled", phase: "apply" }
-        : {
-            type: "failed",
-            message: error instanceof Error ? error.message : String(error),
-            staleTarget: isStaleCaptureImportError(error),
-          });
+      dispatch(captureImportApplyFailureAction(error));
     }).finally(() => {
       if (controllerRef.current === controller) controllerRef.current = null;
     });

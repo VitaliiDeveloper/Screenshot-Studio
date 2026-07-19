@@ -147,6 +147,8 @@ describe("CaptureImportDialog", () => {
     expect(errorMarkup).toContain('role="alert"');
     expect(errorMarkup).not.toContain("Preview again");
     expect(errorMarkup).toContain("Reload active project");
+    expect(errorMarkup).toMatch(/aria-label="Close capture import"[^>]*disabled/);
+    expect(errorMarkup).not.toMatch(/>Close<\/button>/);
 
     const recoveringMarkup = render({
       status: "error", draft, preview, message: "Checking active project", staleTarget: true,

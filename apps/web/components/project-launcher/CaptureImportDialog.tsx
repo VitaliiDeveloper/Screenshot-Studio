@@ -154,6 +154,7 @@ export function CaptureImportDialog({
   onRecoverStale,
 }: CaptureImportDialogProps) {
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const requiresRecovery = state.status === "error" && state.staleTarget;
   const recovering = state.status === "error" && state.recovering === true;
   const busy = state.status === "previewing" || state.status === "applying" || recovering;
   const chooseFolder = (event: ChangeEvent<HTMLInputElement>) => {
@@ -170,7 +171,7 @@ export function CaptureImportDialog({
       description="Discover local PNG captures and related assets, choose an explicit receiver, preview every planned change, then confirm. This does not import a complete project."
       onClose={onClose}
       closeLabel="Close capture import"
-      closeDisabled={busy}
+      closeDisabled={busy || requiresRecovery}
       initialFocus="heading"
       widthClass="max-w-5xl"
       bodyClassName="p-4 sm:p-6"
@@ -289,7 +290,7 @@ export function CaptureImportDialog({
         <div className="space-y-5">
           <div role="alert" className={editorUi.statusError}><p className="font-semibold">Capture import could not be completed</p><p className="mt-1">{state.message}</p>{state.staleTarget ? <p className="mt-2">The active project or revision changed. Reload it before previewing again.</p> : null}</div>
           <div className="flex flex-wrap justify-end gap-3">
-            <button type="button" className={editorUi.buttonSecondary} disabled={recovering} onClick={onClose}>Close</button>
+            {state.staleTarget ? null : <button type="button" className={editorUi.buttonSecondary} onClick={onClose}>Close</button>}
             {state.staleTarget ? <button type="button" className={editorUi.buttonPrimary} disabled={recovering} onClick={onRecoverStale}>{recovering ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}{recovering ? "Reloading active project…" : "Reload active project"}</button> : <button type="button" className={editorUi.buttonPrimary} onClick={onRetry}>Preview again</button>}
           </div>
         </div>

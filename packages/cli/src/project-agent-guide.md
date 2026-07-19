@@ -165,6 +165,29 @@ run `screenshots layout list`, choose the intended id or full name, and add
 Locale copies are independent after cloning. Do not create a sidecar translation database or add
 pairing fields to the project.
 
+## Recipe: import PNG captures
+
+Use the capture import command for raw screenshots, not for a complete Project transfer. The input is
+either the project root or its `screenshots/` directory:
+
+```text
+screenshots/apple/{iphone,ipad}/{locale}/NN.png
+screenshots/android/phone/{locale}/NN.png
+assets/...                                      # supported when importing the project root
+```
+
+Choose the receiving layout explicitly in a multi-layout project, then run:
+
+```bash
+screenshots import . --layout "Feature campaign" --project ./app-store-screenshots.json
+```
+
+The command uses the same bounded, path-safe discovery and deterministic plan as launcher preview,
+creates fresh screen/element ids, validates the complete strict Project, and commits Project plus
+copied resources atomically. Warnings identify skipped unsupported inputs; invalid or colliding paths
+block apply. Do not use **Import project** Folder/ZIP/JSON terminology for this command, and do not
+manually copy captures into `assets/imports/` or precompute ids.
+
 ## Recipe: process a local asset
 
 Both asset commands are explicit and non-destructive. Relative input paths resolve from the project

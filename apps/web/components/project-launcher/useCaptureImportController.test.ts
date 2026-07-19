@@ -5,6 +5,7 @@ import { CaptureImportClientError } from "../../lib/capture-import-client.js";
 import {
   assertCaptureImportHandoff,
   assertCaptureImportRecoveryTarget,
+  captureImportApplyFailureAction,
   CaptureImportHandoffError,
   completeCaptureImportHandoff,
   isStaleCaptureImportError,
@@ -106,6 +107,17 @@ describe("useCaptureImportController", () => {
     expect(() => assertCaptureImportRecoveryTarget({
       projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     })).not.toThrow();
+  });
+
+  it("requires reconciliation for an indeterminate apply transport failure", () => {
+    expect(captureImportApplyFailureAction(new TypeError("fetch failed"))).toEqual({
+      type: "failed",
+      message: "fetch failed",
+      staleTarget: true,
+    });
+    expect(captureImportApplyFailureAction(
+      new CaptureImportClientError("invalid after confirmation", "invalid-response", 200),
+    )).toMatchObject({ type: "failed", staleTarget: true });
   });
 
   it("cancels the one active request and keeps new-project activation distinct from current apply", () => {

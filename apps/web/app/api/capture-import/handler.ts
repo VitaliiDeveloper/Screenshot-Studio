@@ -105,7 +105,10 @@ function parseDestination(form: FormData): CaptureDestination {
   if (kind === "current-project") {
     const layoutId = oneString(form, "layoutId")?.trim();
     if (!layoutId) throw new CaptureRequestError("Capture import layout is required");
-    return { kind, layoutId };
+    return { kind: "current-project", layoutId };
+  }
+  if (kind !== "new-project") {
+    throw new CaptureRequestError("Capture import destination is invalid");
   }
   const templateId = oneString(form, "templateId");
   if (templateId === undefined) {
@@ -118,7 +121,7 @@ function parseDestination(form: FormData): CaptureDestination {
     templateId: templateId || null,
   });
   if (!scaffold.success) throw new CaptureRequestError("Capture import project fields are invalid");
-  return { kind, scaffoldInput: scaffold.data };
+  return { kind: "new-project", scaffoldInput: scaffold.data };
 }
 
 async function boundedFormData(request: Request, maxBytes: number): Promise<FormData> {
@@ -323,6 +326,7 @@ export async function handleCaptureImportPreviewPost(
       return routeError(error);
     }
   }
+  const destination = parsed.destination;
   return withProjectVersionedReadRequest(request, async (session, expectedRevision) => {
     try {
       const snapshot = await readIdentifiedProjectSnapshot(session.projectPath);
@@ -331,7 +335,7 @@ export async function handleCaptureImportPreviewPost(
       }
       const plan = planCaptureImport({
         project: snapshot.project,
-        layoutId: parsed.destination.layoutId,
+        layoutId: destination.layoutId,
         destinationKind: "current-project",
         discovery: parsed.discovery,
       });
@@ -386,12 +390,13 @@ export async function handleCaptureImportApplyPost(
       return routeError(error);
     }
   }
+  const destination = parsed.destination;
   return withProjectMutationRequest(request, async (session, expectedRevision) => {
     try {
       const result = await resolved.applyCurrent({
         projectPath: session.projectPath,
         expectedRevision,
-        layoutId: parsed.destination.layoutId,
+        layoutId: destination.layoutId,
         discovery: parsed.discovery,
         confirmationFingerprint: parsed.confirmationFingerprint,
         signal: request.signal,

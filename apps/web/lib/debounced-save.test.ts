@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createDebouncedSaver, createProjectSaveCoordinator } from "./debounced-save.js";
+import {
+  createDebouncedSaver,
+  createProjectSaveCoordinator,
+  discardActiveProjectPersistence,
+  hasPendingProjectSave,
+  scheduleSave,
+} from "./debounced-save.js";
+import { editorStore } from "./editor-store.js";
 import type { Project } from "@screenshot-studio/core/model";
 
 const fakeProject = { meta: { name: "X" } } as unknown as Project;
@@ -169,5 +176,26 @@ describe("createProjectSaveCoordinator", () => {
 
     expect(activate).not.toHaveBeenCalled();
     expect(reset).not.toHaveBeenCalled();
+  });
+});
+
+describe("discardActiveProjectPersistence", () => {
+  afterEach(() => discardActiveProjectPersistence());
+
+  it("drops stale editor state and pending saves before a verified receiver is loaded", () => {
+    editorStore.setState({ project: fakeProject, saveStatus: "error", saveError: "stale receiver" });
+    scheduleSave(fakeProject);
+
+    discardActiveProjectPersistence();
+
+    expect(hasPendingProjectSave()).toBe(false);
+    expect(editorStore.getState()).toMatchObject({
+      project: null,
+      activeLayoutId: null,
+      activeScreenId: null,
+      selectedItems: [],
+      saveStatus: "idle",
+      saveError: null,
+    });
   });
 });

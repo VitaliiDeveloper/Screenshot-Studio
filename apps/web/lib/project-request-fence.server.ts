@@ -13,6 +13,11 @@ type ProjectRequestOperation = (
   expectedRevision?: string,
 ) => Promise<Response> | Response;
 
+type ProjectVersionedRequestOperation = (
+  session: LocalProjectSession,
+  expectedRevision: string,
+) => Promise<Response> | Response;
+
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
 }
@@ -66,7 +71,7 @@ function expectedRevisionResponse(req: Request): string | Response {
 
 export function withProjectVersionedReadRequest(
   req: Request,
-  operation: ProjectRequestOperation,
+  operation: ProjectVersionedRequestOperation,
   dependencies: ActiveProjectResolverDependencies = {},
 ): Promise<Response> {
   return withExistingProjectSessionReadOnly(req, async (session) => {
@@ -81,7 +86,7 @@ export function withProjectVersionedReadRequest(
 
 export function withProjectMutationRequest(
   req: Request,
-  operation: ProjectRequestOperation,
+  operation: ProjectVersionedRequestOperation,
   dependencies: ActiveProjectResolverDependencies = {},
 ): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {

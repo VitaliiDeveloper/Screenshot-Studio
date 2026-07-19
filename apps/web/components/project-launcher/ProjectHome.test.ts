@@ -36,11 +36,11 @@ describe("ProjectHome overview", () => {
     expect(source).toContain("openCaptureImport");
     expect(source).toContain("currentCaptureTarget");
     expect(source).toContain("applyEditorResourceResult");
-    expect(source).toContain("reloadProjectHome");
     expect(source).toContain("assertCaptureImportHandoff");
     expect(source).not.toContain("_result: unknown");
     expect(source).toContain("const recoverCaptureTarget = useCallback(async () =>");
-    expect(source).toContain("await reloadProjectHome()");
+    expect(source).toContain("discardActiveProjectPersistence()");
+    expect(source).toMatch(/discardActiveProjectPersistence\(\);\s*applyEditorResourceResult\(loaded\.resources\)/u);
     expect(source).toContain("assertCaptureImportRecoveryTarget(loaded)");
     expect(pageSource).toContain("searchParams");
     expect(pageSource).toContain("expectedProjectId");

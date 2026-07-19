@@ -128,7 +128,7 @@ export function canPreviewCaptureImport(state: CaptureImportState): boolean {
   return state.status === "editing" && captureImportRequest(state) !== null;
 }
 
-export function canApplyCaptureImport(state: CaptureImportState): boolean {
+export function canApplyCaptureImport(state: CaptureImportState): state is ReviewingState {
   return state.status === "reviewing" && state.preview.canApply;
 }
 
@@ -136,11 +136,13 @@ export function reduceCaptureImportState(
   state: CaptureImportState,
   action: CaptureImportAction,
 ): CaptureImportState {
-  if (action.type === "open") return createCaptureImportState(action.currentTarget);
+  if (action.type === "open") {
+    return state.status === "closed" ? createCaptureImportState(action.currentTarget) : state;
+  }
   if (action.type === "complete") return { status: "closed" };
   if (action.type === "close") {
     return state.status === "previewing" || state.status === "applying"
-      || (state.status === "error" && state.recovering)
+      || (state.status === "error" && (state.recovering || state.staleTarget))
       ? state : { status: "closed" };
   }
   if (state.status === "closed") return state;

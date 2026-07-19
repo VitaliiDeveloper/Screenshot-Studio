@@ -60,6 +60,7 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("assertCaptureImportHandoff");
     expect(source).toContain("await fetchActiveProject()");
     expect(source).toContain("assertCaptureImportRecoveryTarget(activeProject)");
+    expect(source).toContain("discardActiveProjectPersistence()");
     expect(source).toContain('router.push(`/home?project=${encodeURIComponent(result.projectId)}`)');
     expect(source).toContain("onOpenCapture={captureImport.open}");
   });

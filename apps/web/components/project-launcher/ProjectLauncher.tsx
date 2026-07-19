@@ -4,7 +4,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
-import { switchActiveProject } from "../../lib/debounced-save";
+import {
+  discardActiveProjectPersistence,
+  switchActiveProject,
+} from "../../lib/debounced-save";
 import { fetchActiveProject } from "../../lib/project-session";
 import {
   importProject,
@@ -68,6 +71,7 @@ export function ProjectLauncher({
   const recoverCaptureTarget = useCallback(async () => {
     const activeProject = await fetchActiveProject();
     assertCaptureImportRecoveryTarget(activeProject);
+    discardActiveProjectPersistence();
     router.replace("/home");
     router.refresh();
   }, [router]);

@@ -21,7 +21,10 @@ import {
 } from "../../app/editor/editor-resources";
 import { loadProjectHomeData, type ProjectHomeData } from "../../lib/project-home-client";
 import { closeProjectSession } from "../../lib/project-close";
-import { switchActiveProject } from "../../lib/debounced-save";
+import {
+  discardActiveProjectPersistence,
+  switchActiveProject,
+} from "../../lib/debounced-save";
 import {
   buildProjectHomeSummary,
   type ProjectHomeAction,
@@ -95,16 +98,6 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
       layouts: data.resources.project.layouts.map(({ id, name }) => ({ id, name })),
     };
   }, [data]);
-  const reloadProjectHome = useCallback(async () => {
-    const loaded = await loadProjectHomeData();
-    if (!loaded) {
-      router.replace("/");
-      return null;
-    }
-    setError(null);
-    setData(loaded);
-    return loaded;
-  }, [router]);
   const completeCaptureImport = useCallback(async (
     result: Parameters<typeof assertCaptureImportHandoff>[0],
     destinationKind: "current-project" | "new-project",
@@ -123,10 +116,15 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
     router.refresh();
   }, [router]);
   const recoverCaptureTarget = useCallback(async () => {
-    router.replace("/home");
-    const loaded = await reloadProjectHome();
+    const loaded = await loadProjectHomeData();
     assertCaptureImportRecoveryTarget(loaded);
-  }, [reloadProjectHome, router]);
+    discardActiveProjectPersistence();
+    applyEditorResourceResult(loaded.resources);
+    setError(null);
+    setData(loaded);
+    router.replace("/home");
+    router.refresh();
+  }, [router]);
   const captureImport = useCaptureImportController({
     currentTarget: currentCaptureTarget,
     activateNewProject: switchActiveProject,

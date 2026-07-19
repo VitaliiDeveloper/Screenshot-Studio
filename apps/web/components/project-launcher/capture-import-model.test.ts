@@ -6,6 +6,7 @@ import {
   createCaptureImportState,
   reduceCaptureImportState,
   type CaptureImportCurrentTarget,
+  type CaptureImportState,
 } from "./capture-import-model.js";
 
 const currentTarget: CaptureImportCurrentTarget = {
@@ -43,7 +44,7 @@ describe("capture import model", () => {
   });
 
   it("requires files and an explicit valid current or new destination before preview", () => {
-    let state = createCaptureImportState(currentTarget);
+    let state: CaptureImportState = createCaptureImportState(currentTarget);
     state = reduceCaptureImportState(state, { type: "choose-files", files: [file] });
     expect(canPreviewCaptureImport(state)).toBe(false);
     state = reduceCaptureImportState(state, { type: "choose-destination", kind: "current-project" });
@@ -58,13 +59,14 @@ describe("capture import model", () => {
   });
 
   it("keeps the server preview immutable through confirmation and disables invalid apply", () => {
-    let state = createCaptureImportState(currentTarget);
+    let state: CaptureImportState = createCaptureImportState(currentTarget);
     state = reduceCaptureImportState(state, { type: "choose-files", files: [file] });
     state = reduceCaptureImportState(state, { type: "choose-destination", kind: "current-project" });
     state = reduceCaptureImportState(state, { type: "request-preview" });
     state = reduceCaptureImportState(state, { type: "preview-succeeded", preview });
 
     expect(state.status).toBe("reviewing");
+    if (state.status !== "reviewing") throw new Error("Expected capture import review state");
     expect(canApplyCaptureImport(state)).toBe(true);
     expect(reduceCaptureImportState(state, { type: "apply" })).toMatchObject({
       status: "applying", preview,
@@ -80,7 +82,7 @@ describe("capture import model", () => {
   });
 
   it("keeps preview cancellation editable but requires reconciliation after apply cancellation", () => {
-    let state = createCaptureImportState(currentTarget);
+    let state: CaptureImportState = createCaptureImportState(currentTarget);
     state = reduceCaptureImportState(state, { type: "choose-files", files: [file] });
     state = reduceCaptureImportState(state, { type: "choose-destination", kind: "current-project" });
     state = reduceCaptureImportState(state, { type: "request-preview" });
@@ -99,7 +101,7 @@ describe("capture import model", () => {
   });
 
   it("marks stale failures for recovery", () => {
-    let state = createCaptureImportState(currentTarget);
+    let state: CaptureImportState = createCaptureImportState(currentTarget);
     state = reduceCaptureImportState(state, { type: "choose-files", files: [file] });
     state = reduceCaptureImportState(state, { type: "choose-destination", kind: "current-project" });
     state = reduceCaptureImportState(state, { type: "request-preview" });
@@ -125,11 +127,25 @@ describe("capture import model", () => {
       .toEqual({ status: "closed" });
   });
 
+  it("cannot dismiss or reopen over a reconciliation-required failure", () => {
+    let state: CaptureImportState = createCaptureImportState(currentTarget);
+    state = reduceCaptureImportState(state, { type: "choose-files", files: [file] });
+    state = reduceCaptureImportState(state, { type: "choose-destination", kind: "current-project" });
+    state = reduceCaptureImportState(state, { type: "request-preview" });
+    state = reduceCaptureImportState(state, {
+      type: "failed", message: "Apply result is unknown", staleTarget: true,
+    });
+
+    expect(reduceCaptureImportState(state, { type: "close" })).toBe(state);
+    expect(reduceCaptureImportState(state, { type: "open", currentTarget })).toBe(state);
+  });
+
   it("does not offer current-project destination when App Home has no current target", () => {
-    let state = createCaptureImportState(null);
+    let state: CaptureImportState = createCaptureImportState(null);
     state = reduceCaptureImportState(state, { type: "choose-files", files: [file] });
     state = reduceCaptureImportState(state, { type: "choose-destination", kind: "current-project" });
 
+    if (state.status !== "editing") throw new Error("Expected capture import editing state");
     expect(state.draft.destinationKind).toBeNull();
     expect(canPreviewCaptureImport(state)).toBe(false);
   });
