@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./ProjectHome.tsx", import.meta.url), "utf8");
+const pageSource = readFileSync(new URL("../../app/home/page.tsx", import.meta.url), "utf8");
 const modelSource = readFileSync(new URL("../../lib/project-home-model.ts", import.meta.url), "utf8");
 const completeSource = `${source}\n${modelSource}`;
 
@@ -27,6 +28,24 @@ describe("ProjectHome overview", () => {
     expect(source).toContain('action.id === "continue-editing"');
     expect(source).toContain('action.id === "import-project"');
     expect(source).toContain("getProjectPersistenceIdentity()?.projectId === data.selection.projectId");
+  });
+
+  it("opens capture import from the established Project Home action boundary", () => {
+    expect(source).toContain('action.id === "capture-import"');
+    expect(source).toContain("CaptureImportDialog");
+    expect(source).toContain("openCaptureImport");
+    expect(source).toContain("currentCaptureTarget");
+    expect(source).toContain("applyEditorResourceResult");
+    expect(source).toContain("reloadProjectHome");
+    expect(source).toContain("assertCaptureImportHandoff");
+    expect(source).not.toContain("_result: unknown");
+    expect(source).toContain("const recoverCaptureTarget = useCallback(async () =>");
+    expect(source).toContain("await reloadProjectHome()");
+    expect(source).toContain("assertCaptureImportRecoveryTarget(loaded)");
+    expect(pageSource).toContain("searchParams");
+    expect(pageSource).toContain("expectedProjectId");
+    expect(source).toContain("expectedProjectId?: string");
+    expect(source).toContain("loaded.selection.projectId !== expectedProjectId");
   });
 
   it("keeps project archive and rendered store-image export unambiguous", () => {
@@ -59,7 +78,7 @@ describe("ProjectHome overview", () => {
     ]) expect(completeSource).toContain(copy);
   });
 
-  it("distinguishes the launcher and authoring terms without promising capture import", () => {
+  it("distinguishes capture-folder import from complete project import", () => {
     for (const term of [
       "Project templates",
       "Screen templates",
@@ -71,5 +90,7 @@ describe("ProjectHome overview", () => {
       "Store-image export",
     ]) expect(source).toContain(term);
     expect(source).toContain("available from Create project on App Home");
+    expect(source).toContain("Previews raw PNG capture folders before adding them");
+    expect(source).not.toContain("not this launcher slice");
   });
 });

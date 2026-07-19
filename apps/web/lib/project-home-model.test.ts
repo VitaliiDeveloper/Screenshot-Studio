@@ -203,6 +203,13 @@ describe("buildProjectHomeSummary", () => {
     expect(readOnly.actions.find((action) => action.id === "manage-layouts")?.enabled).toBe(false);
     expect(readOnly.actions.find((action) => action.id === "project-archive-export")?.enabled).toBe(false);
     expect(readOnly.actions.find((action) => action.id === "import-project")?.enabled).toBe(true);
-    expect(readOnly.actions.find((action) => action.id === "capture-import")).toMatchObject({ enabled: false });
+    expect(writable.actions.find((action) => action.id === "capture-import")).toMatchObject({
+      enabled: true,
+      label: "Capture import",
+    });
+    expect(readOnly.actions.find((action) => action.id === "capture-import")).toMatchObject({
+      enabled: true,
+      description: expect.stringContaining("new managed project"),
+    });
   });
 });

@@ -42,6 +42,8 @@ describe("AppHomeShell", () => {
     expect(markup).not.toContain("Coming in Launcher 5");
     expect(markup).toContain("Choose starting point");
     expect(markup).toContain("Import project");
+    expect(markup).toContain("Capture import");
+    expect(markup).toContain("PNG capture folder");
     expect(markup).toContain("Recent projects");
     expect(markup).toContain("Launcher 8");
     expect(markup).not.toContain('type="text"');
