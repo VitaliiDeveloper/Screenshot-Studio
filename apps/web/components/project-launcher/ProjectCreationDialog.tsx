@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useEffect, useId, useRef, type FormEvent } from "react";
-import { Layers3, LoaderCircle, Plus, X } from "lucide-react";
-import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
+import React, { type FormEvent } from "react";
+import { Layers3, LoaderCircle, Plus } from "lucide-react";
+import {
+  PROJECT_NAME_MAX_LENGTH,
+  PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES,
+  type ProjectTemplateSummary,
+} from "@screenshot-studio/core/scaffold";
+import { DialogShell } from "../editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "../editor-ui/MenuSelect";
 import { editorUi } from "../editor-ui/styles";
 import {
@@ -34,14 +39,6 @@ const PLATFORM_SHORT_LABELS = {
   windows: "Windows",
 } as const;
 
-const focusableSelector = [
-  "button:not(:disabled)",
-  "input:not(:disabled)",
-  "select:not(:disabled)",
-  "textarea:not(:disabled)",
-  "a[href]",
-].join(", ");
-
 function platformList(template: ProjectTemplateSummary): string {
   return template.supportedPlatforms.map((platform) => (
     platform === "apple" ? "Apple" : platform === "android" ? "Android" : "Windows"
@@ -55,54 +52,6 @@ export function ProjectCreationDialog({
   onChange,
   onSubmit,
 }: ProjectCreationDialogProps) {
-  const titleId = useId();
-  const descriptionId = useId();
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const dialogRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    headingRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const escapeFromMenu = event.target instanceof Element
-        && event.target.closest("[role='menu']") !== null;
-      if (event.key === "Escape" && (escapeFromMenu
-        || dialogRef.current?.querySelector("[role='menu']"))) {
-        return;
-      }
-      if (event.key === "Escape" && state.status !== "creating") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = Array.from(
-        dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [],
-      );
-      if (focusable.length === 0) {
-        event.preventDefault();
-        headingRef.current?.focus();
-        return;
-      }
-      const first = focusable[0]!;
-      const last = focusable.at(-1)!;
-      const activeElement = document.activeElement;
-      if (event.shiftKey && (activeElement === first || activeElement === headingRef.current
-        || !dialogRef.current?.contains(activeElement))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (activeElement === last
-        || !dialogRef.current?.contains(activeElement))) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose, state.status]);
-
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (state.status !== "creating") onSubmit();
@@ -116,48 +65,32 @@ export function ProjectCreationDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-3 backdrop-blur-[2px] sm:p-5">
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-5 shadow-2xl sm:p-7"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className={editorUi.sectionLabel}>Create project</p>
-            <h2 ref={headingRef} tabIndex={-1} id={titleId} className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 outline-none">
-              Create a managed project
-            </h2>
-          </div>
-          {state.status !== "creating" ? (
-            <button type="button" aria-label="Close project creation" className={editorUi.iconButton} onClick={onClose}>
-              <X aria-hidden="true" className="size-4" />
-            </button>
-          ) : null}
-        </div>
-        <p id={descriptionId} className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-          Choose the first store target and layout mode. Screenshot Studio validates the complete starter before publishing it to managed storage.
-        </p>
-
-        <form className="mt-6 space-y-6" onSubmit={submit}>
+    <DialogShell
+      title="Create a managed project"
+      description="Choose the first store target and layout mode. Screenshot Studio validates the complete starter before publishing it to managed storage."
+      onClose={onClose}
+      closeLabel="Close project creation"
+      closeDisabled={state.status === "creating"}
+      initialFocus="heading"
+      widthClass="max-w-4xl"
+      bodyClassName="p-5 sm:p-7"
+    >
+        <form className="space-y-6" onSubmit={submit}>
           <fieldset disabled={state.status === "creating"} className="space-y-6 disabled:opacity-75">
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-semibold text-slate-800">
+              <label className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
                 Project name
                 <input
                   type="text"
                   required
-                  maxLength={120}
+                  maxLength={PROJECT_NAME_MAX_LENGTH}
                   autoComplete="off"
                   className={`mt-2 ${editorUi.field}`}
                   value={state.form.name}
                   onChange={(event) => onChange({ name: event.currentTarget.value })}
                 />
               </label>
-              <div className="text-sm font-semibold text-slate-800">
+              <div className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
                 <span>Target platform</span>
                 <MenuSelect
                   ariaLabel="Target platform"
@@ -171,48 +104,51 @@ export function ProjectCreationDialog({
             </div>
 
             <fieldset>
-              <legend className="text-sm font-semibold text-slate-800">Layout mode</legend>
+              <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Layout mode</legend>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 {([
                   ["isolated", "Isolated", "Design each store image independently."],
                   ["connected", "Connected", "Compose screens as one continuous strip."],
                 ] as const).map(([value, label, description]) => (
-                  <label key={value} className="cursor-pointer rounded-2xl border border-slate-200 p-4 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                  <label key={value} className={editorUi.choiceCard}>
                     <input type="radio" name="layout-mode" value={value} checked={state.form.layoutMode === value} onChange={() => onChange({ layoutMode: value })} />
-                    <span className="ml-2 font-semibold text-slate-900">{label}</span>
-                    <span className="mt-1 block pl-6 text-xs leading-5 text-slate-600">{description}</span>
+                    <span className="ml-2 font-semibold text-[color:var(--editor-color-text-strong)]">{label}</span>
+                    <span className="mt-1 block pl-6 text-xs leading-5 text-[color:var(--editor-color-text-muted)]">{description}</span>
                   </label>
                 ))}
               </div>
             </fieldset>
 
             <fieldset>
-              <legend className="text-sm font-semibold text-slate-800">Starting point</legend>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Project templates are complete creation-only starters. Screen templates and component presets remain Workspace tools.</p>
+              <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Starting point</legend>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Project templates are complete creation-only starters. Screen templates and component presets remain Workspace tools.</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <label className="cursor-pointer rounded-2xl border border-slate-200 p-4 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                <label className={editorUi.choiceCard}>
                   <input type="radio" name="starter" checked={state.form.templateId === null} onChange={() => onChange({ templateId: null })} />
-                  <span className="mt-4 grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-600"><Plus aria-hidden="true" className="size-5" /></span>
-                  <span className="mt-4 block font-semibold text-slate-950">Empty project</span>
-                  <span className="mt-1 block text-xs leading-5 text-slate-600">One valid blank screen using the selected platform’s lead store size.</span>
+                  <span className="mt-4 grid size-10 place-items-center rounded-xl bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)]"><Plus aria-hidden="true" className="size-5" /></span>
+                  <span className="mt-4 block font-semibold text-[color:var(--editor-color-text-strong)]">Empty project</span>
+                  <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">One valid blank screen using the selected platform’s lead store size.</span>
                 </label>
                 {templates.map((template) => {
                   const supported = isProjectTemplateSupported(template, state.form.platform);
                   return (
-                    <label key={template.id} className={`rounded-2xl border p-4 ${supported ? "cursor-pointer border-slate-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50" : "cursor-not-allowed border-slate-200 bg-slate-50 opacity-65"}`}>
+                    <label
+                      key={template.id}
+                      className={supported ? editorUi.choiceCard : editorUi.choiceCardDisabled}
+                    >
                       <input type="radio" name="starter" value={template.id} disabled={!supported} checked={state.form.templateId === template.id} onChange={() => onChange({ templateId: template.id })} />
                       <span
                         aria-hidden="true"
                         className="mt-3 block h-20 overflow-hidden rounded-xl p-3"
-                        style={{ background: `linear-gradient(135deg, ${template.preview.backgroundFrom}, ${template.preview.backgroundTo})` }}
+                        style={{ background: `linear-gradient(${PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES}deg, ${template.preview.backgroundFrom}, ${template.preview.backgroundTo})` }}
                       >
                         <span className="block h-full w-2/3 rounded-lg opacity-90" style={{ backgroundColor: template.preview.accent }} />
                       </span>
-                      <span className="mt-3 block font-semibold text-slate-950">{template.name}</span>
-                      <span className="mt-1 block text-xs leading-5 text-slate-600">{template.description}</span>
-                      <span className="mt-2 block text-[11px] font-semibold text-slate-700">Best for: {template.intendedUse}</span>
-                      <span className="mt-2 block text-[10px] uppercase tracking-wide text-slate-500">Supports {platformList(template)}</span>
-                      {!supported ? <span className="mt-2 block text-xs font-semibold text-amber-700">Not available for {PLATFORM_SHORT_LABELS[state.form.platform]}</span> : null}
+                      <span className="mt-3 block font-semibold text-[color:var(--editor-color-text-strong)]">{template.name}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">{template.description}</span>
+                      <span className="mt-2 block text-[11px] font-semibold text-[color:var(--editor-color-text-muted)]">Best for: {template.intendedUse}</span>
+                      <span className="mt-2 block text-[10px] uppercase tracking-wide text-[color:var(--editor-color-text-secondary)]">Supports {platformList(template)}</span>
+                      {!supported ? <span className="mt-2 block text-xs font-semibold text-[color:var(--editor-color-warning-text)]">Not available for {PLATFORM_SHORT_LABELS[state.form.platform]}</span> : null}
                     </label>
                   );
                 })}
@@ -221,9 +157,9 @@ export function ProjectCreationDialog({
           </fieldset>
 
           {state.status === "error" ? <p role="alert" className={editorUi.statusError}>{state.message} Check the configuration and try again.</p> : null}
-          {state.status === "creating" ? <p role="status" className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">Validating and publishing the managed project…</p> : null}
+          {state.status === "creating" ? <p role="status" className={editorUi.statusProgress}>Validating and publishing the managed project…</p> : null}
 
-          <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-5">
+          <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--editor-color-border)] pt-5">
             {state.status !== "creating" ? <button type="button" className={editorUi.buttonSecondary} onClick={onClose}>Cancel</button> : null}
             <button type="submit" className={editorUi.buttonPrimary} disabled={state.status === "creating" || !state.form.name.trim()}>
               {state.status === "creating" ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Layers3 aria-hidden="true" className="size-4" />}
@@ -231,7 +167,6 @@ export function ProjectCreationDialog({
             </button>
           </div>
         </form>
-      </section>
-    </div>
+    </DialogShell>
   );
 }

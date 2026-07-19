@@ -15,11 +15,19 @@ import {
 } from "../model/index.js";
 
 export const PROJECT_DOCUMENT_FILENAME = "app-store-screenshots.json";
+export const PROJECT_NAME_MAX_LENGTH = 120;
+export const PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES = 135;
+
+const STARTER_PANEL_WIDTH_RATIO = 0.72;
+const STARTER_PANEL_HEIGHT_RATIO = 0.18;
+const STARTER_PANEL_TOP_RATIO = 0.18;
+const STARTER_PANEL_VERTICAL_STEP_RATIO = 0.04;
+const STARTER_PANEL_RADIUS_RATIO = 0.12;
 
 const ProjectPlatform = z.enum(["apple", "android", "windows"]);
 
 export const ProjectScaffoldInput = z.object({
-  name: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(PROJECT_NAME_MAX_LENGTH),
   platform: ProjectPlatform,
   layoutMode: CanvasMode,
   templateId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
@@ -104,10 +112,12 @@ function leadArtboard(specs: StoreSpecs, platform: Platform): { width: number; h
 }
 
 function commonElement(index: number, artboard: { width: number; height: number }, accent: string) {
-  const width = Math.max(1, Math.round(artboard.width * 0.72));
-  const height = Math.max(1, Math.round(artboard.height * 0.18));
+  const width = Math.max(1, Math.round(artboard.width * STARTER_PANEL_WIDTH_RATIO));
+  const height = Math.max(1, Math.round(artboard.height * STARTER_PANEL_HEIGHT_RATIO));
   const x = Math.round((artboard.width - width) / 2);
-  const y = Math.round(artboard.height * (0.18 + index * 0.04));
+  const y = Math.round(artboard.height * (
+    STARTER_PANEL_TOP_RATIO + index * STARTER_PANEL_VERTICAL_STEP_RATIO
+  ));
   return {
     id: `panel-${index + 1}`,
     type: "shape" as const,
@@ -121,7 +131,7 @@ function commonElement(index: number, artboard: { width: number; height: number 
     visible: true,
     kind: "rect" as const,
     fill: accent,
-    radius: Math.max(1, Math.round(Math.min(width, height) * 0.12)),
+    radius: Math.max(1, Math.round(Math.min(width, height) * STARTER_PANEL_RADIUS_RATIO)),
   };
 }
 
@@ -151,7 +161,7 @@ function createRawProject(
           type: "linear-gradient",
           from: index % 2 === 0 ? colors.backgroundFrom : colors.backgroundTo,
           to: index % 2 === 0 ? colors.backgroundTo : colors.backgroundFrom,
-          angle: 135,
+          angle: PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES,
         }
       : { type: "solid", color: colors.backgroundFrom },
     elements: template ? [commonElement(index, artboard, colors.accent)] : [],

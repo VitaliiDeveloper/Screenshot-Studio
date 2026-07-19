@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import React, { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cx, editorUi } from "./styles.js";
 
@@ -15,6 +15,7 @@ export function DialogShell({
   ariaLabel,
   closeLabel,
   closeDisabled = false,
+  initialFocus = "first-control",
 }: {
   title: string;
   description?: string;
@@ -25,8 +26,10 @@ export function DialogShell({
   ariaLabel?: string;
   closeLabel?: string;
   closeDisabled?: boolean;
+  initialFocus?: "first-control" | "heading";
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const onCloseRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
@@ -38,12 +41,15 @@ export function DialogShell({
       const first = dialogRef.current?.querySelector<HTMLElement>(
         "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
       );
-      (first ?? dialogRef.current)?.focus();
+      (initialFocus === "heading" ? headingRef.current : first ?? dialogRef.current)?.focus();
     });
     const onKeyDown = (event: KeyboardEvent) => {
       const dialog = dialogRef.current;
       if (!dialog) return;
       if (event.key === "Escape") {
+        const escapeFromMenu = event.target instanceof Element
+          && event.target.closest("[role='menu']") !== null;
+        if (escapeFromMenu || dialog.querySelector("[role='menu']")) return;
         event.preventDefault();
         event.stopPropagation();
         if (!closeDisabledRef.current) onCloseRef.current();
@@ -55,13 +61,14 @@ export function DialogShell({
       )).filter((element) => element.tabIndex >= 0 && !element.hasAttribute("hidden"));
       if (focusable.length === 0) {
         event.preventDefault();
-        dialog.focus();
+        (initialFocus === "heading" ? headingRef.current : dialog)?.focus();
         return;
       }
       const first = focusable[0]!;
       const last = focusable[focusable.length - 1]!;
       const active = document.activeElement;
-      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+      if (event.shiftKey && (active === first || active === headingRef.current
+        || !dialog.contains(active))) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && active === last) {
@@ -75,14 +82,14 @@ export function DialogShell({
       document.removeEventListener("keydown", onKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, []);
+  }, [initialFocus]);
 
   const requestClose = () => {
     if (!closeDisabled) onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-[2px] sm:p-4" onClick={requestClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--editor-color-overlay)] p-3 backdrop-blur-[2px] sm:p-4" onClick={requestClose}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -91,15 +98,15 @@ export function DialogShell({
         aria-busy={closeDisabled || undefined}
         tabIndex={-1}
         className={cx(
-          "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl shadow-slate-950/25",
+          "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-[var(--editor-color-surface-translucent)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-dialog)]",
           widthClass,
         )}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-4 sm:px-5">
+        <header className="flex items-start justify-between gap-4 border-b border-[var(--editor-color-surface-muted)] px-4 py-4 sm:px-5">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold tracking-tight text-slate-950">{title}</h2>
-            {description ? <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p> : null}
+            <h2 ref={headingRef} tabIndex={-1} className="text-base font-semibold tracking-tight text-[color:var(--editor-color-text-strong)] outline-none">{title}</h2>
+            {description ? <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{description}</p> : null}
           </div>
           <button
             type="button"

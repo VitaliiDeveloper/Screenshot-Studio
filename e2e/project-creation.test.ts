@@ -92,7 +92,7 @@ describe("managed project creation", () => {
       await selectTargetPlatform(dialog, "Microsoft Store");
       expect(await dialog.getByRole("radio", { name: /Product launch/ }).isDisabled()).toBe(true);
       expect(await dialog.getByRole("radio", { name: /Feature focus/ }).isEnabled()).toBe(true);
-      await page.keyboard.press("Shift+Tab");
+      await dialogHeading.press("Shift+Tab");
       expect(await dialog.getByRole("button", { name: "Create project", exact: true }).evaluate(
         (element) => element === document.activeElement,
       )).toBe(true);

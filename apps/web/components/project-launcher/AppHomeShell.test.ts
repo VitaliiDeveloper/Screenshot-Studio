@@ -7,7 +7,6 @@ import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
 import { AppHomeShell } from "./AppHomeShell.js";
 
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
-const creationDialogSource = readFileSync(new URL("./ProjectCreationDialog.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 function render(
@@ -169,14 +168,4 @@ describe("AppHomeShell", () => {
     expect(dialogSource).toContain("tabIndex={-1}");
   });
 
-  it("moves focus into creation, traps Tab, and reserves close while creating", () => {
-    expect(creationDialogSource).toContain("headingRef.current?.focus()");
-    expect(creationDialogSource).toContain("const focusableSelector =");
-    expect(creationDialogSource).toContain("button:not(:disabled)");
-    expect(creationDialogSource).not.toContain("button:not([disabled])");
-    expect(creationDialogSource).toContain("}, []);");
-    expect(creationDialogSource).toContain('event.key !== "Tab"');
-    expect(creationDialogSource).toContain('event.key === "Escape" && state.status !== "creating"');
-    expect(creationDialogSource).toContain("tabIndex={-1}");
-  });
 });

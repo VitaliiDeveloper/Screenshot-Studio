@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseStoreSpecs, type StoreSpecs } from "../export/index.js";
 import { parseProject } from "../model/index.js";
 import {
+  PROJECT_NAME_MAX_LENGTH,
   ProjectScaffoldInput,
   createProjectScaffold,
   listStarterProjectTemplates,
@@ -17,6 +18,16 @@ const specs: StoreSpecs = parseStoreSpecs({
 });
 
 describe("ProjectScaffoldInput", () => {
+  it("exports and enforces one project name length limit", () => {
+    expect(PROJECT_NAME_MAX_LENGTH).toBe(120);
+    expect(() => ProjectScaffoldInput.parse({
+      name: "a".repeat(PROJECT_NAME_MAX_LENGTH + 1),
+      platform: "apple",
+      layoutMode: "isolated",
+      templateId: null,
+    })).toThrow();
+  });
+
   it("strictly normalizes creation input without accepting destination paths", () => {
     expect(ProjectScaffoldInput.parse({
       name: "  Launch Story  ", platform: "apple", layoutMode: "connected", templateId: null,
