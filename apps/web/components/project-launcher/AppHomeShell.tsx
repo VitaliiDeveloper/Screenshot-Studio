@@ -3,16 +3,26 @@
 
 import React, { type Ref } from "react";
 import { Clock3, FolderInput, Layers3, Plus, ShieldCheck } from "lucide-react";
+import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import type { BrowserProjectImportSource } from "../../lib/project-import-client";
 import { editorUi } from "../editor-ui/styles";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
 import { ProjectImportDialog } from "./ProjectImportDialog";
+import { ProjectCreationDialog } from "./ProjectCreationDialog";
+import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";
 
 export interface AppHomeShellProps {
   state: LauncherImportState;
+  creationState: ProjectCreationState;
+  projectTemplates: readonly ProjectTemplateSummary[];
   dialogClosing: boolean;
   sessionError: string | null;
   importButtonRef?: Ref<HTMLButtonElement>;
+  creationButtonRef?: Ref<HTMLButtonElement>;
+  onOpenCreate(): void;
+  onCloseCreate(): void;
+  onChangeCreation(patch: Partial<ProjectCreationForm>): void;
+  onSubmitCreation(): void;
   onOpenImport(): void;
   onCloseImport(): void;
   onCancelImport(): void;
@@ -23,9 +33,16 @@ export interface AppHomeShellProps {
 
 export function AppHomeShell({
   state,
+  creationState,
+  projectTemplates,
   dialogClosing,
   sessionError,
   importButtonRef,
+  creationButtonRef,
+  onOpenCreate,
+  onCloseCreate,
+  onChangeCreation,
+  onSubmitCreation,
   onOpenImport,
   onCloseImport,
   onCancelImport,
@@ -51,7 +68,7 @@ export function AppHomeShell({
           <section aria-labelledby="app-home-title" className="max-w-xl">
             <p className={editorUi.sectionLabel}>App Home</p>
             <h1 id="app-home-title" className="mt-4 text-4xl font-semibold tracking-[-0.035em] text-[color:var(--editor-color-text-strong)] sm:text-5xl lg:text-6xl">Turn product moments into store-ready stories.</h1>
-            <p className="mt-5 max-w-lg text-base leading-7 text-[color:var(--editor-color-text-secondary)] sm:text-lg">Create a fresh screenshot project in a later launcher step, or import an existing complete project into a safe managed copy today.</p>
+            <p className="mt-5 max-w-lg text-base leading-7 text-[color:var(--editor-color-text-secondary)] sm:text-lg">Create a fresh managed screenshot project from an empty canvas or a complete starter, or import an existing project into a safe managed copy.</p>
             <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[color:var(--editor-color-text-secondary)]">
               <span className="inline-flex items-center gap-2"><ShieldCheck aria-hidden="true" className="size-4 text-emerald-600" /> Strict validation</span>
               <span className="inline-flex items-center gap-2"><ShieldCheck aria-hidden="true" className="size-4 text-emerald-600" /> Source stays untouched</span>
@@ -59,11 +76,11 @@ export function AppHomeShell({
           </section>
 
           <section aria-label="Project actions" className="grid gap-4 sm:grid-cols-2">
-            <button type="button" disabled={!launcherActions.createEnabled} aria-describedby="create-project-help" className="relative min-h-56 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm disabled:cursor-not-allowed disabled:opacity-75">
-              <span className="grid size-11 place-items-center rounded-2xl bg-slate-100 text-slate-500"><Plus aria-hidden="true" className="size-5" /></span>
+            <button ref={creationButtonRef} type="button" onClick={onOpenCreate} disabled={!launcherActions.createEnabled} aria-describedby="create-project-help" className="group relative min-h-56 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none">
+              <span className="grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Plus aria-hidden="true" className="size-5" /></span>
               <span className="mt-8 block text-xl font-semibold text-[color:var(--editor-color-text-strong)]">Create project</span>
               <span id="create-project-help" className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Start from a guided store-ready project setup.</span>
-              <span className="mt-5 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Coming in Launcher 5</span>
+              <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-blue-700">Choose starting point <span aria-hidden="true">→</span></span>
             </button>
             <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} className="group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-xl shadow-blue-950/15 transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-2xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none">
               <span className="grid size-11 place-items-center rounded-2xl bg-white/15"><FolderInput aria-hidden="true" className="size-5" /></span>
@@ -83,6 +100,7 @@ export function AppHomeShell({
         </section>
       </div>
 
+      {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
       {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} /> : null}
     </main>
   );

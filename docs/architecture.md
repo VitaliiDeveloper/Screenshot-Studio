@@ -163,6 +163,10 @@ The session owner retains the opaque source locator, current revision evidence, 
 to load or save the project. Local-file, managed-project, and cloud sessions are server-owned. Browser
 Folder/ZIP/JSON inputs are bounded import inputs that publish a managed copy; they are not retained
 filesystem handles and do not imply in-place mutation of the selected source.
+Managed activation also sets an HttpOnly recovery hint containing only the opaque managed project id.
+If the in-process registry is reset, that hint may reopen the project through the same managed adapter
+and catalog validation before issuing a fresh session id. The hint contains no path, is not persisted
+in the Project document, and is never authorization by itself.
 Project-bound operations resolve the session from request or client-workspace scope. They must not read
 or mutate one global "current project" path. In a hosted deployment the authenticated user/session owns
 access; possession of a `sessionId` is never authorization by itself.
@@ -218,8 +222,9 @@ those seams; Launcher 4/8 builds Project Home and its Workspace round trip on th
   sample;
 - `PROJECT_PATH` and `screenshots dev --project` seed a local-file session for backward compatibility;
 - App Home does not expose a browser path form or arbitrary local-path activation endpoint;
-- the initial local registry may be in-process, so a server restart can require reopening the project;
-  managed storage/catalog belongs to Launcher 2/8 and durable recents to Launcher 8/8;
+- the initial registry remains in-process; a local-file source can require reopening after server
+  restart, while a managed source can rehydrate from its HttpOnly project-id hint through the catalog;
+  durable recents remain Launcher 8/8;
 - every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
   independently;
 - interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
@@ -296,8 +301,8 @@ filesystem scan.
 The `managed-project` adapter opens a catalog id into the same request-scoped session as `local-file`.
 Its server-only `projectPath` remains available to existing project/resource APIs, but its browser
 descriptor intentionally omits `displayLocation`. Local-file behavior remains unchanged. Browser
-transport is implemented in Launcher 3/8; creation/templates belong to Launcher 5/8, and user-facing
-Trash/restore/purge to Launcher 7/8.
+transfer is implemented in Launcher 3/8, managed creation in Launcher 5/8, and user-facing
+Trash/restore/purge belongs to Launcher 7/8.
 
 #### Managed browser transfer (Launcher 3/8)
 
@@ -314,8 +319,7 @@ The browser selection is an import source, never a retained file handle. Success
 already-published opaque managed record, sets the HttpOnly same-site session cookie, and lands on
 Project Home. Cancellation or any pre-publication failure discards only the owned stage and returns
 no session cookie, so the prior active session and catalog visibility remain unchanged. App Home has
-stable disabled/empty extension slots for Launcher 5 creation and Launcher 8 recents; neither is
-simulated by import.
+an empty extension slot for Launcher 8 recents; import never simulates recents.
 
 Source selection first enters a client-only confirmation state. No upload, server staging, catalog
 write, cookie replacement, or navigation starts until the user confirms **Import managed copy**.
@@ -335,6 +339,28 @@ the resulting `screenshot-studio-project.zip` is copied into a short-lived, one-
 `/api/project-archive/artifacts/<token>`. That namespace and filename are deliberately separate from
 the rendered store-image export route. The allowlisted archive service is also the stable backup
 extension point for Launcher 7 lifecycle work; it does not implement Trash or schema widening.
+
+#### Managed project creation (Launcher 5/8)
+
+Core owns one strict creation-only scaffold contract for project name, target platform, layout mode,
+and optional starter project-template id. It produces an ordinary strict `Project` plus validated
+project-local resource bytes; starter metadata (preview, intended use, and supported platforms) is
+not persisted in `app-store-screenshots.json`. The CLI `init` command and `POST /api/project-create`
+both consume this factory. Only destination ownership differs: CLI init receives an explicit local
+directory, while the browser route publishes exclusively through managed repository storage and
+accepts no filesystem path.
+
+The managed creation service validates the scaffold and every declared dependency before staging,
+writes exclusive no-follow files into one owned stage, re-reads and revalidates the staged document
+and resources, and only then enters the existing atomic repository publication protocol. The route
+reserves the new session identity before publication and activates that exact managed record after
+publication. Any pre-publication failure removes only the owned stage and reservation; ambiguous
+publication recovery state remains owned by reconciliation rather than being blindly discarded.
+Success replaces the active HttpOnly session cookie, sets the path-free managed recovery hint, and
+lands on Project Home. If the server runtime resets before Project Home resolves the session, the
+managed adapter reopens that exact catalog entry rather than publishing a duplicate. Project templates
+are complete creation inputs; project-local screen templates and reusable component presets remain
+separate authoring concepts.
 
 ### Render / export parity — the #1 technical risk
 

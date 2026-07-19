@@ -7,6 +7,7 @@ import {
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
 import {
+  ManagedProjectNotFoundError,
   ManagedProjectRepository,
   type ManagedProjectRecord,
 } from "./managed-project-repository.server.js";
@@ -15,6 +16,9 @@ import { resolveConfiguredProjectPath } from "./project-path.js";
 import type { ActiveProjectDescriptor } from "./project-session.js";
 
 export const PROJECT_SESSION_COOKIE = "screenshot_studio_project_session";
+export const MANAGED_PROJECT_RECOVERY_COOKIE = "screenshot_studio_managed_project";
+
+const MANAGED_PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 
 const MAX_PROJECT_SESSIONS = 30;
 
@@ -102,6 +106,7 @@ export interface ProjectSessionRegistryDependencies {
 export class ProjectSessionRegistry {
   readonly #byId = new Map<string, ProjectSession>();
   readonly #bySourceKey = new Map<string, ProjectSession>();
+  readonly #reservedSessionIds = new Set<string>();
   readonly #createSessionId: () => string;
   readonly #localSource: ProjectSourceAdapter<string, OpenedProjectSource>;
   readonly #managedSource: ProjectSourceAdapter<string, OpenedProjectSource>;
@@ -120,13 +125,27 @@ export class ProjectSessionRegistry {
     return this.#open(this.#managedSource, projectId);
   }
 
-  openManagedRecord(record: ManagedProjectRecord): ProjectSession {
+  reserveSessionId(): string {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const sessionId = this.#createSessionId();
+      if (this.#byId.has(sessionId) || this.#reservedSessionIds.has(sessionId)) continue;
+      this.#reservedSessionIds.add(sessionId);
+      return sessionId;
+    }
+    throw new Error("Unable to allocate a unique project session id");
+  }
+
+  releaseReservedSessionId(sessionId: string): void {
+    this.#reservedSessionIds.delete(sessionId);
+  }
+
+  openManagedRecord(record: ManagedProjectRecord, reservedSessionId?: string): ProjectSession {
     return this.#register("managed-project", {
       name: record.name,
       projectId: record.id,
       projectPath: record.projectPath,
       capabilities: MANAGED_CAPABILITIES,
-    });
+    }, reservedSessionId);
   }
 
   async #open(source: ProjectSourceAdapter<string, OpenedProjectSource>, request: string): Promise<ProjectSession> {
@@ -134,15 +153,23 @@ export class ProjectSessionRegistry {
     return this.#register(source.kind, opened);
   }
 
-  #register(sourceKind: string, opened: OpenedProjectSource): ProjectSession {
+  #register(
+    sourceKind: string,
+    opened: OpenedProjectSource,
+    reservedSessionId?: string,
+  ): ProjectSession {
     const sourceKey = `${sourceKind}:${opened.projectId}`;
     const existing = this.#bySourceKey.get(sourceKey);
     if (existing) {
+      if (reservedSessionId) this.releaseReservedSessionId(reservedSessionId);
       existing.descriptor.name = opened.name;
       this.#touch(existing);
       return existing;
     }
-    const sessionId = this.#createSessionId();
+    const sessionId = reservedSessionId ?? this.reserveSessionId();
+    if (!this.#reservedSessionIds.delete(sessionId)) {
+      throw new Error("Project session id was not reserved by this registry");
+    }
     const session: ProjectSession = {
       descriptor: {
         sessionId,
@@ -197,6 +224,13 @@ export class NoActiveProjectError extends Error {
   }
 }
 
+class ManagedProjectRecoveryError extends Error {
+  constructor(cause: unknown) {
+    super("Unable to reopen the managed project", { cause });
+    this.name = "ManagedProjectRecoveryError";
+  }
+}
+
 const PROJECT_SESSION_REGISTRY_GLOBAL_KEY = Symbol.for(
   "screenshot-studio.project-session-registry",
 );
@@ -216,12 +250,15 @@ function sharedProjectSessionRegistry(): ProjectSessionRegistry {
 // those evaluations without turning any one project path into process-global current state.
 export const projectSessionRegistry = sharedProjectSessionRegistry();
 
-export function sessionIdFromRequest(request?: Pick<Request, "headers">): string | null {
+function cookieValueFromRequest(
+  request: Pick<Request, "headers"> | undefined,
+  cookieName: string,
+): string | null {
   const cookie = request?.headers.get("cookie");
   if (!cookie) return null;
   for (const part of cookie.split(";")) {
     const [name, ...value] = part.trim().split("=");
-    if (name !== PROJECT_SESSION_COOKIE) continue;
+    if (name !== cookieName) continue;
     try {
       return decodeURIComponent(value.join("="));
     } catch {
@@ -229,6 +266,30 @@ export function sessionIdFromRequest(request?: Pick<Request, "headers">): string
     }
   }
   return null;
+}
+
+function requestHasCookie(
+  request: Pick<Request, "headers"> | undefined,
+  cookieName: string,
+): boolean {
+  const cookie = request?.headers.get("cookie");
+  if (!cookie) return false;
+  return cookie.split(";").some((part) => part.trim().split("=", 1)[0] === cookieName);
+}
+
+export function sessionIdFromRequest(request?: Pick<Request, "headers">): string | null {
+  return cookieValueFromRequest(request, PROJECT_SESSION_COOKIE);
+}
+
+export function managedProjectIdFromRequest(request?: Pick<Request, "headers">): string | null {
+  const projectId = cookieValueFromRequest(request, MANAGED_PROJECT_RECOVERY_COOKIE);
+  return projectId && MANAGED_PROJECT_ID_PATTERN.test(projectId) ? projectId : null;
+}
+
+export function hasManagedProjectRecoveryCookie(
+  request?: Pick<Request, "headers">,
+): boolean {
+  return requestHasCookie(request, MANAGED_PROJECT_RECOVERY_COOKIE);
 }
 
 export interface ActiveProjectResolverDependencies {
@@ -244,6 +305,17 @@ export async function resolveActiveProjectSession(
   const sessionId = sessionIdFromRequest(request);
   const selected = sessionId ? registry.get(sessionId) : undefined;
   if (selected) return selected;
+  const managedProjectId = managedProjectIdFromRequest(request);
+  if (managedProjectId) {
+    try {
+      return await registry.openManaged(managedProjectId);
+    } catch (error) {
+      if (!(error instanceof ManagedProjectNotFoundError)) {
+        throw new ManagedProjectRecoveryError(error);
+      }
+      // A missing project makes the recovery hint stale; configured local startup may proceed.
+    }
+  }
   const configured = (dependencies.configuredPath ?? resolveConfiguredProjectPath)();
   if (configured) return registry.openLocal(configured);
   throw new NoActiveProjectError();

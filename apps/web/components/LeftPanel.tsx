@@ -248,7 +248,7 @@ export function LeftPanel({
         <div className="flex flex-col gap-2.5 p-3">
           <ResourceButton icon={Frame} title="Fonts" description="Upload, register, preview, and apply project fonts." onClick={() => onOpenDialog("fonts")} />
           <ResourceButton icon={Palette} title="Themes" description="Apply baked project-local color and type roles." onClick={() => onOpenDialog("themes")} />
-          <ResourceButton icon={LayoutTemplate} title="Templates" description="Create a fresh screen from a reusable layout." onClick={() => onOpenDialog("templates")} />
+          <ResourceButton icon={LayoutTemplate} title="Screen templates" description="Create a fresh screen from a project-local reusable layout." onClick={() => onOpenDialog("templates")} />
         </div>
       ) : null}
       {panel === "add" ? <AddPanel onOpenDialog={onOpenDialog} /> : null}

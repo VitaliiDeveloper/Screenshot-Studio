@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: Apache-2.0
+"use client";
+
+import React, { type FormEvent } from "react";
+import { Layers3, LoaderCircle, Plus } from "lucide-react";
+import {
+  PROJECT_NAME_MAX_LENGTH,
+  PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES,
+  type ProjectTemplateSummary,
+} from "@screenshot-studio/core/scaffold";
+import { DialogShell } from "../editor-ui/DialogShell";
+import { MenuSelect, type MenuSelectOption } from "../editor-ui/MenuSelect";
+import { editorUi } from "../editor-ui/styles";
+import {
+  isProjectTemplateSupported,
+  type ProjectCreationForm,
+  type ProjectCreationState,
+} from "./project-creation-model";
+
+type OpenProjectCreationState = Exclude<ProjectCreationState, { status: "closed" }>;
+
+export interface ProjectCreationDialogProps {
+  state: OpenProjectCreationState;
+  templates: readonly ProjectTemplateSummary[];
+  onClose(): void;
+  onChange(patch: Partial<ProjectCreationForm>): void;
+  onSubmit(): void;
+}
+
+const PLATFORM_OPTIONS: readonly MenuSelectOption<ProjectCreationForm["platform"]>[] = [
+  { value: "apple", label: "Apple App Store" },
+  { value: "android", label: "Google Play" },
+  { value: "windows", label: "Microsoft Store" },
+];
+
+const PLATFORM_SHORT_LABELS = {
+  apple: "Apple",
+  android: "Android",
+  windows: "Windows",
+} as const;
+
+function platformList(template: ProjectTemplateSummary): string {
+  return template.supportedPlatforms.map((platform) => (
+    platform === "apple" ? "Apple" : platform === "android" ? "Android" : "Windows"
+  )).join(", ");
+}
+
+export function ProjectCreationDialog({
+  state,
+  templates,
+  onClose,
+  onChange,
+  onSubmit,
+}: ProjectCreationDialogProps) {
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (state.status !== "creating") onSubmit();
+  };
+  const changePlatform = (platform: ProjectCreationForm["platform"]) => {
+    const selected = templates.find(({ id }) => id === state.form.templateId);
+    onChange({
+      platform,
+      ...(selected && !isProjectTemplateSupported(selected, platform) ? { templateId: null } : {}),
+    });
+  };
+
+  return (
+    <DialogShell
+      title="Create a managed project"
+      description="Choose the first store target and layout mode. Screenshot Studio validates the complete starter before publishing it to managed storage."
+      onClose={onClose}
+      closeLabel="Close project creation"
+      closeDisabled={state.status === "creating"}
+      initialFocus="heading"
+      widthClass="max-w-4xl"
+      bodyClassName="p-5 sm:p-7"
+    >
+        <form className="space-y-6" onSubmit={submit}>
+          <fieldset disabled={state.status === "creating"} className="space-y-6 disabled:opacity-75">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
+                Project name
+                <input
+                  type="text"
+                  required
+                  maxLength={PROJECT_NAME_MAX_LENGTH}
+                  autoComplete="off"
+                  className={`mt-2 ${editorUi.field}`}
+                  value={state.form.name}
+                  onChange={(event) => onChange({ name: event.currentTarget.value })}
+                />
+              </label>
+              <div className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
+                <span>Target platform</span>
+                <MenuSelect
+                  ariaLabel="Target platform"
+                  menuLabel="Target platform options"
+                  className="mt-2"
+                  value={state.form.platform}
+                  options={PLATFORM_OPTIONS}
+                  onChange={changePlatform}
+                />
+              </div>
+            </div>
+
+            <fieldset>
+              <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Layout mode</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                {([
+                  ["isolated", "Isolated", "Design each store image independently."],
+                  ["connected", "Connected", "Compose screens as one continuous strip."],
+                ] as const).map(([value, label, description]) => (
+                  <label key={value} className={editorUi.choiceCard}>
+                    <input type="radio" name="layout-mode" value={value} checked={state.form.layoutMode === value} onChange={() => onChange({ layoutMode: value })} />
+                    <span className="ml-2 font-semibold text-[color:var(--editor-color-text-strong)]">{label}</span>
+                    <span className="mt-1 block pl-6 text-xs leading-5 text-[color:var(--editor-color-text-muted)]">{description}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Starting point</legend>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Project templates are complete creation-only starters. Screen templates and component presets remain Workspace tools.</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <label className={editorUi.choiceCard}>
+                  <input type="radio" name="starter" checked={state.form.templateId === null} onChange={() => onChange({ templateId: null })} />
+                  <span className="mt-4 grid size-10 place-items-center rounded-xl bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)]"><Plus aria-hidden="true" className="size-5" /></span>
+                  <span className="mt-4 block font-semibold text-[color:var(--editor-color-text-strong)]">Empty project</span>
+                  <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">One valid blank screen using the selected platform’s lead store size.</span>
+                </label>
+                {templates.map((template) => {
+                  const supported = isProjectTemplateSupported(template, state.form.platform);
+                  return (
+                    <label
+                      key={template.id}
+                      className={supported ? editorUi.choiceCard : editorUi.choiceCardDisabled}
+                    >
+                      <input type="radio" name="starter" value={template.id} disabled={!supported} checked={state.form.templateId === template.id} onChange={() => onChange({ templateId: template.id })} />
+                      <span
+                        aria-hidden="true"
+                        className="mt-3 block h-20 overflow-hidden rounded-xl p-3"
+                        style={{ background: `linear-gradient(${PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES}deg, ${template.preview.backgroundFrom}, ${template.preview.backgroundTo})` }}
+                      >
+                        <span className="block h-full w-2/3 rounded-lg opacity-90" style={{ backgroundColor: template.preview.accent }} />
+                      </span>
+                      <span className="mt-3 block font-semibold text-[color:var(--editor-color-text-strong)]">{template.name}</span>
+                      <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">{template.description}</span>
+                      <span className="mt-2 block text-[11px] font-semibold text-[color:var(--editor-color-text-muted)]">Best for: {template.intendedUse}</span>
+                      <span className="mt-2 block text-[10px] uppercase tracking-wide text-[color:var(--editor-color-text-secondary)]">Supports {platformList(template)}</span>
+                      {!supported ? <span className="mt-2 block text-xs font-semibold text-[color:var(--editor-color-warning-text)]">Not available for {PLATFORM_SHORT_LABELS[state.form.platform]}</span> : null}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          </fieldset>
+
+          {state.status === "error" ? <p role="alert" className={editorUi.statusError}>{state.message} Check the configuration and try again.</p> : null}
+          {state.status === "creating" ? <p role="status" className={editorUi.statusProgress}>Validating and publishing the managed project…</p> : null}
+
+          <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--editor-color-border)] pt-5">
+            {state.status !== "creating" ? <button type="button" className={editorUi.buttonSecondary} onClick={onClose}>Cancel</button> : null}
+            <button type="submit" className={editorUi.buttonPrimary} disabled={state.status === "creating" || !state.form.name.trim()}>
+              {state.status === "creating" ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Layers3 aria-hidden="true" className="size-4" />}
+              {state.status === "creating" ? "Creating project…" : state.status === "error" ? "Try creating again" : "Create project"}
+            </button>
+          </div>
+        </form>
+    </DialogShell>
+  );
+}

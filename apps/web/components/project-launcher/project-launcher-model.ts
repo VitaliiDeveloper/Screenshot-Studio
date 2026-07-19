@@ -4,7 +4,7 @@ import type { BrowserProjectImportSource } from "@web/lib/project-import-client.
 type LauncherImportKind = BrowserProjectImportSource["kind"];
 
 export const launcherActions = {
-  createEnabled: false,
+  createEnabled: true,
   importEnabled: true,
   recentProjects: [],
 } as const;

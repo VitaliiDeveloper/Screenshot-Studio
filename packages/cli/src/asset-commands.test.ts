@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import sharp from "sharp";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runInit } from "./init.js";
 import { runAssetCommand } from "./asset-commands.js";
 
+const storeSpecs = parseStoreSpecs(JSON.parse(
+  await readFile(new URL("../../../store-specs.json", import.meta.url), "utf8"),
+));
+
 async function projectWithSource(prefix: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), prefix));
-  await runInit(dir, "Asset Commands");
+  await runInit(dir, "Asset Commands", storeSpecs);
   const png = await sharp({
     create: { width: 2, height: 2, channels: 4, background: "white" },
   }).png().toBuffer();

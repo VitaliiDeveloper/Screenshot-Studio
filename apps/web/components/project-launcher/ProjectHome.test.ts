@@ -63,11 +63,13 @@ describe("ProjectHome overview", () => {
     for (const term of [
       "Project templates",
       "Screen templates",
+      "Component presets",
       "Layout modes",
       "Project import",
       "Capture import",
       "Project archive export",
       "Store-image export",
     ]) expect(source).toContain(term);
+    expect(source).toContain("available from Create project on App Home");
   });
 });

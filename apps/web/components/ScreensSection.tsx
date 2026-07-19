@@ -119,7 +119,7 @@ export function ScreensSection({
             options={[
               { value: "duplicate", label: "Duplicate current", description: "Copy the current screen and its layers" },
               { value: "blank", label: "Blank screen", description: "Keep this output size with no layers" },
-              { value: "template", label: "From template", description: "Create from a project template" },
+              { value: "template", label: "From screen template", description: "Create from a screen template" },
             ]}
             onSelect={(action) => {
               if (action === "template") {

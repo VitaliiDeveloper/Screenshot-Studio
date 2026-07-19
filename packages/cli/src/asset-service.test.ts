@@ -13,11 +13,15 @@ import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
+import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runInit } from "./init.js";
 import { autoCropAsset, removeBackgroundAsset } from "./asset-service.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
 
 const cleanupPaths: string[] = [];
+const storeSpecs = parseStoreSpecs(JSON.parse(
+  await readFile(new URL("../../../store-specs.json", import.meta.url), "utf8"),
+));
 
 afterEach(async () => {
   await Promise.all(cleanupPaths.splice(0).map((path) => rm(path, { recursive: true, force: true })));
@@ -47,7 +51,7 @@ async function rgbaPng(
 async function initializedProject(prefix: string): Promise<{ dir: string; projectPath: string }> {
   const dir = await mkdtemp(join(tmpdir(), prefix));
   cleanupPaths.push(dir);
-  await runInit(dir, "Asset Processing");
+  await runInit(dir, "Asset Processing", storeSpecs);
   return { dir, projectPath: join(dir, "app-store-screenshots.json") };
 }
 

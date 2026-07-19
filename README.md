@@ -105,6 +105,9 @@ independent layouts — see [the management-interface contract](docs/architectur
   Historical internal development formats are intentionally unsupported.
 - **One UI/CLI renderer.** The editor, previews, exact exports, bundles, and packaged CLI all use the
   same Konva stage through the Chromium render host. Store PNGs are exact-size and opaque.
+- **Shared project creation.** CLI init and App Home managed creation use one strict scaffold factory
+  for empty projects and visible project templates while retaining explicit-local versus managed
+  destination ownership. Project templates are creation inputs, not persisted schema fields.
 - **Visual authoring.** The responsive workbench supports unconditional layout switching, clean
   creation, fresh-id duplication, rename/prefer/delete lifecycle actions, Focus and Overview,
   isolated or connected canvases, owner-aware multi-selection, one-level groups, per-layout
@@ -260,6 +263,12 @@ activates the managed copy and opens Project Home. Selection remains in the brow
 confirms the managed copy; choosing another source, cancellation, or failure preserves the previous
 active session.
 
+**Create project** captures a project name, store platform, and isolated or connected initial layout,
+then creates either a valid empty project or a complete project-template starter. Template cards show
+their intended use and supported platforms. The browser never accepts a server path: it validates and
+atomically publishes into managed storage, activates the new session, and opens Project Home. CLI
+`screenshots init --dir <directory>` uses the same scaffold contract with an explicit local destination.
+
 Managed Project Home can **Export project archive** as `screenshot-studio-project.zip`. This portable
 archive contains the strict document and supported project resources, and can be imported again from
 App Home. It excludes managed catalog/session state, locks, staging/temp files, credentials, rendered
@@ -269,7 +278,8 @@ separate from Workspace store-image export. To open an existing local project in
 `screenshots dev --project /absolute/path/to/app-store-screenshots.json`.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
-strict `templates/*.json`. The Add shelf inserts text, shape, and trusted built-in icons directly;
+strict project-local screen templates in `templates/*.json`. The Add shelf inserts text, shape, and
+trusted built-in icons directly;
 opens the safe project-local asset picker for screenshot, iPhone-frame, decorative image, and
 official store-badge assets; and creates editable rating/press-proof badge groups when a registered
 font is available. The top bar selects and manages complete locale sets; Screens and Overview show

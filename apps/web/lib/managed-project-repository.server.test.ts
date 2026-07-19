@@ -15,7 +15,10 @@ import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import {
+  ManagedProjectNotFoundError,
+  ManagedProjectRepository,
+} from "./managed-project-repository.server.js";
 
 const temporaryRoots: string[] = [];
 
@@ -146,6 +149,13 @@ describe("ManagedProjectRepository", () => {
     await expect(repository.open(published.id)).resolves.toEqual(published);
   });
 
+  it("reports a missing catalog entry with the dedicated recovery error", async () => {
+    const repository = await createRepository();
+
+    await expect(repository.open("project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+      .rejects.toBeInstanceOf(ManagedProjectNotFoundError);
+  });
+
   it("rolls a published directory back to its owned stage when catalog insertion fails", async () => {
     const root = await mkdtemp(join(tmpdir(), "managed-project-repository-"));
     temporaryRoots.push(root);
@@ -163,6 +173,29 @@ describe("ManagedProjectRepository", () => {
 
     await expect(repository.publishStage({ token: stage.token })).rejects.toThrow("injected catalog failure");
     await expect(readFile(join(stage.path, "app-store-screenshots.json"), "utf8")).resolves.toContain("Managed");
+  });
+
+  it("cleans a rolled-back stage whose directory-published intent outlived cleanup", async () => {
+    const repository = await createRepository();
+    await repository.initialize();
+    const stage = await validStage(repository, "Rolled back");
+    const id = "project_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const intentPath = join(repository.config.recoveryRoot, `${id}.json`);
+    await writeFile(intentPath, `${JSON.stringify({
+      version: 1,
+      operation: "publish",
+      id,
+      token: stage.token,
+      name: "Rolled back",
+      createdAt: "2026-07-19T00:00:00.000Z",
+      phase: "directory-published",
+    })}\n`);
+
+    await repository.initialize();
+
+    await expect(repository.list()).resolves.toEqual([]);
+    await expect(lstat(stage.path)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(intentPath)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("reconciles a published directory that has not reached catalog visibility", async () => {

@@ -82,6 +82,17 @@ Session-registry isolation, cookie and project-id fences, transient-state valida
 failure branches, and same-project store reconciliation stay in `test:web`; do not repeat those
 deterministic branches in more browser files.
 
+Launcher 5 browser ownership is one exact file. It proves the visible creation library and platform
+compatibility, modal focus/keyboard/error/retry behavior, managed empty and starter creation, exact
+new-project activation, and Project Home landing:
+
+```bash
+pnpm exec vitest run --config vitest.e2e.config.ts e2e/project-creation.test.ts
+```
+
+Scaffold strictness/parity, dependency validation, path containment, duplicate-name races, staging
+cleanup, atomic publication/recovery, and session reservation stay in focused core/CLI/web tests.
+
 ## Cost rules
 
 - Do not run browser E2E for pure fixture assertions, calculations, or schema/model branches with a

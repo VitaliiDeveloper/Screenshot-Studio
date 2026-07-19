@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import { switchActiveProject } from "../../lib/debounced-save";
 import { fetchActiveProject } from "../../lib/project-session";
 import {
@@ -10,6 +11,7 @@ import {
   ProjectImportClientError,
   type BrowserProjectImportSource,
 } from "../../lib/project-import-client";
+import { createProject } from "../../lib/project-creation-client";
 import { AppHomeShell } from "./AppHomeShell";
 import {
   launcherDialogExitDelay,
@@ -17,13 +19,29 @@ import {
   type LauncherDialogExitAction,
 } from "./project-dialog-motion";
 import { reduceLauncherImportState } from "./project-launcher-model";
+import {
+  initialProjectCreationState,
+  reduceProjectCreationState,
+  type ProjectCreationForm,
+} from "./project-creation-model";
 
-export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
+export function ProjectLauncher({
+  allowSwitch,
+  projectTemplates,
+}: {
+  allowSwitch: boolean;
+  projectTemplates: readonly ProjectTemplateSummary[];
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
+  const [creationState, dispatchCreation] = useReducer(
+    reduceProjectCreationState,
+    initialProjectCreationState,
+  );
   const [dialogClosing, setDialogClosing] = useState(false);
   const importButtonRef = useRef<HTMLButtonElement>(null);
+  const creationButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
   const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
   const exitActionRef = useRef<LauncherDialogExitAction>(null);
@@ -131,13 +149,45 @@ export function ProjectLauncher({ allowSwitch }: { allowSwitch: boolean }) {
       if (importControllerRef.current === controller) importControllerRef.current = null;
     });
   };
+  const closeCreation = useCallback(() => {
+    if (creationState.status === "creating") return;
+    dispatchCreation({ type: "close" });
+    queueMicrotask(() => creationButtonRef.current?.focus());
+  }, [creationState.status]);
+  const changeCreation = useCallback((patch: Partial<ProjectCreationForm>) => {
+    dispatchCreation({ type: "change", patch });
+  }, []);
+  const submitCreation = () => {
+    if (creationState.status !== "editing" && creationState.status !== "error") return;
+    const input = creationState.form;
+    dispatchCreation({ type: "submit" });
+    void switchActiveProject(() => createProject(input)).then(() => {
+      if (!mountedRef.current) return;
+      dispatchCreation({ type: "complete" });
+      router.push("/home");
+      router.refresh();
+    }).catch((caught: unknown) => {
+      if (!mountedRef.current) return;
+      dispatchCreation({
+        type: "fail",
+        message: caught instanceof Error ? caught.message : String(caught),
+      });
+    });
+  };
 
   return (
     <AppHomeShell
       state={importState}
+      creationState={creationState}
+      projectTemplates={projectTemplates}
       dialogClosing={dialogClosing}
       sessionError={error}
       importButtonRef={importButtonRef}
+      creationButtonRef={creationButtonRef}
+      onOpenCreate={() => dispatchCreation({ type: "open" })}
+      onCloseCreate={closeCreation}
+      onChangeCreation={changeCreation}
+      onSubmitCreation={submitCreation}
       onOpenImport={() => dispatchImport({ type: "choose" })}
       onCloseImport={closeImport}
       onCancelImport={cancelImport}

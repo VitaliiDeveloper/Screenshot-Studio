@@ -3,7 +3,9 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ManagedProjectNotFoundError } from "./managed-project-repository.server.js";
 import {
+  NoActiveProjectError,
   ProjectSessionRegistry,
   resolveActiveProjectSession,
   type LocalFileProjectSourceAdapter,
@@ -66,7 +68,10 @@ function createStubManagedSource() {
   return {
     kind: "managed-project",
     open: vi.fn(async (projectId: string) => {
-      if (projectId === "missing") throw new Error("Managed project does not exist");
+      if (projectId === "missing"
+        || projectId === "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") {
+        throw new ManagedProjectNotFoundError();
+      }
       return {
         name: "Managed",
         projectId,
@@ -85,6 +90,109 @@ function createStubManagedSource() {
 }
 
 describe("ProjectSessionRegistry", () => {
+  it("rehydrates a managed session from its recovery hint after registry loss", async () => {
+    const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const managedSource = createStubManagedSource();
+    const restartedRegistry = new ProjectSessionRegistry({
+      createSessionId: () => "recovered-session",
+      managedSource,
+    });
+
+    const recovered = await resolveActiveProjectSession(new Request(
+      "http://localhost/api/project-session",
+      { headers: { cookie: `screenshot_studio_managed_project=${projectId}` } },
+    ), { registry: restartedRegistry, configuredPath: () => null });
+
+    expect(managedSource.open).toHaveBeenCalledWith(projectId);
+    expect(recovered).toMatchObject({
+      projectId,
+      descriptor: {
+        sessionId: "recovered-session",
+        sourceKind: "managed-project",
+      },
+    });
+  });
+
+  it("treats a stale managed recovery hint as no active project", async () => {
+    const restartedRegistry = new ProjectSessionRegistry({
+      createSessionId: () => "unused-session",
+      managedSource: createStubManagedSource(),
+    });
+
+    await expect(resolveActiveProjectSession(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: "screenshot_studio_managed_project=project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        },
+      },
+    ), { registry: restartedRegistry, configuredPath: () => null }))
+      .rejects.toBeInstanceOf(NoActiveProjectError);
+  });
+
+  it("does not replace a managed project with a configured local project after a recovery failure", async () => {
+    const localSource = createStubLocalSource();
+    const restartedRegistry = new ProjectSessionRegistry({
+      createSessionId: () => "unused-session",
+      localSource,
+      managedSource: {
+        kind: "managed-project",
+        open: vi.fn(async () => { throw new Error("Managed catalog is unreadable"); }),
+      },
+    });
+
+    await expect(resolveActiveProjectSession(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: "screenshot_studio_managed_project=project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        },
+      },
+    ), { registry: restartedRegistry, configuredPath: () => "configured-project" }))
+      .rejects.toThrow("Unable to reopen the managed project");
+    expect(localSource.open).not.toHaveBeenCalled();
+  });
+
+  it("ignores malformed managed recovery hints", async () => {
+    const managedSource = createStubManagedSource();
+    const restartedRegistry = new ProjectSessionRegistry({
+      createSessionId: () => "unused-session",
+      managedSource,
+    });
+
+    await expect(resolveActiveProjectSession(new Request(
+      "http://localhost/api/project-session",
+      { headers: { cookie: "screenshot_studio_managed_project=../../private" } },
+    ), { registry: restartedRegistry, configuredPath: () => null }))
+      .rejects.toBeInstanceOf(NoActiveProjectError);
+    expect(managedSource.open).not.toHaveBeenCalled();
+  });
+
+  it("keeps a live local session ahead of any stale managed recovery hint", async () => {
+    const managedSource = createStubManagedSource();
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "local-session",
+      localSource: createStubLocalSource(),
+      managedSource,
+    });
+    const local = await registry.openLocal("local-project");
+
+    const resolved = await resolveActiveProjectSession(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: [
+            "screenshot_studio_project_session=local-session",
+            "screenshot_studio_managed_project=project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          ].join("; "),
+        },
+      },
+    ), { registry, configuredPath: () => null });
+
+    expect(resolved).toBe(local);
+    expect(managedSource.open).not.toHaveBeenCalled();
+  });
+
   it("activates an imported managed record without reopening it or exposing its server path", async () => {
     const managedSource = createStubManagedSource();
     const registry = new ProjectSessionRegistry({

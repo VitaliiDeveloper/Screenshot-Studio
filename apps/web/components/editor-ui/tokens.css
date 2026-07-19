@@ -3,6 +3,8 @@
   --editor-color-surface-subtle: #f8fafc;
   --editor-color-surface-subtle-translucent: rgb(248 250 252 / 60%);
   --editor-color-surface-muted: #f1f5f9;
+  --editor-color-surface-translucent: rgb(255 255 255 / 70%);
+  --editor-color-overlay: rgb(2 6 23 / 45%);
   --editor-color-border: #e2e8f0;
   --editor-color-border-strong: #cbd5e1;
   --editor-color-text: #1e293b;
@@ -43,6 +45,7 @@
   --editor-font-label-tracking: 0.16em;
   --editor-shadow-control: var(--shadow-sm);
   --editor-shadow-accent: 0 1px 3px 0 rgb(37 99 235 / 20%), 0 1px 2px -1px rgb(37 99 235 / 20%);
+  --editor-shadow-dialog: 0 25px 50px -12px rgb(2 6 23 / 25%);
   --editor-focus-width: 2px;
   --editor-focus-offset: 2px;
   --editor-motion-fast: 150ms;

@@ -211,8 +211,9 @@ export function ProjectHome() {
             <section aria-labelledby="project-guidance" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
               <h2 id="project-guidance" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Workflow guide</h2>
               <dl className="mt-4 space-y-4 text-xs leading-5 text-slate-600">
-                <div><dt className="font-semibold text-slate-900">Project templates</dt><dd>Starter projects belong to Create project and are not available in this launcher slice.</dd></div>
-                <div><dt className="font-semibold text-slate-900">Screen templates</dt><dd>Project-local reusable screens are applied from the existing Workspace Templates library.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Project templates</dt><dd>Complete creation-only starters are available from Create project on App Home.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Screen templates</dt><dd>Project-local reusable screens are applied from the Workspace Screen templates library.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Component presets</dt><dd>Reusable element groups are distinct from both complete project templates and full-screen templates.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Layout modes</dt><dd>Isolated and connected describe how a layout composes screens; Project Home reports them without editing content.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Project import</dt><dd>Folder, ZIP, or JSON input is validated into a separate managed copy.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Capture import</dt><dd>Raw capture ingestion remains available through the existing CLI workflow, not this launcher slice.</dd></div>

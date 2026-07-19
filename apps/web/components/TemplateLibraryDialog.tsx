@@ -82,20 +82,20 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   };
   return (
     <DialogShell
-      title="Templates"
-      description={`Create a screen in locale ${activeScreen?.locale ?? "—"} from a project template.`}
-      ariaLabel="Template library"
-      closeLabel="Close template library"
+      title="Screen templates"
+      description={`Create a screen in locale ${activeScreen?.locale ?? "—"} from a project-local screen template.`}
+      ariaLabel="Screen template library"
+      closeLabel="Close screen template library"
       onClose={close}
       closeDisabled={creating !== null}
       widthClass="max-w-2xl"
     >
       {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
-      {loading ? <p className="text-xs text-slate-500">Loading templates…</p> : null}
+      {loading ? <p className="text-xs text-slate-500">Loading screen templates…</p> : null}
       {!loading && templates.length === 0 ? (
         <EmptyResourceState
           icon={LayoutTemplate}
-          title="No templates yet"
+          title="No screen templates yet"
           description="Add an exact screen layout to the project, then reopen this library to create a screen."
           path="templates/<id>.json"
         />
