@@ -152,6 +152,7 @@ describe("POST /api/capture-import/apply", () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get("set-cookie")).toContain("screenshot_studio_project_session=capture-session-1");
+    expect(response.headers.get("x-project-id")).toMatch(/^project_[0-9a-f]{32}$/u);
     expect(body).toMatchObject({
       project: {
         sessionId: "capture-session-1",

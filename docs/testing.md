@@ -93,6 +93,18 @@ pnpm exec vitest run --config vitest.e2e.config.ts e2e/project-creation.test.ts
 Scaffold strictness/parity, dependency validation, path containment, duplicate-name races, staging
 cleanup, atomic publication/recovery, and session reservation stay in focused core/CLI/web tests.
 
+Launcher 6 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves no-write
+capture preview, explicit new-project selection, confirmation, exact receiver activation, and the
+verified Project Home handoff:
+
+```bash
+pnpm exec vitest run --config vitest.e2e.config.ts e2e/capture-import.test.ts
+```
+
+Capture discovery/path safety, deterministic plans and fresh ids, current-project identity/revision
+fences, atomic rollback/recovery, managed staging/catalog cleanup, API failure branches, and CLI parity
+stay in focused core/CLI/web tests.
+
 ## Cost rules
 
 - Do not run browser E2E for pure fixture assertions, calculations, or schema/model branches with a

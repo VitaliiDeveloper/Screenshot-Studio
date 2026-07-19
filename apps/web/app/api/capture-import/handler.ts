@@ -381,9 +381,11 @@ export async function handleCaptureImportApplyPost(
         signal: request.signal,
       });
       const session = resolved.registry.openManagedRecord(record, reservedSessionId);
+      const headers = projectSessionResponseHeaders(session, request);
+      headers.set("x-project-id", session.projectId);
       return Response.json({ project: session.descriptor, imported: parsed.discovery.summary.screenCount }, {
         status: 201,
-        headers: projectSessionResponseHeaders(session, request),
+        headers,
       });
     } catch (error) {
       resolved.registry.releaseReservedSessionId(reservedSessionId);
