@@ -72,7 +72,7 @@ export type ManagedProjectDeletionEvidence =
   | ManagedProjectDeletionComplete;
 
 export interface ManagedProjectCatalogDocument {
-  version: 2;
+  version: 1;
   generation: number;
   idNamespace: string;
   nextProjectOrdinal: number;
@@ -131,31 +131,14 @@ function projectOrdinalForNamespace(id: string, namespace: string): number | und
   return Number(ordinal);
 }
 
-function createMigrationNamespace(
-  ids: readonly string[],
-  createIdNamespace: () => string,
-): string {
-  for (let attempt = 0; attempt < 128; attempt += 1) {
-    const namespace = createIdNamespace();
-    if (!ID_NAMESPACE_PATTERN.test(namespace)) {
-      throw new TypeError("catalog id namespace must be lowercase hex");
-    }
-    if (!ids.some((id) => id.startsWith(`project_${namespace}`))) return namespace;
-  }
-  throw new Error("Unable to allocate a non-conflicting managed project id namespace");
-}
-
-function isAbandonedLifecycleCatalog(value: unknown): boolean {
-  return isRecord(value) && value.version === 2 && "lifecycleCommits" in value;
-}
-
-function parseEntry(value: unknown, legacy = false): ActiveManagedProjectCatalogEntry {
+function parseEntry(value: unknown): ActiveManagedProjectCatalogEntry {
   if (!isRecord(value)) throw new TypeError("catalog entry must be an object");
   const lifecycle = value.lifecycle;
-  const keys = legacy
-    ? ["id", "directoryName", "name", "lifecycle", "createdAt", "updatedAt"]
-    : ["id", "directoryName", "name", "lifecycle", "lifecycleRevision", "createdAt", "updatedAt"];
-  requireExactKeys(value, keys, "catalog entry");
+  requireExactKeys(
+    value,
+    ["id", "directoryName", "name", "lifecycle", "lifecycleRevision", "createdAt", "updatedAt"],
+    "catalog entry",
+  );
   if (typeof value.id !== "string" || !PROJECT_ID_PATTERN.test(value.id)) {
     throw new TypeError("catalog entry id must be an opaque managed project id");
   }
@@ -170,7 +153,7 @@ function parseEntry(value: unknown, legacy = false): ActiveManagedProjectCatalog
     id: value.id,
     directoryName: value.id,
     name: value.name,
-    lifecycleRevision: legacy ? 1 : requirePositiveInteger(value.lifecycleRevision, "catalog entry lifecycleRevision"),
+    lifecycleRevision: requirePositiveInteger(value.lifecycleRevision, "catalog entry lifecycleRevision"),
     createdAt: requireTimestamp(value.createdAt, "catalog entry createdAt"),
     updatedAt: requireTimestamp(value.updatedAt, "catalog entry updatedAt"),
   };
@@ -261,51 +244,10 @@ function parseDeletion(value: unknown): ManagedProjectDeletionEvidence {
 
 export function parseManagedProjectCatalog(
   value: unknown,
-  createIdNamespace: () => string = () => randomUUID().replaceAll("-", "").slice(0, 16),
 ): ManagedProjectCatalogDocument {
   if (!isRecord(value)) throw new TypeError("managed project catalog must be an object");
-  if (value.version === 1) {
-    requireExactKeys(value, ["version", "entries"], "managed project catalog");
-    if (!Array.isArray(value.entries)) throw new TypeError("managed project catalog entries must be an array");
-    const entries = value.entries.map((entry) => parseEntry(entry, true));
-    const idNamespace = createMigrationNamespace(entries.map((entry) => entry.id), createIdNamespace);
-    return validateCatalog({
-      version: 2,
-      generation: 0,
-      idNamespace,
-      nextProjectOrdinal: 1,
-      entries,
-      deletions: [],
-    });
-  }
-  if (isAbandonedLifecycleCatalog(value)) {
-    requireExactKeys(
-      value,
-      ["version", "generation", "entries", "lifecycleCommits"],
-      "managed project catalog",
-    );
-    if (!Number.isSafeInteger(value.generation) || (value.generation as number) < 0) {
-      throw new TypeError("managed project catalog generation must be a non-negative integer");
-    }
-    if (!Array.isArray(value.entries)) {
-      throw new TypeError("managed project catalog entries must be an array");
-    }
-    if (!Array.isArray(value.lifecycleCommits) || value.lifecycleCommits.length !== 0) {
-      throw new TypeError("abandoned lifecycle catalog must not contain purge evidence");
-    }
-    const entries = value.entries.map((entry) => parseEntry(entry));
-    const idNamespace = createMigrationNamespace(entries.map((entry) => entry.id), createIdNamespace);
-    return validateCatalog({
-      version: 2,
-      generation: value.generation as number,
-      idNamespace,
-      nextProjectOrdinal: 1,
-      entries,
-      deletions: [],
-    });
-  }
   requireExactKeys(value, ["version", "generation", "idNamespace", "nextProjectOrdinal", "entries", "deletions"], "managed project catalog");
-  if (value.version !== 2) throw new TypeError("managed project catalog version must be 1 or 2");
+  if (value.version !== 1) throw new TypeError("managed project catalog version must be 1");
   if (!Number.isSafeInteger(value.generation) || (value.generation as number) < 0) {
     throw new TypeError("managed project catalog generation must be a non-negative integer");
   }
@@ -316,7 +258,7 @@ export function parseManagedProjectCatalog(
   if (!Array.isArray(value.entries)) throw new TypeError("managed project catalog entries must be an array");
   if (!Array.isArray(value.deletions)) throw new TypeError("managed project catalog deletions must be an array");
   return validateCatalog({
-    version: 2,
+    version: 1,
     generation: value.generation as number,
     idNamespace: value.idNamespace,
     nextProjectOrdinal,
@@ -413,7 +355,7 @@ export function serializeManagedProjectCatalog(catalog: ManagedProjectCatalogDoc
   const deletions = [...catalog.deletions]
     .sort((left, right) => left.operationId.localeCompare(right.operationId));
   return `${JSON.stringify({
-    version: 2,
+    version: 1,
     generation: catalog.generation,
     idNamespace: catalog.idNamespace,
     nextProjectOrdinal: catalog.nextProjectOrdinal,
@@ -662,23 +604,18 @@ export class ManagedProjectCatalogStore {
     });
   }
 
-  async #readPersisted(): Promise<{ catalog: ManagedProjectCatalogDocument; migrated: boolean }> {
+  async #readPersisted(): Promise<ManagedProjectCatalogDocument> {
     const value = JSON.parse(await readFile(this.config.catalogPath, "utf8")) as unknown;
-    return {
-      catalog: parseManagedProjectCatalog(value, this.#createIdNamespace),
-      migrated: isRecord(value) && (value.version === 1 || isAbandonedLifecycleCatalog(value)),
-    };
+    return parseManagedProjectCatalog(value);
   }
 
   async #readOrInitialize(): Promise<ManagedProjectCatalogDocument> {
     try {
-      const { catalog, migrated } = await this.#readPersisted();
-      if (migrated) await this.#write(catalog);
-      return catalog;
+      return await this.#readPersisted();
     } catch (error) {
       if (errorCode(error) !== "ENOENT") throw error;
       const empty: ManagedProjectCatalogDocument = {
-        version: 2,
+        version: 1,
         generation: 0,
         idNamespace: this.#createIdNamespace(),
         nextProjectOrdinal: 1,
@@ -690,7 +627,7 @@ export class ManagedProjectCatalogStore {
         return empty;
       } catch (writeError) {
         if (errorCode(writeError) !== "EEXIST") throw writeError;
-        return (await this.#readPersisted()).catalog;
+        return await this.#readPersisted();
       }
     }
   }

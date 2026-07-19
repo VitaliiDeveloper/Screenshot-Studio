@@ -157,7 +157,7 @@ describe("ManagedProjectCreationService", () => {
     const managed = await repository({
       catalog: {
         read: async () => ({
-          version: 2, generation: 0, idNamespace: "aaaaaaaaaaaaaaaa",
+          version: 1, generation: 0, idNamespace: "aaaaaaaaaaaaaaaa",
           nextProjectOrdinal: 2, entries: [], deletions: [],
         }),
         get: async () => undefined,

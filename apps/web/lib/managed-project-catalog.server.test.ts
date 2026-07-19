@@ -36,7 +36,7 @@ function activeCatalogEntry(overrides: Record<string, unknown> = {}) {
 
 function catalogDocument(overrides: Record<string, unknown> = {}) {
   return {
-    version: 2 as const,
+    version: 1 as const,
     generation: 0,
     idNamespace: ID_NAMESPACE,
     nextProjectOrdinal: 1,
@@ -137,15 +137,17 @@ describe("resolveManagedProjectStorageConfig", () => {
 });
 
 describe("parseManagedProjectCatalog", () => {
-  it("migrates the version-one catalog contract and serializes version two deterministically", () => {
+  it("parses and serializes the strict version-one catalog deterministically", () => {
     const laterId = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    const catalog = parseManagedProjectCatalog(
-      { version: 1, entries: [catalogEntry({ id: laterId, directoryName: laterId }), catalogEntry()] },
-      () => ID_NAMESPACE,
-    );
+    const catalog = parseManagedProjectCatalog(catalogDocument({
+      entries: [
+        activeCatalogEntry({ id: laterId, directoryName: laterId }),
+        activeCatalogEntry(),
+      ],
+    }));
 
     expect(catalog).toMatchObject({
-      version: 2,
+      version: 1,
       generation: 0,
       idNamespace: ID_NAMESPACE,
       nextProjectOrdinal: 1,
@@ -156,58 +158,13 @@ describe("parseManagedProjectCatalog", () => {
       activeCatalogEntry(),
     ]);
     expect(serializeManagedProjectCatalog(catalog)).toBe(`${JSON.stringify({
-      version: 2,
+      version: 1,
       generation: 0,
       idNamespace: ID_NAMESPACE,
       nextProjectOrdinal: 1,
       entries: [activeCatalogEntry(), activeCatalogEntry({ id: laterId, directoryName: laterId })],
       deletions: [],
     }, null, 2)}\n`);
-  });
-
-  it("migrates the abandoned active-only lifecycle catalog without reusing project ids", () => {
-    const existingId = "project_1111111111111111ffffffffffffffff";
-    const candidates = ["1111111111111111", ID_NAMESPACE];
-
-    expect(parseManagedProjectCatalog({
-      version: 2,
-      generation: 4,
-      entries: [activeCatalogEntry({ id: existingId, directoryName: existingId })],
-      lifecycleCommits: [],
-    }, () => candidates.shift()!)).toMatchObject({
-      version: 2,
-      generation: 4,
-      idNamespace: ID_NAMESPACE,
-      nextProjectOrdinal: 1,
-      entries: [{ id: existingId, lifecycle: "active", lifecycleRevision: 1 }],
-      deletions: [],
-    });
-    expect(candidates).toEqual([]);
-  });
-
-  it.each([
-    ["a trashed entry", {
-      version: 2,
-      generation: 1,
-      entries: [activeCatalogEntry({
-        lifecycle: "trashed",
-        trashedAt: "2026-07-19T00:00:00.000Z",
-      })],
-      lifecycleCommits: [],
-    }],
-    ["purge evidence", {
-      version: 2,
-      generation: 1,
-      entries: [],
-      lifecycleCommits: [{
-        operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        operation: "purge",
-        projectId: PROJECT_ID,
-        lifecycleRevision: 2,
-      }],
-    }],
-  ])("fails closed instead of migrating an abandoned lifecycle catalog with %s", (_case, value) => {
-    expect(() => parseManagedProjectCatalog(value, () => ID_NAMESPACE)).toThrow();
   });
 
   it("rejects the unshipped long-lived trashed catalog state", () => {
@@ -221,28 +178,26 @@ describe("parseManagedProjectCatalog", () => {
     }))).toThrow(/unknown|lifecycle/i);
   });
 
-  it("retries v1 migration when a candidate namespace matches a legacy id prefix", () => {
-    const existingId = "project_1111111111111111ffffffffffffffff";
-    const candidates = ["1111111111111111", "2222222222222222"];
-
-    expect(parseManagedProjectCatalog({
-      version: 1,
-      entries: [catalogEntry({ id: existingId, directoryName: existingId })],
-    }, () => candidates.shift()!)).toMatchObject({
-      idNamespace: "2222222222222222",
-      nextProjectOrdinal: 1,
-    });
-    expect(candidates).toEqual([]);
-  });
-
   it.each([
-    ["a version mismatch", { version: 3, entries: [] }],
-    ["a malformed timestamp", { version: 1, entries: [catalogEntry({ createdAt: "tomorrow" })] }],
-    ["duplicate ids", { version: 1, entries: [catalogEntry(), catalogEntry()] }],
-    ["an invalid directory name", { version: 1, entries: [catalogEntry({ directoryName: "other" })] }],
-    ["an unknown lifecycle", { version: 1, entries: [catalogEntry({ lifecycle: "trashed" })] }],
-    ["unknown top-level properties", { version: 1, entries: [], future: true }],
-    ["unknown entry properties", { version: 1, entries: [catalogEntry({ future: true })] }],
+    ["a version mismatch", catalogDocument({ version: 2 })],
+    ["the incomplete pre-release version-one shape", { version: 1, entries: [] }],
+    ["the abandoned lifecycle shape", {
+      version: 2, generation: 0, entries: [], lifecycleCommits: [],
+    }],
+    ["a malformed timestamp", catalogDocument({
+      entries: [activeCatalogEntry({ createdAt: "tomorrow" })],
+    })],
+    ["duplicate ids", catalogDocument({ entries: [activeCatalogEntry(), activeCatalogEntry()] })],
+    ["an invalid directory name", catalogDocument({
+      entries: [activeCatalogEntry({ directoryName: "other" })],
+    })],
+    ["an unknown lifecycle", catalogDocument({
+      entries: [activeCatalogEntry({ lifecycle: "trashed" })],
+    })],
+    ["unknown top-level properties", catalogDocument({ future: true })],
+    ["unknown entry properties", catalogDocument({
+      entries: [activeCatalogEntry({ future: true })],
+    })],
     ["a negative generation", catalogDocument({ generation: -1 })],
     ["an invalid id namespace", catalogDocument({ idNamespace: "not-opaque" })],
     ["a zero next ordinal", catalogDocument({ nextProjectOrdinal: 0 })],
@@ -330,40 +285,28 @@ describe("ManagedProjectCatalogStore", () => {
     await expect(readdir(outside)).resolves.toEqual([]);
   });
 
-  it("atomically persists a version-one migration on first read", async () => {
-    const config = await storageConfig();
-    await writeFile(config.catalogPath, `${JSON.stringify({ version: 1, entries: [catalogEntry()] })}\n`);
-
-    await expect(new ManagedProjectCatalogStore(config).read()).resolves.toMatchObject({ version: 2 });
-    await expect(readFile(config.catalogPath, "utf8")).resolves.toContain('"version": 2');
-  });
-
-  it("atomically persists an abandoned empty lifecycle catalog in the permanent-deletion format", async () => {
-    const config = await storageConfig();
-    await writeFile(config.catalogPath, `${JSON.stringify({
+  it.each([
+    ["an incomplete pre-release version-one catalog", `${JSON.stringify({
+      version: 1,
+      entries: [catalogEntry()],
+    })}\n`],
+    ["a complete version-two catalog", `${JSON.stringify({
+      ...catalogDocument(),
+      version: 2,
+    })}\n`],
+    ["the abandoned lifecycle catalog", `${JSON.stringify({
       version: 2,
       generation: 0,
       entries: [],
       lifecycleCommits: [],
-    })}\n`);
+    })}\n`],
+    ["malformed JSON", "not JSON"],
+  ])("rejects %s without rewriting persisted bytes", async (_case, persisted) => {
+    const config = await storageConfig();
+    await writeFile(config.catalogPath, persisted);
 
-    await expect(new ManagedProjectCatalogStore(config, {
-      createIdNamespace: () => ID_NAMESPACE,
-    }).read()).resolves.toMatchObject({
-      version: 2,
-      idNamespace: ID_NAMESPACE,
-      nextProjectOrdinal: 1,
-      entries: [],
-      deletions: [],
-    });
-    await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(`${JSON.stringify({
-      version: 2,
-      generation: 0,
-      idNamespace: ID_NAMESPACE,
-      nextProjectOrdinal: 1,
-      entries: [],
-      deletions: [],
-    }, null, 2)}\n`);
+    await expect(new ManagedProjectCatalogStore(config).read()).rejects.toThrow();
+    await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(persisted);
   });
 
   it("initializes an empty catalog and reloads it after a restart", async () => {
@@ -693,12 +636,4 @@ describe("ManagedProjectCatalogStore", () => {
     ]);
   });
 
-  it("fails closed on corrupt catalog bytes", async () => {
-    const config = await storageConfig();
-    const store = new ManagedProjectCatalogStore(config);
-    await store.list();
-    await writeFile(config.catalogPath, "not JSON");
-
-    await expect(new ManagedProjectCatalogStore(config).list()).rejects.toThrow();
-  });
 });

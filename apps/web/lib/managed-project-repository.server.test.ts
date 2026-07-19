@@ -221,7 +221,7 @@ describe("ManagedProjectRepository", () => {
     const repository = new ManagedProjectRepository(config, {
       catalog: {
         read: async () => ({
-          version: 2, generation: 0, idNamespace: "aaaaaaaaaaaaaaaa",
+          version: 1, generation: 0, idNamespace: "aaaaaaaaaaaaaaaa",
           nextProjectOrdinal: 2, entries: [], deletions: [],
         }),
         get: async () => undefined,
@@ -291,7 +291,7 @@ describe("ManagedProjectRepository", () => {
     const repository = new ManagedProjectRepository(config, {
       catalog: {
         read: async () => ({
-          version: 2, generation: 0, idNamespace: "bbbbbbbbbbbbbbbb",
+          version: 1, generation: 0, idNamespace: "bbbbbbbbbbbbbbbb",
           nextProjectOrdinal: 2, entries: [], deletions: [],
         }),
         get: async () => undefined,
@@ -341,7 +341,7 @@ describe("ManagedProjectRepository", () => {
       },
       catalog: {
         read: async () => ({
-          version: 2, generation: 0, idNamespace: "cccccccccccccccc",
+          version: 1, generation: 0, idNamespace: "cccccccccccccccc",
           nextProjectOrdinal: 2, entries, deletions: [],
         }),
         get: async (id) => entries.find((entry) => entry.id === id),

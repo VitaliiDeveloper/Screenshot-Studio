@@ -293,10 +293,12 @@ directories:
 
 Catalog ids (`project_<32 lowercase hex>`), names, lifecycle revisions, operation evidence,
 timestamps, source locators, and recovery state never become fields in
-`app-store-screenshots.json`. `catalog.json` is strict, versioned, and atomically replaced under a
-bounded filesystem lease. Active entries remain invisible until the staged directory has passed the
-core strict Project parser and the catalog entry is durable. Deletion evidence is separate from the
-active entries and has only `reserved`, `cleanup-pending`, and `complete` states; there is no
+`app-store-screenshots.json`. `catalog.json` uses one strict version 1 contract and is atomically
+replaced under a bounded filesystem lease. No compatibility or migration parser is retained while
+the managed-storage feature remains unpublished. Active entries remain invisible until the staged
+directory has passed the core strict Project parser and the catalog entry is durable. Deletion
+evidence is separate from the active entries and has only `reserved`, `cleanup-pending`, and
+`complete` states; there is no
 user-visible trashed project state.
 
 Publication writes a synced `prepared` intent, renames the validated owned stage to its opaque project
