@@ -208,7 +208,7 @@ describe("ManagedProjectLifecycleService", () => {
     await expect(readdir(outside)).resolves.toEqual([]);
   });
 
-  it("retains recovery evidence on move errors and resumes the same operation", async () => {
+  it("retains recovery evidence on move errors and reconciles it after restart", async () => {
     const input = await fixture();
     const failing = new ManagedProjectLifecycleService(input.config, input.registry, {
       rename: async (from, to) => {
@@ -223,8 +223,13 @@ describe("ManagedProjectLifecycleService", () => {
     await expect(failing.permanentlyDelete(request(input))).rejects.toThrow(/cross-device/i);
     await expect(new ManagedProjectCatalogStore(input.config).getDeletionEvidence(OPERATION_ID))
       .resolves.toMatchObject({ state: "reserved" });
-    await expect(new ManagedProjectLifecycleService(input.config, input.registry)
-      .permanentlyDelete(request(input))).resolves.toMatchObject({ state: "complete" });
+    await expect(new ManagedProjectLifecycleService(input.config, input.registry).reconcileAll())
+      .resolves.toBeUndefined();
+    await expect(new ManagedProjectCatalogStore(input.config).getDeletionEvidence(OPERATION_ID))
+      .resolves.toMatchObject({ state: "complete" });
+    await expect(lstat(input.project.projectDirectory)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readdir(input.config.tombstonesRoot)).resolves.toEqual([]);
+    await expect(readdir(input.config.recoveryRoot)).resolves.toEqual([]);
   });
 
   it("resumes only an exact operation, secret hash, and revision tuple", async () => {
@@ -352,6 +357,31 @@ describe("ManagedProjectLifecycleService", () => {
       .rejects.toThrow(/identity changed/i);
     await expect(readFile(join(original, "resource.txt"), "utf8")).resolves.toBe("keep until delete");
     await expect(readFile(input.project.projectPath, "utf8")).resolves.toContain("Replacement");
+  });
+
+  it("fails closed when the tombstone identity is replaced before recovery", async () => {
+    const input = await fixture();
+    const lifecycle = new ManagedProjectLifecycleService(input.config, input.registry, {
+      failpoint: (point) => {
+        if (point === "after-catalog-commit") throw new Error("pause after catalog commit");
+      },
+    });
+    await expect(lifecycle.permanentlyDelete(request(input))).rejects.toThrow(/pause after catalog commit/i);
+    const [tombstoneName] = await readdir(input.config.tombstonesRoot);
+    const tombstone = join(input.config.tombstonesRoot, tombstoneName!);
+    const original = join(input.config.root, "original-tombstone");
+    await rename(tombstone, original);
+    await mkdir(tombstone);
+    await writeFile(join(tombstone, "app-store-screenshots.json"), projectJson("Replacement"));
+
+    await expect(new ManagedProjectLifecycleService(input.config, input.registry).reconcileAll())
+      .rejects.toThrow(/tombstone no longer matches recovery intent/i);
+    await expect(readFile(join(original, "resource.txt"), "utf8")).resolves.toBe("keep until delete");
+    await expect(readFile(join(tombstone, "app-store-screenshots.json"), "utf8"))
+      .resolves.toContain("Replacement");
+    await expect(new ManagedProjectCatalogStore(input.config).getDeletionEvidence(OPERATION_ID))
+      .resolves.toMatchObject({ state: "cleanup-pending" });
+    await expect(readdir(input.config.recoveryRoot)).resolves.toHaveLength(1);
   });
 
   it("rejects a forged pending intent and preserves its tombstone", async () => {

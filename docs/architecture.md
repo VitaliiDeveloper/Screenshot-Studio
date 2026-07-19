@@ -140,6 +140,7 @@ interface ActiveProjectDescriptor {
   name: string
   sourceKind: string // registered id, for example "local-file" or "managed-project"
   displayLocation?: string
+  lifecycleRevision?: number
   capabilities: {
     writeInPlace: boolean
     revealLocation: boolean
@@ -147,6 +148,7 @@ interface ActiveProjectDescriptor {
     nativePicker: boolean
     projectLocalResources: boolean
     exportProjectArchive: boolean
+    deleteProjectPermanently: boolean
   }
 }
 ```
@@ -217,7 +219,8 @@ concurrency behavior differ behind the adapter boundary.
 Launcher 1/8 implements the local-file source and active-session seam; Launcher 2/8 adds the
 managed repository/catalog; Launcher 3/8 adds browser import and portable project archives behind
 those seams; Launcher 4/8 builds Project Home and its Workspace round trip; Launcher 5/8 adds shared
-strict creation; Launcher 6/8 adds capture-folder preview and explicit-target apply on the same contracts:
+strict creation; Launcher 6/8 adds capture-folder preview and explicit-target apply; Launcher 7/8
+adds permanent managed-project deletion on the same contracts:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
@@ -257,8 +260,9 @@ Workspace → Project Home first drains queued saves and persists the latest sto
 write keeps Workspace mounted and exposes an alert. **Close project** runs through that same exclusive
 save fence, sends an `X-Project-Id`-fenced `DELETE /api/project-session`, removes only the matching
 opaque registry entry, expires the HttpOnly session cookie, clears that project's transient workspace
-state, and returns to App Home. It does not change recents/catalog entries, Trash or delete a managed
-project, or move/delete a local project directory. A close failure preserves the active session and
+state, and returns to App Home. It does not change recents/catalog entries or delete project data.
+**Permanently delete project** is a separate managed-only capability and flow; neither action ever
+moves or deletes a local-file project directory. A close failure preserves the active session and
 client project state.
 
 Future adapters must prove the same behavioral contract: validate before activation, preserve the
@@ -274,36 +278,43 @@ The managed repository owns deployment metadata outside the strict Project docum
 `SCREENSHOT_STUDIO_DATA_ROOT` resolved from that invocation directory. Deployments may set positive
 integer limits with `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, and
 `SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES`, plus a positive
-`SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has four application-owned children:
+`SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has one catalog plus five application-owned child
+directories:
 
 ```
 .screenshot-studio/
-  catalog.json       # versioned active-project metadata only
+  catalog.json       # versioned active entries and bounded deletion evidence
   projects/<id>/     # published project directories
   staging/<token>/   # bounded, private pre-publication directories
-  recovery/<id>.json # publication intent while a directory/catalog transition is in progress
+  recovery/<id>.json # publication or deletion intent during a directory/catalog transition
+  tombstones/<id>.<operation-id>/ # exact deletion quarantine while recovery is possible
+  lifecycle-locks/   # opaque-id lifecycle leases shared by open/delete
 ```
 
-Catalog ids (`project_<32 lowercase hex>`), names, lifecycle state, timestamps, source locators, and
-recovery state never become fields in `app-store-screenshots.json`. `catalog.json` is strict and
-atomically replaced under a bounded filesystem lease. Its entries remain invisible until the staged
-directory has passed the core strict Project parser and the catalog entry is durable.
+Catalog ids (`project_<32 lowercase hex>`), names, lifecycle revisions, operation evidence,
+timestamps, source locators, and recovery state never become fields in
+`app-store-screenshots.json`. `catalog.json` is strict, versioned, and atomically replaced under a
+bounded filesystem lease. Active entries remain invisible until the staged directory has passed the
+core strict Project parser and the catalog entry is durable. Deletion evidence is separate from the
+active entries and has only `reserved`, `cleanup-pending`, and `complete` states; there is no
+user-visible trashed project state.
 
 Publication writes a synced `prepared` intent, renames the validated owned stage to its opaque project
 directory, advances to `directory-published`, atomically inserts the active catalog entry, then records
 `catalog-published` and removes the intent. A failed publication restores its owned stage and removes
-the intent; if rollback fails, the intent remains for startup reconciliation. Reconciliation only
-enumerates `staging/`, `recovery/`, and exact catalog-owned directories: it completes a valid
-directory-published catalog insert, removes already-complete intents, quarantines an invalid
-un-catalogued directory back to its owned stage, and fails closed when a catalog entry lacks its exact
-project directory. Expired owned stages are removed only after the configured TTL; there is no broad
-filesystem scan.
+the intent; if rollback fails, the intent remains for startup reconciliation. Publication
+reconciliation enumerates only `staging/`, `recovery/`, and exact catalog-owned directories: it
+completes a valid directory-published catalog insert, removes already-complete intents, quarantines an
+invalid un-catalogued directory back to its owned stage, and fails closed when a catalog entry lacks
+its exact project directory. Deletion reconciliation additionally validates only the exact
+evidence-owned tombstone. Expired owned stages are removed only after the configured TTL; there is no
+broad filesystem scan.
 
 The `managed-project` adapter opens a catalog id into the same request-scoped session as `local-file`.
 Its server-only `projectPath` remains available to existing project/resource APIs, but its browser
 descriptor intentionally omits `displayLocation`. Local-file behavior remains unchanged. Browser
-transfer is implemented in Launcher 3/8, managed creation in Launcher 5/8, and user-facing
-Trash/restore/purge belongs to Launcher 7/8.
+transfer is implemented in Launcher 3/8, managed creation in Launcher 5/8, and permanent managed
+deletion in Launcher 7/8.
 
 #### Managed browser transfer (Launcher 3/8)
 
@@ -338,8 +349,41 @@ store output. Generation uses the same configured file/byte bounds, verifies dir
 around recursive enumeration, and applies no-follow file identity checks before streaming;
 the resulting `screenshot-studio-project.zip` is copied into a short-lived, one-shot artifact under
 `/api/project-archive/artifacts/<token>`. That namespace and filename are deliberately separate from
-the rendered store-image export route. The allowlisted archive service is also the stable backup
-extension point for Launcher 7 lifecycle work; it does not implement Trash or schema widening.
+the rendered store-image export route. The allowlisted archive service is also the backup path reused
+by Launcher 7 permanent deletion; it does not implement another archive format, Trash, or schema
+widening.
+
+#### Permanent managed-project deletion (Launcher 7/8)
+
+Only the `managed-project` source advertises `deleteProjectPermanently`; `local-file` always reports
+it as false. Project Home keeps **Close project** separate from **Permanently delete project**. The
+destructive dialog first offers the existing portable archive or an explicit continue-without-archive
+choice, then requires the exact project name and a separate irreversible acknowledgement. Archive
+failure never starts deletion. The client rejects buffered save work, serializes behind already
+dispatched saves, reloads the same active project, and rechecks source capability, opaque identity,
+project name, lifecycle revision, Project revision, and archive evidence before admission.
+
+`POST /api/project-delete` accepts no filesystem path. It is fenced by the active managed session,
+`X-Project-Id`, strong `If-Match`, lifecycle revision, exact name confirmation, opaque operation id,
+and a body-only status secret. Admission acquires the per-project lifecycle lease and Project mutation
+lease, validates the exact regular-file tree and directory identity inside the configured managed
+root, then records catalog evidence before any irreversible removal. A different operation id,
+secret hash, Project revision, lifecycle revision, or project id cannot resume that operation.
+
+The service writes a strict deletion intent, renames only `projects/<opaque-id>` to the exact owned
+`tombstones/<opaque-id>.<operation-id>` quarantine, commits removal from active catalog entries,
+invalidates the matching managed session, validates the tombstone identity/tree again, and only then
+permanently removes it. Startup repository initialization reconciles every adjacent intent/catalog/
+directory phase forward. Missing, duplicated, forged, symlinked, redirected, or non-adjacent states
+fail closed and retain evidence for diagnosis; they never fall back to an arbitrary path or broad
+scan. Cross-device rename failure remains recoverable evidence and never degrades to copy-and-delete.
+
+After admission the response expires both session cookies, and status recovery uses only the opaque
+operation id plus transient status secret. The client keeps that secret in memory; durable recovery is
+owned by the server catalog and journal, so a lost browser response cannot authorize a second
+operation or strand project data. Completed operation evidence is bounded, but there is no project
+retention queue, automatic cleanup policy, Trash surface, or Restore operation. The strict Project
+schema, editor state, renderer, and store-image export path are unchanged.
 
 #### Managed project creation (Launcher 5/8)
 
@@ -394,7 +438,7 @@ offers a duplicate-producing retry until a non-null active project has been relo
 **Capture import** is raw PNG/resource ingestion. It is deliberately separate from Launcher 3
 **Import project**, which accepts a complete Folder/ZIP/eligible JSON managed copy, and from portable
 project-archive and rendered store-image export. Capture import does not add Project schema fields,
-another renderer, design-source integrations, lifecycle/Trash, recents, or general asset-library
+another renderer, design-source integrations, lifecycle/deletion behavior, recents, or general asset-library
 ownership.
 
 ### Render / export parity — the #1 technical risk
