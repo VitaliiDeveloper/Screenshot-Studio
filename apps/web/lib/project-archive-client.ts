@@ -7,6 +7,7 @@ export interface ProjectArchiveTicket {
   downloadUrl: string;
   expiresAt: string;
   filename: typeof ARCHIVE_FILENAME;
+  projectRevision: string;
 }
 
 export type ProjectArchiveFetcher = (
@@ -21,12 +22,13 @@ interface ArchiveDownloadDocument {
 
 export async function requestProjectArchive(
   projectId: string,
+  expectedRevision: string,
   fetcher: ProjectArchiveFetcher = fetch,
 ): Promise<ProjectArchiveTicket> {
   const response = await fetcher("/api/project-archive", {
     method: "POST",
     cache: "no-store",
-    headers: { "x-project-id": projectId },
+    headers: { "if-match": `"${expectedRevision}"`, "x-project-id": projectId },
   });
   const body = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok) {
@@ -36,13 +38,15 @@ export async function requestProjectArchive(
   }
   if (typeof body.downloadUrl !== "string" || !ARCHIVE_URL_PATTERN.test(body.downloadUrl)
     || body.filename !== ARCHIVE_FILENAME || typeof body.expiresAt !== "string"
-    || Number.isNaN(Date.parse(body.expiresAt))) {
+    || Number.isNaN(Date.parse(body.expiresAt)) || typeof body.projectRevision !== "string"
+    || !/^[0-9a-f]{64}$/.test(body.projectRevision)) {
     throw new Error("Project archive export returned an invalid ticket");
   }
   return {
     downloadUrl: body.downloadUrl,
     expiresAt: body.expiresAt,
     filename: ARCHIVE_FILENAME,
+    projectRevision: body.projectRevision,
   };
 }
 

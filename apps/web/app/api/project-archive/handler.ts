@@ -10,7 +10,7 @@ import {
   type ProjectArchiveArtifactTicket,
 } from "@web/lib/project-archive-artifacts.server.js";
 import {
-  withProjectReadRequest,
+  withProjectVersionedReadRequest,
   type ProjectReadRequestDependencies,
 } from "@web/lib/project-request-fence.server.js";
 import {
@@ -37,7 +37,7 @@ export async function handleProjectArchivePost(
 ): Promise<Response> {
   const managedStorageConfig = dependencies.managedStorageConfig
     ?? resolveManagedProjectStorageConfig();
-  return withProjectReadRequest(request, async (session, _expectedRevision, lifecycleLock) => {
+  return withProjectVersionedReadRequest(request, async (session, expectedRevision, lifecycleLock) => {
     if (session.descriptor.sourceKind !== "managed-project") {
       return Response.json({
         error: "Project archive export is available only for managed projects",
@@ -52,10 +52,12 @@ export async function handleProjectArchivePost(
     const stageArtifact = dependencies.stageArtifact ?? stageProjectArchiveArtifact;
     let archive: CreatedArchive | undefined;
     let operationError: unknown;
+    let revisionMismatch = false;
     let ticket: ProjectArchiveArtifactTicket | undefined;
     try {
       archive = await createArchive(session.projectId, lifecycleLock);
-      ticket = await stageArtifact(archive.path);
+      revisionMismatch = archive.projectRevision !== expectedRevision;
+      if (!revisionMismatch) ticket = await stageArtifact(archive.path);
     } catch (error) {
       operationError = error;
     }
@@ -78,7 +80,16 @@ export async function handleProjectArchivePost(
         code: "archive-failed",
       }, { status: 500, headers: { "cache-control": "no-store" } });
     }
-    return Response.json(ticket!, {
+    if (revisionMismatch) {
+      return Response.json({
+        error: "Project changed before the archive could be staged",
+        code: "project-revision-changed",
+      }, {
+        status: 412,
+        headers: { "cache-control": "no-store" },
+      });
+    }
+    return Response.json({ ...ticket!, projectRevision: archive!.projectRevision }, {
       status: 201,
       headers: { "cache-control": "no-store" },
     });

@@ -20,7 +20,8 @@ describe("ProjectHome overview", () => {
     expect(source).not.toContain('project.sourceKind === "managed-project"');
     expect(source).toContain("Export project archive");
     expect(source).toContain("requestProjectArchive");
-    expect(source).toContain("requestProjectArchive(data.selection.projectId)");
+    expect(source).toContain("requestProjectArchive(");
+    expect(source).toContain("data.resources.revision");
     expect(source).toContain("downloadProjectArchive");
   });
 

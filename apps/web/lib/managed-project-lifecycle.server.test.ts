@@ -252,6 +252,31 @@ describe("ManagedProjectLifecycleService", () => {
     })).rejects.toThrow(/conflicting deletion operation/i);
   });
 
+  it("authorizes operation status by exact operation and secret hash after session invalidation", async () => {
+    const input = await fixture();
+    const lifecycle = new ManagedProjectLifecycleService(input.config, input.registry, {
+      failpoint: (point) => {
+        if (point === "after-reservation") throw new Error("lost delete response");
+      },
+    });
+    await expect(lifecycle.permanentlyDelete(request(input))).rejects.toThrow(/lost delete response/i);
+
+    const restarted = new ManagedProjectLifecycleService(input.config, input.registry);
+    await expect(restarted.reconcileDeletionOperation({
+      operationId: OPERATION_ID,
+      statusSecretHash: "3".repeat(64),
+    })).resolves.toBeUndefined();
+    await expect(restarted.reconcileDeletionOperation({
+      operationId: "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      statusSecretHash: STATUS_SECRET_HASH,
+    })).resolves.toBeUndefined();
+    await expect(restarted.reconcileDeletionOperation({
+      operationId: OPERATION_ID,
+      statusSecretHash: STATUS_SECRET_HASH,
+    })).resolves.toMatchObject({ state: "complete", projectRevision: input.projectRevision });
+    expect(input.registry.peek(input.session.descriptor.sessionId)).toBeUndefined();
+  });
+
   it("holds managed reads ahead of deletion admission and rejects reads that start after admission", async () => {
     const input = await fixture();
     let releaseRead!: () => void;

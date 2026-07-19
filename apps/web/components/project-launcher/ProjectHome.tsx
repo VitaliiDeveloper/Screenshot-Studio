@@ -169,7 +169,10 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
     setArchiveBusy(true);
     setArchiveError(null);
     try {
-      downloadProjectArchive(await requestProjectArchive(data.selection.projectId));
+      downloadProjectArchive(await requestProjectArchive(
+        data.selection.projectId,
+        data.resources.revision,
+      ));
     } catch (caught) {
       setArchiveError(caught instanceof Error ? caught.message : String(caught));
     } finally {

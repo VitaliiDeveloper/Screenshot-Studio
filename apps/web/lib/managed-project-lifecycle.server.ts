@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { constants } from "node:fs";
 import {
   lstat,
@@ -27,6 +27,7 @@ import {
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   acquireManagedProjectLifecycleLock,
+  assertManagedProjectLifecycleLockHeld,
   ensureManagedStorageRoot,
   withManagedProjectLifecycleLock,
   validateManagedStorageChildRoot,
@@ -62,6 +63,11 @@ export interface PermanentlyDeleteManagedProjectInput {
   id: string;
   expectedLifecycleRevision: number;
   expectedProjectRevision: string;
+  operationId: string;
+  statusSecretHash: string;
+}
+
+export interface ReconcileManagedProjectDeletionInput {
   operationId: string;
   statusSecretHash: string;
 }
@@ -124,6 +130,11 @@ async function identity(path: string): Promise<ManagedDirectoryIdentity> {
 
 function sameIdentity(left: ManagedDirectoryIdentity, right: ManagedDirectoryIdentity): boolean {
   return left.device === right.device && left.inode === right.inode;
+}
+
+function sameHash(left: string, right: string): boolean {
+  if (!HASH_PATTERN.test(left) || !HASH_PATTERN.test(right)) return false;
+  return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 
 function sameEntry(left: ActiveManagedProjectCatalogEntry, right: ActiveManagedProjectCatalogEntry): boolean {
@@ -221,16 +232,16 @@ export class ManagedProjectLifecycleService {
 
   async permanentlyDelete(
     input: PermanentlyDeleteManagedProjectInput,
+    lifecycleLock?: ManagedProjectLifecycleLock,
   ): Promise<ManagedProjectDeletionComplete> {
     this.#validateInput(input);
     await this.#ensureDirectories();
-    const lease = await acquireManagedProjectLifecycleLock(this.config, input.id);
-    return this.#withLease(lease, async () => {
+    const operation = async (lease: ManagedProjectLifecycleLock) => {
       const existing = (await this.#catalog.read()).deletions.find((evidence) =>
         evidence.operationId === input.operationId || evidence.projectId === input.id);
       if (existing) {
         if (existing.operationId !== input.operationId || existing.projectId !== input.id
-          || existing.statusSecretHash !== input.statusSecretHash
+          || !sameHash(existing.statusSecretHash, input.statusSecretHash)
           || existing.lifecycleRevision !== input.expectedLifecycleRevision
           || existing.projectRevision !== input.expectedProjectRevision) {
           throw new Error("Managed project has a conflicting deletion operation");
@@ -287,7 +298,47 @@ export class ManagedProjectLifecycleService {
       await this.#writeIntent(intent);
       await this.#failpoint("after-intent");
       return this.#continueDeletion(reservation!, lease, intent);
-    });
+    };
+    if (lifecycleLock) {
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.config, input.id);
+      return operation(lifecycleLock);
+    }
+    const lease = await acquireManagedProjectLifecycleLock(this.config, input.id);
+    return this.#withLease(lease, () => operation(lease));
+  }
+
+  async reconcileDeletionOperation(
+    input: ReconcileManagedProjectDeletionInput,
+    lifecycleLock?: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectDeletionEvidence | undefined> {
+    if (!OPERATION_ID_PATTERN.test(input.operationId)) {
+      throw new TypeError("Invalid deletion operation id");
+    }
+    if (!HASH_PATTERN.test(input.statusSecretHash)) {
+      throw new TypeError("Invalid status secret hash");
+    }
+    await this.#ensureDirectories();
+    const initial = await this.#catalog.getDeletionEvidence(input.operationId);
+    if (!initial || !sameHash(initial.statusSecretHash, input.statusSecretHash)) return undefined;
+    const operation = async (lease: ManagedProjectLifecycleLock) => {
+      const current = await this.#catalog.getDeletionEvidence(input.operationId);
+      if (!current || current.projectId !== initial.projectId
+        || !sameHash(current.statusSecretHash, input.statusSecretHash)) return undefined;
+      if (current.state === "complete") return current;
+      try {
+        return await this.#continueDeletion(current, lease);
+      } catch {
+        const latest = await this.#catalog.getDeletionEvidence(input.operationId);
+        return latest && latest.projectId === initial.projectId
+          && sameHash(latest.statusSecretHash, input.statusSecretHash) ? latest : undefined;
+      }
+    };
+    if (lifecycleLock) {
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.config, initial.projectId);
+      return operation(lifecycleLock);
+    }
+    const lease = await acquireManagedProjectLifecycleLock(this.config, initial.projectId);
+    return this.#withLease(lease, () => operation(lease));
   }
 
   async reconcileAll(): Promise<void> {

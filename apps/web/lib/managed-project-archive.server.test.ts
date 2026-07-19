@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { acquireProjectMutationLock, projectRevision } from "@screenshot-studio/core/storage";
 import { ManagedProjectArchiveService } from "./managed-project-archive.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { ManagedProjectImportService, type ProjectImportFile } from "./managed-project-import.server.js";
@@ -113,9 +114,35 @@ describe("ManagedProjectArchiveService", () => {
       "themes/launch.json",
     ]);
     expect(entries.get("screenshots/hero.png")).toEqual(new Uint8Array([7, 8, 9]));
+    expect(artifact.projectRevision).toBe(projectRevision(
+      entries.get("app-store-screenshots.json")!,
+    ));
     await artifact.dispose();
     await expect(lstat(artifact.path)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(artifact.dispose()).resolves.toBeUndefined();
+  });
+
+  it("drains the project mutation lease before producing its immutable revision", async () => {
+    const { repository, imported } = await createFixture();
+    const writer = await acquireProjectMutationLock(imported.projectPath, {
+      timeoutMs: 0,
+      staleAfterMs: 5_000,
+      retryDelayMs: 10,
+      heartbeatMs: 1_000,
+    });
+    let settled = false;
+    const creating = new ManagedProjectArchiveService(repository).create(imported.id)
+      .finally(() => { settled = true; });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(settled).toBe(false);
+    await writer.release();
+
+    const artifact = await creating;
+    const entries = await archiveFiles(artifact.path);
+    expect(artifact.projectRevision).toBe(projectRevision(
+      entries.get("app-store-screenshots.json")!,
+    ));
+    await artifact.dispose();
   });
 
   it("round-trips through the same archive import contract", async () => {
