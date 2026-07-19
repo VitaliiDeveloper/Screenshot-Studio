@@ -4,7 +4,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import {
   AlertTriangle,
@@ -15,9 +15,16 @@ import {
 } from "lucide-react";
 import { editorStore } from "../../lib/editor-store";
 import { getProjectPersistenceIdentity } from "../../lib/save-project";
-import { missingImageUrls } from "../../app/editor/editor-resources";
+import {
+  applyEditorResourceResult,
+  missingImageUrls,
+} from "../../app/editor/editor-resources";
 import { loadProjectHomeData, type ProjectHomeData } from "../../lib/project-home-client";
 import { closeProjectSession } from "../../lib/project-close";
+import {
+  discardActiveProjectPersistence,
+  switchActiveProject,
+} from "../../lib/debounced-save";
 import {
   buildProjectHomeSummary,
   type ProjectHomeAction,
@@ -27,14 +34,34 @@ import {
   requestProjectArchive,
 } from "../../lib/project-archive-client";
 import { editorUi } from "../editor-ui/styles";
+import { CaptureImportDialog } from "./CaptureImportDialog";
+import {
+  assertCaptureImportHandoff,
+  assertCaptureImportRecoveryTarget,
+  useCaptureImportController,
+} from "./useCaptureImportController";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("../ScreenThumbnail").then((module) => module.ScreenThumbnail),
   { ssr: false },
 );
 
-function ActionLink({ action }: { action: ProjectHomeAction }) {
+function ActionControl({
+  action,
+  onCaptureImport,
+}: {
+  action: ProjectHomeAction;
+  onCaptureImport(): void;
+}) {
   const className = "group flex min-h-28 flex-col justify-between rounded-2xl border border-[var(--editor-color-border)] bg-white p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--editor-color-border-strong)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] motion-reduce:transform-none";
+  if (action.id === "capture-import" && action.enabled) {
+    return (
+      <button type="button" className={className} onClick={onCaptureImport}>
+        <div><p className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{action.label}</p><p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{action.description}</p></div>
+        <ArrowRight aria-hidden="true" className="mt-3 size-4 text-violet-600 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" />
+      </button>
+    );
+  }
   if (!action.enabled || !action.href) {
     return (
       <div aria-disabled="true" className={`${className} cursor-not-allowed opacity-60`}>
@@ -51,7 +78,7 @@ function ActionLink({ action }: { action: ProjectHomeAction }) {
   );
 }
 
-export function ProjectHome() {
+export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string }) {
   const router = useRouter();
   const [data, setData] = useState<ProjectHomeData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +87,51 @@ export function ProjectHome() {
   const [closeBusy, setCloseBusy] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
   const saveError = useStore(editorStore, (state) => state.saveError);
+  const currentCaptureTarget = useMemo(() => {
+    if (!data || !data.selection.capabilities.writeInPlace
+      || !data.selection.capabilities.projectLocalResources) return null;
+    return {
+      projectId: data.selection.projectId,
+      revision: data.resources.revision,
+      projectName: data.resources.project.meta.name,
+      preferredLayoutId: data.resources.project.preferredExportLayoutId,
+      layouts: data.resources.project.layouts.map(({ id, name }) => ({ id, name })),
+    };
+  }, [data]);
+  const completeCaptureImport = useCallback(async (
+    result: Parameters<typeof assertCaptureImportHandoff>[0],
+    destinationKind: "current-project" | "new-project",
+    signal: AbortSignal,
+  ) => {
+    const loaded = await loadProjectHomeData();
+    if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
+    assertCaptureImportHandoff(result, loaded?.selection.projectId);
+    if (!loaded) return;
+    setError(null);
+    setData(loaded);
+    applyEditorResourceResult(loaded.resources);
+    if (destinationKind === "new-project") {
+      router.replace(`/home?project=${encodeURIComponent(result.projectId)}`);
+    }
+    router.refresh();
+  }, [router]);
+  const recoverCaptureTarget = useCallback(async () => {
+    const loaded = await loadProjectHomeData();
+    assertCaptureImportRecoveryTarget(loaded);
+    discardActiveProjectPersistence();
+    applyEditorResourceResult(loaded.resources);
+    setError(null);
+    setData(loaded);
+    router.replace("/home");
+    router.refresh();
+  }, [router]);
+  const captureImport = useCaptureImportController({
+    currentTarget: currentCaptureTarget,
+    activateNewProject: switchActiveProject,
+    onCompleted: completeCaptureImport,
+    onRecoverStale: recoverCaptureTarget,
+  });
+  const openCaptureImport = captureImport.open;
 
   useEffect(() => {
     let active = true;
@@ -69,12 +141,16 @@ export function ProjectHome() {
         router.replace("/");
         return;
       }
+      if (expectedProjectId && loaded.selection.projectId !== expectedProjectId) {
+        setError("The active project changed before the requested Project Home could open.");
+        return;
+      }
       setData(loaded);
     }).catch((caught: unknown) => {
       if (active) setError(caught instanceof Error ? caught.message : String(caught));
     });
     return () => { active = false; };
-  }, [router]);
+  }, [expectedProjectId, router]);
 
   const summary = useMemo(() => data ? buildProjectHomeSummary({
     project: data.resources.project,
@@ -182,7 +258,7 @@ export function ProjectHome() {
 
             <section aria-labelledby="project-actions" className="rounded-3xl border border-[var(--editor-color-border)] bg-white p-6 shadow-sm">
               <h2 id="project-actions" className="text-lg font-semibold text-[color:var(--editor-color-text-strong)]">Next actions</h2>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{primaryActions.map((action) => <ActionLink key={action.id} action={action} />)}</div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{primaryActions.map((action) => <ActionControl key={action.id} action={action} onCaptureImport={openCaptureImport} />)}</div>
               {archiveAction?.enabled ? (
                 <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-semibold text-slate-950">Export project archive</h3><p className="mt-1 text-xs leading-5 text-slate-600">Project archive export creates a portable backup for later project import. It is separate from rendered store-image export.</p></div><button type="button" className={editorUi.buttonSecondary} disabled={archiveBusy || closeBusy} onClick={() => { void exportProjectArchive(); }}>{archiveBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Download aria-hidden="true" className="size-4" />}{archiveBusy ? "Preparing project archive…" : "Export project archive"}</button></div>
@@ -216,7 +292,7 @@ export function ProjectHome() {
                 <div><dt className="font-semibold text-slate-900">Component presets</dt><dd>Reusable element groups are distinct from both complete project templates and full-screen templates.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Layout modes</dt><dd>Isolated and connected describe how a layout composes screens; Project Home reports them without editing content.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Project import</dt><dd>Folder, ZIP, or JSON input is validated into a separate managed copy.</dd></div>
-                <div><dt className="font-semibold text-slate-900">Capture import</dt><dd>Raw capture ingestion remains available through the existing CLI workflow, not this launcher slice.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Capture import</dt><dd>Previews raw PNG capture folders before adding them to this project or a new managed project.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Project archive export</dt><dd>Downloads portable project files and resources for later import.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Store-image export</dt><dd>Renders exact PNG output bundles from a selected layout through the shared renderer.</dd></div>
               </dl>
@@ -224,6 +300,21 @@ export function ProjectHome() {
           </aside>
         </div>
       </div>
+      {captureImport.state.status === "closed" ? null : (
+        <CaptureImportDialog
+          state={captureImport.state}
+          onClose={captureImport.close}
+          onSelectFiles={captureImport.selectFiles}
+          onChooseDestination={captureImport.chooseDestination}
+          onChooseCurrentLayout={captureImport.chooseCurrentLayout}
+          onChangeNewProject={captureImport.changeNewProject}
+          onPreview={captureImport.preview}
+          onApply={captureImport.apply}
+          onCancel={captureImport.cancel}
+          onRetry={captureImport.retry}
+          onRecoverStale={captureImport.recoverStale}
+        />
+      )}
     </main>
   );
 }

@@ -13,7 +13,8 @@
     "./templates": "./src/templates/index.ts",
     "./assets": "./src/assets/index.ts",
     "./storage": "./src/storage/index.ts",
-    "./scaffold": "./src/scaffold/index.ts"
+    "./scaffold": "./src/scaffold/index.ts",
+    "./capture-import": "./src/capture-import/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

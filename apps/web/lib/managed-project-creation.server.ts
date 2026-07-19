@@ -20,6 +20,7 @@ import {
 } from "./managed-project-repository.server.js";
 
 export type ManagedProjectCreationErrorCode =
+  | "cancelled"
   | "invalid-scaffold"
   | "limit"
   | "stage-write"
@@ -48,6 +49,7 @@ export interface ManagedProjectCreationDependencies {
   loadStoreSpecs?: () => Promise<StoreSpecs>;
   createScaffold?: CreateScaffold;
   writeStageFile?: WriteStageFile;
+  revalidateStage?: typeof revalidateStagedScaffold;
 }
 
 function writeFlags(): number {
@@ -113,6 +115,7 @@ export class ManagedProjectCreationService {
   readonly #loadStoreSpecs: () => Promise<StoreSpecs>;
   readonly #createScaffold: CreateScaffold;
   readonly #writeStageFile: WriteStageFile;
+  readonly #revalidateStage: typeof revalidateStagedScaffold;
 
   constructor(
     readonly repository: ManagedProjectRepository,
@@ -123,13 +126,34 @@ export class ManagedProjectCreationService {
       : dependencies.loadStoreSpecs ?? defaultStoreSpecs;
     this.#createScaffold = dependencies.createScaffold ?? createProjectScaffold;
     this.#writeStageFile = dependencies.writeStageFile ?? writeStageFile;
+    this.#revalidateStage = dependencies.revalidateStage ?? revalidateStagedScaffold;
+  }
+
+  async buildScaffold(input: ProjectScaffoldInput): Promise<ProjectScaffold> {
+    const parsedInput = ProjectScaffoldInput.parse(input);
+    try {
+      return validateProjectScaffold(this.#createScaffold(parsedInput, await this.#loadStoreSpecs()));
+    } catch (error) {
+      throw creationError(error, "invalid-scaffold");
+    }
   }
 
   async create(input: ProjectScaffoldInput): Promise<ManagedProjectRecord> {
-    const parsedInput = ProjectScaffoldInput.parse(input);
+    return this.createFromValidatedScaffold(await this.buildScaffold(input));
+  }
+
+  async createFromValidatedScaffold(
+    scaffold: ProjectScaffold,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ManagedProjectRecord> {
+    if (options.signal?.aborted) {
+      throw new ManagedProjectCreationError("Managed project creation was cancelled", "cancelled");
+    }
+    let validated: ProjectScaffold;
     let files: ProjectScaffoldFile[];
     try {
-      files = projectScaffoldFiles(this.#createScaffold(parsedInput, await this.#loadStoreSpecs()));
+      validated = validateProjectScaffold(scaffold);
+      files = projectScaffoldFiles(validated);
     } catch (error) {
       throw creationError(error, "invalid-scaffold");
     }
@@ -146,10 +170,21 @@ export class ManagedProjectCreationService {
     const stage = await this.repository.createStage();
     let attemptedPublication = false;
     try {
-      for (const file of files) await this.#writeStageFile(stage.path, file);
-      await revalidateStagedScaffold(stage.path, files);
+      for (const file of files) {
+        if (options.signal?.aborted) {
+          throw new ManagedProjectCreationError("Managed project creation was cancelled", "cancelled");
+        }
+        await this.#writeStageFile(stage.path, file);
+      }
+      if (options.signal?.aborted) {
+        throw new ManagedProjectCreationError("Managed project creation was cancelled", "cancelled");
+      }
+      await this.#revalidateStage(stage.path, files);
+      if (options.signal?.aborted) {
+        throw new ManagedProjectCreationError("Managed project creation was cancelled", "cancelled");
+      }
       attemptedPublication = true;
-      return await this.repository.publishStage({ token: stage.token, name: parsedInput.name });
+      return await this.repository.publishStage({ token: stage.token, name: validated.project.meta.name });
     } catch (error) {
       const wrapped = creationError(error, attemptedPublication ? "publication" : "stage-write");
       try {

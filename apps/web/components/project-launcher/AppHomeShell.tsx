@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { type Ref } from "react";
-import { Clock3, FolderInput, Layers3, Plus, ShieldCheck } from "lucide-react";
+import React, { type ReactNode, type Ref } from "react";
+import { Clock3, FolderInput, Images, Layers3, Plus, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import type { BrowserProjectImportSource } from "../../lib/project-import-client";
 import { editorUi } from "../editor-ui/styles";
@@ -19,11 +19,13 @@ export interface AppHomeShellProps {
   sessionError: string | null;
   importButtonRef?: Ref<HTMLButtonElement>;
   creationButtonRef?: Ref<HTMLButtonElement>;
+  captureDialog?: ReactNode;
   onOpenCreate(): void;
   onCloseCreate(): void;
   onChangeCreation(patch: Partial<ProjectCreationForm>): void;
   onSubmitCreation(): void;
   onOpenImport(): void;
+  onOpenCapture?(): void;
   onCloseImport(): void;
   onCancelImport(): void;
   onConfirmImport(): void;
@@ -39,11 +41,13 @@ export function AppHomeShell({
   sessionError,
   importButtonRef,
   creationButtonRef,
+  captureDialog,
   onOpenCreate,
   onCloseCreate,
   onChangeCreation,
   onSubmitCreation,
   onOpenImport,
+  onOpenCapture,
   onCloseImport,
   onCancelImport,
   onConfirmImport,
@@ -88,6 +92,9 @@ export function AppHomeShell({
               <span className="mt-2 block text-sm leading-6 text-blue-50">Choose a complete Folder, project ZIP, or eligible standalone JSON.</span>
               <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold">Choose source <span aria-hidden="true">→</span></span>
             </button>
+            <button type="button" onClick={onOpenCapture} disabled={!onOpenCapture} className="group min-h-36 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none sm:col-span-2 disabled:cursor-not-allowed disabled:opacity-60">
+              <span className="flex items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-700"><Images aria-hidden="true" className="size-5" /></span><span><span className="block text-xl font-semibold text-[color:var(--editor-color-text-strong)]">Capture import</span><span className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Preview a PNG capture folder and related assets, then create an explicitly named managed receiver.</span><span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700">Choose captures <span aria-hidden="true">→</span></span></span></span>
+            </button>
           </section>
         </div>
 
@@ -102,6 +109,7 @@ export function AppHomeShell({
 
       {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
       {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} /> : null}
+      {captureDialog}
     </main>
   );
 }

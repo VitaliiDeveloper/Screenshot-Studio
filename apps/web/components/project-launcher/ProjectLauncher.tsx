@@ -4,7 +4,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
-import { switchActiveProject } from "../../lib/debounced-save";
+import {
+  discardActiveProjectPersistence,
+  switchActiveProject,
+} from "../../lib/debounced-save";
 import { fetchActiveProject } from "../../lib/project-session";
 import {
   importProject,
@@ -13,6 +16,12 @@ import {
 } from "../../lib/project-import-client";
 import { createProject } from "../../lib/project-creation-client";
 import { AppHomeShell } from "./AppHomeShell";
+import { CaptureImportDialog } from "./CaptureImportDialog";
+import {
+  assertCaptureImportHandoff,
+  assertCaptureImportRecoveryTarget,
+  useCaptureImportController,
+} from "./useCaptureImportController";
 import {
   launcherDialogExitDelay,
   requestLauncherDialogExit,
@@ -48,6 +57,30 @@ export function ProjectLauncher({
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const publishingRef = useRef(false);
+  const completeCaptureImport = useCallback(async (
+    result: Parameters<typeof assertCaptureImportHandoff>[0],
+    _destinationKind: "current-project" | "new-project",
+    signal: AbortSignal,
+  ) => {
+    const activeProject = await fetchActiveProject();
+    if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
+    assertCaptureImportHandoff(result, activeProject?.projectId);
+    router.push(`/home?project=${encodeURIComponent(result.projectId)}`);
+    router.refresh();
+  }, [router]);
+  const recoverCaptureTarget = useCallback(async () => {
+    const activeProject = await fetchActiveProject();
+    assertCaptureImportRecoveryTarget(activeProject);
+    discardActiveProjectPersistence();
+    router.replace("/home");
+    router.refresh();
+  }, [router]);
+  const captureImport = useCaptureImportController({
+    currentTarget: null,
+    activateNewProject: switchActiveProject,
+    onCompleted: completeCaptureImport,
+    onRecoverStale: recoverCaptureTarget,
+  });
 
   useEffect(() => {
     if (allowSwitch) return;
@@ -184,11 +217,27 @@ export function ProjectLauncher({
       sessionError={error}
       importButtonRef={importButtonRef}
       creationButtonRef={creationButtonRef}
+      captureDialog={captureImport.state.status === "closed" ? null : (
+        <CaptureImportDialog
+          state={captureImport.state}
+          onClose={captureImport.close}
+          onSelectFiles={captureImport.selectFiles}
+          onChooseDestination={captureImport.chooseDestination}
+          onChooseCurrentLayout={captureImport.chooseCurrentLayout}
+          onChangeNewProject={captureImport.changeNewProject}
+          onPreview={captureImport.preview}
+          onApply={captureImport.apply}
+          onCancel={captureImport.cancel}
+          onRetry={captureImport.retry}
+          onRecoverStale={captureImport.recoverStale}
+        />
+      )}
       onOpenCreate={() => dispatchCreation({ type: "open" })}
       onCloseCreate={closeCreation}
       onChangeCreation={changeCreation}
       onSubmitCreation={submitCreation}
       onOpenImport={() => dispatchImport({ type: "choose" })}
+      onOpenCapture={captureImport.open}
       onCloseImport={closeImport}
       onCancelImport={cancelImport}
       onConfirmImport={confirmImport}

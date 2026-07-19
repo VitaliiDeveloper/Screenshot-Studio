@@ -269,6 +269,20 @@ their intended use and supported platforms. The browser never accepts a server p
 atomically publishes into managed storage, activates the new session, and opens Project Home. CLI
 `screenshots init --dir <directory>` uses the same scaffold contract with an explicit local destination.
 
+**Capture import** is distinct from complete project import. Choose a directory containing the
+documented `screenshots/<platform>/<device>/<locale>/<file>.png` structure (and supported `assets/`
+when selecting the project root), explicitly select the current project/layout or a named new managed
+project, review the no-write counts, planned fresh ids/resource paths, warnings, and invalid entries,
+then confirm. Current-project requests are fenced by active project identity and revision; new-project
+destinations reuse the same strict scaffold and atomic managed publication as **Create project**.
+Failure rolls back Project/resource changes or managed publication, and success opens only the
+verified receiving Project Home. The CLI command remains supported through the same discovery and
+atomic apply services:
+
+```bash
+pnpm screenshots import ./my-app-screenshots --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
+```
+
 Managed Project Home can **Export project archive** as `screenshot-studio-project.zip`. This portable
 archive contains the strict document and supported project resources, and can be imported again from
 App Home. It excludes managed catalog/session state, locks, staging/temp files, credentials, rendered

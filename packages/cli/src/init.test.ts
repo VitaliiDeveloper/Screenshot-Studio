@@ -55,6 +55,9 @@ describe("runInit", () => {
     expect(agentGuide).toContain("## Recipe: lay out slides");
     expect(agentGuide).toContain("## Recipe: translate a locale");
     expect(agentGuide).toContain("screenshots locale add ar --from en --direction rtl");
+    expect(agentGuide).toContain("## Recipe: import PNG captures");
+    expect(agentGuide).toContain('screenshots import . --layout "Feature campaign"');
+    expect(agentGuide).toMatch(/commits Project plus\s+copied resources atomically/);
     expect(agentGuide).toContain("## Recipe: process a local asset");
     expect(agentGuide).toContain("screenshots asset auto-crop");
     expect(agentGuide).toContain("screenshots asset remove-background");

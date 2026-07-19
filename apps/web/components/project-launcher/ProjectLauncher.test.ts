@@ -51,4 +51,17 @@ describe("ProjectLauncher import integration", () => {
     expect(source.match(/router\.push\("\/home"\)/g)?.length).toBeGreaterThanOrEqual(2);
     expect(source).toContain("creationButtonRef.current?.focus()");
   });
+
+  it("opens App Home capture import as a new managed-project flow behind the switch fence", () => {
+    expect(source).toContain("useCaptureImportController");
+    expect(source).toContain("CaptureImportDialog");
+    expect(source).toContain("currentTarget: null");
+    expect(source).toContain("activateNewProject: switchActiveProject");
+    expect(source).toContain("assertCaptureImportHandoff");
+    expect(source).toContain("await fetchActiveProject()");
+    expect(source).toContain("assertCaptureImportRecoveryTarget(activeProject)");
+    expect(source).toContain("discardActiveProjectPersistence()");
+    expect(source).toContain('router.push(`/home?project=${encodeURIComponent(result.projectId)}`)');
+    expect(source).toContain("onOpenCapture={captureImport.open}");
+  });
 });

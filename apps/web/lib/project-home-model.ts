@@ -84,7 +84,7 @@ function buildActions(selection: ActiveProjectSelection): ProjectHomeAction[] {
     { id: "manage-layouts", label: "Manage layouts and screens", description: "Open the existing Workspace structure tools.", enabled: canEdit, href: canEdit ? "/editor?intent=layouts" : undefined },
     { id: "add-screen", label: "Add a screen", description: "Open the existing screen actions in Workspace.", enabled: canEdit, href: canEdit ? "/editor?intent=add-screen" : undefined },
     { id: "manage-locales", label: "Manage locales", description: "Open the existing locale manager in Workspace.", enabled: canEdit, href: canEdit ? "/editor?intent=locales" : undefined },
-    { id: "capture-import", label: "Import captures", description: "Capture import remains a CLI workflow in this launcher slice.", enabled: false },
+    { id: "capture-import", label: "Capture import", description: "Preview a PNG capture folder, then add it to this project or a new managed project.", enabled: true },
     { id: "import-project", label: "Import another project", description: "Validate a Folder, project ZIP, or JSON into a separate managed copy.", enabled: true, href: "/?switch=1" },
     { id: "store-image-export", label: "Export store images", description: "Render exact store-ready PNG bundles from the shared Workspace renderer.", enabled: true, href: "/editor?intent=export" },
     { id: "project-archive-export", label: "Export project archive", description: "Download a portable project backup for later project import.", enabled: selection.capabilities.exportProjectArchive },

@@ -33,6 +33,8 @@
     "./font-service": "./src/font-service.ts",
     "./theme-service": "./src/theme-service.ts",
     "./template-service": "./src/template-service.ts",
+    "./capture-import-recovery": "./src/capture-import-recovery.ts",
+    "./capture-import-transaction": "./src/capture-import-transaction.ts",
     "./render-driver": "./src/render-driver.ts",
     "./server": "./src/server.ts"
   },

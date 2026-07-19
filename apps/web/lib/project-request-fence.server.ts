@@ -3,6 +3,7 @@ import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
 import { isStrongQuotedETag } from "./http-etag.js";
 import {
   withActiveProjectSession,
+  withExistingProjectSessionReadOnly,
   type ActiveProjectResolverDependencies,
   type LocalProjectSession,
 } from "./project-session.server.js";
@@ -10,6 +11,11 @@ import {
 type ProjectRequestOperation = (
   session: LocalProjectSession,
   expectedRevision?: string,
+) => Promise<Response> | Response;
+
+type ProjectVersionedRequestOperation = (
+  session: LocalProjectSession,
+  expectedRevision: string,
 ) => Promise<Response> | Response;
 
 function quotedRevision(revision: string): string {
@@ -46,29 +52,52 @@ export function withProjectReadRequest(
   }, dependencies);
 }
 
+function expectedRevisionResponse(req: Request): string | Response {
+  const expectedRevision = req.headers.get("if-match");
+  if (expectedRevision === null) {
+    return Response.json(
+      { error: "If-Match is required for this project operation" },
+      { status: 428 },
+    );
+  }
+  if (!isStrongQuotedETag(expectedRevision)) {
+    return Response.json(
+      { error: "If-Match must be one strong quoted ETag" },
+      { status: 400 },
+    );
+  }
+  return expectedRevision.slice(1, -1);
+}
+
+export function withProjectVersionedReadRequest(
+  req: Request,
+  operation: ProjectVersionedRequestOperation,
+  dependencies: ActiveProjectResolverDependencies = {},
+): Promise<Response> {
+  return withExistingProjectSessionReadOnly(req, async (session) => {
+    const identityError = projectIdentityResponse(req, session);
+    if (identityError) return identityError;
+    const expectedRevision = expectedRevisionResponse(req);
+    return expectedRevision instanceof Response
+      ? expectedRevision
+      : operation(session, expectedRevision);
+  }, dependencies);
+}
+
 export function withProjectMutationRequest(
   req: Request,
-  operation: ProjectRequestOperation,
+  operation: ProjectVersionedRequestOperation,
+  dependencies: ActiveProjectResolverDependencies = {},
 ): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
     if (identityError) return identityError;
 
-    const expectedRevision = req.headers.get("if-match");
-    if (expectedRevision === null) {
-      return Response.json(
-        { error: "If-Match is required for this project operation" },
-        { status: 428 },
-      );
-    }
-    if (!isStrongQuotedETag(expectedRevision)) {
-      return Response.json(
-        { error: "If-Match must be one strong quoted ETag" },
-        { status: 400 },
-      );
-    }
-    return operation(session, expectedRevision.slice(1, -1));
-  });
+    const expectedRevision = expectedRevisionResponse(req);
+    return expectedRevision instanceof Response
+      ? expectedRevision
+      : operation(session, expectedRevision);
+  }, dependencies);
 }
 
 export function projectRevisionConflictResponse(error: unknown): Response | undefined {

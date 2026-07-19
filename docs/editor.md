@@ -25,6 +25,10 @@ to the launcher. It has one page heading and three stable product regions:
   is not edited in place. Selecting a source opens an explicit managed-copy confirmation before any
   upload begins. The confirmation links the localhost in-place case to the existing `PROJECT_PATH`
   and `screenshots dev --project` entry points instead of presenting browser selection as a path.
+- **Capture import** is enabled as a separate raw-media action. It accepts the documented PNG capture
+  folder plus supported related `assets/`, requires an explicit new managed receiver from App Home,
+  and shows a read-only plan with destination, counts, fresh ids/paths, warnings, and invalid entries
+  before confirmation. It never means complete Folder/ZIP/JSON project import.
 - **Recent projects** remains a labelled empty region owned by Launcher 8; import does not populate a
   temporary imitation of recents.
 
@@ -50,14 +54,18 @@ layouts and immutable modes, preferred export layout, locales, output families/s
 and empty-screen counts, and readiness conditions known by current asset/font/save services.
 Representative screens use the existing shared-renderer thumbnail projection. Its actions route to
 the existing Workspace/layout-screen, locale, import, store-image export, and project-archive export
-surfaces; project archive and rendered store-image export remain visibly distinct.
+surfaces. **Capture import** opens the same preview/confirmation dialog with an explicit choice
+between the current project/layout and a new managed project. Preview/failure never changes the active
+selection; successful apply reloads and verifies the intended receiver before Project Home updates.
+Project import, capture import, project archive, and rendered store-image export remain visibly
+distinct.
 
 **Close project** is source-neutral and non-destructive. It secures pending/latest writes, applies the
 existing save-failure safeguard, clears only the active session plus that project's transient
 workspace navigation state, and returns to App Home. It never removes recents, trashes/deletes a
 managed project, or moves/deletes a local-file directory. The workflow guide distinguishes project
 templates, screen templates, component presets, layout modes, project import, capture import,
-project archive export, and store-image export without claiming out-of-scope launcher behavior.
+project archive export, and store-image export using the implemented Launcher 6 behavior.
 
 ---
 

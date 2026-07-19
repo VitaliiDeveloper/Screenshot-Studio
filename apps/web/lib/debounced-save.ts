@@ -121,15 +121,23 @@ export function cancelScheduledSave(): void {
 }
 
 /**
+ * Forget client persistence after the server may have switched projects without returning a usable
+ * response. The active receiver must be verified before calling this; no stale Project is saved.
+ */
+export function discardActiveProjectPersistence(): void {
+  cancelScheduledSave();
+  clearProjectPersistenceIdentity();
+  editorStore.getState().resetProjectState();
+}
+
+/**
  * Keep the old cookie active until every old-project save is durable. The activation callback may
  * change the cookie; client persistence is reset before this exclusive queue slot is released.
  */
 export function switchActiveProject<T>(activate: () => Promise<T>): Promise<T> {
   cancelScheduledSave();
   return projectSaves.switchProject(activate, () => {
-    cancelScheduledSave();
-    clearProjectPersistenceIdentity();
-    editorStore.getState().resetProjectState();
+    discardActiveProjectPersistence();
   });
 }
 

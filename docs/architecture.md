@@ -216,7 +216,8 @@ concurrency behavior differ behind the adapter boundary.
 
 Launcher 1/8 implements the local-file source and active-session seam; Launcher 2/8 adds the
 managed repository/catalog; Launcher 3/8 adds browser import and portable project archives behind
-those seams; Launcher 4/8 builds Project Home and its Workspace round trip on the same contracts:
+those seams; Launcher 4/8 builds Project Home and its Workspace round trip; Launcher 5/8 adds shared
+strict creation; Launcher 6/8 adds capture-folder preview and explicit-target apply on the same contracts:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
@@ -361,6 +362,40 @@ lands on Project Home. If the server runtime resets before Project Home resolves
 managed adapter reopens that exact catalog entry rather than publishing a duplicate. Project templates
 are complete creation inputs; project-local screen templates and reusable component presets remain
 separate authoring concepts.
+
+#### Capture-folder import (Launcher 6/8)
+
+CLI `screenshots import` and the launcher consume the same core capture discovery and planning
+contracts. Inputs follow `screenshots/{apple/{iphone,ipad},android/phone}/{locale}/NN.png`; selecting
+the project root may also include supported project-relative files under `assets/`. Discovery
+normalizes one browser-selected wrapper directory, rejects unsafe/colliding/hidden/transient paths,
+hashes source bytes, and deterministically reports platform/device/locale counts, warnings, invalid
+entries, planned fresh screen/element ids, and destination resource paths. Planning validates the
+complete resulting strict `Project` without writing project, resource, catalog, session, or recovery
+state, so preview is repeatable.
+
+The launcher requires an explicit destination before preview: either one selected layout in the
+current active project or a named new managed project. Current-project preview and apply carry
+`X-Project-Id` plus a strong `If-Match`; preview uses the non-touch, non-rehydrating session lookup,
+while apply reacquires the project mutation lease, rechecks the revision, rediscovers/replans from the
+submitted bytes, and requires the preview confirmation fingerprint. Resource publication and the
+strict Project replacement share the CLI capture transaction and recovery intent, so failure restores
+the prior Project and resources rather than leaving a partial import.
+
+New-project apply reuses the Launcher 5 scaffold and managed publication service. Capture screens
+replace the scaffold starter only inside the validated pre-publication stage; catalog visibility and
+session activation occur only after atomic publication. The apply response exposes the opaque
+receiving project identity in `X-Project-Id`. The client verifies that identity against the reloaded
+active selection before synchronizing the editor store or opening Project Home, and the Project Home
+route carries the expected identity to reject a cross-tab/session race. A cancelled or failed
+post-confirmation handoff is reconciliation-only: the UI never claims the mutation was absent or
+offers a duplicate-producing retry until a non-null active project has been reloaded.
+
+**Capture import** is raw PNG/resource ingestion. It is deliberately separate from Launcher 3
+**Import project**, which accepts a complete Folder/ZIP/eligible JSON managed copy, and from portable
+project-archive and rendered store-image export. Capture import does not add Project schema fields,
+another renderer, design-source integrations, lifecycle/Trash, recents, or general asset-library
+ownership.
 
 ### Render / export parity — the #1 technical risk
 

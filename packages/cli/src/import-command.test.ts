@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import { mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import { inspectPng } from "@screenshot-studio/core/export";
 import type { ProjectFileDependencies } from "@screenshot-studio/core/storage";
-import { importCaptures } from "./import-command.js";
 import {
-  publishFileSafelyWithOwnership,
-  removeRegularFileSafely,
-} from "./safe-file-publisher.js";
+  collectCaptureImportDirectory,
+  importCaptures,
+  previewCaptures,
+} from "./import-command.js";
 
 const temporaryRoots: string[] = [];
 
@@ -28,6 +28,10 @@ async function workspace(prefix: string): Promise<string> {
 
 function digest(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function importedCapturePath(screenId: string, bytes: Uint8Array): string {
+  return `assets/imports/${screenId}-${digest(bytes).slice(0, 12)}.png`;
 }
 
 function sampleProject(): Project {
@@ -75,7 +79,7 @@ describe("importCaptures", () => {
 
     expect(result.imported).toBe(1);
     expect(result.warnings).toEqual(['Skipping unsupported capture path "android/tablet-7/en/01.png"']);
-    const assetUrl = `assets/imports/${digest(png)}.png`;
+    const assetUrl = importedCapturePath("apple-iphone-en-01", png);
     await expect(readFile(join(dir, assetUrl))).resolves.toEqual(png);
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
@@ -102,6 +106,145 @@ describe("importCaptures", () => {
         },
       ],
     });
+  });
+
+  it("previews the planned receiving layout and performs no Project or resource writes", async () => {
+    const dir = await workspace("screenshot-studio-import-preview-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const inputDir = join(dir, "screenshots");
+    const exactProject = `${JSON.stringify(sampleProject())}  \n`;
+    const capturePath = join(inputDir, "apple", "iphone", "en", "01.png");
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(projectPath, exactProject, "utf8");
+    await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
+    await writeFile(capturePath, png);
+
+    const preview = await previewCaptures({ projectPath, inputDir, layout: "default" });
+
+    expect(preview.receiving).toEqual({
+      kind: "current-project",
+      projectName: "Import Project",
+      layoutId: "default",
+      layoutName: "Default",
+    });
+    expect(preview.screens).toMatchObject([{
+      sourcePath: "apple/iphone/en/01.png",
+      screenId: "apple-iphone-en-01",
+      resourcePath: importedCapturePath("apple-iphone-en-01", png),
+    }]);
+    expect(await readFile(projectPath, "utf8")).toBe(exactProject);
+    await expect(readFile(join(dir, preview.screens[0]!.resourcePath))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("accepts the documented project root and copies supported related assets", async () => {
+    const dir = await workspace("screenshot-studio-import-project-root-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const captureDir = join(dir, "screenshots", "android", "phone", "es");
+    const sourceAsset = join(dir, "assets", "icons", "product.png");
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await mkdir(captureDir, { recursive: true });
+    await mkdir(join(dir, "assets", "icons"), { recursive: true });
+    await writeFile(join(captureDir, "03.png"), png);
+    await writeFile(sourceAsset, new Uint8Array([9, 8, 7]));
+
+    const preview = await previewCaptures({ projectPath, inputDir: dir });
+
+    expect(preview.screens).toMatchObject([{
+      sourcePath: "screenshots/android/phone/es/03.png",
+      screenId: "android-phone-es-03",
+    }]);
+    expect(preview.resources.map(({ sourcePath, destinationPath }) => ({
+      sourcePath,
+      destinationPath,
+    }))).toContainEqual({
+      sourcePath: "assets/icons/product.png",
+      destinationPath: "assets/icons/product.png",
+    });
+  });
+
+  it("marks a different existing receiver asset invalid during no-write preview", async () => {
+    const receiver = await workspace("screenshot-studio-import-receiver-conflict-");
+    const source = await workspace("screenshot-studio-import-source-conflict-");
+    const projectPath = join(receiver, "app-store-screenshots.json");
+    const receiverAsset = join(receiver, "assets", "icons", "product.png");
+    const sourceAsset = join(source, "assets", "icons", "product.png");
+    const captureDir = join(source, "screenshots", "apple", "iphone", "en");
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await mkdir(join(receiver, "assets", "icons"), { recursive: true });
+    await mkdir(join(source, "assets", "icons"), { recursive: true });
+    await mkdir(captureDir, { recursive: true });
+    await writeFile(receiverAsset, "receiver bytes");
+    await writeFile(sourceAsset, "different source bytes");
+    await writeFile(join(captureDir, "01.png"), png);
+
+    const preview = await previewCaptures({ projectPath, inputDir: source });
+
+    expect(preview.canApply).toBe(false);
+    expect(preview.invalidEntries).toContainEqual({
+      code: "destination-conflict",
+      path: "assets/icons/product.png",
+      message: expect.stringMatching(/already exists.*different bytes/i),
+    });
+    await expect(readFile(receiverAsset, "utf8")).resolves.toBe("receiver bytes");
+
+    await writeFile(receiverAsset, "different source bytes");
+    const matchingPreview = await previewCaptures({ projectPath, inputDir: source });
+    expect(matchingPreview.canApply).toBe(true);
+    expect(matchingPreview.invalidEntries).not.toContainEqual(expect.objectContaining({
+      code: "destination-conflict",
+      path: "assets/icons/product.png",
+    }));
+  });
+
+  it("rejects symbolic links in capture input without rewriting the Project", async () => {
+    const dir = await workspace("screenshot-studio-import-input-link-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const inputDir = join(dir, "screenshots");
+    const captureDir = join(inputDir, "apple", "iphone", "en");
+    const exactProject = `${JSON.stringify(sampleProject())}  \n`;
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    const outside = join(dir, "outside.png");
+    await writeFile(projectPath, exactProject, "utf8");
+    await writeFile(outside, png);
+    await mkdir(captureDir, { recursive: true });
+    await symlink(outside, join(captureDir, "01.png"));
+
+    await expect(previewCaptures({ projectPath, inputDir })).rejects.toThrow(/symbolic link/i);
+    expect(await readFile(projectPath, "utf8")).toBe(exactProject);
+  });
+
+  it("enforces file and byte limits while enumerating before discovery", async () => {
+    const dir = await workspace("screenshot-studio-import-input-limits-");
+    const captureDir = join(dir, "apple", "iphone", "en");
+    await mkdir(captureDir, { recursive: true });
+    await writeFile(join(captureDir, "01.png"), new Uint8Array([1, 2, 3]));
+    await writeFile(join(captureDir, "02.png"), new Uint8Array([4, 5, 6]));
+
+    await expect(collectCaptureImportDirectory(dir, {
+      maxFiles: 1,
+      maxBytes: 10,
+      maxPathBytes: 1_024,
+    })).rejects.toThrow(/file limit/i);
+    await expect(collectCaptureImportDirectory(dir, {
+      maxFiles: 2,
+      maxBytes: 5,
+      maxPathBytes: 1_024,
+    })).rejects.toThrow(/byte limit/i);
+  });
+
+  it("bounds directory-only fan-out while enumerating", async () => {
+    const dir = await workspace("screenshot-studio-import-input-entries-");
+    await mkdir(join(dir, "one"));
+    await mkdir(join(dir, "two"));
+    await mkdir(join(dir, "three"));
+
+    await expect(collectCaptureImportDirectory(dir, {
+      maxEntries: 2,
+    })).rejects.toThrow(/entry limit/i);
   });
 
   it("uses a collision-resolved screen id for the screenshot element id", async () => {
@@ -168,7 +311,8 @@ describe("importCaptures", () => {
     const inputDir = join(dir, "screenshots");
     const captureDir = join(inputDir, "apple", "iphone", "en");
     const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
-    const assetPath = join(dir, "assets", "imports", `${digest(png)}.png`);
+    const assetRelativePath = importedCapturePath("apple-iphone-en-01", png);
+    const assetPath = join(dir, assetRelativePath);
     await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
     await mkdir(captureDir, { recursive: true });
     await writeFile(join(captureDir, "01.png"), png);
@@ -176,20 +320,11 @@ describe("importCaptures", () => {
     const projectFileDependencies: ProjectFileDependencies = {
       beforeDestinationRevalidation: async () => { throw writeFailure; },
     };
-    const publishFile = vi.fn(publishFileSafelyWithOwnership);
-    const removeFile = vi.fn(removeRegularFileSafely);
-
     await expect(importCaptures(
       { projectPath, inputDir },
-      { projectFileDependencies, publishFile, removeFile },
+      { projectFileDependencies },
     )).rejects.toBe(writeFailure);
 
-    const publication = await publishFile.mock.results[0]!.value;
-    expect(removeFile).toHaveBeenCalledWith(
-      await realpath(dir),
-      `assets/imports/${digest(png)}.png`,
-      publication.ownership,
-    );
     await expect(readFile(assetPath)).rejects.toMatchObject({ code: "ENOENT" });
     expect((JSON.parse(await readFile(projectPath, "utf8")) as Project).layouts[0]!.screens).toHaveLength(1);
   });
@@ -200,7 +335,7 @@ describe("importCaptures", () => {
     const inputDir = join(dir, "screenshots");
     const captureDir = join(inputDir, "apple", "iphone", "en");
     const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
-    const assetPath = join(dir, "assets", "imports", `${digest(png)}.png`);
+    const assetPath = join(dir, importedCapturePath("apple-iphone-en-01", png));
     await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
     await mkdir(captureDir, { recursive: true });
     await writeFile(join(captureDir, "01.png"), png);
@@ -228,7 +363,7 @@ describe("importCaptures", () => {
     const inputDir = join(aliasDir, "screenshots");
     const captureDir = join(inputDir, "apple", "iphone", "en");
     const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
-    const assetRelativePath = join("assets", "imports", `${digest(png)}.png`);
+    const assetRelativePath = importedCapturePath("apple-iphone-en-01", png);
     await writeFile(canonicalProjectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
     await symlink(canonicalProjectPath, aliasProjectPath);
     await mkdir(captureDir, { recursive: true });
