@@ -22,9 +22,7 @@ describe("project-session client helpers", () => {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: false,
-        trashProject: false,
-        restoreProject: false,
-        purgeProject: false,
+        deleteProjectPermanently: false,
       },
     };
     const fetcher = vi.fn(async () => Response.json(descriptor, {
@@ -50,9 +48,7 @@ describe("project-session client helpers", () => {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: true,
-        trashProject: true,
-        restoreProject: false,
-        purgeProject: false,
+        deleteProjectPermanently: true,
       },
     };
     const fetcher = vi.fn(async () => Response.json(descriptor, {

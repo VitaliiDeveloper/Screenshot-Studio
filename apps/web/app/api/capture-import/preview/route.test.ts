@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -161,9 +161,22 @@ describe("POST /api/capture-import/preview", () => {
     await expect(repository.list()).resolves.toHaveLength(1);
   });
 
-  it("rejects a cached current-project preview after the managed project is trashed", async () => {
+  it("rejects a cached current-project preview after permanent deletion is reserved", async () => {
     const request = captureRequest({ destinationKind: "current-project" });
-    await repository.moveToTrash(projectId, 1);
+    const catalog = new ManagedProjectCatalogStore(repository.config);
+    const priorEntry = (await catalog.read()).entries[0]!;
+    const identity = await stat(projectDirectory, { bigint: true });
+    await catalog.reserveDeletion({
+      operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      operation: "delete",
+      state: "reserved",
+      projectId,
+      lifecycleRevision: 1,
+      statusSecretHash: "2".repeat(64),
+      projectRevision: revision,
+      priorEntry,
+      sourceIdentity: { device: identity.dev.toString(), inode: identity.ino.toString() },
+    });
 
     const response = await handleCaptureImportPreviewPost(request, {
       repository,
@@ -173,12 +186,8 @@ describe("POST /api/capture-import/preview", () => {
 
     expect(response.status).toBe(409);
     expect(registry.peek(sessionId)).toBeUndefined();
-    const trashedProject = await readFile(join(
-      repository.config.trashRoot,
-      projectId,
-      "app-store-screenshots.json",
-    ), "utf8");
-    expect(JSON.parse(trashedProject)).toMatchObject({ meta: { name: "Current receiver" } });
+    expect(JSON.parse(await readFile(projectPath, "utf8")))
+      .toMatchObject({ meta: { name: "Current receiver" } });
   });
 
   it("shows an existing receiver-resource mismatch as invalid before confirmation", async () => {
@@ -291,9 +300,7 @@ describe("POST /api/capture-import/preview", () => {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: true,
-        trashProject: true,
-        restoreProject: false,
-        purgeProject: false,
+        deleteProjectPermanently: true,
       },
     }));
     const readOnlyRegistry = new ProjectSessionRegistry({

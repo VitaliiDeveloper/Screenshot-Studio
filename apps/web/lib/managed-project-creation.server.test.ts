@@ -156,10 +156,13 @@ describe("ManagedProjectCreationService", () => {
   it("removes the restored stage when atomic catalog publication fails", async () => {
     const managed = await repository({
       catalog: {
-        read: async () => ({ version: 2, generation: 0, entries: [], lifecycleCommits: [] }),
+        read: async () => ({
+          version: 2, generation: 0, idNamespace: "aaaaaaaaaaaaaaaa",
+          nextProjectOrdinal: 2, entries: [], deletions: [],
+        }),
         get: async () => undefined,
         list: async () => [],
-        listTrashed: async () => [],
+        reserveProjectId: async () => "project_aaaaaaaaaaaaaaaa0000000000000001",
         insert: async () => { throw new Error("injected catalog failure"); },
         removeActive: async () => undefined,
       },

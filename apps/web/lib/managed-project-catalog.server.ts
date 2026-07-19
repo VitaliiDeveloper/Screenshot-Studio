@@ -9,7 +9,10 @@ import { ensureManagedStorageRoot } from "./managed-project-lifecycle-lock.serve
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
-const MAX_TRASH_LIST_RESULTS = 100;
+const ID_NAMESPACE_PATTERN = /^[0-9a-f]{16}$/;
+const HASH_PATTERN = /^[0-9a-f]{64}$/;
+const MAX_PENDING_DELETIONS = 1_000;
+const MAX_COMPLETED_DELETIONS = 256;
 
 interface ManagedProjectCatalogEntryBase {
   id: string;
@@ -24,33 +27,56 @@ export interface ActiveManagedProjectCatalogEntry extends ManagedProjectCatalogE
   lifecycle: "active";
 }
 
-export interface TrashedManagedProjectCatalogEntry extends ManagedProjectCatalogEntryBase {
-  lifecycle: "trashed";
-  trashedAt: string;
+export type ManagedProjectCatalogEntry = ActiveManagedProjectCatalogEntry;
+
+export interface ManagedDirectoryIdentity {
+  device: string;
+  inode: string;
 }
 
-export type ManagedProjectCatalogEntry =
-  | ActiveManagedProjectCatalogEntry
-  | TrashedManagedProjectCatalogEntry;
-
-export interface ManagedProjectLifecycleCommit {
+interface ManagedProjectDeletionEvidenceBase {
   operationId: string;
-  operation: "purge";
+  operation: "delete";
   projectId: string;
   lifecycleRevision: number;
+  statusSecretHash: string;
 }
+
+export interface ManagedProjectDeletionReservation extends ManagedProjectDeletionEvidenceBase {
+  state: "reserved";
+  projectRevision: string;
+  priorEntry: ActiveManagedProjectCatalogEntry;
+  sourceIdentity: ManagedDirectoryIdentity;
+}
+
+export interface ManagedProjectDeletionPending extends ManagedProjectDeletionEvidenceBase {
+  state: "cleanup-pending";
+}
+
+export interface ManagedProjectDeletionComplete extends ManagedProjectDeletionEvidenceBase {
+  state: "complete";
+  completedAt: string;
+}
+
+export type ManagedProjectDeletionEvidence =
+  | ManagedProjectDeletionReservation
+  | ManagedProjectDeletionPending
+  | ManagedProjectDeletionComplete;
 
 export interface ManagedProjectCatalogDocument {
   version: 2;
   generation: number;
+  idNamespace: string;
+  nextProjectOrdinal: number;
   entries: ManagedProjectCatalogEntry[];
-  lifecycleCommits: ManagedProjectLifecycleCommit[];
+  deletions: ManagedProjectDeletionEvidence[];
 }
 
 export interface ManagedProjectCatalogStoreDependencies {
   openFile?: (path: string, flags: number, mode: number) => Promise<FileHandle>;
   writeStageFile?: (handle: FileHandle, bytes: string) => Promise<void>;
   rename?: (oldPath: string, newPath: string) => Promise<void>;
+  createIdNamespace?: () => string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -87,14 +113,36 @@ function incrementSafeInteger(value: number, property: string): number {
   return value + 1;
 }
 
-function parseEntry(value: unknown, legacy = false): ManagedProjectCatalogEntry {
+function projectOrdinalForNamespace(id: string, namespace: string): number | undefined {
+  const prefix = `project_${namespace}`;
+  if (!id.startsWith(prefix)) return undefined;
+  const ordinal = BigInt(`0x${id.slice(prefix.length)}`);
+  if (ordinal > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Managed project id namespace cannot advance safely past an existing id");
+  }
+  return Number(ordinal);
+}
+
+function createMigrationNamespace(
+  ids: readonly string[],
+  createIdNamespace: () => string,
+): string {
+  for (let attempt = 0; attempt < 128; attempt += 1) {
+    const namespace = createIdNamespace();
+    if (!ID_NAMESPACE_PATTERN.test(namespace)) {
+      throw new TypeError("catalog id namespace must be lowercase hex");
+    }
+    if (!ids.some((id) => id.startsWith(`project_${namespace}`))) return namespace;
+  }
+  throw new Error("Unable to allocate a non-conflicting managed project id namespace");
+}
+
+function parseEntry(value: unknown, legacy = false): ActiveManagedProjectCatalogEntry {
   if (!isRecord(value)) throw new TypeError("catalog entry must be an object");
   const lifecycle = value.lifecycle;
   const keys = legacy
     ? ["id", "directoryName", "name", "lifecycle", "createdAt", "updatedAt"]
-    : lifecycle === "trashed"
-      ? ["id", "directoryName", "name", "lifecycle", "lifecycleRevision", "createdAt", "updatedAt", "trashedAt"]
-      : ["id", "directoryName", "name", "lifecycle", "lifecycleRevision", "createdAt", "updatedAt"];
+    : ["id", "directoryName", "name", "lifecycle", "lifecycleRevision", "createdAt", "updatedAt"];
   requireExactKeys(value, keys, "catalog entry");
   if (typeof value.id !== "string" || !PROJECT_ID_PATTERN.test(value.id)) {
     throw new TypeError("catalog entry id must be an opaque managed project id");
@@ -105,10 +153,7 @@ function parseEntry(value: unknown, legacy = false): ManagedProjectCatalogEntry 
   if (typeof value.name !== "string" || value.name.length === 0) {
     throw new TypeError("catalog entry name must be a non-empty string");
   }
-  if (legacy && lifecycle !== "active") throw new TypeError("legacy catalog entry lifecycle must be active");
-  if (lifecycle !== "active" && lifecycle !== "trashed") {
-    throw new TypeError("catalog entry lifecycle must be active or trashed");
-  }
+  if (lifecycle !== "active") throw new TypeError("catalog entry lifecycle must be active");
   const base: ManagedProjectCatalogEntryBase = {
     id: value.id,
     directoryName: value.id,
@@ -117,71 +162,165 @@ function parseEntry(value: unknown, legacy = false): ManagedProjectCatalogEntry 
     createdAt: requireTimestamp(value.createdAt, "catalog entry createdAt"),
     updatedAt: requireTimestamp(value.updatedAt, "catalog entry updatedAt"),
   };
-  return lifecycle === "trashed"
-    ? { ...base, lifecycle, trashedAt: requireTimestamp(value.trashedAt, "catalog entry trashedAt") }
-    : { ...base, lifecycle };
+  return { ...base, lifecycle: "active" };
 }
 
-function parseCommit(value: unknown): ManagedProjectLifecycleCommit {
-  if (!isRecord(value)) throw new TypeError("lifecycle commit must be an object");
-  requireExactKeys(value, ["operationId", "operation", "projectId", "lifecycleRevision"], "lifecycle commit");
-  if (typeof value.operationId !== "string" || !OPERATION_ID_PATTERN.test(value.operationId)) {
-    throw new TypeError("lifecycle commit operationId must be opaque");
+function parseIdentity(value: unknown): ManagedDirectoryIdentity {
+  if (!isRecord(value)) throw new TypeError("directory identity must be an object");
+  requireExactKeys(value, ["device", "inode"], "directory identity");
+  if (typeof value.device !== "string" || !/^\d+$/.test(value.device)
+    || typeof value.inode !== "string" || !/^\d+$/.test(value.inode)) {
+    throw new TypeError("directory identity must contain decimal device and inode strings");
   }
-  if (value.operation !== "purge") throw new TypeError("lifecycle commit operation must be purge");
+  return { device: value.device, inode: value.inode };
+}
+
+function parseDeletion(value: unknown): ManagedProjectDeletionEvidence {
+  if (!isRecord(value)) throw new TypeError("deletion evidence must be an object");
+  const commonKeys = ["operationId", "operation", "state", "projectId", "lifecycleRevision", "statusSecretHash"];
+  const keys = value.state === "reserved"
+    ? [...commonKeys, "projectRevision", "priorEntry", "sourceIdentity"]
+    : value.state === "complete" ? [...commonKeys, "completedAt"] : commonKeys;
+  requireExactKeys(value, keys, "deletion evidence");
+  if (typeof value.operationId !== "string" || !OPERATION_ID_PATTERN.test(value.operationId)) {
+    throw new TypeError("deletion operationId must be opaque");
+  }
+  if (value.operation !== "delete") throw new TypeError("deletion operation must be delete");
   if (typeof value.projectId !== "string" || !PROJECT_ID_PATTERN.test(value.projectId)) {
-    throw new TypeError("lifecycle commit projectId must be opaque");
+    throw new TypeError("deletion projectId must be opaque");
+  }
+  if (typeof value.statusSecretHash !== "string" || !HASH_PATTERN.test(value.statusSecretHash)) {
+    throw new TypeError("deletion statusSecretHash must be lowercase SHA-256 hex");
+  }
+  const base = {
+    operationId: value.operationId,
+    operation: "delete" as const,
+    projectId: value.projectId,
+    lifecycleRevision: requirePositiveInteger(value.lifecycleRevision, "deletion lifecycleRevision"),
+    statusSecretHash: value.statusSecretHash,
+  };
+  if (value.state === "cleanup-pending") return { ...base, state: "cleanup-pending" };
+  if (value.state === "complete") {
+    return { ...base, state: "complete", completedAt: requireTimestamp(value.completedAt, "completedAt") };
+  }
+  if (value.state !== "reserved") {
+    throw new TypeError("deletion evidence state must be reserved, cleanup-pending, or complete");
+  }
+  if (typeof value.projectRevision !== "string" || !HASH_PATTERN.test(value.projectRevision)) {
+    throw new TypeError("deletion project revision must be lowercase SHA-256 hex");
+  }
+  const priorEntry = parseEntry(value.priorEntry);
+  if (priorEntry.id !== value.projectId || priorEntry.lifecycleRevision !== base.lifecycleRevision) {
+    throw new TypeError("deletion reservation must match its prior entry");
   }
   return {
-    operationId: value.operationId,
-    operation: "purge",
-    projectId: value.projectId,
-    lifecycleRevision: requirePositiveInteger(value.lifecycleRevision, "lifecycle commit lifecycleRevision"),
+    ...base,
+    state: "reserved",
+    projectRevision: value.projectRevision,
+    priorEntry,
+    sourceIdentity: parseIdentity(value.sourceIdentity),
   };
 }
 
-export function parseManagedProjectCatalog(value: unknown): ManagedProjectCatalogDocument {
+export function parseManagedProjectCatalog(
+  value: unknown,
+  createIdNamespace: () => string = () => randomUUID().replaceAll("-", "").slice(0, 16),
+): ManagedProjectCatalogDocument {
   if (!isRecord(value)) throw new TypeError("managed project catalog must be an object");
   if (value.version === 1) {
     requireExactKeys(value, ["version", "entries"], "managed project catalog");
     if (!Array.isArray(value.entries)) throw new TypeError("managed project catalog entries must be an array");
+    const entries = value.entries.map((entry) => parseEntry(entry, true));
+    const idNamespace = createMigrationNamespace(entries.map((entry) => entry.id), createIdNamespace);
     return validateCatalog({
       version: 2,
       generation: 0,
-      entries: value.entries.map((entry) => parseEntry(entry, true)),
-      lifecycleCommits: [],
+      idNamespace,
+      nextProjectOrdinal: 1,
+      entries,
+      deletions: [],
     });
   }
-  requireExactKeys(value, ["version", "generation", "entries", "lifecycleCommits"], "managed project catalog");
+  requireExactKeys(value, ["version", "generation", "idNamespace", "nextProjectOrdinal", "entries", "deletions"], "managed project catalog");
   if (value.version !== 2) throw new TypeError("managed project catalog version must be 1 or 2");
   if (!Number.isSafeInteger(value.generation) || (value.generation as number) < 0) {
     throw new TypeError("managed project catalog generation must be a non-negative integer");
   }
+  if (typeof value.idNamespace !== "string" || !ID_NAMESPACE_PATTERN.test(value.idNamespace)) {
+    throw new TypeError("managed project catalog idNamespace must be 16 lowercase hex characters");
+  }
+  const nextProjectOrdinal = requirePositiveInteger(value.nextProjectOrdinal, "nextProjectOrdinal");
   if (!Array.isArray(value.entries)) throw new TypeError("managed project catalog entries must be an array");
-  if (!Array.isArray(value.lifecycleCommits)) throw new TypeError("managed project catalog lifecycleCommits must be an array");
+  if (!Array.isArray(value.deletions)) throw new TypeError("managed project catalog deletions must be an array");
   return validateCatalog({
     version: 2,
     generation: value.generation as number,
+    idNamespace: value.idNamespace,
+    nextProjectOrdinal,
     entries: value.entries.map((entry) => parseEntry(entry)),
-    lifecycleCommits: value.lifecycleCommits.map(parseCommit),
+    deletions: value.deletions.map(parseDeletion),
   });
 }
 
 function validateCatalog(catalog: ManagedProjectCatalogDocument): ManagedProjectCatalogDocument {
+  if (!ID_NAMESPACE_PATTERN.test(catalog.idNamespace)) {
+    throw new TypeError("managed project catalog idNamespace must be 16 lowercase hex characters");
+  }
+  requirePositiveInteger(catalog.nextProjectOrdinal, "nextProjectOrdinal");
   const ids = new Set(catalog.entries.map((entry) => entry.id));
   if (ids.size !== catalog.entries.length) throw new TypeError("managed project catalog entries must not duplicate ids");
-  const operationIds = new Set(catalog.lifecycleCommits.map((commit) => commit.operationId));
-  if (operationIds.size !== catalog.lifecycleCommits.length) {
-    throw new TypeError("managed project catalog lifecycle commits must not duplicate operation ids");
+  const operationIds = new Set(catalog.deletions.map((evidence) => evidence.operationId));
+  if (operationIds.size !== catalog.deletions.length) {
+    throw new TypeError("managed project catalog deletions must not duplicate operation ids");
   }
-  const purgedProjectIds = new Set(catalog.lifecycleCommits.map((commit) => commit.projectId));
-  if (purgedProjectIds.size !== catalog.lifecycleCommits.length) {
-    throw new TypeError("managed project catalog must not contain multiple purge receipts for one project");
+  const projectIds = new Set(catalog.deletions.map((evidence) => evidence.projectId));
+  if (projectIds.size !== catalog.deletions.length) {
+    throw new TypeError("managed project catalog must not contain multiple deletion records for one project");
   }
-  if (catalog.entries.some((entry) => purgedProjectIds.has(entry.id))) {
-    throw new TypeError("managed project catalog purge receipts must not reference live entries");
+  const allocatedIds = [...catalog.entries.map((entry) => entry.id), ...projectIds];
+  for (const id of allocatedIds) {
+    const ordinal = projectOrdinalForNamespace(id, catalog.idNamespace);
+    if (ordinal !== undefined && ordinal >= catalog.nextProjectOrdinal) {
+      throw new TypeError("managed project catalog nextProjectOrdinal must be above every known id");
+    }
+  }
+  for (const evidence of catalog.deletions) {
+    const active = catalog.entries.find((entry) => entry.id === evidence.projectId);
+    if (evidence.state === "reserved") {
+      if (!active) throw new TypeError("deletion reservation must reference a live entry");
+      if (!entriesMatch(active, evidence.priorEntry)) {
+        throw new TypeError("deletion reservation prior entry must match the live entry");
+      }
+    } else if (active) {
+      throw new TypeError("terminal deletion evidence must not reference a live entry");
+    }
+  }
+  if (catalog.deletions.filter((evidence) => evidence.state !== "complete").length > MAX_PENDING_DELETIONS) {
+    throw new TypeError("managed project catalog exceeds pending deletion limit");
+  }
+  if (catalog.deletions.filter((evidence) => evidence.state === "complete").length > MAX_COMPLETED_DELETIONS) {
+    throw new TypeError("managed project catalog exceeds completed deletion limit");
   }
   return catalog;
+}
+
+function entriesMatch(
+  left: ActiveManagedProjectCatalogEntry,
+  right: ActiveManagedProjectCatalogEntry,
+): boolean {
+  return left.id === right.id
+    && left.directoryName === right.directoryName
+    && left.name === right.name
+    && left.lifecycle === right.lifecycle
+    && left.lifecycleRevision === right.lifecycleRevision
+    && left.createdAt === right.createdAt
+    && left.updatedAt === right.updatedAt;
+}
+
+function requireOperationId(operationId: string): void {
+  if (!OPERATION_ID_PATTERN.test(operationId)) {
+    throw new TypeError("Deletion operation id must be opaque");
+  }
 }
 
 export function serializeManagedProjectCatalog(catalog: ManagedProjectCatalogDocument): string {
@@ -195,11 +334,17 @@ export function serializeManagedProjectCatalog(catalog: ManagedProjectCatalogDoc
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
       lifecycleRevision: entry.lifecycleRevision,
-      ...(entry.lifecycle === "trashed" ? { trashedAt: entry.trashedAt } : {}),
     }));
-  const lifecycleCommits = [...catalog.lifecycleCommits]
+  const deletions = [...catalog.deletions]
     .sort((left, right) => left.operationId.localeCompare(right.operationId));
-  return `${JSON.stringify({ version: 2, generation: catalog.generation, entries, lifecycleCommits }, null, 2)}\n`;
+  return `${JSON.stringify({
+    version: 2,
+    generation: catalog.generation,
+    idNamespace: catalog.idNamespace,
+    nextProjectOrdinal: catalog.nextProjectOrdinal,
+    entries,
+    deletions,
+  }, null, 2)}\n`;
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -227,6 +372,7 @@ export class ManagedProjectCatalogStore {
   readonly #openFile: NonNullable<ManagedProjectCatalogStoreDependencies["openFile"]>;
   readonly #writeStageFile: NonNullable<ManagedProjectCatalogStoreDependencies["writeStageFile"]>;
   readonly #rename: NonNullable<ManagedProjectCatalogStoreDependencies["rename"]>;
+  readonly #createIdNamespace: NonNullable<ManagedProjectCatalogStoreDependencies["createIdNamespace"]>;
 
   constructor(
     readonly config: ManagedProjectStorageConfig,
@@ -236,6 +382,8 @@ export class ManagedProjectCatalogStore {
     this.#writeStageFile = dependencies.writeStageFile
       ?? (async (handle, bytes) => handle.writeFile(bytes, "utf8"));
     this.#rename = dependencies.rename ?? rename;
+    this.#createIdNamespace = dependencies.createIdNamespace
+      ?? (() => randomUUID().replaceAll("-", "").slice(0, 16));
   }
 
   async read(): Promise<ManagedProjectCatalogDocument> {
@@ -243,31 +391,39 @@ export class ManagedProjectCatalogStore {
   }
 
   async get(id: string): Promise<ManagedProjectCatalogEntry | undefined> {
-    return (await this.read()).entries.find((entry) => entry.id === id);
+    return this.getActive(id);
   }
 
   async getActive(id: string): Promise<ActiveManagedProjectCatalogEntry | undefined> {
-    const entry = await this.get(id);
-    return entry?.lifecycle === "active" ? entry : undefined;
+    const catalog = await this.read();
+    const reserved = catalog.deletions.some((evidence) =>
+      evidence.projectId === id && evidence.state === "reserved");
+    return reserved ? undefined : catalog.entries.find((entry) => entry.id === id);
   }
 
   async list(): Promise<ActiveManagedProjectCatalogEntry[]> { return this.listActive(); }
 
   async listActive(): Promise<ActiveManagedProjectCatalogEntry[]> {
-    return (await this.read()).entries.filter(
-      (entry): entry is ActiveManagedProjectCatalogEntry => entry.lifecycle === "active",
-    );
+    const catalog = await this.read();
+    const reservedIds = new Set(catalog.deletions
+      .filter((evidence) => evidence.state === "reserved")
+      .map((evidence) => evidence.projectId));
+    return catalog.entries.filter((entry) => !reservedIds.has(entry.id));
   }
 
-  async listTrashed(limit: number): Promise<TrashedManagedProjectCatalogEntry[]> {
-    requirePositiveInteger(limit, "Trash list limit");
-    if (limit > MAX_TRASH_LIST_RESULTS) {
-      throw new TypeError(`Trash list limit must be at most ${MAX_TRASH_LIST_RESULTS}`);
-    }
-    return (await this.read()).entries
-      .filter((entry): entry is TrashedManagedProjectCatalogEntry => entry.lifecycle === "trashed")
-      .sort((left, right) => right.trashedAt.localeCompare(left.trashedAt) || left.id.localeCompare(right.id))
-      .slice(0, limit);
+  async reserveProjectId(): Promise<string> {
+    return this.#withLock(async () => {
+      const catalog = await this.#readOrInitialize();
+      const ordinal = catalog.nextProjectOrdinal;
+      const id = `project_${catalog.idNamespace}${ordinal.toString(16).padStart(16, "0")}`;
+      if (!PROJECT_ID_PATTERN.test(id)) throw new Error("Managed project id allocator is exhausted");
+      await this.#write({
+        ...catalog,
+        generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
+        nextProjectOrdinal: incrementSafeInteger(ordinal, "Managed project id ordinal"),
+      });
+      return id;
+    });
   }
 
   async insert(entry: ActiveManagedProjectCatalogEntry): Promise<void> {
@@ -276,68 +432,19 @@ export class ManagedProjectCatalogStore {
       if (catalog.entries.some((existing) => existing.id === entry.id)) {
         throw new Error(`Managed project catalog contains a duplicate id: ${entry.id}`);
       }
+      if (catalog.deletions.some((evidence) => evidence.projectId === entry.id)) {
+        throw new Error(`Managed project catalog contains deletion evidence for id: ${entry.id}`);
+      }
       parseEntry(entry);
+      const ordinal = projectOrdinalForNamespace(entry.id, catalog.idNamespace);
+      const nextProjectOrdinal = ordinal !== undefined && ordinal >= catalog.nextProjectOrdinal
+        ? incrementSafeInteger(ordinal, "Managed project id ordinal")
+        : catalog.nextProjectOrdinal;
       await this.#write({
         ...catalog,
         generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
+        nextProjectOrdinal,
         entries: [...catalog.entries, entry],
-      });
-    });
-  }
-
-  async transitionToTrashed(
-    id: string,
-    expectedLifecycleRevision: number,
-    trashedAt: string,
-  ): Promise<TrashedManagedProjectCatalogEntry> {
-    return this.#withLock(async () => {
-      const catalog = await this.#readOrInitialize();
-      const entry = catalog.entries.find((candidate) => candidate.id === id);
-      if (!entry || entry.lifecycle !== "active") throw new Error("Managed project is not active");
-      if (entry.lifecycleRevision !== expectedLifecycleRevision) {
-        throw new Error("Managed project lifecycle revision changed");
-      }
-      const timestamp = requireTimestamp(trashedAt, "trashedAt");
-      const next: TrashedManagedProjectCatalogEntry = {
-        ...entry,
-        lifecycle: "trashed",
-        lifecycleRevision: incrementSafeInteger(entry.lifecycleRevision, "Managed project lifecycle revision"),
-        updatedAt: timestamp,
-        trashedAt: timestamp,
-      };
-      await this.#write({
-        ...catalog,
-        generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
-        entries: catalog.entries.map((candidate) => candidate.id === id ? next : candidate),
-      });
-      return next;
-    });
-  }
-
-  async removeTrashedWithReceipt(
-    id: string,
-    expectedLifecycleRevision: number,
-    receipt: ManagedProjectLifecycleCommit,
-  ): Promise<void> {
-    await this.#withLock(async () => {
-      const catalog = await this.#readOrInitialize();
-      const entry = catalog.entries.find((candidate) => candidate.id === id);
-      if (!entry || entry.lifecycle !== "trashed") throw new Error("Managed project is not trashed");
-      if (entry.lifecycleRevision !== expectedLifecycleRevision) {
-        throw new Error("Managed project lifecycle revision changed");
-      }
-      const parsedReceipt = parseCommit(receipt);
-      if (parsedReceipt.projectId !== id || parsedReceipt.lifecycleRevision !== expectedLifecycleRevision) {
-        throw new Error("Purge receipt does not match the trashed project");
-      }
-      if (catalog.lifecycleCommits.some((commit) => commit.operationId === parsedReceipt.operationId)) {
-        throw new Error("Managed project catalog contains a duplicate lifecycle operation id");
-      }
-      await this.#write({
-        ...catalog,
-        generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
-        entries: catalog.entries.filter((candidate) => candidate.id !== id),
-        lifecycleCommits: [...catalog.lifecycleCommits, parsedReceipt],
       });
     });
   }
@@ -347,6 +454,9 @@ export class ManagedProjectCatalogStore {
       const catalog = await this.#readOrInitialize();
       const entry = catalog.entries.find((candidate) => candidate.id === id);
       if (!entry || entry.lifecycle !== "active") throw new Error("Managed project is not active");
+      if (catalog.deletions.some((evidence) => evidence.projectId === id)) {
+        throw new Error("Managed project has an active deletion reservation");
+      }
       if (entry.lifecycleRevision !== expectedLifecycleRevision) {
         throw new Error("Managed project lifecycle revision changed");
       }
@@ -358,9 +468,86 @@ export class ManagedProjectCatalogStore {
     });
   }
 
+  async getDeletionEvidence(operationId: string): Promise<ManagedProjectDeletionEvidence | undefined> {
+    requireOperationId(operationId);
+    return (await this.read()).deletions.find((evidence) => evidence.operationId === operationId);
+  }
+
+  async reserveDeletion(
+    input: ManagedProjectDeletionReservation,
+  ): Promise<ManagedProjectDeletionReservation> {
+    return this.#withLock(async () => {
+      const reservation = parseDeletion(input);
+      if (reservation.state !== "reserved") throw new TypeError("Deletion admission must be a reservation");
+      const catalog = await this.#readOrInitialize();
+      const existingOperation = catalog.deletions.find(
+        (evidence) => evidence.operationId === reservation.operationId,
+      );
+      if (existingOperation) {
+        if (existingOperation.state === "reserved"
+          && JSON.stringify(existingOperation) === JSON.stringify(reservation)) return existingOperation;
+        throw new Error("Deletion operation id already exists");
+      }
+      if (catalog.deletions.some((evidence) => evidence.projectId === reservation.projectId)) {
+        throw new Error("Managed project already has deletion evidence");
+      }
+      if (catalog.deletions.filter((evidence) => evidence.state !== "complete").length
+        >= MAX_PENDING_DELETIONS) {
+        throw new Error("Managed project catalog pending deletion limit reached");
+      }
+      const active = catalog.entries.find((entry) => entry.id === reservation.projectId);
+      if (!active) throw new Error("Managed project is not active");
+      if (active.lifecycleRevision !== reservation.lifecycleRevision) {
+        throw new Error("Managed project lifecycle revision changed");
+      }
+      if (!entriesMatch(active, reservation.priorEntry)) {
+        throw new Error("Deletion reservation does not match the active catalog entry");
+      }
+      await this.#write({
+        ...catalog,
+        generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
+        deletions: [...catalog.deletions, reservation],
+      });
+      return reservation;
+    });
+  }
+
+  async commitDeletion(operationId: string): Promise<ManagedProjectDeletionEvidence> {
+    requireOperationId(operationId);
+    return this.#withLock(async () => {
+      const catalog = await this.#readOrInitialize();
+      const evidence = catalog.deletions.find((candidate) => candidate.operationId === operationId);
+      if (!evidence) throw new Error("Deletion operation does not exist");
+      if (evidence.state !== "reserved") return evidence;
+      const active = catalog.entries.find((entry) => entry.id === evidence.projectId);
+      if (!active || !entriesMatch(active, evidence.priorEntry)) {
+        throw new Error("Deletion reservation no longer matches the active catalog entry");
+      }
+      const pending: ManagedProjectDeletionPending = {
+        operationId: evidence.operationId,
+        operation: "delete",
+        state: "cleanup-pending",
+        projectId: evidence.projectId,
+        lifecycleRevision: evidence.lifecycleRevision,
+        statusSecretHash: evidence.statusSecretHash,
+      };
+      await this.#write({
+        ...catalog,
+        generation: incrementSafeInteger(catalog.generation, "Managed project catalog generation"),
+        entries: catalog.entries.filter((entry) => entry.id !== evidence.projectId),
+        deletions: catalog.deletions.map((candidate) =>
+          candidate.operationId === operationId ? pending : candidate),
+      });
+      return pending;
+    });
+  }
+
   async #readPersisted(): Promise<{ catalog: ManagedProjectCatalogDocument; migrated: boolean }> {
     const value = JSON.parse(await readFile(this.config.catalogPath, "utf8")) as unknown;
-    return { catalog: parseManagedProjectCatalog(value), migrated: isRecord(value) && value.version === 1 };
+    return {
+      catalog: parseManagedProjectCatalog(value, this.#createIdNamespace),
+      migrated: isRecord(value) && value.version === 1,
+    };
   }
 
   async #readOrInitialize(): Promise<ManagedProjectCatalogDocument> {
@@ -373,8 +560,10 @@ export class ManagedProjectCatalogStore {
       const empty: ManagedProjectCatalogDocument = {
         version: 2,
         generation: 0,
+        idNamespace: this.#createIdNamespace(),
+        nextProjectOrdinal: 1,
         entries: [],
-        lifecycleCommits: [],
+        deletions: [],
       };
       try {
         await this.#write(empty);

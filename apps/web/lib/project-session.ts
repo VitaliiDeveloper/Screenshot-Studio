@@ -7,9 +7,7 @@ export interface ProjectSourceCapabilities {
   nativePicker: boolean;
   projectLocalResources: boolean;
   exportProjectArchive: boolean;
-  trashProject: boolean;
-  restoreProject: boolean;
-  purgeProject: boolean;
+  deleteProjectPermanently: boolean;
 }
 
 export interface ActiveProjectDescriptor {

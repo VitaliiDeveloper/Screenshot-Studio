@@ -29,9 +29,7 @@ const LOCAL_CAPABILITIES = {
   nativePicker: false,
   projectLocalResources: true,
   exportProjectArchive: false,
-  trashProject: false,
-  restoreProject: false,
-  purgeProject: false,
+  deleteProjectPermanently: false,
 } as const;
 
 export interface ProjectSession {
@@ -83,9 +81,7 @@ const MANAGED_CAPABILITIES = {
   nativePicker: false,
   projectLocalResources: true,
   exportProjectArchive: true,
-  trashProject: true,
-  restoreProject: false,
-  purgeProject: false,
+  deleteProjectPermanently: true,
 } as const;
 
 export class ManagedProjectSourceAdapter implements ProjectSourceAdapter<string, OpenedProjectSource> {

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import { ManagedProjectNotFoundError } from "./managed-project-repository.server.js";
 import {
   ManagedProjectSourceAdapter,
@@ -60,9 +62,7 @@ function createStubLocalSource() {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: false,
-        trashProject: false,
-        restoreProject: false,
-        purgeProject: false,
+        deleteProjectPermanently: false,
       },
     })),
   } satisfies Pick<LocalFileProjectSourceAdapter, "kind" | "open">;
@@ -88,9 +88,7 @@ function createStubManagedSource() {
           nativePicker: false,
           projectLocalResources: true,
           exportProjectArchive: true,
-          trashProject: true,
-          restoreProject: false,
-          purgeProject: false,
+          deleteProjectPermanently: true,
         },
       };
     }),
@@ -98,8 +96,8 @@ function createStubManagedSource() {
 }
 
 describe("ProjectSessionRegistry", () => {
-  it("invalidates a cached managed session after its repository entry is trashed", async () => {
-    const root = await mkdtemp(join(tmpdir(), "project-session-trash-"));
+  it("invalidates a cached managed session after permanent deletion is reserved", async () => {
+    const root = await mkdtemp(join(tmpdir(), "project-session-delete-"));
     temporaryRoots.push(root);
     const { resolveManagedProjectStorageConfig } = await import("./managed-project-config.server.js");
     const { ManagedProjectRepository } = await import("./managed-project-repository.server.js");
@@ -120,7 +118,20 @@ describe("ProjectSessionRegistry", () => {
       managedSource: new ManagedProjectSourceAdapter(repository),
     });
     const session = await registry.openManaged(project.id);
-    await repository.moveToTrash(project.id, 1);
+    const catalog = new ManagedProjectCatalogStore(repository.config);
+    const priorEntry = (await catalog.read()).entries[0]!;
+    const identity = await stat(project.projectDirectory, { bigint: true });
+    await catalog.reserveDeletion({
+      operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      operation: "delete",
+      state: "reserved",
+      projectId: project.id,
+      lifecycleRevision: 1,
+      statusSecretHash: "2".repeat(64),
+      projectRevision: (await readProjectSnapshot(project.projectPath)).revision,
+      priorEntry,
+      sourceIdentity: { device: identity.dev.toString(), inode: identity.ino.toString() },
+    });
 
     await expect(resolveActiveProjectSession(new Request("http://localhost", {
       headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` },
@@ -128,7 +139,7 @@ describe("ProjectSessionRegistry", () => {
     expect(registry.peek(session.descriptor.sessionId)).toBeUndefined();
   });
 
-  it("invalidates only managed sessions for a trashed opaque project id", async () => {
+  it("invalidates only managed sessions for a deleted opaque project id", async () => {
     let nextSession = 0;
     const registry = new ProjectSessionRegistry({
       createSessionId: () => `session-${++nextSession}`,
@@ -299,9 +310,7 @@ describe("ProjectSessionRegistry", () => {
           nativePicker: false,
           projectLocalResources: true,
           exportProjectArchive: true,
-          trashProject: true,
-          restoreProject: false,
-          purgeProject: false,
+          deleteProjectPermanently: true,
         },
       },
     });

@@ -13,6 +13,9 @@ import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 
 const PROJECT_ID = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const ID_NAMESPACE = "1234567890abcdef";
+const PROJECT_REVISION = "1".repeat(64);
+const STATUS_SECRET_HASH = "2".repeat(64);
 
 function catalogEntry(overrides: Record<string, unknown> = {}) {
   return {
@@ -30,21 +33,29 @@ function activeCatalogEntry(overrides: Record<string, unknown> = {}) {
   return { ...catalogEntry(), lifecycleRevision: 1, ...overrides };
 }
 
-function trashedCatalogEntry(overrides: Record<string, unknown> = {}) {
+function catalogDocument(overrides: Record<string, unknown> = {}) {
   return {
-    ...activeCatalogEntry(),
-    lifecycle: "trashed",
-    trashedAt: "2026-07-19T00:00:00.000Z",
+    version: 2,
+    generation: 0,
+    idNamespace: ID_NAMESPACE,
+    nextProjectOrdinal: 1,
+    entries: [],
+    deletions: [],
     ...overrides,
   };
 }
 
-function purgeReceipt(overrides: Record<string, unknown> = {}) {
+function deletionReservation(overrides: Record<string, unknown> = {}) {
   return {
     operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    operation: "purge",
+    operation: "delete",
+    state: "reserved",
     projectId: PROJECT_ID,
-    lifecycleRevision: 2,
+    lifecycleRevision: 1,
+    statusSecretHash: STATUS_SECRET_HASH,
+    projectRevision: PROJECT_REVISION,
+    priorEntry: activeCatalogEntry(),
+    sourceIdentity: { device: "1", inode: "2" },
     ...overrides,
   };
 }
@@ -82,13 +93,12 @@ describe("resolveManagedProjectStorageConfig", () => {
       projectsRoot: join(root, ".screenshot-studio", "projects"),
       stagingRoot: join(root, ".screenshot-studio", "staging"),
       recoveryRoot: join(root, ".screenshot-studio", "recovery"),
-      trashRoot: join(root, ".screenshot-studio", "trash"),
       tombstonesRoot: join(root, ".screenshot-studio", "tombstones"),
       lifecycleLocksRoot: join(root, ".screenshot-studio", "lifecycle-locks"),
       catalogPath: join(root, ".screenshot-studio", "catalog.json"),
-      trashRetentionMs: null,
-      trashRetentionBatchSize: 25,
     });
+    expect(resolveManagedProjectStorageConfig({ INIT_CWD: root })).not.toHaveProperty("trashRoot");
+    expect(resolveManagedProjectStorageConfig({ INIT_CWD: root })).not.toHaveProperty("trashRetentionMs");
   });
 
   it("resolves a relative data root from the invocation directory", () => {
@@ -109,31 +119,37 @@ describe("resolveManagedProjectStorageConfig", () => {
     ["SCREENSHOT_STUDIO_MAX_PROJECT_FILES", "0"],
     ["SCREENSHOT_STUDIO_MAX_PROJECT_BYTES", "-1"],
     ["SCREENSHOT_STUDIO_STAGING_TTL_MS", "1.5"],
-    ["SCREENSHOT_STUDIO_TRASH_RETENTION_MS", "0"],
-    ["SCREENSHOT_STUDIO_TRASH_RETENTION_BATCH_SIZE", "-1"],
   ])("rejects an invalid %s before filesystem access", (name, value) => {
     expect(() => resolveManagedProjectStorageConfig({ [name]: value })).toThrow(
       new RangeError(`${name} must be a positive integer`),
     );
   });
 
-  it("enables bounded retention only through explicit configuration", () => {
-    expect(resolveManagedProjectStorageConfig({
+  it("does not accept user-visible Trash retention configuration", () => {
+    const config = resolveManagedProjectStorageConfig({
       SCREENSHOT_STUDIO_TRASH_RETENTION_MS: "86400000",
       SCREENSHOT_STUDIO_TRASH_RETENTION_BATCH_SIZE: "7",
-    })).toMatchObject({ trashRetentionMs: 86_400_000, trashRetentionBatchSize: 7 });
+    } as never);
+    expect(config).not.toHaveProperty("trashRetentionMs");
+    expect(config).not.toHaveProperty("trashRetentionBatchSize");
   });
 });
 
 describe("parseManagedProjectCatalog", () => {
   it("migrates the version-one catalog contract and serializes version two deterministically", () => {
     const laterId = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    const catalog = parseManagedProjectCatalog({
-      version: 1,
-      entries: [catalogEntry({ id: laterId, directoryName: laterId }), catalogEntry()],
-    });
+    const catalog = parseManagedProjectCatalog(
+      { version: 1, entries: [catalogEntry({ id: laterId, directoryName: laterId }), catalogEntry()] },
+      () => ID_NAMESPACE,
+    );
 
-    expect(catalog).toMatchObject({ version: 2, generation: 0, lifecycleCommits: [] });
+    expect(catalog).toMatchObject({
+      version: 2,
+      generation: 0,
+      idNamespace: ID_NAMESPACE,
+      nextProjectOrdinal: 1,
+      deletions: [],
+    });
     expect(catalog.entries).toEqual([
       activeCatalogEntry({ id: laterId, directoryName: laterId }),
       activeCatalogEntry(),
@@ -141,26 +157,36 @@ describe("parseManagedProjectCatalog", () => {
     expect(serializeManagedProjectCatalog(catalog)).toBe(`${JSON.stringify({
       version: 2,
       generation: 0,
+      idNamespace: ID_NAMESPACE,
+      nextProjectOrdinal: 1,
       entries: [activeCatalogEntry(), activeCatalogEntry({ id: laterId, directoryName: laterId })],
-      lifecycleCommits: [],
+      deletions: [],
     }, null, 2)}\n`);
   });
 
-  it("accepts strict active and trashed version-two entries", () => {
-    expect(parseManagedProjectCatalog({
-      version: 2,
-      generation: 4,
-      entries: [activeCatalogEntry(), trashedCatalogEntry({
+  it("rejects the unshipped long-lived trashed catalog state", () => {
+    expect(() => parseManagedProjectCatalog(catalogDocument({
+      entries: [activeCatalogEntry(), activeCatalogEntry({
         id: "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         directoryName: "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        lifecycle: "trashed",
+        trashedAt: "2026-07-19T00:00:00.000Z",
       })],
-      lifecycleCommits: [{
-        operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        operation: "purge",
-        projectId: "project_cccccccccccccccccccccccccccccccc",
-        lifecycleRevision: 3,
-      }],
-    })).toMatchObject({ version: 2, generation: 4 });
+    }))).toThrow(/unknown|lifecycle/i);
+  });
+
+  it("retries v1 migration when a candidate namespace matches a legacy id prefix", () => {
+    const existingId = "project_1111111111111111ffffffffffffffff";
+    const candidates = ["1111111111111111", "2222222222222222"];
+
+    expect(parseManagedProjectCatalog({
+      version: 1,
+      entries: [catalogEntry({ id: existingId, directoryName: existingId })],
+    }, () => candidates.shift()!)).toMatchObject({
+      idNamespace: "2222222222222222",
+      nextProjectOrdinal: 1,
+    });
+    expect(candidates).toEqual([]);
   });
 
   it.each([
@@ -171,27 +197,80 @@ describe("parseManagedProjectCatalog", () => {
     ["an unknown lifecycle", { version: 1, entries: [catalogEntry({ lifecycle: "trashed" })] }],
     ["unknown top-level properties", { version: 1, entries: [], future: true }],
     ["unknown entry properties", { version: 1, entries: [catalogEntry({ future: true })] }],
-    ["a negative generation", { version: 2, generation: -1, entries: [], lifecycleCommits: [] }],
-    ["a zero lifecycle revision", { version: 2, generation: 0, entries: [activeCatalogEntry({ lifecycleRevision: 0 })], lifecycleCommits: [] }],
-    ["a trashed entry without trashedAt", { version: 2, generation: 0, entries: [activeCatalogEntry({ lifecycle: "trashed" })], lifecycleCommits: [] }],
-    ["an active entry with trashedAt", { version: 2, generation: 0, entries: [activeCatalogEntry({ trashedAt: "2026-07-19T00:00:00.000Z" })], lifecycleCommits: [] }],
-    ["a malformed lifecycle receipt", { version: 2, generation: 0, entries: [], lifecycleCommits: [{ operationId: "bad" }] }],
-    ["a purge receipt for a live entry", { version: 2, generation: 0, entries: [trashedCatalogEntry()], lifecycleCommits: [purgeReceipt()] }],
-    ["multiple purge receipts for one project", {
-      version: 2,
-      generation: 0,
-      entries: [],
-      lifecycleCommits: [
-        purgeReceipt(),
-        purgeReceipt({ operationId: "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", lifecycleRevision: 3 }),
+    ["a negative generation", catalogDocument({ generation: -1 })],
+    ["an invalid id namespace", catalogDocument({ idNamespace: "not-opaque" })],
+    ["a zero next ordinal", catalogDocument({ nextProjectOrdinal: 0 })],
+    ["a next ordinal that can reuse a known id", catalogDocument({
+      nextProjectOrdinal: 1,
+      entries: [activeCatalogEntry({
+        id: "project_1234567890abcdef0000000000000001",
+        directoryName: "project_1234567890abcdef0000000000000001",
+      })],
+    })],
+    ["a zero lifecycle revision", catalogDocument({ entries: [activeCatalogEntry({ lifecycleRevision: 0 })] })],
+    ["a malformed deletion record", catalogDocument({ deletions: [{ operationId: "bad" }] })],
+    ["a reservation without its live entry", catalogDocument({ deletions: [deletionReservation()] })],
+    ["a reservation whose prior entry differs from the live entry", catalogDocument({
+      entries: [activeCatalogEntry()],
+      deletions: [deletionReservation({ priorEntry: activeCatalogEntry({ name: "Forged" }) })],
+    })],
+    ["a terminal record for a live entry", catalogDocument({
+      entries: [activeCatalogEntry()],
+      deletions: [{
+        operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        operation: "delete",
+        state: "cleanup-pending",
+        projectId: PROJECT_ID,
+        lifecycleRevision: 1,
+        statusSecretHash: STATUS_SECRET_HASH,
+      }],
+    })],
+    ["multiple deletion records for one project", catalogDocument({
+      deletions: [
+        { ...deletionReservation(), state: "cleanup-pending" },
+        {
+          ...deletionReservation({ operationId: "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }),
+          state: "cleanup-pending",
+        },
       ],
-    }],
+    })],
   ])("rejects %s", (_description, value) => {
     expect(() => parseManagedProjectCatalog(value)).toThrow();
   });
 });
 
 describe("ManagedProjectCatalogStore", () => {
+  it("atomically reserves monotonic opaque project ids without reuse", async () => {
+    const store = new ManagedProjectCatalogStore(await storageConfig(), {
+      createIdNamespace: () => "1234567890abcdef",
+    });
+
+    await expect(store.reserveProjectId()).resolves.toBe(
+      "project_1234567890abcdef0000000000000001",
+    );
+    await expect(store.reserveProjectId()).resolves.toBe(
+      "project_1234567890abcdef0000000000000002",
+    );
+    await expect(store.read()).resolves.toMatchObject({
+      idNamespace: "1234567890abcdef",
+      nextProjectOrdinal: 3,
+    });
+  });
+
+  it("preserves every ordinal across concurrent reservations from independent stores", async () => {
+    const config = await storageConfig();
+    const first = new ManagedProjectCatalogStore(config, { createIdNamespace: () => ID_NAMESPACE });
+    const second = new ManagedProjectCatalogStore(config, { createIdNamespace: () => ID_NAMESPACE });
+
+    const ids = await Promise.all(Array.from({ length: 40 }, (_, index) =>
+      (index % 2 === 0 ? first : second).reserveProjectId()));
+
+    expect(new Set(ids).size).toBe(40);
+    expect(ids.toSorted()).toEqual(Array.from({ length: 40 }, (_, index) =>
+      `project_${ID_NAMESPACE}${(index + 1).toString(16).padStart(16, "0")}`));
+    await expect(first.read()).resolves.toMatchObject({ nextProjectOrdinal: 41 });
+  });
+
   it("rejects a symlinked configured root before creating catalog state in its target", async () => {
     const container = await mkdtemp(join(tmpdir(), "managed-project-catalog-root-"));
     temporaryRoots.push(container);
@@ -233,18 +312,24 @@ describe("ManagedProjectCatalogStore", () => {
     await expect(store.insert(entry(PROJECT_ID, "Again"))).rejects.toThrow(/duplicate/i);
   });
 
-  it("does not reuse a project id that has terminal purge evidence", async () => {
+  it("does not accept an inserted project id that has deletion evidence", async () => {
     const config = await storageConfig();
     const persisted = `${JSON.stringify({
-      version: 2,
-      generation: 1,
-      entries: [],
-      lifecycleCommits: [purgeReceipt()],
+      ...catalogDocument({ generation: 1 }),
+      deletions: [{
+        operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        operation: "delete",
+        state: "complete",
+        projectId: PROJECT_ID,
+        lifecycleRevision: 1,
+        statusSecretHash: STATUS_SECRET_HASH,
+        completedAt: "2026-07-19T00:00:00.000Z",
+      }],
     }, null, 2)}\n`;
     await writeFile(config.catalogPath, persisted);
 
     await expect(new ManagedProjectCatalogStore(config).insert(entry(PROJECT_ID, "Reused")))
-      .rejects.toThrow(/purge/i);
+      .rejects.toThrow(/deletion/i);
     await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(persisted);
   });
 
@@ -264,91 +349,158 @@ describe("ManagedProjectCatalogStore", () => {
     ]);
   });
 
-  it("filters active lookups and returns a bounded newest-first Trash list", async () => {
-    const store = new ManagedProjectCatalogStore(await storageConfig());
-    const alpha = entry(PROJECT_ID, "Alpha");
-    const betaId = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    const gammaId = "project_cccccccccccccccccccccccccccccccc";
-    await store.insert(alpha);
-    await store.insert(entry(betaId, "Beta"));
-    await store.insert(entry(gammaId, "Gamma"));
-    await store.transitionToTrashed(betaId, 1, "2026-07-19T00:00:00.000Z");
-    await store.transitionToTrashed(gammaId, 1, "2026-07-20T00:00:00.000Z");
-
-    await expect(store.getActive(betaId)).resolves.toBeUndefined();
-    await expect(store.listActive()).resolves.toEqual([alpha]);
-    await expect(store.listTrashed(1)).resolves.toMatchObject([{
-      id: gammaId,
-      lifecycle: "trashed",
-      lifecycleRevision: 2,
-    }]);
-    await expect(store.listTrashed(0)).rejects.toThrow(/positive integer/i);
-    await expect(store.listTrashed(101)).rejects.toThrow(/at most 100/i);
-  });
-
-  it("rejects a stale lifecycle transition without substituting the latest revision", async () => {
+  it("atomically reserves deletion and immediately hides the project from active lookups", async () => {
     const store = new ManagedProjectCatalogStore(await storageConfig());
     await store.insert(entry(PROJECT_ID, "Alpha"));
 
-    await expect(store.transitionToTrashed(PROJECT_ID, 2, "2026-07-19T00:00:00.000Z"))
+    await expect(store.reserveDeletion(deletionReservation())).resolves.toMatchObject({
+      operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      state: "reserved",
+    });
+
+    await expect(store.getActive(PROJECT_ID)).resolves.toBeUndefined();
+    await expect(store.listActive()).resolves.toEqual([]);
+    await expect(store.getDeletionEvidence("operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+      .resolves.toMatchObject({ projectId: PROJECT_ID, state: "reserved" });
+  });
+
+  it("rejects stale or mismatched deletion reservations without changing catalog bytes", async () => {
+    const store = new ManagedProjectCatalogStore(await storageConfig());
+    await store.insert(entry(PROJECT_ID, "Alpha"));
+    const before = serializeManagedProjectCatalog(await store.read());
+
+    await expect(store.reserveDeletion(deletionReservation({
+      lifecycleRevision: 2,
+      priorEntry: activeCatalogEntry({ lifecycleRevision: 2 }),
+    })))
       .rejects.toThrow(/lifecycle revision/i);
+    await expect(store.reserveDeletion(deletionReservation({ projectRevision: "bad" })))
+      .rejects.toThrow(/project revision/i);
+    expect(serializeManagedProjectCatalog(await store.read())).toBe(before);
     await expect(store.getActive(PROJECT_ID)).resolves.toMatchObject({ lifecycleRevision: 1 });
   });
 
-  it("removes a trashed entry and records the operation receipt in one catalog write", async () => {
+  it("commits deletion admission as non-evictable cleanup-pending evidence", async () => {
     const store = new ManagedProjectCatalogStore(await storageConfig());
     await store.insert(entry(PROJECT_ID, "Alpha"));
-    await store.transitionToTrashed(PROJECT_ID, 1, "2026-07-19T00:00:00.000Z");
+    await store.reserveDeletion(deletionReservation());
 
-    await store.removeTrashedWithReceipt(PROJECT_ID, 2, {
-      operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      operation: "purge",
-      projectId: PROJECT_ID,
-      lifecycleRevision: 2,
-    });
+    await expect(store.commitDeletion("operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+      .resolves.toMatchObject({ state: "cleanup-pending", projectId: PROJECT_ID });
 
     await expect(store.get(PROJECT_ID)).resolves.toBeUndefined();
-    await expect(store.read()).resolves.toMatchObject({
-      lifecycleCommits: [{ operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
-    });
+    await expect(store.getDeletionEvidence("operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+      .resolves.toMatchObject({ state: "cleanup-pending" });
+    expect(store).not.toHaveProperty("completeDeletion");
   });
 
-  it("never lets publication rollback remove a trashed or stale entry", async () => {
+  it("rejects new admission at the pending-operation bound without changing catalog bytes", async () => {
+    const config = await storageConfig();
+    const pending = Array.from({ length: 1_000 }, (_, index) => ({
+      operationId: `operation_${index.toString(16).padStart(32, "0")}`,
+      operation: "delete" as const,
+      state: "cleanup-pending" as const,
+      projectId: `project_${index.toString(16).padStart(32, "0")}`,
+      lifecycleRevision: 1,
+      statusSecretHash: STATUS_SECRET_HASH,
+    }));
+    await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
+      entries: [activeCatalogEntry()],
+      deletions: pending,
+    })));
+    const before = await readFile(config.catalogPath, "utf8");
+
+    await expect(new ManagedProjectCatalogStore(config).reserveDeletion(deletionReservation()))
+      .rejects.toThrow(/pending deletion limit/i);
+    await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(before);
+  });
+
+  it("admits exactly one operation when two stores race for the final pending slot", async () => {
+    const config = await storageConfig();
+    const pending = Array.from({ length: 999 }, (_, index) => ({
+      operationId: `operation_${index.toString(16).padStart(32, "0")}`,
+      operation: "delete" as const,
+      state: "cleanup-pending" as const,
+      projectId: `project_${index.toString(16).padStart(32, "0")}`,
+      lifecycleRevision: 1,
+      statusSecretHash: STATUS_SECRET_HASH,
+    }));
+    const betaId = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
+      entries: [activeCatalogEntry(), activeCatalogEntry({
+        id: betaId,
+        directoryName: betaId,
+        name: "Beta",
+      })],
+      deletions: pending,
+    })));
+    const first = new ManagedProjectCatalogStore(config);
+    const second = new ManagedProjectCatalogStore(config);
+
+    const results = await Promise.allSettled([
+      first.reserveDeletion(deletionReservation()),
+      second.reserveDeletion(deletionReservation({
+        operationId: "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        projectId: betaId,
+        priorEntry: activeCatalogEntry({ id: betaId, directoryName: betaId, name: "Beta" }),
+      })),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect((await first.read()).deletions.filter((record) => record.state !== "complete"))
+      .toHaveLength(1_000);
+  });
+
+  it("keeps the allocator high-water mark after the oldest completed evidence is evicted", async () => {
+    const config = await storageConfig();
+    const completed = Array.from({ length: 256 }, (_, index) => ({
+      operationId: `operation_${(index + 2).toString(16).padStart(32, "0")}`,
+      operation: "delete" as const,
+      state: "complete" as const,
+      projectId: `project_${ID_NAMESPACE}${(index + 2).toString(16).padStart(16, "0")}`,
+      lifecycleRevision: 1,
+      statusSecretHash: STATUS_SECRET_HASH,
+      completedAt: new Date(index * 1_000).toISOString(),
+    }));
+    await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
+      nextProjectOrdinal: 258,
+      deletions: completed,
+    })));
+
+    await expect(new ManagedProjectCatalogStore(config).reserveProjectId()).resolves.toBe(
+      `project_${ID_NAMESPACE}0000000000000102`,
+    );
+  });
+
+  it("never lets publication rollback remove a deletion-reserved entry", async () => {
     const store = new ManagedProjectCatalogStore(await storageConfig());
     await store.insert(entry(PROJECT_ID, "Alpha"));
-    await store.transitionToTrashed(PROJECT_ID, 1, "2026-07-19T00:00:00.000Z");
+    await store.reserveDeletion(deletionReservation());
 
-    await expect(store.removeActive(PROJECT_ID, 1)).rejects.toThrow(/active/i);
-    await expect(store.get(PROJECT_ID)).resolves.toMatchObject({ lifecycle: "trashed" });
+    await expect(store.removeActive(PROJECT_ID, 1)).rejects.toThrow(/deletion/i);
+    await expect(store.read()).resolves.toMatchObject({ entries: [{ id: PROJECT_ID }] });
   });
 
-  it("rejects generation and lifecycle revision overflow before changing catalog bytes", async () => {
+  it("rejects generation and id ordinal overflow before changing catalog bytes", async () => {
     const config = await storageConfig();
     const maximum = Number.MAX_SAFE_INTEGER;
-    await writeFile(config.catalogPath, serializeManagedProjectCatalog({
-      version: 2,
+    await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
       generation: maximum,
-      entries: [],
-      lifecycleCommits: [],
-    }));
+    })));
     const generationBytes = await readFile(config.catalogPath, "utf8");
     await expect(new ManagedProjectCatalogStore(config).insert(entry(PROJECT_ID, "Alpha")))
       .rejects.toThrow(/generation/i);
     await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(generationBytes);
 
-    await writeFile(config.catalogPath, serializeManagedProjectCatalog({
-      version: 2,
+    await writeFile(config.catalogPath, serializeManagedProjectCatalog(catalogDocument({
       generation: 1,
-      entries: [{ ...entry(PROJECT_ID, "Alpha"), lifecycleRevision: maximum }],
-      lifecycleCommits: [],
-    }));
-    const lifecycleBytes = await readFile(config.catalogPath, "utf8");
-    await expect(new ManagedProjectCatalogStore(config).transitionToTrashed(
-      PROJECT_ID,
-      maximum,
-      "2026-07-19T00:00:00.000Z",
-    )).rejects.toThrow(/lifecycle revision/i);
-    await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(lifecycleBytes);
+      nextProjectOrdinal: maximum,
+    })));
+    const ordinalBytes = await readFile(config.catalogPath, "utf8");
+    await expect(new ManagedProjectCatalogStore(config).reserveProjectId())
+      .rejects.toThrow(/ordinal/i);
+    await expect(readFile(config.catalogPath, "utf8")).resolves.toBe(ordinalBytes);
   });
 
   it("keeps the previous catalog bytes when staging a write fails", async () => {
