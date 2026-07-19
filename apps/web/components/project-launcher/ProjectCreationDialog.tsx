@@ -4,6 +4,7 @@
 import React, { useEffect, useId, useRef, type FormEvent } from "react";
 import { Layers3, LoaderCircle, Plus, X } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
+import { MenuSelect, type MenuSelectOption } from "../editor-ui/MenuSelect";
 import { editorUi } from "../editor-ui/styles";
 import {
   isProjectTemplateSupported,
@@ -21,11 +22,11 @@ export interface ProjectCreationDialogProps {
   onSubmit(): void;
 }
 
-const PLATFORM_LABELS = {
-  apple: "Apple App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-} as const;
+const PLATFORM_OPTIONS: readonly MenuSelectOption<ProjectCreationForm["platform"]>[] = [
+  { value: "apple", label: "Apple App Store" },
+  { value: "android", label: "Google Play" },
+  { value: "windows", label: "Microsoft Store" },
+];
 
 const PLATFORM_SHORT_LABELS = {
   apple: "Apple",
@@ -65,6 +66,12 @@ export function ProjectCreationDialog({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const escapeFromMenu = event.target instanceof Element
+        && event.target.closest("[role='menu']") !== null;
+      if (event.key === "Escape" && (escapeFromMenu
+        || dialogRef.current?.querySelector("[role='menu']"))) {
+        return;
+      }
       if (event.key === "Escape" && state.status !== "creating") {
         event.preventDefault();
         onClose();
@@ -150,16 +157,17 @@ export function ProjectCreationDialog({
                   onChange={(event) => onChange({ name: event.currentTarget.value })}
                 />
               </label>
-              <label className="text-sm font-semibold text-slate-800">
-                Target platform
-                <select
-                  className={`mt-2 ${editorUi.field}`}
+              <div className="text-sm font-semibold text-slate-800">
+                <span>Target platform</span>
+                <MenuSelect
+                  ariaLabel="Target platform"
+                  menuLabel="Target platform options"
+                  className="mt-2"
                   value={state.form.platform}
-                  onChange={(event) => changePlatform(event.currentTarget.value as ProjectCreationForm["platform"])}
-                >
-                  {Object.entries(PLATFORM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
+                  options={PLATFORM_OPTIONS}
+                  onChange={changePlatform}
+                />
+              </div>
             </div>
 
             <fieldset>

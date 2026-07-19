@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx } from "./styles.js";
@@ -160,6 +160,13 @@ export function MenuSelect<T extends string>({
             menuClassName,
           )}
           onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setOpen(false);
+              requestAnimationFrame(() => triggerRef.current?.focus());
+              return;
+            }
             handleMenuKeyboardNavigation(event, "[role='menuitemradio']");
           }}
         >

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import AxeBuilder from "@axe-core/playwright";
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -28,6 +28,12 @@ async function expectNoSeriousOrCriticalViolations(page: Page, state: string): P
       nodes: nodes.map(({ html, target }) => ({ html, targets: target.map(String) })),
     }));
   expect(blockers, `${state}: ${JSON.stringify(blockers, null, 2)}`).toEqual([]);
+}
+
+async function selectTargetPlatform(dialog: Locator, name: string): Promise<void> {
+  await dialog.getByRole("button", { name: "Target platform" }).click();
+  const menu = dialog.getByRole("menu", { name: "Target platform options" });
+  await menu.getByRole("menuitemradio", { name }).click();
 }
 
 beforeAll(async () => {
@@ -75,7 +81,15 @@ describe("managed project creation", () => {
       expect(await dialogHeading.evaluate((element) => element === document.activeElement)).toBe(true);
       await expectNoSeriousOrCriticalViolations(page, "Create project dialog");
 
-      await dialog.getByLabel("Target platform").selectOption("windows");
+      const platformTrigger = dialog.getByRole("button", { name: "Target platform" });
+      await platformTrigger.click();
+      await dialog.getByRole("menuitemradio", { name: "Apple App Store" }).press("Escape");
+      expect(await dialog.isVisible()).toBe(true);
+      await expect.poll(() => platformTrigger.evaluate(
+        (element) => element === document.activeElement,
+      )).toBe(true);
+
+      await selectTargetPlatform(dialog, "Microsoft Store");
       expect(await dialog.getByRole("radio", { name: /Product launch/ }).isDisabled()).toBe(true);
       expect(await dialog.getByRole("radio", { name: /Feature focus/ }).isEnabled()).toBe(true);
       await page.keyboard.press("Shift+Tab");
@@ -89,7 +103,7 @@ describe("managed project creation", () => {
       await createTrigger.click();
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.getByLabel("Project name").fill("Empty desktop story");
-      await dialog.getByLabel("Target platform").selectOption("windows");
+      await selectTargetPlatform(dialog, "Microsoft Store");
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/home`);
@@ -101,7 +115,7 @@ describe("managed project creation", () => {
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       const nameInput = dialog.getByLabel("Project name");
       await nameInput.fill("Launch sequence");
-      await dialog.getByLabel("Target platform").selectOption("apple");
+      await selectTargetPlatform(dialog, "Apple App Store");
       await dialog.getByRole("radio", { name: /Product launch/ }).check();
 
       let attempt = 0;

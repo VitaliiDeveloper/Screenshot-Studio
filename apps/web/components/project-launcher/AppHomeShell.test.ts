@@ -76,6 +76,9 @@ describe("AppHomeShell", () => {
     expect(markup).toContain("Create a managed project");
     expect(markup).toContain('value="Desktop launch"');
     expect(markup).toContain("Target platform");
+    expect(markup).toContain('aria-label="Target platform"');
+    expect(markup).toContain('aria-haspopup="menu"');
+    expect(markup).not.toContain("<select");
     expect(markup).toContain("Layout mode");
     expect(markup).toContain("Empty project");
     expect(markup).toContain("Feature focus");
