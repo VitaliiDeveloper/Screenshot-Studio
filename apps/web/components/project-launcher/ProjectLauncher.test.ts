@@ -5,6 +5,22 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./ProjectLauncher.tsx", import.meta.url), "utf8");
 
 describe("ProjectLauncher import integration", () => {
+  it("loads, opens, removes, and retries durable recents through the active-project switch fence", () => {
+    expect(source).toContain("fetchRecentProjects");
+    expect(source).toContain("openRecentProject");
+    expect(source).toContain("removeRecentProject");
+    expect(source).toContain("switchActiveProject(() => openRecentProject(recentId))");
+    expect(source).toContain("onRetryRecents={loadRecentProjects}");
+    expect(source).toContain("onRemoveRecent={removeRecent}");
+  });
+
+  it("routes the four starter workflows into existing creation and import boundaries", () => {
+    expect(source).toContain('example.action === "create-project"');
+    expect(source).toContain('example.action === "project-import"');
+    expect(source).toContain("captureImport.open()");
+    expect(source).toContain('dispatchCreation({ type: "open", form:');
+  });
+
   it("keeps the existing active-session redirect and routes successful import to Project Home", () => {
     expect(source).toContain('router.replace("/home")');
     expect(source).toContain('router.push("/home")');

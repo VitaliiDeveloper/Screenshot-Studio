@@ -107,4 +107,11 @@ describe("ProjectHome overview", () => {
     expect(source).toContain("Previews raw PNG capture folders before adding them");
     expect(source).not.toContain("not this launcher slice");
   });
+
+  it("keeps session, recent-history, and destructive lifecycle terms distinct", () => {
+    expect(source).toContain("Close project ends the active session");
+    expect(source).toContain("Remove from recents changes App Home history only");
+    expect(source).toContain("no Trash or Restore surface");
+    expect(source).toContain("Permanently delete project is a separate managed-only action");
+  });
 });

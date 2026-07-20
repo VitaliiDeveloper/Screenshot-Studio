@@ -441,6 +441,7 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
                 <div><dt className="font-semibold text-slate-900">Capture import</dt><dd>Previews raw PNG capture folders before adding them to this project or a new managed project.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Project archive export</dt><dd>Downloads portable project files and resources for later import.</dd></div>
                 <div><dt className="font-semibold text-slate-900">Store-image export</dt><dd>Renders exact PNG output bundles from a selected layout through the shared renderer.</dd></div>
+                <div><dt className="font-semibold text-slate-900">Project lifecycle</dt><dd>Close project ends the active session. Remove from recents changes App Home history only. This launcher has no Trash or Restore surface; Permanently delete project is a separate managed-only action.</dd></div>
               </dl>
             </section>
           </aside>

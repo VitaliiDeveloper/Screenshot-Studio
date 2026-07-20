@@ -16,7 +16,7 @@ export type ProjectCreationState =
   | { status: "error"; form: ProjectCreationForm; message: string };
 
 export type ProjectCreationAction =
-  | { type: "open" }
+  | { type: "open"; form?: ProjectCreationForm }
   | { type: "close" }
   | { type: "change"; patch: Partial<ProjectCreationForm> }
   | { type: "submit" }
@@ -44,7 +44,7 @@ export function reduceProjectCreationState(
   switch (action.type) {
     case "open":
       return state.status === "closed"
-        ? { status: "editing", form: { ...DEFAULT_FORM } }
+        ? { status: "editing", form: action.form ? { ...action.form } : { ...DEFAULT_FORM } }
         : state;
     case "close":
       return state.status === "creating" || state.status === "completing"

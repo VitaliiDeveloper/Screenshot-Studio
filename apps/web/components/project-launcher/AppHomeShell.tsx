@@ -2,7 +2,7 @@
 "use client";
 
 import React, { type ReactNode, type Ref } from "react";
-import { Clock3, FolderInput, Images, Layers3, Plus, ShieldCheck } from "lucide-react";
+import { FolderInput, Images, Layers3, Plus, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import type { BrowserProjectImportSource } from "../../lib/project-import-client";
 import { cx, editorUi } from "../editor-ui/styles";
@@ -10,6 +10,13 @@ import { launcherActions, type LauncherImportState } from "./project-launcher-mo
 import { ProjectImportDialog } from "./ProjectImportDialog";
 import { ProjectCreationDialog } from "./ProjectCreationDialog";
 import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";
+import { LauncherExamples } from "./LauncherExamples";
+import type { LauncherExampleWorkflow } from "./launcher-examples";
+import {
+  RecentProjectsPanel,
+  type RecentProjectAction,
+  type RecentProjectsPanelState,
+} from "./RecentProjectsPanel";
 
 const launcherActionMotion = "shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -19,8 +26,12 @@ export interface AppHomeShellProps {
   projectTemplates: readonly ProjectTemplateSummary[];
   dialogClosing: boolean;
   sessionError: string | null;
+  recentProjects: RecentProjectsPanelState;
+  recentAction: RecentProjectAction | null;
+  recentActionError: string | null;
   importButtonRef?: Ref<HTMLButtonElement>;
   creationButtonRef?: Ref<HTMLButtonElement>;
+  recentHeadingRef?: Ref<HTMLHeadingElement>;
   captureDialog?: ReactNode;
   onOpenCreate(): void;
   onCloseCreate(): void;
@@ -33,6 +44,10 @@ export interface AppHomeShellProps {
   onConfirmImport(): void;
   onRetryImport(): void;
   onSelectSource(source: BrowserProjectImportSource): void;
+  onRetryRecents(): void;
+  onOpenRecent(recentId: string): void;
+  onRemoveRecent(recentId: string): void;
+  onSelectExample(example: LauncherExampleWorkflow): void;
 }
 
 export function AppHomeShell({
@@ -41,8 +56,12 @@ export function AppHomeShell({
   projectTemplates,
   dialogClosing,
   sessionError,
+  recentProjects,
+  recentAction,
+  recentActionError,
   importButtonRef,
   creationButtonRef,
+  recentHeadingRef,
   captureDialog,
   onOpenCreate,
   onCloseCreate,
@@ -55,6 +74,10 @@ export function AppHomeShell({
   onConfirmImport,
   onRetryImport,
   onSelectSource,
+  onRetryRecents,
+  onOpenRecent,
+  onRemoveRecent,
+  onSelectExample,
 }: AppHomeShellProps) {
   const dialogState = state.status === "idle" || state.status === "cancelled" ? null : state;
 
@@ -103,10 +126,8 @@ export function AppHomeShell({
         {sessionError ? <p role="alert" className={`mb-5 ${editorUi.statusError}`}>{sessionError}</p> : null}
         {state.status === "cancelled" ? <p role="status" className="mb-5 rounded-xl bg-white px-4 py-3 text-sm text-[color:var(--editor-color-text-secondary)] ring-1 ring-slate-200">Import cancelled. Your previously active project was not changed.</p> : null}
 
-        <section aria-labelledby="recent-projects-title" className="rounded-2xl border border-dashed border-slate-300 bg-white/55 px-5 py-4 sm:flex sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><Clock3 aria-hidden="true" className="size-5 text-slate-400" /><div><h2 id="recent-projects-title" className="font-semibold text-[color:var(--editor-color-text-strong)]">Recent projects</h2><p className="mt-0.5 text-sm text-[color:var(--editor-color-text-secondary)]">No recent projects yet.</p></div></div>
-          <span className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 sm:mt-0">Arriving in Launcher 8</span>
-        </section>
+        <RecentProjectsPanel state={recentProjects} action={recentAction} actionError={recentActionError} headingRef={recentHeadingRef} onRetry={onRetryRecents} onOpen={onOpenRecent} onRemove={onRemoveRecent} />
+        <LauncherExamples onSelect={onSelectExample} />
       </div>
 
       {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}

@@ -15,6 +15,11 @@ import {
   type BrowserProjectImportSource,
 } from "../../lib/project-import-client";
 import { createProject } from "../../lib/project-creation-client";
+import {
+  fetchRecentProjects,
+  openRecentProject,
+  removeRecentProject,
+} from "../../lib/recent-projects-client";
 import { AppHomeShell } from "./AppHomeShell";
 import { CaptureImportDialog } from "./CaptureImportDialog";
 import {
@@ -33,6 +38,11 @@ import {
   reduceProjectCreationState,
   type ProjectCreationForm,
 } from "./project-creation-model";
+import type { LauncherExampleWorkflow } from "./launcher-examples";
+import type {
+  RecentProjectAction,
+  RecentProjectsPanelState,
+} from "./RecentProjectsPanel";
 
 export function ProjectLauncher({
   allowSwitch,
@@ -49,8 +59,12 @@ export function ProjectLauncher({
     initialProjectCreationState,
   );
   const [dialogClosing, setDialogClosing] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<RecentProjectsPanelState>({ status: "loading" });
+  const [recentAction, setRecentAction] = useState<RecentProjectAction | null>(null);
+  const [recentActionError, setRecentActionError] = useState<string | null>(null);
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
+  const recentHeadingRef = useRef<HTMLHeadingElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
   const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
   const exitActionRef = useRef<LauncherDialogExitAction>(null);
@@ -82,6 +96,21 @@ export function ProjectLauncher({
     onCompleted: completeCaptureImport,
     onRecoverStale: recoverCaptureTarget,
   });
+
+  const loadRecentProjects = useCallback(() => {
+    setRecentProjects({ status: "loading" });
+    setRecentActionError(null);
+    void fetchRecentProjects().then((result) => {
+      if (mountedRef.current) setRecentProjects({ status: "ready", entries: result.entries });
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setRecentProjects({
+        status: "error",
+        message: caught instanceof Error ? caught.message : String(caught),
+      });
+    });
+  }, []);
+
+  useEffect(() => { loadRecentProjects(); }, [loadRecentProjects]);
 
   useEffect(() => {
     if (allowSwitch) return;
@@ -217,6 +246,50 @@ export function ProjectLauncher({
       });
     });
   };
+  const openRecent = (recentId: string) => {
+    if (recentAction) return;
+    setRecentAction({ recentId, kind: "opening" });
+    setRecentActionError(null);
+    void switchActiveProject(() => openRecentProject(recentId)).then((result) => {
+      if (!mountedRef.current) return;
+      router.push(`/home?project=${encodeURIComponent(result.projectId)}`);
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setRecentActionError(
+        caught instanceof Error ? caught.message : String(caught),
+      );
+    }).finally(() => {
+      if (mountedRef.current) setRecentAction(null);
+    });
+  };
+  const removeRecent = (recentId: string) => {
+    if (recentAction) return;
+    setRecentAction({ recentId, kind: "removing" });
+    setRecentActionError(null);
+    void removeRecentProject(recentId).then(() => {
+      if (!mountedRef.current) return;
+      setRecentProjects((current) => current.status === "ready"
+        ? { status: "ready", entries: current.entries.filter((entry) => entry.recentId !== recentId) }
+        : current);
+      queueMicrotask(() => recentHeadingRef.current?.focus());
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setRecentActionError(
+        caught instanceof Error ? caught.message : String(caught),
+      );
+    }).finally(() => {
+      if (mountedRef.current) setRecentAction(null);
+    });
+  };
+  const selectExample = (example: LauncherExampleWorkflow) => {
+    if (example.action === "create-project") {
+      dispatchCreation({ type: "open", form: { name: example.title, ...example.creation } });
+      return;
+    }
+    if (example.action === "project-import") {
+      dispatchImport({ type: "choose" });
+      return;
+    }
+    captureImport.open();
+  };
 
   return (
     <AppHomeShell
@@ -225,8 +298,12 @@ export function ProjectLauncher({
       projectTemplates={projectTemplates}
       dialogClosing={dialogClosing}
       sessionError={error}
+      recentProjects={recentProjects}
+      recentAction={recentAction}
+      recentActionError={recentActionError}
       importButtonRef={importButtonRef}
       creationButtonRef={creationButtonRef}
+      recentHeadingRef={recentHeadingRef}
       captureDialog={captureImport.state.status === "closed" ? null : (
         <CaptureImportDialog
           state={captureImport.state}
@@ -256,6 +333,10 @@ export function ProjectLauncher({
         dispatchImport({ type: "retry" });
       }}
       onSelectSource={selectSource}
+      onRetryRecents={loadRecentProjects}
+      onOpenRecent={openRecent}
+      onRemoveRecent={removeRecent}
+      onSelectExample={selectExample}
     />
   );
 }

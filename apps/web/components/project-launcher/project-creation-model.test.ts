@@ -39,6 +39,26 @@ describe("project creation model", () => {
     });
   });
 
+  it("opens a discoverable example directly on its strict creation configuration", () => {
+    expect(reduceProjectCreationState(initialProjectCreationState, {
+      type: "open",
+      form: {
+        name: "Connected launch deck",
+        platform: "apple",
+        layoutMode: "connected",
+        templateId: "product-launch",
+      },
+    })).toEqual({
+      status: "editing",
+      form: {
+        name: "Connected launch deck",
+        platform: "apple",
+        layoutMode: "connected",
+        templateId: "product-launch",
+      },
+    });
+  });
+
   it("keeps the form for creating, error, edit, and retry transitions", () => {
     const editing = reduceProjectCreationState(initialProjectCreationState, { type: "open" });
     if (editing.status !== "editing") throw new Error("Expected the creation form to open");
