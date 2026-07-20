@@ -28,13 +28,19 @@ const managed: ProjectLibraryEntry = {
   project,
 };
 
-function render(entries = [managed]) {
+function render(
+  entries = [managed],
+  visibleOpeningEntryId: string | null = null,
+) {
   return renderToStaticMarkup(createElement(ProjectGallery, {
     entries,
     action: null,
     actionError: null,
+    visibleOpeningEntryId,
     onOpen: vi.fn(),
     onOpenDetails: vi.fn(),
+    onExportArchive: vi.fn(),
+    onDeleteProject: vi.fn(),
     onRemoveRecent: vi.fn(),
   }));
 }
@@ -57,6 +63,8 @@ describe("ProjectGallery", () => {
     const managedMarkup = render();
     expect(managedMarkup).toContain('aria-label="More actions for Store Launch Demo"');
     expect(managedMarkup).toContain("Project details");
+    expect(managedMarkup).toContain("Export archive");
+    expect(managedMarkup).toContain("Delete project…");
     expect(managedMarkup).not.toContain("Remove from recents");
 
     const localMarkup = render([{ ...managed,
@@ -64,6 +72,7 @@ describe("ProjectGallery", () => {
       sourceKind: "local-file",
     }]);
     expect(localMarkup).toContain("Remove from recents");
+    expect(localMarkup).not.toContain("Delete project…");
   });
 
   it("keeps unavailable local history visible but not openable", () => {
@@ -78,5 +87,12 @@ describe("ProjectGallery", () => {
     expect(markup).toContain("Source unavailable");
     expect(markup).toContain("Reopen or import the source");
     expect(markup).toContain('disabled=""');
+    expect(markup).not.toContain("Project details");
+  });
+
+  it("uses a card-bounded opening overlay instead of an inline opening row", () => {
+    const markup = render([managed], managed.entryId);
+    expect(markup).toContain("Opening workspace…");
+    expect(markup).not.toContain("mt-3 flex items-center");
   });
 });
