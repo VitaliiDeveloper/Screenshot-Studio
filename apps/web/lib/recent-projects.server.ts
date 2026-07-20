@@ -272,21 +272,21 @@ export class RecentProjectsStore {
   }
 
   async record(session: ProjectSession): Promise<void> {
-    if (session.descriptor.sourceKind !== "managed-project"
-      && session.descriptor.sourceKind !== "local-file") return;
+    const sourceKind = session.descriptor.sourceKind;
+    if (sourceKind !== "managed-project" && sourceKind !== "local-file") return;
     const catalogEntries = await this.#catalog.listActive();
     await this.#withLock(async () => {
       const document = await this.#readOrRecover(catalogEntries);
       const generation = nextGeneration(document.generation);
-      const locator = session.descriptor.sourceKind === "managed-project"
+      const locator = sourceKind === "managed-project"
         ? session.projectId
         : session.projectPath;
-      sourceLocator(session.descriptor.sourceKind, locator);
-      const key = `${session.descriptor.sourceKind}:${locator}`;
+      sourceLocator(sourceKind, locator);
+      const key = `${sourceKind}:${locator}`;
       const existing = document.entries.find((entry) => sourceKey(entry) === key);
       const entry: RecentProjectEntry = {
         recentId: existing?.recentId ?? this.#allocateRecentId(document.entries),
-        sourceKind: session.descriptor.sourceKind,
+        sourceKind,
         sourceLocator: locator,
         name: projectName(session.descriptor.name),
         lastOpenedAt: this.#timestampNow(),

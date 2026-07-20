@@ -166,7 +166,7 @@ describe("RecentProjectsStore", () => {
     const store = new RecentProjectsStore(storage, dependencies);
 
     expect((await store.list()).entries.map((entry) => entry.name)).toEqual(["Project 2", "Project 1"]);
-    catalog.listActive.mockResolvedValue([active[1]]);
+    catalog.listActive.mockResolvedValue([active[1]!]);
     expect((await store.list()).entries.map((entry) => entry.name)).toEqual(["Project 2"]);
     expect(catalog.listActive).toHaveBeenCalledTimes(2);
   });
@@ -183,7 +183,7 @@ describe("RecentProjectsStore", () => {
     });
     const project = managedSession(1, "Alpha");
     await store.record(project);
-    const [recent] = (await store.list()).entries;
+    const recent = (await store.list()).entries[0]!;
 
     expect(await store.remove(recent.recentId)).toBe(true);
     expect((await store.list()).entries).toEqual([]);
@@ -205,7 +205,7 @@ describe("RecentProjectsStore", () => {
     });
     await store.record(localSession(1, localPath));
     const before = await readFile(join(storage.root, "recent-projects.json"), "utf8");
-    const [recent] = (await store.list()).entries;
+    const recent = (await store.list()).entries[0]!;
     const registry = {
       openLocal: vi.fn(async () => { throw new Error("Source is unavailable"); }),
       openManaged: vi.fn(),
