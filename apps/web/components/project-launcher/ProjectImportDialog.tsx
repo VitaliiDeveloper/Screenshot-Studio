@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useId, useRef, type ChangeEvent } from "react";
-import { FileArchive, FileJson, FolderOpen, LoaderCircle, X } from "lucide-react";
+import { FileArchive, FileJson, FolderOpen, Images, LoaderCircle, X } from "lucide-react";
 import type { BrowserProjectImportSource } from "../../lib/project-import-client";
 import { editorUi } from "../editor-ui/styles";
 import type { LauncherImportState } from "./project-launcher-model";
@@ -15,6 +15,7 @@ export interface ProjectImportDialogProps {
   onConfirm(): void;
   onRetry(): void;
   onSelectSource(source: BrowserProjectImportSource): void;
+  onChooseCapture(): void;
 }
 
 export function ProjectImportDialog({
@@ -25,6 +26,7 @@ export function ProjectImportDialog({
   onConfirm,
   onRetry,
   onSelectSource,
+  onChooseCapture,
 }: ProjectImportDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -123,7 +125,9 @@ export function ProjectImportDialog({
 
         <div key={state.status} className="launcher-dialog-state">
         {state.status === "choosing" ? (
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="mt-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]">Project folder or archive</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={() => folderInputRef.current?.click()} className="group rounded-2xl border-2 border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 text-left transition hover:border-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]">
                 <FolderOpen aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent)]" /> Folder
@@ -139,6 +143,12 @@ export function ProjectImportDialog({
             <button type="button" onClick={() => jsonInputRef.current?.click()} className="rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-border-strong)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]"><FileJson aria-hidden="true" className="size-5" /> Standalone JSON</span>
               <span className="mt-7 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Eligible only when the project has no referenced local resources.</span>
+            </button>
+            </div>
+            <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]"><span className="h-px flex-1 bg-slate-200" />or<span className="h-px flex-1 bg-slate-200" /></div>
+            <button type="button" onClick={onChooseCapture} className="flex w-full items-start gap-4 rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-accent-muted)] hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-[color:var(--editor-color-accent)]"><Images aria-hidden="true" className="size-5" /></span>
+              <span><span className="block text-base font-semibold text-[color:var(--editor-color-text-strong)]">Capture folder</span><span className="mt-1 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Create a project from a folder of screenshots and review the detected screens before importing.</span></span>
             </button>
             <input
               ref={(node) => {
