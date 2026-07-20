@@ -165,7 +165,7 @@ describe("managed project creation", () => {
       expect(submitBeforePublication).not.toBeNull();
 
       await submitButton.evaluate((button: HTMLButtonElement) => button.click());
-      await dialog.getByRole("status").waitFor();
+      expect(await dialog.getByText("Creating your project…", { exact: true }).count()).toBe(0);
       const dialogDuringPublication = await dialog.boundingBox();
       const formDuringPublication = await dialog.locator("form").boundingBox();
       const submitDuringPublication = await dialog.getByRole("button", {
@@ -184,6 +184,8 @@ describe("managed project creation", () => {
         .toBeLessThanOrEqual(2);
       expect(Math.abs(submitDuringPublication!.y - submitBeforePublication!.y))
         .toBeLessThanOrEqual(2);
+      await page.waitForTimeout(650);
+      expect(await dialog.getByText("Creating your project…", { exact: true }).count()).toBe(0);
       await page.keyboard.press("Tab");
       expect(await dialogHeading.evaluate((element) => element === document.activeElement)).toBe(true);
       await page.keyboard.press("Escape");

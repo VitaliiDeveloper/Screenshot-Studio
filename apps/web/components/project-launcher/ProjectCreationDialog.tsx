@@ -160,8 +160,6 @@ export function ProjectCreationDialog({
 
           <div className="min-h-9">
             {state.status === "error" ? <p role="alert" className={editorUi.statusError}>{state.message} Check the configuration and try again.</p> : null}
-            {state.status === "creating" ? <p role="status" className={editorUi.statusProgress}>Validating and publishing the managed project…</p> : null}
-            {state.status === "completing" ? <p role="status" className={editorUi.statusProgress}>Finishing project setup…</p> : null}
           </div>
 
           <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--editor-color-border)] pt-5">
@@ -182,7 +180,7 @@ export function ProjectCreationDialog({
               tabIndex={busy ? -1 : undefined}
             >
               {busy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Layers3 aria-hidden="true" className="size-4" />}
-              {state.status === "creating" ? "Creating project…" : state.status === "completing" ? "Opening Project Home…" : state.status === "error" ? "Try creating again" : "Create project"}
+              {busy ? "Creating project…" : state.status === "error" ? "Try creating again" : "Create project"}
             </button>
           </div>
         </form>
