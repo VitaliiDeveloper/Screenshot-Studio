@@ -135,7 +135,7 @@ export function buildProjectHomeSummary({
   if (missingAssets.length > 0) readiness.push({
     kind: "missing-assets",
     label: `${missingAssets.length} missing project asset${missingAssets.length === 1 ? "" : "s"}`,
-    detail: missingAssets.join(", "),
+    detail: `${missingAssets.join(", ")}. Restore or reimport these assets before store-image export.`,
   });
   if (fontWarnings.length > 0) readiness.push({
     kind: "font-warning",
@@ -145,7 +145,7 @@ export function buildProjectHomeSummary({
   if (saveError) readiness.push({
     kind: "save-error",
     label: "Latest Workspace save failed",
-    detail: saveError,
+    detail: `${saveError}. Return to Workspace and retry the save before closing the project.`,
   });
 
   const location = selection.sourceKind !== "managed-project"

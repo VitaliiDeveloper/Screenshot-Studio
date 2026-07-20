@@ -220,7 +220,8 @@ Launcher 1/8 implements the local-file source and active-session seam; Launcher 
 managed repository/catalog; Launcher 3/8 adds browser import and portable project archives behind
 those seams; Launcher 4/8 builds Project Home and its Workspace round trip; Launcher 5/8 adds shared
 strict creation; Launcher 6/8 adds capture-folder preview and explicit-target apply; Launcher 7/8
-adds permanent managed-project deletion on the same contracts:
+adds permanent managed-project deletion; Launcher 8/8 closes the same contracts with bounded durable
+recents and ordinary onboarding examples:
 
 - without an explicit source, the application shows App Home rather than silently opening the bundled
   sample;
@@ -228,7 +229,6 @@ adds permanent managed-project deletion on the same contracts:
 - App Home does not expose a browser path form or arbitrary local-path activation endpoint;
 - the initial registry remains in-process; a local-file source can require reopening after server
   restart, while a managed source can rehydrate from its HttpOnly project-id hint through the catalog;
-  durable recents remain Launcher 8/8;
 - every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
   independently;
 - interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
@@ -271,6 +271,24 @@ honestly, and keep `app-store-screenshots.json` free of source locators, recent 
 and shell state. Resource storage beyond the narrow core `StorageAdapter` remains coordinated with the
 dedicated resource-system contracts rather than being hidden inside this session layer.
 
+#### Recent project application state (Launcher 8/8)
+
+`recent-projects.json` is a strict version 1 application-state document beside managed catalog state,
+never inside `app-store-screenshots.json`. It stores at most 20 entries with an opaque recent id,
+source kind, server-only source locator, bounded display name, ISO open time, and deterministic
+generation. Successful managed/local opens and successful managed creation/import/capture activation
+move one deduplicated source to the front; oldest entries are evicted deterministically. Close project
+does not change history. Remove from recents changes only this document, while Trash is not a product
+state and Permanently delete project remains a separate managed-only lifecycle operation.
+
+Browser responses omit source locators and expose only safe summaries. Listing validates exact known
+sources rather than scanning the filesystem, filters managed entries no longer active in the catalog,
+and marks unavailable local sources without crashing. Missing or invalid history rebuilds
+deterministically from bounded active catalog entries. Catalog recovery snapshots are read before the
+recent-history lease, preventing a catalog/recent lock-order inversion during concurrent first load
+and managed publication. History writes use an owned no-follow stage, atomic replacement, and a
+dedicated bounded lease.
+
 #### Managed project storage and catalog (Launcher 2/8)
 
 The managed repository owns deployment metadata outside the strict Project document. Its data root is
@@ -278,15 +296,16 @@ The managed repository owns deployment metadata outside the strict Project docum
 `SCREENSHOT_STUDIO_DATA_ROOT` resolved from that invocation directory. Deployments may set positive
 integer limits with `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, and
 `SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES`, plus a positive
-`SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has one catalog plus five application-owned child
-directories:
+`SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has one catalog, one recent-history document, plus five
+application-owned child directories:
 
 ```
 .screenshot-studio/
-  catalog.json       # versioned active entries and bounded deletion evidence
-  projects/<id>/     # published project directories
-  staging/<token>/   # bounded, private pre-publication directories
-  recovery/<id>.json # publication or deletion intent during a directory/catalog transition
+  catalog.json          # versioned active entries and bounded deletion evidence
+  recent-projects.json  # bounded source history outside Project JSON
+  projects/<id>/        # published project directories
+  staging/<token>/      # bounded, private pre-publication directories
+  recovery/<id>.json    # publication or deletion intent during a directory/catalog transition
   tombstones/<id>.<operation-id>/ # exact deletion quarantine while recovery is possible
   lifecycle-locks/   # opaque-id lifecycle leases shared by open/delete
 ```
@@ -333,7 +352,7 @@ The browser selection is an import source, never a retained file handle. Success
 already-published opaque managed record, sets the HttpOnly same-site session cookie, and lands on
 Project Home. Cancellation or any pre-publication failure discards only the owned stage and returns
 no session cookie, so the prior active session and catalog visibility remain unchanged. App Home has
-an empty extension slot for Launcher 8 recents; import never simulates recents.
+durable Launcher 8 recents; only successful activation records the imported managed source.
 
 Source selection first enters a client-only confirmation state. No upload, server staging, catalog
 write, cookie replacement, or navigation starts until the user confirms **Import managed copy**.

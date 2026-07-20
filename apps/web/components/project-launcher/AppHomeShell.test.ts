@@ -20,6 +20,9 @@ function render(
     projectTemplates: listStarterProjectTemplates(),
     dialogClosing,
     sessionError: null,
+    recentProjects: { status: "ready", entries: [] },
+    recentAction: null,
+    recentActionError: null,
     onOpenImport: vi.fn(),
     onOpenCreate: vi.fn(),
     onCloseCreate: vi.fn(),
@@ -30,11 +33,15 @@ function render(
     onConfirmImport: vi.fn(),
     onRetryImport: vi.fn(),
     onSelectSource: vi.fn(),
+    onRetryRecents: vi.fn(),
+    onOpenRecent: vi.fn(),
+    onRemoveRecent: vi.fn(),
+    onSelectExample: vi.fn(),
   }));
 }
 
 describe("AppHomeShell", () => {
-  it("renders one App Home heading with enabled Create and Import plus the future recents slot", () => {
+  it("renders one App Home heading with enabled actions, durable recents, and starter examples", () => {
     const markup = render();
 
     expect(markup.match(/<h1/g)).toHaveLength(1);
@@ -46,7 +53,9 @@ describe("AppHomeShell", () => {
     expect(markup).toContain("Capture import");
     expect(markup).toContain("PNG capture folder");
     expect(markup).toContain("Recent projects");
-    expect(markup).toContain("Launcher 8");
+    expect(markup).toContain("No recent projects yet");
+    expect(markup).toContain("Starter examples");
+    expect(markup).not.toContain("Arriving in Launcher 8");
     expect(markup).not.toContain('type="text"');
   });
 
@@ -65,6 +74,9 @@ describe("AppHomeShell", () => {
       projectTemplates: listStarterProjectTemplates(),
       dialogClosing: false,
       sessionError: null,
+      recentProjects: { status: "loading" },
+      recentAction: null,
+      recentActionError: null,
       onOpenImport: vi.fn(),
       onOpenCreate: vi.fn(),
       onCloseCreate: vi.fn(),
@@ -72,6 +84,8 @@ describe("AppHomeShell", () => {
       onSubmitCreation: vi.fn(),
       onCloseImport: vi.fn(), onCancelImport: vi.fn(), onConfirmImport: vi.fn(),
       onRetryImport: vi.fn(), onSelectSource: vi.fn(),
+      onRetryRecents: vi.fn(), onOpenRecent: vi.fn(), onRemoveRecent: vi.fn(),
+      onSelectExample: vi.fn(),
     }));
 
     expect(markup).toContain('role="dialog"');

@@ -157,6 +157,10 @@ describe("buildProjectHomeSummary", () => {
       "font-warning",
       "save-error",
     ]);
+    expect(summary.readiness.find((item) => item.kind === "missing-assets")?.detail)
+      .toContain("Restore or reimport");
+    expect(summary.readiness.find((item) => item.kind === "save-error")?.detail)
+      .toContain("Return to Workspace and retry");
   });
 
   it("shows an exact local path only when the descriptor safely exposes it", () => {

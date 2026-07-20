@@ -38,6 +38,10 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
+import {
+  recentProjectsStore,
+  type RecentProjectsStore,
+} from "@web/lib/recent-projects.server.js";
 import { projectSessionResponseHeaders } from "../project-session/handler.js";
 
 class CaptureUploadLimitError extends Error {}
@@ -58,6 +62,7 @@ export interface CaptureImportRouteDependencies {
   creationService?: ManagedProjectCreationService;
   registry?: ProjectSessionRegistry;
   applyCurrent?: typeof applyCaptureImportToProject;
+  recentProjects?: Pick<RecentProjectsStore, "record">;
 }
 
 const COMMON_FIELDS = new Set(["destinationKind", "paths", "files"]);
@@ -306,6 +311,7 @@ function resolveDependencies(dependencies: CaptureImportRouteDependencies) {
     creationService: dependencies.creationService ?? new ManagedProjectCreationService(repository),
     registry: dependencies.registry ?? projectSessionRegistry,
     applyCurrent: dependencies.applyCurrent ?? applyCaptureImportToProject,
+    recentProjects: dependencies.recentProjects ?? recentProjectsStore,
   };
 }
 
@@ -393,6 +399,7 @@ export async function handleCaptureImportApplyPost(
         signal: request.signal,
       });
       const session = resolved.registry.openManagedRecord(record, reservedSessionId);
+      await resolved.recentProjects.record(session).catch(() => undefined);
       const headers = projectSessionResponseHeaders(session, request);
       headers.set("x-project-id", session.projectId);
       return Response.json({ project: session.descriptor, imported: parsed.discovery.summary.screenCount }, {

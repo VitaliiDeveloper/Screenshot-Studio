@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
@@ -82,9 +82,10 @@ afterEach(async () => {
 
 describe("POST /api/project-import", () => {
   it("imports standalone JSON into a managed copy and activates its opaque session", async () => {
+    const recordRecent = vi.fn(async () => undefined);
     const response = await handleProjectImportPost(uploadRequest("json", [
       ["chosen.json", new Blob([projectJson("JSON project")], { type: "application/json" }), "chosen.json"],
-    ]), { repository, registry });
+    ]), { repository, registry, recentProjects: { record: recordRecent } });
 
     expect(response.status).toBe(201);
     expect(response.headers.get("cache-control")).toBe("no-store");
@@ -103,6 +104,10 @@ describe("POST /api/project-import", () => {
       },
     });
     await expect(repository.list()).resolves.toHaveLength(1);
+    expect(recordRecent).toHaveBeenCalledOnce();
+    expect(recordRecent).toHaveBeenCalledWith(expect.objectContaining({
+      descriptor: expect.objectContaining({ name: "JSON project" }),
+    }));
   });
 
   it("imports a bounded ZIP through the same managed-copy pipeline", async () => {

@@ -11,12 +11,17 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
+import {
+  recentProjectsStore,
+  type RecentProjectsStore,
+} from "@web/lib/recent-projects.server.js";
 import { ProjectZipError, readProjectZipFiles } from "@web/lib/project-zip.server.js";
 import { projectSessionResponseHeaders } from "../project-session/handler.js";
 
 export interface ProjectImportRouteDependencies {
   repository?: ManagedProjectRepository;
   registry?: ProjectSessionRegistry;
+  recentProjects?: Pick<RecentProjectsStore, "record">;
 }
 
 class UploadLimitError extends Error {}
@@ -176,6 +181,7 @@ export async function handleProjectImportPost(
       signal: request.signal,
     });
     const session = registry.openManagedRecord(record);
+    await (dependencies.recentProjects ?? recentProjectsStore).record(session).catch(() => undefined);
     return Response.json({ project: session.descriptor }, {
       status: 201,
       headers: projectSessionResponseHeaders(session, request),

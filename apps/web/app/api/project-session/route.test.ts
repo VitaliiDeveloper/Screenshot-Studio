@@ -2,11 +2,10 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ManagedProjectNotFoundError } from "@web/lib/managed-project-repository.server.js";
 import {
   ProjectSessionRegistry,
-  type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
 import {
   handleProjectSessionDelete,
@@ -47,10 +46,11 @@ async function createProject(name: string): Promise<string> {
   return path;
 }
 
-function dependencies(): ActiveProjectResolverDependencies {
+function dependencies() {
   return {
     registry: new ProjectSessionRegistry({ createSessionId: () => "session-1" }),
     configuredPath: () => null,
+    recentProjects: { record: async () => undefined },
   };
 }
 
@@ -87,6 +87,7 @@ describe("project session route handlers", () => {
         },
       }),
       configuredPath: () => null,
+      recentProjects: { record: async () => undefined },
     });
 
     expect(response.status).toBe(204);
@@ -132,6 +133,7 @@ describe("project session route handlers", () => {
         },
       }),
       configuredPath: () => null,
+      recentProjects: { record: async () => undefined },
     });
 
     expect(response.status).toBe(500);
@@ -147,14 +149,14 @@ describe("project session route handlers", () => {
     const stale = await handleProjectSessionGet(new Request(
       "http://localhost/api/project-session",
       { headers: { cookie: "screenshot_studio_project_session=missing" } },
-    ), { registry, configuredPath: () => null });
+    ), { registry, configuredPath: () => null, recentProjects: { record: async () => undefined } });
 
     expect(stale.status).toBe(204);
     expect(stale.headers.get("set-cookie")).toBeNull();
 
     const configured = await handleProjectSessionGet(
       new Request("http://localhost/api/project-session"),
-      { registry, configuredPath: () => projectPath },
+      { registry, configuredPath: () => projectPath, recentProjects: { record: async () => undefined } },
     );
     expect(configured.status).toBe(200);
     expect(configured.headers.get("x-project-id")).toBeTruthy();
@@ -164,6 +166,40 @@ describe("project session route handlers", () => {
     expect(configured.headers.get("set-cookie")).toContain(
       "screenshot_studio_managed_project=;",
     );
+  });
+
+  it("durably records a successfully resolved source without letting history failure block activation", async () => {
+    const projectPath = await createProject("Recorded local source");
+    const registry = new ProjectSessionRegistry({ createSessionId: () => "session-recorded" });
+    const record = vi.fn(async () => { throw new Error("recent history unavailable"); });
+
+    const response = await handleProjectSessionGet(
+      new Request("http://localhost/api/project-session"),
+      { registry, configuredPath: () => projectPath, recentProjects: { record } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      descriptor: expect.objectContaining({ sourceKind: "local-file" }),
+    }));
+    expect(response.headers.get("set-cookie")).toContain(
+      "screenshot_studio_project_session=session-recorded",
+    );
+  });
+
+  it("does not re-add an active project to recents during an ordinary session lookup", async () => {
+    const projectPath = await createProject("Removed active recent");
+    const registry = new ProjectSessionRegistry({ createSessionId: () => "session-existing" });
+    await registry.openLocal(projectPath);
+    const record = vi.fn(async () => undefined);
+
+    const response = await handleProjectSessionGet(new Request(
+      "http://localhost/api/project-session",
+      { headers: { cookie: "screenshot_studio_project_session=session-existing" } },
+    ), { registry, configuredPath: () => null, recentProjects: { record } });
+
+    expect(response.status).toBe(200);
+    expect(record).not.toHaveBeenCalled();
   });
 
   it("rehydrates a managed project and refreshes both activation cookies", async () => {
@@ -192,7 +228,7 @@ describe("project session route handlers", () => {
     const response = await handleProjectSessionGet(new Request(
       "https://localhost/api/project-session",
       { headers: { cookie: `screenshot_studio_managed_project=${projectId}` } },
-    ), { registry, configuredPath: () => null });
+    ), { registry, configuredPath: () => null, recentProjects: { record: async () => undefined } });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-project-id")).toBe(projectId);

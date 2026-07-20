@@ -117,6 +117,31 @@ pnpm exec vitest run --config vitest.e2e.config.ts e2e/permanent-project-deletio
 Operation idempotency, lifecycle/version fences, save draining, containment and symlink rejection,
 failure injection, tombstone recovery, and restart reconciliation stay in focused `test:web` tests.
 
+Launcher 8 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves the dependent
+starter example → Project Home → Workspace → Project Home → Close project journey, visible recent
+reopen after Close, and the separate Remove from recents result:
+
+```bash
+pnpm exec vitest run --config vitest.e2e.config.ts e2e/launcher-closure.test.ts
+```
+
+History corruption/recovery, ordering, deduplication, bounded eviction, privacy/path safety,
+catalog lifecycle filtering, activation-route recording, and lock ordering stay in focused
+`test:web` tests.
+
+### Launcher umbrella verification ownership
+
+| Acceptance cluster | Completed slice | Durable verification owner |
+|---|---|---|
+| Explicit source selection and request-scoped active sessions | Launcher 1 | project-session and request-fence `test:web` tests |
+| Managed storage, catalog, recovery, and source-safe identity | Launcher 2 | managed repository/catalog/lifecycle `test:web` tests |
+| Browser managed-copy import and portable project archive | Launcher 3 | focused route/service tests plus `e2e/project-launcher.test.ts` |
+| Validated Project Home and Workspace round trip | Launcher 4 | focused model/client tests plus `e2e/project-home-round-trip.test.ts` |
+| Strict shared empty/template project creation | Launcher 5 | core scaffold and creation-route tests plus `e2e/project-creation.test.ts` |
+| Capture-folder preview and explicit-target apply | Launcher 6 | core/CLI/web capture tests plus `e2e/capture-import.test.ts` |
+| Managed-only permanent deletion without Trash semantics | Launcher 7 | lifecycle/deletion tests plus `e2e/permanent-project-deletion.test.ts` |
+| Durable recents, onboarding examples, and closure terminology | Launcher 8 | recent/client/component tests plus `e2e/launcher-closure.test.ts` |
+
 ## Cost rules
 
 - Do not run browser E2E for pure fixture assertions, calculations, or schema/model branches with a
