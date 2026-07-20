@@ -241,6 +241,9 @@ recents and ordinary onboarding examples:
 
 #### Project Home and Workspace round trip (Launcher 4/8)
 
+This section defines session, persistence, capability, and safety invariants. Visible controls,
+focus behavior, motion, and user-facing failure states are defined in `docs/editor.md` §0 and §7.
+
 Project Home is a validated, read-only projection of the active session's strict Project snapshot,
 store specs, resolved assets/fonts, and source descriptor. It summarizes source-safe identity,
 platforms, locales, layouts and immutable modes, preferred export layout, screen and empty-screen

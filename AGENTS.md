@@ -26,6 +26,24 @@ Before any task, read and apply the repository-wide workflow rules in
   copy, literal layout, locale translation, and local asset processing.
 - `docs/releasing.md` — candidate verification and the publication boundary.
 
+## Task-based reading
+
+Read only the smallest relevant set:
+
+| Task | Read first |
+|---|---|
+| Schema, renderer, export, or CLI behavior | `docs/architecture.md` and the relevant source/tests |
+| Editor/UI behavior | `docs/editor.md` |
+| Test selection or CI behavior | `docs/testing.md` |
+| Project locking or concurrent writes | `docs/project-mutation-locking.md` |
+| Asset/output publication safety | `docs/safe-file-publication.md` |
+| Package or release work | `docs/releasing.md` |
+| User-facing setup or documentation | `README.md` |
+| Generated screenshot project | that project's `AGENTS.md` |
+
+Do not load `docs/superpowers/`, `packages/cli/package/`, or font-license texts unless the task is
+specifically about execution-plan history, package/legal audit, or font licensing.
+
 ## Repository map
 
 - `packages/core` — schema, model, rendering, export, fonts, themes, templates, assets, and storage.
