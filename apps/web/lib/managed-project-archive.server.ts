@@ -12,8 +12,17 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import JSZip from "jszip";
+import { projectRevision, withProjectMutation } from "@screenshot-studio/core/storage";
 import { isSupportedProjectArchivePath } from "./project-archive-policy.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import {
+  ManagedProjectRepository,
+  type ManagedProjectRecord,
+} from "./managed-project-repository.server.js";
+import {
+  assertManagedProjectLifecycleLockHeld,
+  withManagedProjectLifecycleLock,
+  type ManagedProjectLifecycleLock,
+} from "./managed-project-lifecycle-lock.server.js";
 
 const PROJECT_FILE = "app-store-screenshots.json";
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip";
@@ -49,6 +58,7 @@ interface ArchiveSourceFile {
 export interface ManagedProjectArchiveArtifact {
   path: string;
   filename: string;
+  projectRevision: string;
   dispose(): Promise<void>;
 }
 
@@ -80,6 +90,12 @@ async function* verifiedFileChunks(source: ArchiveSourceFile): AsyncGenerator<Bu
   }
 }
 
+async function verifiedFileBytes(source: ArchiveSourceFile): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of verifiedFileChunks(source)) chunks.push(chunk);
+  return Buffer.concat(chunks);
+}
+
 export class ManagedProjectArchiveService {
   readonly #removeTemporaryRoot: (path: string) => Promise<void>;
   readonly #statPath: (path: string) => Promise<ArchivePathStat>;
@@ -94,8 +110,30 @@ export class ManagedProjectArchiveService {
       ?? ((path) => lstat(path, { bigint: true }));
   }
 
-  async create(projectId: string): Promise<ManagedProjectArchiveArtifact> {
-    const record = await this.repository.open(projectId);
+  async create(
+    projectId: string,
+    lifecycleLock?: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectArchiveArtifact> {
+    if (lifecycleLock) {
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.repository.config, projectId);
+      return this.#createUnderLifecycleLock(projectId, lifecycleLock);
+    }
+    return withManagedProjectLifecycleLock(
+      this.repository.config,
+      projectId,
+      (lock) => this.#createUnderLifecycleLock(projectId, lock),
+    );
+  }
+
+  async #createUnderLifecycleLock(
+    projectId: string,
+    lifecycleLock: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectArchiveArtifact> {
+    const record = await this.repository.open(projectId, lifecycleLock);
+    return withProjectMutation(record.projectPath, () => this.#buildArchive(record));
+  }
+
+  async #buildArchive(record: ManagedProjectRecord): Promise<ManagedProjectArchiveArtifact> {
     const sources: ArchiveSourceFile[] = [];
     let entries = 0;
     let bytes = 0n;
@@ -152,9 +190,12 @@ export class ManagedProjectArchiveService {
     };
 
     await walk(record.projectDirectory);
-    if (!sources.some((source) => source.relativePath === PROJECT_FILE)) {
+    const projectSource = sources.find((source) => source.relativePath === PROJECT_FILE);
+    if (!projectSource) {
       throw new Error(`Managed project archive requires a root ${PROJECT_FILE}`);
     }
+    const projectBytes = await verifiedFileBytes(projectSource);
+    const revision = projectRevision(projectBytes);
 
     const temporaryRoot = await mkdtemp(join(tmpdir(), "screenshot-studio-project-archive-"));
     const archivePath = join(temporaryRoot, ARCHIVE_FILENAME);
@@ -162,7 +203,10 @@ export class ManagedProjectArchiveService {
     try {
       const zip = new JSZip();
       for (const source of sources) {
-        zip.file(source.relativePath, Readable.from(verifiedFileChunks(source)), {
+        const contents = source === projectSource
+          ? Readable.from(projectBytes)
+          : Readable.from(verifiedFileChunks(source));
+        zip.file(source.relativePath, contents, {
           binary: true,
           date: ARCHIVE_DATE,
           createFolders: false,
@@ -203,6 +247,7 @@ export class ManagedProjectArchiveService {
     return {
       path: archivePath,
       filename: ARCHIVE_FILENAME,
+      projectRevision: revision,
       async dispose() {
         if (disposed) return;
         await removeTemporaryRoot(temporaryRoot);

@@ -33,20 +33,34 @@ to the launcher. It has one page heading and three stable product regions:
   temporary imitation of recents.
 
 The creation and import modals move focus to their headings, trap forward/reverse Tab, and return
-focus to their triggers. They reserve close while atomic publication is in progress. The import
+focus to their triggers. They reserve close while atomic publication is in progress. Creation keeps
+its dialog geometry stable while publishing, then uses the short launcher exit motion and one
+exact-project-identity navigation to Project Home. The import
 modal closes with Escape while choosing or uploading. Upload is cancellable; validation and
 atomic publication are announced as a separate non-cancellable state. Errors use alert semantics;
 import errors list missing resource paths. Successful creation or import activates the intended
 managed project and lands on Project Home. If the server runtime resets during that handoff, an
 HttpOnly, path-free managed-project hint reopens the same catalog entry instead of publishing a
-duplicate; local-file sources still require their explicit source after restart. Managed Project Home
-offers **Export project archive**
-with busy/error feedback and native
-download behavior; its copy distinguishes the portable project backup from rendered store-image
-export. Import-card press feedback, dialog entrance and exit, and dialog state changes use calm,
-short transform/opacity motion. Close and Escape keep the dialog mounted until its exit finishes;
-reduced-motion preferences complete these transitions without animation. Local-file Project Home
-retains its exact-location behavior and does not offer this managed archive action.
+duplicate; local-file sources still require their explicit source after restart. Folder import also
+explains that the browser may show its own unstyleable multi-file upload confirmation; application
+validation, progress, and confirmation inside Launcher remain Screenshot Studio UI. Managed Project Home
+offers **Export project archive** with busy/error feedback and native download behavior; its copy
+distinguishes the portable project backup from rendered store-image export. It also offers the
+distinct managed-only **Permanently delete project** action. That action first offers the existing
+archive or an explicit continue-without-archive choice, then requires the exact current project name
+and a separate irreversible acknowledgement. Archive failure cannot advance deletion. Pending or
+failed Workspace saves block the action; already dispatched saves drain before the current identity,
+capability, lifecycle revision, Project revision, name, and archive evidence are revalidated.
+
+The deletion dialog traps focus, supports Escape before work begins, restores focus to its live
+trigger, cannot close during archive/deletion work, and reports retryable failures with alert
+semantics. Success clears the active session and project-scoped Workspace state and returns to App
+Home. There is no Trash list or Restore action: the internal tombstone exists only long enough for
+server crash recovery before permanent removal. Import-card press feedback, dialog entrance and exit,
+and dialog state changes use calm, short transform/opacity motion. Close and Escape keep the dialog
+mounted until its exit finishes; reduced-motion preferences complete these transitions without
+animation. Local-file Project Home retains its exact-location behavior and offers neither managed
+archive nor permanent-deletion actions.
 
 Project Home is the informational/action surface for the validated active project, not a second
 editor. It reports project name, source label and safe location when available, supported platforms,
@@ -62,10 +76,11 @@ distinct.
 
 **Close project** is source-neutral and non-destructive. It secures pending/latest writes, applies the
 existing save-failure safeguard, clears only the active session plus that project's transient
-workspace navigation state, and returns to App Home. It never removes recents, trashes/deletes a
-managed project, or moves/deletes a local-file directory. The workflow guide distinguishes project
+workspace navigation state, and returns to App Home. It never removes recents or project data.
+**Permanently delete project** is separate, capability-gated, managed-only, and irreversible. Neither
+action moves/deletes a local-file directory. The workflow guide distinguishes project
 templates, screen templates, component presets, layout modes, project import, capture import,
-project archive export, and store-image export using the implemented Launcher 6 behavior.
+project archive export, and store-image export using the implemented Launcher 7 behavior.
 
 ---
 

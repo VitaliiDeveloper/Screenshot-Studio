@@ -183,6 +183,7 @@ describe("project session route handlers", () => {
             nativePicker: false,
             projectLocalResources: true,
             exportProjectArchive: true,
+        deleteProjectPermanently: true,
           },
         }),
       },

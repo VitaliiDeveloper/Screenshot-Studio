@@ -11,6 +11,8 @@ export interface ManagedProjectStorageConfig {
   projectsRoot: string;
   stagingRoot: string;
   recoveryRoot: string;
+  tombstonesRoot: string;
+  lifecycleLocksRoot: string;
   catalogPath: string;
   maxProjectFiles: number;
   maxProjectBytes: number;
@@ -52,6 +54,8 @@ export function resolveManagedProjectStorageConfig(
     projectsRoot: join(root, "projects"),
     stagingRoot: join(root, "staging"),
     recoveryRoot: join(root, "recovery"),
+    tombstonesRoot: join(root, "tombstones"),
+    lifecycleLocksRoot: join(root, "lifecycle-locks"),
     catalogPath: join(root, "catalog.json"),
     maxProjectFiles: positiveInteger(
       environment,

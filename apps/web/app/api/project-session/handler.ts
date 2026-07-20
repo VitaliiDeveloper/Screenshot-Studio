@@ -32,6 +32,13 @@ function expiredProjectSessionCookie(request: Request): string {
   return `${PROJECT_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }
 
+export function expiredProjectSessionResponseHeaders(request: Request): Headers {
+  const headers = new Headers({ "cache-control": "no-store" });
+  headers.append("set-cookie", expiredProjectSessionCookie(request));
+  headers.append("set-cookie", expiredManagedProjectRecoveryCookie(request));
+  return headers;
+}
+
 export function projectSessionResponseHeaders(
   session: ProjectSession,
   request: Request,
@@ -104,9 +111,7 @@ export async function handleProjectSessionDelete(
     );
   }
   if (sessionId && session) registry.close(sessionId, expectedProjectId);
-  const headers = new Headers({ "cache-control": "no-store" });
-  headers.append("set-cookie", expiredProjectSessionCookie(request));
-  headers.append("set-cookie", expiredManagedProjectRecoveryCookie(request));
+  const headers = expiredProjectSessionResponseHeaders(request);
   return new Response(null, {
     status: 204,
     headers,

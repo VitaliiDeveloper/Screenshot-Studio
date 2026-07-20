@@ -20,7 +20,8 @@ describe("ProjectHome overview", () => {
     expect(source).not.toContain('project.sourceKind === "managed-project"');
     expect(source).toContain("Export project archive");
     expect(source).toContain("requestProjectArchive");
-    expect(source).toContain("requestProjectArchive(data.selection.projectId)");
+    expect(source).toContain("requestProjectArchive(");
+    expect(source).toContain("data.resources.revision");
     expect(source).toContain("downloadProjectArchive");
   });
 
@@ -60,6 +61,19 @@ describe("ProjectHome overview", () => {
     expect(source).toContain('router.push("/?switch=1")');
     expect(source).toContain("closeError");
     expect(source).not.toContain("deleteManagedProject");
+  });
+
+  it("gates irreversible deletion by capability and keeps it distinct from Close", () => {
+    expect(completeSource).toContain("permanently-delete-project");
+    expect(source).toContain("ProjectDeletionDialog");
+    expect(source).toContain("deleteProjectPermanently");
+    expect(source).toContain("hasPendingProjectSave");
+    expect(source).toContain("advanceProjectHomeDeletion");
+    expect(source).toContain('router.replace("/")');
+    expect(source).toContain("discardActiveProjectPersistence");
+    expect(source).not.toContain("disabled={closeBusy || archiveBusy || deletionDialog !== null}");
+    expect(source).not.toContain("Move to Trash");
+    expect(source).not.toContain("Restore project");
   });
 
   it("covers the complete informational and action-oriented contract", () => {

@@ -16,10 +16,19 @@ import { dirname, join } from "node:path";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
 import {
   ManagedProjectCatalogStore,
+  type ActiveManagedProjectCatalogEntry,
   type ManagedProjectCatalogDocument,
   type ManagedProjectCatalogEntry,
 } from "./managed-project-catalog.server.js";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import {
+  assertManagedProjectLifecycleLockHeld,
+  ensureManagedStorageRoot,
+  withManagedProjectLifecycleLock,
+  validateManagedStorageChildRoot,
+  type ManagedProjectLifecycleLock,
+} from "./managed-project-lifecycle-lock.server.js";
+import { ManagedProjectLifecycleService } from "./managed-project-lifecycle.server.js";
 
 const STAGE_TOKEN_PATTERN = /^stage_[0-9a-f]{32}$/;
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
@@ -35,12 +44,15 @@ interface ManagedProjectPublicationIntent {
   phase: "prepared" | "directory-published" | "catalog-published";
 }
 
+type ManagedProjectRecoveryIntent = ManagedProjectPublicationIntent;
+
 interface CatalogStore {
   read(): Promise<ManagedProjectCatalogDocument>;
   get(id: string): Promise<ManagedProjectCatalogEntry | undefined>;
-  list(): Promise<ManagedProjectCatalogEntry[]>;
-  insert(entry: ManagedProjectCatalogEntry): Promise<void>;
-  remove(id: string): Promise<void>;
+  list(): Promise<ActiveManagedProjectCatalogEntry[]>;
+  reserveProjectId(): Promise<string>;
+  insert(entry: ActiveManagedProjectCatalogEntry): Promise<void>;
+  removeActive(id: string, expectedLifecycleRevision: number): Promise<void>;
 }
 
 export interface ManagedProjectRecord {
@@ -48,6 +60,7 @@ export interface ManagedProjectRecord {
   name: string;
   projectDirectory: string;
   projectPath: string;
+  lifecycleRevision: number;
 }
 
 export class ManagedProjectNotFoundError extends Error {
@@ -97,13 +110,22 @@ function isCanonicalIsoTimestamp(value: unknown): value is string {
   return !Number.isNaN(timestamp.valueOf()) && timestamp.toISOString() === value;
 }
 
-function parseIntent(value: unknown): ManagedProjectPublicationIntent {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError("Invalid recovery intent");
-  const record = value as Record<string, unknown>;
-  const keys = ["version", "operation", "id", "token", "name", "createdAt", "phase"];
-  if (Object.keys(record).length !== keys.length || Object.keys(record).some((key) => !keys.includes(key))) {
-    throw new TypeError("Invalid recovery intent properties");
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function requireExactKeys(value: Record<string, unknown>, keys: readonly string[], context: string): void {
+  const actual = Object.keys(value);
+  if (actual.length !== keys.length || actual.some((key) => !keys.includes(key))) {
+    throw new TypeError(`Invalid ${context} properties`);
   }
+}
+
+function parseIntent(value: unknown): ManagedProjectRecoveryIntent {
+  if (!isRecord(value)) throw new TypeError("Invalid recovery intent");
+  const record = value;
+  const keys = ["version", "operation", "id", "token", "name", "createdAt", "phase"];
+  requireExactKeys(record, keys, "recovery intent");
   if (record.version !== 1 || record.operation !== "publish" || typeof record.id !== "string"
     || !PROJECT_ID_PATTERN.test(record.id) || typeof record.token !== "string" || !STAGE_TOKEN_PATTERN.test(record.token)
     || typeof record.name !== "string" || record.name.length === 0 || !isCanonicalIsoTimestamp(record.createdAt)
@@ -140,6 +162,7 @@ export class ManagedProjectRepository {
   async initialize(): Promise<void> {
     await this.#ensureDirectories();
     await this.#catalog.read();
+    await new ManagedProjectLifecycleService(this.config).reconcileAll();
     await this.reconcile();
     for (const entry of await this.#catalog.list()) {
       await this.#validatePublishedEntry(entry);
@@ -183,7 +206,7 @@ export class ManagedProjectRepository {
     const stagePath = await this.#ownedStagePath(input.token);
     const snapshot = await this.#validateDirectory(stagePath);
     const name = input.name?.trim() || snapshot.project.meta.name;
-    const id = `project_${this.#randomId()}`;
+    const id = await this.#catalog.reserveProjectId();
     const projectDirectory = join(this.config.projectsRoot, id);
     const intent: ManagedProjectPublicationIntent = {
       version: 1,
@@ -206,18 +229,18 @@ export class ManagedProjectRepository {
       intent.phase = "directory-published";
       await this.#writeIntent(intent);
       const timestamp = this.#now().toISOString();
-      await this.#catalog.insert({ id, directoryName: id, name, lifecycle: "active", createdAt: timestamp, updatedAt: timestamp });
+      await this.#catalog.insert({ id, directoryName: id, name, lifecycle: "active", lifecycleRevision: 1, createdAt: timestamp, updatedAt: timestamp });
       catalogPublished = true;
       intent.phase = "catalog-published";
       await this.#writeIntent(intent);
       await this.#removeIntent(id);
-      return { id, name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE) };
+      return { id, name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE), lifecycleRevision: 1 };
     } catch (error) {
       const rollbackErrors: unknown[] = [];
       let catalogRollbackSucceeded = !catalogPublished;
       if (catalogPublished) {
         try {
-          await this.#catalog.remove(id);
+          await this.#catalog.removeActive(id, 1);
           catalogRollbackSucceeded = true;
         } catch (rollbackError) {
           rollbackErrors.push(rollbackError);
@@ -236,14 +259,25 @@ export class ManagedProjectRepository {
     }
   }
 
-  async open(id: string): Promise<ManagedProjectRecord> {
+  async open(
+    id: string,
+    lifecycleLock?: ManagedProjectLifecycleLock,
+  ): Promise<ManagedProjectRecord> {
     await this.initialize();
-    const entry = await this.#catalog.get(id);
-    if (!entry) throw new ManagedProjectNotFoundError();
-    return this.#record(entry);
+    const openActive = async () => {
+      const entry = await this.#catalog.get(id);
+      if (!entry || entry.lifecycle !== "active") throw new ManagedProjectNotFoundError();
+      await this.#validatePublishedEntry(entry);
+      return this.#record(entry);
+    };
+    if (lifecycleLock) {
+      assertManagedProjectLifecycleLockHeld(lifecycleLock, this.config, id);
+      return openActive();
+    }
+    return withManagedProjectLifecycleLock(this.config, id, openActive);
   }
 
-  async list(): Promise<ManagedProjectCatalogEntry[]> {
+  async list(): Promise<ActiveManagedProjectCatalogEntry[]> {
     await this.initialize();
     return this.#catalog.list();
   }
@@ -253,7 +287,9 @@ export class ManagedProjectRepository {
     for (const name of await readdir(this.config.recoveryRoot)) {
       if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
       const intentPath = join(this.config.recoveryRoot, name);
-      const intent = parseIntent(JSON.parse(await readFile(intentPath, "utf8")));
+      const value = JSON.parse(await readFile(intentPath, "utf8")) as unknown;
+      if (isRecord(value) && value.operation === "delete") continue;
+      const intent = parseIntent(value);
       const stagePath = join(this.config.stagingRoot, intent.token);
       const projectDirectory = join(this.config.projectsRoot, intent.id);
       const entry = await this.#catalog.get(intent.id);
@@ -286,7 +322,7 @@ export class ManagedProjectRepository {
         }
         if (!entry) {
           const timestamp = this.#now().toISOString();
-          await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", createdAt: intent.createdAt, updatedAt: timestamp });
+          await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", lifecycleRevision: 1, createdAt: intent.createdAt, updatedAt: timestamp });
         }
         await this.#removeIntent(intent.id);
       }
@@ -294,26 +330,37 @@ export class ManagedProjectRepository {
   }
 
   async #ensureDirectories(): Promise<void> {
+    await ensureManagedStorageRoot(this.config);
     await Promise.all([
-      mkdir(this.config.root, { recursive: true, mode: 0o700 }),
       mkdir(this.config.projectsRoot, { recursive: true, mode: 0o700 }),
       mkdir(this.config.stagingRoot, { recursive: true, mode: 0o700 }),
       mkdir(this.config.recoveryRoot, { recursive: true, mode: 0o700 }),
+      mkdir(this.config.tombstonesRoot, { recursive: true, mode: 0o700 }),
+      mkdir(this.config.lifecycleLocksRoot, { recursive: true, mode: 0o700 }),
+    ]);
+    await Promise.all([
+      validateManagedStorageChildRoot(this.config, this.config.projectsRoot),
+      validateManagedStorageChildRoot(this.config, this.config.stagingRoot),
+      validateManagedStorageChildRoot(this.config, this.config.recoveryRoot),
+      validateManagedStorageChildRoot(this.config, this.config.tombstonesRoot),
+      validateManagedStorageChildRoot(this.config, this.config.lifecycleLocksRoot),
     ]);
   }
 
   async #assertStageNotClaimedByRecovery(token: string): Promise<void> {
     for (const name of await readdir(this.config.recoveryRoot)) {
       if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
-      let intent: ManagedProjectPublicationIntent;
+      let intent: ManagedProjectRecoveryIntent;
       try {
-        intent = parseIntent(JSON.parse(await readFile(join(this.config.recoveryRoot, name), "utf8")));
+        const value = JSON.parse(await readFile(join(this.config.recoveryRoot, name), "utf8")) as unknown;
+        if (isRecord(value) && value.operation === "delete") continue;
+        intent = parseIntent(value);
       } catch (error) {
         throw new Error("Cannot discard a managed stage while recovery state is invalid", {
           cause: error,
         });
       }
-      if (intent.token === token) {
+      if (intent.operation === "publish" && intent.token === token) {
         throw new Error(`Cannot discard managed stage ${token} because publication recovery owns it`);
       }
     }
@@ -358,21 +405,21 @@ export class ManagedProjectRepository {
     return readProjectSnapshot(projectPath);
   }
 
-  async #validatePublishedEntry(entry: ManagedProjectCatalogEntry): Promise<void> {
+  async #validatePublishedEntry(entry: ActiveManagedProjectCatalogEntry): Promise<void> {
     if (entry.directoryName !== entry.id) throw new Error(`Managed catalog entry has an invalid directory name: ${entry.id}`);
     const projectDirectory = join(this.config.projectsRoot, entry.id);
     if (!await exists(projectDirectory)) throw new Error(`Managed catalog entry is missing its project directory: ${entry.id}`);
     await this.#validateDirectory(projectDirectory);
   }
 
-  #record(entry: ManagedProjectCatalogEntry): ManagedProjectRecord {
+  #record(entry: ActiveManagedProjectCatalogEntry): ManagedProjectRecord {
     const projectDirectory = join(this.config.projectsRoot, entry.id);
-    return { id: entry.id, name: entry.name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE) };
+    return { id: entry.id, name: entry.name, projectDirectory, projectPath: join(projectDirectory, PROJECT_FILE), lifecycleRevision: entry.lifecycleRevision };
   }
 
   #intentPath(id: string): string { return join(this.config.recoveryRoot, `${id}.json`); }
 
-  async #writeIntent(intent: ManagedProjectPublicationIntent): Promise<void> {
+  async #writeIntent(intent: ManagedProjectRecoveryIntent): Promise<void> {
     const path = this.#intentPath(intent.id);
     const stage = join(this.config.recoveryRoot, `.${intent.id}.${this.#randomId()}.stage`);
     let handle: FileHandle | undefined;

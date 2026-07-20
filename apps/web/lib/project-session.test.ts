@@ -22,6 +22,7 @@ describe("project-session client helpers", () => {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: false,
+        deleteProjectPermanently: false,
       },
     };
     const fetcher = vi.fn(async () => Response.json(descriptor, {
@@ -32,6 +33,29 @@ describe("project-session client helpers", () => {
       ...descriptor,
       projectId: "project-one",
     });
+  });
+
+  it("accepts a server-issued managed lifecycle revision and lifecycle capabilities", async () => {
+    const descriptor = {
+      sessionId: "managed-session",
+      name: "Managed",
+      sourceKind: "managed-project",
+      lifecycleRevision: 3,
+      capabilities: {
+        writeInPlace: true,
+        revealLocation: false,
+        watchExternalChanges: false,
+        nativePicker: false,
+        projectLocalResources: true,
+        exportProjectArchive: true,
+        deleteProjectPermanently: true,
+      },
+    };
+    const fetcher = vi.fn(async () => Response.json(descriptor, {
+      headers: { "x-project-id": "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    }));
+
+    await expect(fetchActiveProject(fetcher)).resolves.toMatchObject({ lifecycleRevision: 3 });
   });
 
   it("rejects an active project response without its opaque identity", async () => {

@@ -111,6 +111,29 @@ describe("createProjectSaveCoordinator", () => {
     expect(events).toEqual(["mutation:start", "mutation:end", "save:durable"]);
   });
 
+  it("does not start an exclusive lifecycle operation until an active save is durable", async () => {
+    let releaseSave!: () => void;
+    const saveGate = new Promise<void>((resolve) => { releaseSave = resolve; });
+    const events: string[] = [];
+    const coordinator = createProjectSaveCoordinator(async () => {
+      events.push("save:start");
+      await saveGate;
+      events.push("save:end");
+    }, () => fakeProject);
+
+    const saving = coordinator.saveLatest();
+    await vi.waitFor(() => expect(events).toEqual(["save:start"]));
+    const lifecycle = coordinator.runExclusive(async () => {
+      events.push("lifecycle");
+    });
+    await Promise.resolve();
+    expect(events).toEqual(["save:start"]);
+
+    releaseSave();
+    await Promise.all([saving, lifecycle]);
+    expect(events).toEqual(["save:start", "save:end", "lifecycle"]);
+  });
+
   it("drains the latest project before activation and resets before later saves can run", async () => {
     const first = { meta: { name: "first" } } as unknown as Project;
     const latest = { meta: { name: "latest" } } as unknown as Project;

@@ -5,11 +5,13 @@ import React, { type ReactNode, type Ref } from "react";
 import { Clock3, FolderInput, Images, Layers3, Plus, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import type { BrowserProjectImportSource } from "../../lib/project-import-client";
-import { editorUi } from "../editor-ui/styles";
+import { cx, editorUi } from "../editor-ui/styles";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
 import { ProjectImportDialog } from "./ProjectImportDialog";
 import { ProjectCreationDialog } from "./ProjectCreationDialog";
 import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";
+
+const launcherActionMotion = "shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
 
 export interface AppHomeShellProps {
   state: LauncherImportState;
@@ -80,19 +82,19 @@ export function AppHomeShell({
           </section>
 
           <section aria-label="Project actions" className="grid gap-4 sm:grid-cols-2">
-            <button ref={creationButtonRef} type="button" onClick={onOpenCreate} disabled={!launcherActions.createEnabled} aria-describedby="create-project-help" className="group relative min-h-56 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none">
+            <button ref={creationButtonRef} type="button" onClick={onOpenCreate} disabled={!launcherActions.createEnabled} aria-describedby="create-project-help" className={cx("group relative min-h-56 rounded-3xl border border-slate-200 bg-white p-6 text-left hover:border-blue-300", launcherActionMotion)}>
               <span className="grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Plus aria-hidden="true" className="size-5" /></span>
               <span className="mt-8 block text-xl font-semibold text-[color:var(--editor-color-text-strong)]">Create project</span>
               <span id="create-project-help" className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Start from a guided store-ready project setup.</span>
               <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-blue-700">Choose starting point <span aria-hidden="true">→</span></span>
             </button>
-            <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} className="group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-xl shadow-blue-950/15 transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-2xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none">
+            <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} className={cx("group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-blue-950/15", launcherActionMotion)}>
               <span className="grid size-11 place-items-center rounded-2xl bg-white/15"><FolderInput aria-hidden="true" className="size-5" /></span>
               <span className="mt-8 block text-xl font-semibold">Import project</span>
               <span className="mt-2 block text-sm leading-6 text-blue-50">Choose a complete Folder, project ZIP, or eligible standalone JSON.</span>
               <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold">Choose source <span aria-hidden="true">→</span></span>
             </button>
-            <button type="button" onClick={onOpenCapture} disabled={!onOpenCapture} className="group min-h-36 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none sm:col-span-2 disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={onOpenCapture} disabled={!onOpenCapture} className={cx("group min-h-36 rounded-3xl border border-slate-200 bg-white p-6 text-left hover:border-violet-300 sm:col-span-2", launcherActionMotion)}>
               <span className="flex items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-700"><Images aria-hidden="true" className="size-5" /></span><span><span className="block text-xl font-semibold text-[color:var(--editor-color-text-strong)]">Capture import</span><span className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Preview a PNG capture folder and related assets, then create an explicitly named managed receiver.</span><span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-violet-700">Choose captures <span aria-hidden="true">→</span></span></span></span>
             </button>
           </section>

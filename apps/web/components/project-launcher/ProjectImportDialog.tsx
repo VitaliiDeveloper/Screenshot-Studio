@@ -130,6 +130,7 @@ export function ProjectImportDialog({
               </span>
               <span className="mt-3 block text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-accent)]">Recommended</span>
               <span className="mt-2 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Best for complete projects with screenshots, fonts, and assets.</span>
+              <span className="mt-3 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">Your browser may ask you to confirm uploading the selected files.</span>
             </button>
             <button type="button" onClick={() => archiveInputRef.current?.click()} className="rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-border-strong)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]"><FileArchive aria-hidden="true" className="size-5" /> Project ZIP</span>

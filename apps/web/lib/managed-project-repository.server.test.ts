@@ -4,6 +4,7 @@ import {
   lstat,
   mkdtemp,
   mkdir,
+  readdir,
   readFile,
   rename,
   rm,
@@ -13,7 +14,8 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry, ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   ManagedProjectNotFoundError,
@@ -61,6 +63,21 @@ afterEach(async () => {
 });
 
 describe("ManagedProjectRepository", () => {
+  it("rejects a symlinked configured root before creating managed children in its target", async () => {
+    const container = await mkdtemp(join(tmpdir(), "managed-project-root-symlink-"));
+    temporaryRoots.push(container);
+    const outside = join(container, "outside");
+    const declared = join(container, "declared");
+    await mkdir(outside);
+    await symlink(outside, declared);
+    const repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({
+      SCREENSHOT_STUDIO_DATA_ROOT: declared,
+    }));
+
+    await expect(repository.initialize()).rejects.toThrow(/storage root/i);
+    await expect(readdir(outside)).resolves.toEqual([]);
+  });
+
   it("configures a bounded import upload and rejects invalid values", () => {
     expect(resolveManagedProjectStorageConfig({
       SCREENSHOT_STUDIO_DATA_ROOT: "/tmp/managed-project-config",
@@ -149,11 +166,52 @@ describe("ManagedProjectRepository", () => {
     await expect(repository.open(published.id)).resolves.toEqual(published);
   });
 
+  it("never reuses the reserved project id after publication fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "managed-project-id-retirement-"));
+    temporaryRoots.push(root);
+    const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
+    const catalog = new ManagedProjectCatalogStore(config, {
+      createIdNamespace: () => "1234567890abcdef",
+    });
+    const repository = new ManagedProjectRepository(config, {
+      catalog: {
+        read: () => catalog.read(),
+        get: (id) => catalog.get(id),
+        list: () => catalog.list(),
+        reserveProjectId: () => catalog.reserveProjectId(),
+        insert: async () => { throw new Error("injected catalog insertion failure"); },
+        removeActive: (id, revision) => catalog.removeActive(id, revision),
+      },
+    });
+    const stage = await validStage(repository);
+
+    await expect(repository.publishStage({ token: stage.token }))
+      .rejects.toThrow("injected catalog insertion failure");
+    await expect(catalog.reserveProjectId()).resolves.toBe(
+      "project_1234567890abcdef0000000000000002",
+    );
+  });
+
   it("reports a missing catalog entry with the dedicated recovery error", async () => {
     const repository = await createRepository();
 
     await expect(repository.open("project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
       .rejects.toBeInstanceOf(ManagedProjectNotFoundError);
+  });
+
+  it("rejects redirected staging and recovery roots before journal access or cleanup", async () => {
+    for (const child of ["stagingRoot", "recoveryRoot"] as const) {
+      const repository = await createRepository();
+      await repository.initialize();
+      const outside = join(repository.config.root, `outside-${child}`);
+      await mkdir(outside);
+      await writeFile(join(outside, "keep.txt"), "keep");
+      await rm(repository.config[child], { recursive: true });
+      await symlink(outside, repository.config[child]);
+
+      await expect(repository.initialize()).rejects.toThrow(/storage boundary/i);
+      await expect(readFile(join(outside, "keep.txt"), "utf8")).resolves.toBe("keep");
+    }
   });
 
   it("rolls a published directory back to its owned stage when catalog insertion fails", async () => {
@@ -162,11 +220,15 @@ describe("ManagedProjectRepository", () => {
     const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
     const repository = new ManagedProjectRepository(config, {
       catalog: {
-        read: async () => ({ version: 1, entries: [] }),
+        read: async () => ({
+          version: 1, generation: 0, idNamespace: "aaaaaaaaaaaaaaaa",
+          nextProjectOrdinal: 2, entries: [], deletions: [],
+        }),
         get: async () => undefined,
         list: async () => [],
+        reserveProjectId: async () => "project_aaaaaaaaaaaaaaaa0000000000000001",
         insert: async () => { throw new Error("injected catalog failure"); },
-        remove: async () => undefined,
+        removeActive: async () => undefined,
       },
     });
     const stage = await validStage(repository);
@@ -228,11 +290,15 @@ describe("ManagedProjectRepository", () => {
     const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
     const repository = new ManagedProjectRepository(config, {
       catalog: {
-        read: async () => ({ version: 1, entries: [] }),
+        read: async () => ({
+          version: 1, generation: 0, idNamespace: "bbbbbbbbbbbbbbbb",
+          nextProjectOrdinal: 2, entries: [], deletions: [],
+        }),
         get: async () => undefined,
         list: async () => [],
+        reserveProjectId: async () => "project_bbbbbbbbbbbbbbbb0000000000000001",
         insert: async () => { throw new Error("injected recovery insert failure"); },
-        remove: async () => undefined,
+        removeActive: async () => undefined,
       },
     });
     await repository.initialize();
@@ -264,7 +330,7 @@ describe("ManagedProjectRepository", () => {
     temporaryRoots.push(root);
     const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
     let catalogEntry: ManagedProjectCatalogEntry | undefined;
-    const entries: ManagedProjectCatalogEntry[] = [];
+    const entries: ActiveManagedProjectCatalogEntry[] = [];
     let renameCalls = 0;
     const repository = new ManagedProjectRepository(config, {
       randomId: () => "cccccccccccccccccccccccccccccccc",
@@ -274,15 +340,19 @@ describe("ManagedProjectRepository", () => {
         await rename(oldPath, newPath);
       },
       catalog: {
-        read: async () => ({ version: 1, entries }),
+        read: async () => ({
+          version: 1, generation: 0, idNamespace: "cccccccccccccccc",
+          nextProjectOrdinal: 2, entries, deletions: [],
+        }),
         get: async (id) => entries.find((entry) => entry.id === id),
         list: async () => entries,
+        reserveProjectId: async () => "project_cccccccccccccccc0000000000000001",
         insert: async (entry) => { entries.push(entry); catalogEntry = entry; },
-        remove: async () => { throw new Error("injected catalog rollback failure"); },
+        removeActive: async () => { throw new Error("injected catalog rollback failure"); },
       },
     });
     const stage = await validStage(repository, "Committed");
-    const id = "project_cccccccccccccccccccccccccccccccc";
+    const id = "project_cccccccccccccccc0000000000000001";
     const projectDirectory = join(config.projectsRoot, id);
 
     await expect(repository.publishStage({ token: stage.token })).rejects.toThrow(

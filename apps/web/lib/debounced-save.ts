@@ -154,3 +154,11 @@ export function withFlushedProject<T>(operation: () => Promise<T>): Promise<T> {
     return operation();
   });
 }
+
+/**
+ * Wait for every already-dispatched save, then keep later saves behind a lifecycle operation.
+ * Callers must reject a still-buffered debounce before entering this barrier.
+ */
+export function withDrainedProjectSaves<T>(operation: () => Promise<T>): Promise<T> {
+  return projectSaves.runExclusive(operation);
+}

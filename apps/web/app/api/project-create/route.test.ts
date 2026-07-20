@@ -54,6 +54,7 @@ describe("POST /api/project-create", () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("x-project-id")).toMatch(/^project_[a-f0-9]{32}$/);
     expect(response.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=created-session",
     );
@@ -150,6 +151,7 @@ describe("POST /api/project-create", () => {
       name: "Previous",
       projectDirectory: "/private/previous",
       projectPath: "/private/previous/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
     const failed = request({
       name: "Unsupported", platform: "windows", layoutMode: "isolated", templateId: "product-launch",

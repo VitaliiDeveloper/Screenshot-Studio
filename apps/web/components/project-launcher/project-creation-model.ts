@@ -12,6 +12,7 @@ export type ProjectCreationState =
   | { status: "closed" }
   | { status: "editing"; form: ProjectCreationForm }
   | { status: "creating"; form: ProjectCreationForm }
+  | { status: "completing"; form: ProjectCreationForm; projectId: string }
   | { status: "error"; form: ProjectCreationForm; message: string };
 
 export type ProjectCreationAction =
@@ -20,7 +21,7 @@ export type ProjectCreationAction =
   | { type: "change"; patch: Partial<ProjectCreationForm> }
   | { type: "submit" }
   | { type: "fail"; message: string }
-  | { type: "complete" };
+  | { type: "complete"; projectId: string };
 
 const DEFAULT_FORM: ProjectCreationForm = {
   name: "My App Screenshots",
@@ -46,7 +47,9 @@ export function reduceProjectCreationState(
         ? { status: "editing", form: { ...DEFAULT_FORM } }
         : state;
     case "close":
-      return state.status === "creating" ? state : { status: "closed" };
+      return state.status === "creating" || state.status === "completing"
+        ? state
+        : { status: "closed" };
     case "change":
       return state.status === "editing" || state.status === "error"
         ? { status: "editing", form: { ...state.form, ...action.patch } }
@@ -60,6 +63,8 @@ export function reduceProjectCreationState(
         ? { status: "error", form: state.form, message: action.message }
         : state;
     case "complete":
-      return { status: "closed" };
+      return state.status === "creating"
+        ? { status: "completing", form: state.form, projectId: action.projectId }
+        : state;
   }
 }

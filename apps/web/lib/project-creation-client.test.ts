@@ -29,13 +29,20 @@ describe("createProject", () => {
             nativePicker: false,
             projectLocalResources: true,
             exportProjectArchive: true,
+        deleteProjectPermanently: true,
           },
         },
-      }, { status: 201 });
+      }, {
+        status: 201,
+        headers: { "x-project-id": "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      });
     });
 
     await expect(createProject(input, { transport })).resolves.toMatchObject({
-      sessionId: "created-session", name: "Launch", sourceKind: "managed-project",
+      sessionId: "created-session",
+      projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      name: "Launch",
+      sourceKind: "managed-project",
     });
     expect(transport).toHaveBeenCalledTimes(1);
   });
@@ -51,5 +58,29 @@ describe("createProject", () => {
     await expect(createProject(input, {
       transport: async () => Response.json({ project: { name: "Missing identity" } }, { status: 201 }),
     })).rejects.toThrow(/invalid response/i);
+  });
+
+  it("rejects a successful response without the project identity header", async () => {
+    await expect(createProject(input, {
+      transport: async () => Response.json({
+        project: {
+          sessionId: "created-session",
+          name: "Launch",
+          sourceKind: "managed-project",
+          capabilities: {
+            writeInPlace: true,
+            revealLocation: false,
+            watchExternalChanges: false,
+            nativePicker: false,
+            projectLocalResources: true,
+            exportProjectArchive: true,
+            deleteProjectPermanently: true,
+          },
+        },
+      }, { status: 201 }),
+    })).rejects.toEqual(expect.objectContaining({
+      message: "Project creation response is missing its project identity",
+      code: "invalid-response",
+    }));
   });
 });

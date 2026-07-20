@@ -10,7 +10,7 @@ import {
 } from "@screenshot-studio/core/scaffold";
 import { DialogShell } from "../editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "../editor-ui/MenuSelect";
-import { editorUi } from "../editor-ui/styles";
+import { cx, editorUi } from "../editor-ui/styles";
 import {
   isProjectTemplateSupported,
   type ProjectCreationForm,
@@ -52,9 +52,10 @@ export function ProjectCreationDialog({
   onChange,
   onSubmit,
 }: ProjectCreationDialogProps) {
+  const busy = state.status === "creating" || state.status === "completing";
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (state.status !== "creating") onSubmit();
+    if (!busy) onSubmit();
   };
   const changePlatform = (platform: ProjectCreationForm["platform"]) => {
     const selected = templates.find(({ id }) => id === state.form.templateId);
@@ -70,13 +71,14 @@ export function ProjectCreationDialog({
       description="Choose the first store target and layout mode. Screenshot Studio validates the complete starter before publishing it to managed storage."
       onClose={onClose}
       closeLabel="Close project creation"
-      closeDisabled={state.status === "creating"}
+      closeDisabled={busy}
       initialFocus="heading"
       widthClass="max-w-4xl"
       bodyClassName="p-5 sm:p-7"
+      motion={state.status === "completing" ? "closing" : "open"}
     >
         <form className="space-y-6" onSubmit={submit}>
-          <fieldset disabled={state.status === "creating"} className="space-y-6 disabled:opacity-75">
+          <fieldset disabled={busy} className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
                 Project name
@@ -156,14 +158,29 @@ export function ProjectCreationDialog({
             </fieldset>
           </fieldset>
 
-          {state.status === "error" ? <p role="alert" className={editorUi.statusError}>{state.message} Check the configuration and try again.</p> : null}
-          {state.status === "creating" ? <p role="status" className={editorUi.statusProgress}>Validating and publishing the managed project…</p> : null}
+          <div className="min-h-9">
+            {state.status === "error" ? <p role="alert" className={editorUi.statusError}>{state.message} Check the configuration and try again.</p> : null}
+          </div>
 
           <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--editor-color-border)] pt-5">
-            {state.status !== "creating" ? <button type="button" className={editorUi.buttonSecondary} onClick={onClose}>Cancel</button> : null}
-            <button type="submit" className={editorUi.buttonPrimary} disabled={state.status === "creating" || !state.form.name.trim()}>
-              {state.status === "creating" ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Layers3 aria-hidden="true" className="size-4" />}
-              {state.status === "creating" ? "Creating project…" : state.status === "error" ? "Try creating again" : "Create project"}
+            <button
+              type="button"
+              className={cx(editorUi.buttonSecondary, busy ? "invisible" : undefined)}
+              disabled={busy}
+              aria-hidden={busy || undefined}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={editorUi.buttonPrimary}
+              disabled={!busy && !state.form.name.trim()}
+              aria-disabled={busy || undefined}
+              tabIndex={busy ? -1 : undefined}
+            >
+              {busy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Layers3 aria-hidden="true" className="size-4" />}
+              {busy ? "Creating project…" : state.status === "error" ? "Try creating again" : "Create project"}
             </button>
           </div>
         </form>

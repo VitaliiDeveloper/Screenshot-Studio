@@ -291,6 +291,15 @@ separate from Workspace store-image export. To open an existing local project in
 `PROJECT_PATH` to an absolute `app-store-screenshots.json` before starting the host, or run
 `screenshots dev --project /absolute/path/to/app-store-screenshots.json`.
 
+Managed Project Home also provides **Permanently delete project**. It is distinct from **Close
+project**, is never shown for a local-file source, and cannot target an arbitrary path. Before
+confirmation you can download the same portable archive or explicitly continue without one. The
+dialog requires the exact project name plus an irreversible acknowledgement; a failed archive or
+unsaved Workspace change does not start deletion. Success removes the managed copy and its
+project-local resources and returns to App Home. There is no Trash or Restore surface, so use the
+archive option when a future import copy may be needed. The originally selected Folder/ZIP/JSON input
+is never modified by deleting its managed copy.
+
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
 strict project-local screen templates in `templates/*.json`. The Add shelf inserts text, shape, and
 trusted built-in icons directly;

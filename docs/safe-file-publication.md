@@ -92,6 +92,13 @@ if (quarantine) {
 Callers pass a root plus a portable relative path rather than an arbitrary absolute destination.
 This keeps validation and containment at the mutation boundary.
 
+Permanent managed-project deletion is a separate directory-lifecycle contract, not this
+resource-file rollback API. It accepts only an opaque active managed-project id, records catalog and
+journal evidence, renames the exact owned project directory to an application tombstone, and removes
+that tombstone only after active-catalog removal and session invalidation are recoverable. The
+`restore()` above means transaction rollback of one resource file; it is not a user-facing Project
+Restore feature.
+
 ## Why this is not replaced by an atomic-write package
 
 The required contract is larger than atomic replacement. It includes create-only convergence,

@@ -15,6 +15,7 @@ const selection = {
     nativePicker: false,
     projectLocalResources: true,
     exportProjectArchive: true,
+        deleteProjectPermanently: true,
   },
 } satisfies ActiveProjectSelection;
 

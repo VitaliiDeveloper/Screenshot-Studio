@@ -11,9 +11,10 @@ import {
   SafeFileConflictError,
 } from "@screenshot-studio/cli/capture-import-transaction";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/project-session.server.js";
 import {
   handleCaptureImportApplyPost,
   handleCaptureImportPreviewPost,
@@ -95,25 +96,42 @@ async function preview(kind: "current-project" | "new-project") {
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "capture-apply-route-"));
-  await mkdir(join(root, "current"), { recursive: true });
-  projectPath = join(root, "current", "app-store-screenshots.json");
-  const bytes = serializeProject(currentProject());
-  await writeFile(projectPath, bytes);
-  revision = projectRevision(bytes);
-  repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({
+  const config = resolveManagedProjectStorageConfig({
     SCREENSHOT_STUDIO_DATA_ROOT: join(root, "managed"),
     SCREENSHOT_STUDIO_MAX_PROJECT_FILES: "20",
     SCREENSHOT_STUDIO_MAX_PROJECT_BYTES: "10000000",
     SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES: "10000000",
-  }));
+  });
+  repository = new ManagedProjectRepository(config);
+  await repository.initialize();
+  const projectDirectory = join(config.projectsRoot, projectId);
+  await mkdir(projectDirectory);
+  projectPath = join(projectDirectory, "app-store-screenshots.json");
+  const bytes = serializeProject(currentProject());
+  await writeFile(projectPath, bytes);
+  revision = projectRevision(bytes);
+  const timestamp = "2026-07-19T00:00:00.000Z";
+  await new ManagedProjectCatalogStore(config).insert({
+    id: projectId,
+    directoryName: projectId,
+    name: "Current receiver",
+    lifecycle: "active",
+    lifecycleRevision: 1,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
   creationService = new ManagedProjectCreationService(repository, { storeSpecs: specs });
   let index = 0;
-  registry = new ProjectSessionRegistry({ createSessionId: () => `capture-session-${index++}` });
+  registry = new ProjectSessionRegistry({
+    createSessionId: () => `capture-session-${index++}`,
+    managedSource: new ManagedProjectSourceAdapter(repository),
+  });
   sessionId = registry.openManagedRecord({
     id: projectId,
     name: "Current receiver",
-    projectDirectory: join(root, "current"),
+    projectDirectory,
     projectPath,
+    lifecycleRevision: 1,
   }).descriptor.sessionId;
 });
 
@@ -165,7 +183,7 @@ describe("POST /api/capture-import/apply", () => {
       imported: 1,
     });
     expect(registry.get(sessionId)).toBe(previous);
-    await expect(repository.list()).resolves.toHaveLength(1);
+    await expect(repository.list()).resolves.toHaveLength(2);
   });
 
   it("rejects missing or changed confirmation with no project, catalog, session, or resource writes", async () => {
@@ -186,8 +204,8 @@ describe("POST /api/capture-import/apply", () => {
     expect(currentChanged.headers.get("set-cookie")).toBeNull();
     expect(newChanged.headers.get("set-cookie")).toBeNull();
     expect(await readFile(projectPath)).toEqual(before);
-    await expect(readdir(join(root, "current", "assets"))).rejects.toMatchObject({ code: "ENOENT" });
-    await expect(repository.list()).resolves.toEqual([]);
+    await expect(readdir(join(projectPath, "..", "assets"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(repository.list()).resolves.toHaveLength(1);
     expect(registry.get("capture-session-1")).toBeUndefined();
   });
 
@@ -208,7 +226,7 @@ describe("POST /api/capture-import/apply", () => {
 
     expect(stale.status).toBe(412);
     expect(cancelled.status).toBe(499);
-    await expect(repository.list()).resolves.toEqual([]);
+    await expect(repository.list()).resolves.toHaveLength(1);
   });
 
   it("maps cancellation during confirmed scaffold planning and current transaction work to 499", async () => {
@@ -246,8 +264,8 @@ describe("POST /api/capture-import/apply", () => {
     expect(cancelledCurrent.status).toBe(499);
     expect(cancelledNew.headers.get("set-cookie")).toBeNull();
     expect(cancelledCurrent.headers.get("set-cookie")).toBeNull();
-    await expect(repository.list()).resolves.toEqual([]);
-    await expect(readdir(join(root, "current", "assets"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(repository.list()).resolves.toHaveLength(1);
+    await expect(readdir(join(projectPath, "..", "assets"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("does not disclose server paths from apply failures and wires the dedicated route", async () => {
@@ -278,7 +296,7 @@ describe("POST /api/capture-import/apply", () => {
       creationService,
       registry,
       applyCurrent: async () => {
-        throw new SafeFileConflictError(join(root, "current", "assets", "occupied.png"));
+        throw new SafeFileConflictError(join(projectPath, "..", "assets", "occupied.png"));
       },
     });
 

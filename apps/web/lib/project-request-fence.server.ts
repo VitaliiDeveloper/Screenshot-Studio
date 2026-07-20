@@ -2,6 +2,12 @@
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
 import { isStrongQuotedETag } from "./http-etag.js";
 import {
+  withManagedProjectMutationGuard,
+  withManagedProjectReadGuard,
+} from "./managed-project-mutation-guard.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import type { ManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
+import {
   withActiveProjectSession,
   withExistingProjectSessionReadOnly,
   type ActiveProjectResolverDependencies,
@@ -11,12 +17,21 @@ import {
 type ProjectRequestOperation = (
   session: LocalProjectSession,
   expectedRevision?: string,
+  lifecycleLock?: ManagedProjectLifecycleLock,
 ) => Promise<Response> | Response;
 
 type ProjectVersionedRequestOperation = (
   session: LocalProjectSession,
   expectedRevision: string,
+  lifecycleLock?: ManagedProjectLifecycleLock,
 ) => Promise<Response> | Response;
+
+export interface ProjectMutationRequestDependencies extends ActiveProjectResolverDependencies {
+  managedStorageConfig?: ManagedProjectStorageConfig;
+  managedReadGuard?: typeof withManagedProjectReadGuard;
+}
+
+export type ProjectReadRequestDependencies = ProjectMutationRequestDependencies;
 
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
@@ -44,11 +59,16 @@ function projectIdentityResponse(
 export function withProjectReadRequest(
   req: Request,
   operation: ProjectRequestOperation,
-  dependencies: ActiveProjectResolverDependencies = {},
+  dependencies: ProjectReadRequestDependencies = {},
 ): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
-    return identityError ?? operation(session);
+    const readGuard = dependencies.managedReadGuard ?? withManagedProjectReadGuard;
+    return identityError ?? readGuard(
+      session,
+      (lock) => Promise.resolve(operation(session, undefined, lock)),
+      { config: dependencies.managedStorageConfig },
+    );
   }, dependencies);
 }
 
@@ -72,22 +92,27 @@ function expectedRevisionResponse(req: Request): string | Response {
 export function withProjectVersionedReadRequest(
   req: Request,
   operation: ProjectVersionedRequestOperation,
-  dependencies: ActiveProjectResolverDependencies = {},
+  dependencies: ProjectReadRequestDependencies = {},
 ): Promise<Response> {
   return withExistingProjectSessionReadOnly(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
     if (identityError) return identityError;
     const expectedRevision = expectedRevisionResponse(req);
+    const readGuard = dependencies.managedReadGuard ?? withManagedProjectReadGuard;
     return expectedRevision instanceof Response
       ? expectedRevision
-      : operation(session, expectedRevision);
+      : readGuard(
+        session,
+        (lock) => Promise.resolve(operation(session, expectedRevision, lock)),
+        { config: dependencies.managedStorageConfig },
+      );
   }, dependencies);
 }
 
 export function withProjectMutationRequest(
   req: Request,
   operation: ProjectVersionedRequestOperation,
-  dependencies: ActiveProjectResolverDependencies = {},
+  dependencies: ProjectMutationRequestDependencies = {},
 ): Promise<Response> {
   return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
@@ -96,7 +121,11 @@ export function withProjectMutationRequest(
     const expectedRevision = expectedRevisionResponse(req);
     return expectedRevision instanceof Response
       ? expectedRevision
-      : operation(session, expectedRevision);
+      : withManagedProjectMutationGuard(
+        session,
+        () => Promise.resolve(operation(session, expectedRevision)),
+        { config: dependencies.managedStorageConfig },
+      );
   }, dependencies);
 }
 

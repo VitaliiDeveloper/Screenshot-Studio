@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import { ManagedProjectNotFoundError } from "./managed-project-repository.server.js";
 import {
+  ManagedProjectSourceAdapter,
   NoActiveProjectError,
   ProjectSessionRegistry,
   resolveActiveProjectSession,
@@ -59,6 +62,7 @@ function createStubLocalSource() {
         nativePicker: false,
         projectLocalResources: true,
         exportProjectArchive: false,
+        deleteProjectPermanently: false,
       },
     })),
   } satisfies Pick<LocalFileProjectSourceAdapter, "kind" | "open">;
@@ -76,6 +80,7 @@ function createStubManagedSource() {
         name: "Managed",
         projectId,
         projectPath: `/managed/${projectId}/app-store-screenshots.json`,
+        lifecycleRevision: 3,
         capabilities: {
           writeInPlace: true,
           revealLocation: false,
@@ -83,6 +88,7 @@ function createStubManagedSource() {
           nativePicker: false,
           projectLocalResources: true,
           exportProjectArchive: true,
+          deleteProjectPermanently: true,
         },
       };
     }),
@@ -90,6 +96,65 @@ function createStubManagedSource() {
 }
 
 describe("ProjectSessionRegistry", () => {
+  it("invalidates a cached managed session after permanent deletion is reserved", async () => {
+    const root = await mkdtemp(join(tmpdir(), "project-session-delete-"));
+    temporaryRoots.push(root);
+    const { resolveManagedProjectStorageConfig } = await import("./managed-project-config.server.js");
+    const { ManagedProjectRepository } = await import("./managed-project-repository.server.js");
+    const repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({
+      SCREENSHOT_STUDIO_DATA_ROOT: root,
+    }));
+    const stage = await repository.createStage();
+    await writeFile(join(stage.path, "app-store-screenshots.json"), JSON.stringify({
+      meta: { name: "Managed", schemaVersion: 1 }, fonts: [], preferredExportLayoutId: "primary",
+      layouts: [{ id: "primary", name: "Primary", mode: "isolated", screens: [{
+        id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+        artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [],
+      }] }],
+    }));
+    const project = await repository.publishStage({ token: stage.token });
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "managed-session",
+      managedSource: new ManagedProjectSourceAdapter(repository),
+    });
+    const session = await registry.openManaged(project.id);
+    const catalog = new ManagedProjectCatalogStore(repository.config);
+    const priorEntry = (await catalog.read()).entries[0]!;
+    const identity = await stat(project.projectDirectory, { bigint: true });
+    await catalog.reserveDeletion({
+      operationId: "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      operation: "delete",
+      state: "reserved",
+      projectId: project.id,
+      lifecycleRevision: 1,
+      statusSecretHash: "2".repeat(64),
+      projectRevision: (await readProjectSnapshot(project.projectPath)).revision,
+      priorEntry,
+      sourceIdentity: { device: identity.dev.toString(), inode: identity.ino.toString() },
+    });
+
+    await expect(resolveActiveProjectSession(new Request("http://localhost", {
+      headers: { cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}` },
+    }), { registry, configuredPath: () => null })).rejects.toBeInstanceOf(NoActiveProjectError);
+    expect(registry.peek(session.descriptor.sessionId)).toBeUndefined();
+  });
+
+  it("invalidates only managed sessions for a deleted opaque project id", async () => {
+    let nextSession = 0;
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => `session-${++nextSession}`,
+      localSource: createStubLocalSource(),
+      managedSource: createStubManagedSource(),
+    });
+    const managed = await registry.openManaged("project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    const local = await registry.openLocal("local-project");
+
+    expect(registry.invalidateManagedProject(managed.projectId)).toBe(1);
+    expect(registry.peek(managed.descriptor.sessionId)).toBeUndefined();
+    expect(registry.peek(local.descriptor.sessionId)).toBe(local);
+    expect(registry.invalidateManagedProject(managed.projectId)).toBe(0);
+  });
+
   it("rehydrates a managed session from its recovery hint after registry loss", async () => {
     const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const managedSource = createStubManagedSource();
@@ -205,6 +270,7 @@ describe("ProjectSessionRegistry", () => {
       name: "Imported",
       projectDirectory: "/private/managed/project",
       projectPath: "/private/managed/project/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
 
     expect(managedSource.open).not.toHaveBeenCalled();
@@ -215,6 +281,7 @@ describe("ProjectSessionRegistry", () => {
         sessionId: "imported-session",
         name: "Imported",
         sourceKind: "managed-project",
+        lifecycleRevision: 1,
       },
     });
     expect(session.descriptor).not.toHaveProperty("displayLocation");
@@ -235,6 +302,7 @@ describe("ProjectSessionRegistry", () => {
         sessionId: "managed-session",
         name: "Managed",
         sourceKind: "managed-project",
+        lifecycleRevision: 3,
         capabilities: {
           writeInPlace: true,
           revealLocation: false,
@@ -242,6 +310,7 @@ describe("ProjectSessionRegistry", () => {
           nativePicker: false,
           projectLocalResources: true,
           exportProjectArchive: true,
+          deleteProjectPermanently: true,
         },
       },
     });

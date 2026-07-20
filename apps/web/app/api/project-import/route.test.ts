@@ -170,6 +170,7 @@ describe("POST /api/project-import", () => {
       name: "Previous",
       projectDirectory: "/private/previous",
       projectPath: "/private/previous/app-store-screenshots.json",
+      lifecycleRevision: 1,
     });
     const invalid = JSON.stringify({ unknown: true });
     const request = uploadRequest("json", [
