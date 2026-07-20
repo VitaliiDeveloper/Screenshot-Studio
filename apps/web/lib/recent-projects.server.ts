@@ -244,9 +244,10 @@ export class RecentProjectsStore {
   }
 
   async list(): Promise<RecentProjectList> {
-    const document = await this.#withLock(() => this.#readOrRecover());
+    const catalogEntries = await this.#catalog.listActive();
+    const document = await this.#withLock(() => this.#readOrRecover(catalogEntries));
     const activeManaged = new Map(
-      (await this.#catalog.listActive()).map((entry) => [entry.id, entry]),
+      catalogEntries.map((entry) => [entry.id, entry]),
     );
     const summaries = await Promise.all(document.entries.map(async (entry) => {
       if (entry.sourceKind === "managed-project" && !activeManaged.has(entry.sourceLocator)) {
@@ -273,8 +274,9 @@ export class RecentProjectsStore {
   async record(session: ProjectSession): Promise<void> {
     if (session.descriptor.sourceKind !== "managed-project"
       && session.descriptor.sourceKind !== "local-file") return;
+    const catalogEntries = await this.#catalog.listActive();
     await this.#withLock(async () => {
-      const document = await this.#readOrRecover();
+      const document = await this.#readOrRecover(catalogEntries);
       const generation = nextGeneration(document.generation);
       const locator = session.descriptor.sourceKind === "managed-project"
         ? session.projectId
@@ -303,8 +305,9 @@ export class RecentProjectsStore {
 
   async remove(recentId: string): Promise<boolean> {
     if (!RECENT_ID_PATTERN.test(recentId)) return false;
+    const catalogEntries = await this.#catalog.listActive();
     return this.#withLock(async () => {
-      const document = await this.#readOrRecover();
+      const document = await this.#readOrRecover(catalogEntries);
       if (!document.entries.some((entry) => entry.recentId === recentId)) return false;
       await this.#write({
         ...document,
@@ -317,7 +320,8 @@ export class RecentProjectsStore {
 
   async activate(recentId: string, registry: ProjectSessionRegistry): Promise<ProjectSession> {
     if (!RECENT_ID_PATTERN.test(recentId)) throw new Error("Recent project does not exist");
-    const document = await this.#withLock(() => this.#readOrRecover());
+    const catalogEntries = await this.#catalog.listActive();
+    const document = await this.#withLock(() => this.#readOrRecover(catalogEntries));
     const entry = document.entries.find((candidate) => candidate.recentId === recentId);
     if (!entry) throw new Error("Recent project does not exist");
     const session = entry.sourceKind === "managed-project"
@@ -365,14 +369,16 @@ export class RecentProjectsStore {
     }
   }
 
-  async #readOrRecover(): Promise<RecentProjectsDocument> {
+  async #readOrRecover(
+    catalogSnapshot: readonly ActiveManagedProjectCatalogEntry[],
+  ): Promise<RecentProjectsDocument> {
     try {
       return await this.#readPersisted();
     } catch (error) {
       if (errorCode(error) !== "ENOENT" && !(error instanceof SyntaxError) && !(error instanceof TypeError)) {
         throw error;
       }
-      const catalogEntries = [...await this.#catalog.listActive()]
+      const catalogEntries = [...catalogSnapshot]
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id))
         .slice(0, MAX_RECENT_PROJECTS);
       const entries: RecentProjectEntry[] = [];

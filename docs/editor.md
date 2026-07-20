@@ -3,7 +3,7 @@
 The UI/UX contract for the web canvas editor: layout, canvas model, panels, inspector,
 save/load/export, and what is deliberately out of scope.
 
-Version 2.3, 19 July 2026.
+Version 2.4, 20 July 2026.
 
 > **Status: this document describes the current as-built strict v1 editor.**
 > Future ideas are not editor fields until the schema, architecture, shared renderer, and tests
@@ -14,7 +14,7 @@ Version 2.3, 19 July 2026.
 ## 0. App Home and Project Home
 
 App Home is the responsive launcher shell when no project is active or the user explicitly returns
-to the launcher. It has one page heading and three stable product regions:
+to the launcher. It has one page heading and five stable product entry points:
 
 - **Create project** is enabled. Its modal captures project name, target platform, and initial
   isolated/connected layout mode, then offers an empty project or a visible project-template library
@@ -29,8 +29,13 @@ to the launcher. It has one page heading and three stable product regions:
   folder plus supported related `assets/`, requires an explicit new managed receiver from App Home,
   and shows a read-only plan with destination, counts, fresh ids/paths, warnings, and invalid entries
   before confirmation. It never means complete Folder/ZIP/JSON project import.
-- **Recent projects** remains a labelled empty region owned by Launcher 8; import does not populate a
-  temporary imitation of recents.
+- **Recent projects** is bounded durable application history outside Project JSON. Successful local
+  and managed opens, managed creation/import, and new-project capture import update recency. Entries
+  disclose only name, source kind, time, availability, and an opaque recent id; local paths stay on
+  the server. Unavailable sources remain removable and explain how to reopen or reimport them.
+- **Starter examples** route four ordinary workflows through existing contracts: an isolated feature
+  project, a connected launch deck, strict RTL/multi-locale project import, and PNG capture import.
+  They create/import normal strict projects and never add an example-only schema or renderer.
 
 The creation and import modals move focus to their headings, trap forward/reverse Tab, and return
 focus to their triggers. They reserve close while atomic publication is in progress. Creation keeps
@@ -78,9 +83,11 @@ distinct.
 existing save-failure safeguard, clears only the active session plus that project's transient
 workspace navigation state, and returns to App Home. It never removes recents or project data.
 **Permanently delete project** is separate, capability-gated, managed-only, and irreversible. Neither
-action moves/deletes a local-file directory. The workflow guide distinguishes project
+action moves/deletes a local-file directory. **Remove from recents** changes history only and never
+closes, trashes, or permanently deletes a project. The workflow guide distinguishes project
 templates, screen templates, component presets, layout modes, project import, capture import,
-project archive export, and store-image export using the implemented Launcher 7 behavior.
+project archive export, store-image export, Close project, Remove from recents, the absence of a
+Trash/Restore surface, and managed-only permanent deletion.
 
 ---
 
@@ -310,8 +317,13 @@ to the strict schema before they can mutate the live project. Type-specific fiel
 
 ## 7. States
 
-- **No active project** → App Home exposes enabled Create and Import plus an empty Recents region;
-  it exposes no raw path field and never selects the bundled sample implicitly.
+- **No active project / first run** → App Home exposes enabled Create, project import, capture import,
+  four starter workflows, and an actionable empty Recent projects region; it exposes no raw path
+  field and never selects the bundled sample implicitly.
+- **Recents loading/failure** → loading is announced; failure keeps App Home usable and offers an
+  explicit retry without exposing a locator.
+- **Unavailable recent** → Open is disabled, Remove from recents remains available, and recovery copy
+  directs the user to reopen the source outside the browser or import it again.
 - **Create editing** → name, target platform, layout mode, empty start, and compatible visible project
   templates remain client-side until submission; unsupported starters stay visible and disabled.
 - **Create publishing** → the full scaffold and dependencies are validated and atomically published

@@ -2,7 +2,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
@@ -48,9 +48,10 @@ afterEach(async () => {
 
 describe("POST /api/project-create", () => {
   it("creates an empty managed project and activates only its new session", async () => {
+    const recordRecent = vi.fn(async () => undefined);
     const response = await handleProjectCreatePost(request({
       name: "New managed project", platform: "windows", layoutMode: "connected", templateId: null,
-    }), { service, registry });
+    }), { service, registry, recentProjects: { record: recordRecent } });
 
     expect(response.status).toBe(201);
     expect(response.headers.get("cache-control")).toBe("no-store");
@@ -70,6 +71,10 @@ describe("POST /api/project-create", () => {
       },
     });
     await expect(repository.list()).resolves.toHaveLength(1);
+    expect(recordRecent).toHaveBeenCalledOnce();
+    expect(recordRecent).toHaveBeenCalledWith(expect.objectContaining({
+      descriptor: expect.objectContaining({ name: "New managed project" }),
+    }));
   });
 
   it("creates a compatible starter project template through the same endpoint", async () => {

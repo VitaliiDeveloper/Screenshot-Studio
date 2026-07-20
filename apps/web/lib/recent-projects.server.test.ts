@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -83,6 +83,29 @@ afterEach(async () => {
 });
 
 describe("RecentProjectsStore", () => {
+  it("takes the catalog recovery snapshot before entering recent-history file access", async () => {
+    const storage = await config();
+    let catalogReadCompleted = false;
+    const store = new RecentProjectsStore(storage, {
+      catalog: {
+        listActive: vi.fn(async () => {
+          catalogReadCompleted = true;
+          return [];
+        }),
+      },
+      validateManaged: vi.fn(),
+      validateLocal: vi.fn(),
+      openFile: async (path, flags, mode) => {
+        if (path === join(storage.root, "recent-projects.json")) {
+          expect(catalogReadCompleted).toBe(true);
+        }
+        return open(path, flags, mode);
+      },
+    });
+
+    await expect(store.list()).resolves.toEqual({ entries: [] });
+  });
+
   it("persists, deduplicates, orders, and deterministically bounds successful opens across restarts", async () => {
     const storage = await config();
     let ordinal = 0;
@@ -145,7 +168,7 @@ describe("RecentProjectsStore", () => {
     expect((await store.list()).entries.map((entry) => entry.name)).toEqual(["Project 2", "Project 1"]);
     catalog.listActive.mockResolvedValue([active[1]]);
     expect((await store.list()).entries.map((entry) => entry.name)).toEqual(["Project 2"]);
-    expect(catalog.listActive).toHaveBeenCalledTimes(3);
+    expect(catalog.listActive).toHaveBeenCalledTimes(2);
   });
 
   it("removes history only and permits reopening the same source to add it again", async () => {

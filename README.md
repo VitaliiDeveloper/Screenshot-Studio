@@ -23,7 +23,10 @@ existing complete project from a **Folder** (recommended), a project ZIP, or an 
 does not edit the selected source in place. Local self-hosted workflows may still start explicitly
 with `PROJECT_PATH=... pnpm dev` or `screenshots dev --project ...`. App Home intentionally exposes no
 browser filesystem-path form. After source selection, App Home asks for managed-copy confirmation
-before upload or server staging begins.
+before upload or server staging begins. Its bounded Recent projects list persists successful opens
+without exposing local paths; Close project preserves that history, while Remove from recents changes
+history only. Four starter examples route isolated, connected, RTL/multi-locale, and screenshot-import
+workflows through the same strict creation/import contracts used by ordinary projects.
 
 For example:
 
@@ -108,6 +111,9 @@ independent layouts — see [the management-interface contract](docs/architectur
 - **Shared project creation.** CLI init and App Home managed creation use one strict scaffold factory
   for empty projects and visible project templates while retaining explicit-local versus managed
   destination ownership. Project templates are creation inputs, not persisted schema fields.
+- **Launcher closure.** App Home provides durable bounded recent-project history and four normal
+  starter workflows. Source locators remain server-only application state; Close, Remove from recents,
+  and managed-only permanent deletion have separate non-overlapping effects.
 - **Visual authoring.** The responsive workbench supports unconditional layout switching, clean
   creation, fresh-id duplication, rename/prefer/delete lifecycle actions, Focus and Overview,
   isolated or connected canvases, owner-aware multi-selection, one-level groups, per-layout
@@ -299,6 +305,12 @@ unsaved Workspace change does not start deletion. Success removes the managed co
 project-local resources and returns to App Home. There is no Trash or Restore surface, so use the
 archive option when a future import copy may be needed. The originally selected Folder/ZIP/JSON input
 is never modified by deleting its managed copy.
+
+App Home **Recent projects** records successful managed/local opens and managed creation/import/capture
+activation outside Project JSON. It is ordered by most recent use, bounded, survives restart, filters
+deleted managed catalog entries, and keeps stale local sources safely removable. **Open project**
+activates through the ordinary session boundary. **Remove from recents** removes history only; it does
+not Close project, move anything to Trash, delete managed storage, or modify a local source.
 
 The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
 strict project-local screen templates in `templates/*.json`. The Add shelf inserts text, shape, and

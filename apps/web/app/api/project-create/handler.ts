@@ -10,6 +10,10 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
+import {
+  recentProjectsStore,
+  type RecentProjectsStore,
+} from "@web/lib/recent-projects.server.js";
 import { projectSessionResponseHeaders } from "../project-session/handler.js";
 
 const MAX_CREATE_REQUEST_BYTES = 16_384;
@@ -19,6 +23,7 @@ class CreateRequestLimitError extends Error {}
 export interface ProjectCreateRouteDependencies {
   service?: ManagedProjectCreationService;
   registry?: ProjectSessionRegistry;
+  recentProjects?: Pick<RecentProjectsStore, "record">;
 }
 
 function errorResponse(status: number, error: string, code: string): Response {
@@ -102,6 +107,7 @@ export async function handleProjectCreatePost(
   try {
     const record = await service.create(parsed.data);
     const session = registry.openManagedRecord(record, reservedSessionId);
+    await (dependencies.recentProjects ?? recentProjectsStore).record(session).catch(() => undefined);
     const headers = projectSessionResponseHeaders(session, request);
     headers.set("x-project-id", session.projectId);
     return Response.json({ project: session.descriptor }, {

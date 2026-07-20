@@ -2,7 +2,7 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { type Project } from "@screenshot-studio/core/model";
 import { projectRevision, serializeProject } from "@screenshot-studio/core/storage";
@@ -163,12 +163,13 @@ describe("POST /api/capture-import/apply", () => {
   });
 
   it("publishes and activates only the confirmed new managed destination", async () => {
+    const recordRecent = vi.fn(async () => undefined);
     const previous = registry.get(sessionId);
     const plan = await preview("new-project");
     const response = await handleCaptureImportApplyPost(request({
       destinationKind: "new-project",
       confirmationFingerprint: plan.confirmationFingerprint,
-    }), { repository, creationService, registry });
+    }), { repository, creationService, registry, recentProjects: { record: recordRecent } });
     const body = await response.json();
 
     expect(response.status).toBe(201);
@@ -184,6 +185,10 @@ describe("POST /api/capture-import/apply", () => {
     });
     expect(registry.get(sessionId)).toBe(previous);
     await expect(repository.list()).resolves.toHaveLength(2);
+    expect(recordRecent).toHaveBeenCalledOnce();
+    expect(recordRecent).toHaveBeenCalledWith(expect.objectContaining({
+      descriptor: expect.objectContaining({ name: "Imported capture project" }),
+    }));
   });
 
   it("rejects missing or changed confirmation with no project, catalog, session, or resource writes", async () => {
