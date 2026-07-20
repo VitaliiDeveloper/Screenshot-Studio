@@ -5,7 +5,7 @@ import { clearProjectPersistenceIdentity, saveProject } from "./save-project.js"
 
 /**
  * Returns a debounced version of `saveFn` that coalesces rapid calls into one, keeping only the
- * latest project. Inspector inputs fire per keystroke / slider tick (spec §3); this stops each
+ * latest project. Inspector inputs fire per keystroke / slider tick; this stops each
  * one becoming its own PUT while the store patch stays immediate.
  */
 export function createDebouncedSaver(

@@ -35,6 +35,7 @@ Read only the smallest relevant set:
 | Schema, renderer, export, or CLI behavior | `docs/architecture.md` and the relevant source/tests |
 | Editor/UI behavior | `docs/editor.md` |
 | Test selection or CI behavior | `docs/testing.md` |
+| Project source, active session, catalog, or request fencing | `docs/architecture.md` and the relevant web source/tests |
 | Project locking or concurrent writes | `docs/project-mutation-locking.md` |
 | Asset/output publication safety | `docs/safe-file-publication.md` |
 | Package or release work | `docs/releasing.md` |

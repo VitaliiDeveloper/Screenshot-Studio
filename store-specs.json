@@ -1,5 +1,5 @@
 {
-  "$comment": "Store export sizes as DATA, not hardcode (docs/architecture.md §4). Apple values are accepted sizes Apple publishes; Google and Microsoft values are recommended presets within their allowed requirements. store-specs.json is the runtime source of truth for export dimensions.",
+  "$comment": "Store export sizes as DATA, not hardcode (docs/architecture.md). Apple values are accepted sizes Apple publishes; Google and Microsoft values are recommended presets within their allowed requirements. store-specs.json is the runtime source of truth for export dimensions.",
   "apple": {
     "iphone": [
       { "id": "6.9", "label": "6.9\" iPhone (lead)", "width": 1320, "height": 2868, "orientation": "portrait" },

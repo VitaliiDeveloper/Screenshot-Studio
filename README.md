@@ -83,7 +83,7 @@ It only discovers or initializes a project and then follows the generated projec
 Monorepo (pnpm workspaces):
 
 - `packages/core` — framework-agnostic model (Zod schema), render engine, export, fonts, themes,
-  asset loading, storage. The single source of truth for rendering (architecture.md §2).
+  asset loading, storage. The single source of truth for rendering (architecture.md).
 - `packages/cli` — the `screenshots` command (`init`, `dev`, `export`, layout/screen/import/font/theme/locale
   management, and non-destructive local asset processing).
 - `apps/web` — the Next.js host: `/editor` (interactive multi-artboard workspace), `/render`

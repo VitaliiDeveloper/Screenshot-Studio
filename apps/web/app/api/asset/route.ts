@@ -8,7 +8,7 @@ import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 /**
  * Serves the project's asset files over HTTP so /editor and the headless /render resolve the SAME
  * URL for a given screenshot assetUrl — parity by construction, and same-origin so images never
- * taint the canvas (spec §3). Dev-only, local, self-hosted (same model as /render, /api/project).
+ * taint the canvas. Dev-only, local, self-hosted (same model as /render, /api/project).
  * `project` (optional) lets the headless render pass its own project path; interactive requests use
  * the active project session.
  */

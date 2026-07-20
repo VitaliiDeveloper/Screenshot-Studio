@@ -66,6 +66,10 @@ Connected mode is still one project model: each exact platform/device/locale/sto
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
 requested artboard crop; it never stitches a separate image or slices a finished PNG.
 
+The UI export route returns a `201` `no-store` ticket with `downloadUrl`, `outputDir`, and
+`expiresAt`. Its download URL is one-shot: a missing artifact returns `404`, an expired artifact
+returns `410`, and clients must not buffer, reuse, or retain an export artifact after download.
+
 ## 4. Project sources, sessions, and persistence
 
 An active project is a request-scoped session, not one process-global filesystem path. A source
@@ -73,9 +77,13 @@ adapter opens a local file, managed project, or future provider into a validated
 revision evidence, capabilities, and the resource services needed for that source. Browser clients
 receive only safe descriptors; server-only locators and filesystem paths are not project fields.
 
-Every project-bound mutation resolves one active context. Interactive requests fence that identity;
-resource mutations and export also use a strong revision check. A failed open or save preserves the
-last known-good active state rather than silently targeting another project.
+Every project-bound operation resolves one active context and sends its `X-Project-Id`; a missing
+identity returns `428` and an inactive identity returns `409`. Versioned operations such as save,
+interactive resource mutation, and export additionally send exactly one strong quoted `If-Match` ETag.
+A missing revision returns `428`, a malformed ETag returns `400`, and a revision conflict returns `412`
+with the current ETag. Routes use request-fence helpers or equivalent direct validation. Identity-only
+lifecycle operations, such as Close project, require the project identity but not a revision. A failed
+open or save preserves the last known-good active state rather than silently targeting another project.
 
 The core `StorageAdapter` owns loading/saving the Project document and explicitly submitted asset
 bytes. Resource services own fonts, templates, themes, imports, processed assets, and export

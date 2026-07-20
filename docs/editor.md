@@ -69,7 +69,8 @@ their labels. Important canvas controls occupy the remaining viewport rather tha
 a panel.
 
 All interactive controls have accessible names, visible focus, disabled semantics, and keyboard use.
-Menus support predictable focus movement and dismissal. Dialogs move focus to their heading, trap
+Menus support predictable focus movement and dismissal. Dialogs use `DialogShell`'s configured initial
+focus: the heading when context must be announced, otherwise the first actionable control. They trap
 focus while open, return focus to a live trigger, and allow Escape only when cancellation is safe.
 Errors use alert semantics and identify a recoverable action; progress is announced without pretending
 that a durable operation is complete.

@@ -117,7 +117,7 @@ export async function withStableProjectExport<T>(
 /**
  * Export orchestration (Node side). Renders a screen through the served web renderer, then does
  * the store post-processing that must happen off-canvas: strip alpha (stores reject
- * transparency) and assert exact target dimensions (docs/architecture.md §4). One export path,
+ * transparency) and assert exact target dimensions (docs/architecture.md). One export path,
  * shared by the CLI command and the parity harness — the same result the UI button must match.
  */
 export interface ExportScreenOptions {

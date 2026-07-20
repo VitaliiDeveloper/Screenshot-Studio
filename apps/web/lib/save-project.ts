@@ -91,7 +91,7 @@ export function advanceProjectRevisionFromResponse(
   setProjectRevision(response.headers.get("etag"));
 }
 
-/** Persist the project to disk through the API route (spec §4). Throws on any rejected save. */
+/** Persist the project to disk through the API route. Throws on any rejected save. */
 export async function saveProject(project: Project): Promise<void> {
   if (!getProjectRevision()) {
     throw new Error("Project revision is unavailable; reload the project before saving");

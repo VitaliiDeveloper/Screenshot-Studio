@@ -22,6 +22,11 @@ function assertIncludes(source, expected, label) {
   if (!source.includes(expected)) throw new Error(`${label} is missing: ${expected}`);
 }
 
+const schemaSource = await readFile(join(repoRoot, "packages/core/src/model/schema.ts"), "utf8");
+const schemaVersionMatch = schemaSource.match(/export const SCHEMA_VERSION = (\d+);/);
+if (!schemaVersionMatch) throw new Error("Cannot resolve the enforced schema version");
+const currentSchemaVersion = Number(schemaVersionMatch[1]);
+
 for (const path of requiredFiles) {
   const info = await stat(join(repoRoot, path));
   if (!info.isFile() || info.size === 0) throw new Error(`Required community file is empty: ${path}`);
@@ -49,10 +54,12 @@ for (const legacyDoc of [
 assertIncludes(readme, "screenshot-studio-cli-0.1.0.tgz", "README candidate artifact");
 
 const examplesReadme = await readFile(join(repoRoot, "examples/README.md"), "utf8");
-for (const obsoleteTerm of ["v6 documents", "Phase 7"]) {
-  if (examplesReadme.includes(obsoleteTerm)) {
-    throw new Error(`Examples README still contains obsolete terminology: ${obsoleteTerm}`);
-  }
+const examplesSchemaVersion = examplesReadme.match(/\bstrict v(\d+) documents\b/i);
+if (!examplesSchemaVersion || Number(examplesSchemaVersion[1]) !== currentSchemaVersion) {
+  throw new Error(`Examples README must describe the current strict v${currentSchemaVersion} schema`);
+}
+if (/\b(?:post-)?phase\s+\d/i.test(examplesReadme)) {
+  throw new Error("Examples README still uses a numbered phase model");
 }
 
 for (const path of [
@@ -95,11 +102,6 @@ assertIncludes(skill, "Microsoft Store", "skill Microsoft Store support");
 const notice = await readFile(join(repoRoot, "NOTICE"), "utf8");
 assertIncludes(notice, "Copyright 2026 Vitalii Lavreniuk", "NOTICE copyright");
 assertIncludes(notice, "Apache License, Version 2.0", "NOTICE license");
-
-const schemaSource = await readFile(join(repoRoot, "packages/core/src/model/schema.ts"), "utf8");
-const schemaVersionMatch = schemaSource.match(/export const SCHEMA_VERSION = (\d+);/);
-if (!schemaVersionMatch) throw new Error("Cannot resolve the enforced schema version");
-const currentSchemaVersion = Number(schemaVersionMatch[1]);
 
 for (const path of [
   "examples/connected-launch/app-store-screenshots.json",

@@ -4,7 +4,7 @@ import { PNG } from "pngjs";
 /**
  * PNG post-processing that runs in Node after the browser hands back rendered pixels.
  * The rendering itself happens in the browser (Konva `Stage.toDataURL`) — this module never
- * imports Konva, keeping the Node side framework-agnostic (docs/architecture.md §2).
+ * imports Konva, keeping the Node side framework-agnostic (docs/architecture.md).
  */
 
 export interface PngInfo {
@@ -35,7 +35,7 @@ export function inspectPng(buffer: Buffer): PngInfo {
 /**
  * Flatten a PNG onto an opaque background and re-encode with the alpha channel forced opaque.
  * Stores reject transparency: Apple requires flattened RGB, Google requires no transparency
- * (docs/architecture.md §4). Default background is white; callers may override.
+ * (docs/architecture.md). Default background is white; callers may override.
  */
 export function stripAlpha(buffer: Buffer, background = { r: 255, g: 255, b: 255 }): Buffer {
   const png = decode(buffer);

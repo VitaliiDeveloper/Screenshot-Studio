@@ -5,7 +5,7 @@ import { getLayout } from "../model/project-layout.js";
 import type { ImageCache } from "../engine/node-config.js";
 
 /**
- * Browser-side image preloading — the asset analog of core/fonts (docs/architecture.md §5). The
+ * Browser-side image preloading — the asset analog of core/fonts (docs/architecture.md). The
  * render must not be captured until every image has decoded, or headless export can capture a
  * blank frame. Callers must await loadProjectImages before rendering and before setting
  * window.__stageReady.

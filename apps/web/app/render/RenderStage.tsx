@@ -9,7 +9,7 @@ import type { Project } from "@screenshot-studio/core/model";
  * `core/engine.renderScreen`, then exposes an export hook and a readiness flag on `window`. Konva
  * is imported dynamically inside the effect so it never loads during SSR (it needs a real DOM).
  *
- * Readiness contract (spec §5, §6): `window.__stageReady` is set to `true` ONLY after the embedded
+ * Readiness contract: `window.__stageReady` is set to `true` ONLY after the embedded
  * fonts AND the screenshot images have resolved and the stage has drawn — never before — so a
  * screenshot can never capture a frame that fell back to a system font or a half-loaded image.
  */
@@ -51,7 +51,7 @@ export function RenderStage({
           import("@screenshot-studio/core/assets"),
         ]);
 
-        // Fonts AND images must resolve before the first paint (spec §3): a screenshot must never
+        // Fonts AND images must resolve before the first paint: a screenshot must never
         // be captured half-loaded, just like the font must never fall back.
         const resolveAsset = (assetUrl: string) =>
           `/api/asset?project=${encodeURIComponent(projectPath)}&path=${encodeURIComponent(assetUrl)}`;

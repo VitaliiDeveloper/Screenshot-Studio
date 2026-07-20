@@ -25,7 +25,7 @@ import {
  *
  * Both renders go through the SAME served /render route via Stage.toDataURL; the only variable
  * between (3)'s two images is headed-vs-headless — exactly the risk decision A does not remove
- * by construction (docs/architecture.md §2).
+ * by construction (docs/architecture.md).
  */
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -35,7 +35,7 @@ const screenId = "hero";
 const pixelRatio = 1; // The living sample is already authored at the 1320×2868 lead size.
 const target = { width: 1320, height: 2868 };
 
-// Tolerances (spec §6): starting values, tuned once real diffs are observed.
+// Tolerances are starting values, tuned once real diffs are observed.
 const PER_PIXEL_THRESHOLD = 0.1;
 const MAX_MISMATCH_FRACTION = 0.001; // 0.1% of pixels
 
@@ -97,7 +97,7 @@ describe("render/export parity", () => {
     // (3) visual diff within tolerance
     const { mismatch, total } = countMismatch(headed, headless);
     const fraction = mismatch / total;
-    // Surface the observed baseline; tolerances in spec §6 are provisional until seen.
+    // Surface the observed baseline; tolerances are provisional until seen.
     console.log(
       `[parity] headed vs headless mismatch: ${mismatch}/${total} = ${(fraction * 100).toFixed(4)}%`,
     );

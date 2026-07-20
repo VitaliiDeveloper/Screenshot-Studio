@@ -12,7 +12,7 @@ import { RenderStage } from "./RenderStage";
  * Headless render host (docs/editor.md). One dev-only route, no editor chrome.
  * This route's RenderStage is the static host used by CLI export and the parity harness. The
  * interactive editor uses EditorStage; both consume the shared core background/element node-config
- * contract so render/export parity remains centralized (docs/architecture.md §2).
+ * contract so render/export parity remains centralized (docs/architecture.md).
  *
  * The project is read from disk by path (`?project=`) and validated with the same `core` loader
  * the CLI uses. Arbitrary local file read is acceptable here: the product is a local, self-hosted

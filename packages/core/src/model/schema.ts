@@ -4,7 +4,7 @@ import { fontIdentityKey } from "./font-identity.js";
 import { ProjectRelativePath } from "./project-resource-path.js";
 
 /**
- * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md §3:
+ * Enforced project schema (v1). Narrower than the long-term target in docs/architecture.md:
  * solid, linear-gradient, and project-image backgrounds; leaf types `text` | `shape` | `screenshot` | `image` | `icon` | `device-frame` plus one-level groups
  * (trusted built-in frame presets only); store families are platform-keyed; fonts uploaded/google
  * with project-relative paths. There is no `themes` project key by design; baked theme inputs
@@ -74,7 +74,7 @@ export type ShapeStroke = z.infer<typeof ShapeStroke>;
 export const CanvasMode = z.enum(["isolated", "connected"]);
 export type CanvasMode = z.infer<typeof CanvasMode>;
 
-/** Fields every element shares (docs/architecture.md §3). z-order is array order in `elements`. */
+/** Fields every element shares (docs/architecture.md). z-order is array order in `elements`. */
 const transformBase = {
   id: z.string().min(1),
   x: z.number(),
