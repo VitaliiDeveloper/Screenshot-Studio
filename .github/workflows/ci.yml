@@ -2,13 +2,8 @@ name: CI
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "dev"
-      - "main"
   pull_request:
     branches:
-      - "dev"
       - "main"
 
 # A newer push to the same long-lived ref cancels the in-flight run.
@@ -18,6 +13,7 @@ concurrency:
 
 jobs:
   lint:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +26,7 @@ jobs:
       - run: pnpm lint
 
   test:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -43,8 +40,8 @@ jobs:
       - run: pnpm test
 
   coverage:
-    # Coverage is a quality signal for long-lived branches, not a PR merge gate.
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    # Coverage is collected at the dev-to-main integration boundary or on demand.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -62,30 +59,9 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  e2e-targeted:
-    # Development pushes get the highest-value Chromium contracts without the full browser gate.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4.4.0
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # GitHub runners preconfigure a packages.microsoft.com apt repo that intermittently
-      # serves a bad InRelease; --with-deps runs `apt-get update`, which fails hard on it.
-      # Drop any apt source referencing that host (leaves the Ubuntu mirror untouched).
-      - run: sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ | sudo xargs -0 -r rm -f
-      - run: pnpm exec playwright install --with-deps chromium
-      # The parity tests render a *headed* Chromium (headless-vs-headed pixel diff), which
-      # needs a display; Linux runners have none, so wrap the suite in a virtual framebuffer.
-      - run: xvfb-run -a pnpm test:e2e:ci
-
   e2e-full:
     # Browser regression belongs only at the long-lived integration boundary.
-    if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
