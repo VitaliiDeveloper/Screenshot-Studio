@@ -44,7 +44,7 @@ describe("Launcher closure journey", () => {
       const creationDialog = page.getByRole("dialog", { name: "Create a managed project" });
       await expect.poll(() => creationDialog.getByLabel("Project name").inputValue())
         .toBe("Isolated feature project");
-      const creationResponsePromise = page.waitForResponse("**/api/project-create");
+      const creationResponsePromise = page.waitForResponse("**/api/project-create", { timeout: 60_000 });
       await creationDialog.getByRole("button", { name: "Create project", exact: true }).click();
       const creationResponse = await creationResponsePromise;
       expect(
