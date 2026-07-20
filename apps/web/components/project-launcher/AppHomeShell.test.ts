@@ -6,6 +6,10 @@ import { describe, expect, it, vi } from "vitest";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
 import { AppHomeShell } from "./AppHomeShell.js";
 
+vi.mock("../ScreenThumbnail.js", () => ({
+  ScreenThumbnail: () => createElement("img", { alt: "" }),
+}));
+
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
 const appHomeSource = readFileSync(new URL("./AppHomeShell.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
@@ -19,10 +23,10 @@ function render(
     creationState: { status: "closed" },
     projectTemplates: listStarterProjectTemplates(),
     dialogClosing,
-    sessionError: null,
-    recentProjects: { status: "ready", entries: [] },
-    recentAction: null,
-    recentActionError: null,
+    projects: { status: "ready", entries: [] },
+    projectAction: null,
+    projectActionError: null,
+    visibleOpeningEntryId: null,
     onOpenImport: vi.fn(),
     onOpenCreate: vi.fn(),
     onCloseCreate: vi.fn(),
@@ -33,29 +37,31 @@ function render(
     onConfirmImport: vi.fn(),
     onRetryImport: vi.fn(),
     onSelectSource: vi.fn(),
-    onRetryRecents: vi.fn(),
-    onOpenRecent: vi.fn(),
+    onChooseCapture: vi.fn(),
+    onRetryProjects: vi.fn(),
+    onOpenProject: vi.fn(),
+    onOpenProjectDetails: vi.fn(),
+    onExportArchive: vi.fn(),
+    onDeleteProject: vi.fn(),
     onRemoveRecent: vi.fn(),
-    onSelectExample: vi.fn(),
   }));
 }
 
 describe("AppHomeShell", () => {
-  it("renders one App Home heading with enabled actions, durable recents, and starter examples", () => {
+  it("restores the original launcher composition with exactly New project and Import", () => {
     const markup = render();
 
     expect(markup.match(/<h1/g)).toHaveLength(1);
     expect(markup).toContain("Screenshot Studio");
-    expect(markup).toContain("Create project");
-    expect(markup).not.toContain("Coming in Launcher 5");
-    expect(markup).toContain("Choose starting point");
-    expect(markup).toContain("Import project");
-    expect(markup).toContain("Capture import");
-    expect(markup).toContain("PNG capture folder");
-    expect(markup).toContain("Recent projects");
-    expect(markup).toContain("No recent projects yet");
-    expect(markup).toContain("Starter examples");
-    expect(markup).not.toContain("Arriving in Launcher 8");
+    expect(markup).toContain("Turn product moments into store-ready stories.");
+    expect(markup).toContain('aria-label="Project actions"');
+    expect(markup).toContain("New project");
+    expect(markup).toContain("Import");
+    expect(markup.match(/<button/g)).toHaveLength(2);
+    expect(markup).not.toContain("Recent projects");
+    expect(markup).not.toContain("Starter examples");
+    expect(markup).not.toContain("Capture import");
+    expect(markup).not.toContain("Create your first screenshot project");
     expect(markup).not.toContain('type="text"');
   });
 
@@ -73,10 +79,10 @@ describe("AppHomeShell", () => {
       },
       projectTemplates: listStarterProjectTemplates(),
       dialogClosing: false,
-      sessionError: null,
-      recentProjects: { status: "loading" },
-      recentAction: null,
-      recentActionError: null,
+      projects: { status: "loading" },
+      projectAction: null,
+      projectActionError: null,
+      visibleOpeningEntryId: null,
       onOpenImport: vi.fn(),
       onOpenCreate: vi.fn(),
       onCloseCreate: vi.fn(),
@@ -84,8 +90,10 @@ describe("AppHomeShell", () => {
       onSubmitCreation: vi.fn(),
       onCloseImport: vi.fn(), onCancelImport: vi.fn(), onConfirmImport: vi.fn(),
       onRetryImport: vi.fn(), onSelectSource: vi.fn(),
-      onRetryRecents: vi.fn(), onOpenRecent: vi.fn(), onRemoveRecent: vi.fn(),
-      onSelectExample: vi.fn(),
+      onChooseCapture: vi.fn(),
+      onRetryProjects: vi.fn(), onOpenProject: vi.fn(),
+      onOpenProjectDetails: vi.fn(), onExportArchive: vi.fn(),
+      onDeleteProject: vi.fn(), onRemoveRecent: vi.fn(),
     }));
 
     expect(markup).toContain('role="dialog"');
@@ -155,8 +163,8 @@ describe("AppHomeShell", () => {
     expect(globalStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
-  it("uses one motion contract for every App Home action", () => {
-    expect(appHomeSource.match(/launcherActionMotion/g)).toHaveLength(4);
+  it("uses one motion contract for the two first-run actions", () => {
+    expect(appHomeSource.match(/firstRunActionMotion/g)).toHaveLength(3);
     expect(appHomeSource).toContain("duration-150");
     expect(appHomeSource).toContain("ease-out");
     expect(appHomeSource).toContain("hover:-translate-y-0.5");

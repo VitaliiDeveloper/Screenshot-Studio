@@ -105,11 +105,22 @@ describe("Project Home and Workspace round trip", () => {
     try {
       const page = await context.newPage();
       await page.goto(server.url, { waitUntil: "load" });
-      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
+      const initialImportResponsePending = page.waitForResponse("**/api/project-import", {
+        timeout: 60_000,
+      });
       await page.getByRole("button", { name: "Import managed copy" }).click();
+      const initialImportResponse = await initialImportResponsePending;
+      expect(initialImportResponse.status(), await initialImportResponse.text()).toBe(201);
 
-      await page.waitForURL(`${server.url}/home`);
+      await page.waitForURL(`${server.url}/editor`);
+      await page.getByRole("button", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
+      const importedCard = page.getByRole("listitem").filter({ hasText: projectName });
+      await importedCard.getByLabel(`More actions for ${projectName}`).click();
+      await importedCard.getByRole("button", { name: "Project details", exact: true }).click();
+      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
       expect(await page.getByText("Managed browser project", { exact: true }).count()).toBe(1);
       expect(await page.getByText(join(projectRoot, "app-store-screenshots.json"), { exact: true }).count()).toBe(0);
@@ -140,28 +151,38 @@ describe("Project Home and Workspace round trip", () => {
       await width.fill("333");
       await width.blur();
       await page.getByRole("alert").filter({ hasText: "Save failed: round-trip save failure" }).waitFor();
-      await page.getByRole("button", { name: "Project Home", exact: true }).click();
-      await page.getByRole("alert").filter({ hasText: "Project Home was not opened" }).waitFor();
+      await page.getByRole("button", { name: "Projects", exact: true }).click();
+      await page.getByRole("alert").filter({ hasText: "Projects could not be opened" }).waitFor();
       expect(new URL(page.url()).pathname).toBe("/editor");
 
       await page.unroute("**/api/project");
-      await page.getByRole("button", { name: "Project Home", exact: true }).click();
-      await page.waitForURL(`${server.url}/home`);
-      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
+      await page.getByRole("button", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
+      await page.getByRole("button", {
+        name: `Open ${projectName} in Workspace`,
+        exact: true,
+      }).click();
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
 
       expect(await page.getByRole("button", { name: "Active layout: Secondary" }).count()).toBe(1);
       expect(await page.getByRole("button", { name: "Focus", exact: true }).getAttribute("aria-pressed"))
         .toBe("true");
-      expect(await page.getByRole("button", { name: "Save Fast · iphone", exact: true }).getAttribute("aria-current"))
-        .toBe("true");
-      expect(await page.getByRole("button", { name: "Save fast headline", exact: true }).getAttribute("class"))
+      const reopenedScreen = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
+      expect(await reopenedScreen.count()).toBe(1);
+      await reopenedScreen.click();
+      const reopenedLayer = page.getByRole("button", { name: "Save fast headline", exact: true });
+      await reopenedLayer.click();
+      expect(await reopenedLayer.getAttribute("class"))
         .toContain("font-semibold");
       expect(await page.getByRole("spinbutton", { name: "Width", exact: true }).inputValue()).toBe("333");
 
-      await page.getByRole("button", { name: "Project Home", exact: true }).click();
-      await page.waitForURL(`${server.url}/home`);
+      await page.getByRole("button", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
+      const detailsCard = page.getByRole("listitem").filter({ hasText: projectName });
+      await detailsCard.getByLabel(`More actions for ${projectName}`).click();
+      await detailsCard.getByRole("button", { name: "Project details", exact: true }).click();
+      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
       const catalogPath = join(managedDataRoot, "catalog.json");
       const catalogBeforeClose = readFileSync(catalogPath, "utf8");
       const [{ id: managedProjectId }] = (JSON.parse(catalogBeforeClose) as {
@@ -177,7 +198,7 @@ describe("Project Home and Workspace round trip", () => {
 
       await page.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL(`${server.url}/?switch=1`);
-      await page.getByRole("heading", { name: "Turn product moments into store-ready stories." }).waitFor();
+      await page.getByRole("heading", { name: "Recent projects" }).waitFor();
       expect(await page.evaluate(async () => (await fetch("/api/project-session", { cache: "no-store" })).status))
         .toBe(204);
       expect(readFileSync(catalogPath, "utf8")).toBe(catalogBeforeClose);
@@ -204,24 +225,33 @@ describe("Project Home and Workspace round trip", () => {
     try {
       const page = await context.newPage();
       await page.goto(`${server.url}/?switch=1`, { waitUntil: "load" });
-      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
+      const firstImportResponsePending = page.waitForResponse("**/api/project-import", {
+        timeout: 60_000,
+      });
       await page.getByRole("button", { name: "Import managed copy" }).click();
-      await page.waitForURL(`${server.url}/home`);
-
-      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
+      const firstImportResponse = await firstImportResponsePending;
+      expect(firstImportResponse.status(), await firstImportResponse.text()).toBe(201);
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
-      await page.getByRole("button", { name: "Project Home", exact: true }).click();
-      await page.waitForURL(`${server.url}/home`);
-
-      await page.getByRole("link", { name: "Import another project", exact: true }).click();
-      await page.waitForURL(`${server.url}/?switch=1`);
-      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByRole("button", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       await page.getByLabel("Choose project folder").setInputFiles(replacementRoot);
+      const replacementImportResponsePending = page.waitForResponse("**/api/project-import", {
+        timeout: 60_000,
+      });
       await page.getByRole("button", { name: "Import managed copy" }).click();
-      await page.waitForURL(`${server.url}/home`);
-      await page.getByRole("heading", { name: replacement.meta.name, exact: true }).waitFor();
+      const replacementImportResponse = await replacementImportResponsePending;
+      expect(replacementImportResponse.status(), await replacementImportResponse.text()).toBe(201);
+      await page.waitForURL(`${server.url}/editor`);
+      await page.getByRole("button", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
+      const replacementCard = page.getByRole("listitem").filter({ hasText: replacement.meta.name });
+      await replacementCard.getByLabel(`More actions for ${replacement.meta.name}`).click();
+      await replacementCard.getByRole("button", { name: "Project details", exact: true }).click();
+      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
 
       await page.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL(`${server.url}/?switch=1`);

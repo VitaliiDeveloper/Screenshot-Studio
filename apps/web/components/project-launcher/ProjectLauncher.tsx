@@ -8,6 +8,9 @@ import {
   discardActiveProjectPersistence,
   switchActiveProject,
 } from "../../lib/debounced-save";
+import { clearWorkspaceNavigationState } from "../../lib/editor-workspace-navigation";
+import { loadProjectHomeData } from "../../lib/project-home-client";
+import { downloadProjectArchive, requestProjectArchive } from "../../lib/project-archive-client";
 import { fetchActiveProject } from "../../lib/project-session";
 import {
   importProject,
@@ -16,10 +19,12 @@ import {
 } from "../../lib/project-import-client";
 import { createProject } from "../../lib/project-creation-client";
 import {
-  fetchRecentProjects,
-  openRecentProject,
   removeRecentProject,
 } from "../../lib/recent-projects-client";
+import {
+  fetchProjectLibrary,
+  openProjectLibraryEntry,
+} from "../../lib/project-library-client";
 import { AppHomeShell } from "./AppHomeShell";
 import { CaptureImportDialog } from "./CaptureImportDialog";
 import {
@@ -38,40 +43,52 @@ import {
   reduceProjectCreationState,
   type ProjectCreationForm,
 } from "./project-creation-model";
-import type { LauncherExampleWorkflow } from "./launcher-examples";
 import type {
-  RecentProjectAction,
-  RecentProjectsPanelState,
-} from "./RecentProjectsPanel";
+  ProjectLibraryAction,
+  ProjectLibraryState,
+} from "./ProjectGallery";
+import { ProjectDeletionDialog } from "./ProjectDeletionDialog";
+import { DelayedOpeningState } from "./delayed-opening-state";
+import { useManagedProjectDeletion } from "./useManagedProjectDeletion";
 
-export function ProjectLauncher({
-  allowSwitch,
-  projectTemplates,
-}: {
-  allowSwitch: boolean;
+export function ProjectLauncher({ projectTemplates, initialProjects }: {
   projectTemplates: readonly ProjectTemplateSummary[];
+  initialProjects: ProjectLibraryState;
 }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
   const [creationState, dispatchCreation] = useReducer(
     reduceProjectCreationState,
     initialProjectCreationState,
   );
   const [dialogClosing, setDialogClosing] = useState(false);
-  const [recentProjects, setRecentProjects] = useState<RecentProjectsPanelState>({ status: "loading" });
-  const [recentAction, setRecentAction] = useState<RecentProjectAction | null>(null);
-  const [recentActionError, setRecentActionError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectLibraryState>(initialProjects);
+  const [projectAction, setProjectAction] = useState<ProjectLibraryAction | null>(null);
+  const [projectActionError, setProjectActionError] = useState<string | null>(null);
+  const [visibleOpeningEntryId, setVisibleOpeningEntryId] = useState<string | null>(null);
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
-  const recentHeadingRef = useRef<HTMLHeadingElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
   const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
   const exitActionRef = useRef<LauncherDialogExitAction>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const afterImportExitRef = useRef<(() => void) | null>(null);
   const creationExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const publishingRef = useRef(false);
+  const openingStateRef = useRef<DelayedOpeningState | null>(null);
+  if (!openingStateRef.current) openingStateRef.current = new DelayedOpeningState(setVisibleOpeningEntryId);
+  const deletion = useManagedProjectDeletion({
+    onDeleted: (projectId) => {
+      discardActiveProjectPersistence();
+      clearWorkspaceNavigationState(projectId);
+      setProjects((current) => current.status === "ready"
+        ? { status: "ready", entries: current.entries.filter((entry) => entry.entryId !== projectId) }
+        : current);
+      router.replace("/");
+      router.refresh();
+    },
+  });
   const completeCaptureImport = useCallback(async (
     result: Parameters<typeof assertCaptureImportHandoff>[0],
     _destinationKind: "current-project" | "new-project",
@@ -80,14 +97,14 @@ export function ProjectLauncher({
     const activeProject = await fetchActiveProject();
     if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
     assertCaptureImportHandoff(result, activeProject?.projectId);
-    router.push(`/home?project=${encodeURIComponent(result.projectId)}`);
+    router.push("/editor");
     router.refresh();
   }, [router]);
   const recoverCaptureTarget = useCallback(async () => {
     const activeProject = await fetchActiveProject();
     assertCaptureImportRecoveryTarget(activeProject);
     discardActiveProjectPersistence();
-    router.replace("/home");
+    router.replace("/editor");
     router.refresh();
   }, [router]);
   const captureImport = useCaptureImportController({
@@ -97,34 +114,26 @@ export function ProjectLauncher({
     onRecoverStale: recoverCaptureTarget,
   });
 
-  const settleRecentProjects = useCallback(() => fetchRecentProjects().then((result) => {
-    if (mountedRef.current) setRecentProjects({ status: "ready", entries: result.entries });
-  }).catch((caught: unknown) => {
-    if (mountedRef.current) setRecentProjects({
-      status: "error",
-      message: caught instanceof Error ? caught.message : String(caught),
-    });
-  }), []);
-  const loadRecentProjects = useCallback(() => {
-    setRecentProjects({ status: "loading" });
-    setRecentActionError(null);
-    void settleRecentProjects();
-  }, [settleRecentProjects]);
-
-  useEffect(() => {
-    void settleRecentProjects();
-  }, [settleRecentProjects]);
-
-  useEffect(() => {
-    if (allowSwitch) return;
-    let active = true;
-    void fetchActiveProject().then((project) => {
-      if (active && project) router.replace("/home");
+  const settleProjects = useCallback(() => fetchActiveProject()
+    .then(() => fetchProjectLibrary())
+    .then((result) => {
+      if (!mountedRef.current) return;
+      setProjects({ status: "ready", entries: result.entries });
     }).catch((caught: unknown) => {
-      if (active) setError((caught as Error).message);
-    });
-    return () => { active = false; };
-  }, [allowSwitch, router]);
+      if (mountedRef.current) setProjects({
+        status: "error",
+        message: caught instanceof Error ? caught.message : String(caught),
+      });
+    }), []);
+  const loadProjects = useCallback(() => {
+    setProjects({ status: "loading" });
+    setProjectActionError(null);
+    void settleProjects();
+  }, [settleProjects]);
+
+  useEffect(() => {
+    void settleProjects();
+  }, [settleProjects]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -132,6 +141,7 @@ export function ProjectLauncher({
       mountedRef.current = false;
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       if (creationExitTimerRef.current) clearTimeout(creationExitTimerRef.current);
+      openingStateRef.current?.clear();
       importControllerRef.current?.abort();
     };
   }, []);
@@ -159,7 +169,10 @@ export function ProjectLauncher({
       exitActionRef.current = null;
       exitTimerRef.current = null;
       setDialogClosing(false);
-      returnFocus();
+      const afterExit = afterImportExitRef.current;
+      afterImportExitRef.current = null;
+      if (afterExit) afterExit();
+      else returnFocus();
     };
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const delay = launcherDialogExitDelay(reducedMotion);
@@ -168,6 +181,10 @@ export function ProjectLauncher({
   };
   const closeImport = () => requestImportExit("close");
   const cancelImport = () => requestImportExit("cancel");
+  const chooseCaptureImport = () => {
+    afterImportExitRef.current = captureImport.open;
+    requestImportExit("close");
+  };
   const selectSource = (source: BrowserProjectImportSource) => {
     pendingImportSourceRef.current = source;
     dispatchImport({ type: "select", kind: source.kind });
@@ -194,7 +211,7 @@ export function ProjectLauncher({
     })).then(() => {
       if (!mountedRef.current) return;
       dispatchImport({ type: "complete" });
-      router.push("/home");
+      router.push("/editor");
       router.refresh();
     }).catch((caught: unknown) => {
       publishingRef.current = false;
@@ -235,7 +252,7 @@ export function ProjectLauncher({
       const navigate = () => {
         creationExitTimerRef.current = null;
         if (mountedRef.current) {
-          router.push(`/home?project=${encodeURIComponent(result.projectId)}`);
+          router.push("/editor");
         }
       };
       const delay = launcherDialogExitDelay(reducedMotion);
@@ -249,49 +266,65 @@ export function ProjectLauncher({
       });
     });
   };
-  const openRecent = (recentId: string) => {
-    if (recentAction) return;
-    setRecentAction({ recentId, kind: "opening" });
-    setRecentActionError(null);
-    void switchActiveProject(() => openRecentProject(recentId)).then((result) => {
+  const openProject = (entryId: string, destination: "workspace" | "details") => {
+    if (projectAction) return;
+    setProjectAction({ entryId, kind: destination === "workspace" ? "opening" : "details" });
+    if (destination === "workspace") openingStateRef.current?.start(entryId);
+    setProjectActionError(null);
+    void switchActiveProject(() => openProjectLibraryEntry(entryId)).then((result) => {
       if (!mountedRef.current) return;
-      router.push(`/home?project=${encodeURIComponent(result.projectId)}`);
+      router.push(destination === "workspace"
+        ? "/editor"
+        : `/home?project=${encodeURIComponent(result.projectId)}`);
     }).catch((caught: unknown) => {
-      if (mountedRef.current) setRecentActionError(
+      if (mountedRef.current) setProjectActionError(
         caught instanceof Error ? caught.message : String(caught),
       );
     }).finally(() => {
-      if (mountedRef.current) setRecentAction(null);
+      openingStateRef.current?.clear();
+      if (mountedRef.current) setProjectAction(null);
+    });
+  };
+  const loadManagedProjectAction = async (entryId: string) => {
+    const opened = await switchActiveProject(() => openProjectLibraryEntry(entryId));
+    const loaded = await loadProjectHomeData();
+    if (!loaded || loaded.selection.projectId !== opened.projectId) {
+      throw new Error("The active project changed before the requested action could start.");
+    }
+    return loaded;
+  };
+  const runManagedProjectAction = (entryId: string, kind: "archive" | "deleting") => {
+    if (projectAction) return;
+    setProjectAction({ entryId, kind });
+    setProjectActionError(null);
+    void loadManagedProjectAction(entryId).then(async (loaded) => {
+      if (kind === "archive") {
+        downloadProjectArchive(await requestProjectArchive(loaded.selection.projectId, loaded.resources.revision));
+      } else {
+        deletion.open(loaded);
+      }
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setProjectActionError(caught instanceof Error ? caught.message : String(caught));
+    }).finally(() => {
+      if (mountedRef.current) setProjectAction(null);
     });
   };
   const removeRecent = (recentId: string) => {
-    if (recentAction) return;
-    setRecentAction({ recentId, kind: "removing" });
-    setRecentActionError(null);
+    if (projectAction) return;
+    setProjectAction({ entryId: recentId, kind: "removing" });
+    setProjectActionError(null);
     void removeRecentProject(recentId).then(() => {
       if (!mountedRef.current) return;
-      setRecentProjects((current) => current.status === "ready"
-        ? { status: "ready", entries: current.entries.filter((entry) => entry.recentId !== recentId) }
+      setProjects((current) => current.status === "ready"
+        ? { status: "ready", entries: current.entries.filter((entry) => entry.entryId !== recentId) }
         : current);
-      queueMicrotask(() => recentHeadingRef.current?.focus());
     }).catch((caught: unknown) => {
-      if (mountedRef.current) setRecentActionError(
+      if (mountedRef.current) setProjectActionError(
         caught instanceof Error ? caught.message : String(caught),
       );
     }).finally(() => {
-      if (mountedRef.current) setRecentAction(null);
+      if (mountedRef.current) setProjectAction(null);
     });
-  };
-  const selectExample = (example: LauncherExampleWorkflow) => {
-    if (example.action === "create-project") {
-      dispatchCreation({ type: "open", form: { name: example.title, ...example.creation } });
-      return;
-    }
-    if (example.action === "project-import") {
-      dispatchImport({ type: "choose" });
-      return;
-    }
-    captureImport.open();
   };
 
   return (
@@ -300,13 +333,13 @@ export function ProjectLauncher({
       creationState={creationState}
       projectTemplates={projectTemplates}
       dialogClosing={dialogClosing}
-      sessionError={error}
-      recentProjects={recentProjects}
-      recentAction={recentAction}
-      recentActionError={recentActionError}
+      projects={projects}
+      projectAction={projectAction}
+      projectActionError={projectActionError}
+      visibleOpeningEntryId={visibleOpeningEntryId}
+      deletionDialog={deletion.dialog && deletion.projectName ? <ProjectDeletionDialog projectName={deletion.projectName} state={deletion.dialog} confirmation={deletion.confirmation} acknowledged={deletion.acknowledged} onConfirmationChange={deletion.setConfirmation} onAcknowledgedChange={deletion.setAcknowledged} onExportArchive={() => { void deletion.exportArchive(); }} onContinueWithoutArchive={deletion.continueWithoutArchive} onConfirmDelete={() => { void deletion.confirm(); }} onRetryDeletion={() => { void deletion.retry(); }} onClose={deletion.close} /> : null}
       importButtonRef={importButtonRef}
       creationButtonRef={creationButtonRef}
-      recentHeadingRef={recentHeadingRef}
       captureDialog={captureImport.state.status === "closed" ? null : (
         <CaptureImportDialog
           state={captureImport.state}
@@ -327,7 +360,6 @@ export function ProjectLauncher({
       onChangeCreation={changeCreation}
       onSubmitCreation={submitCreation}
       onOpenImport={() => dispatchImport({ type: "choose" })}
-      onOpenCapture={captureImport.open}
       onCloseImport={closeImport}
       onCancelImport={cancelImport}
       onConfirmImport={confirmImport}
@@ -336,10 +368,13 @@ export function ProjectLauncher({
         dispatchImport({ type: "retry" });
       }}
       onSelectSource={selectSource}
-      onRetryRecents={loadRecentProjects}
-      onOpenRecent={openRecent}
+      onChooseCapture={chooseCaptureImport}
+      onRetryProjects={loadProjects}
+      onOpenProject={(entryId) => openProject(entryId, "workspace")}
+      onOpenProjectDetails={(entryId) => openProject(entryId, "details")}
+      onExportArchive={(entryId) => runManagedProjectAction(entryId, "archive")}
+      onDeleteProject={(entryId) => runManagedProjectAction(entryId, "deleting")}
       onRemoveRecent={removeRecent}
-      onSelectExample={selectExample}
     />
   );
 }

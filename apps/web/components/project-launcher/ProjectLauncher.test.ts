@@ -3,27 +3,37 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./ProjectLauncher.tsx", import.meta.url), "utf8");
+const pageSource = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
 
 describe("ProjectLauncher import integration", () => {
-  it("loads, opens, removes, and retries durable recents through the active-project switch fence", () => {
-    expect(source).toContain("fetchRecentProjects");
-    expect(source).toContain("openRecentProject");
+  it("hydrates from the server-resolved project library without a false loading screen", () => {
+    expect(source).toContain("initialProjects: ProjectLibraryState");
+    expect(source).toContain("useState<ProjectLibraryState>(initialProjects)");
+    expect(pageSource).toContain("await projectLibraryService.list()");
+    expect(pageSource).toContain("initialProjects={initialProjects}");
+  });
+
+  it("loads the combined project library and opens entries through the active-project switch fence", () => {
+    expect(source).toContain("fetchProjectLibrary");
+    expect(source).toContain("openProjectLibraryEntry");
     expect(source).toContain("removeRecentProject");
-    expect(source).toContain("switchActiveProject(() => openRecentProject(recentId))");
-    expect(source).toContain("onRetryRecents={loadRecentProjects}");
+    expect(source).toContain("switchActiveProject(() => openProjectLibraryEntry(entryId))");
+    expect(source).toContain("useManagedProjectDeletion");
+    expect(source).toContain("loadManagedProjectAction");
+    expect(source).toContain("onRetryProjects={loadProjects}");
     expect(source).toContain("onRemoveRecent={removeRecent}");
   });
 
-  it("routes the four starter workflows into existing creation and import boundaries", () => {
-    expect(source).toContain('example.action === "create-project"');
-    expect(source).toContain('example.action === "project-import"');
-    expect(source).toContain("captureImport.open()");
-    expect(source).toContain('dispatchCreation({ type: "open", form:');
+  it("removes page-level starter examples and keeps capture import behind Import", () => {
+    expect(source).not.toContain("LauncherExampleWorkflow");
+    expect(source).not.toContain("selectExample");
+    expect(source).toContain("captureImport.open");
   });
 
-  it("keeps the existing active-session redirect and routes successful import to Project Home", () => {
-    expect(source).toContain('router.replace("/home")');
-    expect(source).toContain('router.push("/home")');
+  it("records any configured session before loading Projects and routes imports to Workspace", () => {
+    expect(source).not.toContain('router.replace("/home")');
+    expect(source).toContain("fetchActiveProject()\n    .then(() => fetchProjectLibrary())");
+    expect(source).toContain('router.push("/editor")');
     expect(source).toContain("router.refresh()");
   });
 
@@ -60,11 +70,11 @@ describe("ProjectLauncher import integration", () => {
     expect(source).not.toContain("requestedPath");
   });
 
-  it("creates through the active-project switch fence and routes success to Project Home", () => {
+  it("creates through the active-project switch fence and routes success to Workspace", () => {
     expect(source).toContain("createProject");
     expect(source).toContain("reduceProjectCreationState");
     expect(source).toContain("switchActiveProject(() => createProject");
-    expect(source).toContain('router.push(`/home?project=${encodeURIComponent(result.projectId)}`)');
+    expect(source).toContain('router.push("/editor")');
     expect(source).toContain("creationButtonRef.current?.focus()");
   });
 
@@ -77,7 +87,7 @@ describe("ProjectLauncher import integration", () => {
       'dispatchCreation({ type: "complete", projectId: result.projectId })',
     );
     expect(successBranch).toContain(
-      'router.push(`/home?project=${encodeURIComponent(result.projectId)}`)',
+      'router.push("/editor")',
     );
     expect(successBranch).toContain("launcherDialogExitDelay(reducedMotion)");
     expect(successBranch).not.toContain("router.refresh()");
@@ -92,7 +102,8 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("await fetchActiveProject()");
     expect(source).toContain("assertCaptureImportRecoveryTarget(activeProject)");
     expect(source).toContain("discardActiveProjectPersistence()");
-    expect(source).toContain('router.push(`/home?project=${encodeURIComponent(result.projectId)}`)');
-    expect(source).toContain("onOpenCapture={captureImport.open}");
+    expect(source).toContain('router.push("/editor")');
+    expect(source).toContain("afterImportExitRef.current = captureImport.open");
+    expect(source).toContain("onChooseCapture={chooseCaptureImport}");
   });
 });

@@ -202,6 +202,7 @@ describe("RecentProjectsStore", () => {
       catalog: { listActive: vi.fn(async () => []) },
       validateManaged: vi.fn(),
       validateLocal,
+      inspectLocal: validateLocal,
     });
     await store.record(localSession(1, localPath));
     const before = await readFile(join(storage.root, "recent-projects.json"), "utf8");
@@ -214,6 +215,33 @@ describe("RecentProjectsStore", () => {
     expect(recent).toMatchObject({ sourceKind: "local-file", availability: "unavailable" });
     expect(JSON.stringify(recent)).not.toContain("Secret Project");
     await expect(store.activate(recent.recentId, registry)).rejects.toThrow("Source is unavailable");
+    expect(await readFile(join(storage.root, "recent-projects.json"), "utf8")).toBe(before);
+  });
+
+  it("inspects a recent source without activating it or changing recency", async () => {
+    const storage = await config();
+    const localPath = "/Users/alex/Preview Project/app-store-screenshots.json";
+    const opened = {
+      name: "Preview Project",
+      projectId: "1".repeat(64),
+      projectPath: localPath,
+      displayLocation: localPath,
+      capabilities: localSession(1, localPath).descriptor.capabilities,
+    };
+    const validateLocal = vi.fn(async () => opened);
+    const store = new RecentProjectsStore(storage, {
+      createRecentId: () => "recent_cccccccccccccccccccccccccccccccc",
+      catalog: { listActive: vi.fn(async () => []) },
+      validateManaged: vi.fn(),
+      validateLocal,
+      inspectLocal: validateLocal,
+    });
+    await store.record(localSession(1, localPath));
+    const recent = (await store.list()).entries[0]!;
+    const before = await readFile(join(storage.root, "recent-projects.json"), "utf8");
+
+    await expect(store.inspect(recent.recentId)).resolves.toEqual(opened);
+    expect(validateLocal).toHaveBeenLastCalledWith(localPath);
     expect(await readFile(join(storage.root, "recent-projects.json"), "utf8")).toBe(before);
   });
 

@@ -94,7 +94,7 @@ export function clearWorkspaceNavigationState(projectId: string, storage?: Stora
   }
 }
 
-export async function navigateToProjectHome(dependencies: {
+export async function navigateToProjects(dependencies: {
   flushPending?: () => Promise<void>;
   saveLatest?: () => Promise<void>;
   navigate: () => void;

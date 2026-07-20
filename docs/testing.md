@@ -56,9 +56,9 @@ The full config keeps files sequential because each file owns mutable project st
 own server/browser lifecycle. Reuse a session inside one file only when isolation and fresh-page
 assertions remain explicit.
 
-Launcher 3 browser ownership is intentionally one exact file. It proves compact App Home boundaries,
-configured-local compatibility, Folder import into a managed copy, Project Home archive download,
-ZIP re-import, and Workspace landing:
+Launcher 3 browser ownership is intentionally one exact file. It proves compact Projects boundaries,
+configured-local compatibility, Folder import into a managed copy, project-details archive download,
+ZIP re-import, and direct Workspace landing:
 
 ```bash
 pnpm exec vitest run --config vitest.e2e.config.ts e2e/project-launcher.test.ts
@@ -83,7 +83,7 @@ deterministic branches in more browser files.
 
 Launcher 5 browser ownership is one exact file. It proves the visible creation library and platform
 compatibility, modal focus/keyboard/error/retry behavior, managed empty and starter creation, exact
-new-project activation, and Project Home landing:
+new-project activation, and direct Workspace landing:
 
 ```bash
 pnpm exec vitest run --config vitest.e2e.config.ts e2e/project-creation.test.ts
@@ -94,7 +94,7 @@ cleanup, atomic publication/recovery, and session reservation stay in focused co
 
 Launcher 6 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves no-write
 capture preview, explicit new-project selection, confirmation, exact receiver activation, and the
-verified Project Home handoff:
+verified direct Workspace handoff:
 
 ```bash
 pnpm exec vitest run --config vitest.e2e.config.ts e2e/capture-import.test.ts
@@ -106,7 +106,7 @@ stay in focused core/CLI/web tests.
 
 Launcher 7 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves the visible
 archive-before-delete choice, exact irreversible confirmation, keyboard focus restoration, one
-destructive request, App Home handoff, cleared session, managed-directory removal, and preservation
+destructive request, Projects handoff, cleared session, managed-directory removal, and preservation
 of the imported local source:
 
 ```bash
@@ -116,9 +116,10 @@ pnpm exec vitest run --config vitest.e2e.config.ts e2e/permanent-project-deletio
 Operation idempotency, lifecycle/version fences, save draining, containment and symlink rejection,
 failure injection, tombstone recovery, and restart reconciliation stay in focused `test:web` tests.
 
-Launcher 8 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves the dependent
-starter example → Project Home → Workspace → Project Home → Close project journey, visible recent
-reopen after Close, and the separate Remove from recents result:
+Launcher 8 browser ownership is one exact file in `test:e2e:editor:workspace`. It proves the two-state
+Projects surface, first-run action boundary, direct creation → Workspace handoff, bottom-rail return,
+real gallery preview/metadata, Project details overflow, compact-width reachability, direct card
+reopen, and serious/critical accessibility gate:
 
 ```bash
 pnpm exec vitest run --config vitest.e2e.config.ts e2e/launcher-closure.test.ts
@@ -139,7 +140,7 @@ catalog lifecycle filtering, activation-route recording, and lock ordering stay 
 | Strict shared empty/template project creation | Launcher 5 | core scaffold and creation-route tests plus `e2e/project-creation.test.ts` |
 | Capture-folder preview and explicit-target apply | Launcher 6 | core/CLI/web capture tests plus `e2e/capture-import.test.ts` |
 | Managed-only permanent deletion without Trash semantics | Launcher 7 | lifecycle/deletion tests plus `e2e/permanent-project-deletion.test.ts` |
-| Durable recents, onboarding examples, and closure terminology | Launcher 8 | recent/client/component tests plus `e2e/launcher-closure.test.ts` |
+| Two-state Projects, direct Workspace handoff, durable recents, and closure terminology | Launcher 8 | project-library/client/component tests plus `e2e/launcher-closure.test.ts` |
 
 ## Cost rules
 

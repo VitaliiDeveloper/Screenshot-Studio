@@ -47,7 +47,7 @@ afterAll(async () => {
 });
 
 describe("Permanent managed-project deletion", () => {
-  it("exports an archive, enforces confirmation, deletes once, and routes to App Home", async () => {
+  it("deletes from Projects and restores the first-run screen without a stale session", async () => {
     const sourceProjectPath = join(projectRoot, "app-store-screenshots.json");
     const sourceBefore = readFileSync(sourceProjectPath, "utf8");
     const project = JSON.parse(sourceBefore) as Project;
@@ -66,29 +66,40 @@ describe("Permanent managed-project deletion", () => {
       });
 
       await page.goto(server.url, { waitUntil: "load" });
-      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("button", { name: "Import managed copy" }).click();
-      await page.waitForURL(`${server.url}/home`);
+      await page.waitForURL(`${server.url}/editor`);
+      await page.goto(`${server.url}/home`, { waitUntil: "load" });
+      const homeDeleteTrigger = page.getByRole("button", {
+        name: "Permanently delete project",
+        exact: true,
+      });
+      await homeDeleteTrigger.click();
+      await page.getByRole("dialog", { name: "Permanently delete project" }).waitFor();
+      await page.keyboard.press("Escape");
+      expect(await page.getByRole("dialog", { name: "Permanently delete project" }).count()).toBe(0);
+      expect(await homeDeleteTrigger.evaluate((element) => element === document.activeElement)).toBe(true);
+
+      await page.goto(server.url, { waitUntil: "load" });
+      await page.getByRole("button", {
+        name: `Open ${project.meta.name} in Workspace`,
+      }).waitFor();
+      await page.getByLabel(`More actions for ${project.meta.name}`).click();
 
       const catalogPath = join(managedDataRoot, "catalog.json");
       const [{ id: managedProjectId }] = (JSON.parse(readFileSync(catalogPath, "utf8")) as {
         entries: Array<{ id: string }>;
       }).entries;
       const managedProjectDirectory = join(managedDataRoot, "projects", managedProjectId!);
-      const deleteTrigger = page.getByRole("button", {
-        name: "Permanently delete project",
+      const quickDeleteTrigger = page.getByRole("button", {
+        name: "Delete project…",
         exact: true,
       });
 
-      await deleteTrigger.click();
-      await page.getByRole("dialog", { name: "Permanently delete project" }).waitFor();
-      await page.keyboard.press("Escape");
-      expect(await page.getByRole("dialog", { name: "Permanently delete project" }).count()).toBe(0);
-      expect(await deleteTrigger.evaluate((element) => element === document.activeElement)).toBe(true);
-
-      await deleteTrigger.click();
+      await quickDeleteTrigger.click();
       const dialog = page.getByRole("dialog", { name: "Permanently delete project" });
+      await dialog.waitFor();
       const downloadPromise = page.waitForEvent("download");
       await dialog.getByRole("button", { name: "Export archive, then continue" }).click();
       const download = await downloadPromise;
@@ -109,7 +120,7 @@ describe("Permanent managed-project deletion", () => {
 
       await page.waitForURL(`${server.url}/`);
       await page.getByRole("heading", {
-        name: "Turn product moments into store-ready stories.",
+        name: "Create your first screenshot project",
       }).waitFor();
       expect(deletionRequests).toBe(1);
       expect(await page.evaluate(async () => (

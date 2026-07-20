@@ -16,6 +16,7 @@ import type { Screen } from "@screenshot-studio/core/model";
 import {
   CANVAS_PADDING,
   compactStoreSizeLabel,
+  OVERVIEW_GAP,
   storeOutputLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
@@ -423,11 +424,16 @@ export function CanvasViewport({
                 )) : isolatedOutputFamilies.map((family) => {
                   const masterRow = family.rows.find((row) => row.screens[0]?.storeTargetId === undefined);
                   const variantRows = family.rows.filter((row) => row !== masterRow);
+                  const artworkWidth = Math.max(...family.rows.map((row) =>
+                    row.screens.reduce((width, screen) => width + screen.artboard.width * zoom, 0)
+                    + OVERVIEW_GAP * Math.max(0, row.screens.length - 1)
+                  ));
                   return (
                     <OutputFamilySection
                       key={family.key}
                       label={family.label}
                       editing={family.editing}
+                      artworkWidth={artworkWidth}
                       headerMeta={masterRow ? (
                         <>
                           <span className="shrink-0 text-[9px] tracking-normal text-slate-600">

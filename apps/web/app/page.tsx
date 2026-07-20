@@ -1,16 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ProjectLauncher } from "../components/project-launcher/ProjectLauncher";
+import type { ProjectLibraryState } from "../components/project-launcher/ProjectGallery";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
+import { projectLibraryService } from "../lib/project-library.server";
 
-export default async function AppHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ switch?: string }>;
-}) {
+async function loadInitialProjects(): Promise<ProjectLibraryState> {
+  try {
+    return {
+      status: "ready",
+      entries: (await projectLibraryService.list()).entries,
+    };
+  } catch {
+    return {
+      status: "error",
+      message: "Projects could not be loaded. Retry, or reopen a local project from its source.",
+    };
+  }
+}
+
+export default async function AppHomePage() {
+  const initialProjects = await loadInitialProjects();
+
   return (
     <ProjectLauncher
-      allowSwitch={(await searchParams).switch === "1"}
       projectTemplates={listStarterProjectTemplates()}
+      initialProjects={initialProjects}
     />
   );
 }

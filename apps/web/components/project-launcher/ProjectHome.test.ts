@@ -68,7 +68,7 @@ describe("ProjectHome overview", () => {
     expect(source).toContain("ProjectDeletionDialog");
     expect(source).toContain("deleteProjectPermanently");
     expect(source).toContain("hasPendingProjectSave");
-    expect(source).toContain("advanceProjectHomeDeletion");
+    expect(source).toContain("useManagedProjectDeletion");
     expect(source).toContain('router.replace("/")');
     expect(source).toContain("discardActiveProjectPersistence");
     expect(source).not.toContain("disabled={closeBusy || archiveBusy || deletionDialog !== null}");

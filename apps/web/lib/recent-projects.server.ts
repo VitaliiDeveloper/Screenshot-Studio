@@ -64,6 +64,8 @@ interface RecentProjectsStoreDependencies {
   now?: () => Date;
   validateManaged?: (projectId: string) => Promise<Pick<OpenedProjectSource, "name">>;
   validateLocal?: (projectPath: string) => Promise<Pick<OpenedProjectSource, "name">>;
+  inspectManaged?: (projectId: string) => Promise<OpenedProjectSource>;
+  inspectLocal?: (projectPath: string) => Promise<OpenedProjectSource>;
   openFile?: (path: string, flags: number, mode?: number) => Promise<FileHandle>;
   rename?: (from: string, to: string) => Promise<void>;
 }
@@ -223,6 +225,8 @@ export class RecentProjectsStore {
   readonly #now: () => Date;
   readonly #validateManaged: NonNullable<RecentProjectsStoreDependencies["validateManaged"]>;
   readonly #validateLocal: NonNullable<RecentProjectsStoreDependencies["validateLocal"]>;
+  readonly #inspectManaged: NonNullable<RecentProjectsStoreDependencies["inspectManaged"]>;
+  readonly #inspectLocal: NonNullable<RecentProjectsStoreDependencies["inspectLocal"]>;
   readonly #openFile: NonNullable<RecentProjectsStoreDependencies["openFile"]>;
   readonly #rename: NonNullable<RecentProjectsStoreDependencies["rename"]>;
 
@@ -239,6 +243,8 @@ export class RecentProjectsStore {
     const localSource = new LocalFileProjectSourceAdapter();
     this.#validateManaged = dependencies.validateManaged ?? ((id) => managedSource.open(id));
     this.#validateLocal = dependencies.validateLocal ?? ((path) => localSource.open(path));
+    this.#inspectManaged = dependencies.inspectManaged ?? ((id) => managedSource.open(id));
+    this.#inspectLocal = dependencies.inspectLocal ?? ((path) => localSource.open(path));
     this.#openFile = dependencies.openFile ?? ((path, flags, mode) => open(path, flags, mode));
     this.#rename = dependencies.rename ?? rename;
   }
@@ -316,6 +322,21 @@ export class RecentProjectsStore {
       });
       return true;
     });
+  }
+
+  async inspect(recentId: string): Promise<OpenedProjectSource> {
+    if (!RECENT_ID_PATTERN.test(recentId)) throw new Error("Recent project does not exist");
+    const catalogEntries = await this.#catalog.listActive();
+    const document = await this.#withLock(() => this.#readOrRecover(catalogEntries));
+    const entry = document.entries.find((candidate) => candidate.recentId === recentId);
+    if (!entry) throw new Error("Recent project does not exist");
+    if (entry.sourceKind === "managed-project"
+      && !catalogEntries.some((candidate) => candidate.id === entry.sourceLocator)) {
+      throw new Error("Recent project does not exist");
+    }
+    return entry.sourceKind === "managed-project"
+      ? this.#inspectManaged(entry.sourceLocator)
+      : this.#inspectLocal(entry.sourceLocator);
   }
 
   async activate(recentId: string, registry: ProjectSessionRegistry): Promise<ProjectSession> {

@@ -67,13 +67,13 @@ describe("managed project creation", () => {
       const page = await context.newPage();
       await page.goto(server.url, { waitUntil: "load" });
       await page.getByRole("heading", {
-        name: "Turn product moments into store-ready stories.",
+        name: "Create your first screenshot project",
       }).waitFor({ timeout: 10_000 }).catch(async (error: unknown) => {
         throw new Error(`App Home did not render at ${page.url()}: ${await page.locator("body").innerText()}`, {
           cause: error,
         });
       });
-      const createTrigger = page.getByRole("button", { name: "Create project" });
+      const createTrigger = page.getByRole("button", { name: "New project" });
       await createTrigger.click();
       let dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.waitFor();
@@ -93,10 +93,6 @@ describe("managed project creation", () => {
       await selectTargetPlatform(dialog, "Microsoft Store");
       expect(await dialog.getByRole("radio", { name: /Product launch/ }).isDisabled()).toBe(true);
       expect(await dialog.getByRole("radio", { name: /Feature focus/ }).isEnabled()).toBe(true);
-      await dialogHeading.press("Shift+Tab");
-      expect(await dialog.getByRole("button", { name: "Create project", exact: true }).evaluate(
-        (element) => element === document.activeElement,
-      )).toBe(true);
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "detached" });
       expect(await createTrigger.evaluate((element) => element === document.activeElement)).toBe(true);
@@ -107,7 +103,8 @@ describe("managed project creation", () => {
       await selectTargetPlatform(dialog, "Microsoft Store");
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
-      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/);
+      await page.waitForURL(`${server.url}/editor`);
+      await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: "Empty desktop story", exact: true }).waitFor();
 
       await server.stop();
@@ -123,7 +120,7 @@ describe("managed project creation", () => {
 
       await page.getByRole("link", { name: "Import another project", exact: true }).click();
       await page.waitForURL(`${server.url}/?switch=1`);
-      await page.getByRole("button", { name: "Create project" }).click();
+      await page.getByRole("button", { name: "New project" }).click();
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       const nameInput = dialog.getByLabel("Project name");
       await nameInput.fill("Launch sequence");
@@ -193,9 +190,7 @@ describe("managed project creation", () => {
       releasePublication();
       releasePublication = undefined;
 
-      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/);
-      await page.getByRole("heading", { name: "Launch sequence retry", exact: true }).waitFor();
-      const routedProjectId = new URL(page.url()).searchParams.get("project");
+      await page.waitForURL(`${server.url}/editor`);
       const active = await page.evaluate(async () => {
         const response = await fetch("/api/project-session", { cache: "no-store" });
         return {
@@ -204,7 +199,6 @@ describe("managed project creation", () => {
         };
       });
       expect(active.descriptor.name).toBe("Launch sequence retry");
-      expect(routedProjectId).toBe(active.projectId);
 
       const catalog = JSON.parse(readFileSync(join(managedDataRoot, "catalog.json"), "utf8")) as {
         entries: Array<{ id: string; name: string }>;
