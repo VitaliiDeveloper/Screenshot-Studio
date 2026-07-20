@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * Compute the pixelRatio that scales an artboard up to an exact store target size.
- * UI and CLI both export via `Stage.toDataURL({ pixelRatio })` (docs/architecture.md §4), so
+ * UI and CLI both export via `Stage.toDataURL({ pixelRatio })` (docs/architecture.md), so
  * this is the one place the design-size → export-size scale is derived. Konva-free on purpose,
  * so it is unit-testable in Node without pulling the browser renderer.
  */

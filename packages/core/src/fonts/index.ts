@@ -4,7 +4,7 @@ import type { FontAsset } from "../model/schema.js";
 /**
  * Browser-side font registration. Runs before any render so the project font is the
  * one that actually paints — the font-load race is the concrete failure mode behind the #1
- * parity risk (docs/architecture.md §5). Callers MUST await this and `whenFontsReady()` before
+ * parity risk (docs/architecture.md). Callers MUST await this and `whenFontsReady()` before
  * screenshotting; otherwise the first frame can render with a system fallback.
  */
 

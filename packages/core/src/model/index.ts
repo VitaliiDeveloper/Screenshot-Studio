@@ -29,7 +29,7 @@ export class ProjectValidationError extends Error {
 
 /**
  * Strictly validate a raw project object into a typed `Project`.
- * The single load path for both UI and CLI — invalid input throws loudly (editor.md §7),
+ * The single load path for both UI and CLI — invalid input throws loudly (docs/editor.md),
  * never returns a partially-valid project.
  */
 export function parseProject(raw: unknown): ProjectType {

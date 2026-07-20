@@ -3,7 +3,7 @@ import { z } from "zod";
 
 /**
  * Loader + validator for store-specs.json. Store sizes are data, not hardcode
- * (docs/architecture.md §4): Apple/Google change them over time, so they live in one JSON
+ * (docs/architecture.md): Apple/Google change them over time, so they live in one JSON
  * file that both export and its dimension tests read.
  */
 

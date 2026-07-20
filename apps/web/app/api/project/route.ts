@@ -17,7 +17,7 @@ import {
 import { withActiveProjectSession } from "@web/lib/project-session.server.js";
 
 /**
- * The editor's only persistence channel (spec §5): the browser reads/writes the same on-disk
+ * The editor's only persistence channel: the browser reads/writes the same on-disk
  * app-store-screenshots.json the CLI and /render use. PUT validates with the same strict core model,
  * then compares and writes inside the shared mutation coordinator so stale editor state cannot win.
  * Dev-only, local, self-hosted; arbitrary local file read is acceptable here (same as /render).

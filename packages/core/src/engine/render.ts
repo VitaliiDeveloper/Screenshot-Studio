@@ -8,7 +8,7 @@ import { projectScreenGroup } from "../model/connected-canvas.js";
 import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
 
 /**
- * The single rendering path (docs/architecture.md §2). Both the web /render route and the CLI
+ * The single rendering path (docs/architecture.md). Both the web /render route and the CLI
  * export (via a headless browser) call this exact code, so UI and CLI share one renderer — never
  * add a second. Runs in a browser: Konva draws onto a real `<canvas>`.
  *

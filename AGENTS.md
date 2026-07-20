@@ -18,13 +18,32 @@ Before any task, read and apply the repository-wide workflow rules in
 
 ## Sources of truth
 
-- `docs/architecture.md` — technical contract and the final authority when summaries disagree.
-- `docs/editor.md` — current editor behavior and deliberate UI boundaries.
+- `docs/architecture.md` — durable technical contracts for data, rendering, persistence, and tools.
+- `docs/editor.md` — UI/UX semantics, shared components/tokens, and accessible interaction patterns.
 - `docs/testing.md` — test ownership, cost rules, and CI policy.
 - `README.md` — user-facing setup, usage, and current capabilities.
 - `packages/cli/src/project-agent-guide.md` — canonical guide generated into screenshot projects for
   copy, literal layout, locale translation, and local asset processing.
 - `docs/releasing.md` — candidate verification and the publication boundary.
+
+## Task-based reading
+
+Read only the smallest relevant set:
+
+| Task | Read first |
+|---|---|
+| Schema, renderer, export, or CLI behavior | `docs/architecture.md` and the relevant source/tests |
+| Editor/UI behavior | `docs/editor.md` |
+| Test selection or CI behavior | `docs/testing.md` |
+| Project source, active session, catalog, or request fencing | `docs/architecture.md` and the relevant web source/tests |
+| Project locking or concurrent writes | `docs/project-mutation-locking.md` |
+| Asset/output publication safety | `docs/safe-file-publication.md` |
+| Package or release work | `docs/releasing.md` |
+| User-facing setup or documentation | `README.md` |
+| Generated screenshot project | that project's `AGENTS.md` |
+
+Do not load `docs/superpowers/`, `packages/cli/package/`, or font-license texts unless the task is
+specifically about execution-plan history, package/legal audit, or font licensing.
 
 ## Repository map
 

@@ -17,13 +17,13 @@ declare global {
 }
 
 /**
- * The one bridge from Node to the browser renderer (docs/architecture.md §2, decision A).
+ * The one bridge from Node to the browser renderer (docs/architecture.md).
  * Drives a headless (or headed) Chromium to the served `/render` route — the exact same page
  * the future UI export button renders — waits for the readiness gate, then reads the stage via
  * `Stage.toDataURL`. This is why UI and CLI share one rendering path: the CLI never rasterizes
  * anything itself, it screenshots the web renderer.
  *
- * `toDataURL` (not `page.screenshot`) is used deliberately (spec §6): it captures the canvas
+ * `toDataURL` (not `page.screenshot`) is used deliberately: it captures the canvas
  * bitmap at an exact `pixelRatio`, so the only variable between the headed and headless parity
  * renders is the browser environment — which is precisely what the spike measures.
  */

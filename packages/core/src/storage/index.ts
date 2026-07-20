@@ -32,7 +32,7 @@ export {
 } from "./project-path.js";
 
 /**
- * Storage boundary (docs/architecture.md §2). `core` depends on this interface, not a concrete
+ * Storage boundary (docs/architecture.md). `core` depends on this interface, not a concrete
  * store, so the community can add browser FS / IndexedDB adapters without touching the engine.
  */
 export interface StorageAdapter {
