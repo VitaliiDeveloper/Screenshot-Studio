@@ -173,7 +173,7 @@ export function ProjectImportDialog({
               {state.kind === "folder" ? "Folder selected" : state.kind === "archive" ? "Project ZIP selected" : "Standalone JSON selected"}
             </p>
             <p className="mt-2 text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">
-              {state.kind === "folder" ? "Your original folder stays unchanged." : "Your original file stays unchanged."} Screenshot Studio will validate the selection, copy it into managed storage on this host, and open the managed project on Project Home.
+              {state.kind === "folder" ? "Your original folder stays unchanged." : "Your original file stays unchanged."} Screenshot Studio will validate the selection, copy it into managed storage on this host, and open the managed project in Workspace.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button type="button" className={editorUi.buttonPrimary} onClick={onConfirm}>Import managed copy</button>

@@ -50,7 +50,7 @@ afterAll(async () => {
 });
 
 describe("Launcher 6 capture import", () => {
-  it("previews an explicit new-project receiver, confirms once, and opens that Project Home", async () => {
+  it("previews an explicit new-project receiver, confirms once, and opens Workspace", async () => {
     const server = await startWebServer(undefined, {
       storeSpecsPath: resolve(repoRoot, "store-specs.json"),
     });
@@ -58,7 +58,8 @@ describe("Launcher 6 capture import", () => {
     try {
       const page = await context.newPage();
       await page.goto(server.url, { waitUntil: "load" });
-      await page.getByRole("button", { name: "Capture import" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
+      await page.getByRole("button", { name: /^Capture folder/u }).click();
       const dialog = page.getByRole("dialog", { name: "Capture import" });
       await dialog.locator('input[type="file"][webkitdirectory]').setInputFiles(captureRoot);
 
@@ -66,7 +67,7 @@ describe("Launcher 6 capture import", () => {
         .toBe(true);
       await dialog.getByRole("radio", { name: /New managed project/ }).check();
       await dialog.getByLabel("Project name").fill("Captured launch");
-      expect(existsSync(managedDataRoot)).toBe(false);
+      expect(existsSync(join(managedDataRoot, "projects"))).toBe(false);
 
       await dialog.getByRole("button", { name: "Preview capture import" }).click();
       await page.getByRole("dialog", { name: "Review capture import" }).waitFor();
@@ -79,7 +80,7 @@ describe("Launcher 6 capture import", () => {
       expect(await page.getByText("en (1)", { exact: true }).count()).toBe(1);
       expect(await page.locator('section[aria-labelledby="planned-screens"]')
         .getByText("screenshots/apple/iphone/en/01.png", { exact: true }).count()).toBe(1);
-      expect(existsSync(managedDataRoot)).toBe(false);
+      expect(existsSync(join(managedDataRoot, "projects"))).toBe(false);
       expect(await page.evaluate(async () => (
         await fetch("/api/project-session", { cache: "no-store" })
       ).status)).toBe(204);
@@ -92,9 +93,8 @@ describe("Launcher 6 capture import", () => {
       const applyResponse = await applyResponsePending;
       expect(applyResponse.status(), await applyResponse.text()).toBe(201);
       const appliedProjectId = await applyResponse.headerValue("x-project-id");
-      await expect.poll(() => page.url(), { timeout: 30_000 })
-        .toMatch(/\/home\?project=project_[0-9a-f]{32}$/u);
-      await page.getByRole("heading", { name: "Captured launch", exact: true }).waitFor();
+      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForSelector("canvas");
 
       const catalog = JSON.parse(readFileSync(join(managedDataRoot, "catalog.json"), "utf8")) as {
         entries: Array<{ id: string; name: string }>;
@@ -103,7 +103,10 @@ describe("Launcher 6 capture import", () => {
       expect(catalog.entries[0]).toMatchObject({ name: "Captured launch" });
       const receiverId = catalog.entries[0]!.id;
       expect(appliedProjectId).toBe(receiverId);
-      expect(new URL(page.url()).searchParams.get("project")).toBe(receiverId);
+      expect(await page.evaluate(async () => {
+        const response = await fetch("/api/project-session", { cache: "no-store" });
+        return response.headers.get("x-project-id");
+      })).toBe(receiverId);
       const project = JSON.parse(readFileSync(join(
         managedDataRoot,
         "projects",

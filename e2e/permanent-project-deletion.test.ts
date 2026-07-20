@@ -66,10 +66,11 @@ describe("Permanent managed-project deletion", () => {
       });
 
       await page.goto(server.url, { waitUntil: "load" });
-      await page.getByRole("button", { name: "Import project" }).click();
+      await page.getByRole("button", { name: "Import", exact: true }).click();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("button", { name: "Import managed copy" }).click();
-      await page.waitForURL(`${server.url}/home`);
+      await page.waitForURL(`${server.url}/editor`);
+      await page.goto(`${server.url}/home`, { waitUntil: "load" });
 
       const catalogPath = join(managedDataRoot, "catalog.json");
       const [{ id: managedProjectId }] = (JSON.parse(readFileSync(catalogPath, "utf8")) as {
@@ -109,7 +110,7 @@ describe("Permanent managed-project deletion", () => {
 
       await page.waitForURL(`${server.url}/`);
       await page.getByRole("heading", {
-        name: "Turn product moments into store-ready stories.",
+        name: "Create your first screenshot project",
       }).waitFor();
       expect(deletionRequests).toBe(1);
       expect(await page.evaluate(async () => (

@@ -85,7 +85,7 @@ export function ProjectGallery({
                     <span aria-hidden="true">·</span>
                     <span>{plural(entry.layoutCount, "layout")}</span>
                   </span>
-                  <time className="mt-3 block text-xs text-slate-400" dateTime={entry.lastOpenedAt}>Updated {entry.lastOpenedAt.slice(0, 10)}</time>
+                  <time className="mt-3 block text-xs text-slate-500" dateTime={entry.lastOpenedAt}>Updated {entry.lastOpenedAt.slice(0, 10)}</time>
                   {unavailable ? <span className="mt-3 block rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950"><strong>Source unavailable.</strong> Reopen or import the source to continue.</span> : null}
                   {pending && action.kind !== "removing" ? <span role="status" className="mt-3 flex items-center gap-2 text-xs font-medium text-blue-700"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> Opening…</span> : null}
                 </span>

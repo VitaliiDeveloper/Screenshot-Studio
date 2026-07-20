@@ -93,14 +93,17 @@ export function ProjectLauncher({ projectTemplates }: {
     onRecoverStale: recoverCaptureTarget,
   });
 
-  const settleProjects = useCallback(() => fetchProjectLibrary().then((result) => {
-    if (mountedRef.current) setProjects({ status: "ready", entries: result.entries });
-  }).catch((caught: unknown) => {
-    if (mountedRef.current) setProjects({
-      status: "error",
-      message: caught instanceof Error ? caught.message : String(caught),
-    });
-  }), []);
+  const settleProjects = useCallback(() => fetchActiveProject()
+    .then(() => fetchProjectLibrary())
+    .then((result) => {
+      if (!mountedRef.current) return;
+      setProjects({ status: "ready", entries: result.entries });
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setProjects({
+        status: "error",
+        message: caught instanceof Error ? caught.message : String(caught),
+      });
+    }), []);
   const loadProjects = useCallback(() => {
     setProjects({ status: "loading" });
     setProjectActionError(null);

@@ -61,6 +61,19 @@ Layouts, output families, locales, and connected composition may change how cont
 the interface must preserve scope: an action explains which layout, locale, output, screen, or element
 it affects and must not silently mutate a sibling scope.
 
+### Projects and Workspace navigation
+
+`/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows
+one compact first-run message with exactly `New project` and `Import`. Once projects exist, the same
+route shows a preview-led gallery. A project card opens its source-safe active session directly in
+Workspace; secondary lifecycle and archive actions remain under `Project details`.
+
+New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
+exact receiver before navigating directly to `/editor`. Capture folder is a choice inside `Import`,
+not a third top-level first-run action. The editor tool rail exists only in Workspace. Its bottom
+`Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
+`/`; save failure blocks that navigation and leaves the current Workspace mounted.
+
 ## 4. Responsive and accessible behavior
 
 The workbench prioritizes the canvas while keeping controls reachable. At narrow widths, secondary

@@ -20,8 +20,9 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("captureImport.open");
   });
 
-  it("keeps Projects visible with an active session and routes successful import to Workspace", () => {
+  it("records any configured session before loading Projects and routes imports to Workspace", () => {
     expect(source).not.toContain('router.replace("/home")');
+    expect(source).toContain("fetchActiveProject()\n    .then(() => fetchProjectLibrary())");
     expect(source).toContain('router.push("/editor")');
     expect(source).toContain("router.refresh()");
   });
