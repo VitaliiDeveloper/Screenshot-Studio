@@ -66,7 +66,9 @@ it affects and must not silently mutate a sibling scope.
 `/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows
 one compact first-run message with exactly `New project` and `Import`. Once projects exist, the same
 route shows a preview-led gallery. A project card opens its source-safe active session directly in
-Workspace; secondary lifecycle and archive actions remain under `Project details`.
+Workspace. Its overflow menu keeps managed archive and permanent deletion behind the existing
+archive-first confirmation flow; local cards can only remove recent-history entries. Slow opens show
+a delayed, card-bounded `Opening workspace…` status without shifting card content.
 
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
 exact receiver before navigating directly to `/editor`. Capture folder is a choice inside `Import`,

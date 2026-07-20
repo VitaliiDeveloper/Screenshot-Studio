@@ -26,6 +26,8 @@ export interface AppHomeShellProps {
   projects: ProjectLibraryState;
   projectAction: ProjectLibraryAction | null;
   projectActionError: string | null;
+  visibleOpeningEntryId: string | null;
+  deletionDialog?: ReactNode;
   importButtonRef?: Ref<HTMLButtonElement>;
   creationButtonRef?: Ref<HTMLButtonElement>;
   captureDialog?: ReactNode;
@@ -43,6 +45,8 @@ export interface AppHomeShellProps {
   onRetryProjects(): void;
   onOpenProject(entryId: string): void;
   onOpenProjectDetails(entryId: string): void;
+  onExportArchive(entryId: string): void;
+  onDeleteProject(entryId: string): void;
   onRemoveRecent(entryId: string): void;
 }
 
@@ -54,6 +58,8 @@ export function AppHomeShell({
   projects,
   projectAction,
   projectActionError,
+  visibleOpeningEntryId,
+  deletionDialog,
   importButtonRef,
   creationButtonRef,
   captureDialog,
@@ -71,6 +77,8 @@ export function AppHomeShell({
   onRetryProjects,
   onOpenProject,
   onOpenProjectDetails,
+  onExportArchive,
+  onDeleteProject,
   onRemoveRecent,
 }: AppHomeShellProps) {
   const dialogState = state.status === "idle" || state.status === "cancelled" ? null : state;
@@ -98,12 +106,13 @@ export function AppHomeShell({
         {projects.status === "loading" ? <div role="status" className="flex min-h-[28rem] items-center justify-center gap-2 text-sm text-slate-500"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> Loading projects…</div> : null}
         {projects.status === "error" ? <div role="alert" className="mx-auto mt-20 max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center"><p className="font-semibold text-slate-950">Projects could not be loaded.</p><p className="mt-2 text-sm text-red-700">{projects.message}</p><button type="button" className={`mt-5 ${editorUi.buttonSecondary}`} onClick={onRetryProjects}><RotateCcw aria-hidden="true" className="size-4" /> Retry</button></div> : null}
         {firstRun ? <section aria-labelledby="first-project-title" className="mx-auto flex min-h-[34rem] max-w-2xl flex-col items-center justify-center text-center"><span className="grid size-14 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Layers3 aria-hidden="true" className="size-7" /></span><h2 id="first-project-title" className="mt-6 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Create your first screenshot project</h2><p className="mt-4 max-w-xl text-base leading-7 text-slate-600">Start with a guided project or import an existing Screenshot Studio project into a safe managed copy.</p><p className="mt-6 text-sm text-slate-500">Use New project or Import above to get started.</p></section> : null}
-        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} action={projectAction} actionError={projectActionError} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onRemoveRecent={onRemoveRecent} /> : null}
+        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} action={projectAction} actionError={projectActionError} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
       </div>
 
       {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
       {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} onChooseCapture={onChooseCapture} /> : null}
       {captureDialog}
+      {deletionDialog}
     </main>
   );
 }

@@ -4,7 +4,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import {
   AlertTriangle,
@@ -35,16 +35,10 @@ import {
   downloadProjectArchive,
   requestProjectArchive,
 } from "../../lib/project-archive-client";
-import {
-  advanceProjectHomeDeletion,
-  type ProjectDeletionAttemptHolder,
-} from "../../lib/project-deletion-controller";
 import { editorUi } from "../editor-ui/styles";
 import { CaptureImportDialog } from "./CaptureImportDialog";
-import {
-  ProjectDeletionDialog,
-  type ProjectDeletionDialogState,
-} from "./ProjectDeletionDialog";
+import { ProjectDeletionDialog } from "./ProjectDeletionDialog";
+import { useManagedProjectDeletion } from "./useManagedProjectDeletion";
 import {
   assertCaptureImportHandoff,
   assertCaptureImportRecoveryTarget,
@@ -96,13 +90,14 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
-  const [deletionDialog, setDeletionDialog] = useState<ProjectDeletionDialogState | null>(null);
-  const [deletionConfirmation, setDeletionConfirmation] = useState("");
-  const [deletionAcknowledged, setDeletionAcknowledged] = useState(false);
   const [deletionGateError, setDeletionGateError] = useState<string | null>(null);
-  const deletionControllerRef = useRef<ProjectDeletionAttemptHolder>({
-    attempt: null,
-    inFlight: null,
+  const deletion = useManagedProjectDeletion({
+    onDeleted: (projectId) => {
+      discardActiveProjectPersistence();
+      clearWorkspaceNavigationState(projectId);
+      router.replace("/");
+      router.refresh();
+    },
   });
   const saveError = useStore(editorStore, (state) => state.saveError);
   const currentCaptureTarget = useMemo(() => {
@@ -217,14 +212,6 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
     }
   };
 
-  const closeDeletionDialog = () => {
-    if (deletionDialog?.status === "exporting" || deletionDialog?.status === "deleting") return;
-    deletionControllerRef.current.attempt = null;
-    setDeletionConfirmation("");
-    setDeletionAcknowledged(false);
-    setDeletionDialog(null);
-  };
-
   const openPermanentDeletion = () => {
     if (!data || closeBusy || archiveBusy
       || !data.selection.capabilities.deleteProjectPermanently) return;
@@ -238,92 +225,7 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
       return;
     }
     setDeletionGateError(null);
-    deletionControllerRef.current.attempt = null;
-    setDeletionConfirmation("");
-    setDeletionAcknowledged(false);
-    setDeletionDialog({ status: "choosing-backup" });
-  };
-
-  const exportArchiveBeforeDeletion = async () => {
-    if (!data || deletionDialog?.status === "deleting") return;
-    setDeletionDialog({ status: "exporting" });
-    try {
-      const ticket = await requestProjectArchive(
-        data.selection.projectId,
-        data.resources.revision,
-      );
-      downloadProjectArchive(ticket);
-      setDeletionDialog({
-        status: "confirming",
-        backup: { kind: "archive", projectRevision: ticket.projectRevision },
-      });
-    } catch (caught) {
-      setDeletionDialog({
-        status: "archive-error",
-        error: caught instanceof Error ? caught.message : String(caught),
-      });
-    }
-  };
-
-  const continueDeletionWithoutArchive = () => {
-    deletionControllerRef.current.attempt = null;
-    setDeletionDialog({
-      status: "confirming",
-      backup: { kind: "none", acknowledged: true },
-    });
-  };
-
-  const finishDeletion = (projectId: string) => {
-    discardActiveProjectPersistence();
-    clearWorkspaceNavigationState(projectId);
-    router.replace("/");
-    router.refresh();
-  };
-
-  const runPermanentDeletion = async (recovering: boolean) => {
-    if (!data || !deletionDialog
-      || deletionDialog.status === "exporting" || deletionDialog.status === "deleting"
-      || deletionControllerRef.current.inFlight) return;
-    const backup = deletionDialog.status === "confirming"
-      ? deletionDialog.backup
-      : deletionControllerRef.current.attempt?.request.backup;
-    if (!backup) {
-      setDeletionDialog({ status: "deletion-error", error: "Reload Project Home before trying again." });
-      return;
-    }
-    if (scopedSaveError || hasPendingProjectSave()) {
-      setDeletionDialog({
-        status: "deletion-error",
-        error: "Pending Workspace changes must save successfully before permanent deletion.",
-      });
-      return;
-    }
-    if (!deletionControllerRef.current.attempt
-      && (deletionConfirmation !== data.resources.project.meta.name || !deletionAcknowledged)) {
-      setDeletionDialog({ status: "deletion-error", error: "Complete the exact permanent deletion confirmation before continuing." });
-      return;
-    }
-    setDeletionDialog({ status: "deleting" });
-    try {
-      const result = await advanceProjectHomeDeletion({
-        current: data,
-        backup,
-        recovering,
-        holder: deletionControllerRef.current,
-      });
-      const projectId = deletionControllerRef.current.attempt?.request.projectId
-        ?? data.selection.projectId;
-      if (result.kind === "unknown-after-admission") {
-        finishDeletion(projectId);
-        return;
-      }
-      finishDeletion(projectId);
-    } catch (caught) {
-      setDeletionDialog({
-        status: "deletion-error",
-        error: caught instanceof Error ? caught.message : String(caught),
-      });
-    }
+    deletion.open(data);
   };
 
   if (error) {
@@ -462,19 +364,19 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
           onRecoverStale={captureImport.recoverStale}
         />
       )}
-      {deletionDialog ? (
+      {deletion.dialog && deletion.projectName ? (
         <ProjectDeletionDialog
-          projectName={data.resources.project.meta.name}
-          state={deletionDialog}
-          confirmation={deletionConfirmation}
-          acknowledged={deletionAcknowledged}
-          onConfirmationChange={setDeletionConfirmation}
-          onAcknowledgedChange={setDeletionAcknowledged}
-          onExportArchive={() => { void exportArchiveBeforeDeletion(); }}
-          onContinueWithoutArchive={continueDeletionWithoutArchive}
-          onConfirmDelete={() => { void runPermanentDeletion(false); }}
-          onRetryDeletion={() => { void runPermanentDeletion(true); }}
-          onClose={closeDeletionDialog}
+          projectName={deletion.projectName}
+          state={deletion.dialog}
+          confirmation={deletion.confirmation}
+          acknowledged={deletion.acknowledged}
+          onConfirmationChange={deletion.setConfirmation}
+          onAcknowledgedChange={deletion.setAcknowledged}
+          onExportArchive={() => { void deletion.exportArchive(); }}
+          onContinueWithoutArchive={deletion.continueWithoutArchive}
+          onConfirmDelete={() => { void deletion.confirm(); }}
+          onRetryDeletion={() => { void deletion.retry(); }}
+          onClose={deletion.close}
         />
       ) : null}
     </main>

@@ -10,6 +10,8 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("openProjectLibraryEntry");
     expect(source).toContain("removeRecentProject");
     expect(source).toContain("switchActiveProject(() => openProjectLibraryEntry(entryId))");
+    expect(source).toContain("useManagedProjectDeletion");
+    expect(source).toContain("loadManagedProjectAction");
     expect(source).toContain("onRetryProjects={loadProjects}");
     expect(source).toContain("onRemoveRecent={removeRecent}");
   });

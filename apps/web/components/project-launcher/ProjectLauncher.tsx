@@ -8,6 +8,9 @@ import {
   discardActiveProjectPersistence,
   switchActiveProject,
 } from "../../lib/debounced-save";
+import { clearWorkspaceNavigationState } from "../../lib/editor-workspace-navigation";
+import { loadProjectHomeData } from "../../lib/project-home-client";
+import { downloadProjectArchive, requestProjectArchive } from "../../lib/project-archive-client";
 import { fetchActiveProject } from "../../lib/project-session";
 import {
   importProject,
@@ -44,6 +47,9 @@ import type {
   ProjectLibraryAction,
   ProjectLibraryState,
 } from "./ProjectGallery";
+import { ProjectDeletionDialog } from "./ProjectDeletionDialog";
+import { DelayedOpeningState } from "./delayed-opening-state";
+import { useManagedProjectDeletion } from "./useManagedProjectDeletion";
 
 export function ProjectLauncher({ projectTemplates }: {
   projectTemplates: readonly ProjectTemplateSummary[];
@@ -58,6 +64,7 @@ export function ProjectLauncher({ projectTemplates }: {
   const [projects, setProjects] = useState<ProjectLibraryState>({ status: "loading" });
   const [projectAction, setProjectAction] = useState<ProjectLibraryAction | null>(null);
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
+  const [visibleOpeningEntryId, setVisibleOpeningEntryId] = useState<string | null>(null);
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
@@ -68,6 +75,19 @@ export function ProjectLauncher({ projectTemplates }: {
   const creationExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const publishingRef = useRef(false);
+  const openingStateRef = useRef<DelayedOpeningState | null>(null);
+  if (!openingStateRef.current) openingStateRef.current = new DelayedOpeningState(setVisibleOpeningEntryId);
+  const deletion = useManagedProjectDeletion({
+    onDeleted: (projectId) => {
+      discardActiveProjectPersistence();
+      clearWorkspaceNavigationState(projectId);
+      setProjects((current) => current.status === "ready"
+        ? { status: "ready", entries: current.entries.filter((entry) => entry.entryId !== projectId) }
+        : current);
+      router.replace("/");
+      router.refresh();
+    },
+  });
   const completeCaptureImport = useCallback(async (
     result: Parameters<typeof assertCaptureImportHandoff>[0],
     _destinationKind: "current-project" | "new-project",
@@ -120,6 +140,7 @@ export function ProjectLauncher({ projectTemplates }: {
       mountedRef.current = false;
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       if (creationExitTimerRef.current) clearTimeout(creationExitTimerRef.current);
+      openingStateRef.current?.clear();
       importControllerRef.current?.abort();
     };
   }, []);
@@ -247,6 +268,7 @@ export function ProjectLauncher({ projectTemplates }: {
   const openProject = (entryId: string, destination: "workspace" | "details") => {
     if (projectAction) return;
     setProjectAction({ entryId, kind: destination === "workspace" ? "opening" : "details" });
+    if (destination === "workspace") openingStateRef.current?.start(entryId);
     setProjectActionError(null);
     void switchActiveProject(() => openProjectLibraryEntry(entryId)).then((result) => {
       if (!mountedRef.current) return;
@@ -257,6 +279,31 @@ export function ProjectLauncher({ projectTemplates }: {
       if (mountedRef.current) setProjectActionError(
         caught instanceof Error ? caught.message : String(caught),
       );
+    }).finally(() => {
+      openingStateRef.current?.clear();
+      if (mountedRef.current) setProjectAction(null);
+    });
+  };
+  const loadManagedProjectAction = async (entryId: string) => {
+    const opened = await switchActiveProject(() => openProjectLibraryEntry(entryId));
+    const loaded = await loadProjectHomeData();
+    if (!loaded || loaded.selection.projectId !== opened.projectId) {
+      throw new Error("The active project changed before the requested action could start.");
+    }
+    return loaded;
+  };
+  const runManagedProjectAction = (entryId: string, kind: "archive" | "deleting") => {
+    if (projectAction) return;
+    setProjectAction({ entryId, kind });
+    setProjectActionError(null);
+    void loadManagedProjectAction(entryId).then(async (loaded) => {
+      if (kind === "archive") {
+        downloadProjectArchive(await requestProjectArchive(loaded.selection.projectId, loaded.resources.revision));
+      } else {
+        deletion.open(loaded);
+      }
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setProjectActionError(caught instanceof Error ? caught.message : String(caught));
     }).finally(() => {
       if (mountedRef.current) setProjectAction(null);
     });
@@ -288,6 +335,8 @@ export function ProjectLauncher({ projectTemplates }: {
       projects={projects}
       projectAction={projectAction}
       projectActionError={projectActionError}
+      visibleOpeningEntryId={visibleOpeningEntryId}
+      deletionDialog={deletion.dialog && deletion.projectName ? <ProjectDeletionDialog projectName={deletion.projectName} state={deletion.dialog} confirmation={deletion.confirmation} acknowledged={deletion.acknowledged} onConfirmationChange={deletion.setConfirmation} onAcknowledgedChange={deletion.setAcknowledged} onExportArchive={() => { void deletion.exportArchive(); }} onContinueWithoutArchive={deletion.continueWithoutArchive} onConfirmDelete={() => { void deletion.confirm(); }} onRetryDeletion={() => { void deletion.retry(); }} onClose={deletion.close} /> : null}
       importButtonRef={importButtonRef}
       creationButtonRef={creationButtonRef}
       captureDialog={captureImport.state.status === "closed" ? null : (
@@ -322,6 +371,8 @@ export function ProjectLauncher({ projectTemplates }: {
       onRetryProjects={loadProjects}
       onOpenProject={(entryId) => openProject(entryId, "workspace")}
       onOpenProjectDetails={(entryId) => openProject(entryId, "details")}
+      onExportArchive={(entryId) => runManagedProjectAction(entryId, "archive")}
+      onDeleteProject={(entryId) => runManagedProjectAction(entryId, "deleting")}
       onRemoveRecent={removeRecent}
     />
   );
