@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   clearWorkspaceNavigationState,
-  navigateToProjectHome,
+  navigateToProjects,
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
   type WorkspaceNavigationState,
@@ -56,10 +56,10 @@ describe("workspace navigation state", () => {
   });
 });
 
-describe("navigateToProjectHome", () => {
+describe("navigateToProjects", () => {
   it("drains the pending edit and latest snapshot before navigation", async () => {
     const events: string[] = [];
-    await navigateToProjectHome({
+    await navigateToProjects({
       flushPending: vi.fn(async () => { events.push("flush"); }),
       saveLatest: vi.fn(async () => { events.push("save-latest"); }),
       navigate: vi.fn(() => { events.push("navigate"); }),
@@ -69,7 +69,7 @@ describe("navigateToProjectHome", () => {
 
   it("does not navigate when the final save fails", async () => {
     const navigate = vi.fn();
-    await expect(navigateToProjectHome({
+    await expect(navigateToProjects({
       flushPending: vi.fn(async () => undefined),
       saveLatest: vi.fn(async () => { throw new Error("disk unavailable"); }),
       navigate,

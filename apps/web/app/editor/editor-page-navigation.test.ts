@@ -15,11 +15,13 @@ describe("Workspace round-trip navigation", () => {
     expect(source).toContain("writeWorkspaceNavigationState(activeProjectId, workspaceNavigationState)");
   });
 
-  it("blocks Project Home navigation on a save failure and exposes an alert", () => {
-    expect(source).toContain("navigateToProjectHome");
+  it("opens Projects from the bottom rail and blocks navigation on a save failure", () => {
+    expect(source).toContain("navigateToProjects");
     expect(source).toContain("setNavigationError");
     expect(source).toContain('role="alert"');
-    expect(source).toContain("onOpenProjectHome");
+    expect(source).toContain("onOpenProjects={openProjects}");
+    expect(source).toContain('router.push("/")');
+    expect(source).not.toContain("nextjs-portal");
   });
 
   it("keeps a beforeunload safeguard while writes are pending or failed", () => {

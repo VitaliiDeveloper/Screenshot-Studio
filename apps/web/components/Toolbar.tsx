@@ -5,10 +5,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   Download,
-  House,
   LayoutGrid,
   Languages,
-  LoaderCircle,
   PanelsTopLeft,
   PanelRight,
   Redo2,
@@ -107,8 +105,6 @@ export function Toolbar({
   onViewChange,
   onToggleInspector,
   onOpenLocales,
-  onOpenProjectHome,
-  projectHomeBusy,
   exportRequestKey = 0,
 }: {
   view: WorkspaceView;
@@ -116,8 +112,6 @@ export function Toolbar({
   onViewChange: (view: WorkspaceView) => void;
   onToggleInspector: () => void;
   onOpenLocales: () => void;
-  onOpenProjectHome: () => void;
-  projectHomeBusy: boolean;
   exportRequestKey?: number;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -345,16 +339,6 @@ export function Toolbar({
     >
       <div className="flex w-full min-w-0 items-center justify-self-start">
         <div ref={leftRef} data-toolbar-left-content className="flex min-w-0 items-center gap-2.5">
-          <button
-            type="button"
-            aria-label="Project Home"
-            title="Project Home"
-            disabled={projectHomeBusy}
-            className={editorUi.iconButton}
-            onClick={onOpenProjectHome}
-          >
-            {projectHomeBusy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <House aria-hidden="true" size={16} strokeWidth={1.9} />}
-          </button>
           <span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20 sm:inline-flex">
             <PanelsTopLeft size={16} strokeWidth={1.9} />
           </span>

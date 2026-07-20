@@ -4,7 +4,9 @@
 import {
   Boxes,
   Hand,
+  House,
   Layers3,
+  LoaderCircle,
   MousePointer2,
 } from "lucide-react";
 import type { WorkspacePanel, WorkspaceTool } from "../lib/editor-workspace";
@@ -15,11 +17,15 @@ export function ToolRail({
   panel,
   onToolChange,
   onPanelToggle,
+  onOpenProjects,
+  projectsBusy,
 }: {
   tool: WorkspaceTool;
   panel: WorkspacePanel | null;
   onToolChange: (tool: WorkspaceTool) => void;
   onPanelToggle: (panel: WorkspacePanel) => void;
+  onOpenProjects: () => void;
+  projectsBusy: boolean;
 }) {
   return (
     <nav
@@ -61,6 +67,19 @@ export function ToolRail({
       >
         <Boxes size={18} strokeWidth={1.9} />
       </ToolButton>
+
+      <button
+        type="button"
+        aria-label="Projects"
+        title="Projects"
+        disabled={projectsBusy}
+        onClick={onOpenProjects}
+        className="mt-auto grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60"
+      >
+        {projectsBusy
+          ? <LoaderCircle aria-hidden="true" className="size-[18px] animate-spin motion-reduce:animate-none" />
+          : <House aria-hidden="true" size={18} strokeWidth={1.9} />}
+      </button>
 
     </nav>
   );

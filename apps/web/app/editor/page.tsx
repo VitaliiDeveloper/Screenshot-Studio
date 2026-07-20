@@ -29,7 +29,7 @@ import {
   hasPendingProjectSave,
 } from "../../lib/debounced-save";
 import {
-  navigateToProjectHome,
+  navigateToProjects,
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
 } from "../../lib/editor-workspace-navigation";
@@ -43,7 +43,6 @@ const DynamicCanvasViewport = dynamic(
 );
 
 const SIDE_PANEL_WIDTH = 288;
-const NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID = "screenshot-studio-next-devtools-alignment";
 
 export default function EditorPage() {
   const router = useRouter();
@@ -86,38 +85,6 @@ export default function EditorPage() {
   const setPanel = useCallback((next: WorkspacePanel | null) => {
     setPanelState(next);
     if (next) setLastPanel(next);
-  }, []);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
-
-    let injectedStyle: HTMLStyleElement | null = null;
-    const alignIndicator = () => {
-      if (injectedStyle?.isConnected) return;
-      const root = document.querySelector("nextjs-portal")?.shadowRoot;
-      if (!root) return;
-
-      const existing = root.querySelector<HTMLStyleElement>(`#${NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID}`);
-      if (existing) {
-        injectedStyle = existing;
-        return;
-      }
-
-      const style = document.createElement("style");
-      style.id = NEXT_DEVTOOLS_ALIGNMENT_STYLE_ID;
-      // Next renders a 36px dev indicator in a ShadowRoot. Center it in the 56px editor tool rail.
-      style.textContent = "#devtools-indicator { left: 10px !important; }";
-      root.append(style);
-      injectedStyle = style;
-    };
-
-    alignIndicator();
-    const observer = new MutationObserver(alignIndicator);
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-    return () => {
-      observer.disconnect();
-      injectedStyle?.remove();
-    };
   }, []);
 
   useEffect(() => {
@@ -202,14 +169,14 @@ export default function EditorPage() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [saveStatus]);
 
-  const openProjectHome = useCallback(() => {
+  const openProjects = useCallback(() => {
     if (navigationBusy) return;
     if (activeProjectId) {
       writeWorkspaceNavigationState(activeProjectId, workspaceNavigationState);
     }
     setNavigationBusy(true);
     setNavigationError(null);
-    void navigateToProjectHome({ navigate: () => router.push("/home") })
+    void navigateToProjects({ navigate: () => router.push("/") })
       .catch((caught: unknown) => {
         setNavigationError(caught instanceof Error ? caught.message : String(caught));
         setNavigationBusy(false);
@@ -243,7 +210,7 @@ export default function EditorPage() {
             {reloading ? "Retrying workspace resources…" : "Retry workspace resources"}
           </button>
           <Link
-            href="/?switch=1"
+            href="/"
             className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-red-700 underline hover:bg-red-50"
           >
             Return to project launcher
@@ -258,8 +225,6 @@ export default function EditorPage() {
       <Toolbar
         view={view}
         inspectorOpen={inspectorOpen}
-        onOpenProjectHome={openProjectHome}
-        projectHomeBusy={navigationBusy}
         exportRequestKey={exportRequestKey}
         onViewChange={setView}
         onOpenLocales={() => setLocaleDialogOpen(true)}
@@ -273,6 +238,8 @@ export default function EditorPage() {
         <ToolRail
           tool={tool}
           panel={panel}
+          onOpenProjects={openProjects}
+          projectsBusy={navigationBusy}
           onToolChange={setTool}
           onPanelToggle={(next) => {
             const opening = panel !== next;
@@ -320,7 +287,7 @@ export default function EditorPage() {
       ) : null}
       {navigationError ? (
         <div role="alert" className="absolute left-1/2 top-16 z-40 max-w-sm -translate-x-1/2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
-          Project Home was not opened because the latest project changes could not be saved: {navigationError}
+          Projects could not be opened because the latest project changes could not be saved: {navigationError}
         </div>
       ) : null}
       {fontWarnings.length > 0 ? (
