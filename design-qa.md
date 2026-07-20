@@ -3,7 +3,9 @@
 ## Project card quick actions
 
 - Managed cards expose Project details, Export archive, and archive-first Delete project actions; local cards keep source-neutral details/removal behavior and never expose permanent deletion.
-- Opening feedback is a delayed in-card overlay, so a fast activation does not flicker and a slow activation does not alter card dimensions. In-app Browser QA remains the final evidence owner for this behavior.
+- Opening feedback is a delayed in-card overlay, so a fast activation does not flicker and a slow activation does not alter card dimensions.
+- Final quick-actions screenshot: `/tmp/screenshot-studio-quick-actions-final.png`.
+- In-app Browser QA verified the managed menu, archive-first deletion dialog, safe cancellation, fast direct Workspace navigation, and an empty error/warning console. The 200 ms threshold and cleanup are covered by the focused timer test.
 
 - Source visual truth: `/Users/vitalii_lavreniuk/.codex/generated_images/019f7eae-b278-74e3-9dff-4a38138e3ea9/exec-1e2fa7bd-b63f-4adf-ae08-2505441e4272.png`
 - Final implementation screenshot: `/tmp/screenshot-studio-projects-final-1536.png`
@@ -40,6 +42,9 @@ No actionable P0, P1, or P2 differences remain.
 - Starter creation and direct `/editor` handoff.
 - Workspace bottom Projects action and return to `/`.
 - Real preview loading, metadata, overflow, and Project details.
+- Managed Export archive and archive-first Delete project menu actions.
+- Permanent-deletion dialog cancellation without removing the card.
+- Delayed opening threshold/cleanup and fast navigation without inline status flicker.
 - Direct gallery-card reopen to `/editor`.
 - Configured-local recording before source-safe gallery loading.
 - Compact-width reachability.
