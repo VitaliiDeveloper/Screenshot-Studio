@@ -51,8 +51,9 @@ import { ProjectDeletionDialog } from "./ProjectDeletionDialog";
 import { DelayedOpeningState } from "./delayed-opening-state";
 import { useManagedProjectDeletion } from "./useManagedProjectDeletion";
 
-export function ProjectLauncher({ projectTemplates }: {
+export function ProjectLauncher({ projectTemplates, initialProjects }: {
   projectTemplates: readonly ProjectTemplateSummary[];
+  initialProjects: ProjectLibraryState;
 }) {
   const router = useRouter();
   const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
@@ -61,7 +62,7 @@ export function ProjectLauncher({ projectTemplates }: {
     initialProjectCreationState,
   );
   const [dialogClosing, setDialogClosing] = useState(false);
-  const [projects, setProjects] = useState<ProjectLibraryState>({ status: "loading" });
+  const [projects, setProjects] = useState<ProjectLibraryState>(initialProjects);
   const [projectAction, setProjectAction] = useState<ProjectLibraryAction | null>(null);
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
   const [visibleOpeningEntryId, setVisibleOpeningEntryId] = useState<string | null>(null);

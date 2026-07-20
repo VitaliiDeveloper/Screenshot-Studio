@@ -61,8 +61,27 @@ describe("project launcher", () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {
       const page = await context.newPage();
+      await page.addInitScript(() => {
+        const screens: string[] = [];
+        Object.defineProperty(window, "__launcherScreens", { value: screens });
+        const recordScreen = () => {
+          const text = document.body?.innerText ?? "";
+          if (text.includes("Screenshot Studio / Projects")) screens.push("projects");
+          if (text.includes("Turn product moments into store-ready stories.")) {
+            screens.push("first-run");
+          }
+        };
+        new MutationObserver(recordScreen).observe(document, { childList: true, subtree: true });
+      });
       await page.goto(server.url, { waitUntil: "load" });
-      await page.getByRole("heading", { name: "Create your first screenshot project" }).waitFor();
+      await page.getByRole("heading", {
+        name: "Turn product moments into store-ready stories.",
+      }).waitFor();
+      const renderedScreens = await page.evaluate(() => (
+        window as unknown as { __launcherScreens: string[] }
+      ).__launcherScreens);
+      expect(renderedScreens).toContain("first-run");
+      expect(renderedScreens).not.toContain("projects");
       expect(await page.getByRole("textbox").count()).toBe(0);
       expect(await page.getByRole("button", { name: "New project" }).isEnabled()).toBe(true);
       expect(await page.getByRole("button", { name: "Import" }).isEnabled()).toBe(true);
@@ -86,7 +105,9 @@ describe("project launcher", () => {
       await page.keyboard.press("Escape");
       expect(await backdrop.getAttribute("data-motion")).toBe("closing");
       await dialog.waitFor({ state: "detached" });
-      await page.getByRole("heading", { name: "Create your first screenshot project" }).waitFor();
+      await page.getByRole("heading", {
+        name: "Turn product moments into store-ready stories.",
+      }).waitFor();
     } finally {
       await context.close();
       await server.stop();
@@ -125,14 +146,19 @@ describe("project launcher", () => {
       const page = await context.newPage();
       await page.goto(server.url, { waitUntil: "load" });
       await page.getByRole("button", { name: "Import" }).click();
-      await page.getByRole("dialog", { name: "Bring an existing project into Screenshot Studio" }).waitFor();
+      const dialog = page.getByRole("dialog", {
+        name: "Bring an existing project into Screenshot Studio",
+      });
+      await dialog.waitFor();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
       expect(new URL(page.url()).pathname).toBe("/");
       const chooseAnotherSource = page.getByRole("button", { name: "Choose another source" });
       await chooseAnotherSource.focus();
       await page.keyboard.press("Tab");
-      expect(await page.locator("summary").evaluate((element) => element === document.activeElement)).toBe(true);
+      expect(await page.locator(".launcher-dialog-panel summary").evaluate(
+        (element) => element === document.activeElement,
+      )).toBe(true);
       await page.keyboard.press("Tab");
       expect(await page.getByRole("button", { name: "Close project import" })
         .evaluate((element) => element === document.activeElement)).toBe(true);

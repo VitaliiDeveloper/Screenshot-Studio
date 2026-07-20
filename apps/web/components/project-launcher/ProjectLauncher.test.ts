@@ -3,8 +3,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./ProjectLauncher.tsx", import.meta.url), "utf8");
+const pageSource = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
 
 describe("ProjectLauncher import integration", () => {
+  it("hydrates from the server-resolved project library without a false loading screen", () => {
+    expect(source).toContain("initialProjects: ProjectLibraryState");
+    expect(source).toContain("useState<ProjectLibraryState>(initialProjects)");
+    expect(pageSource).toContain("await projectLibraryService.list()");
+    expect(pageSource).toContain("initialProjects={initialProjects}");
+  });
+
   it("loads the combined project library and opens entries through the active-project switch fence", () => {
     expect(source).toContain("fetchProjectLibrary");
     expect(source).toContain("openProjectLibraryEntry");
