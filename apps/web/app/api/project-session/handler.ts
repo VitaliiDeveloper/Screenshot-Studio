@@ -11,6 +11,14 @@ import {
   type ActiveProjectResolverDependencies,
   type ProjectSession,
 } from "@web/lib/project-session.server.js";
+import {
+  recentProjectsStore,
+  type RecentProjectsStore,
+} from "@web/lib/recent-projects.server.js";
+
+interface ProjectSessionHandlerDependencies extends ActiveProjectResolverDependencies {
+  recentProjects?: Pick<RecentProjectsStore, "record">;
+}
 
 export function projectSessionCookieValue(sessionId: string, request: Request): string {
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
@@ -70,10 +78,17 @@ function descriptorResponse(
 
 export async function handleProjectSessionGet(
   request: Request,
-  dependencies: ActiveProjectResolverDependencies = {},
+  dependencies: ProjectSessionHandlerDependencies = {},
 ): Promise<Response> {
   try {
-    return descriptorResponse(await resolveActiveProjectSession(request, dependencies), request);
+    const registry = dependencies.registry ?? projectSessionRegistry;
+    const requestedSessionId = sessionIdFromRequest(request);
+    const existingSession = requestedSessionId ? registry.peek(requestedSessionId) : undefined;
+    const session = await resolveActiveProjectSession(request, dependencies);
+    if (session !== existingSession) {
+      await (dependencies.recentProjects ?? recentProjectsStore).record(session).catch(() => undefined);
+    }
+    return descriptorResponse(session, request);
   } catch (error) {
     if (error instanceof NoActiveProjectError) {
       const headers = new Headers({ "cache-control": "no-store" });
