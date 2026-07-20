@@ -262,6 +262,11 @@ export class NoActiveProjectError extends Error {
   }
 }
 
+function isManagedProjectNotFoundError(error: unknown): boolean {
+  return error instanceof ManagedProjectNotFoundError
+    || (error instanceof Error && error.name === "ManagedProjectNotFoundError");
+}
+
 class ManagedProjectRecoveryError extends Error {
   constructor(cause: unknown) {
     super("Unable to reopen the managed project", { cause });
@@ -347,7 +352,7 @@ export async function resolveActiveProjectSession(
     try {
       return await registry.revalidateManagedSession(selected);
     } catch (error) {
-      if (error instanceof ManagedProjectNotFoundError) throw new NoActiveProjectError();
+      if (isManagedProjectNotFoundError(error)) throw new NoActiveProjectError();
       throw new ManagedProjectRecoveryError(error);
     }
   }
@@ -356,7 +361,7 @@ export async function resolveActiveProjectSession(
     try {
       return await registry.openManaged(managedProjectId);
     } catch (error) {
-      if (!(error instanceof ManagedProjectNotFoundError)) {
+      if (!isManagedProjectNotFoundError(error)) {
         throw new ManagedProjectRecoveryError(error);
       }
       // A missing project makes the recovery hint stale; configured local startup may proceed.
@@ -406,7 +411,7 @@ export async function withExistingProjectSessionReadOnly(
     return operation(await registry.revalidateManagedSession(session, false));
   } catch (error) {
     return projectSessionErrorResponse(
-      error instanceof ManagedProjectNotFoundError ? new NoActiveProjectError() : new ManagedProjectRecoveryError(error),
+      isManagedProjectNotFoundError(error) ? new NoActiveProjectError() : new ManagedProjectRecoveryError(error),
     );
   }
 }

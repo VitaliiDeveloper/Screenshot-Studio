@@ -195,6 +195,28 @@ describe("ProjectSessionRegistry", () => {
       .rejects.toBeInstanceOf(NoActiveProjectError);
   });
 
+  it("recognizes a stale managed recovery hint across development module reloads", async () => {
+    const reloadedNotFound = new Error("Managed project does not exist");
+    reloadedNotFound.name = "ManagedProjectNotFoundError";
+    const restartedRegistry = new ProjectSessionRegistry({
+      createSessionId: () => "unused-session",
+      managedSource: {
+        kind: "managed-project",
+        open: vi.fn(async () => { throw reloadedNotFound; }),
+      },
+    });
+
+    await expect(resolveActiveProjectSession(new Request(
+      "http://localhost/api/project-session",
+      {
+        headers: {
+          cookie: "screenshot_studio_managed_project=project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        },
+      },
+    ), { registry: restartedRegistry, configuredPath: () => null }))
+      .rejects.toBeInstanceOf(NoActiveProjectError);
+  });
+
   it("does not replace a managed project with a configured local project after a recovery failure", async () => {
     const localSource = createStubLocalSource();
     const restartedRegistry = new ProjectSessionRegistry({
