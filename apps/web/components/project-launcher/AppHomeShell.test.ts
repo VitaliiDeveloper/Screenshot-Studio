@@ -26,6 +26,7 @@ function render(
     projects: { status: "ready", entries: [] },
     projectAction: null,
     projectActionError: null,
+    visibleOpeningEntryId: null,
     onOpenImport: vi.fn(),
     onOpenCreate: vi.fn(),
     onCloseCreate: vi.fn(),
@@ -40,23 +41,27 @@ function render(
     onRetryProjects: vi.fn(),
     onOpenProject: vi.fn(),
     onOpenProjectDetails: vi.fn(),
+    onExportArchive: vi.fn(),
+    onDeleteProject: vi.fn(),
     onRemoveRecent: vi.fn(),
   }));
 }
 
 describe("AppHomeShell", () => {
-  it("renders a compact first-run state with exactly New project and Import", () => {
+  it("restores the original launcher composition with exactly New project and Import", () => {
     const markup = render();
 
     expect(markup.match(/<h1/g)).toHaveLength(1);
     expect(markup).toContain("Screenshot Studio");
-    expect(markup).toContain("Create your first screenshot project");
+    expect(markup).toContain("Turn product moments into store-ready stories.");
+    expect(markup).toContain('aria-label="Project actions"');
     expect(markup).toContain("New project");
     expect(markup).toContain("Import");
+    expect(markup.match(/<button/g)).toHaveLength(2);
     expect(markup).not.toContain("Recent projects");
     expect(markup).not.toContain("Starter examples");
     expect(markup).not.toContain("Capture import");
-    expect(markup).not.toContain("Turn product moments");
+    expect(markup).not.toContain("Create your first screenshot project");
     expect(markup).not.toContain('type="text"');
   });
 
@@ -77,6 +82,7 @@ describe("AppHomeShell", () => {
       projects: { status: "loading" },
       projectAction: null,
       projectActionError: null,
+      visibleOpeningEntryId: null,
       onOpenImport: vi.fn(),
       onOpenCreate: vi.fn(),
       onCloseCreate: vi.fn(),
@@ -86,7 +92,8 @@ describe("AppHomeShell", () => {
       onRetryImport: vi.fn(), onSelectSource: vi.fn(),
       onChooseCapture: vi.fn(),
       onRetryProjects: vi.fn(), onOpenProject: vi.fn(),
-      onOpenProjectDetails: vi.fn(), onRemoveRecent: vi.fn(),
+      onOpenProjectDetails: vi.fn(), onExportArchive: vi.fn(),
+      onDeleteProject: vi.fn(), onRemoveRecent: vi.fn(),
     }));
 
     expect(markup).toContain('role="dialog"');
@@ -157,7 +164,7 @@ describe("AppHomeShell", () => {
   });
 
   it("uses one motion contract for the two first-run actions", () => {
-    expect(appHomeSource.match(/launcherActionMotion/g)).toHaveLength(3);
+    expect(appHomeSource.match(/firstRunActionMotion/g)).toHaveLength(3);
     expect(appHomeSource).toContain("duration-150");
     expect(appHomeSource).toContain("ease-out");
     expect(appHomeSource).toContain("hover:-translate-y-0.5");
