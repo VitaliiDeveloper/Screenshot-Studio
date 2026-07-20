@@ -16,16 +16,6 @@ Before any task, read and apply the repository-wide workflow rules in
 - Publication is separate from implementation. Follow `docs/releasing.md`; builds and green checks do
   not authorize tags, registry publication, GitHub releases, or announcements.
 
-## Sources of truth
-
-- `docs/architecture.md` — durable technical contracts for data, rendering, persistence, and tools.
-- `docs/editor.md` — UI/UX semantics, shared components/tokens, and accessible interaction patterns.
-- `docs/testing.md` — test ownership, cost rules, and CI policy.
-- `README.md` — user-facing setup, usage, and current capabilities.
-- `packages/cli/src/project-agent-guide.md` — canonical guide generated into screenshot projects for
-  copy, literal layout, locale translation, and local asset processing.
-- `docs/releasing.md` — candidate verification and the publication boundary.
-
 ## Task-based reading
 
 Read only the smallest relevant set:
@@ -42,25 +32,16 @@ Read only the smallest relevant set:
 | User-facing setup or documentation | `README.md` |
 | Generated screenshot project | that project's `AGENTS.md` |
 
-Do not load `docs/superpowers/`, `packages/cli/package/`, or font-license texts unless the task is
-specifically about execution-plan history, package/legal audit, or font licensing.
-
-## Repository map
-
-- `packages/core` — schema, model, rendering, export, fonts, themes, templates, assets, and storage.
-- `packages/cli` — project management commands and packaged render-host orchestration.
-- `apps/web` — Next.js editor, APIs, and the shared browser render target.
-
 ## Context discipline
 
-- Open only the files and documentation relevant to the active task; do not scan all of `docs/` by
-  default.
-- Discover first with `rg --files`, targeted `rg`, and narrow ranges. Avoid broad output from
-  lockfiles, generated logs, session transcripts, build artifacts, and `node_modules`.
-- Use fresh, scoped handoffs for independent follow-up work. Give sub-agents only the minimum files
-  and contracts required for independent work streams.
-- Follow the behavioral-risk verification rules in `RULES.md`; exact commands and CI ownership live
-  in `docs/testing.md`.
+- Read only task-relevant files and narrow ranges. Never recursively scan or print `.superpowers/`,
+  `.worktrees/`, `node_modules/`, build output, lockfiles, logs, traces, or session transcripts.
+- Keep command output bounded and summarize results. Prefer tracked files, exact paths, and targeted
+  `rg`; do not dump repository-wide file lists or passing-test logs into context.
+- Do not use sub-agents, Browser, Computer Use, live preview, or browser developer mode unless the
+  user explicitly requests them or the changed behavior cannot be verified without that surface.
+- Run exact tests first. Never run the full local E2E suite; use one browser file only when required
+  by the changed UI/render contract. `docs/testing.md` owns the exact matrix.
 
 ## GitHub authentication boundary
 

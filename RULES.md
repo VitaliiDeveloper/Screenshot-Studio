@@ -11,8 +11,8 @@ of truth.
   when the request includes a change.
 - For implementation, make the smallest maintainable change that satisfies the request. Do not pull
   unrelated cleanup or speculative future work into scope.
-- Do not force planning, TDD, sub-agents, or other optional workflows onto a narrow, well-specified
-  task. Ask a question only when missing information makes a reasonable choice risky.
+- Do not invoke optional workflows, sub-agents, browser tools, or broad verification unless the task
+  requires them. Ask only when a missing decision makes a reasonable choice risky.
 - Comments should state durable intent, invariants, or non-obvious constraints. Keep temporary
   measurements and one-off verification evidence out of source comments.
 
@@ -27,45 +27,30 @@ of truth.
 
 ## Git workflow
 
-### Commits
-
 - Use `prefix: concise description` with `feat`, `fix`, `refactor`, `chore`, `test`, `docs`, `style`,
   `perf`, or `build`.
-- Write the subject in imperative English with no trailing period. Keep deep context in the PR body.
-- Never add `Co-Authored-By` or other agent/source attribution trailers.
-- Split unrelated changes into separate logical commits.
-
-### Branches and pull requests
-
+- Use imperative English, no trailing period or attribution trailers, and split unrelated changes.
 - Resolve the base from the explicit task and live local/remote topology. Never invent a conventional
   branch such as `dev` when it does not exist.
-- Keep scoped initiative work on its named branch. Target `main` only for an explicitly requested
-  integration or release PR; ask when the intended base remains ambiguous after inspection.
 - Use `<agent>/<short-kebab-slug>` for agent branches. If Git has a real slash-namespace conflict,
   fall back to `<agent>-<short-kebab-slug>` and report it.
-- PR titles follow the commit-title convention and never include agent/source labels.
-- Put scope, implementation details, validation, risks, and prior branch narrative in the PR body.
+- Target `main` only for an explicitly requested integration/release PR. PR titles follow the commit
+  convention; bodies record scope, validation, and risks.
 
 ## Verification
 
 `docs/testing.md` owns the exact test matrix, leaf groups, and CI policy.
 
 - Choose the lightest check that can fail for the changed behavior.
-- Pure visual polish gets a focused browser check only when needed. Interactive UI gets the smallest
-  exact browser scenario. Business logic, schema, persistence, render, and export changes get the
-  relevant unit or integration tests first.
-- During implementation, run exact test files or package checks. At completion, run the affected
-  package suite when behavior or a contract changed.
+- Run exact unit/integration files first; run the affected package suite only when a behavior or
+  contract changed.
 - Use E2E only when the risk requires a real browser, render host, interaction, persistence path, or
-  packed consumer. Prefer one exact file, then one leaf group; generic regression confidence is not
-  a reason to run E2E.
+  packed consumer. Prefer one exact file; generic regression confidence is not a reason to run E2E.
 - Never run the full `pnpm test:e2e` suite locally. GitHub CI owns it for the `dev` to `main`
   integration PR. If that gate fails, reproduce only the failing file locally and let CI rerun the
   complete gate.
-- Run cross-browser, package, optional-skill, and living-example checks only when that surface changes
-  or during explicitly authorized release readiness.
-- A missing package script is a failed check, not a pass. New E2E files belong to exactly one leaf
-  group; aggregates compose those groups without duplicating file lists.
+- Run cross-browser, package, skill, and example checks only for that surface or authorized release
+  readiness. A missing test script is a failure, not a pass.
 - Bug fixes with a practical seam get a targeted regression test. Render/export changes require an
   exact-dimension or visual-diff check as appropriate.
 - Docs-only changes may skip runtime tests; report exactly what was and was not verified. Surface all
