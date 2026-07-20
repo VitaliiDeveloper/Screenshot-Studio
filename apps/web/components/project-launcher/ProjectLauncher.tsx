@@ -97,20 +97,23 @@ export function ProjectLauncher({
     onRecoverStale: recoverCaptureTarget,
   });
 
+  const settleRecentProjects = useCallback(() => fetchRecentProjects().then((result) => {
+    if (mountedRef.current) setRecentProjects({ status: "ready", entries: result.entries });
+  }).catch((caught: unknown) => {
+    if (mountedRef.current) setRecentProjects({
+      status: "error",
+      message: caught instanceof Error ? caught.message : String(caught),
+    });
+  }), []);
   const loadRecentProjects = useCallback(() => {
     setRecentProjects({ status: "loading" });
     setRecentActionError(null);
-    void fetchRecentProjects().then((result) => {
-      if (mountedRef.current) setRecentProjects({ status: "ready", entries: result.entries });
-    }).catch((caught: unknown) => {
-      if (mountedRef.current) setRecentProjects({
-        status: "error",
-        message: caught instanceof Error ? caught.message : String(caught),
-      });
-    });
-  }, []);
+    void settleRecentProjects();
+  }, [settleRecentProjects]);
 
-  useEffect(() => { loadRecentProjects(); }, [loadRecentProjects]);
+  useEffect(() => {
+    void settleRecentProjects();
+  }, [settleRecentProjects]);
 
   useEffect(() => {
     if (allowSwitch) return;
