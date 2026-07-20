@@ -48,8 +48,23 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("createProject");
     expect(source).toContain("reduceProjectCreationState");
     expect(source).toContain("switchActiveProject(() => createProject");
-    expect(source.match(/router\.push\("\/home"\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(source).toContain('router.push(`/home?project=${encodeURIComponent(result.projectId)}`)');
     expect(source).toContain("creationButtonRef.current?.focus()");
+  });
+
+  it("keeps successful creation mounted through one exact-identity navigation", () => {
+    const creationRequest = source.indexOf("switchActiveProject(() => createProject");
+    const creationFailure = source.indexOf("}).catch((caught: unknown) => {", creationRequest);
+    const successBranch = source.slice(creationRequest, creationFailure);
+
+    expect(successBranch).toContain(
+      'dispatchCreation({ type: "complete", projectId: result.projectId })',
+    );
+    expect(successBranch).toContain(
+      'router.push(`/home?project=${encodeURIComponent(result.projectId)}`)',
+    );
+    expect(successBranch).toContain("launcherDialogExitDelay(reducedMotion)");
+    expect(successBranch).not.toContain("router.refresh()");
   });
 
   it("opens App Home capture import as a new managed-project flow behind the switch fence", () => {

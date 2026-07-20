@@ -54,6 +54,21 @@ describe("project creation model", () => {
     expect(reduceProjectCreationState(failed, { type: "submit" })).toMatchObject({
       status: "creating", form: editing.form,
     });
+
+    const completing = reduceProjectCreationState(creating, {
+      type: "complete",
+      projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+    expect(completing).toMatchObject({
+      status: "completing",
+      projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      form: editing.form,
+    });
+    expect(reduceProjectCreationState(completing, { type: "close" })).toBe(completing);
+    expect(reduceProjectCreationState(completing, {
+      type: "fail",
+      message: "late failure",
+    })).toBe(completing);
   });
 
   it("closes only before publication and evaluates template compatibility from metadata", () => {

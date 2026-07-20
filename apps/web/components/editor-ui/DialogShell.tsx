@@ -16,6 +16,7 @@ export function DialogShell({
   closeLabel,
   closeDisabled = false,
   initialFocus = "first-control",
+  motion,
 }: {
   title: string;
   description?: string;
@@ -27,6 +28,7 @@ export function DialogShell({
   closeLabel?: string;
   closeDisabled?: boolean;
   initialFocus?: "first-control" | "heading";
+  motion?: "open" | "closing";
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -89,7 +91,14 @@ export function DialogShell({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--editor-color-overlay)] p-3 backdrop-blur-[2px] sm:p-4" onClick={requestClose}>
+    <div
+      className={cx(
+        "fixed inset-0 z-50 flex items-center justify-center bg-[var(--editor-color-overlay)] p-3 backdrop-blur-[2px] sm:p-4",
+        motion && "launcher-dialog-backdrop",
+      )}
+      data-motion={motion}
+      onClick={requestClose}
+    >
       <div
         ref={dialogRef}
         role="dialog"
@@ -100,6 +109,7 @@ export function DialogShell({
         className={cx(
           "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-[var(--editor-color-surface-translucent)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-dialog)]",
           widthClass,
+          motion && "launcher-dialog-panel",
         )}
         onClick={(event) => event.stopPropagation()}
       >

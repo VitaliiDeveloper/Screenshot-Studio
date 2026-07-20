@@ -33,13 +33,17 @@ to the launcher. It has one page heading and three stable product regions:
   temporary imitation of recents.
 
 The creation and import modals move focus to their headings, trap forward/reverse Tab, and return
-focus to their triggers. They reserve close while atomic publication is in progress. The import
+focus to their triggers. They reserve close while atomic publication is in progress. Creation keeps
+its dialog geometry stable while publishing, then uses the short launcher exit motion and one
+exact-project-identity navigation to Project Home. The import
 modal closes with Escape while choosing or uploading. Upload is cancellable; validation and
 atomic publication are announced as a separate non-cancellable state. Errors use alert semantics;
 import errors list missing resource paths. Successful creation or import activates the intended
 managed project and lands on Project Home. If the server runtime resets during that handoff, an
 HttpOnly, path-free managed-project hint reopens the same catalog entry instead of publishing a
-duplicate; local-file sources still require their explicit source after restart. Managed Project Home
+duplicate; local-file sources still require their explicit source after restart. Folder import also
+explains that the browser may show its own unstyleable multi-file upload confirmation; application
+validation, progress, and confirmation inside Launcher remain Screenshot Studio UI. Managed Project Home
 offers **Export project archive** with busy/error feedback and native download behavior; its copy
 distinguishes the portable project backup from rendered store-image export. It also offers the
 distinct managed-only **Permanently delete project** action. That action first offers the existing

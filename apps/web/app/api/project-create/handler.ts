@@ -102,9 +102,11 @@ export async function handleProjectCreatePost(
   try {
     const record = await service.create(parsed.data);
     const session = registry.openManagedRecord(record, reservedSessionId);
+    const headers = projectSessionResponseHeaders(session, request);
+    headers.set("x-project-id", session.projectId);
     return Response.json({ project: session.descriptor }, {
       status: 201,
-      headers: projectSessionResponseHeaders(session, request),
+      headers,
     });
   } catch (error) {
     registry.releaseReservedSessionId(reservedSessionId);

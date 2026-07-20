@@ -7,6 +7,7 @@ import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
 import { AppHomeShell } from "./AppHomeShell.js";
 
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
+const appHomeSource = readFileSync(new URL("./AppHomeShell.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 function render(
@@ -138,6 +139,23 @@ describe("AppHomeShell", () => {
     expect(globalStyles).toContain("@keyframes launcher-dialog-state-in");
     expect(globalStyles).toContain('[data-motion="closing"]');
     expect(globalStyles).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  it("uses one motion contract for every App Home action", () => {
+    expect(appHomeSource.match(/launcherActionMotion/g)).toHaveLength(4);
+    expect(appHomeSource).toContain("duration-150");
+    expect(appHomeSource).toContain("ease-out");
+    expect(appHomeSource).toContain("hover:-translate-y-0.5");
+    expect(appHomeSource).toContain("active:scale-[0.98]");
+    expect(appHomeSource).toContain("motion-reduce:transform-none");
+  });
+
+  it("explains the native browser boundary before Folder selection", () => {
+    const markup = render({ status: "choosing" });
+
+    expect(markup).toContain(
+      "Your browser may ask you to confirm uploading the selected files.",
+    );
   });
 
   it("uses alert and list semantics for missing resources", () => {

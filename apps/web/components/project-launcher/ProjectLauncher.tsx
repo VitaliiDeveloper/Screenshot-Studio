@@ -55,6 +55,7 @@ export function ProjectLauncher({
   const pendingImportSourceRef = useRef<BrowserProjectImportSource | null>(null);
   const exitActionRef = useRef<LauncherDialogExitAction>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const creationExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const publishingRef = useRef(false);
   const completeCaptureImport = useCallback(async (
@@ -98,6 +99,7 @@ export function ProjectLauncher({
     return () => {
       mountedRef.current = false;
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+      if (creationExitTimerRef.current) clearTimeout(creationExitTimerRef.current);
       importControllerRef.current?.abort();
     };
   }, []);
@@ -183,7 +185,7 @@ export function ProjectLauncher({
     });
   };
   const closeCreation = useCallback(() => {
-    if (creationState.status === "creating") return;
+    if (creationState.status === "creating" || creationState.status === "completing") return;
     dispatchCreation({ type: "close" });
     queueMicrotask(() => creationButtonRef.current?.focus());
   }, [creationState.status]);
@@ -194,11 +196,19 @@ export function ProjectLauncher({
     if (creationState.status !== "editing" && creationState.status !== "error") return;
     const input = creationState.form;
     dispatchCreation({ type: "submit" });
-    void switchActiveProject(() => createProject(input)).then(() => {
+    void switchActiveProject(() => createProject(input)).then((result) => {
       if (!mountedRef.current) return;
-      dispatchCreation({ type: "complete" });
-      router.push("/home");
-      router.refresh();
+      dispatchCreation({ type: "complete", projectId: result.projectId });
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const navigate = () => {
+        creationExitTimerRef.current = null;
+        if (mountedRef.current) {
+          router.push(`/home?project=${encodeURIComponent(result.projectId)}`);
+        }
+      };
+      const delay = launcherDialogExitDelay(reducedMotion);
+      if (delay === 0) navigate();
+      else creationExitTimerRef.current = setTimeout(navigate, delay);
     }).catch((caught: unknown) => {
       if (!mountedRef.current) return;
       dispatchCreation({

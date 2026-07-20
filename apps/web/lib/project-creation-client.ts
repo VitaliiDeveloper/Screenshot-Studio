@@ -3,7 +3,10 @@ import {
   ProjectScaffoldInput,
   type ProjectScaffoldInput as ProjectCreationInput,
 } from "@screenshot-studio/core/scaffold";
-import type { ActiveProjectDescriptor } from "./project-session.js";
+import type {
+  ActiveProjectDescriptor,
+  ActiveProjectSelection,
+} from "./project-session.js";
 
 export type ProjectCreationTransport = (
   input: ProjectCreationInput,
@@ -29,7 +32,7 @@ const fetchProjectCreation: ProjectCreationTransport = (input) => fetch("/api/pr
 export async function createProject(
   input: ProjectCreationInput,
   options: CreateProjectOptions = {},
-): Promise<ActiveProjectDescriptor> {
+): Promise<ActiveProjectSelection> {
   const parsedInput = ProjectScaffoldInput.parse(input);
   const response = await (options.transport ?? fetchProjectCreation)(parsedInput);
   const body = await response.json().catch(() => ({})) as {
@@ -50,5 +53,12 @@ export async function createProject(
     || body.project.capabilities === null) {
     throw new ProjectCreationClientError("Project creation returned an invalid response", "invalid-response");
   }
-  return body.project;
+  const projectId = response.headers.get("x-project-id")?.trim();
+  if (!projectId) {
+    throw new ProjectCreationClientError(
+      "Project creation response is missing its project identity",
+      "invalid-response",
+    );
+  }
+  return { ...body.project, projectId };
 }

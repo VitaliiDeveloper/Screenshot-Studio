@@ -79,6 +79,7 @@ describe("managed project creation", () => {
       await dialog.waitFor();
       const dialogHeading = dialog.getByRole("heading", { name: "Create a managed project" });
       expect(await dialogHeading.evaluate((element) => element === document.activeElement)).toBe(true);
+      await page.waitForTimeout(250);
       await expectNoSeriousOrCriticalViolations(page, "Create project dialog");
 
       const platformTrigger = dialog.getByRole("button", { name: "Target platform" });
@@ -106,7 +107,7 @@ describe("managed project creation", () => {
       await selectTargetPlatform(dialog, "Microsoft Store");
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
-      await page.waitForURL(`${server.url}/home`);
+      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/);
       await page.getByRole("heading", { name: "Empty desktop story", exact: true }).waitFor();
 
       await server.stop();
@@ -152,8 +153,37 @@ describe("managed project creation", () => {
       await nameInput.pressSequentially(" retry");
       expect(await nameInput.evaluate((element) => element === document.activeElement)).toBe(true);
 
-      await dialog.getByRole("button", { name: "Create project", exact: true }).click();
+      const submitButton = dialog.getByRole("button", { name: "Create project", exact: true });
+      await submitButton.evaluate((button: HTMLButtonElement) => {
+        button.focus({ preventScroll: true });
+      });
+      const dialogBeforePublication = await dialog.boundingBox();
+      const formBeforePublication = await dialog.locator("form").boundingBox();
+      const submitBeforePublication = await submitButton.boundingBox();
+      expect(dialogBeforePublication).not.toBeNull();
+      expect(formBeforePublication).not.toBeNull();
+      expect(submitBeforePublication).not.toBeNull();
+
+      await submitButton.evaluate((button: HTMLButtonElement) => button.click());
       await dialog.getByRole("status").waitFor();
+      const dialogDuringPublication = await dialog.boundingBox();
+      const formDuringPublication = await dialog.locator("form").boundingBox();
+      const submitDuringPublication = await dialog.getByRole("button", {
+        name: "Creating project…",
+        exact: true,
+      }).boundingBox();
+      expect(formDuringPublication).not.toBeNull();
+      expect(submitDuringPublication).not.toBeNull();
+      expect(dialogDuringPublication).toMatchObject({
+        x: dialogBeforePublication!.x,
+        y: dialogBeforePublication!.y,
+        width: dialogBeforePublication!.width,
+        height: dialogBeforePublication!.height,
+      });
+      expect(Math.abs(formDuringPublication!.y - formBeforePublication!.y))
+        .toBeLessThanOrEqual(2);
+      expect(Math.abs(submitDuringPublication!.y - submitBeforePublication!.y))
+        .toBeLessThanOrEqual(2);
       await page.keyboard.press("Tab");
       expect(await dialogHeading.evaluate((element) => element === document.activeElement)).toBe(true);
       await page.keyboard.press("Escape");
@@ -161,8 +191,9 @@ describe("managed project creation", () => {
       releasePublication();
       releasePublication = undefined;
 
-      await page.waitForURL(`${server.url}/home`);
+      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/);
       await page.getByRole("heading", { name: "Launch sequence retry", exact: true }).waitFor();
+      const routedProjectId = new URL(page.url()).searchParams.get("project");
       const active = await page.evaluate(async () => {
         const response = await fetch("/api/project-session", { cache: "no-store" });
         return {
@@ -171,6 +202,7 @@ describe("managed project creation", () => {
         };
       });
       expect(active.descriptor.name).toBe("Launch sequence retry");
+      expect(routedProjectId).toBe(active.projectId);
 
       const catalog = JSON.parse(readFileSync(join(managedDataRoot, "catalog.json"), "utf8")) as {
         entries: Array<{ id: string; name: string }>;

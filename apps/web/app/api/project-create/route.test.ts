@@ -54,6 +54,7 @@ describe("POST /api/project-create", () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("x-project-id")).toMatch(/^project_[a-f0-9]{32}$/);
     expect(response.headers.get("set-cookie")).toContain(
       "screenshot_studio_project_session=created-session",
     );
