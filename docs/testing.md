@@ -10,7 +10,6 @@ packed consumer. A test does not belong in E2E merely because its data is used b
 |---|---|---|
 | Unit | schema, model, transforms, helpers, fixture invariants, API/service branches | `pnpm test:core`, `test:cli`, or `test:web` |
 | Browser leaf group | one user-visible workflow or renderer/export contract | one command from the matrix below |
-| CI subset | automated representative coverage on pushes to `dev` | `pnpm test:e2e:ci` |
 | Full browser gate | GitHub CI for the integration PR from `dev` into `main` | `pnpm test:e2e` |
 | Release surfaces | cross-browser, packed CLI, optional skill, and living examples | `pnpm test:e2e:release-surfaces` |
 | Release policy | SPDX headers, required community surfaces, and public status text | `pnpm check:spdx` and `pnpm check:community` |
@@ -161,12 +160,15 @@ catalog lifecycle filtering, activation-route recording, and lock ordering stay 
 
 ## CI policy
 
-Pushes to `dev` run lint, typecheck, unit/package tests, and the targeted `test:e2e:ci` browser
-subset asynchronously. Ordinary pull requests do not add a full browser regression suite. The
-complete `pnpm test:e2e` gate runs only for a pull request whose head is `dev` and base is `main`.
-That full command composes the leaf groups as separate Vitest processes, preserving complete
+Automatic CI runs only for a pull request whose head is `dev` and base is `main`. That integration
+gate runs lint, typecheck, unit tests, coverage, the path-scoped package matrix and release-candidate
+checks, plus the complete `pnpm test:e2e` browser suite. Feature pull requests into `dev` consume no
+GitHub Actions minutes; use the cheapest exact local check for the changed behavior. The workflows
+remain available through `workflow_dispatch` for an explicitly requested candidate head.
+
+The full browser command composes the leaf groups as separate Vitest processes, preserving complete
 coverage without leaking mutable `PROJECT_PATH`, browser, or Next.js runtime state across unrelated
-areas. Local development still uses only exact E2E files when the changed behavior requires a browser.
+areas.
 
 The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm check:spdx`, and
 `pnpm check:release-candidate` when its workflow, release guide, release audit scripts, package
