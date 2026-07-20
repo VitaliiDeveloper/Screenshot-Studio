@@ -48,6 +48,13 @@ for (const legacyDoc of [
 }
 assertIncludes(readme, "screenshot-studio-cli-0.1.0.tgz", "README candidate artifact");
 
+const examplesReadme = await readFile(join(repoRoot, "examples/README.md"), "utf8");
+for (const obsoleteTerm of ["v6 documents", "Phase 7"]) {
+  if (examplesReadme.includes(obsoleteTerm)) {
+    throw new Error(`Examples README still contains obsolete terminology: ${obsoleteTerm}`);
+  }
+}
+
 for (const path of [
   "README.md",
   "AGENTS.md",

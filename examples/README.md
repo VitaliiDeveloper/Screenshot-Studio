@@ -1,10 +1,10 @@
 # Example projects
 
-These projects are small, editable v6 documents and living authoring/export fixtures:
+These projects are small, editable strict v1 documents and living authoring/export fixtures:
 
 - `connected-launch` — a three-screen English iPhone launch deck in connected mode. Its shapes and
   decorative image deliberately cross screen boundaries, while trusted icons and an editable
-  rating-badge group demonstrate the Phase 7 creative primitives.
+  rating-badge group demonstrate the current creative primitives.
 - `rtl-delivery` — two-screen English and Arabic connected locale groups using an embedded Noto
   Sans Arabic font, explicit LTR/RTL text direction, and group/icon overflow across exact crops.
 
