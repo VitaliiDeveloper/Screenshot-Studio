@@ -411,6 +411,30 @@ describe("editor workspace", () => {
     await expect.poll(() => overview.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("keeps a fitted isolated output frame locked to its artwork width", async () => {
+    const baseline = JSON.parse(readFileSync(projectFile, "utf8")) as {
+      layouts: Array<{ screens: unknown[] }>;
+    };
+    baseline.layouts[0]!.screens = baseline.layouts[0]!.screens.slice(0, 1);
+    writeFileSync(projectFile, `${JSON.stringify(baseline, null, 2)}\n`);
+
+    const page = await openEditor({ width: 903, height: 998 });
+    await page.getByRole("button", { name: "Fit", exact: true }).click();
+
+    const geometry = await page.getByRole("region", {
+      name: "App Store · iPhone output",
+      exact: true,
+    }).evaluate((family) => {
+      const artwork = family.querySelector<HTMLElement>('[data-testid="artboard-preview-item"]');
+      return {
+        familyWidth: family.getBoundingClientRect().width,
+        artworkWidth: artwork?.getBoundingClientRect().width ?? 0,
+      };
+    });
+
+    expect(Math.abs(geometry.familyWidth - geometry.artworkWidth)).toBeLessThan(1);
+  });
+
   it("transitions between fitted Focus and Overview without a stale zoom frame", async () => {
     const page = await openEditor({ width: 651, height: 998 });
 
