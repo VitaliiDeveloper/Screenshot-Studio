@@ -291,7 +291,7 @@ export function elementToNodeConfig(
     case "image": {
       const image = images?.get(element.assetUrl);
       if (!image) {
-        // Missing/failed asset → a visible placeholder, never a crash or hang (editor.md §7).
+        // Missing/failed asset → a visible placeholder, never a crash or hang (docs/editor.md).
         return {
           konva: "Rect",
           config: {

@@ -9,7 +9,7 @@ import {
 import { RenderStage } from "./RenderStage";
 
 /**
- * Headless render host (docs/editor.md §5, spec §5). One dev-only route, no editor chrome.
+ * Headless render host (docs/editor.md). One dev-only route, no editor chrome.
  * This route's RenderStage is the static host used by CLI export and the parity harness. The
  * interactive editor uses EditorStage; both consume the shared core background/element node-config
  * contract so render/export parity remains centralized (docs/architecture.md §2).

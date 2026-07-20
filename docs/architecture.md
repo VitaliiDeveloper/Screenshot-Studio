@@ -1,958 +1,130 @@
 # Architecture & Technical Contract
 
-How the system is built and the contracts everything agrees on: tech stack, core/shell
-split, render/export parity, data model & schema, store export spec, fonts, the management
-interface (CLI + conventions + generated project guidance), and design guardrails.
+This document describes durable technical boundaries: data, rendering, persistence, resources, and
+the interfaces that connect them. It is the technical source of truth when a summary disagrees with
+the implementation. [`docs/editor.md`](editor.md) owns UI/UX semantics, shared UI primitives, and
+accessible interaction patterns; neither document is a delivery history or a roadmap.
 
-Version 1.2, 19 July 2026.
+## 1. System shape
 
----
+Screenshot Studio is a pnpm workspace with one rendering model shared by its interactive editor and
+CLI:
 
-## 1. Tech stack
-
-| Layer | Choice | Why |
-|-------|--------|-----|
-| Render engine | **Konva.js / react-konva** | Object model, layers, transforms, pixel-correct export via `pixelRatio` |
-| UI framework | Next.js (App Router) + React + TypeScript | Dev server, routing, easy self-host |
-| Styling | Tailwind CSS | Speed, consistency |
-| Components | Shared local workbench primitives + Lucide | Inspector, dialogs, selects, menus, tooltips |
-| State | Zustand (+ Immer) | Light editor store with bounded project history and transient workspace state |
-| Export (UI) | `POST /api/export` delegates to CLI bundle orchestration and returns a one-shot artifact ticket | Exact-size PNGs, streamed zip download |
-| Export (CLI / headless) | **Playwright** renders the same web stage | Pixel parity with the UI by construction — see §2 |
-| Fonts | Browser FontFace API | Deterministic file-backed Google/custom registration |
-| Screen reorder | dnd-kit | Reordering screens in the sidebar |
-| Schema & validation | **Zod** | One explicit version and a strict validator (the AI contract) |
-| Specs & tests | **`store-specs.json` + Vitest** | Store sizes as data, not hardcode; export dimension tests |
-
-**Requirements:** Node.js 22.13+ and pnpm 11.10.0 (through Corepack).
-
----
-
-## 2. Architecture: core + shell, and the parity decision
-
-The pnpm-workspace monorepo has a clear boundary. The split is for modularity,
-testability, and ease of contributions — not for monetization.
-
-```
-screenshot-studio/
-├── packages/
-│   ├── core/            # framework-agnostic core
-│   │   ├── model/       # types and strict project schema (Zod)
-│   │   ├── engine/      # Konva render, elements, transforms
-│   │   ├── export/      # render to exact sizes, zip bundle
-│   │   ├── fonts/       # font load/registration + embedding
-│   │   └── storage/     # StorageAdapter interface + local implementation
-│   ├── ui/              # RESERVED (not yet created): reusable React editor components —
-│   │                    #   editor components live in apps/web until a second consumer exists
-│   └── cli/             # CLI: init, dev, screen, locale, font, theme, import, export
-├── apps/
-│   └── web/             # Next.js: self-hosted editor
-├── examples/            # self-contained current-schema connected and RTL living projects
-├── AGENTS.md            # concise contributor-agent entry point and source routing
-└── skills/
-    └── screenshot-studio/ # optional discovery/bootstrap skill for use outside the repo
+```text
+packages/core  → strict model, rendering, export, fonts, assets, storage contracts
+packages/cli   → project management and headless render-host orchestration
+apps/web       → Next.js editor, API routes, and the shared browser render target
 ```
 
-The CLI and generated project-local `AGENTS.md` are the primary management interface for humans
-and agents. The CLI uses `core` for schema, project state, and export orchestration, but delegates
-the actual
-pixel rendering to the web renderer running in a headless browser (see §2) — so UI and CLI
-share one rendering path, not two.
-
-`core` depends on Konva and Zod and knows nothing about Next.js or the network. Storage
-access goes through an interface (so the community can add their own: browser FS,
-IndexedDB, etc.):
-
-```ts
-interface StorageAdapter {
-  load(projectId: string): Promise<Project>
-  save(project: Project, projectId: string): Promise<void>
-  putAsset(bytes: Uint8Array): Promise<{ url: string; hash: string }>
-}
-```
-
-Ships with `LocalFileStorageAdapter`. Its ownership is deliberately narrow: `load`/`save` own the
-single project JSON document, while `putAsset` persists only bytes explicitly submitted through
-that call. Fonts, themes, templates, imports, processed assets, and exports use their dedicated
-services; the adapter does not implicitly own every project resource.
-
-Local project read-modify-write transactions are serialized beside the canonical
-`app-store-screenshots.json` path through the `@screenshot-studio/core/storage` mutation-lock adapter.
-The adapter uses `proper-lockfile` for one bounded, heartbeat-refreshed directory lease; normal release
-removes the directory and a later contender may recover it only after its mtime is stale. This remains
-a **local filesystem** contract. Do not mutate one active project concurrently through a
-network/shared mount; a community storage adapter for that topology must provide its own distributed
-coordination. See [Project mutation locking](project-mutation-locking.md) for lifecycle, failure,
-configuration, and usage details.
-
-Generated single-file outputs use a separate fail-closed publication boundary: complete bytes are
-written and synced to an exclusive sibling stage, then committed with explicit create-only or
-replace semantics. Managed fonts, imports, and processed assets add ownership-aware
-quarantine/restore/remove operations behind a resource-specific adapter. Path validation, no-follow
-checks, identity/link-count evidence, ambiguous commit reconciliation, and the remaining Node.js
-namespace-race limitation are documented in [Safe file publication](safe-file-publication.md).
-Project JSON transactions and complete ZIP/output batches retain their dedicated commit paths; this
-is not a generic storage layer.
-
-### Active project sessions and deployment-specific sources
-
-The editor must not treat one process-global filesystem path as the identity of the active project.
-That shortcut works only for one local process and prevents multiple browser sessions, an Electron
-shell, managed browser projects, and hosted projects from sharing the same Project Home and Workspace.
-The portable boundary is therefore an **active project session**, not a universal file picker.
-
-The shell owns how a project is selected. A registered project-source adapter owns how that source is
-opened. The editor, APIs, renderer, and export flow consume the resulting request-scoped session and
-do not need to know whether the source began as a local path, a managed project id, or a cloud id.
-
-```mermaid
-flowchart LR
-    Launcher["Launcher or shell"] --> Registry["Project source registry"]
-    Registry --> Local["local-file adapter"]
-    Registry --> Managed["managed-project adapter"]
-    Registry --> Cloud["cloud-project adapter"]
-    Local --> Session["Active project session"]
-    Managed --> Session
-    Cloud --> Session
-    Session --> Storage["StorageAdapter plus resource services"]
-    Storage --> Snapshot["Validated Project snapshot and revision"]
-    Snapshot --> Home["Project Home"]
-    Snapshot --> Workspace["Workspace"]
-    Snapshot --> Render["Shared renderer and export"]
-```
-
-The source registry is an application/shell concern. It does not enter `packages/core` merely to
-make one launcher's picker reusable. The existing `StorageAdapter` remains the core JSON-and-explicit-
-asset boundary. An opened source supplies the adapter-specific `projectId` used by that interface and,
-where supported, the project-local context required by the dedicated font, theme, template, import,
-processed-asset, and export services.
-
-The in-process session registry is a bounded least-recently-used cache of at most 30 opened projects.
-Resolving a session id or reopening the same canonical local path refreshes its recency; opening a
-31st distinct project evicts the oldest session from both id and path lookup. Eviction drops only
-application session metadata and never deletes or mutates the project document or its resources.
-
-An illustrative browser-safe descriptor is:
-
-```ts
-interface ActiveProjectDescriptor {
-  sessionId: string
-  name: string
-  sourceKind: string // registered id, for example "local-file" or "managed-project"
-  displayLocation?: string
-  lifecycleRevision?: number
-  capabilities: {
-    writeInPlace: boolean
-    revealLocation: boolean
-    watchExternalChanges: boolean
-    nativePicker: boolean
-    projectLocalResources: boolean
-    exportProjectArchive: boolean
-    deleteProjectPermanently: boolean
-  }
-}
-```
-
-This descriptor is application state, not persisted Project data. It intentionally contains no
-filesystem path field that every consumer can depend on. `displayLocation` is present only when the
-source can safely expose a useful location. A local self-hosted source can display the exact canonical
-`app-store-screenshots.json` path; a managed project exposes a project name or managed label; a hosted
-source may show a workspace/project label or URL. Capabilities combine what the selected source and
-the current shell can actually provide: the same local-file source can report `nativePicker: false`
-in the web shell and `nativePicker: true` in Electron.
-
-The session owner retains the opaque source locator, current revision evidence, and the adapter needed
-to load or save the project. Local-file, managed-project, and cloud sessions are server-owned. Browser
-Folder/ZIP/JSON inputs are bounded import inputs that publish a managed copy; they are not retained
-filesystem handles and do not imply in-place mutation of the selected source.
-Managed activation also sets an HttpOnly recovery hint containing only the opaque managed project id.
-If the in-process registry is reset, that hint may reopen the project through the same managed adapter
-and catalog validation before issuing a fresh session id. The hint contains no path, is not persisted
-in the Project document, and is never authorization by itself.
-Project-bound operations resolve the session from request or client-workspace scope. They must not read
-or mutate one global "current project" path. In a hosted deployment the authenticated user/session owns
-access; possession of a `sessionId` is never authorization by itself.
-
-#### Deployment mapping
-
-| Deployment | Selection experience | Adapter locator | Visible location | Implementation boundary |
-|---|---|---|---|---|
-| CLI-seeded local web | `PROJECT_PATH` or `screenshots dev --project` | Canonical local JSON path | Exact path | `local-file`; implemented in Launcher 1/8 |
-| Managed browser web | Folder/ZIP/JSON import | Opaque managed project id | Project name / managed label | `managed-project`; Launcher 2/8–3/8 |
-| Electron or another desktop shell | Native OS open dialog | Canonical local JSON path | Exact path | The same `local-file` adapter; future shell |
-| Hosted cloud project | Authenticated project catalog | Provider-owned project id | Project/workspace label or URL | `cloud-project`; cloud storage, authorization, and distributed concurrency |
-
-There is deliberately no promise that all rows support the same actions. The UI reads capabilities
-instead of inferring behavior from `NODE_ENV`, hostname, or source-name conditionals. For example, a
-hosted source without project-local resource support may allow validated JSON editing while hiding
-font/template management. It must not silently emulate an unsupported operation or claim that an
-imported copy still edits its original source.
-
-#### Local self-hosted example
-
-A user explicitly starts the open-source editor with a local project:
-
-```bash
-PROJECT_PATH=/Users/alex/Projects/MyAppScreenshots/app-store-screenshots.json pnpm dev
-```
-
-The local source canonicalizes and validates the path, loads the strict document, captures its
-revision, and only then creates an active session. The response exposes a generated `sessionId`, the
-project name, the exact display path, and local capabilities. Project Home, Workspace, asset routes,
-preview, and export resolve the same session. A failed open leaves the previous active session intact.
-
-Normal browser project selection imports Folder/ZIP/JSON input into managed storage and opens a
-`managed-project` session. An Electron shell instead supplies a canonical local path from a native
-dialog to the same `local-file` behavior, so Project Home, Workspace, persistence, and export do not
-change.
-
-#### Hosted example
-
-A hosted user selects `project_123` from an authenticated catalog. The cloud source loads the same
-strict Project model through its storage implementation and creates the same kind of active session.
-The descriptor might show `Team / Launch Campaign` instead of an absolute path. Editor consumers use
-the session exactly as they do locally; only storage, authorization, resource availability, and
-concurrency behavior differ behind the adapter boundary.
-
-#### Compatibility and first delivery
-
-Launcher 1/8 implements the local-file source and active-session seam; Launcher 2/8 adds the
-managed repository/catalog; Launcher 3/8 adds browser import and portable project archives behind
-those seams; Launcher 4/8 builds Project Home and its Workspace round trip; Launcher 5/8 adds shared
-strict creation; Launcher 6/8 adds capture-folder preview and explicit-target apply; Launcher 7/8
-adds permanent managed-project deletion; Launcher 8/8 closes the same contracts with bounded durable
-recents and ordinary onboarding examples:
-
-- without an explicit source, the application shows App Home rather than silently opening the bundled
-  sample;
-- `PROJECT_PATH` and `screenshots dev --project` seed a local-file session for backward compatibility;
-- App Home does not expose a browser path form or arbitrary local-path activation endpoint;
-- the initial registry remains in-process; a local-file source can require reopening after server
-  restart, while a managed source can rehydrate from its HttpOnly project-id hint through the catalog;
-- every project-bound API resolves one request-scoped context instead of calling `resolveProjectPath()`
-  independently;
-- interactive project-bound requests fence that context with `X-Project-Id`; resource mutations and
-  export additionally require a strong `If-Match` revision that is rechecked inside their mutation or
-  stable-export lease;
-- conditional revisions, mutation locks, strict validation, and shared render/export behavior remain
-  unchanged;
-- managed browser import/archive export is implemented in Launcher 3/8; Electron-specific and cloud
-  implementations are not created until their product surfaces exist.
-
-#### Project Home and Workspace round trip (Launcher 4/8)
-
-This section defines session, persistence, capability, and safety invariants. Visible controls,
-focus behavior, motion, and user-facing failure states are defined in `docs/editor.md` §0 and §7.
-
-Project Home is a validated, read-only projection of the active session's strict Project snapshot,
-store specs, resolved assets/fonts, and source descriptor. It summarizes source-safe identity,
-platforms, locales, layouts and immutable modes, preferred export layout, screen and empty-screen
-counts, output families/store targets, and only readiness evidence already produced by those
-services. Managed server paths remain private. Representative previews reuse `ScreenThumbnail` and
-the shared renderer; Project Home does not create another Project model, editor store, renderer, or
-mutation channel.
-
-Actions are capability-backed links into existing Workspace, locale, import, and store-image export
-surfaces. Portable project-archive export remains a separately named managed-source capability.
-Workspace reloads of the same opaque project identity reconcile the validated snapshot with valid
-active layout, screen, and element selection; a different identity performs a fresh project load.
-Project-keyed session storage retains only transient view/chrome values (zoom, Focus/Overview, tool,
-canvas pattern, shelf, and inspector state), never Project content, paths, revisions, or credentials.
-
-Workspace → Project Home first drains queued saves and persists the latest store snapshot. A failed
-write keeps Workspace mounted and exposes an alert. **Close project** runs through that same exclusive
-save fence, sends an `X-Project-Id`-fenced `DELETE /api/project-session`, removes only the matching
-opaque registry entry, expires the HttpOnly session cookie, clears that project's transient workspace
-state, and returns to App Home. It does not change recents/catalog entries or delete project data.
-**Permanently delete project** is a separate managed-only capability and flow; neither action ever
-moves or deletes a local-file project directory. A close failure preserves the active session and
-client project state.
-
-Future adapters must prove the same behavioral contract: validate before activation, preserve the
-previous session on open failure, detect stale writes, avoid partial publication, report capabilities
-honestly, and keep `app-store-screenshots.json` free of source locators, recent history, credentials,
-and shell state. Resource storage beyond the narrow core `StorageAdapter` remains coordinated with the
-dedicated resource-system contracts rather than being hidden inside this session layer.
-
-#### Recent project application state (Launcher 8/8)
-
-`recent-projects.json` is a strict version 1 application-state document beside managed catalog state,
-never inside `app-store-screenshots.json`. It stores at most 20 entries with an opaque recent id,
-source kind, server-only source locator, bounded display name, ISO open time, and deterministic
-generation. Successful managed/local opens and successful managed creation/import/capture activation
-move one deduplicated source to the front; oldest entries are evicted deterministically. Close project
-does not change history. Remove from recents changes only this document, while Trash is not a product
-state and Permanently delete project remains a separate managed-only lifecycle operation.
-
-Browser responses omit source locators and expose only safe summaries. Listing validates exact known
-sources rather than scanning the filesystem, filters managed entries no longer active in the catalog,
-and marks unavailable local sources without crashing. Missing or invalid history rebuilds
-deterministically from bounded active catalog entries. Catalog recovery snapshots are read before the
-recent-history lease, preventing a catalog/recent lock-order inversion during concurrent first load
-and managed publication. History writes use an owned no-follow stage, atomic replacement, and a
-dedicated bounded lease.
-
-#### Managed project storage and catalog (Launcher 2/8)
-
-The managed repository owns deployment metadata outside the strict Project document. Its data root is
-`${INIT_CWD ?? process.cwd()}/.screenshot-studio` by default, or the absolute/relative
-`SCREENSHOT_STUDIO_DATA_ROOT` resolved from that invocation directory. Deployments may set positive
-integer limits with `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, and
-`SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES`, plus a positive
-`SCREENSHOT_STUDIO_STAGING_TTL_MS`. The root has one catalog, one recent-history document, plus five
-application-owned child directories:
-
-```
-.screenshot-studio/
-  catalog.json          # versioned active entries and bounded deletion evidence
-  recent-projects.json  # bounded source history outside Project JSON
-  projects/<id>/        # published project directories
-  staging/<token>/      # bounded, private pre-publication directories
-  recovery/<id>.json    # publication or deletion intent during a directory/catalog transition
-  tombstones/<id>.<operation-id>/ # exact deletion quarantine while recovery is possible
-  lifecycle-locks/   # opaque-id lifecycle leases shared by open/delete
-```
-
-Catalog ids (`project_<32 lowercase hex>`), names, lifecycle revisions, operation evidence,
-timestamps, source locators, and recovery state never become fields in
-`app-store-screenshots.json`. `catalog.json` uses one strict version 1 contract and is atomically
-replaced under a bounded filesystem lease. No compatibility or migration parser is retained while
-the managed-storage feature remains unpublished. Active entries remain invisible until the staged
-directory has passed the core strict Project parser and the catalog entry is durable. Deletion
-evidence is separate from the active entries and has only `reserved`, `cleanup-pending`, and
-`complete` states; there is no
-user-visible trashed project state.
-
-Publication writes a synced `prepared` intent, renames the validated owned stage to its opaque project
-directory, advances to `directory-published`, atomically inserts the active catalog entry, then records
-`catalog-published` and removes the intent. A failed publication restores its owned stage and removes
-the intent; if rollback fails, the intent remains for startup reconciliation. Publication
-reconciliation enumerates only `staging/`, `recovery/`, and exact catalog-owned directories: it
-completes a valid directory-published catalog insert, removes already-complete intents, quarantines an
-invalid un-catalogued directory back to its owned stage, and fails closed when a catalog entry lacks
-its exact project directory. Deletion reconciliation additionally validates only the exact
-evidence-owned tombstone. Expired owned stages are removed only after the configured TTL; there is no
-broad filesystem scan.
-
-The `managed-project` adapter opens a catalog id into the same request-scoped session as `local-file`.
-Its server-only `projectPath` remains available to existing project/resource APIs, but its browser
-descriptor intentionally omits `displayLocation`. Local-file behavior remains unchanged. Browser
-transfer is implemented in Launcher 3/8, managed creation in Launcher 5/8, and permanent managed
-deletion in Launcher 7/8.
-
-#### Managed browser transfer (Launcher 3/8)
-
-`POST /api/project-import` is the only browser-import publication boundary. Folder selections arrive
-as aligned file/portable-relative-path pairs; project ZIPs first pass a bounded central-directory
-admission parser; eligible standalone JSON is normalized to the root
-`app-store-screenshots.json`. All three become the same `ProjectImportFile[]` service input. The
-service requires exactly one root document, rejects unsafe, colliding, unsupported, and sensitive
-paths, applies explicit upload/file/decompressed-byte limits, writes only into one owned private
-stage with exclusive no-follow files, runs the strict core parser, and verifies every referenced
-project-local resource before Launcher 2's atomic publication.
-
-The browser selection is an import source, never a retained file handle. Success registers the
-already-published opaque managed record, sets the HttpOnly same-site session cookie, and lands on
-Project Home. Cancellation or any pre-publication failure discards only the owned stage and returns
-no session cookie, so the prior active session and catalog visibility remain unchanged. App Home has
-durable Launcher 8 recents; only successful activation records the imported managed source.
-
-Source selection first enters a client-only confirmation state. No upload, server staging, catalog
-write, cookie replacement, or navigation starts until the user confirms **Import managed copy**.
-Declining the confirmation only releases the browser `File` references and returns to source choice.
-This boundary is identical whether the web host runs on localhost or remotely: browser input never
-becomes a trusted server path. Localhost in-place work continues through `PROJECT_PATH` or
-`screenshots dev --project`; a future desktop shell may supply a canonical path through the same
-`local-file` adapter without changing Project Home, Workspace, renderer, or export consumers.
-
-Managed Project Home exposes `POST /api/project-archive` as a read-only transfer operation. The
-archive enumerates a verified regular-file tree and includes only the root project document, project
-guides, and supported `assets/`, `screenshots/`, `themes/`, and `templates/` resources. It excludes
-catalog/session/recovery metadata, locks, stages, temp files, credentials, hidden paths, and rendered
-store output. Generation uses the same configured file/byte bounds, verifies directory bindings
-around recursive enumeration, and applies no-follow file identity checks before streaming;
-the resulting `screenshot-studio-project.zip` is copied into a short-lived, one-shot artifact under
-`/api/project-archive/artifacts/<token>`. That namespace and filename are deliberately separate from
-the rendered store-image export route. The allowlisted archive service is also the backup path reused
-by Launcher 7 permanent deletion; it does not implement another archive format, Trash, or schema
-widening.
-
-#### Permanent managed-project deletion (Launcher 7/8)
-
-Only the `managed-project` source advertises `deleteProjectPermanently`; `local-file` always reports
-it as false. Project Home keeps **Close project** separate from **Permanently delete project**. The
-destructive dialog first offers the existing portable archive or an explicit continue-without-archive
-choice, then requires the exact project name and a separate irreversible acknowledgement. Archive
-failure never starts deletion. The client rejects buffered save work, serializes behind already
-dispatched saves, reloads the same active project, and rechecks source capability, opaque identity,
-project name, lifecycle revision, Project revision, and archive evidence before admission.
-
-`POST /api/project-delete` accepts no filesystem path. It is fenced by the active managed session,
-`X-Project-Id`, strong `If-Match`, lifecycle revision, exact name confirmation, opaque operation id,
-and a body-only status secret. Admission acquires the per-project lifecycle lease and Project mutation
-lease, validates the exact regular-file tree and directory identity inside the configured managed
-root, then records catalog evidence before any irreversible removal. A different operation id,
-secret hash, Project revision, lifecycle revision, or project id cannot resume that operation.
-
-The service writes a strict deletion intent, renames only `projects/<opaque-id>` to the exact owned
-`tombstones/<opaque-id>.<operation-id>` quarantine, commits removal from active catalog entries,
-invalidates the matching managed session, validates the tombstone identity/tree again, and only then
-permanently removes it. Startup repository initialization reconciles every adjacent intent/catalog/
-directory phase forward. Missing, duplicated, forged, symlinked, redirected, or non-adjacent states
-fail closed and retain evidence for diagnosis; they never fall back to an arbitrary path or broad
-scan. Cross-device rename failure remains recoverable evidence and never degrades to copy-and-delete.
-
-After admission the response expires both session cookies, and status recovery uses only the opaque
-operation id plus transient status secret. The client keeps that secret in memory; durable recovery is
-owned by the server catalog and journal, so a lost browser response cannot authorize a second
-operation or strand project data. Completed operation evidence is bounded, but there is no project
-retention queue, automatic cleanup policy, Trash surface, or Restore operation. The strict Project
-schema, editor state, renderer, and store-image export path are unchanged.
-
-#### Managed project creation (Launcher 5/8)
-
-Core owns one strict creation-only scaffold contract for project name, target platform, layout mode,
-and optional starter project-template id. It produces an ordinary strict `Project` plus validated
-project-local resource bytes; starter metadata (preview, intended use, and supported platforms) is
-not persisted in `app-store-screenshots.json`. The CLI `init` command and `POST /api/project-create`
-both consume this factory. Only destination ownership differs: CLI init receives an explicit local
-directory, while the browser route publishes exclusively through managed repository storage and
-accepts no filesystem path.
-
-The managed creation service validates the scaffold and every declared dependency before staging,
-writes exclusive no-follow files into one owned stage, re-reads and revalidates the staged document
-and resources, and only then enters the existing atomic repository publication protocol. The route
-reserves the new session identity before publication and activates that exact managed record after
-publication. Any pre-publication failure removes only the owned stage and reservation; ambiguous
-publication recovery state remains owned by reconciliation rather than being blindly discarded.
-Success replaces the active HttpOnly session cookie, sets the path-free managed recovery hint, and
-lands on Project Home. If the server runtime resets before Project Home resolves the session, the
-managed adapter reopens that exact catalog entry rather than publishing a duplicate. Project templates
-are complete creation inputs; project-local screen templates and reusable component presets remain
-separate authoring concepts.
-
-#### Capture-folder import (Launcher 6/8)
-
-CLI `screenshots import` and the launcher consume the same core capture discovery and planning
-contracts. Inputs follow `screenshots/{apple/{iphone,ipad},android/phone}/{locale}/NN.png`; selecting
-the project root may also include supported project-relative files under `assets/`. Discovery
-normalizes one browser-selected wrapper directory, rejects unsafe/colliding/hidden/transient paths,
-hashes source bytes, and deterministically reports platform/device/locale counts, warnings, invalid
-entries, planned fresh screen/element ids, and destination resource paths. Planning validates the
-complete resulting strict `Project` without writing project, resource, catalog, session, or recovery
-state, so preview is repeatable.
-
-The launcher requires an explicit destination before preview: either one selected layout in the
-current active project or a named new managed project. Current-project preview and apply carry
-`X-Project-Id` plus a strong `If-Match`; preview uses the non-touch, non-rehydrating session lookup,
-while apply reacquires the project mutation lease, rechecks the revision, rediscovers/replans from the
-submitted bytes, and requires the preview confirmation fingerprint. Resource publication and the
-strict Project replacement share the CLI capture transaction and recovery intent, so failure restores
-the prior Project and resources rather than leaving a partial import.
-
-New-project apply reuses the Launcher 5 scaffold and managed publication service. Capture screens
-replace the scaffold starter only inside the validated pre-publication stage; catalog visibility and
-session activation occur only after atomic publication. The apply response exposes the opaque
-receiving project identity in `X-Project-Id`. The client verifies that identity against the reloaded
-active selection before synchronizing the editor store or opening Project Home, and the Project Home
-route carries the expected identity to reject a cross-tab/session race. A cancelled or failed
-post-confirmation handoff is reconciliation-only: the UI never claims the mutation was absent or
-offers a duplicate-producing retry until a non-null active project has been reloaded.
-
-**Capture import** is raw PNG/resource ingestion. It is deliberately separate from Launcher 3
-**Import project**, which accepts a complete Folder/ZIP/eligible JSON managed copy, and from portable
-project-archive and rendered store-image export. Capture import does not add Project schema fields,
-another renderer, design-source integrations, lifecycle/deletion behavior, recents, or general asset-library
-ownership.
-
-### Render / export parity — the #1 technical risk
-
-The renderer decision is complete: UI and CLI exports both use the same browser Konva stage.
-`core` owns schema, project, and export orchestration; the CLI launches the packaged web renderer
-in Playwright and never substitutes a `node-canvas`/Cairo path. This keeps text, fonts, assets,
-backgrounds, effects, and connected crops on one implementation at the accepted cost of a heavier
-CLI artifact.
-
-Parity is verified by exact target dimensions, an opaque output, and a visual diff within
-tolerance. Byte identity is not required because equivalent PNGs may differ in metadata or
-compression. New render-affecting fields must extend the shared mapper and its parity coverage;
-adding a second renderer is outside the architecture.
-
----
-
-## 3. Data model & schema
-
-A single JSON file is the source of truth — git-trackable and reproducible. A **strict Zod
-schema + validator** is foundational: it underpins determinism and the AI
-contract (the agent edits this JSON, so it must be impossible to write an invalid one
-silently).
-
-```
-Project
-├── meta: { name, appIcon, schemaVersion }
-├── fonts: FontAsset[]                     # google / uploaded files under assets/fonts/
-├── preferredExportLayoutId: string
-└── layouts: DesignLayout[]
-    ├── id, name, mode: isolated | connected
-    └── screens: Screen[]
-        ├── id, name, platform, device, locale, direction
-        │   # apple: iphone/ipad/macos/tvos/watchos; android: phone; windows: desktop
-        ├── variantOf?, storeTargetId?      # paired only for non-lead sizes in one family
-        ├── artboard: { width, height }     # slide size
-        ├── background: Background          # solid | gradient | image
-        └── elements: Element[]             # z-order = array order
-```
-
-Layouts are ordered, non-empty, independently editable design alternatives. Layout ids are
-immutable; trimmed names are case-insensitively unique; mode is selected at creation and may change later.
-Screen and element identity, locale sets, output families, variants, ordering, and mode semantics
-are layout-local. Fonts and project assets remain shared. `preferredExportLayoutId` must reference
-one existing layout and is the default only for non-interactive export selection.
-
-**Element types** — all elements share `id`, `type`, `x`, `y`, `width`, `height`, `rotation`,
-`opacity`, `locked`, `visible`, and optional display `name`. Leaf elements additionally allow the
-optional baked-theme `role`; groups do not. The strict v1 members are:
-
-- `text` — content, fontFamily, size, weight, lineHeight, letterSpacing, align, color, shadow
-- `screenshot` — assetUrl, fit (cover/contain), crop, cornerRadius
-- `device-frame` — assetUrl, fit, and a trusted `iphone | android-phone | tablet | desktop | tv | watch` preset
-- `shape` — `rect | ellipse`, solid fallback fill, optional two-stop gradient, optional stroke, radius
-- `group` — one non-clipping level of existing leaf elements in local coordinates
-- `icon` — trusted built-in id, editable colour/stroke, core-owned normalised SVG path
-- badge compositions — ordinary shape/icon/text groups for rating/press proof; ordinary images for official store badges
-- `image` — project-local decorative raster, contain/cover, optional crop, cornerRadius
-
-**Background types** are the strict `solid`, `linear-gradient`, and project-relative `image`
-members. There are no arbitrary CSS paints, generic effects, blobs, author-defined frame slots,
-frame colours, nested groups, or `badge` element member in v1.
-
-**Themes are baked inputs, not render state.** Strict definitions live in `themes/*.json`.
-`applyTheme(project, layoutId, theme)` rewrites the selected layout's literal text/shape fields selected by an
-optional role (`heading | body | accent | surface`) and preserves that role for later re-apply.
-Elements without a role opt out. Theme files never enter `Project`, and the renderer never
-resolves tokens or ids; unknown/invalid theme data fails before a project is written.
-
-**Templates are screen inputs, not render state.** Strict definitions live in `templates/*.json`
-and contain an exact platform/device/artboard plus ordinary background and element literals.
-Instantiation into an explicit layout injects the chosen locale and its persisted direction,
-creates fresh screen/element ids, and writes an ordinary `Project`. Template geometry is authored as LTR;
-an RTL target bakes mirrored placement/alignment exactly once before persistence. Render and export
-never read template files.
-
-**Locale sets are ordinary screens, not a parallel model.** Each layout derives its duplicate-free
-locale list directly from its screens; locale identifiers stay free-form and comparisons are exact.
-Cloning a locale appends fresh-id copies of its screens in the
-same relative order and shares existing asset paths. The copies are independent after creation —
-there is no persisted source/translation pairing id in the render contract.
-
-The editor derives its active locale from the active screen rather than storing a second selection.
-Screens and Overview project only that locale; locale-scoped reorder changes those screens' slots
-without disturbing another locale's relative order. The locale manager delegates clone, direction,
-and removal to the same pure core operations used by the CLI. Editor chrome remains LTR.
-
-**RTL direction is explicit, not inferred from locale.** Every screen stores
-`direction: "ltr" | "rtl"` (omitted values receive the strict schema's `ltr` default), and all screens in one locale
-must agree. Changing direction bakes horizontal placement (`x' = artboard.width - x - width`) and
-physical `left ↔ right` text alignment into JSON while preserving media pixels and rotation. The
-shared `elementToNodeConfig(element, { images, direction })` mapper sends the stored direction to
-Konva text in both the editor and headless renderer; geometry is never mirrored at render time.
-Inline editors inherit the screen direction, and new text uses physical right alignment in RTL.
-Templates remain LTR-authored inputs and are baked once when instantiated into an RTL locale.
-
-**Versioning.** The complete current document is the first supported pre-release format and stores
-`schemaVersion: 1`. `parseProject()` validates raw input directly; it does not migrate internal
-development shapes or mutate the caller's object. Unsupported numeric versions receive a dedicated
-version error, while missing or invalid versions fail strict validation. Compatibility migrations
-will be introduced only after a published project format creates a supported upgrade boundary.
-
-**Layout lifecycle.** Add creates a clean one-screen layout, never a content copy. The editor uses
-the active screen's platform/device/locale/direction/artboard with a solid `#101827` background and
-no elements; the CLI uses the preferred layout's first root screen as the source for those placement
-fields. Duplicate is the explicit copy operation: it inserts immediately after its source, preserves
-content, mode, ordering, variants, and shared asset paths, but creates fresh layout, screen, and
-element ids and rewrites variant references. Rename trims and rejects empty or case-insensitively
-duplicate names. Delete refuses the final layout; deleting the preferred layout atomically prefers
-the next layout or, for the last position, the previous layout. The editor activates that same
-next/previous fallback when deleting its active layout. Prefer changes only
-`preferredExportLayoutId`. The explicit mode operation changes only the selected layout's mode.
-
-The editor's active layout is local workspace state keyed by an opaque hash of the canonical project
-path. It falls back to `preferredExportLayoutId` when missing or stale and never enters
-`app-store-screenshots.json`. Editor export uses the active layout. CLI export accepts
-`--layout <id-or-full-name>` and otherwise uses the preferred layout; other layout-aware CLI
-mutations infer a target only for a one-layout project and require `--layout` when ambiguous.
-
-**Connected canvas — render/export contract.** Every layout owns one explicit
-`isolated | connected` choice. In a connected layout, screens with the same exact
-platform, device, locale, and
-store-target identity form a gapless,
-top-aligned strip in layout order; each origin is the cumulative width of earlier group screens.
-Elements remain in their owner screen with owner-local coordinates. The shared renderer paints all
-group backgrounds first, then visible elements by screen order and element-array order, translated
-against the requested screen origin. `renderScreen` still returns a stage at exactly the requested
-artboard dimensions, so the stage itself is the precise UI/CLI export crop — there is no stitched
-PNG or post-export slicing path. The editor uses one gapless editable group stage on the same
-`elementToNodeConfig` mapper: screen-offset Groups preserve owner-local transforms, composite
-screen/element selection disambiguates duplicate ids, and Focus reuses the projection as an exact
-non-interactive crop. Switching layouts is transient, unconditional, and never converts content or
-changes either layout's mode. Explicit mode changes are also unconditional and preserve coordinates.
-Connected overflow is clipped while the layout is isolated but is not deleted, so switching back
-restores the connected rendering; the editor exposes that consequence as a non-blocking warning.
-
-**Editor history.** The Zustand store keeps at most 50 prior screen-content snapshots per layout in
-memory. Consecutive patches for the same owner element, background, or artboard coalesce until an
-explicit interaction boundary; structural content mutations remain separate steps. Undo and redo
-preserve only still-valid active/selected ids, clear that layout's opposite branch after a new
-mutation, and travel through the same durable project save path as ordinary edits. Rename,
-duplicate, prefer, add, remove, and layout switching are outside content undo. Loading a project or
-replacing it after an external durable-resource operation resets in-memory history. Selection,
-active layout, viewport, dialogs, save status, and guide chrome never enter project JSON.
-
-**Editor snapping.** One dragged element derives rotation-aware bounds in the
-active stage coordinate space. Candidate anchors come from the connected group bounds, each active
-artboard, and visible non-zero-opacity elements; exact ties prefer element, then artboard, then
-group targets in stable layout order. The logical tolerance is `6 / zoom`, keeping the interaction
-threshold at six screen pixels. Connected results translate back to the unchanged owner-local
-coordinate. Vertical/horizontal guides are non-listening Konva lines updated through refs during
-drag, cleared before persistence, and absent from the store, project schema, static renderer, and
-export.
-
-**Editor asset discovery.** `/api/assets` recursively lists regular PNG, JPEG,
-and WebP files only under the project-root `assets/` and `screenshots/` directories, skips hidden
-entries and symlinks, and returns stable portable relative paths. The Add picker creates the
-`screenshot`, decorative `image`, and `device-frame` schema members through core factories; insertion uses
-the ordinary history/save path and the same `collectImageUrls` / `loadProjectImages` cache used by
-the static renderer. `/api/asset` checks both lexical and canonical real-path containment before
-reading image or font bytes. Interactive asset URLs carry the active session cookie, project id, and
-one strong quoted project revision; the headless render host instead supplies its explicit project
-path. There is no implicit `PROJECT_PATH` fallback for an unscoped asset URL. The picker performs no
-upload, copy, delete, rename, external fetch, or project replacement. The `image` leaf has a
-non-cropping `contain` default, deterministic centred `cover` crop, alpha-preserving composition, and
-the screenshot missing-asset placeholder.
-
-**Connected workspace behavior.** Workspace derivation has two explicit
-contracts. `workspaceEditingScope` feeds Screens, selection, reorder, authoring, snapping, and
-transforms with one exact platform/device/locale/store-target group in a connected layout; an
-isolated layout retains its locale/root or exact target layer. `workspaceOverviewRows` presents
-every output family for the active layout and locale in stable layout order. Isolated families render as one output
-container whose master and explicit targets remain separate size rows; the active family owns the
-outer highlight and the active exact row owns the `Editing` marker. Variant rows repeat the output
-label as a contextual breadcrumb, append the exact size, and carry a `Variant` marker; the lead row
-remains consolidated into the family header with its `Master` marker. Connected families keep one
-independent exact group and substitute the active target for its family row. Activating a preview
-row changes transient screen selection without history or persistence.
-Overview Fit measures every row while keeping output headers and per-screen title/metadata chrome
-in fixed CSS pixels.
-Connected reorder rewrites only the visible group's existing project-array slots;
-unrelated groups do not move. Layers stays active-owner scoped and labels that owner. Thumbnail
-memoization compares every exact-group screen reference and projected order because a neighbour's
-element can change the requested crop, while unrelated groups remain memoized. The toolbar mode
-badge is descriptive, while mode changes remain an explicit layout-row action. Desktop and compact browser coverage
-composes layout switching, mode, boundary selection, thumbnails, history, snapping, media insertion, panels, Fit, and
-keyboard dismissal without persisting workspace chrome.
-
-**Editor multi-selection.** Selection is an ephemeral ordered set of composite
-`{ screenId, elementId }` identities; its last member is the primary single-item target. Modified
-click and rotation-aware marquee acquisition operate only inside the editable active screen or
-connected exact group. Aggregate translation adds one stage-space delta to each unlocked member's
-unchanged owner-local coordinates and commits one history/save mutation; delete, lock, and
-visibility are likewise atomic. Multi-resize/rotate and snapping remain outside this selection
-contract. Selection is reconciled across screen/layout/load/undo boundaries
-but never enters project JSON, render/export input, or history snapshots.
-
-**Persisted groups.** `Element` is `LeafElement | GroupElement`,
-where a group owns a non-empty, non-nested `children: LeafElement[]` array in local coordinates.
-The group occupies one top-level z-order slot; child array order is internal z-order. Group
-translation/rotation/opacity compose through the ordinary recursive `NodeConfig` tree, while
-`width/height` are authoring bounds and introduce neither runtime scale nor clipping. Visible child
-overflow follows its layout's current connected or isolated rendering semantics, and exact screen
-stage dimensions remain the only export crop. Fonts, assets, themes, templates, cloning, and RTL all traverse group leaves
-through shared core helpers.
-
-**Group authoring.** Grouping requires at least two top-level leaves from one
-owner screen, rejects cross-owner/nested input, inserts one group at the frontmost selected slot,
-and converts its children to rotation-aware aggregate-bound-local coordinates. Groups transform as
-one top-level node; uniform resize bakes scale into every child geometry and dimensional leaf field.
-Ungroup composes group translation, rotation, opacity, lock, and visibility into its children at the
-same z-order slot. Duplicate freshens the group and every child id. Each screen enforces id
-uniqueness across its complete one-level tree so Layers child inspection is unambiguous. Canvas
-interaction selects the group; owner-scoped Layers exposes one indented child level for inspection
-and child property actions. Group, ungroup, duplicate, and all group/child edits use the ordinary
-bounded history and durable-save path.
-
-**Trusted vector icons.** `icon` stores only one stable id from the
-core-owned `check | heart | sparkles | star` registry plus literal colour and positive stroke width.
-The registry supplies normalised `24×24` path data to the shared NodeConfig mapper, which returns a
-logical Group and Konva Path with screen-pixel stroke semantics. Static/UI/CLI rendering never parse
-project SVG/XML or use a font glyph. Add inserts a default star and Inspector edits the id, colour,
-and stroke; arbitrary SVG import remains outside the contract.
-
-**Badge primitives.** Badges add no render-state union member.
-Core factories return fresh-id ordinary groups for rating (shape + star icon + editable registered-
-font text) and “as seen on” (shape + sparkles icon + editable registered-font text). The editor
-refuses those insertions without a registered font. Official store badges are named contain-fit
-decorative images selected through the existing secure asset picker. After insertion, group/image
-selection, child inspection, transforms, duplication, ungrouping, themes, RTL, history, save, and
-export remain the existing contracts; `type: "badge"` is invalid.
-
-**Living examples and closure checks.** The self-contained current-schema living projects exercise connected
-image overflow, trusted icons, ordinary badge groups, and two-screen LTR/RTL locale groups. The
-closure browser gate edits a copied example through accessible named controls and the documented
-group/duplicate/ungroup/undo shortcuts, reloads the persisted result, and exports exact alpha-free
-store PNGs. These examples validate the current baseline but do not authorize publication.
-
-**Independent store targets.** Root screens omit
-`variantOf` and `storeTargetId`. An explicit target copy stores both fields, points directly to its
-root, matches the root platform/device/locale, and renders through the same flat `Screen` contract.
-Creation fits a fresh-id copy into a target-derived authoring artboard and never mutates the root.
-That artboard is normally exact; newly created watchOS variants use the proportional policy below.
-Workspace
-projection includes `storeTargetId` in the group identity so root and variant canvases cannot be
-stitched together. Bundle export uses the lead target for roots and each explicit variant's own
-target id, with numbering restarted per target. New roots use their device family's exact lead
-artboard. Newly created editor-driven `apple/watchos` roots and target variants are the deliberate
-exception: core derives each 3.5× authoring artboard by multiplying its selected
-`store-specs.json` target. The current 422 × 514 lead creates a 1477 × 1799 root, while the
-416 × 496 Series 11 target creates a 1456 × 1736 variant; neither duplicates exact target
-dimensions in persisted metadata. Core rejects a target whose scaled dimensions are fractional
-instead of rounding and distorting its ratio. The editor presents proportional watchOS roots and
-variants as Custom. Every target uses the same Store size/Custom Inspector control; explicit
-customization and reset resize every composition matching the active
-`platform/device/locale/storeTargetId` output set atomically, while reset fits that set back to its
-own exact Store Target dimensions. Sibling targets remain unchanged. Exact and custom state are
-derived from `store-specs.json`, not duplicated in the schema. Artboard fitting scales pixel-valued
-visual metrics alongside geometry—including text-shadow blur and offsets, shape-stroke width, and
-corner radii—so proportional authoring masters preserve their appearance at exact export sizes.
-Scaling fails atomically instead of clamping when a bounded visual metric would exceed the strict
-schema. Existing roots and variants are opened unchanged.
-
-**Artboard backgrounds.** `Background` is a strict discriminated
-union: `solid`, two-stop `linear-gradient` with a bounded `0…360` degree angle, or a project-relative
-`image` with deterministic `cover | contain` fit and a fallback/letterbox colour. Background colour
-literals use `HexColor` and may include alpha. UI and static export both consume
-`backgroundToNodeConfig`; image assets participate in the ordinary project preload cache and retain
-the same path-containment rules as image elements. The renderer paints every background before
-connected elements, and final store export flattens the composed PNG by stripping alpha.
-
-**Media crop controls.** Screenshot and decorative-image leaves may
-store `crop: { x, y, zoom }`, where focal coordinates are normalized `0…1` and zoom is bounded
-`1…4`. The shared object-fit mapper derives a clamped source window for `cover`; missing crop is
-centred at zoom 1, and `contain` preserves but ignores crop state. The element box, connected owner
-coordinates, export crop, and alpha handling remain unchanged.
-
-**Text and shape styling.** Text optionally stores one bounded literal
-shadow. Shape `kind` is `rect | ellipse`, with a solid `fill` fallback plus optional strict two-stop
-linear gradient and literal stroke. The shared mapper emits the same Konva shadow/paint props for
-editor and static export; ellipse uses a logical owner Group so persisted x/y remain top-left during
-drag/transform. Themes continue to bake the solid fallback and do not mutate optional effects.
-
-**Built-in frame presets.** The existing `device-frame` leaf selects
-one core-owned `iphone | android-phone | tablet | desktop | tv | watch` preset. Each supplies
-normalized outer aspect, bezel, screen-slot, corner, and optional notch geometry rendered with
-native Konva primitives; the project screenshot remains the only asset. Preset switching preserves
-width and fits height to the canonical outer aspect.
-
----
-
-### Store output families
-
-Each exact `platform/device/locale` root set is an independently editable output. Creating another
-family clones every root screen in the active locale with fresh screen and element ids, fits the
-copy to that family's core-derived master artboard, and never mutates or links it back to the source
-family. The master normally equals the lead target; editor-created `apple/watchos` families use the
-3.5× proportional master described above. Accepted non-lead sizes remain
-`variantOf`/`storeTargetId` variants of a root inside the same family. Newly created watchOS
-variants derive their own 3.5× authoring artboards from their selected targets; other variants use
-literal target dimensions. If a target already has another screen, a newly created variant reuses
-that target output set's current authoring artboard so a user-defined custom size is not silently
-replaced by the platform default. Both operations are idempotent: an existing output or size is
-opened unchanged instead of duplicated or resized.
-
-## 4. Store export spec
-
-Design at each platform's largest size, export by scaling down. The editor's export API delegates to
-the CLI bundle orchestration. Both surfaces drive the shared `/render` stage, which calls
-`Stage.toDataURL` with the right `pixelRatio`, and write bundle entries as
-`platform/device/<safe-locale>/NN-<screen>-<size>.png`: the locale folder collision-safely encodes
-the exact free-form identifier, filtering remains exact against the stored string, and `NN`
-restarts inside each platform/device/locale/target group while preserving that group's relative
-layout order. The complete filesystem/ZIP batch is validated for containment and duplicate paths before
-any output is written; existing symlinked ancestors/files are rejected and final files use
-no-follow opens. Re-running export deliberately replaces regular files at the same generated
-destinations; only in-batch collisions and redirecting filesystem objects are rejected.
-
-The safe locale directory uses a fixed `locale-` prefix and an injective `~hhhh` escape for every
-UTF-16 code unit outside lowercase ASCII letters, digits, `_`, and `-`; overlong segments fail
-before rendering. Store-size ids remain exact data for lookup and receive the same portable escape
-only at the filename sink, so custom specs stay compatible without introducing unsafe path bytes.
-
-The UI route does not buffer the finished ZIP into its POST response. `POST /api/export` copies the
-completed revision-stable archive into a private short-lived artifact and returns `201` with
-`{ downloadUrl, outputDir, expiresAt }` plus `Cache-Control: no-store`. `downloadUrl` is an opaque,
-unguessable same-origin one-shot URL. Its GET returns `200` with the verified ZIP stream, `404` for
-an invalid, missing, already-consumed, or integrity-rejected ticket, and `410` for a known expired
-ticket. The browser uses a native anchor download; consumption, five-minute expiry, cancellation,
-or stream completion closes the handle and removes the private artifact.
-
-Next may evaluate the POST and GET route modules separately, so their default store is retained on
-one process-global symbol. This only coordinates modules inside the same Node.js process. It is an
-intentional fit for the packaged/local standalone host, not a durable or distributed artifact
-service; a horizontally scaled or serverless deployment must supply shared artifact storage and
-ticket coordination.
-
-**"Scale down" holds per device, not across Apple's size list.** Apple's accepted iPhone
-sizes differ slightly in aspect ratio (1320×2868 ≈ 0.4603, 1284×2778 ≈ 0.4622, …), so one
-artboard cannot be scaled to all of them without distortion — `exportPixelRatio` rejects
-aspect-ratio mismatches by design. Bundles therefore target each root at **one lead size per
-device** and also include every explicit persisted variant at its own target. Other accepted
-sizes remain opt-in until a variant is created.
-
-**Store sizes are data, not hardcode.** They live in **`store-specs.json`** with Vitest tests
-asserting export output dimensions. Apple, Google, and Microsoft change these over time, and Google in
-particular defines *ranges* rather than single values — so a hardcoded table (the reference's
-weak point) is brittle. In the tables below, the Apple values are *accepted sizes* Apple
-publishes; the Google values are *recommended presets* within Google's allowed ranges. Either
-way, `store-specs.json` is the runtime source of truth.
-
-Also: **strip the alpha channel on export** — Apple requires flattened PNG/JPG with no alpha;
-Google requires 24-bit PNG or JPEG with no transparency.
-
-Published listing counts and metadata requirements below are informational release inputs. The
-exporter validates configured target lookup, exact output dimensions, opacity, and safe paths; it
-does not validate a store listing’s image count, copy, metadata, or current portal policy.
-
-**Apple App Store** (PNG/JPG, RGB, no alpha; published guidance currently allows 1–10 images):
-
-| Configured target | Exact size |
-|-------------------|------------|
-| 6.9″ iPhone (lead) | 1320 × 2868 (also accepts 1290×2796, 1260×2736) |
-| 6.5″ | 1284 × 2778 |
-| 6.3″ | 1206 × 2622 |
-| 6.1″ | 1125 × 2436 |
-| iPad 13″ | 2064 × 2752 |
-| iPad 12.9″ | 2048 × 2732 |
-| iPad 11″ | 1668 × 2420 |
-| macOS (lead) | 2880 × 1800 |
-| tvOS (lead) | 3840 × 2160 |
-| watchOS (lead) | 422 × 514 |
-
-These are the exact Apple rows currently configured in `store-specs.json`; each row’s persisted
-orientation is data. The exporter does not derive an unconfigured orientation by interchanging
-width and height. Apple may scale an accepted lead image for smaller portal slots.
-
-**Google Play** — recommended presets (JPEG / 24-bit PNG, no transparency, up to 8 per type,
-side 320–3840 px, max ratio 2:1; any size in range is valid):
-
-| Device | Preset |
-|--------|--------|
-| Phone portrait | 1080 × 1920 |
-| Phone landscape | 1920 × 1080 |
-
-**Microsoft Store** — explicit desktop presets, with 3840×2160 as this project's lead output and
-1366×768 as the smallest stored preset. Microsoft accepts 1366×768 or larger desktop screenshots.
-
-Device frames select one of six core-owned presets: `iphone`, `android-phone`, `tablet`, `desktop`,
-`tv`, or `watch`. The shared renderer builds each bezel, screen slot, corner treatment, and
-optional notch from native Konva primitives; the project-local screenshot is the only frame asset.
-
-Sources: [Apple — Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications),
-[Google Play — Add preview assets](https://support.google.com/googleplay/android-developer/answer/9866151),
-[Microsoft Store — Screenshots and images](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images).
-
----
-
-## 5. Fonts (technical)
-
-Two optional file-backed sources: **Google Fonts** and **custom upload**. Both materialize as
-project-relative files under `assets/fonts/` (`.ttf/.otf/.woff/.woff2`) and are served through
-the same local `/api/asset` route as screenshots. `FontAsset.source` records provenance
-(`google` or `uploaded`); render/export code loads bytes through an injected `path -> URL`
-resolver and the browser `FontFace` API.
-CLI commands and the local editor's `/api/fonts` route share one Node ingest service. Google
-requests happen server-side only when a font is added; canvas render and export remain offline.
-
-**System fonts are intentionally rejected.** They are not embedded in the project, vary by
-machine and OS, and therefore break render/export parity by construction.
-
-**Fonts are tied to the parity risk.** Text is where renderers diverge most, so every registered
-font is loaded through the same file-backed browser path before either UI or CLI rendering is
-declared ready.
-
----
-
-## 6. Management interface: conventions + CLI + generated project guidance
-
-The substance of the product is repo conventions and a CLI, not a packaged skill. The agent
-works through them directly; the skill stays an optional thin installer for use outside the repo.
-
-**Standard directories (conventions = the "API"):**
-
-```
-my-app-screenshots/
-├── app-store-screenshots.json     # source of truth (project)
-├── AGENTS.md / CLAUDE.md          # generated project-local agent guidance
-├── screenshots/                   # source captures
-│   ├── apple/{iphone,ipad}/{locale}/NN.png
-│   └── android/phone/{locale}/NN.png
-├── assets/                        # fonts, icons, decor
-│   ├── fonts/                     # uploaded .ttf/.otf/.woff/.woff2
-│   └── icons/
-├── themes/                        # theme tokens
-├── templates/                     # reusable layouts
-└── export/                        # CLI writes finished bundles here
-```
-
-**CLI (`screenshots ...`) — the primary interface for humans and agents, over the same `core`:**
-
-| Command | Action |
-|---------|--------|
-| `init` | Scaffold the project, standard directories, and project-local agent guides |
-| `dev [--store-specs <path>]` | Run the canvas editor with optional explicit store specs |
-| `layout list / add / duplicate / rename / mode / prefer / rm` | Manage ordered independent layouts; mode switches preserve content and duplicate creates fresh screen/element ids |
-| `screen add / list / rm / reorder [--layout <id-or-name>] [--store-specs <path>]` | Manage layout-local roots and variants; root removal requires `--cascade` while variants exist |
-| `font add <file>` / `font add --google <family>` / `font list` / `font rm` | Materialize and manage file-backed font assets |
-| `theme set <id> [--layout <id-or-name>]` | Apply a theme to one layout's screens |
-| `locale list / add / direction / rm [--layout <id-or-name>]` | Manage one layout's complete locale sets and baked LTR/RTL placement |
-| `asset auto-crop / remove-background` | Write non-destructive local processed PNG assets |
-| `import <dir> [--layout <id-or-name>]` | Ingest raw captures by directory convention |
-| `export [--layout <id-or-name> --platform --device --locale --store-specs <path>]` | Exact PNG bundles from the selected or preferred layout (same renderer as the UI button; CI-friendly) |
-
-Layout-aware mutation commands infer the layout only when the project contains exactly one;
-multi-layout projects require `--layout`. Export instead defaults to `preferredExportLayoutId`.
-
-**Generated `AGENTS.md` / `CLAUDE.md` — project-local guidance.** `screenshots init`
-materializes a self-contained project guide plus a small Claude forwarding file and refuses to
-overwrite either. Any CLI agent that opens the project learns the directory structure, strict v1
-schema, shipped CLI commands, design guardrails (§7), and recipes for copy, baked literal layout,
-locale translation, and explicit asset preprocessing. The recipes persist only ordinary project JSON
-and project-local assets; they add no provider integration or agent state. Auto-crop and deterministic
-flat-background removal run locally through Sharp, write under `assets/processed/`, and never enter
-render/export. Source contributors invoke `pnpm screenshots`; the packaged distribution also builds one
-installable `@screenshot-studio/cli` artifact whose Node 22 ESM bin bundles CLI/core code and whose
-runtime carries `store-specs.json`, the generated guide, and the prebuilt shared web host; the
-artifact also retains the repository `LICENSE` and `NOTICE`. The host
-is Next `output: standalone` plus `.next/static`, stored as `runtime/web.zip` so npm retains traced
-dependencies. Installed commands extract it into a unique OS temp directory, spawn its `server.js`,
-and clean it after stop/failure. `playwright` and `sharp` remain normal native/runtime package
-dependencies. The measured local tarball is about 41 MiB; that accepted weight preserves parity
-instead of introducing a second lightweight renderer. Building/packing is not a publication claim.
-
-**Skill — only for discovery/bootstrap outside the repo.** `skills/screenshot-studio` is a thin
-installable skill with one deterministic bootstrap script. It invokes the built CLI from an
-explicit path, `SCREENSHOT_STUDIO_CLI`, or `PATH`, refuses existing project/control files, and then
-delegates all product behavior to the generated project-local `AGENTS.md`. It does not copy the
-schema or recipes, fetch a package implicitly, add an AI SDK/provider, or become required for normal
-CLI/editor use. Its isolated smoke installs the skill into a temporary home and initializes a clean
-current-schema project through the packaged CLI. This is still not a registry publication or
-release claim.
-
----
-
-## 7. Design guardrails (baked into generated project guidance)
-
-- Screenshots are ads, not documentation.
-- Each slide sells one clear user outcome.
-- The headline passes the one-second thumbnail test.
-- Adjacent slides vary layout and device placement.
-- Cross-screen (connected) elements never split required text or critical UI.
-- Every exported crop works as a standalone screenshot.
+`core` is framework-agnostic and does not depend on Next.js, HTTP, or a particular project picker.
+The web shell owns selection and UI; the CLI owns command parsing and process orchestration. Both
+surfaces use core model and rendering helpers rather than maintaining parallel implementations.
+
+| Concern | Contract |
+|---|---|
+| Model validation | Zod strict schema in `packages/core/src/model/schema.ts` |
+| Render engine | Konva through one shared NodeConfig mapping |
+| UI and CLI export | The same browser `/render` stage, driven by Playwright for CLI export |
+| Store dimensions | `store-specs.json`, never duplicated constants |
+| Fonts | File-backed browser `FontFace` loading |
+| Editor state | Zustand with persistent Project content separated from transient UI state |
+| UI system | Local editor primitives, Tailwind, Lucide; no package-level design system until a second consumer exists |
+
+## 2. Project model and ownership
+
+`app-store-screenshots.json` is the only persisted Project document. It is versioned, strict,
+git-trackable JSON: unknown fields fail validation and a new persisted field needs explicit schema,
+renderer, fixture, and parity work.
+
+The enforced schema is the authority for exact members and bounds. At a high level, a Project owns
+metadata, file-backed fonts, a preferred export layout, and ordered layouts. A layout owns ordered
+screens; each screen owns its artboard, background, locale/direction, optional explicit store-target
+variant identity, and ordered elements. Array order is meaningful for layout, screen, and z-order.
+
+Layouts are independent authoring alternatives with an explicit `isolated` or `connected` mode.
+Elements stay owned by one screen even when connected rendering lets decoration cross a crop boundary.
+Only strict v1 element types and literals are valid. Workspace selections, viewport state, open panels,
+history, source locators, recents, credentials, and server lifecycle metadata never enter Project JSON.
+
+`store-specs.json` is the runtime authority for configured Apple, Google, and Microsoft dimensions.
+The exporter validates configured targets, exact dimensions, opaque output, and safe paths; it does
+not validate store-listing copy, count, or portal metadata.
+
+## 3. Rendering and export parity
+
+Render/export parity is the primary invariant. The editor preview, static render route, UI export,
+and CLI export all traverse the same core mapping and browser Konva stage. The CLI launches the
+packaged web render host with Playwright; it never substitutes a Node canvas, Cairo, or a second text
+layout path.
+
+Every output is rendered at the selected exact target with `Stage.toDataURL({ pixelRatio })` and
+flattened to an opaque PNG. Equivalent files need not be byte-identical because metadata and
+compression may differ, but dimensions and visual output are verified by targeted parity coverage.
+New render-affecting fields must extend the shared mapping and parity tests together.
+
+Connected mode is still one project model: each exact platform/device/locale/store-target group is
+rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
+requested artboard crop; it never stitches a separate image or slices a finished PNG.
+
+## 4. Project sources, sessions, and persistence
+
+An active project is a request-scoped session, not one process-global filesystem path. A source
+adapter opens a local file, managed project, or future provider into a validated Project snapshot,
+revision evidence, capabilities, and the resource services needed for that source. Browser clients
+receive only safe descriptors; server-only locators and filesystem paths are not project fields.
+
+Every project-bound mutation resolves one active context. Interactive requests fence that identity;
+resource mutations and export also use a strong revision check. A failed open or save preserves the
+last known-good active state rather than silently targeting another project.
+
+The core `StorageAdapter` owns loading/saving the Project document and explicitly submitted asset
+bytes. Resource services own fonts, templates, themes, imports, processed assets, and export
+artifacts. This separation keeps storage extensions from accidentally claiming ownership of every
+file in a project.
+
+Local read-modify-write operations use the core mutation-lock adapter around the complete
+read → calculate → atomic-write transaction. The coordinator is for one local filesystem, not a
+distributed lock. See [Project mutation locking](project-mutation-locking.md) for lifecycle,
+recovery, defaults, and tests.
+
+Generated files use a separate fail-closed publication boundary with path containment, no-follow
+checks, owned staging, and identity-aware cleanup. See [Safe file publication](safe-file-publication.md)
+for the exact contract and its local-filesystem limitations.
+
+## 5. Resources and trust boundaries
+
+Project assets and fonts are project-relative, local files. Asset discovery and serving enforce both
+lexical and canonical containment; symlink escapes and unsafe paths are rejected. The browser never
+treats a selected Folder, ZIP, or JSON input as a trusted server path: browser transfer validates a
+bounded input and publishes a managed copy before activation.
+
+Fonts are registered project assets under `assets/fonts/`. System fallbacks are rejected because they
+make output depend on a machine. Google-font requests may occur only at add time; editor rendering and
+CLI export load the same local file bytes through browser `FontFace`.
+
+Themes and templates are project-local inputs that produce ordinary strict Project literals. They do
+not become hidden renderer state. Asset preprocessing is explicit and non-destructive; results are
+new local files that a user may deliberately assign to an element.
+
+## 6. Interfaces for people and tools
+
+The `screenshots` CLI is the management interface for structural project changes. It scaffolds a
+project, manages layouts/screens/locales/fonts/themes/imports, starts the editor, and exports exact
+bundles. Layout-aware mutations require an explicit layout when a project has more than one; export
+otherwise uses `preferredExportLayoutId`.
+
+`screenshots init` creates the standard directories and a self-contained project-local `AGENTS.md`.
+That guide teaches literal layout, copy, localization, local asset processing, and schema guardrails
+without adding provider state or an AI dependency. The optional repository skill only discovers or
+initializes such a project, then defers to its generated guide.
+
+## 7. Change rules
+
+- Preserve one Project schema and one browser rendering path.
+- Put durable data/render/persistence constraints here; put UI semantics and component conventions in
+  [`docs/editor.md`](editor.md).
+- Keep store sizes in `store-specs.json` and validate new outputs against it.
+- Treat schema widening, filesystem publication, session identity, and render changes as high-risk
+  changes with focused tests.
+- Publication is separate from implementation. Candidate verification and owner authorization live in
+  [`docs/releasing.md`](releasing.md).

@@ -18,8 +18,8 @@ Before any task, read and apply the repository-wide workflow rules in
 
 ## Sources of truth
 
-- `docs/architecture.md` — technical contract and the final authority when summaries disagree.
-- `docs/editor.md` — current editor behavior and deliberate UI boundaries.
+- `docs/architecture.md` — durable technical contracts for data, rendering, persistence, and tools.
+- `docs/editor.md` — UI/UX semantics, shared components/tokens, and accessible interaction patterns.
 - `docs/testing.md` — test ownership, cost rules, and CI policy.
 - `README.md` — user-facing setup, usage, and current capabilities.
 - `packages/cli/src/project-agent-guide.md` — canonical guide generated into screenshot projects for
