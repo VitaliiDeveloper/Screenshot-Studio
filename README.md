@@ -428,6 +428,56 @@ unsuffixed parity/editor commands remain aggregates. Do not run `pnpm test:e2e` 
 owns the full browser gate for the integration PR from `dev` into `main`. See the ownership and cost
 matrix in [`docs/testing.md`](docs/testing.md).
 
+## How Codex and GPT-5.6 were used
+
+Screenshot Studio was built through an AI-assisted development workflow using OpenAI Codex and GPT-5.6.
+
+These tools were involved in approximately 99% of the project's development activities—from the
+initial product idea and planning through repeated product and UI redesigns, implementation,
+testing, refactoring, documentation, and release-readiness work. The product vision, priorities,
+final decisions, reviews, and acceptance remained the responsibility of the human author.
+
+The collaboration covered:
+
+- **Product discovery, strategy, and planning.** Codex and GPT-5.6 helped break the idea into
+  implementation stages, evaluate trade-offs, define milestones, prioritize work, and refine the
+  product scope as requirements evolved. They were used to shape the core goal of Screenshot Studio:
+  a code-first tool for creating store-ready marketing screenshots.
+
+- **Product design and marketing direction.** We explored how the product should be positioned,
+  presented, and explained to users. This included feature definition, onboarding, project creation,
+  project import, project management, workspace navigation, screenshot-authoring workflows, product
+  copy, README content, and documentation structure.
+
+- **UI/UX design and repeated redesigns.** Codex and GPT-5.6 supported many iterations of the
+  application experience: interface concepts, layout variations, mockups, interaction patterns,
+  panel and toolbar design, visual hierarchy, empty states, project-launcher flows, and editor
+  refinements. Multiple alternatives were explored and reviewed before selected designs were
+  implemented.
+
+- **Design tools and plugins.** Plugins and design-tool integrations were used during exploration
+  and implementation to create and review mockups, accelerate design iterations, inspect visual
+  ideas, and translate selected concepts into implementable UI.
+
+- **Architecture and implementation.** Codex assisted with TypeScript, React, and Next.js
+  development; the shared browser rendering pipeline; CLI workflows; schema design and validation;
+  project storage and management; import and export flows; localization and RTL support; assets,
+  templates, themes, fonts, and store specifications; as well as focused test coverage.
+
+- **Documentation and developer experience.** Codex helped create, improve, and maintain setup
+  instructions, architecture documentation, contributor guidance, testing rules, implementation
+  contracts, workflow rules, safe file-handling guidance, and release procedures. It also helped
+  keep the CLI, editor, project format, and documentation aligned as the product evolved.
+
+- **Quality, review, and iteration.** GPT-5.6 was used to reason through edge cases, review
+  proposed changes, identify potential regressions, compare design and implementation alternatives,
+  improve consistency between the editor and CLI, and select focused validation steps for each task.
+
+AI acted as an active product, design, and engineering partner throughout the project. It
+accelerated execution and made it possible to apply existing engineering experience in an unfamiliar
+web-development environment. The human author directed the work, selected and reviewed the proposed
+designs and changes, validated the results, and approved all final product and technical decisions.
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Contributions are welcome under the same
