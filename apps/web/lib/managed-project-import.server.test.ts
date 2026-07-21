@@ -111,6 +111,33 @@ describe("ManagedProjectImportService", () => {
       .resolves.toBe("# Project guidance\n");
   });
 
+  it("ignores Finder metadata without weakening sensitive-path rejection", async () => {
+    const { service } = await createService();
+
+    const record = await service.import({
+      kind: "folder",
+      files: [
+        importFile("My Project/app-store-screenshots.json", projectJson({ name: "Finder project" })),
+        importFile("My Project/.DS_Store", "Finder metadata"),
+        importFile("My Project/assets/.DS_Store", "Finder metadata"),
+      ],
+    });
+
+    expect(record.name).toBe("Finder project");
+    await expect(readFile(join(record.projectDirectory, ".DS_Store")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(record.projectDirectory, "assets/.DS_Store")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+
+    await expect(service.import({
+      kind: "folder",
+      files: [
+        importFile("Unsafe/app-store-screenshots.json", projectJson()),
+        importFile("Unsafe/.env", "SECRET=value"),
+      ],
+    })).rejects.toMatchObject({ code: "invalid-path" });
+  });
+
   it("requires exactly one root manifest and rejects portable-path collisions", async () => {
     const { repository, service } = await createService();
 

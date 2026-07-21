@@ -7,7 +7,7 @@ import {
   CaptureImportClientError,
   previewCaptureImport,
   type CaptureImportApplyResult,
-} from "../../lib/capture-import-client";
+} from "@web/lib/capture-import-client";
 import {
   captureImportRequest,
   reduceCaptureImportState,

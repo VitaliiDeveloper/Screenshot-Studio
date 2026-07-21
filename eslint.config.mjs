@@ -55,6 +55,43 @@ export default tseslint.config(
     },
   },
   {
+    // Parent-directory imports in the web host are fragile when files move between app,
+    // components, and lib. Keep same-directory imports local and use the stable web alias
+    // for every dependency outside the current directory.
+    files: ["apps/web/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../**"],
+              message: "Import parent-directory dependencies through @web/*.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Root-owned E2E tests consume workspace packages through their public subpaths rather
+    // than reaching into package source trees by filesystem location.
+    files: ["e2e/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?:\\.\\./)+packages/",
+              message: "Import workspace packages through @screenshot-studio/*.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // React hooks correctness — the editor leans on hooks heavily. Register the plugin
     // explicitly; the shipped preset still uses the legacy array `plugins` shape.
     files: ["apps/web/**/*.{ts,tsx}", "packages/ui/**/*.{ts,tsx}"],

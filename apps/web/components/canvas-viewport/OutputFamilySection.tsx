@@ -4,8 +4,8 @@ import type { KeyboardEvent, ReactNode } from "react";
 import {
   OutputIdentityHeader,
   type OutputIdentityRole,
-} from "../editor-ui/OutputIdentityHeader.js";
-import { cx } from "../editor-ui/styles.js";
+} from "@web/components/editor-ui/OutputIdentityHeader.js";
+import { cx } from "@web/components/editor-ui/styles.js";
 
 export function OutputFamilySection({
   label,

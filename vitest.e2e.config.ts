@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+
+const coreSource = fileURLToPath(new URL("./packages/core/src", import.meta.url));
+const cliSource = fileURLToPath(new URL("./packages/cli/src", import.meta.url));
 
 /**
  * Browser tests run real Next.js servers + Chromium, so they stay separate from the fast unit
@@ -8,6 +12,18 @@ import { defineConfig } from "vitest/config";
  * browser, and Next.js runtime state cannot leak across unrelated areas.
  */
 export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: /^@screenshot-studio\/core\/([^/]+)$/,
+        replacement: `${coreSource}/$1/index.ts`,
+      },
+      {
+        find: /^@screenshot-studio\/cli\/([^/]+)$/,
+        replacement: `${cliSource}/$1.ts`,
+      },
+    ],
+  },
   test: {
     environment: "node",
     include: ["e2e/**/*.test.ts"],

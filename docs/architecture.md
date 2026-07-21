@@ -22,6 +22,11 @@ surfaces use core model and rendering helpers rather than maintaining parallel i
 Inside `core`, dependencies between top-level domains use the package's public
 `@screenshot-studio/core/<domain>` subpaths; relative imports remain local to one domain. This keeps
 the internal dependency graph aligned with the contracts available to web and CLI.
+Inside `apps/web`, dependencies outside the importing file's directory use the stable `@web/*`
+alias; relative imports are reserved for modules in the same directory. ESLint enforces this boundary
+so moving editor, component, or API files cannot silently reintroduce fragile parent traversals.
+Root-owned E2E tests consume core and CLI through the same `@screenshot-studio/*` public subpaths as
+runtime code; they never reach into `packages/*/src` by filesystem traversal.
 
 | Concern | Contract |
 |---|---|
@@ -79,6 +84,8 @@ independent set, so its default bundle contains no structural phone portrait. La
 Android tablet templates materialize their exact target as an ordinary `variantOf`/`storeTargetId`
 screen beside the family lead root, so export never falls back to a portrait lead target with a
 different aspect ratio.
+When no explicit `STORE_SPECS_PATH` is configured, the web runtime resolves this authority from the
+invocation/workspace root even when a package runner changes its process directory to `apps/web`.
 The exporter validates configured targets, exact dimensions, opaque output, and safe paths; it does
 not validate store-listing copy, count, or portal metadata.
 

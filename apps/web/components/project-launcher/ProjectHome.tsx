@@ -13,17 +13,17 @@ import {
   Ellipsis,
   LoaderCircle,
 } from "lucide-react";
-import { missingImageUrls } from "../../app/editor/editor-resources";
-import { closeProjectSession } from "../../lib/project-close";
-import { downloadProjectArchive, requestProjectArchive } from "../../lib/project-archive-client";
-import { loadProjectHomeData, type ProjectHomeData } from "../../lib/project-home-client";
-import { buildProjectHomeSummary } from "../../lib/project-home-model";
-import { editorStore } from "../../lib/editor-store";
-import { getProjectPersistenceIdentity } from "../../lib/save-project";
-import { editorUi } from "../editor-ui/styles";
+import { missingImageUrls } from "@web/app/editor/editor-resources";
+import { closeProjectSession } from "@web/lib/project-close";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
+import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/project-home-client";
+import { buildProjectHomeSummary } from "@web/lib/project-home-model";
+import { editorStore } from "@web/lib/editor-store";
+import { getProjectPersistenceIdentity } from "@web/lib/save-project";
+import { editorUi } from "@web/components/editor-ui/styles";
 
 const DynamicScreenThumbnail = dynamic(
-  () => import("../ScreenThumbnail").then((module) => module.ScreenThumbnail),
+  () => import("@web/components/ScreenThumbnail").then((module) => module.ScreenThumbnail),
   { ssr: false },
 );
 

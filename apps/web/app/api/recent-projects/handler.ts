@@ -7,7 +7,7 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { projectSessionResponseHeaders } from "../project-session/handler.js";
+import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 
 const RECENT_ID_PATTERN = /^recent_[0-9a-f]{32}$/;
 

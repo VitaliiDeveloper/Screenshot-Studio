@@ -3,9 +3,9 @@
 
 import { useEffect } from "react";
 import { createShapeElement, createTextElement, preferredAuthoringFont } from "@screenshot-studio/core/model";
-import type { ResourceDialog, WorkspacePanel } from "../../lib/editor-workspace";
-import { editorStore } from "../../lib/editor-store";
-import { mutateAndSave } from "../../lib/mutate-and-save";
+import type { ResourceDialog, WorkspacePanel } from "@web/lib/editor-workspace";
+import { editorStore } from "@web/lib/editor-store";
+import { mutateAndSave } from "@web/lib/mutate-and-save";
 
 export type EditorKeyboardCommand =
   | "undo"

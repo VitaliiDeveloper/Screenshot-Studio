@@ -9,9 +9,9 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import type { CanvasMode, Platform } from "@screenshot-studio/core/model";
-import { DialogShell } from "../editor-ui/DialogShell";
-import { MenuSelect, type MenuSelectOption } from "../editor-ui/MenuSelect";
-import { editorUi } from "../editor-ui/styles";
+import { DialogShell } from "@web/components/editor-ui/DialogShell";
+import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
+import { editorUi } from "@web/components/editor-ui/styles";
 import {
   canApplyCaptureImport,
   canPreviewCaptureImport,

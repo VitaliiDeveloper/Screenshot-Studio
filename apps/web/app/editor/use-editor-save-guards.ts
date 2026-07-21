@@ -2,11 +2,11 @@
 "use client";
 
 import { useEffect } from "react";
-import type { EditorState } from "../../lib/editor-store";
+import type { EditorState } from "@web/lib/editor-store";
 import {
   flushScheduledSave,
   hasPendingProjectSave,
-} from "../../lib/debounced-save";
+} from "@web/lib/debounced-save";
 
 export function useEditorSaveGuards(saveStatus: EditorState["saveStatus"]): void {
   useEffect(() => {

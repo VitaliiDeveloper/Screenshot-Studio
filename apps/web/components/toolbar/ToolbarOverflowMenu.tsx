@@ -4,7 +4,7 @@
 import { MoreHorizontal } from "lucide-react";
 import React, { useEffect, useId, useRef } from "react";
 import type { ToolbarDensity } from "./toolbar-density";
-import { handleMenuKeyboardNavigation } from "../editor-ui/menu-behavior";
+import { handleMenuKeyboardNavigation } from "@web/components/editor-ui/menu-behavior";
 
 export const TOOLBAR_OVERFLOW_MENU_ITEM_SELECTOR =
   "[role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']";

@@ -11,7 +11,7 @@ const leftPanelSource = readFileSync(
 describe("editor side-panel motion integration", () => {
   it("keeps both motion shells mounted and drives them from existing state", () => {
     expect(pageSource).toContain(
-      'import { EditorSidePanel } from "../../components/editor-shell/EditorSidePanel";',
+      'import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";',
     );
     expect(pageSource).toContain('<EditorSidePanel side="left" open={panel !== null}>');
     expect(pageSource).toContain('<EditorSidePanel side="right" open={inspectorOpen}>');

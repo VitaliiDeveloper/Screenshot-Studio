@@ -6,7 +6,7 @@ import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sampleRoot = join(repoRoot, "fixtures", "sample");

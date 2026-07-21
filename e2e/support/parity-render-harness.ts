@@ -2,8 +2,8 @@
 import {
   createRenderBrowserSession,
   type RenderBrowserSession,
-} from "../../packages/cli/src/render-driver.js";
-import type { RunningServer } from "../../packages/cli/src/server.js";
+} from "@screenshot-studio/cli/render-driver";
+import type { RunningServer } from "@screenshot-studio/cli/server";
 import type { Browser } from "playwright";
 
 export interface ParityRenderHarness {

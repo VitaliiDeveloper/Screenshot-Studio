@@ -17,6 +17,7 @@ import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "./project-s
 const roots: string[] = [];
 const childProcesses = new Set<ChildProcess>();
 const managedPutChild = fileURLToPath(new URL("./fixtures/managed-put-child.ts", import.meta.url));
+const WEB_TSCONFIG = fileURLToPath(new URL("../tsconfig.json", import.meta.url));
 const OPERATION_ID = "operation_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const STATUS_SECRET_HASH = "2".repeat(64);
 
@@ -174,6 +175,7 @@ describe("ManagedProjectLifecycleService", () => {
       "--import", "tsx", managedPutChild, input.config.root, input.project.id, input.projectRevision,
     ], {
       cwd: join(dirname(managedPutChild), "..", ".."),
+      env: { ...process.env, TSX_TSCONFIG_PATH: WEB_TSCONFIG },
       stdio: ["ignore", "pipe", "pipe"],
     });
     childProcesses.add(child);

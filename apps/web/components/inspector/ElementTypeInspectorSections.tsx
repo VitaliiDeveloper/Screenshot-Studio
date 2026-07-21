@@ -10,8 +10,8 @@ import {
   type Element,
   type FontAsset,
 } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "../../lib/editor-store";
-import { editorUi, InsetPanel } from "../editor-ui";
+import type { ElementPatchFor } from "@web/lib/editor-store";
+import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import {
   ColorField,
   FontIdentityField,
@@ -19,7 +19,7 @@ import {
   SelectField,
   TextField,
   ThemeRoleField,
-} from "../inspector-fields";
+} from "@web/components/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
@@ -213,7 +213,13 @@ export function ElementTypeInspectorSections({
               ) : null}
             </div>
           </InsetPanel>
-          <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patchDeviceFrame({ fit })} />
+          <SelectField
+            label="Content mode"
+            value={element.fit}
+            options={["cover", "contain"] as const}
+            optionLabels={{ cover: "Fill", contain: "Fit" }}
+            onChange={(fit) => patchDeviceFrame({ fit })}
+          />
           <OptionalInspectorEffect
             title="Content blur"
             description="Soften the screenshot inside the frame"

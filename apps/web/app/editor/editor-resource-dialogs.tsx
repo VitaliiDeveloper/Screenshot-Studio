@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { ResourceDialog } from "../../lib/editor-workspace";
-import { AssetPickerDialog } from "../../components/AssetPickerDialog";
-import { FontManagerDialog } from "../../components/FontManagerDialog";
-import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
-import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
-import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
+import type { ResourceDialog } from "@web/lib/editor-workspace";
+import { AssetPickerDialog } from "@web/components/AssetPickerDialog";
+import { FontManagerDialog } from "@web/components/FontManagerDialog";
+import { LocaleManagerDialog } from "@web/components/LocaleManagerDialog";
+import { TemplateLibraryDialog } from "@web/components/TemplateLibraryDialog";
+import { ThemeManagerDialog } from "@web/components/ThemeManagerDialog";
+import type { CachedAssetDimensions } from "@web/components/asset-picker-model";
 
 interface EditorResourceDialogsProps {
   dialog: ResourceDialog | null;
   localeDialogOpen: boolean;
   deviceFrameAssetTarget: { elementId: string; screenId: string } | null;
-  cacheImage(assetUrl: string): Promise<boolean>;
+  cacheImage(assetUrl: string): Promise<CachedAssetDimensions | null>;
   closeDialog(): void;
   closeLocaleDialog(): void;
   clearDeviceFrameAssetTarget(): void;

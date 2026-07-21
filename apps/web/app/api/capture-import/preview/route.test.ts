@@ -11,7 +11,7 @@ import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.ser
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/project-session.server.js";
-import { handleCaptureImportPreviewPost } from "../handler.js";
+import { handleCaptureImportPreviewPost } from "@web/app/api/capture-import/handler.js";
 import { POST } from "./route.js";
 
 let root: string;

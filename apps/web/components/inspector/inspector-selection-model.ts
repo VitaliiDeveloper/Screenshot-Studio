@@ -4,7 +4,7 @@ import {
   primarySelection,
   selectionBounds,
   type SelectionRef,
-} from "../../lib/editor-selection";
+} from "@web/lib/editor-selection";
 
 export function deriveInspectorSelection(
   project: Project,

@@ -5,12 +5,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import { afterAll, describe, expect, it } from "vitest";
-import { parseProjectJson } from "../packages/core/src/model/index.js";
-import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
-import { projectMutationLockPath } from "../packages/core/src/storage/index.js";
-import { exportBundle, withStableProjectExport } from "../packages/cli/src/export.js";
-import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
-import { startWebServer } from "../packages/cli/src/server.js";
+import { parseProjectJson } from "@screenshot-studio/core/model";
+import { buildBundleEntries, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
+import { projectMutationLockPath } from "@screenshot-studio/core/storage";
+import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/export";
+import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
+import { startWebServer } from "@screenshot-studio/cli/server";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureDirectory = resolve(repoRoot, "fixtures/regressions/connected-canvas");

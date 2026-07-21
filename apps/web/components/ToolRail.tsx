@@ -9,7 +9,7 @@ import {
   LoaderCircle,
   MousePointer2,
 } from "lucide-react";
-import type { WorkspacePanel, WorkspaceTool } from "../lib/editor-workspace";
+import type { WorkspacePanel, WorkspaceTool } from "@web/lib/editor-workspace";
 import { ToolButton } from "./editor-ui";
 
 export function ToolRail({

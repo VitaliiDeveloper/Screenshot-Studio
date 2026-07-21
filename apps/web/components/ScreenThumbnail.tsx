@@ -5,7 +5,7 @@ import { memo, useEffect, useRef } from "react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { renderScreen } from "@screenshot-studio/core/engine";
 import type { Project } from "@screenshot-studio/core/model";
-import { screenThumbnailInputsEqual, screenThumbnailPixelRatio } from "../lib/screen-thumbnail";
+import { screenThumbnailInputsEqual, screenThumbnailPixelRatio } from "@web/lib/screen-thumbnail";
 
 /** A small raster preview produced by the same renderer as editor and export. */
 function ScreenThumbnailImpl({

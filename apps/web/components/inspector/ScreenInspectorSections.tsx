@@ -8,11 +8,11 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { editorStore } from "../../lib/editor-store";
-import { mutateAndSave, mutateAndScheduleSave } from "../../lib/mutate-and-save";
-import { ArtboardTargets } from "../ArtboardTargets";
-import { editorUi, MenuSelect, SegmentedControl } from "../editor-ui";
-import { ColorField, NumberField, SelectField, TextField } from "../inspector-fields";
+import { editorStore } from "@web/lib/editor-store";
+import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
+import { ArtboardTargets } from "@web/components/ArtboardTargets";
+import { editorUi, MenuSelect, SegmentedControl } from "@web/components/editor-ui";
+import { ColorField, NumberField, SelectField, TextField } from "@web/components/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 
 function editBackground(background: Background) {
@@ -226,7 +226,13 @@ export function ScreenInspectorSections({
         ) : (
           <>
             <TextField label="Asset URL" value={background.assetUrl} onChange={(assetUrl) => editBackground({ ...background, assetUrl })} />
-            <SelectField label="Fit" value={background.fit} options={["cover", "contain"] as const} onChange={(fit) => editBackground({ ...background, fit })} />
+            <SelectField
+              label="Content mode"
+              value={background.fit}
+              options={["cover", "contain"] as const}
+              optionLabels={{ cover: "Fill", contain: "Fit" }}
+              onChange={(fit) => editBackground({ ...background, fit })}
+            />
             <ColorField label="Fallback" value={background.color} onChange={(color) => editBackground({ ...background, color })} />
             {onOpenBackgroundAsset ? (
               <button type="button" className={editorUi.buttonSecondary} onClick={onOpenBackgroundAsset}>

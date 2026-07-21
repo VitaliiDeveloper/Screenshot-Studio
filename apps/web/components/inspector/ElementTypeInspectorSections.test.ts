@@ -2,7 +2,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { DeviceFrameElement, TextElement } from "@screenshot-studio/core/model";
+import type { DeviceFrameElement, ScreenshotElement, TextElement } from "@screenshot-studio/core/model";
 import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections.js";
 
 const text: TextElement = {
@@ -101,5 +101,44 @@ describe("ElementTypeInspectorSections device mockup assets", () => {
     expect(markup).toContain("checkout.png");
     expect(markup).toContain("Replace screenshot");
     expect(markup).toContain('aria-label="Remove screenshot from device mockup"');
+  });
+});
+
+describe("ElementTypeInspectorSections media content mode", () => {
+  it("presents cover as Fill through a clearly labelled content mode control", () => {
+    const screenshot: ScreenshotElement = {
+      id: "screenshot",
+      type: "screenshot",
+      x: 0,
+      y: 0,
+      width: 300,
+      height: 650,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      assetUrl: "screenshots/checkout.png",
+      fit: "cover",
+      cornerRadius: 0,
+    };
+    const previousReact = Reflect.get(globalThis, "React");
+    Reflect.set(globalThis, "React", React);
+    let markup: string;
+    try {
+      markup = renderToStaticMarkup(React.createElement(ElementTypeInspectorSections, {
+        element: screenshot,
+        fonts: [],
+        onPatch: vi.fn(),
+        onDuplicate: vi.fn(),
+        onUngroup: vi.fn(),
+      }));
+    } finally {
+      if (previousReact === undefined) Reflect.deleteProperty(globalThis, "React");
+      else Reflect.set(globalThis, "React", previousReact);
+    }
+
+    expect(markup).toContain('aria-label="Content mode"');
+    expect(markup).toContain("Fill");
+    expect(markup).not.toContain(">cover<");
   });
 });

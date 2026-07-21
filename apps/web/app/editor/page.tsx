@@ -12,19 +12,19 @@ import type {
   WorkspacePanel,
   WorkspaceTool,
   WorkspaceView,
-} from "../../lib/editor-workspace";
-import { editorStore } from "../../lib/editor-store";
-import { LeftPanel } from "../../components/LeftPanel";
-import { Inspector } from "../../components/Inspector";
-import { Toolbar } from "../../components/Toolbar";
-import { ToolRail } from "../../components/ToolRail";
-import { CaptureImportDialog } from "../../components/project-launcher/CaptureImportDialog";
-import { ConfirmationDialog } from "../../components/editor-ui";
-import { EditorSidePanel } from "../../components/editor-shell/EditorSidePanel";
+} from "@web/lib/editor-workspace";
+import { editorStore } from "@web/lib/editor-store";
+import { LeftPanel } from "@web/components/LeftPanel";
+import { Inspector } from "@web/components/Inspector";
+import { Toolbar } from "@web/components/Toolbar";
+import { ToolRail } from "@web/components/ToolRail";
+import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
+import { ConfirmationDialog } from "@web/components/editor-ui";
+import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
-} from "../../lib/editor-workspace-navigation";
+} from "@web/lib/editor-workspace-navigation";
 import { EditorResourceDialogs } from "./editor-resource-dialogs";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";
@@ -34,7 +34,7 @@ import { useEditorSaveGuards } from "./use-editor-save-guards";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
-  () => import("../../components/CanvasViewport").then((m) => m.CanvasViewport),
+  () => import("@web/components/CanvasViewport").then((m) => m.CanvasViewport),
   { ssr: false },
 );
 

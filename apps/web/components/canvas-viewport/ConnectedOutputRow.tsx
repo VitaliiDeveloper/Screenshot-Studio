@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import type { WorkspaceOutputFamily } from "../../lib/editor-workspace";
-import { EditorStage } from "../EditorStage";
+import type { WorkspaceOutputFamily } from "@web/lib/editor-workspace";
+import { EditorStage } from "@web/components/EditorStage";
 import { OutputFamilySection } from "./OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";
 

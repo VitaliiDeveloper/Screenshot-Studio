@@ -4,8 +4,8 @@
 import React, { type ReactNode, type Ref } from "react";
 import { FolderInput, Layers3, LoaderCircle, Plus, RotateCcw, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
-import type { BrowserProjectImportSource } from "../../lib/project-import-client";
-import { cx, editorUi } from "../editor-ui/styles";
+import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
+import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
 import { ProjectCreationDialog } from "./ProjectCreationDialog";
 import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";

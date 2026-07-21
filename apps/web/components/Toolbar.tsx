@@ -14,11 +14,11 @@ import {
   Undo2,
 } from "lucide-react";
 import { layoutLocales } from "@screenshot-studio/core/model";
-import type { WorkspaceView } from "../lib/editor-workspace";
-import { editorStore, selectEditorLayout } from "../lib/editor-store";
+import type { WorkspaceView } from "@web/lib/editor-workspace";
+import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
 import { cx, editorUi, MenuSelect } from "./editor-ui";
-import { mutateAndSave } from "../lib/mutate-and-save";
+import { mutateAndSave } from "@web/lib/mutate-and-save";
 import { LayoutSelector } from "./LayoutSelector";
 import {
   nextToolbarDensity,

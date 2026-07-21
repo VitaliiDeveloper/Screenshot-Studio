@@ -16,7 +16,7 @@ import {
   type RecentProjectsStore,
 } from "@web/lib/recent-projects.server.js";
 import { ProjectZipError, readProjectZipFiles } from "@web/lib/project-zip.server.js";
-import { projectSessionResponseHeaders } from "../project-session/handler.js";
+import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 
 export interface ProjectImportRouteDependencies {
   repository?: ManagedProjectRepository;

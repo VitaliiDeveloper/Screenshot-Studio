@@ -3,8 +3,8 @@
 
 import React, { type Ref } from "react";
 import { Clock3, LoaderCircle, RotateCcw, X } from "lucide-react";
-import type { RecentProjectSummary } from "../../lib/recent-projects-client";
-import { editorUi } from "../editor-ui/styles";
+import type { RecentProjectSummary } from "@web/lib/recent-projects-client";
+import { editorUi } from "@web/components/editor-ui/styles";
 
 export type RecentProjectsPanelState =
   | { status: "loading" }

@@ -17,6 +17,7 @@ const PROJECT_FILE = "app-store-screenshots.json";
 const MAX_IMPORT_PATH_BYTES = 1_024;
 const MAX_IMPORT_PATH_SEGMENTS = 64;
 const MAX_IMPORT_SEGMENT_BYTES = 255;
+const IGNORED_PLATFORM_METADATA = new Set([".DS_Store"]);
 
 export type ManagedProjectImportKind = "folder" | "archive" | "json";
 
@@ -92,14 +93,20 @@ function normalizeFiles(
       );
     }
   }
+  const files = kind === "json"
+    ? input
+    : input.filter((file) => !IGNORED_PLATFORM_METADATA.has(posix.basename(file.relativePath)));
+  if (files.length === 0) {
+    throw new ManagedProjectImportError("Project import contains no project files", "invalid-project");
+  }
   if (kind === "json") {
-    if (input.length !== 1) {
+    if (files.length !== 1) {
       throw new ManagedProjectImportError("Standalone JSON import requires exactly one file", "duplicate");
     }
-    return [{ ...input[0]!, relativePath: PROJECT_FILE }];
+    return [{ ...files[0]!, relativePath: PROJECT_FILE }];
   }
-  const files = kind === "folder" ? normalizeFolderPaths(input) : [...input];
-  const manifestPaths = files
+  const normalizedFiles = kind === "folder" ? normalizeFolderPaths(files) : [...files];
+  const manifestPaths = normalizedFiles
     .map((file) => file.relativePath)
     .filter((path) => posix.basename(path) === PROJECT_FILE);
   if (manifestPaths.length > 1) {
@@ -114,7 +121,7 @@ function normalizeFiles(
       "invalid-project",
     );
   }
-  return files;
+  return normalizedFiles;
 }
 
 function validateFileSet(

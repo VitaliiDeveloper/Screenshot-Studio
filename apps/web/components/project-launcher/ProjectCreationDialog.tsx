@@ -8,9 +8,9 @@ import {
   PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES,
   type ProjectTemplateSummary,
 } from "@screenshot-studio/core/scaffold";
-import { DialogShell } from "../editor-ui/DialogShell";
-import { MenuSelect, type MenuSelectOption } from "../editor-ui/MenuSelect";
-import { cx, editorUi } from "../editor-ui/styles";
+import { DialogShell } from "@web/components/editor-ui/DialogShell";
+import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
+import { cx, editorUi } from "@web/components/editor-ui/styles";
 import {
   isProjectTemplateSupported,
   type ProjectCreationForm,

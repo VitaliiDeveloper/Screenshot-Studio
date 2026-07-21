@@ -6,9 +6,9 @@ import { useStore } from "zustand";
 import { Palette } from "lucide-react";
 import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
 import type { DesignPack, Theme } from "@screenshot-studio/core/themes";
-import { editorStore } from "../lib/editor-store";
-import { withFlushedProject } from "../lib/debounced-save";
-import { projectJsonRequest } from "../lib/project-api-client";
+import { editorStore } from "@web/lib/editor-store";
+import { withFlushedProject } from "@web/lib/debounced-save";
+import { projectJsonRequest } from "@web/lib/project-api-client";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 async function applyResource(id: string, layoutId: string, source: "built-in" | "project"): Promise<Project> {

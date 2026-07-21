@@ -4,7 +4,7 @@ import { LoaderCircle } from "lucide-react";
 import {
   exportRenderProgressPercent,
   type ExportProgressSnapshot,
-} from "../lib/export-progress.js";
+} from "@web/lib/export-progress.js";
 
 function progressLabel(progress: ExportProgressSnapshot): string {
   switch (progress.phase) {

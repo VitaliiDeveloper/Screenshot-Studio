@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { CaptureImportClientError } from "../../lib/capture-import-client.js";
+import { CaptureImportClientError } from "@web/lib/capture-import-client.js";
 import {
   assertCaptureImportHandoff,
   assertCaptureImportRecoveryTarget,

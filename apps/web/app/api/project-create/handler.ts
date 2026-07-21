@@ -14,7 +14,7 @@ import {
   recentProjectsStore,
   type RecentProjectsStore,
 } from "@web/lib/recent-projects.server.js";
-import { projectSessionResponseHeaders } from "../project-session/handler.js";
+import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 
 const MAX_CREATE_REQUEST_BYTES = 16_384;
 

@@ -17,15 +17,15 @@ import {
   type Project,
 } from "@screenshot-studio/core/model";
 import { registerFont } from "@screenshot-studio/core/fonts";
-import { editorStore } from "../lib/editor-store";
-import { primarySelection } from "../lib/editor-selection";
-import { withFlushedProject } from "../lib/debounced-save";
-import { mutateAndSave } from "../lib/mutate-and-save";
+import { editorStore } from "@web/lib/editor-store";
+import { primarySelection } from "@web/lib/editor-selection";
+import { withFlushedProject } from "@web/lib/debounced-save";
+import { mutateAndSave } from "@web/lib/mutate-and-save";
 import {
   projectRequestHeaders,
   resolveActiveProjectAssetUrl,
   setProjectRevision,
-} from "../lib/save-project";
+} from "@web/lib/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { reconcileFontMutationResponse } from "./font-manager-model";
 

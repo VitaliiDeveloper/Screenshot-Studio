@@ -6,9 +6,9 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseProjectJson } from "../packages/core/src/model/index.js";
-import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
-import { startWebServer } from "../packages/cli/src/server.js";
+import { parseProjectJson } from "@screenshot-studio/core/model";
+import { buildBundleEntries, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
+import { startWebServer } from "@screenshot-studio/cli/server";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureDir = resolve(repoRoot, "fixtures/regressions/multi-locale-export");

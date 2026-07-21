@@ -10,12 +10,12 @@ import {
   ensureStoreOutputFamily,
   ensureStoreTargetVariant,
   parseProjectJson,
-} from "../packages/core/src/model/index.js";
-import { buildBundleEntries, inspectPng, parseStoreSpecs } from "../packages/core/src/export/index.js";
-import { projectMutationLockPath } from "../packages/core/src/storage/index.js";
-import { startWebServer } from "../packages/cli/src/server.js";
-import { createRenderBrowserSession } from "../packages/cli/src/render-driver.js";
-import { exportBundle, withStableProjectExport } from "../packages/cli/src/export.js";
+} from "@screenshot-studio/core/model";
+import { buildBundleEntries, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
+import { projectMutationLockPath } from "@screenshot-studio/core/storage";
+import { startWebServer } from "@screenshot-studio/cli/server";
+import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
+import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/export";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureDirectory = resolve(repoRoot, "fixtures/regressions/multi-locale-export");

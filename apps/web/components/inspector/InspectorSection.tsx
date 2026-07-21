@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ReactNode } from "react";
-import { editorUi } from "../editor-ui";
+import { editorUi } from "@web/components/editor-ui";
 
 export function InspectorSection({ title, children }: { title?: string; children: ReactNode }) {
   return (

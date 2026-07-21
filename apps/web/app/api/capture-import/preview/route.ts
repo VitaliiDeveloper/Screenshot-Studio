@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleCaptureImportPreviewPost } from "../handler.js";
+import { handleCaptureImportPreviewPost } from "@web/app/api/capture-import/handler.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

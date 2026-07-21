@@ -5,7 +5,7 @@ import {
   type Element,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { primarySelection, type SelectionRef } from "../../lib/editor-selection";
+import { primarySelection, type SelectionRef } from "@web/lib/editor-selection";
 
 export interface StageProjection {
   screen: Screen;

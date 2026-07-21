@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { OutputIdentityHeader } from "../editor-ui/OutputIdentityHeader.js";
+import { OutputIdentityHeader } from "@web/components/editor-ui/OutputIdentityHeader.js";
 
 /** Variant adapter for the shared overview output identity primitive. */
 export function SizeRowHeader({

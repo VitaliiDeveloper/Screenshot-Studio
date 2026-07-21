@@ -3,12 +3,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseProjectJson, SCHEMA_VERSION, elementLeaves } from "../packages/core/src/model/index.js";
-import { inspectPng } from "../packages/core/src/export/index.js";
-import { exportScreenToPng, resolveTarget } from "../packages/cli/src/export.js";
-import { loadProjectSnapshot } from "../packages/cli/src/project-io.js";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
-import type { Element } from "../packages/core/src/model/index.js";
+import { parseProjectJson, SCHEMA_VERSION, elementLeaves } from "@screenshot-studio/core/model";
+import { inspectPng } from "@screenshot-studio/core/export";
+import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { exportScreenToPng, resolveTarget } from "@screenshot-studio/cli/export";
+import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
+import type { Element } from "@screenshot-studio/core/model";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
@@ -75,7 +75,7 @@ describe("living examples", () => {
       const png = await exportScreenToPng({
         baseUrl: server.url,
         projectPath: example.projectPath,
-        projectRevision: (await loadProjectSnapshot(example.projectPath)).revision,
+        projectRevision: (await readProjectSnapshot(example.projectPath)).revision,
         layoutId: project.layouts[0]!.id,
         screenId: example.screenId,
         target,
