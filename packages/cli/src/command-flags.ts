@@ -13,7 +13,7 @@ export interface ParsedCommandFlags {
 export const COMMAND_FLAG_SPECS = {
   init: { value: ["dir", "name"], boolean: [] },
   export: {
-    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout"],
+    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile"],
     boolean: [],
   },
   screen: {

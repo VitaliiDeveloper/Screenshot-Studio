@@ -6,9 +6,10 @@ import {
 } from "@screenshot-studio/core/model";
 import {
   parseStoreSpecs,
-  findStoreSize,
+  findStoreTarget,
   type StoreSize,
   type BundleEntry,
+  type ExportProfile,
 } from "@screenshot-studio/core/export";
 import {
   readIdentifiedProjectSnapshot,
@@ -20,6 +21,7 @@ import {
 import { renderScreenToPng, type RenderBrowserSession } from "./render-driver.js";
 import { renderStoreReadyPng } from "./store-ready-png.js";
 import { writeBundleOutputs, type RenderedBundleEntry } from "./bundle-publisher.js";
+import { buildWebSharePackage } from "./web-share.js";
 import { loadProjectSnapshot } from "./project-io.js";
 
 export { writeBundleOutputs, type RenderedBundleEntry };
@@ -164,7 +166,7 @@ export async function resolveTarget(
   sizeId: string,
 ): Promise<StoreSize> {
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  return findStoreSize(specs, platform, device, sizeId);
+  return findStoreTarget(specs, platform, device, sizeId);
 }
 
 export async function exportBundle({
@@ -176,6 +178,8 @@ export async function exportBundle({
   entries,
   renderSession,
   publicationGuard,
+  profile = "store-bundle",
+  project,
 }: {
   baseUrl: string;
   projectPath: string;
@@ -185,6 +189,8 @@ export async function exportBundle({
   entries: BundleEntry[];
   renderSession: Pick<RenderBrowserSession, "renderScreenToPng">;
   publicationGuard: <T>(publish: () => Promise<T>) => Promise<T>;
+  profile?: ExportProfile;
+  project?: Project;
 }): Promise<string> {
   const rendered: RenderedBundleEntry[] = [];
 
@@ -211,5 +217,15 @@ export async function exportBundle({
     }
   }
 
+  if (profile === "web-share") {
+    if (!project) throw new Error("Web Share export requires the validated project snapshot");
+    const webShare = buildWebSharePackage(project, rendered);
+    return publicationGuard(() => writeBundleOutputs({
+      outDir,
+      entries: webShare.screenshots,
+      extraFiles: webShare.extraFiles,
+      zipFilename: "web-share-package.zip",
+    }));
+  }
   return publicationGuard(() => writeBundleOutputs({ outDir, entries: rendered }));
 }

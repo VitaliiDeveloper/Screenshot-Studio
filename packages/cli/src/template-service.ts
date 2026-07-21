@@ -4,15 +4,18 @@ import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   createScreenFromTemplate,
+  findBuiltInTemplate,
+  listBuiltInTemplates as listCoreBuiltInTemplates,
   parseTemplateJson,
   type ScreenTemplate,
 } from "@screenshot-studio/core/templates";
 import { getLayout, type Project, type Screen } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   resolveExistingProjectPath,
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
-import { updateProjectFile, type ProjectUpdatePreconditions } from "./project-io.js";
+import { loadProjectFile, updateProjectFile, type ProjectUpdatePreconditions } from "./project-io.js";
 import { resolveMutationLayout } from "./layout-commands.js";
 
 const TEMPLATE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -407,6 +410,39 @@ export async function listTemplates(
   return templates.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+export async function listBuiltInTemplates(projectPath: string, specs: StoreSpecs): Promise<ScreenTemplate[]> {
+  const project = await loadProjectFile(await resolveExistingProjectPath(projectPath));
+  return listCoreBuiltInTemplates(specs, project.fonts[0]);
+}
+
+export async function createBuiltInTemplateScreen(
+  projectPath: string,
+  rawId: unknown,
+  rawLocale: unknown,
+  specs: StoreSpecs,
+  lockOptions: ProjectLockOptions = {},
+  layoutReference?: string,
+  preconditions: ProjectUpdatePreconditions = {},
+): Promise<{ project: Project; revision: string; screen: Screen; template: ScreenTemplate }> {
+  const id = templateId(rawId);
+  const locale = templateLocale(rawLocale);
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const updated = await updateProjectFile(canonicalPath, (current) => {
+    const template = findBuiltInTemplate(id, specs, current.fonts[0]);
+    if (!template) throw new TemplateNotFoundError(`Built-in template "${id}" not found`);
+    try {
+      const layout = resolveMutationLayout(current, layoutReference);
+      const result = createScreenFromTemplate(current, layout.id, template, locale, specs);
+      return { project: result.project, value: { layoutId: layout.id, screenId: result.screen.id, template } };
+    } catch (error) {
+      throw new TemplateCreateError((error as Error).message, { cause: error });
+    }
+  }, lockOptions, {}, preconditions);
+  const screen = getLayout(updated.project, updated.value.layoutId).screens
+    .find((candidate) => candidate.id === updated.value.screenId)!;
+  return { project: updated.project, revision: updated.revision, screen, template: updated.value.template };
+}
+
 export async function createTemplateScreen(
   projectPath: string,
   rawId: unknown,
@@ -414,6 +450,7 @@ export async function createTemplateScreen(
   lockOptions: ProjectLockOptions = {},
   layoutReference?: string,
   preconditions: ProjectUpdatePreconditions = {},
+  specs?: StoreSpecs,
 ): Promise<{ project: Project; revision: string; screen: Screen; template: ScreenTemplate }> {
   const id = templateId(rawId);
   const canonicalPath = await resolveExistingProjectPath(projectPath);
@@ -422,7 +459,7 @@ export async function createTemplateScreen(
   const updated = await updateProjectFile(canonicalPath, (current) => {
     try {
       const layout = resolveMutationLayout(current, layoutReference);
-      const result = createScreenFromTemplate(current, layout.id, template, locale);
+      const result = createScreenFromTemplate(current, layout.id, template, locale, specs);
       return { project: result.project, value: { layoutId: layout.id, screenId: result.screen.id } };
     } catch (error) {
       throw new TemplateCreateError((error as Error).message, { cause: error });

@@ -1,7 +1,7 @@
 # Screenshot Studio CLI
 
-Built command-line distribution for Screenshot Studio. It manages strict App Store, Google Play,
-and Microsoft Store screenshot projects, opens the local editor, and exports exact store PNGs
+Built command-line distribution for Screenshot Studio. It manages strict Apple, Android, Windows,
+and Web screenshot projects, opens the local editor, and exports exact output PNGs
 through the packaged shared web renderer.
 
 After installing the `0.1.0` dry-run package artifact and its matching Chromium builds:
@@ -20,9 +20,15 @@ screenshots export
 explicit persisted variants. A single-screen export resolves an explicit `--size` first, then the
 screen’s persisted `storeTargetId`, then its device lead target.
 
+`screenshots export --profile web-share` packages the same rendered PNGs into a portable local-only
+static review/campaign directory and ZIP. Web Share is independent of the Web platform.
+
 `screen add --size` accepts only a device lead target. `screen rm <id>` protects the last locale
-root and rejects roots that still own variants; add `--cascade` to remove a root together with its
-variants.
+primary. Under the default independent policy it preserves paired exact-size screens as standalone;
+add `--cascade` to explicitly remove a primary together with its paired variants. Screen mutations
+use the core persisted slot policy: independent exact-size rows remain
+independent, while `Keep 1:1` mirrors logical add/delete/order across created sizes without sharing
+screen content.
 
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
 The artifact carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Presence

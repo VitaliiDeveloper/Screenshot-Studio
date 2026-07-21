@@ -2,7 +2,14 @@
 import { constants, type BigIntStats } from "node:fs";
 import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
-import { applyTheme, parseThemeJson, type Theme } from "@screenshot-studio/core/themes";
+import {
+  applyDesignPack,
+  applyTheme,
+  findBuiltInDesignPack,
+  parseThemeJson,
+  type DesignPack,
+  type Theme,
+} from "@screenshot-studio/core/themes";
 import type { Project } from "@screenshot-studio/core/model";
 import {
   resolveExistingProjectPath,
@@ -411,4 +418,31 @@ export async function applyThemeFile(
     }
   }, lockOptions, {}, preconditions);
   return { project: updated.project, revision: updated.revision, theme };
+}
+
+/** Apply a process-global pack without reading or copying any project resource file. */
+export async function applyBuiltInDesignPackFile(
+  projectPath: string,
+  rawId: unknown,
+  lockOptions: ProjectLockOptions = {},
+  layoutReference?: string,
+  preconditions: ProjectUpdatePreconditions = {},
+): Promise<{
+  project: Project;
+  revision: string;
+  pack: DesignPack;
+}> {
+  const id = themeId(rawId);
+  const pack = findBuiltInDesignPack(id);
+  if (!pack) throw new ThemeNotFoundError(`Built-in design pack "${id}" not found`);
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const updated = await updateProjectFile(canonicalPath, (current) => {
+    try {
+      const layout = resolveMutationLayout(current, layoutReference);
+      return { project: applyDesignPack(current, layout.id, pack), value: undefined };
+    } catch (error) {
+      throw new ThemeApplyError((error as Error).message, { cause: error });
+    }
+  }, lockOptions, {}, preconditions);
+  return { project: updated.project, revision: updated.revision, pack };
 }

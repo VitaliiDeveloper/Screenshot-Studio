@@ -93,10 +93,10 @@ export function formatScreenList(project: ProjectModel, layoutId: string): strin
   return getLayout(project, layoutId).screens
     .map(
       (screen, index) => {
-        const variant = screen.variantOf
-          ? ` target=${screen.storeTargetId} variant-of=${screen.variantOf}`
+        const target = screen.storeTargetId
+          ? ` target=${screen.storeTargetId}${screen.variantOf ? ` variant-of=${screen.variantOf}` : ""}`
           : "";
-        return `${index + 1} ${screen.id} ${screen.platform}/${screen.device} ${screen.locale} ${screen.name}${variant}`;
+        return `${index + 1} ${screen.id} ${screen.platform}/${screen.device} ${screen.locale} ${screen.name}${target}`;
       },
     )
     .join("\n");

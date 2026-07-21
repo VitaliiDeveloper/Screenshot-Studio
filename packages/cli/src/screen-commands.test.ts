@@ -131,6 +131,20 @@ describe("screen commands", () => {
     );
   });
 
+  it("identifies an independent exact-size screen without claiming it is paired", () => {
+    const source = sampleProject();
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
+      id: "standalone-65",
+      storeTargetId: "6.5",
+    });
+
+    expect(formatScreenList(source, "default")).toContain(
+      "3 standalone-65 apple/iphone en Hero target=6.5",
+    );
+    expect(formatScreenList(source, "default")).not.toContain("standalone-65 apple/iphone en Hero target=6.5 variant-of=");
+  });
+
   it("adds a lead-size screen to the selected layout", () => {
     const project = addScreenToProject(sampleProject(), "default", specs, {
       id: "ipad-hero",
@@ -229,7 +243,7 @@ describe("screen commands", () => {
     expect(written.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["android-hero", "hero"]);
   });
 
-  it("requires cascade acknowledgement and atomically removes a root with its variants", async () => {
+  it("preserves independent exact screens by default and supports an explicit cascade", async () => {
     const dir = await temporaryDirectory("screenshot-studio-screen-cascade-");
     const projectPath = join(dir, "app-store-screenshots.json");
     const specsPath = join(dir, "store-specs.json");
@@ -246,12 +260,14 @@ describe("screen commands", () => {
     await writeFile(projectPath, exact, "utf8");
     await writeFile(specsPath, `${JSON.stringify(specs, null, 2)}\n`, "utf8");
 
-    await expect(runScreenCommand(projectPath, specsPath, ["rm", "details"], {}))
-      .rejects.toThrow(/has 1 store target variant.*cascade/i);
-    expect(await readFile(projectPath, "utf8")).toBe(exact);
+    await runScreenCommand(projectPath, specsPath, ["rm", "details"], {});
+    let written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    expect(written.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["hero", "details-65"]);
+    expect(written.layouts[0]!.screens[1]!.variantOf).toBeUndefined();
 
+    await writeFile(projectPath, exact, "utf8");
     await runScreenCommand(projectPath, specsPath, ["rm", "details"], { cascade: "true" });
-    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     expect(written.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["hero"]);
   });
 

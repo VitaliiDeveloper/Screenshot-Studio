@@ -23,6 +23,12 @@ export interface RenderedBundleEntry {
 
 const DETERMINISTIC_ZIP_DATE = new Date("2000-01-01T00:00:00.000Z");
 const BUNDLE_ZIP_FILENAME = "app-store-screenshots-bundle.zip";
+const ALLOWED_BUNDLE_ZIP_FILENAMES = new Set([BUNDLE_ZIP_FILENAME, "web-share-package.zip"]);
+
+export interface BundleExtraFile {
+  relativePath: string;
+  bytes: Buffer;
+}
 
 type StageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">
   & Partial<Pick<FileHandle, "stat">>;
@@ -496,12 +502,19 @@ async function restoreBackupSafely(
 export async function writeBundleOutputs({
   outDir,
   entries,
+  extraFiles = [],
+  zipFilename = BUNDLE_ZIP_FILENAME,
   dependencies = {},
 }: {
   outDir: string;
   entries: RenderedBundleEntry[];
+  extraFiles?: BundleExtraFile[];
+  zipFilename?: string;
   dependencies?: BundleOutputDependencies;
 }): Promise<string> {
+  if (!ALLOWED_BUNDLE_ZIP_FILENAMES.has(zipFilename)) {
+    throw new Error(`Unsupported bundle zip filename "${zipFilename}"`);
+  }
   const makeTempDirectory = dependencies.makeTempDirectory ?? mkdtemp;
   const move = dependencies.move ?? rename;
   const remove = dependencies.remove ?? rm;
@@ -509,26 +522,30 @@ export async function writeBundleOutputs({
   const openVerification = dependencies.openVerification ?? ((path, flags) => open(path, flags));
   const linkFile = dependencies.linkFile ?? ((source, destination) => link(source, destination));
   const unlinkFile = dependencies.unlinkFile ?? ((path) => unlink(path));
-  const seenPaths = new Set<string>([collisionKey(BUNDLE_ZIP_FILENAME)]);
-  const outputs = entries.map(({ entry, png }) => {
-    const outputPath = resolveSafeBundleOutputPath(outDir, entry.relativePath);
-    const key = collisionKey(entry.relativePath);
+  const seenPaths = new Set<string>([collisionKey(zipFilename)]);
+  const files = [
+    ...entries.map(({ entry, png }) => ({ relativePath: entry.relativePath, bytes: png })),
+    ...extraFiles,
+  ];
+  const outputs = files.map(({ relativePath, bytes }) => {
+    const outputPath = resolveSafeBundleOutputPath(outDir, relativePath);
+    const key = collisionKey(relativePath);
     if (seenPaths.has(key)) {
-      throw new Error(`Duplicate bundle output path "${entry.relativePath}"`);
+      throw new Error(`Duplicate bundle output path "${relativePath}"`);
     }
     seenPaths.add(key);
-    return { entry, png, outputPath };
+    return { relativePath, bytes, outputPath };
   });
-  const zipOutputPath = resolveSafeBundleOutputPath(outDir, BUNDLE_ZIP_FILENAME);
-  const zipPath = join(outDir, BUNDLE_ZIP_FILENAME);
+  const zipOutputPath = resolveSafeBundleOutputPath(outDir, zipFilename);
+  const zipPath = join(outDir, zipFilename);
   const preflightPaths = [...outputs.map(({ outputPath }) => outputPath), zipOutputPath];
   for (const outputPath of preflightPaths) {
     await preflightOutputPath(outDir, outputPath);
   }
 
   const zip = new JSZip();
-  for (const { entry, png } of outputs) {
-    zip.file(entry.relativePath, png, {
+  for (const { relativePath, bytes } of outputs) {
+    zip.file(relativePath, bytes, {
       createFolders: false,
       date: DETERMINISTIC_ZIP_DATE,
     });
@@ -545,13 +562,13 @@ export async function writeBundleOutputs({
   const backupRoot = join(stagingRoot, "backup");
   const quarantineRoot = join(stagingRoot, "quarantine");
   const publications = [
-    ...outputs.map(({ entry, png, outputPath }) => ({
-      relativePath: entry.relativePath,
-      bytes: png,
+    ...outputs.map(({ relativePath, bytes, outputPath }) => ({
+      relativePath,
+      bytes,
       outputPath,
     })),
     {
-      relativePath: BUNDLE_ZIP_FILENAME,
+      relativePath: zipFilename,
       bytes: zipBytes,
       outputPath: zipOutputPath,
     },
