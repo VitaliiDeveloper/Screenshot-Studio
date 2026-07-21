@@ -83,6 +83,8 @@ available for precise custom direction; both editor preview and export use that 
 The Inspector offers an optional bounded blur for Screenshot and Image elements. Device Frame exposes
 the same effect as `Content blur`, which softens only its screenshot and keeps the bezel sharp. A zero
 value removes the optional field, and editor preview and export share the same rendering behavior.
+New Screenshot and Image elements preserve the decoded asset aspect ratio at insertion. Their shared
+Content mode control presents `Fill` for cover-and-crop and `Fit` for uncropped containment.
 
 Text boxes expose independent horizontal (`left`, `center`, `right`) and vertical (`top`, `middle`,
 `bottom`) alignment. A theme role is a semantic marker for the next explicit theme application; role
@@ -131,6 +133,8 @@ not a third top-level first-run action. The editor tool rail exists only in Work
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
 recovery action; Workspace must never discard the active client state automatically.
+Project folder and archive import discard Finder's `.DS_Store` metadata while continuing to reject
+other unsupported, hidden, credential-bearing, or sensitive paths.
 
 ## 4. Responsive and accessible behavior
 

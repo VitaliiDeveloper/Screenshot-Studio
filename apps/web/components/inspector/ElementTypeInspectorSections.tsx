@@ -213,7 +213,13 @@ export function ElementTypeInspectorSections({
               ) : null}
             </div>
           </InsetPanel>
-          <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patchDeviceFrame({ fit })} />
+          <SelectField
+            label="Content mode"
+            value={element.fit}
+            options={["cover", "contain"] as const}
+            optionLabels={{ cover: "Fill", contain: "Fit" }}
+            onChange={(fit) => patchDeviceFrame({ fit })}
+          />
           <OptionalInspectorEffect
             title="Content blur"
             description="Soften the screenshot inside the frame"

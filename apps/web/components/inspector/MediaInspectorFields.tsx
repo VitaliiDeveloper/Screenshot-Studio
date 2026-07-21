@@ -19,7 +19,13 @@ export function MediaInspectorFields({
   return (
     <>
       <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => onChange({ assetUrl })} />
-      <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => onChange({ fit })} />
+      <SelectField
+        label="Content mode"
+        value={element.fit}
+        options={["cover", "contain"] as const}
+        optionLabels={{ cover: "Fill", contain: "Fit" }}
+        onChange={(fit) => onChange({ fit })}
+      />
       <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => onChange({ cornerRadius })} />
       <OptionalInspectorEffect
         title="Blur"

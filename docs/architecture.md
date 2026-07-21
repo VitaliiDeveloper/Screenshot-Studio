@@ -79,6 +79,8 @@ independent set, so its default bundle contains no structural phone portrait. La
 Android tablet templates materialize their exact target as an ordinary `variantOf`/`storeTargetId`
 screen beside the family lead root, so export never falls back to a portrait lead target with a
 different aspect ratio.
+When no explicit `STORE_SPECS_PATH` is configured, the web runtime resolves this authority from the
+invocation/workspace root even when a package runner changes its process directory to `apps/web`.
 The exporter validates configured targets, exact dimensions, opaque output, and safe paths; it does
 not validate store-listing copy, count, or portal metadata.
 

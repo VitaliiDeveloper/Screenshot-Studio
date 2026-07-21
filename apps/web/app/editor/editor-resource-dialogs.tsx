@@ -7,12 +7,13 @@ import { FontManagerDialog } from "../../components/FontManagerDialog";
 import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
 import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
 import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
+import type { CachedAssetDimensions } from "../../components/asset-picker-model";
 
 interface EditorResourceDialogsProps {
   dialog: ResourceDialog | null;
   localeDialogOpen: boolean;
   deviceFrameAssetTarget: { elementId: string; screenId: string } | null;
-  cacheImage(assetUrl: string): Promise<boolean>;
+  cacheImage(assetUrl: string): Promise<CachedAssetDimensions | null>;
   closeDialog(): void;
   closeLocaleDialog(): void;
   clearDeviceFrameAssetTarget(): void;

@@ -119,15 +119,21 @@ export function TextField({
 }
 
 export function SelectField<T extends string>({
-  label, value, options, onChange,
-}: { label: string; value: T; options: readonly T[]; onChange: (v: T) => void }) {
+  label, value, options, optionLabels, onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  optionLabels?: Partial<Record<T, string>>;
+  onChange: (v: T) => void;
+}) {
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
       <MenuSelect
         ariaLabel={label}
         value={value}
-        options={options.map((option) => ({ value: option, label: option }))}
+        options={options.map((option) => ({ value: option, label: optionLabels?.[option] ?? option }))}
         onChange={onChange}
         className="w-28"
       />

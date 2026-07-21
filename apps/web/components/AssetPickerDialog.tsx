@@ -17,7 +17,11 @@ import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
 import { projectJsonRequest } from "../lib/project-api-client";
 import { resolveActiveProjectAssetUrl } from "../lib/save-project";
-import { insertAssetAfterCaching } from "./asset-picker-model";
+import {
+  initialMediaElementSize,
+  insertAssetAfterCaching,
+  type CachedAssetDimensions,
+} from "./asset-picker-model";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { DIALOG_EXIT_DURATION_MS } from "./editor-ui/DialogShell";
 
@@ -41,7 +45,7 @@ export function AssetPickerDialog({
 }: {
   elementType: AssetElementType;
   targetDeviceFrame?: { elementId: string; screenId: string };
-  cacheAsset: (path: string) => Promise<boolean>;
+  cacheAsset: (path: string) => Promise<CachedAssetDimensions | null>;
   onClose: () => void;
 }) {
   const [assets, setAssets] = useState<ProjectImageAsset[] | null>(null);
@@ -102,7 +106,7 @@ export function AssetPickerDialog({
       onCloseRef.current();
     }, DIALOG_EXIT_DURATION_MS);
   };
-  const insert = (path: string) => {
+  const insert = (path: string, dimensions: CachedAssetDimensions) => {
     if (!isCurrent()) return;
     if (isBackground) {
       mutateAndSave(() => editorStore.getState().setBackground({
@@ -129,8 +133,8 @@ export function AssetPickerDialog({
       : isStoreBadge
         ? { ...createImageElement({ assetUrl: path, width: 420, height: 140 }), name: "Store badge" }
         : isImage
-          ? createImageElement({ assetUrl: path })
-          : createScreenshotElement({ assetUrl: path });
+          ? createImageElement({ assetUrl: path, ...initialMediaElementSize(dimensions) })
+          : createScreenshotElement({ assetUrl: path, ...initialMediaElementSize(dimensions) });
     mutateAndSave(() => editorStore.getState().addElement(element));
     requestClose();
   };

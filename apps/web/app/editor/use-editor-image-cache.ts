@@ -15,6 +15,7 @@ import {
   resolveActiveProjectAssetUrl,
   type ProjectAssetResolver,
 } from "../../lib/save-project";
+import type { CachedAssetDimensions } from "../../components/asset-picker-model";
 
 export async function loadAllProjectImages(
   project: Project,
@@ -89,17 +90,18 @@ export function useEditorImageCache(resourceGeneration: { readonly current: numb
     return () => { cancelled = true; };
   }, [assetSignature, images]);
 
-  const cacheImage = useCallback(async (assetUrl: string): Promise<boolean> => {
+  const cacheImage = useCallback(async (assetUrl: string): Promise<CachedAssetDimensions | null> => {
     const generation = resourceGeneration.current;
     const current = imagesRef.current;
-    if (!current) return false;
-    if (current.has(assetUrl)) return true;
+    if (!current) return null;
+    const cached = current.get(assetUrl);
+    if (cached) return { width: cached.naturalWidth, height: cached.naturalHeight };
     const image = await loadProjectImage(assetUrl, resolveActiveProjectAssetUrl);
     if (!image
       || resourceGeneration.current !== generation
-      || imagesRef.current !== current) return false;
+      || imagesRef.current !== current) return null;
     replace(cacheDecodedProjectImage(current, assetUrl, image));
-    return true;
+    return { width: image.naturalWidth, height: image.naturalHeight };
   }, [replace, resourceGeneration]);
 
   return { images, reset, replace, cacheImage };

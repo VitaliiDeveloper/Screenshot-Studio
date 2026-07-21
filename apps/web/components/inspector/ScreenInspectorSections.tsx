@@ -226,7 +226,13 @@ export function ScreenInspectorSections({
         ) : (
           <>
             <TextField label="Asset URL" value={background.assetUrl} onChange={(assetUrl) => editBackground({ ...background, assetUrl })} />
-            <SelectField label="Fit" value={background.fit} options={["cover", "contain"] as const} onChange={(fit) => editBackground({ ...background, fit })} />
+            <SelectField
+              label="Content mode"
+              value={background.fit}
+              options={["cover", "contain"] as const}
+              optionLabels={{ cover: "Fill", contain: "Fit" }}
+              onChange={(fit) => editBackground({ ...background, fit })}
+            />
             <ColorField label="Fallback" value={background.color} onChange={(color) => editBackground({ ...background, color })} />
             {onOpenBackgroundAsset ? (
               <button type="button" className={editorUi.buttonSecondary} onClick={onOpenBackgroundAsset}>
