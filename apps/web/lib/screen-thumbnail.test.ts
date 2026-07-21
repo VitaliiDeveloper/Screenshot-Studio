@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { CanvasMode, DesignLayout, Project } from "@screenshot-studio/core/model";
-import { screenThumbnailInputsEqual } from "./screen-thumbnail.js";
+import { screenThumbnailInputsEqual, screenThumbnailPixelRatio } from "./screen-thumbnail.js";
 
 function project(mode: CanvasMode = "connected"): Project {
   const shape = (id: string) => ({
@@ -50,6 +50,52 @@ function updateLayout(project: Project, update: (layout: DesignLayout) => Design
 const images: ImageCache = new Map();
 
 describe("screen thumbnail memoization", () => {
+  it("rasterizes contain previews for their rendered size and screen density", () => {
+    expect(screenThumbnailPixelRatio({
+      stageWidth: 1320,
+      stageHeight: 2868,
+      viewportWidth: 520,
+      viewportHeight: 416,
+      devicePixelRatio: 2,
+      fit: "contain",
+    })).toBeCloseTo((416 / 2868) * 2);
+    expect(screenThumbnailPixelRatio({
+      stageWidth: 1920,
+      stageHeight: 1080,
+      viewportWidth: 520,
+      viewportHeight: 416,
+      devicePixelRatio: 2,
+      fit: "contain",
+    })).toBeCloseTo((520 / 1920) * 2);
+  });
+
+  it("bounds thumbnail density for hidden or oversized viewports", () => {
+    expect(screenThumbnailPixelRatio({
+      stageWidth: 1320,
+      stageHeight: 2868,
+      viewportWidth: 0,
+      viewportHeight: 0,
+      devicePixelRatio: 2,
+      fit: "contain",
+    })).toBe(0.12);
+    expect(screenThumbnailPixelRatio({
+      stageWidth: 100,
+      stageHeight: 100,
+      viewportWidth: 1000,
+      viewportHeight: 1000,
+      devicePixelRatio: 3,
+      fit: "cover",
+    })).toBe(1);
+  });
+
+  it("rerenders when the requested image fit changes", () => {
+    const current = project();
+    expect(screenThumbnailInputsEqual(
+      { project: current, layoutId: "primary", screenId: "first", images, fit: "cover" },
+      { project: current, layoutId: "primary", screenId: "first", images, fit: "contain" },
+    )).toBe(false);
+  });
+
   it("invalidates a connected crop when a neighbouring owner changes", () => {
     const previous = project();
     const next = updateLayout(previous, (layout) => ({

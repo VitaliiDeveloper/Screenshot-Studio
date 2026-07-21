@@ -42,8 +42,8 @@ PROJECT_PATH="$PWD/fixtures/sample/app-store-screenshots.json" pnpm dev
 pnpm screenshots dev --project "$PWD/fixtures/sample/app-store-screenshots.json"
 ```
 
-Both commands start the host with the sample as a `local-file` project and land on Project Home;
-**Open workspace** then opens `/editor`. Editor saves update `fixtures/sample` directly, so copy the
+Both commands start the host with the sample as a `local-file` project and land on Project Info;
+**Open in Editor** then opens `/editor`. Editor saves update `fixtures/sample` directly, so copy the
 fixture to a separate directory first when experimenting with changes you do not want to keep.
 
 Exporting store-ready PNGs (and the e2e suite) additionally needs a one-time Playwright
@@ -319,7 +319,7 @@ references screenshots, uploaded fonts, an app icon, or other project-local reso
 import lists the missing paths so the complete source can be chosen. Import is bounded by
 `SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES` (256 MiB by default),
 `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, and `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, then atomically
-activates the managed copy and opens Project Home. Selection remains in the browser until the user
+activates the managed copy and opens Project Info. Selection remains in the browser until the user
 confirms the managed copy; choosing another source, cancellation, or failure preserves the previous
 active session.
 
@@ -328,7 +328,7 @@ then offers **Blank**, supported generic project templates, and platform-aware b
 iPad portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and
 Web mobile. Built-ins use the same screen-template materializer as onboarding and Resources, need no
 pre-existing assets, and keep device-frame slots empty and assignable. The browser never accepts a server path: it validates and
-atomically publishes into managed storage, activates the new session, and opens Project Home. CLI
+atomically publishes into managed storage, activates the new session, and opens Project Info. CLI
 `screenshots init --dir <directory>` uses the same scaffold contract with an explicit local destination.
 
 **Capture import** is distinct from complete project import. Choose a directory containing the
@@ -338,14 +338,17 @@ project, review the no-write counts, planned fresh ids/resource paths, warnings,
 then confirm. Current-project requests are fenced by active project identity and revision; new-project
 destinations reuse the same strict scaffold and atomic managed publication as **Create project**.
 Failure rolls back Project/resource changes or managed publication, and success opens only the
-verified receiving Project Home. The CLI command remains supported through the same discovery and
+verified receiving Project Info. The CLI command remains supported through the same discovery and
 atomic apply services:
 
 ```bash
 pnpm screenshots import ./my-app-screenshots --layout "Feature campaign" --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
-Managed Project Home can **Export project archive** as `screenshot-studio-project.zip`. This portable
+Each project card opens Workspace directly. Its overflow menu opens a preview-first **Project
+details** view with shared-renderer screen previews, compact layout/output metadata, and any known
+project issues. The same card menu can **Export archive** as `screenshot-studio-project.zip`. This
+archive action is also available beside **Open in Editor** in Project details. This portable
 archive contains the strict document and supported project resources, and can be imported again from
 App Home. It excludes managed catalog/session state, locks, staging/temp files, credentials, rendered
 store output, and other unsupported paths. Project archive export is a backup/transfer action; it is
@@ -353,8 +356,9 @@ separate from Workspace store-image export. To open an existing local project in
 `PROJECT_PATH` to an absolute `app-store-screenshots.json` before starting the host, or run
 `screenshots dev --project /absolute/path/to/app-store-screenshots.json`.
 
-Managed Project Home also provides **Permanently delete project**. It is distinct from **Close
-project**, is never shown for a local-file source, and cannot target an arbitrary path. Before
+The managed-project card menu also provides **Delete project…**. It is distinct from **Close
+project** in the Project details overflow, is never shown for a local-file source, and cannot target
+an arbitrary path. Before
 confirmation you can download the same portable archive or explicitly continue without one. The
 dialog requires the exact project name plus an irreversible acknowledgement; a failed archive or
 unsaved Workspace change does not start deletion. Success removes the managed copy and its

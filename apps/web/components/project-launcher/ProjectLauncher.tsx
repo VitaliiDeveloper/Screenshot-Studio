@@ -50,6 +50,10 @@ import type {
 import { ProjectDeletionDialog } from "./ProjectDeletionDialog";
 import { DelayedOpeningState } from "./delayed-opening-state";
 import { useManagedProjectDeletion } from "./useManagedProjectDeletion";
+import {
+  ProjectActionNoticeState,
+  type ProjectLibraryNotice,
+} from "./project-action-notice";
 
 export function ProjectLauncher({ projectTemplates, initialProjects }: {
   projectTemplates: readonly ProjectTemplateSummary[];
@@ -65,6 +69,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
   const [projects, setProjects] = useState<ProjectLibraryState>(initialProjects);
   const [projectAction, setProjectAction] = useState<ProjectLibraryAction | null>(null);
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
+  const [projectActionNotice, setProjectActionNotice] = useState<ProjectLibraryNotice | null>(null);
   const [visibleOpeningEntryId, setVisibleOpeningEntryId] = useState<string | null>(null);
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
@@ -77,8 +82,12 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
   const mountedRef = useRef(true);
   const publishingRef = useRef(false);
   const openingStateRef = useRef<DelayedOpeningState | null>(null);
+  const projectActionNoticeStateRef = useRef<ProjectActionNoticeState | null>(null);
   if (openingStateRef.current == null) {
     openingStateRef.current = new DelayedOpeningState(setVisibleOpeningEntryId);
+  }
+  if (projectActionNoticeStateRef.current == null) {
+    projectActionNoticeStateRef.current = new ProjectActionNoticeState(setProjectActionNotice);
   }
   const deletion = useManagedProjectDeletion({
     onDeleted: (projectId) => {
@@ -130,6 +139,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
   const loadProjects = useCallback(() => {
     setProjects({ status: "loading" });
     setProjectActionError(null);
+    projectActionNoticeStateRef.current?.clear();
     void settleProjects();
   }, [settleProjects]);
 
@@ -144,6 +154,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       if (creationExitTimerRef.current) clearTimeout(creationExitTimerRef.current);
       openingStateRef.current?.clear();
+      projectActionNoticeStateRef.current?.dispose();
       importControllerRef.current?.abort();
     };
   }, []);
@@ -273,6 +284,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
     setProjectAction({ entryId, kind: destination === "workspace" ? "opening" : "details" });
     if (destination === "workspace") openingStateRef.current?.start(entryId);
     setProjectActionError(null);
+    projectActionNoticeStateRef.current?.clear();
     void switchActiveProject(() => openProjectLibraryEntry(entryId)).then((result) => {
       if (!mountedRef.current) return;
       router.push(destination === "workspace"
@@ -299,9 +311,13 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
     if (projectAction) return;
     setProjectAction({ entryId, kind });
     setProjectActionError(null);
+    projectActionNoticeStateRef.current?.clear();
     void loadManagedProjectAction(entryId).then(async (loaded) => {
       if (kind === "archive") {
         downloadProjectArchive(await requestProjectArchive(loaded.selection.projectId, loaded.resources.revision));
+        if (mountedRef.current) {
+          projectActionNoticeStateRef.current?.show(entryId, "Archive download started.");
+        }
       } else {
         deletion.open(loaded);
       }
@@ -315,6 +331,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
     if (projectAction) return;
     setProjectAction({ entryId: recentId, kind: "removing" });
     setProjectActionError(null);
+    projectActionNoticeStateRef.current?.clear();
     void removeRecentProject(recentId).then(() => {
       if (!mountedRef.current) return;
       setProjects((current) => current.status === "ready"
@@ -338,6 +355,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
       projects={projects}
       projectAction={projectAction}
       projectActionError={projectActionError}
+      projectActionNotice={projectActionNotice}
       visibleOpeningEntryId={visibleOpeningEntryId}
       deletionDialog={deletion.dialog && deletion.projectName ? <ProjectDeletionDialog projectName={deletion.projectName} state={deletion.dialog} confirmation={deletion.confirmation} acknowledged={deletion.acknowledged} onConfirmationChange={deletion.setConfirmation} onAcknowledgedChange={deletion.setAcknowledged} onExportArchive={() => { void deletion.exportArchive(); }} onContinueWithoutArchive={deletion.continueWithoutArchive} onConfirmDelete={() => { void deletion.confirm(); }} onRetryDeletion={() => { void deletion.retry(); }} onClose={deletion.close} /> : null}
       importButtonRef={importButtonRef}

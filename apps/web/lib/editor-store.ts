@@ -3,6 +3,7 @@ import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
 import {
   addLayout as addLayoutCore,
+  DEFAULT_BLANK_SCREEN_COLOR,
   duplicateElement as duplicateElementCore,
   duplicateLayout as duplicateLayoutCore,
   findElementLocation,
@@ -426,7 +427,7 @@ export const editorStore = createStore<EditorState>((set) => ({
         locale: source.locale,
         direction: source.direction,
         artboard: source.artboard,
-        background: { type: "solid", color: "#101827" },
+        background: { type: "solid", color: DEFAULT_BLANK_SCREEN_COLOR },
       },
     });
     return activateLayout(state, result.project, result.layout.id);

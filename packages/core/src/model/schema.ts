@@ -20,6 +20,7 @@ export const FONT_WEIGHT_STEP = 100;
 export const DEFAULT_FONT_WEIGHT = 400;
 export const TEXT_SHADOW_BLUR_MAX = 100;
 export const SHAPE_STROKE_WIDTH_MAX = 100;
+export const MEDIA_BLUR_MAX = 40;
 
 export const FontWeight = z
   .number()
@@ -143,6 +144,8 @@ export const ScreenshotElement = z
     fit: z.enum(["cover", "contain"]).default("cover"),
     cornerRadius: z.number().min(0).default(0),
     crop: MediaCrop.optional(),
+    /** Gaussian blur radius in artboard pixels. Omitted and zero are visually equivalent. */
+    blur: z.number().finite().min(0).max(MEDIA_BLUR_MAX).optional(),
   })
   .strict();
 export type ScreenshotElement = z.infer<typeof ScreenshotElement>;
@@ -156,6 +159,8 @@ export const ImageElement = z
     fit: z.enum(["cover", "contain"]).default("contain"),
     cornerRadius: z.number().min(0).default(0),
     crop: MediaCrop.optional(),
+    /** Gaussian blur radius in artboard pixels. Omitted and zero are visually equivalent. */
+    blur: z.number().finite().min(0).max(MEDIA_BLUR_MAX).optional(),
   })
   .strict();
 export type ImageElement = z.infer<typeof ImageElement>;
@@ -189,6 +194,8 @@ export const DeviceFrameElement = z
     /** Portable project-relative path to the screenshot placed in the frame's screen slot. */
     assetUrl: ProjectRelativePath.optional(),
     fit: z.enum(["cover", "contain"]).default("cover"),
+    /** Gaussian blur applied only to the screenshot content, never to the device bezel. */
+    blur: z.number().finite().min(0).max(MEDIA_BLUR_MAX).optional(),
   })
   .strict();
 export type DeviceFrameElement = z.infer<typeof DeviceFrameElement>;

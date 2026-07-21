@@ -134,7 +134,7 @@ describe("editor layout state", () => {
       locale: "en",
       direction: "ltr",
       artboard: { width: 660, height: 1434 },
-      background: { type: "solid", color: "#101827" },
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
     expect(state.historyPast).toEqual([]);

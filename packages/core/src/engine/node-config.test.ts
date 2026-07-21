@@ -215,7 +215,7 @@ const cache: ImageCache = new Map([["a.png", stubImage]]);
 
 describe("elementToNodeConfig — screenshot", () => {
   it("maps a cover screenshot to a logical Group with crop and cornerRadius", () => {
-    const result = elementToNodeConfig(shot, { images: cache });
+    const result = elementToNodeConfig({ ...shot, blur: 12 }, { images: cache });
     expect(result.konva).toBe("Group");
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.config).toMatchObject({
@@ -228,6 +228,7 @@ describe("elementToNodeConfig — screenshot", () => {
       x: 0, y: 0, width: 200, height: 100, cornerRadius: 12, image: stubImage,
       cropX: 0, cropY: 100, cropWidth: 400, cropHeight: 200,
     });
+    expect(result.children[1]).toMatchObject({ filter: { kind: "blur", radius: 12 } });
   });
 
   it("maps a contain screenshot to a centred fitted box, no crop", () => {
@@ -275,12 +276,13 @@ describe("elementToNodeConfig — decorative image", () => {
   };
 
   it("uses the shared deterministic contain mapping and preserves alpha-bearing image input", () => {
-    const result = elementToNodeConfig(image, { images: cache });
+    const result = elementToNodeConfig({ ...image, blur: 6 }, { images: cache });
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.config).toMatchObject({ id: "decor", x: 10, y: 20, width: 200, height: 100 });
     expect(result.children[1]).toMatchObject({
       konva: "Image",
       config: { x: 50, y: 0, width: 100, height: 100, image: stubImage, cornerRadius: 12 },
+      filter: { kind: "blur", radius: 6 },
     });
   });
 
@@ -321,7 +323,7 @@ describe("elementToNodeConfig — device-frame", () => {
   });
 
   it("composits body, slot background, clipped content image, and notch (box-local)", () => {
-    const result = elementToNodeConfig(frame, { images: frameCache });
+    const result = elementToNodeConfig({ ...frame, blur: 10 }, { images: frameCache });
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Image", "Rect"]);
 
@@ -331,6 +333,8 @@ describe("elementToNodeConfig — device-frame", () => {
     expect(result.children[1]!.config).toMatchObject({ x: 35, y: 28, width: 930, height: 944, cornerRadius: 93, fill: "#000000" });
     // Content image: fills the slot (cover), same slot rounding, the decoded image.
     expect(result.children[2]!.config).toMatchObject({ x: 35, y: 28, width: 930, height: 944, cornerRadius: 93, image: frameStub });
+    expect(result.children[2]).toMatchObject({ filter: { kind: "blur", radius: 10 } });
+    expect(result.children[0]).not.toHaveProperty("filter");
     // Notch: centred pill near the top.
     expect(result.children[3]!.config).toMatchObject({ x: 340, y: 22, width: 320, height: 18 });
   });

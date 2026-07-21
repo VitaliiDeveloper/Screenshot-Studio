@@ -665,6 +665,24 @@ describe("styling literals", () => {
     expect(() => Element.parse({ ...shape, gradient: { ...shape.gradient, stops: [] } })).toThrow();
   });
 
+  it("accepts bounded blur for screenshots, images, and device-frame content", () => {
+    const transform = {
+      x: 0, y: 0, width: 100, height: 200,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+    };
+    const media = [
+      { ...transform, id: "shot", type: "screenshot", assetUrl: "assets/shot.png", blur: 12 },
+      { ...transform, id: "image", type: "image", assetUrl: "assets/image.png", blur: 40 },
+      { ...transform, id: "frame", type: "device-frame", deviceType: "iphone", blur: 8 },
+    ];
+
+    for (const element of media) {
+      expect(Element.parse(element)).toMatchObject({ blur: element.blur });
+      expect(() => Element.parse({ ...element, blur: -1 })).toThrow();
+      expect(() => Element.parse({ ...element, blur: 40.1 })).toThrow();
+    }
+  });
+
 });
 
 describe("ScreenshotElement", () => {

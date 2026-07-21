@@ -50,6 +50,9 @@ Only strict v1 element types and literals are valid. Workspace selections, viewp
 history, source locators, recents, credentials, and server lifecycle metadata never enter Project JSON.
 Text elements persist horizontal alignment and an optional vertical alignment; the shared renderer
 treats an omitted vertical value as `top` so existing strict documents keep their pixels unchanged.
+Screenshot and decorative-image elements may persist a bounded Gaussian blur radius. Device-frame
+elements use the same field for screenshot content only, leaving the bezel sharp. The editor and
+browser export renderer apply that effect through the same cached Konva filter contract.
 
 Screen-slot behavior is a layout-local output-family policy keyed by platform, device, and locale.
 New project scaffolds and newly created output families persist `synchronized`; an omitted policy

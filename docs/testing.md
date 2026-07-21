@@ -68,7 +68,7 @@ ZIP admission, path/credential policy, limits, cancellation cleanup, atomic cata
 one-shot artifacts, and byte-level archive round trip stay in `test:web`; do not duplicate them in
 additional browser scenarios.
 
-Launcher 4 browser ownership is also one exact file. It proves validated managed Project Home,
+Launcher 4 browser ownership is also one exact file. It proves validated managed Project Info,
 source-safe identity, Home ↔ Workspace layout/screen/selection/chrome preservation, failed-save
 navigation blocking and recovery, source-neutral Close project, storage/catalog non-mutation, and
 serious/critical accessibility coverage as one dependent journey:
@@ -136,7 +136,7 @@ catalog lifecycle filtering, activation-route recording, and lock ordering stay 
 | Explicit source selection and request-scoped active sessions | Launcher 1 | project-session and request-fence `test:web` tests |
 | Managed storage, catalog, recovery, and source-safe identity | Launcher 2 | managed repository/catalog/lifecycle `test:web` tests |
 | Browser managed-copy import and portable project archive | Launcher 3 | focused route/service tests plus `e2e/project-launcher.test.ts` |
-| Validated Project Home and Workspace round trip | Launcher 4 | focused model/client tests plus `e2e/project-home-round-trip.test.ts` |
+| Validated Project Info and Workspace round trip | Launcher 4 | focused model/client tests plus `e2e/project-home-round-trip.test.ts` |
 | Strict shared empty/template project creation | Launcher 5 | core scaffold and creation-route tests plus `e2e/project-creation.test.ts` |
 | Capture-folder preview and explicit-target apply | Launcher 6 | core/CLI/web capture tests plus `e2e/capture-import.test.ts` |
 | Managed-only permanent deletion without Trash semantics | Launcher 7 | lifecycle/deletion tests plus `e2e/permanent-project-deletion.test.ts` |

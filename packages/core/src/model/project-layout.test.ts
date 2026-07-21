@@ -249,7 +249,7 @@ describe("design layout lifecycle API", () => {
       device: "iphone",
       locale: "uk",
       artboard: { width: 1290, height: 2796 },
-      background: { type: "solid", color: "#101827" },
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
     expect(result.project.layouts.map((layout) => layout.id)).toEqual(["launch", "feature-focus"]);

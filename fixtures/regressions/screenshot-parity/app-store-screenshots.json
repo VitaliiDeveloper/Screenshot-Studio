@@ -35,7 +35,8 @@
               "height": 800,
               "assetUrl": "assets/shot.png",
               "fit": "cover",
-              "cornerRadius": 48
+              "cornerRadius": 48,
+              "blur": 12
             }
           ]
         }

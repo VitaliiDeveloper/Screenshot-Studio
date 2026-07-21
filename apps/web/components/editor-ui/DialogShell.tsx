@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useEffect, useRef, type ReactNode } from "react";
+import React, { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cx, editorUi } from "./styles.js";
+
+export const DIALOG_EXIT_DURATION_MS = 180;
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 export function DialogShell({
   title,
@@ -37,8 +44,31 @@ export function DialogShell({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const onCloseRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
+  const closeTimerRef = useRef<number | null>(null);
+  const motionRef = useRef(motion);
+  const internalMotionRef = useRef<"open" | "closing">("open");
+  const [internalMotion, setInternalMotion] = useState<"open" | "closing">("open");
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => { closeDisabledRef.current = closeDisabled; }, [closeDisabled]);
+  useEffect(() => { motionRef.current = motion; }, [motion]);
+
+  const requestClose = useCallback(() => {
+    if (closeDisabledRef.current || internalMotionRef.current === "closing") return;
+    if (motionRef.current !== undefined || prefersReducedMotion()) {
+      onCloseRef.current();
+      return;
+    }
+    internalMotionRef.current = "closing";
+    setInternalMotion("closing");
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      onCloseRef.current();
+    }, DIALOG_EXIT_DURATION_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -57,7 +87,7 @@ export function DialogShell({
         if (escapeFromMenu || dialog.querySelector("[role='menu']")) return;
         event.preventDefault();
         event.stopPropagation();
-        if (!closeDisabledRef.current) onCloseRef.current();
+        requestClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -87,19 +117,17 @@ export function DialogShell({
       document.removeEventListener("keydown", onKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [initialFocus]);
+  }, [initialFocus, requestClose]);
 
-  const requestClose = () => {
-    if (!closeDisabled) onClose();
-  };
+  const effectiveMotion = motion ?? internalMotion;
 
   const dialog = (
     <div
       className={cx(
         "fixed inset-0 z-50 flex items-center justify-center bg-[var(--editor-color-overlay)] p-3 backdrop-blur-[2px] sm:p-4",
-        motion && "launcher-dialog-backdrop",
+        "launcher-dialog-backdrop",
       )}
-      data-motion={motion}
+      data-motion={effectiveMotion}
       onClick={requestClose}
     >
       <div
@@ -112,7 +140,7 @@ export function DialogShell({
         className={cx(
           "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-[var(--editor-color-surface-translucent)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-dialog)]",
           widthClass,
-          motion && "launcher-dialog-panel",
+          "launcher-dialog-panel",
         )}
         onClick={(event) => event.stopPropagation()}
       >

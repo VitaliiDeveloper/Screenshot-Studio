@@ -4,6 +4,7 @@ import { collectImageUrls } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   CanvasMode,
+  DEFAULT_BLANK_SCREEN_COLOR,
   HexColor,
   Project,
   ProjectRelativePath,
@@ -162,8 +163,8 @@ function createRawProject(
   const device = LEAD_DEVICE_BY_PLATFORM[input.platform];
   const screenCount = template?.screenCount ?? 1;
   const colors = template?.preview ?? {
-    backgroundFrom: "#0B1020",
-    backgroundTo: "#0B1020",
+    backgroundFrom: DEFAULT_BLANK_SCREEN_COLOR,
+    backgroundTo: DEFAULT_BLANK_SCREEN_COLOR,
     accent: "#334155",
   };
   const screens = Array.from({ length: screenCount }, (_, index) => ({

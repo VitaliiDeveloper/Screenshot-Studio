@@ -6,6 +6,7 @@ import {
   DEVICE_FRAME_IDS,
   DEVICE_FRAME_SPECS,
   ICON_IDS,
+  MEDIA_BLUR_MAX,
   type Element,
   type FontAsset,
 } from "@screenshot-studio/core/model";
@@ -213,6 +214,17 @@ export function ElementTypeInspectorSections({
             </div>
           </InsetPanel>
           <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => patchDeviceFrame({ fit })} />
+          <OptionalInspectorEffect
+            title="Content blur"
+            description="Soften the screenshot inside the frame"
+            enabled={Boolean(element.blur)}
+            onAdd={() => patchDeviceFrame({ blur: 8 })}
+            onRemove={() => patchDeviceFrame({ blur: null })}
+          >
+            {element.blur ? (
+              <NumberField label="Blur radius" value={element.blur} min={0} max={MEDIA_BLUR_MAX} step={1} onChange={(blur) => patchDeviceFrame({ blur: blur === 0 ? null : blur })} />
+            ) : null}
+          </OptionalInspectorEffect>
           <SelectField label="Frame preset" value={element.deviceType} options={DEVICE_FRAME_IDS} onChange={(deviceType) => patchDeviceFrame({
             deviceType,
             height: element.width / DEVICE_FRAME_SPECS[deviceType].aspectRatio,

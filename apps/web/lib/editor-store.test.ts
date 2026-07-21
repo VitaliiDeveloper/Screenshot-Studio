@@ -270,6 +270,7 @@ describe("editorStore screens (slice 4)", () => {
       device: "iphone",
       locale: "en",
       artboard: { width: 660, height: 1434 },
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
     expect(added.id).not.toBe("hero");
@@ -761,6 +762,21 @@ describe("editorStore addElement + wide patch (slice 5)", () => {
     patchImage("decor", { crop: null });
     expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.at(-1))
       .not.toHaveProperty("crop");
+  });
+
+  it("patches and clears decorative-image blur", () => {
+    editorStore.getState().addElement({
+      id: "decor", type: "image", x: 10, y: 20, width: 100, height: 80,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      assetUrl: "assets/old.png", fit: "contain", cornerRadius: 0,
+    });
+
+    patchImage("decor", { blur: 12 });
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.at(-1))
+      .toHaveProperty("blur", 12);
+    patchImage("decor", { blur: null });
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements.at(-1))
+      .not.toHaveProperty("blur");
   });
 
   it("patches icon identity, colour, and stroke width", () => {

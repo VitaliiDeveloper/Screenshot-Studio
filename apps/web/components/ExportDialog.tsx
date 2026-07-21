@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "zustand";
-import { Download } from "lucide-react";
+import { Archive, Download, Images } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
-import { projectRequestHeaders } from "../lib/save-project";
+import { downloadProjectArchive, requestProjectArchive } from "../lib/project-archive-client";
+import { fetchActiveProject } from "../lib/project-session";
+import { getProjectPersistenceIdentity, projectRequestHeaders } from "../lib/save-project";
 import {
   createExportOperationId,
   parseExportProgress,
@@ -20,10 +22,14 @@ import {
 } from "./export-dialog-model";
 import { ExportProgressStatus } from "./ExportProgressStatus";
 
+type ProjectArchiveAvailability =
+  | { status: "checking" }
+  | { status: "available" }
+  | { status: "unavailable"; message: string };
+
 /**
- * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
- * to "all"), export progress, inline errors. It saves the current project first so /render and
- * the export route read exactly what the user sees, then downloads the zip the route returns.
+ * Keeps rendered outputs and the portable editable project as distinct export actions. Both paths
+ * flush pending saves first so the requested artifact matches the current Workspace state.
  */
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
@@ -36,6 +42,34 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [progress, setProgress] = useState<ExportProgressSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadedFilename, setDownloadedFilename] = useState<string | null>(null);
+  const [archiveAvailability, setArchiveAvailability] = useState<ProjectArchiveAvailability>({
+    status: "checking",
+  });
+  const [archivePending, setArchivePending] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [archiveDownloadedFilename, setArchiveDownloadedFilename] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void fetchActiveProject().then((selection) => {
+      if (cancelled) return;
+      setArchiveAvailability(selection?.capabilities.exportProjectArchive
+        ? { status: "available" }
+        : {
+            status: "unavailable",
+            message: "Project export is available for managed projects.",
+          });
+    }).catch(() => {
+      if (!cancelled) {
+        setArchiveAvailability({
+          status: "unavailable",
+          message: "Project export availability could not be checked. Close and reopen Export to retry.",
+        });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [open]);
 
   if (!open || !project || !activeLayoutId) return null;
 
@@ -49,6 +83,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     .filter((screen) => device === "all" || screen.device === device)
     .map((screen) => screen.locale)));
   const runExport = async () => {
+    if (archivePending) return;
     const filters = normalizeExportFilters(layout, { platform, device, locale });
     setPending(true);
     setError(null);
@@ -134,88 +169,145 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
       setPending(false);
     }
   };
+  const runProjectArchiveExport = async () => {
+    if (pending || archivePending || archiveAvailability.status !== "available") return;
+    setArchivePending(true);
+    setArchiveError(null);
+    setArchiveDownloadedFilename(null);
+    try {
+      await withFlushedProject(async () => {
+        const selection = await fetchActiveProject();
+        const identity = getProjectPersistenceIdentity();
+        if (!selection?.capabilities.exportProjectArchive) {
+          throw new Error("Project export is available for managed projects.");
+        }
+        if (!identity || identity.projectId !== selection.projectId) {
+          throw new Error("The active project changed before export could start.");
+        }
+        const ticket = await requestProjectArchive(identity.projectId, identity.revision);
+        downloadProjectArchive(ticket);
+        setArchiveDownloadedFilename(ticket.filename);
+      });
+    } catch (caught) {
+      setArchiveError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setArchivePending(false);
+    }
+  };
+  const busy = pending || archivePending;
+  const closeDialog = () => {
+    setArchiveAvailability({ status: "checking" });
+    setArchiveError(null);
+    setArchiveDownloadedFilename(null);
+    onClose();
+  };
 
   return (
     <DialogShell
-      title="Export bundle"
-      description="Render store-ready PNGs and one zip through the shared export path."
-      onClose={onClose}
-      widthClass="max-w-md"
+      title="Export"
+      description="Choose rendered store images or a portable editable project archive."
+      onClose={closeDialog}
+      widthClass="max-w-lg"
     >
-      <div className="flex flex-col gap-3">
-        <label className="flex items-center justify-between gap-4 text-xs">
-          <span className="font-medium text-slate-600">Export profile</span>
-          <MenuSelect
-            ariaLabel="Export profile"
-            value={profile}
-            options={[
-              { value: "store-bundle", label: "Store bundle" },
-              { value: "web-share", label: "Web Share" },
-            ]}
-            onChange={setProfile}
-            className="w-40"
-          />
-        </label>
-        <label className="flex items-center justify-between gap-4 text-xs">
-          <span className="font-medium text-slate-600">Platform</span>
-          <MenuSelect
-            ariaLabel="Platform"
-            value={platform}
-            options={[{ value: "all", label: "all" }, ...platforms.map((value) => ({ value, label: value }))]}
-            onChange={(value) => {
-              setPlatform(value);
-              setDevice("all");
-              setLocale("all");
-            }}
-            className="w-40"
-          />
-        </label>
+      <div className="flex flex-col gap-4">
+        <section aria-labelledby="store-images-export-title" className={editorUi.insetPanel}>
+          <div className="flex items-start gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700"><Images aria-hidden="true" className="size-4" /></span>
+            <div>
+              <h3 id="store-images-export-title" className="text-sm font-semibold text-slate-950">Store images</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Render store-ready PNGs and package them into one download.</p>
+            </div>
+          </div>
+          <label className="flex items-center justify-between gap-4 text-xs">
+            <span className="font-medium text-slate-600">Export profile</span>
+            <MenuSelect
+              ariaLabel="Export profile"
+              value={profile}
+              options={[
+                { value: "store-bundle", label: "Store bundle" },
+                { value: "web-share", label: "Web Share" },
+              ]}
+              onChange={setProfile}
+              className="w-40"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-4 text-xs">
+            <span className="font-medium text-slate-600">Platform</span>
+            <MenuSelect
+              ariaLabel="Platform"
+              value={platform}
+              options={[{ value: "all", label: "all" }, ...platforms.map((value) => ({ value, label: value }))]}
+              onChange={(value) => {
+                setPlatform(value);
+                setDevice("all");
+                setLocale("all");
+              }}
+              className="w-40"
+            />
+          </label>
 
-        <label className="flex items-center justify-between gap-4 text-xs">
-          <span className="font-medium text-slate-600">Device</span>
-          <MenuSelect
-            ariaLabel="Device"
-            value={device}
-            options={[{ value: "all", label: "all" }, ...devices.map((value) => ({ value, label: value }))]}
-            onChange={(value) => {
-              setDevice(value);
-              setLocale("all");
-            }}
-            className="w-40"
-          />
-        </label>
+          <label className="flex items-center justify-between gap-4 text-xs">
+            <span className="font-medium text-slate-600">Device</span>
+            <MenuSelect
+              ariaLabel="Device"
+              value={device}
+              options={[{ value: "all", label: "all" }, ...devices.map((value) => ({ value, label: value }))]}
+              onChange={(value) => {
+                setDevice(value);
+                setLocale("all");
+              }}
+              className="w-40"
+            />
+          </label>
 
-        <label className="flex items-center justify-between gap-4 text-xs">
-          <span className="font-medium text-slate-600">Locale</span>
-          <MenuSelect
-            ariaLabel="Locale"
-            value={locale}
-            options={[{ value: "all", label: "all" }, ...locales.map((entry) => ({ value: entry, label: entry }))]}
-            onChange={setLocale}
-            className="w-40"
-          />
-        </label>
+          <label className="flex items-center justify-between gap-4 text-xs">
+            <span className="font-medium text-slate-600">Locale</span>
+            <MenuSelect
+              ariaLabel="Locale"
+              value={locale}
+              options={[{ value: "all", label: "all" }, ...locales.map((entry) => ({ value: entry, label: entry }))]}
+              onChange={setLocale}
+              className="w-40"
+            />
+          </label>
 
-        {error && <p className="whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
-        {downloadedFilename && (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">
-            Download started: {downloadedFilename}
-          </p>
-        )}
-        {pending && progress && <ExportProgressStatus progress={progress} />}
+          {error && <p role="alert" className={editorUi.statusError}>{error}</p>}
+          {downloadedFilename && <p role="status" className={editorUi.statusProgress}>Store image download started: {downloadedFilename}</p>}
+          {pending && progress && <ExportProgressStatus progress={progress} />}
+          <div className="flex justify-end">
+            <button className={editorUi.buttonPrimary} onClick={runExport} disabled={busy}>
+              <Download size={14} strokeWidth={2} />
+              {pending ? "Exporting images…" : "Export images"}
+            </button>
+          </div>
+        </section>
 
-        <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
-          <button className={editorUi.buttonSecondary} onClick={onClose} disabled={pending}>
-            Close
-          </button>
-          <button
-            className={editorUi.buttonPrimary}
-            onClick={runExport}
-            disabled={pending}
-          >
-            <Download size={14} strokeWidth={2} />
-            {pending ? "Exporting…" : "Export"}
-          </button>
+        <section aria-labelledby="project-archive-export-title" className={editorUi.insetPanel}>
+          <div className="flex items-start gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700"><Archive aria-hidden="true" className="size-4" /></span>
+            <div>
+              <h3 id="project-archive-export-title" className="text-sm font-semibold text-slate-950">Editable project</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Download the project document with its project-owned screenshots, assets, fonts, themes, and templates for later import.</p>
+            </div>
+          </div>
+          {archiveAvailability.status === "checking" ? <p role="status" className={editorUi.statusProgress}>Checking project export availability…</p> : null}
+          {archiveAvailability.status === "unavailable" ? <p className={editorUi.statusWarning}>{archiveAvailability.message}</p> : null}
+          {archiveError ? <p role="alert" className={editorUi.statusError}>{archiveError}</p> : null}
+          {archiveDownloadedFilename ? <p role="status" className={editorUi.statusProgress}>Project download started: {archiveDownloadedFilename}</p> : null}
+          <div className="flex justify-end">
+            <button
+              className={editorUi.buttonSecondary}
+              onClick={runProjectArchiveExport}
+              disabled={busy || archiveAvailability.status !== "available"}
+            >
+              <Archive aria-hidden="true" className="size-4" />
+              {archivePending ? "Preparing project…" : "Export project"}
+            </button>
+          </div>
+        </section>
+
+        <div className="flex justify-end border-t border-slate-100 pt-4">
+          <button className={editorUi.buttonSecondary} onClick={closeDialog} disabled={busy}>Close</button>
         </div>
       </div>
     </DialogShell>

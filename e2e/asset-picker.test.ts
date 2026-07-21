@@ -44,18 +44,49 @@ describe("Project asset picker", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
 
+    let delayFirstAssetList = true;
+    await page.route("**/api/assets", async (route) => {
+      if (delayFirstAssetList && route.request().method() === "GET") {
+        delayFirstAssetList = false;
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 600));
+      }
+      await route.continue();
+    });
+
     await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "Screenshot", exact: true }).click();
     const screenshotDialog = page.getByRole("dialog", { name: "Screenshot asset picker" });
     await screenshotDialog.waitFor({ state: "visible" });
+    await screenshotDialog.getByRole("status", { name: "" }).filter({ hasText: "Scanning project images…" }).waitFor();
+    await screenshotDialog.evaluate(async (element) => {
+      await Promise.all(element.getAnimations().map(({ finished }) => finished));
+    });
+    const loadingBox = await screenshotDialog.boundingBox();
     const screenshotOption = screenshotDialog.getByRole("button", {
       name: "Use assets/demo-logistics-app.png",
     });
     await screenshotOption.waitFor();
-    await expect.poll(() => screenshotOption.locator("img").evaluate((image) => (
+    const loadedBox = await screenshotDialog.boundingBox();
+    expect(loadingBox).not.toBeNull();
+    expect(loadedBox).not.toBeNull();
+    expect(Math.abs(loadedBox!.height - loadingBox!.height)).toBeLessThan(1);
+    const screenshotBackdrop = screenshotDialog.locator("..");
+    expect(await screenshotBackdrop.getAttribute("data-motion")).toBe("open");
+    await screenshotDialog.getByRole("button", { name: "Close asset picker" }).click();
+    expect(await screenshotBackdrop.getAttribute("data-motion")).toBe("closing");
+    await screenshotDialog.waitFor({ state: "hidden" });
+
+    await page.getByRole("button", { name: "Screenshot", exact: true }).click();
+    const reopenedScreenshotDialog = page.getByRole("dialog", { name: "Screenshot asset picker" });
+    const reopenedScreenshotOption = reopenedScreenshotDialog.getByRole("button", {
+      name: "Use assets/demo-logistics-app.png",
+    });
+    await reopenedScreenshotOption.waitFor();
+    await expect.poll(() => reopenedScreenshotOption.locator("img").evaluate((image) => (
       image.complete && image.naturalWidth > 0
     ))).toBe(true);
-    await screenshotOption.click();
+    await reopenedScreenshotOption.click();
+    await reopenedScreenshotDialog.waitFor({ state: "hidden" });
 
     await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(2);
     expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
@@ -73,6 +104,7 @@ describe("Project asset picker", () => {
     const imageDialog = page.getByRole("dialog", { name: "Image asset picker" });
     await imageDialog.waitFor({ state: "visible" });
     await imageDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
+    await imageDialog.waitFor({ state: "hidden" });
 
     await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(3);
     expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
@@ -104,6 +136,7 @@ describe("Project asset picker", () => {
     const frameDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
+    await frameDialog.waitFor({ state: "hidden" });
 
     await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(4);
     expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
@@ -125,6 +158,7 @@ describe("Project asset picker", () => {
     await page.getByRole("button", { name: "Choose screenshot", exact: true }).click();
     const assignmentDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
     await assignmentDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
+    await assignmentDialog.waitFor({ state: "hidden" });
     await expect.poll(() => project().layouts[0].screens[0].elements.at(-1).assetUrl)
       .toBe("assets/demo-logistics-app.png");
     expect(project().layouts[0].screens[0].elements).toHaveLength(4);

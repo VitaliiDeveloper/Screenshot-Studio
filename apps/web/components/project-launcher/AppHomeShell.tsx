@@ -15,6 +15,7 @@ import {
   type ProjectLibraryAction,
   type ProjectLibraryState,
 } from "./ProjectGallery";
+import type { ProjectLibraryNotice } from "./project-action-notice";
 
 const launcherActionMotion = "transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
 const firstRunActionMotion = "shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
@@ -27,6 +28,7 @@ export interface AppHomeShellProps {
   projects: ProjectLibraryState;
   projectAction: ProjectLibraryAction | null;
   projectActionError: string | null;
+  projectActionNotice: ProjectLibraryNotice | null;
   visibleOpeningEntryId: string | null;
   deletionDialog?: ReactNode;
   importButtonRef?: Ref<HTMLButtonElement>;
@@ -59,6 +61,7 @@ export function AppHomeShell({
   projects,
   projectAction,
   projectActionError,
+  projectActionNotice,
   visibleOpeningEntryId,
   deletionDialog,
   importButtonRef,
@@ -159,7 +162,7 @@ export function AppHomeShell({
 
         {projects.status === "loading" ? <div role="status" className="flex min-h-[28rem] items-center justify-center gap-2 text-sm text-slate-500"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> Loading projects…</div> : null}
         {projects.status === "error" ? <div role="alert" className="mx-auto mt-20 max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center"><p className="font-semibold text-slate-950">Projects could not be loaded.</p><p className="mt-2 text-sm text-red-700">{projects.message}</p><button type="button" className={`mt-5 ${editorUi.buttonSecondary}`} onClick={onRetryProjects}><RotateCcw aria-hidden="true" className="size-4" /> Retry</button></div> : null}
-        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} action={projectAction} actionError={projectActionError} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
+        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} action={projectAction} actionError={projectActionError} actionNotice={projectActionNotice} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
       </div>
 
       {dialogs}
