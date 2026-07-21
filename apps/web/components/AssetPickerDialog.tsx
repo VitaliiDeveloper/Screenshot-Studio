@@ -87,13 +87,15 @@ export function AssetPickerDialog({
   const isImage = elementType === "image";
   const isBackground = elementType === "background";
   const isStoreBadge = elementType === "store-badge";
+  const isClosing = dialogMotion === "closing";
+  const isCurrent = () => activeRef.current && !closingRef.current;
   const requestClose = () => {
     if (closingRef.current) return;
+    closingRef.current = true;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       onCloseRef.current();
       return;
     }
-    closingRef.current = true;
     setDialogMotion("closing");
     closeTimerRef.current = window.setTimeout(() => {
       closeTimerRef.current = null;
@@ -101,6 +103,7 @@ export function AssetPickerDialog({
     }, DIALOG_EXIT_DURATION_MS);
   };
   const insert = (path: string) => {
+    if (!isCurrent()) return;
     if (isBackground) {
       mutateAndSave(() => editorStore.getState().setBackground({
         type: "image",
@@ -133,18 +136,20 @@ export function AssetPickerDialog({
   };
 
   const cacheAndInsert = async (path: string) => {
+    if (!isCurrent()) return;
     setUploading(true);
     setError(null);
     try {
-      await insertAssetAfterCaching(path, cacheAsset, insert, () => activeRef.current);
+      await insertAssetAfterCaching(path, cacheAsset, insert, isCurrent);
     } catch (loadError) {
-      if (!activeRef.current) return;
+      if (!isCurrent()) return;
       setError(actionableAssetError((loadError as Error).message));
       setUploading(false);
     }
   };
 
   const importAndInsert = async (file: File) => {
+    if (!isCurrent()) return;
     setUploading(true);
     setError(null);
     try {
@@ -163,7 +168,7 @@ export function AssetPickerDialog({
       if (!body.asset?.path || !body.asset.name || body.asset.source !== "assets") {
         throw new Error("Image import returned an invalid response");
       }
-      if (!activeRef.current) return;
+      if (!isCurrent()) return;
       setAssets((current) => [...(current ?? []), body.asset!].sort((first, second) => (
         first.path < second.path ? -1 : first.path > second.path ? 1 : 0
       )));
@@ -171,10 +176,10 @@ export function AssetPickerDialog({
         body.asset.path,
         cacheAsset,
         insert,
-        () => activeRef.current,
+        isCurrent,
       );
     } catch (uploadError) {
-      if (!activeRef.current) return;
+      if (!isCurrent()) return;
       setError(actionableAssetError((uploadError as Error).message));
       setUploading(false);
     } finally {
@@ -210,6 +215,7 @@ export function AssetPickerDialog({
             type="search"
             aria-label="Search project assets"
             value={query}
+            disabled={isClosing}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search project images…"
             className={`${editorUi.field} pl-9`}
@@ -221,6 +227,7 @@ export function AssetPickerDialog({
           accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
           className="sr-only"
           aria-label="Choose image from device"
+          disabled={isClosing}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
             if (file) void importAndInsert(file);
@@ -229,7 +236,7 @@ export function AssetPickerDialog({
         <button
           type="button"
           className={editorUi.buttonSecondary}
-          disabled={uploading}
+          disabled={uploading || isClosing}
           aria-label="Import image from Finder or device"
           onClick={() => fileInputRef.current?.click()}
         >
@@ -258,7 +265,7 @@ export function AssetPickerDialog({
               key={asset.path}
               type="button"
               aria-label={`Use ${asset.path}`}
-              disabled={uploading}
+              disabled={uploading || isClosing}
               className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
               onClick={() => { void cacheAndInsert(asset.path); }}
             >

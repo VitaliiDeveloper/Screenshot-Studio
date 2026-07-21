@@ -28,15 +28,21 @@ describe("asset picker model", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it("does not insert after the picker is closed while caching", async () => {
-    let current = true;
+  it("does not insert after the picker starts closing while caching", async () => {
+    const active = true;
+    let closing = false;
     const insert = vi.fn();
     const cacheAsset = vi.fn(async () => {
-      current = false;
+      closing = true;
       return true;
     });
 
-    await insertAssetAfterCaching("assets/imported/hero.png", cacheAsset, insert, () => current);
+    await insertAssetAfterCaching(
+      "assets/imported/hero.png",
+      cacheAsset,
+      insert,
+      () => active && !closing,
+    );
 
     expect(insert).not.toHaveBeenCalled();
   });
