@@ -20,6 +20,22 @@ function project(elements: Element[], background: Background = { type: "solid", 
   };
 }
 
+function projectWithScreens(): Project {
+  const base = project([]);
+  return {
+    ...base,
+    layouts: [{
+      ...base.layouts[0]!,
+      screens: [
+        { ...base.layouts[0]!.screens[0]!, id: "first", elements: [shot("first-shot", "first.png")] },
+        { ...base.layouts[0]!.screens[0]!, id: "second", elements: [shot("second-shot", "second.png")] },
+        { ...base.layouts[0]!.screens[0]!, id: "third", elements: [shot("third-shot", "third.png")] },
+        { ...base.layouts[0]!.screens[0]!, id: "fourth", elements: [shot("fourth-shot", "fourth.png")] },
+      ],
+    }],
+  };
+}
+
 const shot = (id: string, assetUrl: string): LeafElement => ({
   id, type: "screenshot", x: 0, y: 0, width: 10, height: 10,
   rotation: 0, opacity: 1, locked: false, visible: true,
@@ -73,5 +89,10 @@ describe("collectImageUrls", () => {
       children: [shot("nested-shot", "nested.png"), framed("nested-frame", "frame.png")],
     };
     expect(collectImageUrls(project([grouped])).sort()).toEqual(["frame.png", "nested.png"]);
+  });
+
+  it("limits collection to selected preview screens", () => {
+    expect(collectImageUrls(projectWithScreens(), "default", ["first", "second", "third"]).sort())
+      .toEqual(["first.png", "second.png", "third.png"]);
   });
 });

@@ -28,6 +28,7 @@ export function ProjectPreviewStrip({ entry }: { entry: ProjectLibraryEntry }) {
       project,
       layoutId,
       (path) => projectLibraryAssetUrl(entry.entryId, path),
+      entry.previewScreenIds,
     ).then((loaded) => {
       if (active) {
         setPreview({
