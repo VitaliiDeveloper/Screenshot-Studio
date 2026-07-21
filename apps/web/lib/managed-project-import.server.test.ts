@@ -112,7 +112,7 @@ describe("ManagedProjectImportService", () => {
   });
 
   it("ignores Finder metadata without weakening sensitive-path rejection", async () => {
-    const { repository, service } = await createService();
+    const { service } = await createService();
 
     const record = await service.import({
       kind: "folder",

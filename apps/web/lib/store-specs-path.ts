@@ -6,7 +6,7 @@ const STORE_SPECS_FILE = "store-specs.json";
 const WORKSPACE_MARKER = "pnpm-workspace.yaml";
 
 export interface ResolveStoreSpecsPathOptions {
-  environment?: Pick<NodeJS.ProcessEnv, "INIT_CWD" | "STORE_SPECS_PATH">;
+  environment?: Partial<Pick<NodeJS.ProcessEnv, "INIT_CWD" | "STORE_SPECS_PATH">>;
   currentDirectory?: string;
   pathExists?: (path: string) => boolean;
 }
