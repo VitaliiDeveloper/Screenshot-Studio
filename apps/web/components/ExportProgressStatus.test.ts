@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { ExportProgressSnapshot } from "../lib/export-progress.js";
+import type { ExportProgressSnapshot } from "@web/lib/export-progress.js";
 import { ExportProgressStatus } from "./ExportProgressStatus.js";
 
 const operationId = `export_${"a".repeat(32)}`;

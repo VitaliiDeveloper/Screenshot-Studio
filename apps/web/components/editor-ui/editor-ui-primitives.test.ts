@@ -8,7 +8,7 @@ import {
   SegmentedControl,
   StatusMessage,
   ToolButton,
-} from "../editor-ui.js";
+} from "@web/components/editor-ui.js";
 
 describe("editor UI primitives", () => {
   it("uses semantic tokens for every shared visual category", () => {

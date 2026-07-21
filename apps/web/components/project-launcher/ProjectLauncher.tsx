@@ -7,24 +7,24 @@ import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import {
   discardActiveProjectPersistence,
   switchActiveProject,
-} from "../../lib/debounced-save";
-import { clearWorkspaceNavigationState } from "../../lib/editor-workspace-navigation";
-import { loadProjectHomeData } from "../../lib/project-home-client";
-import { downloadProjectArchive, requestProjectArchive } from "../../lib/project-archive-client";
-import { fetchActiveProject } from "../../lib/project-session";
+} from "@web/lib/debounced-save";
+import { clearWorkspaceNavigationState } from "@web/lib/editor-workspace-navigation";
+import { loadProjectHomeData } from "@web/lib/project-home-client";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
+import { fetchActiveProject } from "@web/lib/project-session";
 import {
   importProject,
   ProjectImportClientError,
   type BrowserProjectImportSource,
-} from "../../lib/project-import-client";
-import { createProject } from "../../lib/project-creation-client";
+} from "@web/lib/project-import-client";
+import { createProject } from "@web/lib/project-creation-client";
 import {
   removeRecentProject,
-} from "../../lib/recent-projects-client";
+} from "@web/lib/recent-projects-client";
 import {
   fetchProjectLibrary,
   openProjectLibraryEntry,
-} from "../../lib/project-library-client";
+} from "@web/lib/project-library-client";
 import { AppHomeShell } from "./AppHomeShell";
 import { CaptureImportDialog } from "./CaptureImportDialog";
 import {

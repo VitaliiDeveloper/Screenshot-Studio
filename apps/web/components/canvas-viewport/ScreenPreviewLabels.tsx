@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { Screen } from "@screenshot-studio/core/model";
-import { cx } from "../editor-ui";
+import { cx } from "@web/components/editor-ui";
 
 function previewWidthStyle(width?: number): CSSProperties | undefined {
   return width === undefined ? undefined : { width };

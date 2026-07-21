@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import React, { type ReactNode } from "react";
-import { cx } from "../editor-ui";
+import { cx } from "@web/components/editor-ui";
 
 export function EditorSidePanel({
   side,

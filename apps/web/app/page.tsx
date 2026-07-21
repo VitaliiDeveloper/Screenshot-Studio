@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ProjectLauncher } from "../components/project-launcher/ProjectLauncher";
-import type { ProjectLibraryState } from "../components/project-launcher/ProjectGallery";
+import { ProjectLauncher } from "@web/components/project-launcher/ProjectLauncher";
+import type { ProjectLibraryState } from "@web/components/project-launcher/ProjectGallery";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
-import { projectLibraryService } from "../lib/project-library.server";
+import { projectLibraryService } from "@web/lib/project-library.server";
 
 async function loadInitialProjects(): Promise<ProjectLibraryState> {
   try {

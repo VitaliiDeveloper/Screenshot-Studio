@@ -18,7 +18,7 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { storeOutputLabel } from "../lib/editor-workspace";
+import { storeOutputLabel } from "@web/lib/editor-workspace";
 import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "./editor-ui";
 
 /**

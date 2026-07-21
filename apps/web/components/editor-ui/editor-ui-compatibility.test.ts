@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import * as editorUiBarrel from "../editor-ui.js";
+import * as editorUiBarrel from "@web/components/editor-ui.js";
 
 async function loadLeafModule(path: string) {
   return import(path).catch(() => null);

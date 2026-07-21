@@ -13,7 +13,7 @@ import {
   OUTPUT_FAMILY_LABEL_HEIGHT,
   type WorkspaceOutputFamily,
   type WorkspaceView,
-} from "../../lib/editor-workspace";
+} from "@web/lib/editor-workspace";
 
 export interface CanvasViewportMetricsInput {
   viewportRef: RefObject<HTMLDivElement | null>;

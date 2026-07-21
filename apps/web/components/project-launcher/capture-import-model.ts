@@ -4,7 +4,7 @@ import type {
   CaptureImportDestination,
   CaptureImportPreview,
   CaptureImportRequest,
-} from "../../lib/capture-import-client.js";
+} from "@web/lib/capture-import-client.js";
 
 export interface CaptureImportCurrentTarget {
   projectId: string;

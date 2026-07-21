@@ -24,8 +24,8 @@ import {
   type WorkspaceOutputFamily,
   type WorkspaceTool,
   type WorkspaceView,
-} from "../lib/editor-workspace";
-import { editorStore, selectEditorLayout } from "../lib/editor-store";
+} from "@web/lib/editor-workspace";
+import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
 import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";

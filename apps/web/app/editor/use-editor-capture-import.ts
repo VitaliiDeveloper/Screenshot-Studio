@@ -6,8 +6,8 @@ import type { Project } from "@screenshot-studio/core/model";
 import {
   assertCaptureImportHandoff,
   useCaptureImportController,
-} from "../../components/project-launcher/useCaptureImportController";
-import { getProjectPersistenceIdentity } from "../../lib/save-project";
+} from "@web/components/project-launcher/useCaptureImportController";
+import { getProjectPersistenceIdentity } from "@web/lib/save-project";
 
 export function useEditorCaptureImport(
   project: Project | null,

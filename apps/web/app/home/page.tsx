@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ProjectHome } from "../../components/project-launcher/ProjectHome";
+import { ProjectHome } from "@web/components/project-launcher/ProjectHome";
 
 export default async function ProjectHomePage({
   searchParams,

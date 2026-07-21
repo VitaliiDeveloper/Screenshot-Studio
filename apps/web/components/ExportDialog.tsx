@@ -4,16 +4,16 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Archive, Download, Images } from "lucide-react";
-import { editorStore } from "../lib/editor-store";
-import { withFlushedProject } from "../lib/debounced-save";
-import { downloadProjectArchive, requestProjectArchive } from "../lib/project-archive-client";
-import { fetchActiveProject } from "../lib/project-session";
-import { getProjectPersistenceIdentity, projectRequestHeaders } from "../lib/save-project";
+import { editorStore } from "@web/lib/editor-store";
+import { withFlushedProject } from "@web/lib/debounced-save";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
+import { fetchActiveProject } from "@web/lib/project-session";
+import { getProjectPersistenceIdentity, projectRequestHeaders } from "@web/lib/save-project";
 import {
   createExportOperationId,
   parseExportProgress,
   type ExportProgressSnapshot,
-} from "../lib/export-progress";
+} from "@web/lib/export-progress";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import {
   DEFAULT_EXPORT_FILTERS,

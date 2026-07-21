@@ -19,7 +19,7 @@ import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { expiredProjectSessionResponseHeaders } from "../project-session/handler.js";
+import { expiredProjectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 
 const MAX_DELETE_REQUEST_BYTES = 2_048;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;

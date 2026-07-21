@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Plus, X } from "lucide-react";
-import { editorUi, InsetPanel } from "../editor-ui";
+import { editorUi, InsetPanel } from "@web/components/editor-ui";
 
 export function OptionalInspectorEffect({
   title,

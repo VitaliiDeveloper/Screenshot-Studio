@@ -4,7 +4,7 @@
 import { useEffect, type RefObject } from "react";
 import type Konva from "konva";
 import type { DesignLayout } from "@screenshot-studio/core/model";
-import type { SelectionRef } from "../../lib/editor-selection";
+import type { SelectionRef } from "@web/lib/editor-selection";
 
 function nodeSelectionKey(screenId: string, elementId: string): string {
   return `${screenId}\u0000${elementId}`;

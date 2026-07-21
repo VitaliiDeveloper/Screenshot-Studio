@@ -8,11 +8,11 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { editorStore } from "../../lib/editor-store";
-import { mutateAndSave, mutateAndScheduleSave } from "../../lib/mutate-and-save";
-import { ArtboardTargets } from "../ArtboardTargets";
-import { editorUi, MenuSelect, SegmentedControl } from "../editor-ui";
-import { ColorField, NumberField, SelectField, TextField } from "../inspector-fields";
+import { editorStore } from "@web/lib/editor-store";
+import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
+import { ArtboardTargets } from "@web/components/ArtboardTargets";
+import { editorUi, MenuSelect, SegmentedControl } from "@web/components/editor-ui";
+import { ColorField, NumberField, SelectField, TextField } from "@web/components/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 
 function editBackground(background: Background) {

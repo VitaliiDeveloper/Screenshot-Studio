@@ -13,6 +13,7 @@ import {
 
 const roots: string[] = [];
 const children = new Set<ChildProcess>();
+const WEB_TSCONFIG = fileURLToPath(new URL("../tsconfig.json", import.meta.url));
 const PROJECT_ID = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SECOND_PROJECT_ID = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
@@ -81,6 +82,7 @@ describe("managed project lifecycle lock", () => {
     await mkdir(config.lifecycleLocksRoot, { recursive: true });
     const fixture = fileURLToPath(new URL("./fixtures/managed-lifecycle-lock-child.ts", import.meta.url));
     const child = spawn(process.execPath, ["--import", "tsx", fixture, root, PROJECT_ID], {
+      env: { ...process.env, TSX_TSCONFIG_PATH: WEB_TSCONFIG },
       stdio: ["ignore", "pipe", "pipe"],
     });
     children.add(child);

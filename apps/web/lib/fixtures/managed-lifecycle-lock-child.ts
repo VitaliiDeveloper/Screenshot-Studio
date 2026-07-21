@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { resolveManagedProjectStorageConfig } from "../managed-project-config.server.js";
-import { acquireManagedProjectLifecycleLock } from "../managed-project-lifecycle-lock.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { acquireManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
 
 async function main(): Promise<void> {
   const [root, projectId] = process.argv.slice(2);

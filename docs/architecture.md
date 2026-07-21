@@ -22,6 +22,9 @@ surfaces use core model and rendering helpers rather than maintaining parallel i
 Inside `core`, dependencies between top-level domains use the package's public
 `@screenshot-studio/core/<domain>` subpaths; relative imports remain local to one domain. This keeps
 the internal dependency graph aligned with the contracts available to web and CLI.
+Inside `apps/web`, dependencies outside the importing file's directory use the stable `@web/*`
+alias; relative imports are reserved for modules in the same directory. ESLint enforces this boundary
+so moving editor, component, or API files cannot silently reintroduce fragile parent traversals.
 
 | Concern | Contract |
 |---|---|

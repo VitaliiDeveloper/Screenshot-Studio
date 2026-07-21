@@ -12,11 +12,11 @@ import {
 import {
   filterProjectImageAssets,
   type ProjectImageAsset,
-} from "../lib/project-assets";
-import { editorStore } from "../lib/editor-store";
-import { mutateAndSave } from "../lib/mutate-and-save";
-import { projectJsonRequest } from "../lib/project-api-client";
-import { resolveActiveProjectAssetUrl } from "../lib/save-project";
+} from "@web/lib/project-assets";
+import { editorStore } from "@web/lib/editor-store";
+import { mutateAndSave } from "@web/lib/mutate-and-save";
+import { projectJsonRequest } from "@web/lib/project-api-client";
+import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
 import {
   initialMediaElementSize,
   insertAssetAfterCaching,

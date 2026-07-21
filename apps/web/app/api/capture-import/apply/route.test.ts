@@ -18,7 +18,7 @@ import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/pr
 import {
   handleCaptureImportApplyPost,
   handleCaptureImportPreviewPost,
-} from "../handler.js";
+} from "@web/app/api/capture-import/handler.js";
 import { POST } from "./route.js";
 
 let root: string;

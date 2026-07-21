@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { loadEditorResources, type EditorResourceResult } from "../app/editor/editor-resources.js";
+import { loadEditorResources, type EditorResourceResult } from "@web/app/editor/editor-resources.js";
 import { fetchActiveProject, type ActiveProjectSelection } from "./project-session.js";
 
 export interface ProjectHomeData {

@@ -19,12 +19,12 @@ import {
   screenSetModeFor,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { workspaceEditingScope } from "../lib/editor-workspace";
-import { editorStore, selectEditorLayout } from "../lib/editor-store";
-import { mutateAndSave } from "../lib/mutate-and-save";
+import { workspaceEditingScope } from "@web/lib/editor-workspace";
+import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
+import { mutateAndSave } from "@web/lib/mutate-and-save";
 import { SortableRow } from "./SortableRow";
 import { AddMenu, ConfirmationDialog, editorUi } from "./editor-ui";
-import type { ResourceDialog } from "../lib/editor-workspace";
+import type { ResourceDialog } from "@web/lib/editor-workspace";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),

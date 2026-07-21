@@ -5,7 +5,7 @@ async function main(): Promise<void> {
   if (!root || !projectId || !revision) throw new Error("root, project id, and revision are required");
   process.env.SCREENSHOT_STUDIO_DATA_ROOT = root;
   process.stdout.write("starting\n");
-  const { PUT } = await import("../../app/api/project/route.js");
+  const { PUT } = await import("@web/app/api/project/route.js");
   const response = await PUT(new Request("http://localhost/api/project", {
     method: "PUT",
     headers: {
