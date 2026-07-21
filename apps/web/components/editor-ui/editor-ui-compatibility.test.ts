@@ -17,6 +17,7 @@ describe("editor UI compatibility barrel", () => {
       toolButton,
       statusMessage,
       insetPanel,
+      segmentedControl,
     ] = await Promise.all([
       loadLeafModule("./styles.js"),
       loadLeafModule("./AddMenu.js"),
@@ -26,6 +27,7 @@ describe("editor UI compatibility barrel", () => {
       loadLeafModule("./ToolButton.js"),
       loadLeafModule("./StatusMessage.js"),
       loadLeafModule("./InsetPanel.js"),
+      loadLeafModule("./SegmentedControl.js"),
     ]);
 
     expect(
@@ -38,6 +40,7 @@ describe("editor UI compatibility barrel", () => {
         toolButton,
         statusMessage,
         insetPanel,
+        segmentedControl,
       ].every(Boolean),
       "all focused editor UI modules should resolve",
     ).toBe(true);
@@ -50,6 +53,7 @@ describe("editor UI compatibility barrel", () => {
       || !toolButton
       || !statusMessage
       || !insetPanel
+      || !segmentedControl
     ) return;
 
     expect(editorUiBarrel.cx).toBe(styles.cx);
@@ -61,5 +65,6 @@ describe("editor UI compatibility barrel", () => {
     expect(editorUiBarrel.ToolButton).toBe(toolButton.ToolButton);
     expect(editorUiBarrel.StatusMessage).toBe(statusMessage.StatusMessage);
     expect(editorUiBarrel.InsetPanel).toBe(insetPanel.InsetPanel);
+    expect(editorUiBarrel.SegmentedControl).toBe(segmentedControl.SegmentedControl);
   });
 });

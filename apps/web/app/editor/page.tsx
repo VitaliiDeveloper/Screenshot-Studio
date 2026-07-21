@@ -23,11 +23,19 @@ import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
 import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
 import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
 import { AssetPickerDialog } from "../../components/AssetPickerDialog";
+import { CaptureImportDialog } from "../../components/project-launcher/CaptureImportDialog";
+import { ConfirmationDialog } from "../../components/editor-ui";
+import {
+  assertCaptureImportHandoff,
+  useCaptureImportController,
+} from "../../components/project-launcher/useCaptureImportController";
 import { EditorSidePanel } from "../../components/editor-shell/EditorSidePanel";
 import {
   flushScheduledSave,
   hasPendingProjectSave,
 } from "../../lib/debounced-save";
+import { getProjectPersistenceIdentity } from "../../lib/save-project";
+import { abandonProjectSession } from "../../lib/project-close";
 import {
   navigateToProjects,
   readWorkspaceNavigationState,
@@ -56,6 +64,8 @@ export default function EditorPage() {
     retryFonts,
     fontRetrying,
     activeProjectId,
+    reload: reloadResources,
+    cacheImage,
   } = useEditorResources();
   const [zoom, setZoom] = useState(0.5);
   const [view, setView] = useState<WorkspaceView>("overview");
@@ -65,14 +75,50 @@ export default function EditorPage() {
   const [lastPanel, setLastPanel] = useState<WorkspacePanel>("structure");
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [dialog, setDialog] = useState<ResourceDialog | null>(null);
+  const [deviceFrameAssetTarget, setDeviceFrameAssetTarget] = useState<{
+    elementId: string;
+    screenId: string;
+  } | null>(null);
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
   const [navigationBusy, setNavigationBusy] = useState(false);
   const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [abandoningProject, setAbandoningProject] = useState(false);
   const [exportRequestKey, setExportRequestKey] = useState(0);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
+  const project = useStore(editorStore, (state) => state.project);
+  const captureImportIdentity = getProjectPersistenceIdentity();
+  const captureImportTarget = project && activeProjectId
+    && captureImportIdentity?.projectId === activeProjectId
+    ? {
+      projectId: captureImportIdentity.projectId,
+      revision: captureImportIdentity.revision,
+      projectName: project.meta.name,
+      preferredLayoutId: project.preferredExportLayoutId,
+      layouts: project.layouts.map(({ id, name }) => ({ id, name })),
+    }
+    : null;
+  const completeCaptureImport = useCallback(async (
+    result: Parameters<typeof assertCaptureImportHandoff>[0],
+    _destinationKind: "current-project" | "new-project",
+    signal: AbortSignal,
+  ) => {
+    const reloaded = await reloadResources();
+    if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
+    if (!reloaded) throw new Error("Capture import completed, but the editor could not reload it");
+    assertCaptureImportHandoff(result, getProjectPersistenceIdentity()?.projectId);
+  }, [reloadResources]);
+  const recoverCaptureImport = useCallback(async () => {
+    const reloaded = await reloadResources();
+    if (!reloaded) throw new Error("The current project could not be reloaded");
+  }, [reloadResources]);
+  const captureImport = useCaptureImportController({
+    currentTarget: captureImportTarget,
+    onCompleted: completeCaptureImport,
+    onRecoverStale: recoverCaptureImport,
+  });
   const workspaceNavigationState = useMemo(() => ({
     zoom,
     view,
@@ -183,6 +229,17 @@ export default function EditorPage() {
       });
   }, [activeProjectId, navigationBusy, router, workspaceNavigationState]);
 
+  const closeWithoutSaving = useCallback(() => {
+    if (!activeProjectId || abandoningProject) return;
+    setAbandoningProject(true);
+    void abandonProjectSession(activeProjectId, {
+      navigate: () => router.push("/?switch=1"),
+    }).catch((caught: unknown) => {
+      setNavigationError(caught instanceof Error ? caught.message : String(caught));
+      setAbandoningProject(false);
+    });
+  }, [abandoningProject, activeProjectId, router]);
+
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
   useEditorKeyboardRouting(openDialog);
@@ -254,6 +311,7 @@ export default function EditorPage() {
             onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
+            onImportCaptures={captureImport.open}
           />
         </EditorSidePanel>
         <div className="flex min-w-0 flex-1">
@@ -275,20 +333,30 @@ export default function EditorPage() {
           <Inspector
             specs={specs}
             onOpenBackgroundAsset={() => setDialog("background-assets")}
+            onOpenDeviceFrameAsset={(target) => {
+              setDeviceFrameAssetTarget(target);
+              setDialog("device-frame-assets");
+            }}
             onClose={() => setInspectorOpen(false)}
             className="!w-full"
           />
         </EditorSidePanel>
       </div>
-      {saveStatus === "error" && saveError ? (
+      {saveStatus === "error" && saveError && !navigationError ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
         </div>
       ) : null}
       {navigationError ? (
-        <div role="alert" className="absolute left-1/2 top-16 z-40 max-w-sm -translate-x-1/2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
-          Projects could not be opened because the latest project changes could not be saved: {navigationError}
-        </div>
+        <ConfirmationDialog
+          title="Project could not be saved"
+          description="The project file may have been moved or deleted. Stay in the editor to retry, or close this project without saving."
+          confirmLabel={abandoningProject ? "Closing…" : "Close without saving"}
+          cancelLabel="Stay in editor"
+          busy={abandoningProject}
+          onClose={() => setNavigationError(null)}
+          onConfirm={closeWithoutSaving}
+        />
       ) : null}
       {fontWarnings.length > 0 ? (
         <div role="alert" className="absolute bottom-3 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
@@ -317,21 +385,44 @@ export default function EditorPage() {
       {dialog === "themes" ? <ThemeManagerDialog onClose={() => setDialog(null)} /> : null}
       {dialog === "templates" ? <TemplateLibraryDialog onClose={() => setDialog(null)} /> : null}
       {dialog === "screenshot-assets" ? (
-        <AssetPickerDialog elementType="screenshot" onClose={() => setDialog(null)} />
+        <AssetPickerDialog elementType="screenshot" cacheAsset={cacheImage} onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "image-assets" ? (
-        <AssetPickerDialog elementType="image" onClose={() => setDialog(null)} />
+        <AssetPickerDialog elementType="image" cacheAsset={cacheImage} onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "background-assets" ? (
-        <AssetPickerDialog elementType="background" onClose={() => setDialog(null)} />
+        <AssetPickerDialog elementType="background" cacheAsset={cacheImage} onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "store-badge-assets" ? (
-        <AssetPickerDialog elementType="store-badge" onClose={() => setDialog(null)} />
+        <AssetPickerDialog elementType="store-badge" cacheAsset={cacheImage} onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "device-frame-assets" ? (
-        <AssetPickerDialog elementType="device-frame" onClose={() => setDialog(null)} />
+        <AssetPickerDialog
+          elementType="device-frame"
+          targetDeviceFrame={deviceFrameAssetTarget ?? undefined}
+          cacheAsset={cacheImage}
+          onClose={() => {
+            setDialog(null);
+            setDeviceFrameAssetTarget(null);
+          }}
+        />
       ) : null}
       {localeDialogOpen ? <LocaleManagerDialog onClose={() => setLocaleDialogOpen(false)} /> : null}
+      {captureImport.state.status === "closed" ? null : (
+        <CaptureImportDialog
+          state={captureImport.state}
+          onClose={captureImport.close}
+          onSelectFiles={captureImport.selectFiles}
+          onChooseDestination={captureImport.chooseDestination}
+          onChooseCurrentLayout={captureImport.chooseCurrentLayout}
+          onChangeNewProject={captureImport.changeNewProject}
+          onPreview={captureImport.preview}
+          onApply={captureImport.apply}
+          onCancel={captureImport.cancel}
+          onRetry={captureImport.retry}
+          onRecoverStale={captureImport.recoverStale}
+        />
+      )}
     </main>
   );
 }

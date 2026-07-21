@@ -23,7 +23,7 @@ type RolePatch = { role?: ThemeRole | null };
 type TextPatch = Partial<
   Pick<
     TextElement,
-    "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "color"
+    "content" | "fontFamily" | "size" | "weight" | "lineHeight" | "letterSpacing" | "align" | "verticalAlign" | "color"
   >
 > & { shadow?: TextShadow | null };
 type ShapePatch = Partial<Pick<ShapeElement, "kind" | "fill" | "radius">> & {
@@ -37,7 +37,9 @@ type ImagePatch = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius"
   crop?: MediaCrop | null;
 };
 type IconPatch = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
-type DeviceFramePatch = Partial<Pick<DeviceFrameElement, "assetUrl" | "fit" | "deviceType">>;
+type DeviceFramePatch = Partial<Pick<DeviceFrameElement, "fit" | "deviceType">> & {
+  assetUrl?: DeviceFrameElement["assetUrl"] | null;
+};
 
 interface ElementPatchByType {
   text: CommonElementPatch & RolePatch & TextPatch;
@@ -109,6 +111,7 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
       if (typedPatch.lineHeight !== undefined) element.lineHeight = typedPatch.lineHeight;
       if (typedPatch.letterSpacing !== undefined) element.letterSpacing = typedPatch.letterSpacing;
       if (typedPatch.align !== undefined) element.align = typedPatch.align;
+      if (typedPatch.verticalAlign !== undefined) element.verticalAlign = typedPatch.verticalAlign;
       if (typedPatch.color !== undefined) element.color = typedPatch.color;
       if (typedPatch.shadow === null) delete element.shadow;
       else if (typedPatch.shadow !== undefined) element.shadow = typedPatch.shadow;
@@ -153,7 +156,8 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
     }
     case "device-frame": {
       const typedPatch = patch as ElementPatchFor<"device-frame">;
-      if (typedPatch.assetUrl !== undefined) element.assetUrl = typedPatch.assetUrl;
+      if (typedPatch.assetUrl === null) delete element.assetUrl;
+      else if (typedPatch.assetUrl !== undefined) element.assetUrl = typedPatch.assetUrl;
       if (typedPatch.fit !== undefined) element.fit = typedPatch.fit;
       if (typedPatch.deviceType !== undefined) element.deviceType = typedPatch.deviceType;
       return;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { projectRevision } from "@screenshot-studio/core/storage";
@@ -109,10 +109,10 @@ describe("POST /api/export", () => {
         close: vi.fn(async () => undefined),
       })),
       exportBundle,
-      stageExportArtifact: vi.fn(async (_source, outputDir) => ({
+      stageExportArtifact: vi.fn(async (_source, filename) => ({
         downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
-        outputDir,
         expiresAt: "2026-07-15T00:05:00.000Z",
+        filename: filename!,
       })),
     });
 
@@ -125,10 +125,11 @@ describe("POST /api/export", () => {
     const zipPath = join(directory, "bundle.zip");
     await writeFile(zipPath, "zip bytes that must not be returned here");
     const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
-    const stageExportArtifact = vi.fn(async (_sourceZipPath: string, outputDir: string) => ({
+    const stageExportArtifact = vi.fn(async (_sourceZipPath: string, filename?: string) => ({
       downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
-      outputDir,
       expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: filename!,
+      warnings: [],
     }));
 
     const response = await handleExportPost(projectPath, req({}), {
@@ -143,12 +144,48 @@ describe("POST /api/export", () => {
     const body = await response.json();
     expect(body).toEqual({
       downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
-      outputDir: expect.stringMatching(/\/export$/),
       expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: "bundle.zip",
+      warnings: [],
     });
     expect(JSON.stringify(body)).not.toContain(zipPath);
-    expect(stageExportArtifact).toHaveBeenCalledWith(zipPath, expect.stringMatching(/\/export$/));
+    expect(stageExportArtifact).toHaveBeenCalledWith(zipPath, "bundle.zip");
     expect(session.close).toHaveBeenCalledOnce();
+  });
+
+  it("removes request-owned unpacked outputs after staging the browser download", async () => {
+    const { directory, projectPath } = await useProject();
+    let stagingDir = "";
+    const stageExportArtifact = vi.fn(async (sourceZipPath: string, filename?: string) => {
+      expect(await readFile(sourceZipPath, "utf8")).toBe("download bytes");
+      return {
+        downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+        expiresAt: "2026-07-15T00:05:00.000Z",
+        filename: filename!,
+      };
+    });
+
+    const response = await handleExportPost(projectPath, req({}), {
+      createRenderBrowserSession: vi.fn(async () => ({
+        renderScreenToPng: vi.fn(),
+        close: vi.fn(async () => undefined),
+      })),
+      exportBundle: vi.fn(async ({ outDir }) => {
+        stagingDir = outDir;
+        const zipPath = join(outDir, "app-store-screenshots-bundle.zip");
+        await writeFile(zipPath, "download bytes");
+        return zipPath;
+      }),
+      stageExportArtifact,
+    });
+
+    expect(response.status).toBe(201);
+    expect(stagingDir).not.toBe(join(directory, "export"));
+    await expect(access(stagingDir)).rejects.toThrow();
+    expect(stageExportArtifact).toHaveBeenCalledWith(
+      expect.stringMatching(/app-store-screenshots-bundle\.zip$/),
+      "app-store-screenshots-bundle.zip",
+    );
   });
 
   it("stages the exact archive before browser cleanup can expose the path to replacement", async () => {
@@ -164,12 +201,12 @@ describe("POST /api/export", () => {
     const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
       exportBundle: vi.fn(async () => zipPath),
-      stageExportArtifact: vi.fn(async (source, outputDir) => {
+      stageExportArtifact: vi.fn(async (source, filename) => {
         stagedBytes = await readFile(source, "utf8");
         return {
           downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
-          outputDir,
           expiresAt: "2026-07-15T00:05:00.000Z",
+          filename: filename!,
         };
       }),
     });
@@ -180,20 +217,25 @@ describe("POST /api/export", () => {
   });
 
   it("returns a structured 500 when artifact staging fails", async () => {
-    const { directory, projectPath } = await useProject();
-    const zipPath = join(directory, "bundle.zip");
-    await writeFile(zipPath, "zip bytes");
+    const { projectPath } = await useProject();
+    let stagingDir = "";
     const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
 
     const response = await handleExportPost(projectPath, req({}), {
       createRenderBrowserSession: vi.fn(async () => session),
-      exportBundle: vi.fn(async () => zipPath),
+      exportBundle: vi.fn(async ({ outDir }) => {
+        stagingDir = outDir;
+        const zipPath = join(outDir, "app-store-screenshots-bundle.zip");
+        await writeFile(zipPath, "zip bytes");
+        return zipPath;
+      }),
       stageExportArtifact: vi.fn(async () => { throw new Error("artifact staging failed"); }),
     });
 
     expect(response.status).toBe(500);
     expect((await response.json()).error).toMatch(/artifact staging failed/);
     expect(session.close).toHaveBeenCalledOnce();
+    await expect(access(stagingDir)).rejects.toThrow();
   });
 
   it("returns a structured error when a successful export cannot close its browser session", async () => {

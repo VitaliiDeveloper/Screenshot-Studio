@@ -7,7 +7,10 @@ import {
 } from "@screenshot-studio/core/model";
 import { reconcileSelection, type SelectionRef } from "./editor-selection.js";
 
-export type LayoutContentSnapshot = DesignLayout["screens"];
+export interface LayoutContentSnapshot {
+  screens: DesignLayout["screens"];
+  screenSetPolicies: DesignLayout["screenSetPolicies"];
+}
 
 export interface EditorHistorySnapshot {
   project: Project | null;
@@ -26,6 +29,13 @@ function activeLayout(state: EditorHistorySnapshot): DesignLayout | null {
   return state.project.layouts.find((layout) => layout.id === state.activeLayoutId) ?? null;
 }
 
+function layoutContentSnapshot(layout: DesignLayout): LayoutContentSnapshot {
+  return {
+    screens: layout.screens,
+    screenSetPolicies: layout.screenSetPolicies,
+  };
+}
+
 export function recordProjectChange(
   state: EditorHistorySnapshot,
   project: Project,
@@ -35,11 +45,14 @@ export function recordProjectChange(
   const currentLayout = activeLayout(state);
   if (!state.project || !state.activeLayoutId || !currentLayout || project === state.project) return state;
   const nextLayout = getLayout(project, state.activeLayoutId);
-  if (nextLayout.screens === currentLayout.screens) return { project, ...extra };
+  if (
+    nextLayout.screens === currentLayout.screens
+    && nextLayout.screenSetPolicies === currentLayout.screenSetPolicies
+  ) return { project, ...extra };
   const continuesGroup = historyGroupKey !== null && state.historyGroupKey === historyGroupKey;
   const historyPast = continuesGroup
     ? state.historyPast
-    : [...state.historyPast, currentLayout.screens].slice(-HISTORY_LIMIT);
+    : [...state.historyPast, layoutContentSnapshot(currentLayout)].slice(-HISTORY_LIMIT);
   return {
     project,
     historyPast,
@@ -61,22 +74,29 @@ export function selectionForProject(state: EditorHistorySnapshot, project: Proje
   };
 }
 
-function projectWithScreens(state: EditorHistorySnapshot, screens: LayoutContentSnapshot): Project {
+function projectWithLayoutContent(
+  state: EditorHistorySnapshot,
+  snapshot: LayoutContentSnapshot,
+): Project {
   const layout = getLayout(state.project!, state.activeLayoutId!);
-  return replaceLayout(state.project!, { ...layout, screens });
+  return replaceLayout(state.project!, {
+    ...layout,
+    screens: snapshot.screens,
+    screenSetPolicies: snapshot.screenSetPolicies,
+  });
 }
 
 export function undoProjectChange(state: EditorHistorySnapshot): EditorHistorySnapshot {
   const layout = activeLayout(state);
   if (!state.project || !layout || state.historyPast.length === 0) return state;
-  const screens = state.historyPast.at(-1)!;
-  const project = projectWithScreens(state, screens);
+  const snapshot = state.historyPast.at(-1)!;
+  const project = projectWithLayoutContent(state, snapshot);
   return {
     ...state,
     project,
     ...selectionForProject(state, project),
     historyPast: state.historyPast.slice(0, -1),
-    historyFuture: [layout.screens, ...state.historyFuture].slice(0, HISTORY_LIMIT),
+    historyFuture: [layoutContentSnapshot(layout), ...state.historyFuture].slice(0, HISTORY_LIMIT),
     historyGroupKey: null,
   };
 }
@@ -84,13 +104,13 @@ export function undoProjectChange(state: EditorHistorySnapshot): EditorHistorySn
 export function redoProjectChange(state: EditorHistorySnapshot): EditorHistorySnapshot {
   const layout = activeLayout(state);
   if (!state.project || !layout || state.historyFuture.length === 0) return state;
-  const [screens, ...historyFuture] = state.historyFuture;
-  const project = projectWithScreens(state, screens!);
+  const [snapshot, ...historyFuture] = state.historyFuture;
+  const project = projectWithLayoutContent(state, snapshot!);
   return {
     ...state,
     project,
     ...selectionForProject(state, project),
-    historyPast: [...state.historyPast, layout.screens].slice(-HISTORY_LIMIT),
+    historyPast: [...state.historyPast, layoutContentSnapshot(layout)].slice(-HISTORY_LIMIT),
     historyFuture,
     historyGroupKey: null,
   };

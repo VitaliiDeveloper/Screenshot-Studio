@@ -152,7 +152,9 @@ describe("Project Home and Workspace round trip", () => {
       await width.blur();
       await page.getByRole("alert").filter({ hasText: "Save failed: round-trip save failure" }).waitFor();
       await page.getByRole("button", { name: "Projects", exact: true }).click();
-      await page.getByRole("alert").filter({ hasText: "Projects could not be opened" }).waitFor();
+      const saveFailureDialog = page.getByRole("dialog", { name: "Project could not be saved" });
+      await saveFailureDialog.getByRole("heading", { name: "Project could not be saved", exact: true }).waitFor();
+      await saveFailureDialog.getByRole("button").filter({ hasText: "Stay in editor" }).click();
       expect(new URL(page.url()).pathname).toBe("/editor");
 
       await page.unroute("**/api/project");
@@ -211,8 +213,16 @@ describe("Project Home and Workspace round trip", () => {
   });
 
   it("closes an imported replacement without saving the previously loaded workspace", async () => {
+    process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(directory, "replacement-managed-data");
+    const originalRoot = join(directory, "replacement-source-project");
+    mkdirSync(originalRoot, { recursive: true });
+    copyFileSync(
+      join(fixtureRoot, "app-store-screenshots.json"),
+      join(originalRoot, "app-store-screenshots.json"),
+    );
+    cpSync(join(fixtureRoot, "assets"), join(originalRoot, "assets"), { recursive: true });
     const replacementRoot = join(directory, "replacement-project");
-    cpSync(projectRoot, replacementRoot, { recursive: true });
+    cpSync(originalRoot, replacementRoot, { recursive: true });
     const replacementPath = join(replacementRoot, "app-store-screenshots.json");
     const replacement = JSON.parse(readFileSync(replacementPath, "utf8")) as Project;
     replacement.meta.name = "Replacement project";
@@ -226,7 +236,7 @@ describe("Project Home and Workspace round trip", () => {
       const page = await context.newPage();
       await page.goto(`${server.url}/?switch=1`, { waitUntil: "load" });
       await page.getByRole("button", { name: "Import", exact: true }).click();
-      await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
+      await page.getByLabel("Choose project folder").setInputFiles(originalRoot);
       const firstImportResponsePending = page.waitForResponse("**/api/project-import", {
         timeout: 60_000,
       });
@@ -250,9 +260,18 @@ describe("Project Home and Workspace round trip", () => {
       await page.waitForURL(`${server.url}/`);
       const replacementCard = page.getByRole("listitem").filter({ hasText: replacement.meta.name });
       await replacementCard.getByLabel(`More actions for ${replacement.meta.name}`).click();
+      const projectHomeSessionPending = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === "/api/project-session");
+      const projectHomeProjectPending = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === "/api/project");
       await replacementCard.getByRole("button", { name: "Project details", exact: true }).click();
       await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
-
+      const [projectHomeSessionResponse, projectHomeProjectResponse] = await Promise.all([
+        projectHomeSessionPending,
+        projectHomeProjectPending,
+      ]);
+      expect(projectHomeSessionResponse.status()).toBe(200);
+      expect(projectHomeProjectResponse.status()).toBe(200);
       await page.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL(`${server.url}/?switch=1`);
       expect(await page.evaluate(async () => (

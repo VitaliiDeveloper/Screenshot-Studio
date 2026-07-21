@@ -65,7 +65,7 @@ describe("AppHomeShell", () => {
     expect(markup).not.toContain('type="text"');
   });
 
-  it("shows a generic starter library with configuration, previews, and compatibility", () => {
+  it("shows platform-aware starters with configuration and previews", () => {
     const markup = renderToStaticMarkup(createElement(AppHomeShell, {
       state: { status: "idle" },
       creationState: {
@@ -104,10 +104,11 @@ describe("AppHomeShell", () => {
     expect(markup).toContain('aria-haspopup="menu"');
     expect(markup).not.toContain("<select");
     expect(markup).toContain("Layout mode");
-    expect(markup).toContain("Empty project");
+    expect(markup).toContain("Blank");
     expect(markup).toContain("Feature focus");
-    expect(markup).toContain("Product launch");
-    expect(markup).toContain("Not available for Windows");
+    expect(markup).not.toContain("Product launch");
+    expect(markup).not.toContain("iPhone");
+    expect(markup).not.toContain("Play Feature Graphic");
     expect(markup).not.toContain("PROJECT_PATH");
     expect(markup).not.toContain("server path");
   });

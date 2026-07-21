@@ -25,6 +25,8 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const [templates, setTemplates] = useState<ScreenTemplate[]>([]);
+  const [builtIns, setBuiltIns] = useState<ScreenTemplate[]>([]);
+  const [tab, setTab] = useState<"built-in" | "project">("built-in");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,10 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       signal: controller.signal,
     })
       .then(responseBody)
-      .then((body) => setTemplates((body.templates ?? []) as ScreenTemplate[]))
+      .then((body) => {
+        setTemplates((body.templates ?? []) as ScreenTemplate[]);
+        setBuiltIns((body.builtIns ?? []) as ScreenTemplate[]);
+      })
       .catch((fetchError) => {
         if (!controller.signal.aborted) setError((fetchError as Error).message);
       })
@@ -53,7 +58,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     onClose();
   };
-  const create = async (id: string) => {
+  const create = async (id: string, source: "built-in" | "project") => {
     if (!activeScreen) return;
     setCreating(id);
     setError(null);
@@ -65,7 +70,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
             conditional: true,
             headers: { "content-type": "application/json" },
           }),
-          body: JSON.stringify({ id, locale: activeScreen.locale, layoutId: activeLayoutId }),
+          body: JSON.stringify({ id, source, locale: activeScreen.locale, layoutId: activeLayoutId }),
         });
         const body = await responseBody(response);
         const nextProject = parseProject(body.project);
@@ -83,7 +88,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   return (
     <DialogShell
       title="Screen templates"
-      description={`Create a screen in locale ${activeScreen?.locale ?? "—"} from a project-local screen template.`}
+      description={`Create an ordinary editable screen in locale ${activeScreen?.locale ?? "—"} from a built-in template or from a project-local screen template.`}
       ariaLabel="Screen template library"
       closeLabel="Close screen template library"
       onClose={close}
@@ -91,8 +96,12 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       widthClass="max-w-2xl"
     >
       {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
+      <div role="tablist" aria-label="Template sources" className="mb-4 flex gap-2 border-b border-slate-200 pb-2">
+        <button type="button" role="tab" aria-selected={tab === "built-in"} className={tab === "built-in" ? editorUi.buttonPrimary : editorUi.buttonSecondary} onClick={() => setTab("built-in")}>Built-in templates</button>
+        <button type="button" role="tab" aria-selected={tab === "project"} className={tab === "project" ? editorUi.buttonPrimary : editorUi.buttonSecondary} onClick={() => setTab("project")}>Project templates</button>
+      </div>
       {loading ? <p className="text-xs text-slate-500">Loading screen templates…</p> : null}
-      {!loading && templates.length === 0 ? (
+      {!loading && tab === "project" && templates.length === 0 ? (
         <EmptyResourceState
           icon={LayoutTemplate}
           title="No screen templates yet"
@@ -102,7 +111,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       ) : null}
 
       <div className="flex flex-col gap-3">
-        {templates.map((template) => (
+        {(tab === "built-in" ? builtIns : templates).map((template) => (
           <section key={template.id} data-testid={`template-row-${template.id}`} className={editorUi.resourceCard}>
               <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -115,7 +124,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
                     {template.platform} / {template.device} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
                   </p>
                 </div>
-                <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={!activeScreen || creating !== null} onClick={() => create(template.id)}>
+                <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={!activeScreen || creating !== null} onClick={() => create(template.id, tab)}>
                   {creating === template.id ? "Creating…" : "Create screen"}
                 </button>
               </div>

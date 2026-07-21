@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { createShapeElement, createTextElement } from "@screenshot-studio/core/model";
+import { createShapeElement, createTextElement, preferredAuthoringFont } from "@screenshot-studio/core/model";
 import type { ResourceDialog, WorkspacePanel } from "../../lib/editor-workspace";
 import { editorStore } from "../../lib/editor-store";
 import { mutateAndSave } from "../../lib/mutate-and-save";
@@ -103,8 +103,10 @@ export function useEditorKeyboardRouting(onOpenDialog: (dialog: ResourceDialog) 
           const direction = current.project?.layouts
             .find((layout) => layout.id === current.activeLayoutId)?.screens
             .find((screen) => screen.id === current.activeScreenId)?.direction;
-          if (!font) onOpenDialog("fonts");
-          else mutateAndSave(() => editorStore.getState().addElement(createTextElement({ font, direction })));
+          mutateAndSave(() => editorStore.getState().addElement(createTextElement({
+            font: preferredAuthoringFont(font ? [font] : []),
+            direction,
+          })));
           return;
         }
         case "add-shape":

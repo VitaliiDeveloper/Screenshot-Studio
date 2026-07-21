@@ -90,6 +90,26 @@ describe("multi-select foundation", () => {
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("2");
     await page.getByText("2 elements", { exact: true }).waitFor({ state: "visible" });
 
+    // A plain click in the workspace outside every artboard clears the same shared selection.
+    const workspace = page.getByRole("region", { name: "Canvas workspace" });
+    const workspaceBox = (await workspace.boundingBox())!;
+    await page.mouse.click(workspaceBox.x + workspaceBox.width - 24, workspaceBox.y + workspaceBox.height - 24);
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("0");
+    await page.mouse.click(red.x, red.y);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(green.x, green.y);
+    await page.keyboard.up("Shift");
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("2");
+
+    const blank = point(220, 220);
+    await page.mouse.click(blank.x, blank.y);
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("0");
+    await page.mouse.click(red.x, red.y);
+    await page.keyboard.down("Shift");
+    await page.mouse.click(green.x, green.y);
+    await page.keyboard.up("Shift");
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("2");
+
     const redStart = element("first", "same");
     const greenStart = element("first", "green");
     await page.mouse.move(red.x, red.y);

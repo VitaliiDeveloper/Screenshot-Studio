@@ -1,31 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
+import { ProjectCreationDialog } from "./ProjectCreationDialog.js";
 
-const source = readFileSync(new URL("./ProjectCreationDialog.tsx", import.meta.url), "utf8");
+Object.assign(globalThis, { React });
 
-describe("ProjectCreationDialog presentation", () => {
-  it("keeps publication geometry stable through the animated handoff", () => {
-    expect(source).toContain(
-      'const busy = state.status === "creating" || state.status === "completing"',
-    );
-    expect(source).toContain(
-      'motion={state.status === "completing" ? "closing" : "open"}',
-    );
-    expect(source).not.toContain("disabled:opacity-75");
-    expect(source).toContain("aria-hidden={busy || undefined}");
-    expect(source).toContain("aria-disabled={busy || undefined}");
-    expect(source).toContain("tabIndex={busy ? -1 : undefined}");
-    expect(source).toContain('busy ? "invisible"');
-  });
+function render(platform: "apple" | "android" | "web") {
+  return renderToStaticMarkup(React.createElement(ProjectCreationDialog, {
+    state: {
+      status: "editing",
+      form: { name: "Starter", platform, layoutMode: "isolated", templateId: null },
+    },
+    templates: listStarterProjectTemplates(),
+    onClose: vi.fn(),
+    onChange: vi.fn(),
+    onSubmit: vi.fn(),
+  }));
+}
 
-  it("keeps creation progress stable in the submit button without transient messages", () => {
-    expect(source).toContain('busy ? "Creating project…"');
-    expect(source).not.toContain("useState");
-    expect(source).not.toContain("useEffect");
-    expect(source).not.toContain("editorUi.statusProgress");
-    expect(source).not.toContain("Validating and publishing the managed project…");
-    expect(source).not.toContain("Finishing project setup…");
-    expect(source).not.toContain("Creating your project…");
+describe("ProjectCreationDialog starters", () => {
+  it("shows only the selected platform's built-in starters plus Blank and generic starters", () => {
+    const apple = render("apple");
+    expect(apple).toContain("Blank");
+    expect(apple).toContain("iPhone");
+    expect(apple).toContain("iPad portrait");
+    expect(apple).not.toContain("Android phone");
+    expect(apple).not.toContain("Web desktop");
+
+    const android = render("android");
+    expect(android).toContain("Android phone");
+    expect(android).toContain("Android tablet portrait");
+    expect(android).toContain("Play Feature Graphic");
+    expect(android).not.toContain("iPad portrait");
+
+    const web = render("web");
+    expect(web).toContain("Web desktop");
+    expect(web).toContain("Web mobile");
+    expect(web).not.toContain("Play Feature Graphic");
+    expect(web).toContain("Feature focus");
   });
 });

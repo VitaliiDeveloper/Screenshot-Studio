@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectRevision } from "@screenshot-studio/core/storage";
@@ -41,7 +41,10 @@ afterEach(async () => {
 describe("/api/themes", () => {
   it("lists definitions and applies one durably", async () => {
     const listed = await handleThemeGet(projectPath);
-    expect((await listed.json()).themes).toMatchObject([{ id: "midnight", name: "Midnight" }]);
+    expect(await listed.json()).toMatchObject({
+      builtIns: [{ id: "neutral-default", name: "Neutral default" }],
+      themes: [{ id: "midnight", name: "Midnight" }],
+    });
 
     const response = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST",
@@ -52,6 +55,21 @@ describe("/api/themes", () => {
     const persisted = await readFile(projectPath);
     expect(JSON.parse(persisted.toString("utf8")).layouts[0].screens[0].elements[0].fill).toBe("#38BDF8");
     expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
+  });
+
+  it("applies a global design pack as literals without copying resource files", async () => {
+    const beforeEntries = await readdir(dir);
+    const response = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
+      method: "POST",
+      body: JSON.stringify({ id: "neutral-default", source: "built-in" }),
+    }));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.layouts[0].screens[0].elements[0]).toMatchObject({ fill: "#2563EB", radius: 0 });
+    const persisted = JSON.parse((await readFile(projectPath)).toString("utf8"));
+    expect(JSON.stringify(persisted)).not.toContain("neutral-default");
+    expect(await readdir(dir)).toEqual(beforeEntries);
   });
 
   it("returns explicit errors for missing and invalid ids", async () => {

@@ -25,6 +25,7 @@ const PLATFORM_OPTIONS: readonly MenuSelectOption<Platform>[] = [
   { value: "apple", label: "Apple App Store" },
   { value: "android", label: "Google Play" },
   { value: "windows", label: "Microsoft Store" },
+  { value: "web", label: "Web" },
 ];
 
 const LAYOUT_MODE_OPTIONS: readonly MenuSelectOption<CanvasMode>[] = [

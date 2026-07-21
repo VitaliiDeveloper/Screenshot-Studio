@@ -63,13 +63,23 @@ describe("template library UI", () => {
     await page.waitForSelector("canvas");
 
     await page.getByRole("button", { name: "Resources panel", exact: true }).click();
-    const templatesButton = page.getByRole("button", { name: "Templates", exact: true });
+    const templatesButton = page.getByRole("button", { name: /Screen templates/ });
     await templatesButton.click();
-    await page.getByRole("dialog", { name: "Template library" }).waitFor({ state: "visible" });
+    await page.getByRole("dialog", { name: "Screen template library" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
-    expect(await page.getByRole("dialog", { name: "Template library" }).count()).toBe(0);
+    expect(await page.getByRole("dialog", { name: "Screen template library" }).count()).toBe(0);
     expect(await templatesButton.evaluate((node) => document.activeElement === node)).toBe(true);
     await templatesButton.click();
+    const builtInRow = page.getByTestId("template-row-web-desktop-starter");
+    await builtInRow.waitFor({ state: "visible" });
+    await builtInRow.getByRole("button", { name: "Create screen", exact: true }).click();
+    await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 1);
+    expect(project().layouts[0].screens.at(-1)).toMatchObject({
+      name: "Web desktop",
+      platform: "web",
+      device: "desktop",
+    });
+    await page.getByRole("tab", { name: "Project templates", exact: true }).click();
     const row = page.getByTestId("template-row-promo-card");
     await row.waitFor({ state: "visible" });
     let releaseCreate!: () => void;
@@ -79,28 +89,28 @@ describe("template library UI", () => {
       await route.continue();
     });
     await row.getByRole("button", { name: "Create screen", exact: true }).click();
-    const closeButton = page.getByRole("button", { name: "Close template library", exact: true });
+    const closeButton = page.getByRole("button", { name: "Close screen template library", exact: true });
     const templateAssetLoaded = page.waitForResponse((response) =>
       response.url().includes("/api/asset?") && decodeURIComponent(response.url()).includes("assets/template-only.png"),
     );
     try {
       await page.getByRole("button", { name: "Creating…", exact: true }).waitFor();
       expect(await closeButton.isDisabled()).toBe(true);
-      await page.getByRole("dialog", { name: "Template library" }).locator("..").click({ position: { x: 4, y: 4 } });
-      expect(await page.getByRole("dialog", { name: "Template library" }).isVisible()).toBe(true);
+      await page.getByRole("dialog", { name: "Screen template library" }).locator("..").click({ position: { x: 4, y: 4 } });
+      expect(await page.getByRole("dialog", { name: "Screen template library" }).isVisible()).toBe(true);
     } finally {
       releaseCreate();
     }
 
     expect((await templateAssetLoaded).ok()).toBe(true);
 
-    await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 1);
+    await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 2);
     const created = project().layouts[0].screens.at(-1);
     expect(created).toMatchObject({ id: "promo-card", name: "Promo card", locale: "en" });
     expect(created.elements.map((element: { id: string }) => element.id))
       .not.toContain("template-title");
 
-    await page.getByRole("button", { name: "Close template library", exact: true }).click();
+    await page.getByRole("button", { name: "Close screen template library", exact: true }).click();
     await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     const screenButton = page.getByRole("button", { name: /Promo card · iphone/ });
     await screenButton.waitFor({ state: "visible" });

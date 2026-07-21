@@ -187,6 +187,38 @@ describe("buildProjectHomeSummary", () => {
     expect(malformedManaged.source).not.toHaveProperty("location");
   });
 
+  it("resolves a promotion variant from the platform output catalog", () => {
+    const promotionProject = structuredClone(project);
+    const variant = promotionProject.layouts[1]!.screens[1]!;
+    variant.name = "Feature graphic";
+    variant.storeTargetId = "play-feature-graphic";
+    variant.artboard = { width: 1024, height: 500 };
+    const promotionSpecs: StoreSpecs = {
+      ...specs,
+      android: {
+        ...specs.android,
+        "$outputs": [{
+          id: "play-feature-graphic",
+          label: "Google Play Feature Graphic",
+          width: 1024,
+          height: 500,
+          orientation: "landscape",
+          kind: "promotion",
+          family: "phone",
+        }],
+      },
+    };
+
+    const summary = buildProjectHomeSummary({
+      project: promotionProject,
+      selection: selection(),
+      specs: promotionSpecs,
+    });
+
+    expect(summary.outputFamilies.find(({ key }) => key === "android/phone")?.storeTargets)
+      .toEqual(["Android phone portrait", "Google Play Feature Graphic"]);
+  });
+
   it("gates actions by descriptor capabilities and keeps archive/store export distinct", () => {
     const writable = buildProjectHomeSummary({ project, selection: selection(), specs });
     const readOnly = buildProjectHomeSummary({

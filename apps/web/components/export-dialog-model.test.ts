@@ -28,16 +28,16 @@ function environment() {
 }
 
 describe("export dialog artifact download", () => {
-  it("launches a same-origin native anchor download and returns the output directory", () => {
+  it("launches a same-origin native anchor download with the server-approved filename", () => {
     const { anchor, value } = environment();
 
     const ticket = launchExportArtifactDownload({
       downloadUrl: `/api/export/artifacts/${token}`,
-      outputDir: "/project/export",
       expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: "app-store-screenshots-bundle.zip",
     }, value);
 
-    expect(ticket.outputDir).toBe("/project/export");
+    expect(ticket.filename).toBe("app-store-screenshots-bundle.zip");
     expect(anchor.href).toBe(`http://localhost/api/export/artifacts/${token}`);
     expect(anchor.download).toBe("app-store-screenshots-bundle.zip");
     expect(value.appendAnchor).toHaveBeenCalledWith(anchor);
@@ -49,9 +49,20 @@ describe("export dialog artifact download", () => {
     const { value } = environment();
     expect(() => launchExportArtifactDownload({
       downloadUrl: `http://localhost/api/export/artifacts/${token}`,
-      outputDir: "/project/export",
       expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: "app-store-screenshots-bundle.zip",
     }, value)).not.toThrow();
+  });
+
+  it("uses the Web Share package filename returned by the export profile", () => {
+    const { anchor, value } = environment();
+    launchExportArtifactDownload({
+      downloadUrl: `/api/export/artifacts/${token}`,
+      expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: "web-share-package.zip",
+    }, value);
+
+    expect(anchor.download).toBe("web-share-package.zip");
   });
 
   it.each([
@@ -66,8 +77,8 @@ describe("export dialog artifact download", () => {
     const { value } = environment();
     expect(() => launchExportArtifactDownload({
       downloadUrl,
-      outputDir: "/project/export",
       expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: "app-store-screenshots-bundle.zip",
     }, value)).toThrow(/download URL/i);
     expect(value.createAnchor).not.toHaveBeenCalled();
   });
@@ -76,8 +87,8 @@ describe("export dialog artifact download", () => {
     const { value } = environment();
     expect(() => launchExportArtifactDownload({
       downloadUrl: `/api/export/artifacts/${token}`,
-      outputDir: "",
       expiresAt: "not-a-date",
+      filename: "unsafe.html",
     }, value)).toThrow(/artifact ticket/i);
     expect(value.createAnchor).not.toHaveBeenCalled();
   });
@@ -88,8 +99,8 @@ describe("export dialog artifact download", () => {
 
     expect(() => launchExportArtifactDownload({
       downloadUrl: `/api/export/artifacts/${token}`,
-      outputDir: "/project/export",
       expiresAt: "2026-07-15T00:05:00.000Z",
+      filename: "app-store-screenshots-bundle.zip",
     }, value)).toThrow("click failed");
     expect(anchor.remove).toHaveBeenCalledOnce();
   });

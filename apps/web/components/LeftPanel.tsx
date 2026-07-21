@@ -19,9 +19,9 @@ import {
   Type,
   X,
 } from "lucide-react";
-import type { Element } from "@screenshot-studio/core/model";
+import { preferredAuthoringFont, type Element } from "@screenshot-studio/core/model";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { createBadgePrimitive, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
+import { createBadgePrimitive, createDeviceFrameElement, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
   ADD_CATEGORIES,
   filterAddCatalog,
@@ -45,6 +45,7 @@ const catalogIcons = {
   screenshot: ImageIcon,
   image: ImageIcon,
   "device-frame": Smartphone,
+  "device-frame-image": Smartphone,
   components: Box,
 } as const;
 
@@ -145,13 +146,10 @@ function AddPanel({
   };
 
   const onAction = (item: AddCatalogItem) => {
+    const authoringFont = preferredAuthoringFont(defaultFont ? [defaultFont] : []);
     switch (item.action) {
       case "insert-text":
-        if (!defaultFont) {
-          onOpenDialog("fonts");
-          return;
-        }
-        insert(createTextElement({ font: defaultFont, direction: activeDirection }));
+        insert(createTextElement({ font: authoringFont, direction: activeDirection }));
         break;
       case "insert-shape":
         insert(createShapeElement());
@@ -160,14 +158,13 @@ function AddPanel({
         insert(createIconElement());
         break;
       case "insert-badge":
-        if (!defaultFont) {
-          onOpenDialog("fonts");
-          return;
-        }
         insert(createBadgePrimitive({
           kind: item.id === "rating-badge" ? "rating" : "as-seen-on",
-          font: defaultFont,
+          font: authoringFont,
         }));
+        break;
+      case "insert-device-frame":
+        insert(createDeviceFrameElement());
         break;
       case "open-templates":
         onOpenDialog("templates");
@@ -175,7 +172,7 @@ function AddPanel({
       case "open-asset-picker":
         if (item.id === "screenshot") onOpenDialog("screenshot-assets");
         else if (item.id === "image") onOpenDialog("image-assets");
-        else if (item.id === "device-frame") onOpenDialog("device-frame-assets");
+        else if (item.id === "device-frame-image") onOpenDialog("device-frame-assets");
         break;
       case "open-store-badge-picker":
         onOpenDialog("store-badge-assets");
@@ -226,12 +223,14 @@ export function LeftPanel({
   onClose,
   onOpenAdd,
   onOpenDialog,
+  onImportCaptures,
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
   onClose: () => void;
   onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
+  onImportCaptures: () => void;
 }) {
   const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
 
@@ -240,15 +239,19 @@ export function LeftPanel({
       <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
       {panel === "structure" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <ScreensSection images={images} onOpenDialog={onOpenDialog} />
+          <ScreensSection
+            images={images}
+            onOpenDialog={onOpenDialog}
+            onImportCaptures={onImportCaptures}
+          />
           <LayersSection onOpenAdd={onOpenAdd} />
         </div>
       ) : null}
       {panel === "resources" ? (
         <div className="flex flex-col gap-2.5 p-3">
           <ResourceButton icon={Frame} title="Fonts" description="Upload, register, preview, and apply project fonts." onClick={() => onOpenDialog("fonts")} />
-          <ResourceButton icon={Palette} title="Themes" description="Apply baked project-local color and type roles." onClick={() => onOpenDialog("themes")} />
-          <ResourceButton icon={LayoutTemplate} title="Screen templates" description="Create a fresh screen from a project-local reusable layout." onClick={() => onOpenDialog("templates")} />
+          <ResourceButton icon={Palette} title="Design packs" description="Apply global packs or project themes as editable literals." onClick={() => onOpenDialog("themes")} />
+          <ResourceButton icon={LayoutTemplate} title="Screen templates" description="Create a screen from a built-in or project-local reusable layout." onClick={() => onOpenDialog("templates")} />
         </div>
       ) : null}
       {panel === "add" ? <AddPanel onOpenDialog={onOpenDialog} /> : null}

@@ -7,7 +7,7 @@ import { ArrowLeftRight, Check, ChevronDown, Copy, LayoutTemplate, MoreVertical,
 import { findOwnerOverflows, type CanvasMode, type DesignLayout, type Project } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { cx, DialogShell, editorUi } from "./editor-ui";
+import { ConfirmationDialog, cx, DialogShell, editorUi } from "./editor-ui";
 
 const actionMenuItem = "flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60 disabled:pointer-events-none disabled:opacity-45";
 
@@ -85,6 +85,7 @@ export function LayoutSelector() {
   const [name, setName] = useState("");
   const [mode, setMode] = useState<CanvasMode>("isolated");
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteLayout, setPendingDeleteLayout] = useState<DesignLayout | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { open, actionMenuId } = menuState;
@@ -241,9 +242,8 @@ export function LayoutSelector() {
                           setMenuState((current) => ({ ...current, actionMenuId: null }));
                         }}><Star size={13} /> Prefer for export</button>
                         <button type="button" role="menuitem" disabled={!actions.canDelete} className={cx(actionMenuItem, "text-red-600 hover:bg-red-50 hover:text-red-700")} onClick={() => {
-                          if (!window.confirm(layoutDeleteConfirmation(project, layout))) return;
-                          mutateAndSave(() => editorStore.getState().removeLayout(layout.id));
                           setMenuState(CLOSED_LAYOUT_MENU);
+                          setPendingDeleteLayout(layout);
                         }}><Trash2 size={13} /> Delete</button>
                       </div>
                     ) : null}
@@ -288,6 +288,19 @@ export function LayoutSelector() {
             </div>
           </div>
         </DialogShell>
+      ) : null}
+      {pendingDeleteLayout ? (
+        <ConfirmationDialog
+          title="Delete layout?"
+          description={layoutDeleteConfirmation(project, pendingDeleteLayout)}
+          confirmLabel="Delete layout"
+          onClose={() => setPendingDeleteLayout(null)}
+          onConfirm={() => {
+            const layoutId = pendingDeleteLayout.id;
+            setPendingDeleteLayout(null);
+            mutateAndSave(() => editorStore.getState().removeLayout(layoutId));
+          }}
+        />
       ) : null}
     </>
   );

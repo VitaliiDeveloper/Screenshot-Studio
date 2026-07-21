@@ -4,6 +4,7 @@ import { ProjectFontRegistrationError } from "@screenshot-studio/core/fonts";
 import type { FontAsset, Project } from "@screenshot-studio/core/model";
 import {
   applyEditorResourceResult,
+  cacheDecodedProjectImage,
   loadEditorResources,
   loadProjectFontWarnings,
   missingImageUrls,
@@ -142,6 +143,18 @@ describe("editor resources", () => {
   it("returns only project image URLs absent from the current cache", () => {
     const cache = new Map([["assets/background.png", {} as HTMLImageElement]]);
     expect(missingImageUrls(project, cache)).toEqual(["assets/image.png"]);
+  });
+
+  it("updates the shared cache before publishing its reactive copy", () => {
+    const existing = {} as HTMLImageElement;
+    const imported = {} as HTMLImageElement;
+    const cache = new Map([["assets/existing.png", existing]]);
+
+    const next = cacheDecodedProjectImage(cache, "assets/imported.png", imported);
+
+    expect(cache.get("assets/imported.png")).toBe(imported);
+    expect(next.get("assets/imported.png")).toBe(imported);
+    expect(next).not.toBe(cache);
   });
 
   it("loads and validates required resources without mutating global revision state", async () => {

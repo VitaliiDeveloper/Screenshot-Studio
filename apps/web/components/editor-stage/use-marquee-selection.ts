@@ -83,6 +83,8 @@ export function useMarqueeSelection({
         initial: marquee.initial,
         toggle: marquee.toggle,
       }));
+    } else if (!marquee.toggle) {
+      setSelection([]);
     }
     setMarquee(null);
     window.setTimeout(() => { movedRef.current = false; }, 0);

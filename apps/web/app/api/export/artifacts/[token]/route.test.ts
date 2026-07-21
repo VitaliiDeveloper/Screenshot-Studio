@@ -54,7 +54,7 @@ describe("GET /api/export/artifacts/[token]", () => {
   });
 
   it("streams exact bytes with attachment metadata and consumes the ticket once", async () => {
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const token = tokenFrom(ticket.downloadUrl);
     const path = await artifactPath();
 
@@ -75,7 +75,7 @@ describe("GET /api/export/artifacts/[token]", () => {
   });
 
   it("deletes the private artifact when the web stream is cancelled", async () => {
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const path = await artifactPath();
     const response = await handleExportArtifactGet(tokenFrom(ticket.downloadUrl), {
       consumeArtifact: (candidate) => store.consume(candidate),

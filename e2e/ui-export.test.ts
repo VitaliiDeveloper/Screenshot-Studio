@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -28,8 +28,8 @@ afterEach(() => {
 
 describe("multi-locale UI export", () => {
   it("exports safe per-group-numbered paths with exact dims and no alpha", async () => {
-    // Copy the whole fixture (assets resolve relative to the project dir) into a temp workspace,
-    // and point the server's resolveProjectPath at it, so export writes to <temp>/export.
+    // Copy the whole fixture (assets resolve relative to the project dir) into a temp workspace and
+    // point the server's resolveProjectPath at it. Browser export must not publish beside the project.
     const workspace = await mkdtemp(join(tmpdir(), "ui-export-"));
     await cp(fixtureDir, workspace, { recursive: true });
     const projectPath = join(workspace, "app-store-screenshots.json");
@@ -61,9 +61,15 @@ describe("multi-locale UI export", () => {
         body: JSON.stringify({}),
       });
       if (res.status !== 201) throw new Error(`UI export failed (${res.status}): ${await res.text()}`);
-      const ticket = await res.json() as { downloadUrl: string; expiresAt: string };
+      const ticket = await res.json() as {
+        downloadUrl: string;
+        expiresAt: string;
+        filename: string;
+      };
       expect(ticket.downloadUrl).toMatch(/^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/);
       expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
+      expect(ticket.filename).toBe("app-store-screenshots-bundle.zip");
+      await expect(access(join(workspace, "export"))).rejects.toMatchObject({ code: "ENOENT" });
 
       const download = await fetch(new URL(ticket.downloadUrl, server.url));
       expect(download.status).toBe(200);

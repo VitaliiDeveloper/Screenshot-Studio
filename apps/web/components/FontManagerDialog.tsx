@@ -246,7 +246,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
             <EmptyResourceState
               icon={Type}
               title="No fonts registered"
-              description="Upload a local font or materialize one Google Font identity to start adding text."
+              description="Studio Sans is already available in the Inspector. Add a project font here only when you need another typeface."
               path="assets/fonts/"
             />
           ) : project.fonts.map((font) => {

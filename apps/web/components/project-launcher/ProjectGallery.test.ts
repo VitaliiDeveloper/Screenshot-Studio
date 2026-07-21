@@ -86,7 +86,13 @@ describe("ProjectGallery", () => {
     }]);
     expect(markup).toContain("Source unavailable");
     expect(markup).toContain("Reopen or import the source");
-    expect(markup).toContain('disabled=""');
+    expect(markup).toContain('aria-label="Remove Store Launch Demo from recents"');
+    expect(markup).toContain("project files stay untouched");
+    expect(markup).toContain("justify-between");
+    expect(markup).not.toContain("pr-14");
+    expect(markup).not.toContain(">Remove from recents<");
+    expect(markup).not.toContain('aria-label="Open Store Launch Demo in Workspace"');
+    expect(markup).not.toContain('aria-label="More actions for Store Launch Demo"');
     expect(markup).not.toContain("Project details");
   });
 

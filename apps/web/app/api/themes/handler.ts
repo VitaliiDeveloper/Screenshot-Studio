@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
+  applyBuiltInDesignPackFile,
   applyThemeFile,
   listThemes,
   ThemeApplyError,
   ThemeNotFoundError,
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
+import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
 import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
 
 function errorResponse(error: unknown): Response {
@@ -34,7 +36,10 @@ async function jsonBody(req: Request): Promise<Record<string, unknown>> {
 
 export async function handleThemeGet(projectPath: string): Promise<Response> {
   try {
-    return Response.json({ themes: await listThemes(projectPath) });
+    return Response.json({
+      builtIns: listBuiltInDesignPacks(),
+      themes: await listThemes(projectPath),
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -47,11 +52,9 @@ export async function handleThemePost(
 ): Promise<Response> {
   try {
     const body = await jsonBody(req);
-    const { project, revision } = await applyThemeFile(
-      projectPath,
-      body.id,
-      {},
-      typeof body.layoutId === "string" ? body.layoutId : undefined,
+    const operation = body.source === "built-in" ? applyBuiltInDesignPackFile : applyThemeFile;
+    const { project, revision } = await operation(
+      projectPath, body.id, {}, typeof body.layoutId === "string" ? body.layoutId : undefined,
       { expectedRevision },
     );
     return Response.json(project, { headers: { etag: `"${revision}"` } });

@@ -3,7 +3,7 @@
 
 import { useStore } from "zustand";
 import { Combine, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
-import { leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
+import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "../lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "../lib/mutate-and-save";
@@ -27,11 +27,13 @@ function patch<T extends Element["type"]>(
 export function Inspector({
   specs,
   onOpenBackgroundAsset,
+  onOpenDeviceFrameAsset,
   onClose,
   className,
 }: {
   specs: StoreSpecs | null;
   onOpenBackgroundAsset?: () => void;
+  onOpenDeviceFrameAsset?: (target: { elementId: string; screenId: string }) => void;
   onClose?: () => void;
   className?: string;
 }) {
@@ -57,7 +59,7 @@ export function Inspector({
     ? (() => {
         try {
           const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
-          return specs[screen.platform]?.[screen.device]?.find((candidate) => candidate.id === targetId);
+          return findStoreTarget(specs, screen.platform, screen.device, targetId);
         } catch {
           return undefined;
         }
@@ -188,6 +190,12 @@ export function Inspector({
             onPatch={patch}
             onDuplicate={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
             onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
+            onChooseDeviceFrameAsset={element.type === "device-frame" && selectedItems[0]
+              ? () => onOpenDeviceFrameAsset?.({
+                elementId: element.id,
+                screenId: selectedItems[0]!.screenId,
+              })
+              : undefined}
           />
         </>
       ) : (

@@ -6,7 +6,13 @@ import {
   createSelectedElementIndex,
   forEachSelectedElement,
 } from "./editor-selection-mutations.js";
-import type { IconElement, Project, ShapeElement, TextElement } from "@screenshot-studio/core/model";
+import {
+  parseProject,
+  type IconElement,
+  type Project,
+  type ShapeElement,
+  type TextElement,
+} from "@screenshot-studio/core/model";
 
 const validShapePatch: ElementPatchFor<"shape"> = { fill: "#123456" };
 // @ts-expect-error text elements do not expose shape fill
@@ -217,11 +223,12 @@ describe("editorStore", () => {
       icon: "star", color: "#000000", strokeWidth: 2,
     };
 
-    applyElementPatch(text, { content: "Updated" });
+    applyElementPatch(text, { content: "Updated", verticalAlign: "middle" });
     applyElementPatch(shape, { fill: "#123456" });
     applyElementPatch(icon, { icon: "heart" });
 
     expect(text.content).toBe("Updated");
+    expect(text.verticalAlign).toBe("middle");
     expect(shape.fill).toBe("#123456");
     expect(icon.icon).toBe("heart");
   });
@@ -267,6 +274,140 @@ describe("editorStore screens (slice 4)", () => {
     });
     expect(added.id).not.toBe("hero");
     expect(editorStore.getState().activeScreenId).toBe(added.id);
+  });
+
+  it("addScreen duplicates the active target variant onto an available existing root", () => {
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const sourceVariant = editorStore.getState().project!.layouts[0]!.screens
+      .find((screen) => screen.variantOf === "hero" && screen.storeTargetId === "6.5")!;
+    editorStore.getState().selectScreen(sourceVariant.id);
+    const variantText = sourceVariant.elements[0]!;
+    if (variantText.type !== "text") throw new Error("expected text variant element");
+    patchText(variantText.id, { content: "Variant only" }, sourceVariant.id);
+
+    editorStore.getState().addScreen();
+
+    const state = editorStore.getState();
+    const addedVariant = state.project!.layouts[0]!.screens
+      .find((screen) => screen.id === state.activeScreenId)!;
+    const addedRoot = state.project!.layouts[0]!.screens
+      .find((screen) => screen.id === addedVariant.variantOf)!;
+    expect(addedVariant).toMatchObject({
+      name: "Hero copy",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    });
+    expect(addedRoot).toMatchObject({
+      id: "second",
+      name: "Second",
+      artboard: { width: 660, height: 1434 },
+    });
+    expect(addedRoot.variantOf).toBeUndefined();
+    expect(addedRoot.storeTargetId).toBeUndefined();
+    expect(addedVariant.elements[0]).toMatchObject({ type: "text", content: "Variant only" });
+    expect(addedRoot.elements).toEqual([]);
+    expect(addedVariant.elements[0]!.id).not.toBe(sourceVariant.elements[0]!.id);
+    expect(state.project!.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toHaveLength(2);
+    expect(() => parseProject(state.project)).not.toThrow();
+  });
+
+  it("keeps four masters unchanged when adding a second blank screen to a one-screen variant", () => {
+    editorStore.getState().addBlankScreen();
+    editorStore.getState().addBlankScreen();
+    const rootsBefore = editorStore.getState().project!.layouts[0]!.screens
+      .filter((screen) => screen.storeTargetId === undefined);
+    expect(rootsBefore).toHaveLength(4);
+    const sourceRoot = rootsBefore[3]!;
+    editorStore.getState().selectScreen(sourceRoot.id);
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const sourceVariant = editorStore.getState().project!.layouts[0]!.screens
+      .find((screen) => screen.variantOf === sourceRoot.id && screen.storeTargetId === "6.5")!;
+    editorStore.getState().selectScreen(sourceVariant.id);
+
+    editorStore.getState().addBlankScreen();
+
+    const state = editorStore.getState();
+    const addedVariant = state.project!.layouts[0]!.screens
+      .find((screen) => screen.id === state.activeScreenId)!;
+    const addedRoot = state.project!.layouts[0]!.screens
+      .find((screen) => screen.id === addedVariant.variantOf)!;
+    expect(addedVariant).toMatchObject({
+      name: "Untitled",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+      elements: [],
+    });
+    expect(addedRoot).toMatchObject({
+      id: "hero",
+      name: "Hero",
+      artboard: { width: 660, height: 1434 },
+    });
+    expect(addedRoot.variantOf).toBeUndefined();
+    expect(addedRoot.storeTargetId).toBeUndefined();
+    expect(state.project!.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toHaveLength(4);
+    expect(state.project!.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "6.5"))
+      .toHaveLength(2);
+    expect(() => parseProject(state.project)).not.toThrow();
+  });
+
+  it("adds a standalone target screen after every existing primary has the active target variant", () => {
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    editorStore.getState().selectScreen("second");
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const sourceVariant = editorStore.getState().project!.layouts[0]!.screens
+      .find((screen) => screen.variantOf === "second" && screen.storeTargetId === "6.5")!;
+    editorStore.getState().selectScreen(sourceVariant.id);
+
+    editorStore.getState().addBlankScreen();
+
+    const state = editorStore.getState();
+    const roots = state.project!.layouts[0]!.screens.filter(
+      (screen) => screen.storeTargetId === undefined,
+    );
+    const addedVariant = state.project!.layouts[0]!.screens
+      .find((screen) => screen.id === state.activeScreenId)!;
+    expect(roots).toHaveLength(2);
+    expect(addedVariant).toMatchObject({
+      name: "Untitled",
+      storeTargetId: "6.5",
+      elements: [],
+    });
+    expect(addedVariant.variantOf).toBeUndefined();
+    expect(() => parseProject(state.project)).not.toThrow();
+  });
+
+  it("mirrors an added target slot only after Keep 1:1 is enabled", () => {
+    editorStore.getState().ensureStoreTargetVariant({
+      id: "6.5", label: "6.5 inch", width: 1284, height: 2778, orientation: "portrait",
+    });
+    const sourceVariant = editorStore.getState().project!.layouts[0]!.screens
+      .find((screen) => screen.variantOf === "hero" && screen.storeTargetId === "6.5")!;
+    editorStore.getState().selectScreen(sourceVariant.id);
+    editorStore.getState().setOutputFamilyScreenSetMode("synchronized");
+
+    editorStore.getState().addBlankScreen();
+
+    const state = editorStore.getState();
+    const primaries = state.project!.layouts[0]!.screens.filter(
+      (screen) => screen.storeTargetId === undefined,
+    );
+    const variants = state.project!.layouts[0]!.screens.filter(
+      (screen) => screen.storeTargetId === "6.5",
+    );
+    expect(primaries).toHaveLength(3);
+    expect(variants).toHaveLength(3);
+    expect(variants.map((screen) => screen.variantOf))
+      .toEqual(primaries.map((screen) => screen.id));
   });
 
   it("creates an independent target variant without leaving the active screen", () => {

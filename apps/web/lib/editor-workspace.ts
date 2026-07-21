@@ -28,6 +28,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   apple: "App Store",
   android: "Google Play",
   windows: "Microsoft Store",
+  web: "Web",
 };
 
 const DEVICE_LABELS: Record<string, string> = {
@@ -38,6 +39,11 @@ const DEVICE_LABELS: Record<string, string> = {
   watchos: "watchOS",
   phone: "Android phone",
   desktop: "Windows desktop",
+  laptop: "Web laptop",
+  tablet: "Web tablet",
+  mobile: "Web mobile",
+  "tablet-7": "7-inch Android tablet",
+  "tablet-10": "10-inch Android tablet",
 };
 
 const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
@@ -48,6 +54,11 @@ const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   watchos: "Apple Watch",
   phone: "Android phone",
   desktop: "Windows desktop",
+  laptop: "Web laptop",
+  tablet: "Web tablet",
+  mobile: "Web mobile",
+  "tablet-7": "7-inch Android tablet",
+  "tablet-10": "10-inch Android tablet",
 };
 
 export function storeOutputLabel(platform: string, device: string): string {
@@ -248,6 +259,7 @@ export type AddCatalogAction =
   | "insert-shape"
   | "insert-icon"
   | "insert-badge"
+  | "insert-device-frame"
   | "open-templates"
   | "open-asset-picker"
   | "open-store-badge-picker"
@@ -255,7 +267,7 @@ export type AddCatalogAction =
 
 export interface AddCatalogItem {
   id:
-    | "text" | "shape" | "icon" | "screenshot" | "image" | "device-frame"
+    | "text" | "shape" | "icon" | "screenshot" | "image" | "device-frame" | "device-frame-image"
     | "rating-badge" | "as-seen-on-badge" | "store-badge" | "components";
   label: string;
   category: AddCatalogCategory;
@@ -288,10 +300,17 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
   },
   {
     id: "device-frame",
-    label: "Device Frame",
+    label: "Add device mockup",
+    category: "Frames",
+    action: "insert-device-frame",
+    hint: "Create an empty mockup; assign or replace its local screenshot later",
+  },
+  {
+    id: "device-frame-image",
+    label: "Place screenshot in mockup",
     category: "Frames",
     action: "open-asset-picker",
-    hint: "Choose a screenshot asset; phone, tablet, desktop, TV, or watch",
+    hint: "Choose a local project screenshot and create a populated mockup",
   },
   {
     id: "components",

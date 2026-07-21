@@ -9,7 +9,12 @@ import {
   registerProjectFonts,
   type FontRegistrationFailure,
 } from "@screenshot-studio/core/fonts";
-import { collectImageUrls, loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
+import {
+  collectImageUrls,
+  loadProjectImage,
+  loadProjectImages,
+  type ImageCache,
+} from "@screenshot-studio/core/assets";
 import { parseStoreSpecs, type StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore } from "../../lib/editor-store";
 import {
@@ -38,6 +43,17 @@ async function loadAllProjectImages(
 
 export function missingImageUrls(project: Project, images: ImageCache): string[] {
   return collectImageUrls(project).filter((assetUrl) => !images.has(assetUrl));
+}
+
+export function cacheDecodedProjectImage(
+  images: ImageCache,
+  assetUrl: string,
+  image: HTMLImageElement,
+): ImageCache {
+  // Update the shared cache before publishing a new Map so a synchronous project mutation cannot
+  // render one frame with a missing-image placeholder.
+  images.set(assetUrl, image);
+  return new Map(images);
 }
 
 export interface EditorResourceResult {
@@ -171,6 +187,7 @@ export function useEditorResources() {
   const [reloading, setReloading] = useState(false);
   const [fontRetrying, setFontRetrying] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const imagesRef = useRef<ImageCache | null>(null);
   const resourceGeneration = useRef(0);
   const fontGeneration = useRef(0);
   const projectId = useRef<string | null>(null);
@@ -178,33 +195,38 @@ export function useEditorResources() {
     state.project ? collectImageUrls(state.project).sort().join("\n") : "",
   );
 
-  const startReload = useCallback((serialize: EditorResourceSerializer) => {
+  const startReload = useCallback(async (serialize: EditorResourceSerializer) => {
     const generation = ++resourceGeneration.current;
     ++fontGeneration.current;
     setError(null);
+    imagesRef.current = null;
     setImages(null);
     setSpecs(null);
     setFontWarnings([]);
     setReloading(true);
-    void runEditorResourceReload({
-      serialize,
-      load: loadEditorResources,
-      isCurrent: () => resourceGeneration.current === generation,
-      apply: (resources) => {
-        // A revision becomes globally usable only after every required resource validated and this
-        // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
-        applyEditorResourceResult(resources);
-        projectId.current = resources.projectId;
-        setActiveProjectId(resources.projectId);
-        setImages(resources.images);
-        setSpecs(resources.specs);
-        setFontWarnings(resources.fontWarnings);
-      },
-    }).catch((error: unknown) => {
+    try {
+      return await runEditorResourceReload({
+        serialize,
+        load: loadEditorResources,
+        isCurrent: () => resourceGeneration.current === generation,
+        apply: (resources) => {
+          // A revision becomes globally usable only after every required resource validated and this
+          // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
+          applyEditorResourceResult(resources);
+          projectId.current = resources.projectId;
+          setActiveProjectId(resources.projectId);
+          imagesRef.current = resources.images;
+          setImages(resources.images);
+          setSpecs(resources.specs);
+          setFontWarnings(resources.fontWarnings);
+        },
+      });
+    } catch (error: unknown) {
       if (resourceGeneration.current === generation) setError((error as Error).message);
-    }).finally(() => {
+      return false;
+    } finally {
       if (resourceGeneration.current === generation) setReloading(false);
-    });
+    }
   }, []);
 
   useEffect(() => editorStore.subscribe((state, previous) => {
@@ -227,7 +249,7 @@ export function useEditorResources() {
     let active = true;
     queueMicrotask(() => {
       if (active) {
-        startReload(selectEditorResourceSerializer(editorStore.getState().project !== null));
+        void startReload(selectEditorResourceSerializer(editorStore.getState().project !== null));
       }
     });
     return () => {
@@ -246,7 +268,10 @@ export function useEditorResources() {
     void loadAllProjectImages(project, resolveActiveProjectAssetUrl).then((loaded) => {
       if (cancelled) return;
       setImages((current) => {
-        if (!current) return loaded;
+        if (!current) {
+          imagesRef.current = loaded;
+          return loaded;
+        }
         const next = new Map(current);
         let changed = false;
         for (const assetUrl of missing) {
@@ -256,7 +281,9 @@ export function useEditorResources() {
             changed = true;
           }
         }
-        return changed ? next : current;
+        const result = changed ? next : current;
+        imagesRef.current = result;
+        return result;
       });
     });
     return () => { cancelled = true; };
@@ -265,8 +292,27 @@ export function useEditorResources() {
   const retry = useCallback(() => {
     if (reloading) return;
     const serialize = selectEditorResourceSerializer(editorStore.getState().project !== null);
-    startReload(serialize);
+    void startReload(serialize);
   }, [reloading, startReload]);
+
+  const reload = useCallback(() => startReload(
+    selectEditorResourceSerializer(editorStore.getState().project !== null),
+  ), [startReload]);
+
+  const cacheImage = useCallback(async (assetUrl: string): Promise<boolean> => {
+    const generation = resourceGeneration.current;
+    const current = imagesRef.current;
+    if (!current) return false;
+    if (current.has(assetUrl)) return true;
+    const image = await loadProjectImage(assetUrl, resolveActiveProjectAssetUrl);
+    if (!image
+      || resourceGeneration.current !== generation
+      || imagesRef.current !== current) return false;
+    const next = cacheDecodedProjectImage(current, assetUrl, image);
+    imagesRef.current = next;
+    setImages(next);
+    return true;
+  }, []);
 
   const retryFonts = useCallback(() => {
     if (fontRetrying) return;
@@ -293,6 +339,8 @@ export function useEditorResources() {
     specs,
     fontWarnings,
     retry,
+    reload,
+    cacheImage,
     reloading,
     retryFonts,
     fontRetrying,

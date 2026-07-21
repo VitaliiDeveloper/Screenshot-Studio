@@ -25,9 +25,10 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [platform, setPlatform] = useState(DEFAULT_EXPORT_FILTERS.platform);
   const [device, setDevice] = useState(DEFAULT_EXPORT_FILTERS.device);
   const [locale, setLocale] = useState<string>(DEFAULT_EXPORT_FILTERS.locale);
+  const [profile, setProfile] = useState<"store-bundle" | "web-share">("store-bundle");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [doneDir, setDoneDir] = useState<string | null>(null);
+  const [downloadedFilename, setDownloadedFilename] = useState<string | null>(null);
 
   if (!open || !project || !activeLayoutId) return null;
 
@@ -45,7 +46,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     const filters = normalizeExportFilters(layout, { platform, device, locale });
     setPending(true);
     setError(null);
-    setDoneDir(null);
+    setDownloadedFilename(null);
     try {
       await withFlushedProject(async () => {
         const res = await fetch("/api/export", {
@@ -59,6 +60,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             platform: filters.platform === "all" ? undefined : filters.platform,
             device: filters.device === "all" ? undefined : filters.device,
             locale: filters.locale === "all" ? undefined : filters.locale,
+            profile,
           }),
         });
         const body = await res.json().catch(() => ({}));
@@ -70,7 +72,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           createAnchor: () => document.createElement("a"),
           appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
         });
-        setDoneDir(ticket.outputDir);
+        setDownloadedFilename(ticket.filename);
       });
     } catch (err) {
       setError((err as Error).message);
@@ -87,6 +89,19 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
       widthClass="max-w-md"
     >
       <div className="flex flex-col gap-3">
+        <label className="flex items-center justify-between gap-4 text-xs">
+          <span className="font-medium text-slate-600">Export profile</span>
+          <MenuSelect
+            ariaLabel="Export profile"
+            value={profile}
+            options={[
+              { value: "store-bundle", label: "Store bundle" },
+              { value: "web-share", label: "Web Share" },
+            ]}
+            onChange={setProfile}
+            className="w-40"
+          />
+        </label>
         <label className="flex items-center justify-between gap-4 text-xs">
           <span className="font-medium text-slate-600">Platform</span>
           <MenuSelect
@@ -128,7 +143,11 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
         </label>
 
         {error && <p className="whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
-        {doneDir && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">Wrote bundle to {doneDir}</p>}
+        {downloadedFilename && (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">
+            Download started: {downloadedFilename}
+          </p>
+        )}
 
         <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button className={editorUi.buttonSecondary} onClick={onClose} disabled={pending}>

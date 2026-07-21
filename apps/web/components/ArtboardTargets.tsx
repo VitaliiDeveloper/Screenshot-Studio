@@ -1,14 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
-import { leadStoreSizeId, type StoreSize, type StoreSpecs } from "@screenshot-studio/core/export";
+import { useState } from "react";
+import { ArrowRight, Trash2 } from "lucide-react";
+import {
+  isPrimaryScreen,
+  sameOutputFamily,
+  screenSetModeFor,
+  type DesignLayout,
+  type Screen,
+  type ScreenSetMode,
+} from "@screenshot-studio/core/model";
+import {
+  leadStoreSizeId,
+  listStoreTargets,
+  STORE_OUTPUT_TARGETS_KEY,
+  type StoreSize,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import { storeOutputLabel } from "../lib/editor-workspace";
-import { AddMenu } from "./editor-ui";
+import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "./editor-ui";
 
 /**
  * Store-target navigation never mutates the active artboard. The lead row opens the root/master;
- * non-lead rows create or open independent exact-target variants with fresh persisted identities.
+ * non-lead rows create or open exact-target variants with fresh persisted identities. Screen-slot
+ * synchronization is an authoring policy and never changes target identity or rendered pixels.
  */
 export function ArtboardTargets({
   layout,
@@ -18,6 +34,7 @@ export function ArtboardTargets({
   onCreateOutput,
   onCreate,
   onRemove,
+  onScreenSetModeChange,
 }: {
   layout: DesignLayout;
   screen: Screen;
@@ -26,13 +43,32 @@ export function ArtboardTargets({
   onCreateOutput: (platform: string, device: string, leadTarget: StoreSize) => void;
   onCreate: (target: StoreSize) => void;
   onRemove: (rootScreenId: string, targetId: string) => void;
+  onScreenSetModeChange: (mode: ScreenSetMode) => void;
 }) {
-  const targets = specs[screen.platform]?.[screen.device] ?? [];
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    rootScreenId: string;
+    targetId: string;
+    label: string;
+  } | null>(null);
+  const targets: StoreSize[] = (() => {
+    try {
+      return listStoreTargets(specs, screen.platform, screen.device);
+    } catch {
+      return [];
+    }
+  })();
   const families = Object.entries(specs).flatMap(([platform, devices]) =>
-    Object.entries(devices).map(([device, sizes]) => ({ platform, device, sizes })),
+    Object.entries(devices)
+      .filter(([device]) => device !== STORE_OUTPUT_TARGETS_KEY)
+      .map(([device, sizes]) => ({ platform, device, sizes })),
   );
-  const rootId = screen.variantOf ?? screen.id;
-  const root = layout.screens.find((candidate) => candidate.id === rootId) ?? screen;
+  const root = screen.variantOf
+    ? layout.screens.find((candidate) => candidate.id === screen.variantOf)
+    : isPrimaryScreen(screen)
+      ? screen
+      : layout.screens.find((candidate) => sameOutputFamily(candidate, screen) && isPrimaryScreen(candidate));
+  const rootId = root?.id;
+  const screenSetMode = root ? screenSetModeFor(layout, root) : "independent";
   let leadId: string | undefined;
   try {
     leadId = leadStoreSizeId(screen.platform, screen.device);
@@ -46,7 +82,7 @@ export function ArtboardTargets({
 
   const familyRows = families.map(({ platform, device, sizes }) => {
     const existingRoot = layout.screens.find((candidate) =>
-      candidate.variantOf === undefined
+      isPrimaryScreen(candidate)
       && candidate.platform === platform
       && candidate.device === device
       && candidate.locale === screen.locale,
@@ -67,12 +103,31 @@ export function ArtboardTargets({
     };
   });
   const createdFamilies = familyRows.filter((family) => family.existingRoot);
-  const availableFamilies = familyRows.filter((family) => !family.existingRoot && family.leadTarget);
-  const variantsByTargetId = new Map(layout.screens
-    .filter((candidate) => candidate.variantOf === rootId && candidate.storeTargetId)
-    .map((candidate) => [candidate.storeTargetId!, candidate]));
-  const createdTargets = targets.filter((target) => target.id === leadId || variantsByTargetId.has(target.id));
-  const availableTargets = targets.filter((target) => target.id !== leadId && !variantsByTargetId.has(target.id));
+  const availableFamilies = root
+    ? familyRows.filter((family) => !family.existingRoot && family.leadTarget)
+    : [];
+  const familyVariantsByTargetId = new Map<string, Screen>();
+  const rootVariantsByTargetId = new Map<string, Screen>();
+  for (const candidate of layout.screens) {
+    if (
+      !candidate.storeTargetId
+      || candidate.platform !== screen.platform
+      || candidate.device !== screen.device
+      || candidate.locale !== screen.locale
+    ) continue;
+    familyVariantsByTargetId.set(candidate.storeTargetId, (
+      familyVariantsByTargetId.get(candidate.storeTargetId) ?? candidate
+    ));
+    if (rootId && candidate.variantOf === rootId) {
+      rootVariantsByTargetId.set(candidate.storeTargetId, candidate);
+    }
+  }
+  const createdTargets = targets.filter((target) => (
+    (root !== undefined && target.id === leadId) || familyVariantsByTargetId.has(target.id)
+  ));
+  const availableTargets = root
+    ? targets.filter((target) => target.id !== leadId && !familyVariantsByTargetId.has(target.id))
+    : [];
 
   return (
     <section
@@ -96,7 +151,24 @@ export function ArtboardTargets({
             }}
           />
         </div>
-        <p className="mt-1 text-[10px] leading-4 text-slate-500">Independent screen sets with their own size variants.</p>
+        {root ? <div className={`${editorUi.insetPanel} mt-3 gap-2`}>
+          <span className={editorUi.sectionLabel}>Screen slots</span>
+          <SegmentedControl
+            label="Screen slot behavior"
+            value={screenSetMode}
+            fill
+            options={[
+              { value: "independent", label: "Independent" },
+              { value: "synchronized", label: "Keep 1:1" },
+            ]}
+            onChange={onScreenSetModeChange}
+          />
+          <p className="text-[10px] leading-4 text-[color:var(--editor-color-text-subtle)]">
+            {screenSetMode === "synchronized"
+              ? "Add, delete, and order mirror across sizes. Layer edits stay independent."
+              : "Each size keeps its own screen count and order."}
+          </p>
+        </div> : null}
       </div>
 
       <div className="flex flex-col gap-1.5" aria-label="Store output families">
@@ -107,21 +179,24 @@ export function ArtboardTargets({
               key={key}
               role="group"
               aria-label={`${label} output`}
+              aria-current={isCurrentFamily ? "true" : undefined}
               className={`flex items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-xs ${isCurrentFamily ? "border-blue-200 bg-blue-50/70" : "border-slate-100 bg-slate-50/70"}`}
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium text-slate-700">{label}</span>
-                <span className="mt-0.5 block text-[10px] text-emerald-700">
-                  {isCurrentFamily ? "current output" : "created"}
-                </span>
+                <span className="mt-0.5 block text-[10px] text-emerald-700">created</span>
               </span>
-              <button
-                disabled={isCurrentFamily}
-                className="min-h-7 shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-                onClick={() => existingRoot && onOpen(existingRoot.id)}
-              >
-                {isCurrentFamily ? "Current" : "Open"}
-              </button>
+              {!isCurrentFamily && existingRoot ? (
+                <button
+                  type="button"
+                  aria-label={`Open ${label} output`}
+                  title={`Open ${label} output`}
+                  className={`${editorUi.rowIconButton} border border-slate-200 bg-white shadow-sm`}
+                  onClick={() => onOpen(existingRoot.id)}
+                >
+                  <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
           );
         })}
@@ -147,53 +222,82 @@ export function ArtboardTargets({
           />
         </div>
       {createdTargets.map((target) => {
-        const isLead = target.id === leadId;
-        const variant = variantsByTargetId.get(target.id);
-        const targetScreen = isLead ? root : variant;
-        const isCurrent = targetScreen?.id === screen.id;
+        const isLead = root !== undefined && target.id === leadId;
+        const rootVariant = rootVariantsByTargetId.get(target.id);
+        const targetScreen = isLead
+          ? root
+          : rootVariant ?? familyVariantsByTargetId.get(target.id);
+        const isCurrent = target.id === leadId
+          ? isPrimaryScreen(screen)
+          : screen.storeTargetId === target.id;
         return (
           <div
             key={target.id}
             role="group"
             aria-label={`${target.label} store target`}
+            aria-current={isCurrent ? "true" : undefined}
             className={`mb-1.5 flex items-center justify-between gap-2 rounded-lg border p-2 text-xs ${isCurrent ? "border-blue-200 bg-blue-50/70" : "border-slate-100 bg-slate-50/70"}`}
           >
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="truncate font-medium text-slate-700">
-              <span>{isLead ? target.label.replace(/\s+\(lead\)$/i, "") : target.label}</span>
-              {isLead && (
-                <span className="ml-1 rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">lead</span>
-              )}
+            <span data-testid="store-target-name" className="truncate font-medium text-slate-700">
+              {isLead ? target.label.replace(/\s+\(lead\)$/i, "") : target.label}
             </span>
-            <span className={`w-fit rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 ${targetScreen ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>
-              {isLead ? "master" : "variant"}
+            <span data-testid="store-target-roles" className="flex w-fit items-center gap-1">
+              {isLead && (
+                <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">lead</span>
+              )}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 ${targetScreen ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>
+                {isLead ? "master" : "variant"}
+              </span>
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
-            {variant && (
+            {!isLead && root && targetScreen && (
               <button
-                className="min-h-7 rounded-lg px-2 text-[11px] font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70"
-                onClick={() => {
-                  if (window.confirm(`Remove the independent ${target.label} variant? The master stays unchanged.`)) {
-                    onRemove(rootId, target.id);
-                  }
-                }}
+                type="button"
+                aria-label={`Remove ${target.label} variant`}
+                title={`Remove ${target.label} variant`}
+                className={editorUi.rowIconButtonDanger}
+                onClick={() => setPendingRemoval({
+                  rootScreenId: targetScreen.variantOf ?? targetScreen.id,
+                  targetId: target.id,
+                  label: target.label,
+                })}
               >
-                Remove
+                <Trash2 size={14} strokeWidth={1.9} aria-hidden="true" />
               </button>
             )}
-            <button
-              disabled={isCurrent}
-              className="min-h-7 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-              onClick={() => targetScreen && onOpen(targetScreen.id)}
-            >
-              {isCurrent ? "Current" : "Open"}
-            </button>
+            {!isCurrent && targetScreen ? (
+              <button
+                type="button"
+                aria-label={`Open ${target.label}`}
+                title={`Open ${target.label}`}
+                className={`${editorUi.rowIconButton} border border-slate-200 bg-white shadow-sm`}
+                onClick={() => onOpen(targetScreen.id)}
+              >
+                <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />
+              </button>
+            ) : null}
           </span>
           </div>
         );
       })}
       </div>
+      {pendingRemoval ? (
+        <ConfirmationDialog
+          title="Remove size variant?"
+          description={screenSetMode === "synchronized"
+            ? `Remove ${pendingRemoval.label} from every synchronized screen slot? The primary size stays unchanged.`
+            : `Remove the independent ${pendingRemoval.label} variant? The primary size stays unchanged.`}
+          confirmLabel="Remove size"
+          onClose={() => setPendingRemoval(null)}
+          onConfirm={() => {
+            const removal = pendingRemoval;
+            setPendingRemoval(null);
+            onRemove(removal.rootScreenId, removal.targetId);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

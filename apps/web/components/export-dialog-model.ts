@@ -2,7 +2,10 @@
 import type { DesignLayout } from "@screenshot-studio/core/model";
 
 const ARTIFACT_PATH = /^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/;
-const DOWNLOAD_FILENAME = "app-store-screenshots-bundle.zip";
+const DOWNLOAD_FILENAMES = new Set([
+  "app-store-screenshots-bundle.zip",
+  "web-share-package.zip",
+]);
 
 export interface ExportFilters {
   platform: string;
@@ -42,8 +45,8 @@ export function normalizeExportFilters(
 
 export interface ExportArtifactTicket {
   downloadUrl: string;
-  outputDir: string;
   expiresAt: string;
+  filename: string;
 }
 
 export interface ExportDownloadAnchor {
@@ -65,16 +68,16 @@ function parseTicket(raw: unknown): ExportArtifactTicket {
   }
   const candidate = raw as Record<string, unknown>;
   if (typeof candidate.downloadUrl !== "string"
-    || typeof candidate.outputDir !== "string"
-    || candidate.outputDir.trim().length === 0
     || typeof candidate.expiresAt !== "string"
-    || !Number.isFinite(Date.parse(candidate.expiresAt))) {
+    || !Number.isFinite(Date.parse(candidate.expiresAt))
+    || typeof candidate.filename !== "string"
+    || !DOWNLOAD_FILENAMES.has(candidate.filename)) {
     throw new Error("Invalid export artifact ticket");
   }
   return {
     downloadUrl: candidate.downloadUrl,
-    outputDir: candidate.outputDir,
     expiresAt: candidate.expiresAt,
+    filename: candidate.filename,
   };
 }
 
@@ -106,7 +109,7 @@ export function launchExportArtifactDownload(
   const href = validateDownloadUrl(ticket.downloadUrl, environment.origin);
   const anchor = environment.createAnchor();
   anchor.href = href;
-  anchor.download = DOWNLOAD_FILENAME;
+  anchor.download = ticket.filename;
   environment.appendAnchor(anchor);
   try {
     anchor.click();

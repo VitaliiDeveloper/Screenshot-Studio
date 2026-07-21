@@ -116,13 +116,13 @@ export function AppHomeShell({
             </section>
 
             <section aria-label="Project actions" className="grid gap-4 sm:grid-cols-2">
-              <button ref={creationButtonRef} type="button" onClick={onOpenCreate} disabled={!launcherActions.createEnabled} aria-describedby="create-project-help" className={cx("group relative min-h-56 rounded-3xl border border-slate-200 bg-white p-6 text-left hover:border-blue-300", firstRunActionMotion)}>
+              <button ref={creationButtonRef} type="button" onClick={onOpenCreate} disabled={!launcherActions.createEnabled} aria-label="New project" aria-describedby="create-project-help" className={cx("group relative min-h-56 rounded-3xl border border-slate-200 bg-white p-6 text-left hover:border-blue-300", firstRunActionMotion)}>
                 <span className="grid size-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Plus aria-hidden="true" className="size-5" /></span>
                 <span className="mt-8 block text-xl font-semibold text-[color:var(--editor-color-text-strong)]">New project</span>
                 <span id="create-project-help" className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Start from a guided store-ready project setup.</span>
                 <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-blue-700">Choose starting point <span aria-hidden="true">→</span></span>
               </button>
-              <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} className={cx("group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-blue-950/15", firstRunActionMotion)}>
+              <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} aria-label="Import" className={cx("group min-h-56 rounded-3xl border border-blue-300 bg-gradient-to-br from-blue-600 to-indigo-600 p-6 text-left text-white shadow-blue-950/15", firstRunActionMotion)}>
                 <span className="grid size-11 place-items-center rounded-2xl bg-white/15"><FolderInput aria-hidden="true" className="size-5" /></span>
                 <span className="mt-8 block text-xl font-semibold">Import</span>
                 <span className="mt-2 block text-sm leading-6 text-blue-50">Choose a complete Folder, project ZIP, or eligible standalone JSON.</span>

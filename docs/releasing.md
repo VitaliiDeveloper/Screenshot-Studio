@@ -100,7 +100,8 @@ Uninstalling the CLI does not remove projects, exports, or Playwright's shared b
 - Node.js 22.13+ is required on Linux, macOS, and Windows.
 - Only presets in `store-specs.json` are supported.
 - Groups are one level, do not clip children, and cannot nest.
-- Fonts must be registered project assets; export rejects machine-dependent fallback fonts.
+- Rendered fonts must be bundled built-ins or registered project assets; export rejects
+  machine-dependent fallback fonts.
 - Background removal handles edge-connected flat or near-uniform colours, not complex photographic
   segmentation.
 - The editor and CLI are local-first. There is no hosted collaboration, cloud storage, telemetry,

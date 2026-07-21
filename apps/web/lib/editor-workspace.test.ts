@@ -103,14 +103,16 @@ describe("editor workspace helpers", () => {
   });
 
   it("filters the extensible add catalog by label, group, and hint", () => {
-    expect(filterAddCatalog("frame").map((item) => item.id)).toEqual(["device-frame"]);
+    expect(filterAddCatalog("frame").map((item) => item.id)).toEqual([
+      "device-frame",
+      "device-frame-image",
+    ]);
     expect(filterAddCatalog("asset").map((item) => item.id)).toEqual([
       "screenshot",
       "image",
-      "device-frame",
       "store-badge",
     ]);
-    expect(filterAddCatalog("")).toHaveLength(10);
+    expect(filterAddCatalog("")).toHaveLength(11);
     expect(filterAddCatalog("vector").map((item) => item.id)).toEqual(["icon"]);
     expect(filterAddCatalog("badge").map((item) => item.id)).toEqual([
       "rating-badge",
@@ -119,6 +121,7 @@ describe("editor workspace helpers", () => {
     ]);
     expect(filterAddCatalog("screenshot").map((item) => item.action)).toEqual([
       "open-asset-picker",
+      "insert-device-frame",
       "open-asset-picker",
     ]);
   });

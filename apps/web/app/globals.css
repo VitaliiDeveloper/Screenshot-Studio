@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../components/editor-ui/tokens.css";
+@import "./built-in-fonts.css";
 
 :root {
   color-scheme: light;

@@ -77,7 +77,9 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
   const mountedRef = useRef(true);
   const publishingRef = useRef(false);
   const openingStateRef = useRef<DelayedOpeningState | null>(null);
-  if (!openingStateRef.current) openingStateRef.current = new DelayedOpeningState(setVisibleOpeningEntryId);
+  if (openingStateRef.current == null) {
+    openingStateRef.current = new DelayedOpeningState(setVisibleOpeningEntryId);
+  }
   const deletion = useManagedProjectDeletion({
     onDeleted: (projectId) => {
       discardActiveProjectPersistence();

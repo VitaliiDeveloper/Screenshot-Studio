@@ -1,0 +1,8 @@
+/* Exact checked-in bytes keep editor and CLI text metrics independent of the host system. */
+@font-face {
+  font-family: "Screenshot Studio Sans";
+  src: url("/fonts/screenshot-studio-sans-regular-v1.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
