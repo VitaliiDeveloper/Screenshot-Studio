@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { lock as acquireFileLock, type LockOptions } from "proper-lockfile";
+import type { LockOptions } from "proper-lockfile";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { acquireStorageLock } from "./storage-lock.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -128,9 +129,7 @@ export async function acquireManagedProjectLifecycleLock(
   await validateManagedStorageChildRoot(config, config.lifecycleLocksRoot);
   let releaseFileLock: () => Promise<void>;
   try {
-    releaseFileLock = await acquireFileLock(config.lifecycleLocksRoot, {
-      lockfilePath: managedProjectLifecycleLockPath(config, id),
-      realpath: true,
+    releaseFileLock = await acquireStorageLock(managedProjectLifecycleLockPath(config, id), {
       stale: staleAfterMs,
       update: heartbeatMs,
       retries: retries(timeoutMs, retryDelayMs),

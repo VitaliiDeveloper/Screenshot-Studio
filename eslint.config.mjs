@@ -15,6 +15,7 @@ export default tseslint.config(
       "**/.next/**",
       "**/node_modules/**",
       "**/coverage/**",
+      "**/.worktrees/**",
       "export/**",
       "**/next-env.d.ts",
     ],
@@ -32,6 +33,24 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    // A core domain may use relative imports internally, but cross-domain dependencies must go
+    // through the same public subpath contract consumed by web and CLI.
+    files: ["packages/core/src/*/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message: "Import other core domains through @screenshot-studio/core/<domain>.",
+            },
+          ],
+        },
       ],
     },
   },

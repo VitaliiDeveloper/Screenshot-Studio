@@ -31,17 +31,12 @@ const PLATFORM_OPTIONS: readonly MenuSelectOption<ProjectCreationForm["platform"
   { value: "apple", label: "Apple App Store" },
   { value: "android", label: "Google Play" },
   { value: "windows", label: "Microsoft Store" },
+  { value: "web", label: "Web" },
 ];
-
-const PLATFORM_SHORT_LABELS = {
-  apple: "Apple",
-  android: "Android",
-  windows: "Windows",
-} as const;
 
 function platformList(template: ProjectTemplateSummary): string {
   return template.supportedPlatforms.map((platform) => (
-    platform === "apple" ? "Apple" : platform === "android" ? "Android" : "Windows"
+    platform === "apple" ? "Apple" : platform === "android" ? "Android" : platform === "windows" ? "Windows" : "Web"
   )).join(", ");
 }
 
@@ -64,6 +59,9 @@ export function ProjectCreationDialog({
       ...(selected && !isProjectTemplateSupported(selected, platform) ? { templateId: null } : {}),
     });
   };
+  const visibleTemplates = templates.filter((template) => (
+    isProjectTemplateSupported(template, state.form.platform)
+  ));
 
   return (
     <DialogShell
@@ -74,7 +72,7 @@ export function ProjectCreationDialog({
       closeDisabled={busy}
       initialFocus="heading"
       widthClass="max-w-4xl"
-      bodyClassName="p-5 sm:p-7"
+      bodyClassName="p-5 [overflow-anchor:none] sm:p-7"
       motion={state.status === "completing" ? "closing" : "open"}
     >
         <form className="space-y-6" onSubmit={submit}>
@@ -123,22 +121,21 @@ export function ProjectCreationDialog({
 
             <fieldset>
               <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Starting point</legend>
-              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Project templates are complete creation-only starters. Screen templates and component presets remain Workspace tools.</p>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Choose a complete starter here, then add more built-in or project-local screen templates from Resources.</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <label className={editorUi.choiceCard}>
                   <input type="radio" name="starter" checked={state.form.templateId === null} onChange={() => onChange({ templateId: null })} />
                   <span className="mt-4 grid size-10 place-items-center rounded-xl bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)]"><Plus aria-hidden="true" className="size-5" /></span>
-                  <span className="mt-4 block font-semibold text-[color:var(--editor-color-text-strong)]">Empty project</span>
+                  <span className="mt-4 block font-semibold text-[color:var(--editor-color-text-strong)]">Blank</span>
                   <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">One valid blank screen using the selected platform’s lead store size.</span>
                 </label>
-                {templates.map((template) => {
-                  const supported = isProjectTemplateSupported(template, state.form.platform);
+                {visibleTemplates.map((template) => {
                   return (
                     <label
                       key={template.id}
-                      className={supported ? editorUi.choiceCard : editorUi.choiceCardDisabled}
+                      className={editorUi.choiceCard}
                     >
-                      <input type="radio" name="starter" value={template.id} disabled={!supported} checked={state.form.templateId === template.id} onChange={() => onChange({ templateId: template.id })} />
+                      <input type="radio" name="starter" value={template.id} checked={state.form.templateId === template.id} onChange={() => onChange({ templateId: template.id })} />
                       <span
                         aria-hidden="true"
                         className="mt-3 block h-20 overflow-hidden rounded-xl p-3"
@@ -150,7 +147,6 @@ export function ProjectCreationDialog({
                       <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">{template.description}</span>
                       <span className="mt-2 block text-[11px] font-semibold text-[color:var(--editor-color-text-muted)]">Best for: {template.intendedUse}</span>
                       <span className="mt-2 block text-[10px] uppercase tracking-wide text-[color:var(--editor-color-text-secondary)]">Supports {platformList(template)}</span>
-                      {!supported ? <span className="mt-2 block text-xs font-semibold text-[color:var(--editor-color-warning-text)]">Not available for {PLATFORM_SHORT_LABELS[state.form.platform]}</span> : null}
                     </label>
                   );
                 })}

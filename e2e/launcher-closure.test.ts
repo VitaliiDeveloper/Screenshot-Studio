@@ -56,7 +56,10 @@ describe("Projects and Workspace closure journey", () => {
       const page = await context.newPage();
       await page.goto(server.url, { waitUntil: "load" });
 
-      await page.getByRole("heading", { name: "Create your first screenshot project" }).waitFor();
+      await page.getByRole("heading", {
+        name: "Turn product moments into store-ready stories.",
+        exact: true,
+      }).waitFor();
       await expectNoSeriousOrCriticalViolations(page, "Projects first run");
       expect(await page.getByRole("button", { name: "New project", exact: true }).count()).toBe(1);
       expect(await page.getByRole("button", { name: "Import", exact: true }).count()).toBe(1);

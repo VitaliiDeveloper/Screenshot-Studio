@@ -30,7 +30,7 @@ export function cloneLocaleSet(
   const rootIdMap = new Map<string, string>();
   const copies = sourceScreens.map((source) => {
     const copy = cloneScreenWithFreshIds(source);
-    if (source.variantOf === undefined) rootIdMap.set(source.id, copy.id);
+    if (source.storeTargetId === undefined) rootIdMap.set(source.id, copy.id);
     return copy;
   }).map((copy, index) => {
     const source = sourceScreens[index]!;
@@ -43,7 +43,16 @@ export function cloneLocaleSet(
     );
   });
 
-  return replaceLayout(project, { ...layout, screens: [...layout.screens, ...copies] });
+  const clonedPolicies = (layout.screenSetPolicies ?? [])
+    .filter((policy) => policy.locale === sourceLocale)
+    .map((policy) => ({ ...policy, locale: targetLocale }));
+  return replaceLayout(project, {
+    ...layout,
+    ...(clonedPolicies.length > 0
+      ? { screenSetPolicies: [...(layout.screenSetPolicies ?? []), ...clonedPolicies] }
+      : {}),
+    screens: [...layout.screens, ...copies],
+  });
 }
 
 /** Remove an entire locale set without deleting any shared project assets. */
@@ -59,6 +68,7 @@ export function removeLocaleSet(
 
   return replaceLayout(project, {
     ...layout,
+    screenSetPolicies: layout.screenSetPolicies?.filter((policy) => policy.locale !== locale),
     screens: layout.screens.filter((screen) => screen.locale !== locale),
   });
 }

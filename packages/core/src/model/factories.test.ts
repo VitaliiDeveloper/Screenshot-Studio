@@ -19,6 +19,17 @@ describe("element factories (slice 5)", () => {
     expect(el).toMatchObject({ fontFamily: "Inter", weight: 700 });
   });
 
+  it("creates immediately authorable text with the renderer-owned default font", () => {
+    const el = createTextElement({});
+    expect(() => Element.parse(el)).not.toThrow();
+    expect(el).toMatchObject({
+      type: "text",
+      fontFamily: "Screenshot Studio Sans",
+      weight: 400,
+      verticalAlign: "top",
+    });
+  });
+
   it("right-aligns newly inserted text for an RTL screen", () => {
     expect(createTextElement({
       font: { family: "Inter", weight: 700 },
@@ -67,6 +78,12 @@ describe("element factories (slice 5)", () => {
     const el = createDeviceFrameElement({ assetUrl: "assets/shot.png" });
     expect(() => Element.parse(el)).not.toThrow();
     expect(el).toMatchObject({ type: "device-frame", deviceType: "iphone" });
+  });
+
+  it("createDeviceFrameElement can create an assignable placeholder", () => {
+    const el = createDeviceFrameElement();
+    expect(() => Element.parse(el)).not.toThrow();
+    expect(el).not.toHaveProperty("assetUrl");
   });
 
   it("gives each element a fresh id", () => {

@@ -39,7 +39,7 @@ function project() {
 }
 
 describe("Project asset picker", () => {
-  it("inserts screenshot, decorative image, and device-frame types into the connected owner", async () => {
+  it("inserts project images and lets a device mockup remove and reassign its screenshot", async () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
@@ -100,7 +100,7 @@ describe("Project asset picker", () => {
       fit: "cover", crop: { x: 0.25, y: 0.75, zoom: 2 },
     });
 
-    await page.getByRole("button", { name: "Device Frame", exact: true }).click();
+    await page.getByRole("button", { name: "Place screenshot in mockup", exact: true }).click();
     const frameDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
@@ -118,11 +118,35 @@ describe("Project asset picker", () => {
     });
     expect(project().layouts[0].screens[1].elements).toHaveLength(1);
 
+    await page.getByRole("button", { name: "Remove screenshot from device mockup" }).click();
+    await expect.poll(() => project().layouts[0].screens[0].elements.at(-1).assetUrl).toBeUndefined();
+    await page.getByText("No screenshot assigned", { exact: true }).waitFor();
+
+    await page.getByRole("button", { name: "Choose screenshot", exact: true }).click();
+    const assignmentDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
+    await assignmentDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
+    await expect.poll(() => project().layouts[0].screens[0].elements.at(-1).assetUrl)
+      .toBe("assets/demo-logistics-app.png");
+    expect(project().layouts[0].screens[0].elements).toHaveLength(4);
+
     await page.getByLabel("Frame preset", { exact: true }).click();
     await page.getByRole("menuitemradio", { name: "desktop", exact: true }).click();
     await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       deviceType: "desktop", width: 300, height: 187.5,
     });
+
+    await page.getByRole("button", { name: "Replace screenshot", exact: true }).click();
+    const importDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
+    await importDialog.getByLabel("Choose image from device").setInputFiles({
+      name: "finder-device-shot.png",
+      mimeType: "image/png",
+      buffer: readFileSync(imagePath),
+    });
+    await importDialog.waitFor({ state: "hidden" });
+    await expect.poll(() => project().layouts[0].screens[0].elements.at(-1).assetUrl)
+      .toBe("assets/imported/finder-device-shot.png");
+    expect(readFileSync(join(directory, "assets/imported/finder-device-shot.png")))
+      .toEqual(readFileSync(imagePath));
 
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });

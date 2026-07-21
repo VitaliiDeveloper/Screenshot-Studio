@@ -77,15 +77,42 @@ describe("importCaptures", () => {
 
     const result = await importCaptures({ projectPath, inputDir });
 
-    expect(result.imported).toBe(1);
-    expect(result.warnings).toEqual(['Skipping unsupported capture path "android/tablet-7/en/01.png"']);
-    const assetUrl = importedCapturePath("apple-iphone-en-01", png);
-    await expect(readFile(join(dir, assetUrl))).resolves.toEqual(png);
+    expect(result.imported).toBe(2);
+    expect(result.warnings).toEqual([]);
+    const iphoneAssetUrl = importedCapturePath("apple-iphone-en-01", png);
+    const tabletAssetUrl = importedCapturePath("android-tablet-7-en-01", png);
+    await expect(readFile(join(dir, iphoneAssetUrl))).resolves.toEqual(png);
+    await expect(readFile(join(dir, tabletAssetUrl))).resolves.toEqual(png);
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     const screens = written.layouts[0]!.screens;
-    expect(screens.map((screen) => screen.id)).toEqual(["hero", "apple-iphone-en-01"]);
+    expect(screens.map((screen) => screen.id)).toEqual([
+      "hero",
+      "android-tablet-7-en-01",
+      "apple-iphone-en-01",
+    ]);
     expect(screens[1]).toMatchObject({
+      id: "android-tablet-7-en-01",
+      name: "Android Tablet-7 en 01",
+      platform: "android",
+      device: "tablet-7",
+      locale: "en",
+      direction: "ltr",
+      artboard: { width: pngInfo.width, height: pngInfo.height },
+      elements: [
+        {
+          id: "android-tablet-7-en-01-screenshot",
+          type: "screenshot",
+          x: 0,
+          y: 0,
+          width: pngInfo.width,
+          height: pngInfo.height,
+          assetUrl: tabletAssetUrl,
+          fit: "cover",
+        },
+      ],
+    });
+    expect(screens[2]).toMatchObject({
       id: "apple-iphone-en-01",
       name: "Apple iPhone en 01",
       platform: "apple",
@@ -101,7 +128,7 @@ describe("importCaptures", () => {
           y: 0,
           width: pngInfo.width,
           height: pngInfo.height,
-          assetUrl,
+          assetUrl: iphoneAssetUrl,
           fit: "cover",
         },
       ],

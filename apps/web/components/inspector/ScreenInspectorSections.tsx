@@ -11,7 +11,7 @@ import {
 import { editorStore } from "../../lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "../../lib/mutate-and-save";
 import { ArtboardTargets } from "../ArtboardTargets";
-import { editorUi } from "../editor-ui";
+import { editorUi, SegmentedControl } from "../editor-ui";
 import { ColorField, NumberField, SelectField, TextField } from "../inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 
@@ -37,7 +37,6 @@ function ArtboardSizeEditor({
   const status = target ? artboardTargetStatus(screen.artboard, target) : undefined;
   const draftStatus = target ? artboardTargetStatus({ width, height }, target) : undefined;
   const isExactTarget = status?.kind === "exact";
-  const isCustomTarget = Boolean(target) && !isExactTarget;
   const resize = (size: { width: number; height: number }) => {
     mutateAndSave(() => editorStore.getState().resizeArtboard(size));
     setEditing(false);
@@ -79,33 +78,34 @@ function ArtboardSizeEditor({
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
-        <span role="group" aria-label="Artboard size mode" className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-100 p-1">
-          <button
-            type="button"
-            aria-label="Use Store size"
-            aria-pressed={Boolean(target) && isExactTarget}
-            disabled={!target}
-            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isExactTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
-            onClick={() => target && !isExactTarget && resize({ width: target.width, height: target.height })}
-          >
-            <span className="text-xs leading-none">Store size</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Use custom artboard size"
-            aria-pressed={isCustomTarget}
-            disabled={!target}
-            className={`inline-flex h-6 min-w-12 items-center justify-center rounded-md px-2.5 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:pointer-events-none disabled:opacity-50 ${isCustomTarget ? "bg-white text-slate-800 shadow-sm" : "text-slate-600 hover:bg-white/60 hover:text-slate-800"}`}
-            onClick={() => {
-              if (!target) return;
-              setWidth(screen.artboard.width);
-              setHeight(screen.artboard.height);
-              setEditing(true);
-            }}
-          >
-            <span className="text-xs leading-none">Custom</span>
-          </button>
-        </span>
+        <SegmentedControl
+          label="Artboard size mode"
+          value={!target ? undefined : isExactTarget ? "store" : "custom"}
+          options={[
+            {
+              value: "store",
+              label: "Store size",
+              ariaLabel: "Use Store size",
+              disabled: !target,
+            },
+            {
+              value: "custom",
+              label: "Custom",
+              ariaLabel: "Use custom artboard size",
+              disabled: !target,
+            },
+          ]}
+          onChange={(mode) => {
+            if (!target) return;
+            if (mode === "store") {
+              if (!isExactTarget) resize({ width: target.width, height: target.height });
+              return;
+            }
+            setWidth(screen.artboard.width);
+            setHeight(screen.artboard.height);
+            setEditing(true);
+          }}
+        />
       </div>
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
         {screen.artboard.width} × {screen.artboard.height} px
@@ -156,6 +156,9 @@ export function ScreenInspectorSections({
           onCreate={(target) => mutateAndSave(() => editorStore.getState().ensureStoreTargetVariant(target))}
           onRemove={(rootScreenId, targetId) => mutateAndSave(
             () => editorStore.getState().removeStoreTargetVariant(rootScreenId, targetId),
+          )}
+          onScreenSetModeChange={(mode) => mutateAndSave(
+            () => editorStore.getState().setOutputFamilyScreenSetMode(mode),
           )}
         />
       )}

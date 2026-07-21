@@ -17,6 +17,14 @@
       "id": "default",
       "name": "Default",
       "mode": "isolated",
+      "screenSetPolicies": [
+        {
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "mode": "independent"
+        }
+      ],
       "screens": [
         {
           "platform": "apple",
@@ -84,6 +92,7 @@
               "lineHeight": 1.1,
               "letterSpacing": 0,
               "align": "center",
+              "verticalAlign": "top",
               "color": "#FFFFFF"
             },
             {

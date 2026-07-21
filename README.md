@@ -95,10 +95,54 @@ Monorepo (pnpm workspaces):
 - `e2e/` — Playwright-driven behavioral gates (render/export parity, editor round-trip,
   left-panel interactions).
 - `docs/` — current architecture, operational guides, and tracked product contracts.
-- `store-specs.json` — Apple, Google, and Microsoft export sizes (data, not hardcoded).
+- `store-specs.json` — Apple, Android, Windows, and Web output families and exact sizes (data, not hardcoded).
 
 A screenshots *project* (the JSON file a user edits, as opposed to this repo) owns one or more
 independent layouts — see [the management-interface contract](docs/architecture.md).
+
+## Built-in and project-local resources
+
+A new project may have no images or project-local template files yet, but it is not an empty
+editor. Screenshot Studio ships a read-only built-in catalog with the application, so its resources
+are available in every project without being copied into `app-store-screenshots.json`:
+
+- **Screen starters.** Create project offers iPhone, iPad portrait, Android phone, Android tablet
+  portrait, Play Feature Graphic, Web desktop, and Web mobile starters. The Resources → Screen
+  templates library also includes landscape iPad and Android tablet starters. Choosing one creates
+  an ordinary editable screen in the current project; it does not retain a link to the catalog.
+- **Design Packs.** Built-in packs provide shared semantic palette, typography, and spacing values.
+  Applying a pack bakes those values into role-tagged editable elements, rather than storing a
+  global pack reference in the project.
+- **Frames and fonts.** The editor ships trusted phone, tablet, and browser frame types plus a
+  small built-in font catalog. Frame slots are initially empty and accept a project screenshot.
+- **Store targets.** Exact platform/device dimensions and non-device output targets are defined in
+  [`store-specs.json`](store-specs.json). Google Play Feature Graphic is an Android promotion
+  output target, not an Android device; a Feature Graphic starter exports one 1024×500 graphic by
+  default.
+
+Project-local resources are portable files next to the project document. A project commonly has
+this shape (folders appear when that resource type is used):
+
+```text
+my-app-screenshots/
+├── app-store-screenshots.json   # the only persisted project document
+├── assets/                      # images, imported assets, uploaded fonts, processed assets
+├── screenshots/                 # screenshot captures for import
+├── templates/<id>.json          # reusable screen templates for this project only
+└── themes/<id>.json             # project-specific theme definitions
+```
+
+Use **Create project** for a complete first screen and **Resources → Screen templates** to add
+further built-in or project-local screens. Project-specific themes live in `themes/*.json`; their
+values, like a Design Pack's values, are baked into the screen on application. **Web Share** is
+different from both a device and a platform: `screenshots export --profile web-share` packages
+already-rendered screenshots into a local shareable web bundle and never hosts or deploys it.
+
+For contributors, the global catalogs live in
+[`packages/core/src/templates/index.ts`](packages/core/src/templates/index.ts),
+[`packages/core/src/themes/index.ts`](packages/core/src/themes/index.ts), and
+[`packages/core/src/model/device-frames.ts`](packages/core/src/model/device-frames.ts); adding a
+new platform or output family also requires the corresponding strict schema and store-spec changes.
 
 ## Current capabilities
 
@@ -109,8 +153,9 @@ independent layouts — see [the management-interface contract](docs/architectur
 - **One UI/CLI renderer.** The editor, previews, exact exports, bundles, and packaged CLI all use the
   same Konva stage through the Chromium render host. Store PNGs are exact-size and opaque.
 - **Shared project creation.** CLI init and App Home managed creation use one strict scaffold factory
-  for empty projects and visible project templates while retaining explicit-local versus managed
-  destination ownership. Project templates are creation inputs, not persisted schema fields.
+  for Blank, generic project templates, and platform-aware built-in screen starters while retaining
+  explicit-local versus managed destination ownership. Starters are materialized through the shared
+  template flow and are not persisted schema fields or copied template resources.
 - **Launcher closure.** App Home provides durable bounded recent-project history and four normal
   starter workflows. Source locators remain server-only application state; Close, Remove from recents,
   and managed-only permanent deletion have separate non-overlapping effects.
@@ -121,7 +166,8 @@ independent layouts — see [the management-interface contract](docs/architectur
 - **Complete element surface.** Text, shapes, screenshots, decorative images, trusted vector icons,
   trusted device frames, editable badge groups, solid/gradient/project-image backgrounds, media
   crop controls, text shadow, shape gradients, and strokes share render/export parity.
-- **Reusable project resources.** File-backed custom and Google fonts, baked themes, templates,
+- **Reusable project resources.** File-backed custom and Google fonts, baked project themes, global
+  read-only Design Packs, templates,
   secure project assets, local auto-crop, and flat/near-uniform background removal work through the
   editor and CLI without adding provider-dependent project state.
 - **Store and locale workflows.** Independent Apple, Android, and Windows output families, explicit
@@ -222,8 +268,9 @@ editor exports its locally active layout. `dev`, `screen`, and `export` accept
 store-spec override; otherwise the source checkout or packaged CLI uses its bundled
 [store-specs.json](store-specs.json).
 
-Bundle `export` flags: optional `--layout <id-or-full-name>`, `--platform <apple|android|windows>`,
-`--device <iphone|ipad|macos|tvos|watchos|phone|desktop>`,
+Bundle `export` flags: optional `--layout <id-or-full-name>`,
+`--platform <apple|android|windows|web>`,
+`--device <iphone|ipad|macos|tvos|watchos|phone|tablet-7|tablet-10|desktop|laptop|tablet|mobile>`,
 `--locale <locale>`, and `--out <dir>` (defaults to `<project>/export`). Bundle mode exports each
 locale root at its device lead target and all explicit persisted variants at their own target,
 then writes
@@ -233,6 +280,10 @@ the exact stored identifier, and numbering restarts at `01` for each
 platform/device/locale/target group.
 `--locale` filtering still compares the exact stored string.
 
+`--profile web-share` creates a portable local-only `web-share/` package containing responsive
+`index.html`, `assets/`, shared-renderer PNGs under `screenshots/`, `og-image.png`, and
+`manifest.json`. It is an export profile, not the Web platform, and performs no hosting or deployment.
+
 Single-screen `export` flags: `--screen <id>`, optional `--size <id>`, and `--out <dir>`. Target
 precedence is explicit `--size`, the screen’s persisted `storeTargetId`, then that device’s lead
 target from the active store specs.
@@ -240,9 +291,12 @@ target from the active store specs.
 Screen commands mutate the same strict JSON source of truth. `screen list` prints layout-local order;
 within each export group that relative order becomes the `01`, `02`, … store-slot order.
 `screen add --size` accepts only the selected device’s lead target because non-lead outputs are
-persisted variants. `screen rm <id>` protects the last root in a locale and refuses to remove a
-root that still owns variants; `screen rm <id> --cascade` removes that root and its variants.
-`screen reorder <id> --to <position>` uses 1-based positions.
+persisted variants. `screen rm <id>` protects the last primary screen in a locale. Under the default
+independent policy, removing a primary preserves any paired exact-size screens as standalone
+composition; `screen rm <id> --cascade` explicitly removes the primary and its paired variants.
+`screen reorder <id> --to <position>` uses 1-based positions. These mutations honor the persisted
+output-family screen-slot policy: independent rows stay independent, while `Keep 1:1` mirrors logical
+slot add/delete/order across sizes without sharing layer content.
 
 Locale commands delegate to the same core transformations as the editor. `locale add` clones a
 source set with fresh ids and shared asset paths, `locale direction` changes placement only when the
@@ -270,8 +324,10 @@ confirms the managed copy; choosing another source, cancellation, or failure pre
 active session.
 
 **Create project** captures a project name, store platform, and isolated or connected initial layout,
-then creates either a valid empty project or a complete project-template starter. Template cards show
-their intended use and supported platforms. The browser never accepts a server path: it validates and
+then offers **Blank**, supported generic project templates, and platform-aware built-ins: iPhone and
+iPad portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and
+Web mobile. Built-ins use the same screen-template materializer as onboarding and Resources, need no
+pre-existing assets, and keep device-frame slots empty and assignable. The browser never accepts a server path: it validates and
 atomically publishes into managed storage, activates the new session, and opens Project Home. CLI
 `screenshots init --dir <directory>` uses the same scaffold contract with an explicit local destination.
 
@@ -312,10 +368,16 @@ deleted managed catalog entries, and keeps stale local sources safely removable.
 activates through the ordinary session boundary. **Remove from recents** removes history only; it does
 not Close project, move anything to Trash, delete managed storage, or modify a local source.
 
-The Resources shelf manages file-backed fonts, applies `themes/*.json`, and creates screens from
-strict project-local screen templates in `templates/*.json`. The Add shelf inserts text, shape, and
+The Resources shelf manages file-backed fonts, applies global read-only Design Packs or
+`themes/*.json`, and creates screens from a global read-only built-in catalog or strict project-local
+templates in `templates/*.json`. Packs bake palette, typography, and supported spacing literals with
+no persisted global reference. Built-ins are available without copying resource files and materialize
+ordinary editable screens. Empty
+projects offer family-specific starters, capture import, and a blank-screen path. The Add shelf
+inserts text, shape, and
 trusted built-in icons directly;
-opens the safe project-local asset picker for screenshot, iPhone-frame, decorative image, and
+separates empty device-mockup creation from placing/replacing a local screenshot; opens the safe
+project-local asset picker for screenshot, decorative image, and
 official store-badge assets; and creates editable rating/press-proof badge groups when a registered
 font is available. The top bar selects and manages complete locale sets; Screens and Overview show
 the active locale in isolated mode or the active exact platform/device/locale group in connected
@@ -324,6 +386,13 @@ mode. Inline editing and new text honor the active screen's LTR/RTL direction.
 Template screens inherit the active screen's locale and direction while using the template's
 explicit platform, device, artboard, background, and element layout. LTR-authored geometry is
 mirrored exactly once when a template is instantiated into an RTL locale.
+Non-lead screen templates normally create a lead root plus an exact target variant. Landscape iPad
+and Android tablet canvases therefore export against their landscape target. The Play Feature Graphic
+creation starter instead uses the schema's standalone exact-target contract so its default bundle is
+only 1024×500. It remains an Android `kind: "promotion"` output in the phone family, never an Android
+device.
+Responsive canvases continue to use `platform: "web"` with desktop, laptop, tablet, or mobile devices;
+`web-share` remains an export/package profile.
 
 ## Development
 

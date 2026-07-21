@@ -145,7 +145,6 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
     onRecoverStale: recoverCaptureTarget,
   });
   const openCaptureImport = captureImport.open;
-
   useEffect(() => {
     let active = true;
     void loadProjectHomeData().then((loaded) => {

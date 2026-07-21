@@ -39,13 +39,14 @@ interface ArtifactRecord {
   path: string;
   identity: ArtifactIdentity;
   expiresAt: number;
+  filename: string;
   timer: ReturnType<typeof setTimeout>;
 }
 
 export interface ExportArtifactTicket {
   downloadUrl: string;
-  outputDir: string;
   expiresAt: string;
+  filename: string;
 }
 
 export interface ExportArtifact {
@@ -61,7 +62,7 @@ export type ExportArtifactLookup =
   | { status: "missing" | "expired" | "invalid" };
 
 export interface ExportArtifactStore {
-  stage(sourceZipPath: string, outputDir: string): Promise<ExportArtifactTicket>;
+  stage(sourceZipPath: string, downloadFilename?: string): Promise<ExportArtifactTicket>;
   consume(token: string): Promise<ExportArtifactLookup>;
   close(): Promise<void>;
 }
@@ -87,6 +88,12 @@ function writeFlags(): number {
     | constants.O_CREAT
     | constants.O_EXCL
     | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+}
+
+function assertSafeDownloadFilename(filename: string): void {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/.test(filename)) {
+    throw new Error("Export artifact download filename must be a safe ZIP filename");
+  }
 }
 
 function asArtifactStat(value: unknown): ArtifactStat {
@@ -184,9 +191,7 @@ export function createExportArtifactStore(
   if (!/^\/[A-Za-z0-9/_-]+$/.test(downloadPathPrefix) || downloadPathPrefix.endsWith("/")) {
     throw new Error("Export artifact download path prefix must be a safe absolute path without a trailing slash");
   }
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/.test(downloadFilename)) {
-    throw new Error("Export artifact download filename must be a safe ZIP filename");
-  }
+  assertSafeDownloadFilename(downloadFilename);
 
   const records = new Map<string, ArtifactRecord>();
   const expiredTokens = new Set<string>();
@@ -274,9 +279,10 @@ export function createExportArtifactStore(
 
   const stageArtifact = async (
     sourceZipPath: string,
-    outputDir: string,
+    requestedDownloadFilename = downloadFilename,
   ): Promise<ExportArtifactTicket> => {
     if (closed) throw new Error("Export artifact store is closed");
+    assertSafeDownloadFilename(requestedDownloadFilename);
     const root = (await resolveRoot()).path;
     const canonicalSourcePath = await realpath(sourceZipPath);
     let sourceHandle: FileHandle | undefined;
@@ -358,20 +364,21 @@ export function createExportArtifactStore(
       path: stagedPath!,
       identity: stagedIdentity!,
       expiresAt,
+      filename: requestedDownloadFilename,
       timer: undefined as unknown as ReturnType<typeof setTimeout>,
     };
     records.set(token!, record);
     scheduleExpiry(token!, record);
     return {
       downloadUrl: `${downloadPathPrefix}/${token!}`,
-      outputDir,
       expiresAt: new Date(expiresAt).toISOString(),
+      filename: requestedDownloadFilename,
     };
   };
 
-  const stage = (sourceZipPath: string, outputDir: string): Promise<ExportArtifactTicket> => {
+  const stage = (sourceZipPath: string, requestedDownloadFilename?: string): Promise<ExportArtifactTicket> => {
     if (closed) return Promise.reject(new Error("Export artifact store is closed"));
-    const operation = stageArtifact(sourceZipPath, outputDir);
+    const operation = stageArtifact(sourceZipPath, requestedDownloadFilename);
     inFlightStages.add(operation);
     void operation.then(
       () => { inFlightStages.delete(operation); },
@@ -458,7 +465,7 @@ export function createExportArtifactStore(
     const artifact: ExportArtifact = {
       stream,
       size: record.identity.size,
-      filename: downloadFilename,
+      filename: record.filename,
       cleanup,
       async dispose() {
         if (!stream.destroyed) stream.destroy();
@@ -516,7 +523,7 @@ export function createExportArtifactStore(
   return { stage, consume, close };
 }
 
-const defaultStoreKey = Symbol.for("screenshot-studio.export-artifact-store");
+const defaultStoreKey = Symbol.for("screenshot-studio.export-artifact-store.v2");
 const processStores = globalThis as typeof globalThis & Record<symbol, unknown>;
 const defaultStore = (processStores[defaultStoreKey] as ExportArtifactStore | undefined)
   ?? createExportArtifactStore();
@@ -524,9 +531,9 @@ processStores[defaultStoreKey] = defaultStore;
 
 export function stageExportArtifact(
   sourceZipPath: string,
-  outputDir: string,
+  downloadFilename?: string,
 ): Promise<ExportArtifactTicket> {
-  return defaultStore.stage(sourceZipPath, outputDir);
+  return defaultStore.stage(sourceZipPath, downloadFilename);
 }
 
 export function consumeExportArtifact(token: string): Promise<ExportArtifactLookup> {

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   editorUi,
   InsetPanel,
+  SegmentedControl,
   StatusMessage,
   ToolButton,
 } from "../editor-ui.js";
@@ -38,6 +39,41 @@ describe("editor UI primitives", () => {
     ]) {
       expect(contracts[variant]).toContain("var(--editor-color-");
     }
+    expect(contracts.rowIconButtonDanger)
+      .toContain("text-[color:var(--editor-color-danger)]");
+  });
+
+  it("keeps segmented choices visually compact", () => {
+    expect(editorUi.segmentedControl).toContain("shrink-0");
+    expect(editorUi.segmentedControl).toContain("rounded-lg");
+    expect(editorUi.segmentedControl).toContain("var(--editor-color-surface-muted)");
+    expect(editorUi.segmentedButton).toContain("h-6");
+    expect(editorUi.segmentedButton).toContain("px-2.5");
+    expect(editorUi.segmentedButton).toContain("font-medium");
+    expect(editorUi.segmentedButton).toContain("whitespace-nowrap");
+    expect(editorUi.segmentedButtonLabel).toBe("text-xs leading-none");
+    expect(editorUi.segmentedButtonActive).toContain("var(--editor-color-surface)");
+    expect(editorUi.segmentedButtonActive).toContain("var(--editor-shadow-control)");
+  });
+
+  it("renders a reusable accessible segmented control", () => {
+    const html = renderToStaticMarkup(createElement(SegmentedControl, {
+      label: "View mode",
+      value: "overview",
+      fill: true,
+      options: [
+        { value: "focus", label: "Focus" },
+        { value: "overview", label: "Overview" },
+      ],
+      onChange: () => undefined,
+    }));
+
+    expect(html).toContain('role="group"');
+    expect(html).toContain('aria-label="View mode"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain(editorUi.segmentedControlFill);
+    expect(html).toContain(editorUi.segmentedButtonActive);
+    expect(html).toContain(`<span class="${editorUi.segmentedButtonLabel}">Overview</span>`);
   });
 
   it("renders tool and panel buttons with an accessible pressed state", () => {

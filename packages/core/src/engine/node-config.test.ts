@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { backgroundToNodeConfig, elementToNodeConfig, type ImageCache } from "./node-config.js";
-import { ICON_PATHS } from "../model/icons.js";
-import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, IconElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
+import {
+  ICON_PATHS,
+  type DeviceFrameElement,
+  type GroupElement,
+  type IconElement,
+  type ImageElement,
+  type ScreenshotElement,
+  type ShapeElement,
+  type TextElement,
+} from "@screenshot-studio/core/model";
 
 const baseText: TextElement = {
   id: "t1", type: "text", x: 10, y: 20, width: 300, height: 100,
@@ -86,8 +94,15 @@ describe("elementToNodeConfig", () => {
       id: "t1", x: 10, y: 20, width: 300, height: 100,
       rotation: 5, opacity: 0.8, text: "Hi", fontFamily: "Pacifico",
       fontSize: 96, fontStyle: "600", lineHeight: 1.2,
-      letterSpacing: 2, align: "center", direction: "ltr", fill: "#FFFFFF",
+      letterSpacing: 2, align: "center", verticalAlign: "top", direction: "ltr", fill: "#FFFFFF",
     });
+  });
+
+  it("maps persisted vertical text alignment through the shared renderer", () => {
+    const result = elementToNodeConfig({ ...baseText, verticalAlign: "bottom" });
+
+    expect(result.konva).toBe("Text");
+    expect(result.config).toMatchObject({ verticalAlign: "bottom" });
   });
 
   it("maps explicit rtl direction without changing physical alignment", () => {
@@ -320,9 +335,10 @@ describe("elementToNodeConfig — device-frame", () => {
     expect(result.children[3]!.config).toMatchObject({ x: 340, y: 22, width: 320, height: 18 });
   });
 
-  it("drops the content image when the asset is missing (frame + slot bg + notch remain)", () => {
+  it("shows a drop-target placeholder when the frame asset is missing", () => {
     const result = elementToNodeConfig(frame, { images: new Map() });
     if (result.konva !== "Group") throw new Error("expected Group");
-    expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Rect"]);
+    expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Rect", "Rect"]);
+    expect(result.children[2]!.config).toMatchObject({ fill: "#374151", stroke: "#9CA3AF" });
   });
 });

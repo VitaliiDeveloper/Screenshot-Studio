@@ -75,7 +75,7 @@ describe("device-frame parity", () => {
 
   it("proves the framed image is live: render differs from a missing-asset placeholder", async () => {
     const project = JSON.parse(readFileSync(fixturePath, "utf8"));
-    project.layouts[0].screens[0].elements[0].assetUrl = "assets/does-not-exist.png";
+    delete project.layouts[0].screens[0].elements[0].assetUrl;
     const temporaryRoot = mkdtempSync(resolve(tmpdir(), "device-frame-parity-missing-"));
     const temporaryProject = resolve(temporaryRoot, "app-store-screenshots.json");
     try {

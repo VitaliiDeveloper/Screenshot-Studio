@@ -14,8 +14,13 @@ import { tmpdir } from "node:os";
 import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { projectRevision } from "@screenshot-studio/core/storage";
 import { runInit } from "./init.js";
-import { autoCropAsset, removeBackgroundAsset } from "./asset-service.js";
+import {
+  autoCropAsset,
+  removeBackgroundAsset,
+} from "./asset-service.js";
+import { importProjectImageMutation } from "./project-image-service.js";
 import { captureImportIntentPath } from "./capture-import-recovery.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
 
@@ -49,6 +54,21 @@ async function rgbaPng(
   return sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer();
 }
 
+function pngWithoutImageData(png: Buffer): Buffer {
+  const chunks = [png.subarray(0, 8)];
+  let offset = 8;
+  while (offset + 12 <= png.byteLength) {
+    const length = png.readUInt32BE(offset);
+    const end = offset + 12 + length;
+    if (end > png.byteLength) throw new Error("Invalid PNG test fixture");
+    if (png.toString("ascii", offset + 4, offset + 8) !== "IDAT") {
+      chunks.push(png.subarray(offset, end));
+    }
+    offset = end;
+  }
+  return Buffer.concat(chunks);
+}
+
 async function initializedProject(prefix: string): Promise<{ dir: string; projectPath: string }> {
   const dir = await mkdtemp(join(tmpdir(), prefix));
   cleanupPaths.push(dir);
@@ -57,6 +77,91 @@ async function initializedProject(prefix: string): Promise<{ dir: string; projec
 }
 
 describe("asset processing", () => {
+  it("imports decoded project images with collision-safe project-relative names", async () => {
+    const { dir, projectPath } = await initializedProject("screenshot-studio-asset-import-");
+    const firstBytes = await rgbaPng(3, 2, () => [15, 80, 160, 255]);
+    const secondBytes = await rgbaPng(3, 2, () => [220, 90, 30, 255]);
+    const projectBefore = await readFile(projectPath);
+
+    const first = await importProjectImageMutation(projectPath, {
+      filename: "My Finder capture.gif",
+      bytes: firstBytes,
+    }, {}, { expectedRevision: projectRevision(projectBefore) });
+    const repeated = await importProjectImageMutation(projectPath, {
+      filename: "My Finder capture.gif",
+      bytes: firstBytes,
+    });
+    const collision = await importProjectImageMutation(projectPath, {
+      filename: "My Finder capture.png",
+      bytes: secondBytes,
+    });
+
+    expect(first).toEqual({
+      asset: {
+        path: "assets/imported/My-Finder-capture.png",
+        name: "My-Finder-capture.png",
+        source: "assets",
+      },
+      revision: projectRevision(projectBefore),
+    });
+    expect(repeated.asset.path).toBe(first.asset.path);
+    expect(collision.asset.path).toBe("assets/imported/My-Finder-capture-2.png");
+    expect(await readFile(join(dir, first.asset.path))).toEqual(firstBytes);
+    expect(await readFile(join(dir, collision.asset.path))).toEqual(secondBytes);
+    expect(await readFile(projectPath)).toEqual(projectBefore);
+  });
+
+  it("rejects invalid image bytes and stale revisions before publication", async () => {
+    const { dir, projectPath } = await initializedProject("screenshot-studio-asset-import-invalid-");
+    await expect(importProjectImageMutation(projectPath, {
+      filename: "not-an-image.png",
+      bytes: new TextEncoder().encode("not an image"),
+    })).rejects.toThrow(/valid PNG, JPEG, or WebP|could not be decoded/);
+
+    const validBytes = await rgbaPng(1, 1, () => [0, 0, 0, 255]);
+    await expect(importProjectImageMutation(projectPath, {
+      filename: "missing-image-data.png",
+      bytes: pngWithoutImageData(validBytes),
+    })).rejects.toThrow(/valid PNG, JPEG, or WebP|could not be decoded/);
+    await expect(importProjectImageMutation(projectPath, {
+      filename: "stale.png",
+      bytes: validBytes,
+    }, {}, { expectedRevision: "stale-revision" })).rejects.toMatchObject({
+      name: "ProjectRevisionConflictError",
+    });
+    await expect(readFile(join(dir, "assets/imported/not-an-image.png")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, "assets/imported/missing-image-data.png")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, "assets/imported/stale.png")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("derives JPEG and WebP extensions from image bytes instead of the Finder filename", async () => {
+    const { dir, projectPath } = await initializedProject("screenshot-studio-image-formats-");
+    const pixels = Buffer.from([30, 90, 180, 255]);
+    const jpeg = await sharp(pixels, { raw: { width: 1, height: 1, channels: 4 } })
+      .jpeg()
+      .toBuffer();
+    const webp = await sharp(pixels, { raw: { width: 1, height: 1, channels: 4 } })
+      .webp()
+      .toBuffer();
+
+    const jpegResult = await importProjectImageMutation(projectPath, {
+      filename: "camera-export.png",
+      bytes: jpeg,
+    });
+    const webpResult = await importProjectImageMutation(projectPath, {
+      filename: "browser-export.jpg",
+      bytes: webp,
+    });
+
+    expect(jpegResult.asset.path).toBe("assets/imported/camera-export.jpg");
+    expect(webpResult.asset.path).toBe("assets/imported/browser-export.webp");
+    expect(await readFile(join(dir, jpegResult.asset.path))).toEqual(jpeg);
+    expect(await readFile(join(dir, webpResult.asset.path))).toEqual(webp);
+  });
+
   it("auto-crops top-left-colour margins without mutating the source", async () => {
     const { dir, projectPath } = await initializedProject("screenshot-studio-auto-crop-");
     const sourcePath = join(dir, "assets", "icons", "product.png");

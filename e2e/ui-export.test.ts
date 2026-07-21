@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -28,9 +29,10 @@ afterEach(() => {
 
 describe("multi-locale UI export", () => {
   it("exports safe per-group-numbered paths with exact dims and no alpha", async () => {
-    // Copy the whole fixture (assets resolve relative to the project dir) into a temp workspace,
-    // and point the server's resolveProjectPath at it, so export writes to <temp>/export.
+    // Copy the whole fixture (assets resolve relative to the project dir) into a temp workspace and
+    // point the server's resolveProjectPath at it. Browser export must not publish beside the project.
     const workspace = await mkdtemp(join(tmpdir(), "ui-export-"));
+    const operationId = `export_${randomBytes(16).toString("hex")}`;
     await cp(fixtureDir, workspace, { recursive: true });
     const projectPath = join(workspace, "app-store-screenshots.json");
     process.env.PROJECT_PATH = projectPath;
@@ -51,19 +53,47 @@ describe("multi-locale UI export", () => {
       expect(projectId).toBeTruthy();
       expect(revision).toMatch(/^"[^"]+"$/);
 
-      const res = await fetch(`${server.url}/api/export`, {
+      const exportRequest = fetch(`${server.url}/api/export`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           "if-match": revision!,
           "x-project-id": projectId!,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ operationId }),
       });
+      const observedProgress: Array<{ phase: string; completed: number; total: number }> = [];
+      for (let attempt = 0; attempt < 200; attempt += 1) {
+        const progressResponse = await fetch(
+          `${server.url}/api/export/progress?operationId=${operationId}`,
+          { cache: "no-store" },
+        );
+        if (progressResponse.ok) {
+          const progress = await progressResponse.json() as {
+            phase: string;
+            completed: number;
+            total: number;
+          };
+          observedProgress.push(progress);
+          if (progress.phase === "ready") break;
+        }
+        await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+      }
+      const res = await exportRequest;
       if (res.status !== 201) throw new Error(`UI export failed (${res.status}): ${await res.text()}`);
-      const ticket = await res.json() as { downloadUrl: string; expiresAt: string };
+      expect(observedProgress.some((progress) => (
+        progress.phase === "rendering" && progress.completed > 0 && progress.total === expected.length
+      ))).toBe(true);
+      expect(observedProgress.at(-1)?.phase).toBe("ready");
+      const ticket = await res.json() as {
+        downloadUrl: string;
+        expiresAt: string;
+        filename: string;
+      };
       expect(ticket.downloadUrl).toMatch(/^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/);
       expect(Date.parse(ticket.expiresAt)).toBeGreaterThan(Date.now());
+      expect(ticket.filename).toBe("app-store-screenshots-bundle.zip");
+      await expect(access(join(workspace, "export"))).rejects.toMatchObject({ code: "ENOENT" });
 
       const download = await fetch(new URL(ticket.downloadUrl, server.url));
       expect(download.status).toBe(200);

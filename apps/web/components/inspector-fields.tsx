@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BUILT_IN_FONT_IDENTITIES,
   fontIdentityKey,
   THEME_ROLES,
   type FontAsset,
@@ -143,11 +144,7 @@ export function FontIdentityField({
   onChange: (identity: { family: string; weight: number }) => void;
 }) {
   const current = fontIdentityKey({ family, weight });
-  const resolved = fonts.some((font) => font.family === family && font.weight === weight);
-  const options: MenuSelectOption<string>[] = [
-    ...(!resolved ? [{ value: current, label: `Missing: ${family} · ${weight}` }] : []),
-    ...fonts.map((font) => ({ value: fontIdentityKey(font), label: `${font.family} · ${font.weight}` })),
-  ];
+  const options = fontIdentityOptions(fonts, { family, weight });
   return (
     <label className="flex flex-col gap-1.5 text-xs">
       <span className="text-slate-500">Font</span>
@@ -164,6 +161,31 @@ export function FontIdentityField({
   );
 }
 
+export function fontIdentityOptions(
+  fonts: readonly FontAsset[],
+  current: { family: string; weight: number },
+): MenuSelectOption<string>[] {
+  const currentKey = fontIdentityKey(current);
+  const allFonts = [
+    ...BUILT_IN_FONT_IDENTITIES.map((font) => ({ ...font, builtIn: true as const })),
+    ...fonts
+      .filter((font) => !BUILT_IN_FONT_IDENTITIES.some((builtIn) => (
+        builtIn.family === font.family && builtIn.weight === font.weight
+      )))
+      .map((font) => ({ ...font, builtIn: false as const })),
+  ];
+  const resolved = allFonts.some((font) => (
+    font.family === current.family && font.weight === current.weight
+  ));
+  return [
+    ...(!resolved ? [{ value: currentKey, label: `Missing: ${current.family} · ${current.weight}` }] : []),
+    ...allFonts.map((font) => ({
+      value: fontIdentityKey(font),
+      label: font.builtIn ? `${font.label} · Built-in` : `${font.family} · ${font.weight}`,
+    })),
+  ];
+}
+
 export function ThemeRoleField({
   value,
   onChange,
@@ -172,18 +194,23 @@ export function ThemeRoleField({
   onChange: (role: ThemeRole | null) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 text-xs">
-      <span className="shrink-0 whitespace-nowrap text-slate-500">Theme role</span>
-      <MenuSelect
-        ariaLabel="Theme role"
-        value={value ?? ""}
-        options={[
-          { value: "", label: "none" },
-          ...THEME_ROLES.map((role) => ({ value: role, label: role })),
-        ]}
-        onChange={(nextValue) => onChange((nextValue || null) as ThemeRole | null)}
-        className="w-28"
-      />
-    </label>
+    <div className="flex flex-col gap-1.5 text-xs">
+      <label className="flex items-center justify-between gap-3">
+        <span className="shrink-0 whitespace-nowrap text-slate-500">Theme role</span>
+        <MenuSelect
+          ariaLabel="Theme role"
+          value={value ?? ""}
+          options={[
+            { value: "", label: "none" },
+            ...THEME_ROLES.map((role) => ({ value: role, label: role })),
+          ]}
+          onChange={(nextValue) => onChange((nextValue || null) as ThemeRole | null)}
+          className="w-28"
+        />
+      </label>
+      <p className="text-[11px] leading-4 text-slate-600">
+        Used the next time you apply a theme. The current style stays unchanged.
+      </p>
+    </div>
   );
 }

@@ -2,14 +2,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore } from "zustand";
 import { parseProject, type Project } from "@screenshot-studio/core/model";
 import {
-  ProjectFontRegistrationError,
   registerProjectFonts,
   type FontRegistrationFailure,
 } from "@screenshot-studio/core/fonts";
-import { collectImageUrls, loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
+import type { ImageCache } from "@screenshot-studio/core/assets";
 import { parseStoreSpecs, type StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore } from "../../lib/editor-store";
 import {
@@ -20,25 +18,24 @@ import {
   createProjectAssetResolver,
   getProjectPersistenceIdentity,
   requireProjectRevision,
-  resolveActiveProjectAssetUrl,
   setProjectPersistenceIdentity,
   type ProjectAssetResolver,
 } from "../../lib/save-project";
 import { withFlushedProject } from "../../lib/debounced-save";
+import {
+  loadAllProjectImages,
+  useEditorImageCache,
+} from "./use-editor-image-cache";
+import {
+  loadProjectFontWarnings,
+  useEditorFontWarnings,
+} from "./use-editor-font-warnings";
 
-async function loadAllProjectImages(
-  project: Project,
-  resolveAsset: ProjectAssetResolver,
-): Promise<ImageCache> {
-  const caches = await Promise.all(
-    project.layouts.map((layout) => loadProjectImages(project, layout.id, resolveAsset)),
-  );
-  return new Map(caches.flatMap((cache) => [...cache]));
-}
-
-export function missingImageUrls(project: Project, images: ImageCache): string[] {
-  return collectImageUrls(project).filter((assetUrl) => !images.has(assetUrl));
-}
+export {
+  cacheDecodedProjectImage,
+  missingImageUrls,
+} from "./use-editor-image-cache";
+export { loadProjectFontWarnings } from "./use-editor-font-warnings";
 
 export interface EditorResourceResult {
   project: Project;
@@ -112,21 +109,6 @@ export async function runEditorResourceReload(
   });
 }
 
-export async function loadProjectFontWarnings(
-  fonts: Project["fonts"],
-  registerFonts: (fonts: Project["fonts"]) => Promise<void> = (
-    projectFonts,
-  ) => registerProjectFonts(projectFonts, resolveActiveProjectAssetUrl),
-): Promise<FontRegistrationFailure[]> {
-  try {
-    await registerFonts(fonts);
-    return [];
-  } catch (error) {
-    if (!(error instanceof ProjectFontRegistrationError)) throw error;
-    return error.failures;
-  }
-}
-
 async function responseError(response: Response, fallback: string): Promise<Error> {
   const body = await response.json().catch(() => ({})) as { error?: unknown };
   return new Error(typeof body.error === "string" ? body.error : `${fallback} (${response.status})`);
@@ -165,47 +147,56 @@ export async function loadEditorResources(
 
 export function useEditorResources() {
   const [error, setError] = useState<string | null>(null);
-  const [images, setImages] = useState<ImageCache | null>(null);
   const [specs, setSpecs] = useState<StoreSpecs | null>(null);
-  const [fontWarnings, setFontWarnings] = useState<FontRegistrationFailure[]>([]);
   const [reloading, setReloading] = useState(false);
-  const [fontRetrying, setFontRetrying] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const resourceGeneration = useRef(0);
-  const fontGeneration = useRef(0);
   const projectId = useRef<string | null>(null);
-  const assetSignature = useStore(editorStore, (state) =>
-    state.project ? collectImageUrls(state.project).sort().join("\n") : "",
-  );
+  const {
+    images,
+    reset: resetImages,
+    replace: replaceImages,
+    cacheImage,
+  } = useEditorImageCache(resourceGeneration);
+  const {
+    fontWarnings,
+    fontRetrying,
+    reset: resetFontWarnings,
+    cancel: cancelFontLoads,
+    replace: replaceFontWarnings,
+    retryFonts,
+  } = useEditorFontWarnings(setError);
 
-  const startReload = useCallback((serialize: EditorResourceSerializer) => {
+  const startReload = useCallback(async (serialize: EditorResourceSerializer) => {
     const generation = ++resourceGeneration.current;
-    ++fontGeneration.current;
     setError(null);
-    setImages(null);
+    resetImages();
     setSpecs(null);
-    setFontWarnings([]);
+    resetFontWarnings();
     setReloading(true);
-    void runEditorResourceReload({
-      serialize,
-      load: loadEditorResources,
-      isCurrent: () => resourceGeneration.current === generation,
-      apply: (resources) => {
-        // A revision becomes globally usable only after every required resource validated and this
-        // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
-        applyEditorResourceResult(resources);
-        projectId.current = resources.projectId;
-        setActiveProjectId(resources.projectId);
-        setImages(resources.images);
-        setSpecs(resources.specs);
-        setFontWarnings(resources.fontWarnings);
-      },
-    }).catch((error: unknown) => {
+    try {
+      return await runEditorResourceReload({
+        serialize,
+        load: loadEditorResources,
+        isCurrent: () => resourceGeneration.current === generation,
+        apply: (resources) => {
+          // A revision becomes globally usable only after every required resource validated and this
+          // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
+          applyEditorResourceResult(resources);
+          projectId.current = resources.projectId;
+          setActiveProjectId(resources.projectId);
+          replaceImages(resources.images);
+          setSpecs(resources.specs);
+          replaceFontWarnings(resources.fontWarnings);
+        },
+      });
+    } catch (error: unknown) {
       if (resourceGeneration.current === generation) setError((error as Error).message);
-    }).finally(() => {
+      return false;
+    } finally {
       if (resourceGeneration.current === generation) setReloading(false);
-    });
-  }, []);
+    }
+  }, [replaceFontWarnings, replaceImages, resetFontWarnings, resetImages]);
 
   useEffect(() => editorStore.subscribe((state, previous) => {
     const currentProjectId = projectId.current;
@@ -220,14 +211,14 @@ export function useEditorResources() {
 
   const cancelLoads = useCallback(() => {
     ++resourceGeneration.current;
-    ++fontGeneration.current;
-  }, []);
+    cancelFontLoads();
+  }, [cancelFontLoads]);
 
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
       if (active) {
-        startReload(selectEditorResourceSerializer(editorStore.getState().project !== null));
+        void startReload(selectEditorResourceSerializer(editorStore.getState().project !== null));
       }
     });
     return () => {
@@ -236,56 +227,15 @@ export function useEditorResources() {
     };
   }, [cancelLoads, startReload]);
 
-  useEffect(() => {
-    if (!images || !assetSignature) return;
-    const project = editorStore.getState().project;
-    if (!project) return;
-    const missing = missingImageUrls(project, images);
-    if (missing.length === 0) return;
-    let cancelled = false;
-    void loadAllProjectImages(project, resolveActiveProjectAssetUrl).then((loaded) => {
-      if (cancelled) return;
-      setImages((current) => {
-        if (!current) return loaded;
-        const next = new Map(current);
-        let changed = false;
-        for (const assetUrl of missing) {
-          const image = loaded.get(assetUrl);
-          if (image) {
-            next.set(assetUrl, image);
-            changed = true;
-          }
-        }
-        return changed ? next : current;
-      });
-    });
-    return () => { cancelled = true; };
-  }, [assetSignature, images]);
-
   const retry = useCallback(() => {
     if (reloading) return;
     const serialize = selectEditorResourceSerializer(editorStore.getState().project !== null);
-    startReload(serialize);
+    void startReload(serialize);
   }, [reloading, startReload]);
 
-  const retryFonts = useCallback(() => {
-    if (fontRetrying) return;
-    const project = editorStore.getState().project;
-    if (!project) return;
-    const signature = JSON.stringify(project.fonts);
-    const generation = ++fontGeneration.current;
-    setFontRetrying(true);
-    void loadProjectFontWarnings(project.fonts).then((warnings) => {
-      if (fontGeneration.current !== generation) return;
-      const current = editorStore.getState().project;
-      if (!current || JSON.stringify(current.fonts) !== signature) return;
-      setFontWarnings(warnings);
-    }).catch((error: unknown) => {
-      if (fontGeneration.current === generation) setError((error as Error).message);
-    }).finally(() => {
-      if (fontGeneration.current === generation) setFontRetrying(false);
-    });
-  }, [fontRetrying]);
+  const reload = useCallback(() => startReload(
+    selectEditorResourceSerializer(editorStore.getState().project !== null),
+  ), [startReload]);
 
   return {
     error,
@@ -293,6 +243,8 @@ export function useEditorResources() {
     specs,
     fontWarnings,
     retry,
+    reload,
+    cacheImage,
     reloading,
     retryFonts,
     fontRetrying,

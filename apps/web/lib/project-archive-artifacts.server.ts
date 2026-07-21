@@ -29,7 +29,7 @@ export function createProjectArchiveArtifactStore(
   });
   return {
     async stage(sourceZipPath) {
-      const ticket = await store.stage(sourceZipPath, "");
+      const ticket = await store.stage(sourceZipPath);
       return {
         downloadUrl: ticket.downloadUrl,
         expiresAt: ticket.expiresAt,

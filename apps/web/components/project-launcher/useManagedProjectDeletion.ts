@@ -31,12 +31,16 @@ export function useManagedProjectDeletion(options: {
   const [confirmation, setConfirmation] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const holder = useRef<ProjectDeletionAttemptHolder>({ attempt: null, inFlight: null });
-  const close = () => {
-    if (dialog?.status === "exporting" || dialog?.status === "deleting") return;
+  const reset = () => {
     holder.current.attempt = null;
+    setCurrent(null);
     setConfirmation("");
     setAcknowledged(false);
     setDialog(null);
+  };
+  const close = () => {
+    if (dialog?.status === "exporting" || dialog?.status === "deleting") return;
+    reset();
   };
   const open = (data: ProjectHomeData) => {
     if (!data.selection.capabilities.deleteProjectPermanently) return;
@@ -85,6 +89,7 @@ export function useManagedProjectDeletion(options: {
     try {
       await advanceProjectHomeDeletion({ current, backup, recovering, holder: holder.current });
       const projectId = holder.current.attempt?.request.projectId ?? current.selection.projectId;
+      reset();
       options.onDeleted(projectId);
     } catch (caught) {
       setDialog({ status: "deletion-error", error: caught instanceof Error ? caught.message : String(caught) });

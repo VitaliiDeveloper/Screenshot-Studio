@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
-import { inspectPng } from "../export/index.js";
+import { inspectPng } from "@screenshot-studio/core/export";
 import {
   Project,
   addScreenToProject,
@@ -13,7 +13,7 @@ import {
   uniqueId,
   type Project as ProjectModel,
   type ScreenPlacement,
-} from "../model/index.js";
+} from "@screenshot-studio/core/model";
 
 const IMPORT_DIGEST_LENGTH = 12;
 const PRIVATE_ASSET_BASENAME = /(?:^|[-_.])(?:credentials?|secrets?|service-account|id_rsa|id_ed25519)(?:[-_.]|$)/iu;

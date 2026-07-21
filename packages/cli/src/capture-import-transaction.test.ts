@@ -243,7 +243,9 @@ describe("capture import transaction", () => {
     const committed = JSON.parse(await readFile(afterCommit.projectPath, "utf8")) as Project;
     const committedResource = committed.layouts[0]!.screens[1]!.elements[0]!;
     expect("assetUrl" in committedResource).toBe(true);
-    const committedPath = "assetUrl" in committedResource ? committedResource.assetUrl : "";
+    const committedPath = "assetUrl" in committedResource && committedResource.assetUrl
+      ? committedResource.assetUrl
+      : "";
     await reconcileCaptureImport(afterCommit.projectPath);
     await reconcileCaptureImport(afterCommit.projectPath);
     await expect(readFile(join(afterCommit.root, committedPath))).resolves.toBeTruthy();

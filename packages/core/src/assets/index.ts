@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Project } from "../model/schema.js";
-import { elementLeaves } from "../model/element-tree.js";
-import { getLayout } from "../model/project-layout.js";
-import type { ImageCache } from "../engine/node-config.js";
+import type { ImageCache } from "@screenshot-studio/core/engine";
+import { elementLeaves, getLayout, type Project } from "@screenshot-studio/core/model";
 
 /**
  * Browser-side image preloading — the asset analog of core/fonts (docs/architecture.md). The
@@ -14,7 +12,7 @@ import type { ImageCache } from "../engine/node-config.js";
  * URL). A failed asset is simply absent from the cache — the map renders a placeholder, the render
  * still completes.
  */
-export type { ImageCache } from "../engine/node-config.js";
+export type { ImageCache } from "@screenshot-studio/core/engine";
 
 /** Every distinct raster assetUrl in the project. Pure. */
 export function collectImageUrls(project: Project, layoutId?: string): string[] {
@@ -26,7 +24,7 @@ export function collectImageUrls(project: Project, layoutId?: string): string[] 
       for (const el of screen.elements) {
         for (const leaf of elementLeaves(el)) {
           if (leaf.type === "screenshot" || leaf.type === "image" || leaf.type === "device-frame") {
-            urls.add(leaf.assetUrl);
+            if (leaf.assetUrl) urls.add(leaf.assetUrl);
           }
         }
       }
@@ -46,6 +44,21 @@ function loadOne(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
+/** Load one project image, preserving its document asset URL as the caller-owned cache key. */
+export async function loadProjectImage(
+  assetUrl: string,
+  resolve: (assetUrl: string) => string,
+): Promise<HTMLImageElement | null> {
+  const image = await loadOne(resolve(assetUrl));
+  if (!image) return null;
+  try {
+    await image.decode();
+  } catch {
+    /* onload already fired; decode is belt-and-suspenders */
+  }
+  return image;
+}
+
 /** Load and decode every screenshot image, keyed by the document assetUrl. Failed assets omitted. */
 export async function loadProjectImages(
   project: Project,
@@ -55,13 +68,8 @@ export async function loadProjectImages(
   const cache: ImageCache = new Map();
   await Promise.all(
     collectImageUrls(project, layoutId).map(async (assetUrl) => {
-      const img = await loadOne(resolve(assetUrl));
+      const img = await loadProjectImage(assetUrl, resolve);
       if (img) {
-        try {
-          await img.decode();
-        } catch {
-          /* onload already fired; decode is belt-and-suspenders */
-        }
         cache.set(assetUrl, img);
       }
     }),

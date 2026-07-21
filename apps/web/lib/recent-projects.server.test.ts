@@ -3,6 +3,7 @@ import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   MAX_RECENT_PROJECTS,
@@ -83,6 +84,33 @@ afterEach(async () => {
 });
 
 describe("RecentProjectsStore", () => {
+  it("keeps recent-history and catalog locks isolated when their mutations overlap", async () => {
+    const storage = await config();
+    let enterHistoryRead!: () => void;
+    const historyReadStarted = new Promise<void>((resolve) => { enterHistoryRead = resolve; });
+    let resumeHistoryRead!: () => void;
+    const historyReadMayContinue = new Promise<void>((resolve) => { resumeHistoryRead = resolve; });
+    const store = new RecentProjectsStore(storage, {
+      catalog: { listActive: vi.fn(async () => []) },
+      validateManaged: vi.fn(),
+      validateLocal: vi.fn(),
+      openFile: async (path, flags, mode) => {
+        if (path === join(storage.root, "recent-projects.json")) {
+          enterHistoryRead();
+          await historyReadMayContinue;
+        }
+        return open(path, flags, mode);
+      },
+    });
+
+    const recentMutation = store.list();
+    await historyReadStarted;
+    await new ManagedProjectCatalogStore(storage).insert(activeEntry(1));
+    resumeHistoryRead();
+
+    await expect(recentMutation).resolves.toEqual({ entries: [] });
+  });
+
   it("takes the catalog recovery snapshot before entering recent-history file access", async () => {
     const storage = await config();
     let catalogReadCompleted = false;

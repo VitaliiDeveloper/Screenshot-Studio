@@ -11,7 +11,7 @@ import {
 import { useStore } from "zustand";
 import { Grid3X3, Grip, Maximize2, Minus, Plus, SquareDashed } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
+import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
 import {
   CANVAS_PADDING,
@@ -32,6 +32,7 @@ import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
 import { canvasTransitionKind, type CanvasTransitionState } from "./canvas-viewport/layout-transition";
 import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
+import { SizeRowHeader } from "./canvas-viewport/SizeRowHeader";
 import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
 import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
 import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
@@ -79,30 +80,15 @@ function outputSizeLabel(row: WorkspaceOutputFamily, specs: StoreSpecs | null): 
       return "Master";
     }
   }
-  const label = specs?.[screen.platform]?.[screen.device]?.find((target) => target.id === targetId)?.label
-    ?? targetId;
+  let label = targetId;
+  if (specs) {
+    try {
+      label = findStoreTarget(specs, screen.platform, screen.device, targetId).label;
+    } catch {
+      // Keep the persisted id visible when store specs cannot resolve it.
+    }
+  }
   return compactStoreSizeLabel(label, screen.device);
-}
-
-function EditingBadge() {
-  return (
-    <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
-      Editing
-    </span>
-  );
-}
-
-function SizeRowHeader({ label, editing }: { label: string; editing: boolean }) {
-  return (
-    <header className="mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-      <span>{label}</span>
-      <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] tracking-normal text-slate-600">
-        Variant
-      </span>
-      {editing ? <EditingBadge /> : null}
-      <span className="h-px min-w-12 flex-1 bg-slate-200" aria-hidden="true" />
-    </header>
-  );
 }
 
 export function CanvasViewport({
@@ -393,6 +379,7 @@ export function CanvasViewport({
         transitioning={transitioning}
         panning={panning}
         canPan={tool === "hand" || spacePressed}
+        onBlankClick={tool === "select" ? () => editorStore.getState().setSelection([]) : undefined}
       >
         <div
           className="flex min-h-full w-max min-w-full py-20"
@@ -434,18 +421,8 @@ export function CanvasViewport({
                       label={family.label}
                       editing={family.editing}
                       artworkWidth={artworkWidth}
-                      headerMeta={masterRow ? (
-                        <>
-                          <span className="shrink-0 text-[9px] tracking-normal text-slate-600">
-                            {outputSizeLabel(masterRow, specs)}
-                          </span>
-                          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] tracking-normal text-slate-600">
-                            Master
-                          </span>
-                          {masterRow.editing ? <EditingBadge /> : null}
-                        </>
-                      ) : undefined}
-                      showEditingBadge={false}
+                      sizeLabel={masterRow ? outputSizeLabel(masterRow, specs) : undefined}
+                      role={masterRow ? "master" : undefined}
                       testId="overview-output-family"
                       ariaLabel={`${family.label} output`}
                     >
@@ -469,7 +446,8 @@ export function CanvasViewport({
                             data-editing={row.editing ? "true" : "false"}
                           >
                             <SizeRowHeader
-                              label={`${family.label} · ${outputSizeLabel(row, specs)}`}
+                              label={family.label}
+                              sizeLabel={outputSizeLabel(row, specs)}
                               editing={row.editing}
                             />
                             <div className="flex items-start gap-12">

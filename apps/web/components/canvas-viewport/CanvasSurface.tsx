@@ -23,6 +23,7 @@ export function CanvasSurface({
   transitioning,
   panning,
   canPan,
+  onBlankClick,
   children,
 }: {
   viewportRef: RefObject<HTMLDivElement | null>;
@@ -34,6 +35,7 @@ export function CanvasSurface({
   transitioning: boolean;
   panning: boolean;
   canPan: boolean;
+  onBlankClick?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -49,6 +51,11 @@ export function CanvasSurface({
         "workspace-canvas absolute inset-0 overflow-auto overscroll-contain",
         panning ? "cursor-grabbing select-none" : canPan ? "cursor-grab" : "cursor-default",
       )}
+      onClick={(event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || target.closest("canvas, button, input, select, textarea, [role='button']")) return;
+        onBlankClick?.();
+      }}
       {...pointerHandlers}
     >
       {children}

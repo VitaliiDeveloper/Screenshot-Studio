@@ -18,6 +18,7 @@ import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
 import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
 import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
+import { transformerAppearance } from "./editor-stage/transformer-appearance";
 import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
 
 /**
@@ -345,6 +346,7 @@ export function EditorStage({
           {canEdit ? (
             <Transformer
               ref={trRef}
+              {...transformerAppearance}
               resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               keepRatio={selectedElement?.type === "group"}

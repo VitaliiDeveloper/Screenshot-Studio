@@ -41,6 +41,9 @@ export type ThemeRole = z.infer<typeof ThemeRole>;
 export const LayoutDirection = z.enum(["ltr", "rtl"]);
 export type LayoutDirection = z.infer<typeof LayoutDirection>;
 
+export const TextVerticalAlign = z.enum(["top", "middle", "bottom"]);
+export type TextVerticalAlign = z.infer<typeof TextVerticalAlign>;
+
 export const MediaCrop = z.object({
   x: unitInterval.default(0.5),
   y: unitInterval.default(0.5),
@@ -74,6 +77,10 @@ export type ShapeStroke = z.infer<typeof ShapeStroke>;
 export const CanvasMode = z.enum(["isolated", "connected"]);
 export type CanvasMode = z.infer<typeof CanvasMode>;
 
+/** Authoring relationship between the exact-size screen sets in one output family. */
+export const ScreenSetMode = z.enum(["independent", "synchronized"]);
+export type ScreenSetMode = z.infer<typeof ScreenSetMode>;
+
 /** Fields every element shares (docs/architecture.md). z-order is array order in `elements`. */
 const transformBase = {
   id: z.string().min(1),
@@ -106,6 +113,8 @@ export const TextElement = z
     lineHeight: z.number().positive().default(1.2),
     letterSpacing: z.number().default(0),
     align: z.enum(["left", "center", "right"]).default("left"),
+    /** Optional for v1 compatibility; the shared renderer treats absence as `top`. */
+    verticalAlign: TextVerticalAlign.optional(),
     color: HexColor,
     shadow: TextShadow.optional(),
   })
@@ -166,7 +175,9 @@ export const IconElement = z
   .strict();
 export type IconElement = z.infer<typeof IconElement>;
 
-export const DEVICE_FRAME_IDS = ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const;
+export const DEVICE_FRAME_IDS = [
+  "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+] as const;
 export const DeviceFrameId = z.enum(DEVICE_FRAME_IDS);
 export type DeviceFrameId = z.infer<typeof DeviceFrameId>;
 
@@ -176,7 +187,7 @@ export const DeviceFrameElement = z
     ...leafBase,
     deviceType: DeviceFrameId,
     /** Portable project-relative path to the screenshot placed in the frame's screen slot. */
-    assetUrl: ProjectRelativePath,
+    assetUrl: ProjectRelativePath.optional(),
     fit: z.enum(["cover", "contain"]).default("cover"),
   })
   .strict();
@@ -270,8 +281,9 @@ export type FontAsset = z.infer<typeof FontAsset>;
  */
 export const SCREEN_DEVICES_BY_PLATFORM = {
   apple: ["iphone", "ipad", "macos", "tvos", "watchos"],
-  android: ["phone"],
+  android: ["phone", "tablet-7", "tablet-10"],
   windows: ["desktop"],
+  web: ["desktop", "laptop", "tablet", "mobile"],
 } as const;
 export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;
 
@@ -279,9 +291,9 @@ export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;
 const screenBase = {
   id: z.string().min(1),
   name: z.string().min(1),
-  /** Root screen identity for an independently editable explicit store-target variant. */
+  /** Optional primary-screen identity for an exact-target screen that participates in a slot pair. */
   variantOf: z.string().min(1).optional(),
-  /** Exact store-spec id rendered by a variant; absent on root/master screens. */
+  /** Exact store-spec id rendered by this screen; absent on primary-size screens. */
   storeTargetId: z.string().min(1).optional(),
   locale: z.string().min(1),
   direction: LayoutDirection.default("ltr"),
@@ -316,9 +328,49 @@ const WindowsScreen = z
   })
   .strict();
 
+const WebScreen = z
+  .object({
+    platform: z.literal("web"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.web),
+    ...screenBase,
+  })
+  .strict();
+
 /** `device` is constrained by `platform`; an invalid pair (apple+phone) fails validation. */
-export const Screen = z.discriminatedUnion("platform", [AppleScreen, AndroidScreen, WindowsScreen]);
+export const Screen = z.discriminatedUnion("platform", [
+  AppleScreen, AndroidScreen, WindowsScreen, WebScreen,
+]);
 export type Screen = z.infer<typeof Screen>;
+
+const screenSetPolicyBase = {
+  locale: z.string().min(1),
+  mode: ScreenSetMode,
+};
+
+/** Persisted per-locale output-family authoring policy; it never changes rendered pixels. */
+export const ScreenSetPolicy = z.discriminatedUnion("platform", [
+  z.object({
+    platform: z.literal("apple"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.apple),
+    ...screenSetPolicyBase,
+  }).strict(),
+  z.object({
+    platform: z.literal("android"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.android),
+    ...screenSetPolicyBase,
+  }).strict(),
+  z.object({
+    platform: z.literal("windows"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.windows),
+    ...screenSetPolicyBase,
+  }).strict(),
+  z.object({
+    platform: z.literal("web"),
+    device: z.enum(SCREEN_DEVICES_BY_PLATFORM.web),
+    ...screenSetPolicyBase,
+  }).strict(),
+]);
+export type ScreenSetPolicy = z.infer<typeof ScreenSetPolicy>;
 
 /** One independently editable design composition. Array order is the persisted display order. */
 export const DesignLayout = z
@@ -326,6 +378,8 @@ export const DesignLayout = z
     id: z.string().min(1),
     name: z.string().min(1),
     mode: CanvasMode,
+    /** Missing in older v1 documents means `independent`. */
+    screenSetPolicies: z.array(ScreenSetPolicy).optional(),
     screens: z.array(Screen).min(1),
   })
   .strict();
@@ -368,14 +422,16 @@ function validateVariants(layout: LayoutShape, layoutIndex: number, ctx: z.Refin
   layout.screens.forEach((screen, index) => {
     const hasVariantRoot = screen.variantOf !== undefined;
     const hasStoreTarget = screen.storeTargetId !== undefined;
-    if (hasVariantRoot !== hasStoreTarget) {
+    if (hasVariantRoot && !hasStoreTarget) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "variantOf and storeTargetId must be present together",
+        message: "variantOf requires storeTargetId",
         path: ["layouts", layoutIndex, "screens", index],
       });
       return;
     }
+    // Independent exact-target sets may contain standalone screens. They intentionally have a
+    // storeTargetId without a primary-size partner. Synchronized policies reject that state below.
     if (!hasVariantRoot || !screen.variantOf || !screen.storeTargetId) return;
 
     const root = screensById.get(screen.variantOf);
@@ -433,6 +489,71 @@ function validateLocaleDirections(layout: LayoutShape, layoutIndex: number, ctx:
       directionByLocale.set(screen.locale, screen.direction);
     }
   });
+}
+
+function validateScreenSetPolicies(
+  layout: LayoutShape,
+  layoutIndex: number,
+  ctx: z.RefinementCtx,
+): void {
+  const keys = new Set<string>();
+  for (const [policyIndex, policy] of (layout.screenSetPolicies ?? []).entries()) {
+    const key = `${policy.platform}\u0000${policy.device}\u0000${policy.locale}`;
+    if (keys.has(key)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `duplicate screen set policy for ${policy.platform}/${policy.device}/${policy.locale}`,
+        path: ["layouts", layoutIndex, "screenSetPolicies", policyIndex],
+      });
+      continue;
+    }
+    keys.add(key);
+
+    const roots = layout.screens.filter((screen) =>
+      screen.storeTargetId === undefined
+      && screen.platform === policy.platform
+      && screen.device === policy.device
+      && screen.locale === policy.locale
+    );
+    if (roots.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `screen set policy has no matching output family`,
+        path: ["layouts", layoutIndex, "screenSetPolicies", policyIndex],
+      });
+      continue;
+    }
+    if (policy.mode !== "synchronized") continue;
+
+    const rootIds = roots.map((screen) => screen.id);
+    const targetIds = Array.from(new Set(layout.screens
+      .filter((screen) =>
+        screen.platform === policy.platform
+        && screen.device === policy.device
+        && screen.locale === policy.locale
+        && screen.storeTargetId !== undefined
+      )
+      .map((screen) => screen.storeTargetId!)));
+    for (const targetId of targetIds) {
+      const variants = layout.screens.filter((screen) =>
+        screen.platform === policy.platform
+        && screen.device === policy.device
+        && screen.locale === policy.locale
+        && screen.storeTargetId === targetId
+      );
+      const variantRootIds = variants.map((screen) => screen.variantOf);
+      if (
+        variantRootIds.length !== rootIds.length
+        || variantRootIds.some((rootId, index) => rootId !== rootIds[index])
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `synchronized screen set target "${targetId}" must match the root screen count and order`,
+          path: ["layouts", layoutIndex, "screenSetPolicies", policyIndex, "mode"],
+        });
+      }
+    }
+  }
 }
 
 function validateElementIds(layout: LayoutShape, layoutIndex: number, ctx: z.RefinementCtx): void {
@@ -511,6 +632,7 @@ function validateLayouts(proj: ProjectShape, ctx: z.RefinementCtx): void {
     }
 
     validateVariants(layout, layoutIndex, ctx);
+    validateScreenSetPolicies(layout, layoutIndex, ctx);
     validateLocaleDirections(layout, layoutIndex, ctx);
     validateElementIds(layout, layoutIndex, ctx);
   });

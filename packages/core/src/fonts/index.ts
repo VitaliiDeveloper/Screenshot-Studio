@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { FontAsset } from "../model/schema.js";
+import { BUILT_IN_FONT_IDENTITIES, type FontAsset } from "@screenshot-studio/core/model";
 
 /**
  * Browser-side font registration. Runs before any render so the project font is the
@@ -103,6 +103,9 @@ export async function registerProjectFonts(fonts: FontAsset[], resolve: ResolveF
     return [{ font: fonts[index]!, error }];
   });
   if (failures.length > 0) throw new ProjectFontRegistrationError(failures);
+  await Promise.all(BUILT_IN_FONT_IDENTITIES.map((font) => (
+    document.fonts.load(`${font.weight} 16px "${font.family}"`)
+  )));
   await document.fonts.ready;
 }
 

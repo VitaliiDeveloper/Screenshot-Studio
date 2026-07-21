@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { produce } from "immer";
 import {
-  cloneScreenWithFreshIds,
+  copyScreenInProject,
   getLayout,
   removeScreenFromProject,
   replaceLayout,
   resizeStoreOutputArtboards,
+  isPrimaryScreen,
+  reorderSynchronizedScreenSets,
+  sameOutputFamily,
   sameScreenGroup,
+  screenSetModeFor,
   type Background,
   type Element,
   type Project,
@@ -36,6 +40,22 @@ export function reorderProjectScreens(
   const fromScreen = layout.screens.find((screen) => screen.id === fromId);
   const toScreen = layout.screens.find((screen) => screen.id === toId);
   if (!fromScreen || !toScreen) return project;
+  if (
+    screenSetModeFor(layout, fromScreen) === "synchronized"
+    && sameOutputFamily(toScreen, fromScreen)
+  ) {
+    const fromRootId = fromScreen.variantOf ?? fromScreen.id;
+    const toRootId = toScreen.variantOf ?? toScreen.id;
+    return replaceLayout(project, {
+      ...layout,
+      screens: reorderSynchronizedScreenSets(
+        layout.screens,
+        fromScreen,
+        fromRootId,
+        toRootId,
+      ),
+    });
+  }
   const inScope = layout.mode === "connected"
     ? (screen: typeof fromScreen) => sameScreenGroup(screen, fromScreen)
     : (screen: typeof fromScreen) => screen.locale === fromScreen.locale
@@ -56,32 +76,18 @@ export function reorderProjectScreens(
   });
 }
 
-function sourceScreen(project: Project, layoutId: string, activeScreenId: string | null) {
-  const layout = getLayout(project, layoutId);
-  const active = layout.screens.find((screen) => screen.id === activeScreenId)
-    ?? layout.screens[0];
-  if (!active) return null;
-  return active.variantOf
-    ? layout.screens.find((screen) => screen.id === active.variantOf) ?? active
-    : active;
-}
-
 export function appendClonedScreen(
   project: Project,
   layoutId: string,
   activeScreenId: string | null,
 ): ProjectMutationResult {
-  const source = sourceScreen(project, layoutId, activeScreenId);
-  if (!source) return { project };
-  const cloned = cloneScreenWithFreshIds(source);
-  const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...copy } = cloned;
   const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === activeScreenId) ?? layout.screens[0];
+  if (!source) return { project };
+  const result = copyScreenInProject(project, layoutId, source.id, "clone");
   return {
-    project: replaceLayout(project, {
-      ...layout,
-      screens: [...layout.screens, copy as typeof cloned],
-    }),
-    activeScreenId: copy.id,
+    project: result.project,
+    activeScreenId: result.createdScreenId,
     selectedItems: [],
   };
 }
@@ -91,19 +97,13 @@ export function appendBlankScreen(
   layoutId: string,
   activeScreenId: string | null,
 ): ProjectMutationResult {
-  const source = sourceScreen(project, layoutId, activeScreenId);
-  if (!source) return { project };
-  const cloned = structuredClone(source);
-  const { variantOf: _variantOf, storeTargetId: _storeTargetId, ...added } = {
-    ...cloned,
-    id: crypto.randomUUID(),
-    name: "Untitled",
-    elements: [],
-  };
   const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === activeScreenId) ?? layout.screens[0];
+  if (!source) return { project };
+  const result = copyScreenInProject(project, layoutId, source.id, "blank");
   return {
-    project: replaceLayout(project, { ...layout, screens: [...layout.screens, added] }),
-    activeScreenId: added.id,
+    project: result.project,
+    activeScreenId: result.createdScreenId,
     selectedItems: [],
   };
 }
@@ -118,22 +118,34 @@ export function removeProjectScreen(
   const layout = getLayout(project, layoutId);
   const index = layout.screens.findIndex((screen) => screen.id === id);
   if (index === -1) return { project, activeScreenId, selectedItems };
-  const removed = layout.screens[index]!;
+  const requested = layout.screens[index]!;
+  const preferredTargetId = requested.storeTargetId;
+  const synchronized = screenSetModeFor(layout, requested) === "synchronized";
+  const removed = synchronized && requested.variantOf
+    ? layout.screens.find((screen) => screen.id === requested.variantOf)!
+    : requested;
   const localeRootScreens = layout.screens.filter((screen) =>
-    screen.variantOf === undefined && screen.locale === removed.locale,
+    isPrimaryScreen(screen) && screen.locale === removed.locale,
   );
-  if (removed.variantOf === undefined && localeRootScreens.length <= 1) {
+  if (isPrimaryScreen(removed) && localeRootScreens.length <= 1) {
     return { project, activeScreenId, selectedItems };
   }
-  const removedIds = new Set([id, ...layout.screens
-    .filter((screen) => screen.variantOf === id)
-    .map((screen) => screen.id)]);
-  const nextProject = removeScreenFromProject(project, layoutId, id, { cascadeVariants: true });
+  const removedIds = new Set([removed.id, ...(synchronized
+    ? layout.screens
+      .filter((screen) => screen.variantOf === removed.id)
+      .map((screen) => screen.id)
+    : [])]);
+  const nextProject = removeScreenFromProject(
+    project,
+    layoutId,
+    id,
+    { cascadeVariants: synchronized },
+  );
   const nextLayout = getLayout(nextProject, layoutId);
   const wasActive = activeScreenId ? removedIds.has(activeScreenId) : false;
   const nextActiveScreenId = wasActive
     ? (nextLayout.screens.find((screen) =>
-      screen.locale === removed.locale && screen.storeTargetId === removed.storeTargetId,
+      screen.locale === removed.locale && screen.storeTargetId === preferredTargetId,
     ) ?? nextLayout.screens.find((screen) => screen.locale === removed.locale)
       ?? nextLayout.screens[Math.min(index, nextLayout.screens.length - 1)])!.id
     : activeScreenId;

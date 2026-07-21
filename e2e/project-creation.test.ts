@@ -67,7 +67,7 @@ describe("managed project creation", () => {
       const page = await context.newPage();
       await page.goto(server.url, { waitUntil: "load" });
       await page.getByRole("heading", {
-        name: "Create your first screenshot project",
+        name: "Turn product moments into store-ready stories.",
       }).waitFor({ timeout: 10_000 }).catch(async (error: unknown) => {
         throw new Error(`App Home did not render at ${page.url()}: ${await page.locator("body").innerText()}`, {
           cause: error,
@@ -91,7 +91,7 @@ describe("managed project creation", () => {
       )).toBe(true);
 
       await selectTargetPlatform(dialog, "Microsoft Store");
-      expect(await dialog.getByRole("radio", { name: /Product launch/ }).isDisabled()).toBe(true);
+      expect(await dialog.getByRole("radio", { name: /Product launch/ }).count()).toBe(0);
       expect(await dialog.getByRole("radio", { name: /Feature focus/ }).isEnabled()).toBe(true);
       await page.keyboard.press("Escape");
       await dialog.waitFor({ state: "detached" });
@@ -104,6 +104,17 @@ describe("managed project creation", () => {
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
+      let onboarding = page.getByTestId("first-screen-onboarding");
+      await onboarding.getByRole("heading", { name: "Your blank screen is ready" }).waitFor();
+      expect(await onboarding.getByText(/create a new editable screen from a built-in template/).count()).toBe(1);
+      await onboarding.getByRole("button", { name: "Import capture folder", exact: true }).click();
+      const captureDialog = page.getByRole("dialog", { name: "Capture import" });
+      await captureDialog.waitFor();
+      expect(page.url()).toBe(`${server.url}/editor`);
+      await captureDialog.getByRole("button", { name: "Close capture import", exact: true }).click();
+      onboarding = page.getByTestId("first-screen-onboarding");
+      await onboarding.getByRole("button", { name: "Keep blank screen", exact: true }).click();
+      await onboarding.waitFor({ state: "detached" });
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: "Empty desktop story", exact: true }).waitFor();
 
@@ -177,9 +188,9 @@ describe("managed project creation", () => {
         width: dialogBeforePublication!.width,
         height: dialogBeforePublication!.height,
       });
-      expect(Math.abs(formDuringPublication!.y - formBeforePublication!.y))
-        .toBeLessThanOrEqual(2);
       expect(Math.abs(submitDuringPublication!.y - submitBeforePublication!.y))
+        .toBeLessThanOrEqual(2);
+      expect(Math.abs(formDuringPublication!.y - formBeforePublication!.y))
         .toBeLessThanOrEqual(2);
       await page.waitForTimeout(650);
       expect(await dialog.getByText("Creating your project…", { exact: true }).count()).toBe(0);
@@ -227,6 +238,49 @@ describe("managed project creation", () => {
           expect(project.layouts[0]!.screens.some((screen) => screen.elements.length > 0)).toBe(true);
         }
       }
+
+      await page.unroute("**/api/project-create");
+      await page.goto(`${server.url}/home`, { waitUntil: "load" });
+      await page.getByRole("heading", { name: "Launch sequence retry", exact: true }).waitFor();
+      await page.getByRole("link", { name: "Import another project", exact: true }).click();
+      await page.waitForURL(`${server.url}/?switch=1`);
+      await page.getByRole("button", { name: "New project" }).click();
+      dialog = page.getByRole("dialog", { name: "Create a managed project" });
+      await dialog.getByLabel("Project name").fill("Built-in iPhone story");
+      await selectTargetPlatform(dialog, "Apple App Store");
+      await dialog.getByRole("radio", { name: /^iPhone\b/ }).check();
+      await dialog.getByRole("button", { name: "Create project", exact: true }).click();
+      await page.waitForURL(`${server.url}/editor`);
+      await page.getByRole("button", { name: "Editable headline", exact: true }).waitFor();
+      expect(await page.getByTestId("first-screen-onboarding").count()).toBe(0);
+
+      const starterCatalog = JSON.parse(
+        readFileSync(join(managedDataRoot, "catalog.json"), "utf8"),
+      ) as { entries: Array<{ id: string; name: string }> };
+      expect(starterCatalog.entries.map(({ name }) => name).sort()).toEqual([
+        "Built-in iPhone story",
+        "Empty desktop story",
+        "Launch sequence retry",
+      ]);
+      const starterEntry = starterCatalog.entries.find(({ name }) => name === "Built-in iPhone story");
+      expect(starterEntry).toBeDefined();
+      const starterProject = JSON.parse(readFileSync(join(
+        managedDataRoot,
+        "projects",
+        starterEntry!.id,
+        "app-store-screenshots.json",
+      ), "utf8")) as Project;
+      expect(starterProject.layouts[0]!.screens).toHaveLength(1);
+      expect(starterProject.layouts[0]!.screens[0]).toMatchObject({
+        platform: "apple",
+        device: "iphone",
+        artboard: { width: 1320, height: 2868 },
+      });
+      expect(starterProject.layouts[0]!.screens[0]!.storeTargetId).toBeUndefined();
+      expect(starterProject.layouts[0]!.screens[0]!.elements).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: "Editable headline", role: "heading" }),
+        expect.objectContaining({ name: "Accent panel", role: "accent" }),
+      ]));
     } finally {
       releasePublication?.();
       await Promise.all([

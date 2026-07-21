@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FontAsset } from "../model/schema.js";
+import type { FontAsset } from "@screenshot-studio/core/model";
 import {
   ProjectFontRegistrationError,
   registerFont,
@@ -101,11 +101,12 @@ describe("registerProjectFonts", () => {
   it("waits for document fonts after registering project fonts", async () => {
     let releaseReady!: () => void;
     const ready = new Promise<void>((resolve) => { releaseReady = resolve; });
+    const load = vi.fn();
     vi.stubGlobal("document", {
       fonts: {
         add: vi.fn(),
         ready,
-        load: vi.fn(),
+        load,
       },
     });
     const asset: FontAsset = {
@@ -129,6 +130,7 @@ describe("registerProjectFonts", () => {
     expect(stateBeforeReady).toBe("waiting");
     expect(fetch).toHaveBeenCalledWith("/api/asset?path=assets%2Ffonts%2Finter-400.ttf");
     expect(document.fonts.add).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledWith('400 16px "Screenshot Studio Sans"');
   });
 
   it("attempts every font and reports all failed identities together", async () => {

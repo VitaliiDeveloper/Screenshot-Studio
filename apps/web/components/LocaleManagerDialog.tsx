@@ -7,7 +7,11 @@ import { ArrowLeftRight, Languages, Trash2 } from "lucide-react";
 import { layoutLocales, type DesignLayout, type LayoutDirection } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import { DialogShell, cx, editorUi } from "./editor-ui";
+import { ConfirmationDialog, DialogShell, cx, editorUi } from "./editor-ui";
+
+type PendingLocaleAction =
+  | { kind: "direction"; locale: string; next: LayoutDirection }
+  | { kind: "delete"; locale: string; screenCount: number };
 
 function localeDirection(
   layout: DesignLayout,
@@ -29,6 +33,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
     layout ? localeDirection(layout, activeLocale) : "ltr",
   );
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingLocaleAction | null>(null);
 
   if (!project || !layout) return null;
   const locales = layoutLocales(layout);
@@ -61,23 +66,50 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
 
   const changeDirection = (locale: string, current: LayoutDirection) => {
     const next: LayoutDirection = current === "ltr" ? "rtl" : "ltr";
-    if (!window.confirm(
-      `Mirror locale "${locale}" to ${next.toUpperCase()}? Horizontal placement and text alignment will change.`,
-    )) return;
-    if (mutate(() => editorStore.getState().setLocaleDirection(locale, next)) && sourceLocale === locale) {
-      setTargetDirection(next);
-    }
+    setPendingAction({ kind: "direction", locale, next });
   };
 
   const remove = (locale: string) => {
-    if (!window.confirm(`Delete locale "${locale}" and all ${layout.screens.filter((screen) => screen.locale === locale).length} screens?`)) return;
-    const remainingLocale = locales.find((candidate) => candidate !== locale);
-    if (mutate(() => editorStore.getState().removeLocale(locale)) && sourceLocale === locale && remainingLocale) {
-      setSourceLocale(remainingLocale);
-      const current = selectEditorLayout(editorStore.getState());
-      if (current) setTargetDirection(localeDirection(current, remainingLocale));
-    }
+    setPendingAction({
+      kind: "delete",
+      locale,
+      screenCount: layout.screens.filter((screen) => screen.locale === locale).length,
+    });
   };
+
+  if (pendingAction) {
+    const isDelete = pendingAction.kind === "delete";
+    const description = isDelete
+      ? `Delete locale "${pendingAction.locale}" and all ${pendingAction.screenCount} screens?`
+      : `Mirror locale "${pendingAction.locale}" to ${pendingAction.next.toUpperCase()}? Horizontal placement and text alignment will change.`;
+    return (
+      <ConfirmationDialog
+        title={isDelete ? "Delete locale?" : "Change layout direction?"}
+        description={description}
+        confirmLabel={isDelete ? "Delete locale" : `Make ${pendingAction.next.toUpperCase()}`}
+        destructive={isDelete}
+        onClose={() => setPendingAction(null)}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action.kind === "direction") {
+            if (mutate(() => editorStore.getState().setLocaleDirection(action.locale, action.next))
+              && sourceLocale === action.locale) {
+              setTargetDirection(action.next);
+            }
+            return;
+          }
+          const remainingLocale = locales.find((candidate) => candidate !== action.locale);
+          if (mutate(() => editorStore.getState().removeLocale(action.locale))
+            && sourceLocale === action.locale && remainingLocale) {
+            setSourceLocale(remainingLocale);
+            const current = selectEditorLayout(editorStore.getState());
+            if (current) setTargetDirection(localeDirection(current, remainingLocale));
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <DialogShell

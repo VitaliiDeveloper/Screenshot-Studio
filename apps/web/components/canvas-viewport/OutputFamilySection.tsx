@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { KeyboardEvent, ReactNode } from "react";
+import {
+  OutputIdentityHeader,
+  type OutputIdentityRole,
+} from "../editor-ui/OutputIdentityHeader.js";
 import { cx } from "../editor-ui/styles.js";
 
 export function OutputFamilySection({
   label,
   editing,
-  headerMeta,
-  showEditingBadge = true,
+  sizeLabel,
+  role,
   testId = "overview-output-row",
   ariaLabel,
   artworkWidth,
@@ -17,8 +21,8 @@ export function OutputFamilySection({
 }: {
   label: string;
   editing: boolean;
-  headerMeta?: ReactNode;
-  showEditingBadge?: boolean;
+  sizeLabel?: string;
+  role?: OutputIdentityRole;
   testId?: string;
   ariaLabel?: string;
   artworkWidth?: number;
@@ -52,22 +56,13 @@ export function OutputFamilySection({
       onClick={activate}
       onKeyDown={onKeyDown}
     >
-      <header className={cx(
-        "mb-3 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500",
-        artworkWidth !== undefined && "min-w-0 overflow-hidden",
-      )}>
-        <span className={artworkWidth === undefined ? undefined : "min-w-0 truncate"}>{label}</span>
-        {headerMeta}
-        {editing && showEditingBadge ? (
-          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[9px] tracking-normal text-blue-700">
-            Editing
-          </span>
-        ) : null}
-        <span
-          className={cx("h-px flex-1 bg-slate-200", artworkWidth === undefined ? "min-w-12" : "min-w-0")}
-          aria-hidden="true"
-        />
-      </header>
+      <OutputIdentityHeader
+        label={label}
+        editing={editing}
+        sizeLabel={sizeLabel}
+        role={role}
+        constrained={artworkWidth !== undefined}
+      />
       {children}
     </section>
   );

@@ -54,6 +54,7 @@ docs/archive/superpowers/
 .worktrees/
 /.codex/config.toml
 /.screenshot-studio/
+/apps/web/.screenshot-studio/
 
 # E2E scratch (parity harness temp renders)
 e2e/.tmp/

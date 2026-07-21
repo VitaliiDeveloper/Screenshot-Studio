@@ -202,7 +202,7 @@ describe("Project validation issue contracts", () => {
         } as never);
       },
       expected: [{
-        message: "variantOf and storeTargetId must be present together",
+        message: "variantOf requires storeTargetId",
         path: ["layouts", 0, "screens", 1],
       }],
     },
@@ -282,7 +282,7 @@ describe("Project validation issue contracts", () => {
 
     expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual([
       {
-        message: "variantOf and storeTargetId must be present together",
+        message: "variantOf requires storeTargetId",
         path: ["layouts", 0, "screens", 1],
       },
       {
@@ -413,11 +413,94 @@ describe("parseProject", () => {
 
     const missingTarget = structuredClone(raw);
     delete (missingTarget.layouts[0]!.screens[1]! as unknown as Record<string, unknown>).storeTargetId;
-    expect(() => parseProject(missingTarget)).toThrow(/variantOf and storeTargetId/);
+    expect(() => parseProject(missingTarget)).toThrow(/variantOf requires storeTargetId/);
 
     const duplicate = structuredClone(raw);
     duplicate.layouts[0]!.screens.push({ ...structuredClone(duplicate.layouts[0]!.screens[1]!), id: "hero-65-copy" });
     expect(() => parseProject(duplicate)).toThrow(/duplicate store target variant/);
+  });
+
+  it("accepts standalone exact-size screens only for an independent screen set", () => {
+    const independent = validProject();
+    const standalone = structuredClone(independent.layouts[0]!.screens[0]!);
+    standalone.id = "standalone-small";
+    standalone.name = "Standalone small";
+    Object.assign(standalone, { storeTargetId: "small" });
+    independent.layouts[0]!.screens.push(standalone);
+
+    expect(parseProject(independent).layouts[0]!.screens[1]).toMatchObject({
+      id: "standalone-small",
+      storeTargetId: "small",
+    });
+    expect(parseProject(independent).layouts[0]!.screens[1]!.variantOf).toBeUndefined();
+
+    const synchronized = structuredClone(independent);
+    Object.assign(synchronized.layouts[0]!, {
+      screenSetPolicies: [{
+        platform: "apple",
+        device: "iphone",
+        locale: "en",
+        mode: "synchronized",
+      }],
+    });
+    expect(() => parseProject(synchronized))
+      .toThrow(/must match the root screen count and order/);
+  });
+
+  it("accepts a strict synchronized screen-set policy only when every target matches root order", () => {
+    const raw = validProject();
+    const secondRoot = structuredClone(raw.layouts[0]!.screens[0]!);
+    secondRoot.id = "s2";
+    secondRoot.name = "Screen 2";
+    const firstVariant = structuredClone(raw.layouts[0]!.screens[0]!);
+    firstVariant.id = "s1-small";
+    Object.assign(firstVariant, { variantOf: "s1", storeTargetId: "small" });
+    const secondVariant = structuredClone(secondRoot);
+    secondVariant.id = "s2-small";
+    Object.assign(secondVariant, { variantOf: "s2", storeTargetId: "small" });
+    raw.layouts[0]!.screens.push(secondRoot, firstVariant, secondVariant);
+    Object.assign(raw.layouts[0]!, {
+      screenSetPolicies: [{
+        platform: "apple",
+        device: "iphone",
+        locale: "en",
+        mode: "synchronized",
+      }],
+    });
+
+    expect(parseProject(raw).layouts[0]!.screenSetPolicies?.[0]?.mode)
+      .toBe("synchronized");
+
+    const missingSlot = structuredClone(raw);
+    missingSlot.layouts[0]!.screens.pop();
+    expect(() => parseProject(missingSlot)).toThrow(/must match the root screen count and order/);
+
+    const wrongOrder = structuredClone(raw);
+    const variants = wrongOrder.layouts[0]!.screens.splice(2, 2);
+    wrongOrder.layouts[0]!.screens.push(variants[1]!, variants[0]!);
+    expect(() => parseProject(wrongOrder)).toThrow(/must match the root screen count and order/);
+  });
+
+  it("rejects duplicate or orphaned screen-set policies", () => {
+    const duplicate = validProject();
+    Object.assign(duplicate.layouts[0]!, {
+      screenSetPolicies: [
+        { platform: "apple", device: "iphone", locale: "en", mode: "independent" },
+        { platform: "apple", device: "iphone", locale: "en", mode: "synchronized" },
+      ],
+    });
+    expect(() => parseProject(duplicate)).toThrow(/duplicate screen set policy/);
+
+    const orphaned = validProject();
+    Object.assign(orphaned.layouts[0]!, {
+      screenSetPolicies: [{
+        platform: "web",
+        device: "desktop",
+        locale: "en",
+        mode: "independent",
+      }],
+    });
+    expect(() => parseProject(orphaned)).toThrow(/has no matching output family/);
   });
 
   it("rejects duplicate screen ids before resolving variant references", () => {
@@ -524,6 +607,23 @@ describe("element theme role", () => {
     const p = validProject();
     (p.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).role = "hero";
     expect(() => parseProject(p)).toThrow(ProjectValidationError);
+  });
+});
+
+describe("text vertical alignment", () => {
+  it("accepts the strict vertical alignment values without invalidating older documents", () => {
+    const legacy = validProject();
+    expect(parseProject(legacy).layouts[0]!.screens[0]!.elements[0]).not.toHaveProperty("verticalAlign");
+
+    const project = validProject();
+    (project.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).verticalAlign = "middle";
+    expect(parseProject(project).layouts[0]!.screens[0]!.elements[0]).toMatchObject({ verticalAlign: "middle" });
+  });
+
+  it("rejects an unknown vertical alignment", () => {
+    const project = validProject();
+    (project.layouts[0]!.screens[0]!.elements[0] as Record<string, unknown>).verticalAlign = "center";
+    expect(() => parseProject(project)).toThrow(ProjectValidationError);
   });
 });
 
@@ -674,7 +774,7 @@ describe("DeviceFrameElement", () => {
   });
 
   it("accepts every trusted built-in frame preset", () => {
-    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "tv", "watch"] as const) {
+    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"] as const) {
       expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
     }
   });
@@ -685,6 +785,11 @@ describe("DeviceFrameElement", () => {
 
   it("rejects an empty assetUrl", () => {
     expect(() => Element.parse({ ...base, assetUrl: "" })).toThrow();
+  });
+
+  it("accepts an empty mockup placeholder without an asset field", () => {
+    const { assetUrl: _assetUrl, ...placeholder } = base;
+    expect(Element.parse(placeholder)).not.toHaveProperty("assetUrl");
   });
 
   it("rejects an unknown key (strict)", () => {
@@ -758,6 +863,20 @@ describe("Screen platform/device union", () => {
       artboard: { width: 1080, height: 1920 },
     });
     expect(r.success).toBe(true);
+  });
+
+  it.each(["tablet-7", "tablet-10"] as const)("accepts android/%s", (device) => {
+    expect(Screen.safeParse({ ...baseScreen, platform: "android", device }).success).toBe(true);
+  });
+
+  it("rejects promotion as an Android device", () => {
+    const raw = validProject();
+    raw.layouts[0]!.screens[0] = { ...raw.layouts[0]!.screens[0]!, platform: "android", device: "promotion" } as never;
+    expect(() => parseProject(raw)).toThrow(/device/);
+  });
+
+  it.each(["desktop", "laptop", "tablet", "mobile"] as const)("accepts web/%s", (device) => {
+    expect(Screen.safeParse({ ...baseScreen, platform: "web", device }).success).toBe(true);
   });
 
   it("rejects apple/phone", () => {

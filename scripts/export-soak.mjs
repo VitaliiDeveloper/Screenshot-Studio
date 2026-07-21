@@ -11,6 +11,7 @@ import { fileURLToPath, URL } from "node:url";
 import { promisify } from "node:util";
 import JSZip from "jszip";
 import { PNG } from "pngjs";
+import { workspaceSharpRuntimePackages } from "./packed-sharp-runtime.mjs";
 
 const execFile = promisify(execFileCallback);
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -99,6 +100,14 @@ async function installPackedCli(workspace) {
     "--offline",
     "--ignore-scripts",
   ], consumer);
+  await runPnpm([
+    "--store-dir",
+    store,
+    "add",
+    ...await workspaceSharpRuntimePackages(repoRoot),
+    "--offline",
+    "--ignore-scripts",
+  ], consumer);
   const bin = join(consumer, "node_modules", ".bin", "screenshots");
   await chmod(bin, 0o755);
   return { bin, consumer };
@@ -106,10 +115,11 @@ async function installPackedCli(workspace) {
 
 async function createProject(destination, locales) {
   const project = JSON.parse(await readFile(join(livingProject, "app-store-screenshots.json"), "utf8"));
-  const sourceScreens = project.screens;
+  const layout = project.layouts.find(({ id }) => id === project.preferredExportLayoutId);
+  if (!layout) throw new Error("Living export-soak project has no preferred export layout");
+  const sourceScreens = layout.screens;
   project.meta.name = `Export ${locales.length === 1 ? "Repeat" : "Large"} Soak`;
-  project.locales = locales;
-  project.screens = locales.flatMap((locale) => sourceScreens.map((source) => ({
+  layout.screens = locales.flatMap((locale) => sourceScreens.map((source) => ({
     ...JSON.parse(JSON.stringify(source)),
     id: `${source.id}-${locale}`,
     locale,
@@ -118,7 +128,7 @@ async function createProject(destination, locales) {
   await cp(join(livingProject, "assets"), join(destination, "assets"), { recursive: true });
   const projectPath = join(destination, "app-store-screenshots.json");
   await writeFile(projectPath, `${JSON.stringify(project, null, 2)}\n`);
-  return { projectPath, screenCount: project.screens.length };
+  return { projectPath, screenCount: layout.screens.length };
 }
 
 async function processTreeRssKiB(rootPid) {

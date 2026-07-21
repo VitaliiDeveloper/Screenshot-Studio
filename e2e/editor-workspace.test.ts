@@ -55,6 +55,12 @@ afterAll(async () => {
 
 function project() {
   const root = JSON.parse(readFileSync(projectFile, "utf8")) as { layouts: Array<{
+    screenSetPolicies?: Array<{
+      platform: string;
+      device: string;
+      locale: string;
+      mode: "independent" | "synchronized";
+    }>;
     screens: Array<{
       id: string;
       name: string;
@@ -180,7 +186,7 @@ describe("editor workspace", () => {
     expect(await page.getByText("1320 × 2868 px", { exact: true }).count()).toBe(1);
     const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
     const leadTargetRow = page.getByRole("group", { name: '6.9" iPhone (lead) store target', exact: true });
-    await expect.poll(() => targetRow.getByRole("button", { name: "Open", exact: true }).count()).toBe(1);
+    await expect.poll(() => targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).count()).toBe(1);
     expect(await leadTargetRow.getByText('6.9" iPhone', { exact: true }).count()).toBe(1);
     expect(await leadTargetRow.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
 
@@ -191,18 +197,16 @@ describe("editor workspace", () => {
     const sizeRows = iphoneOutput.getByTestId("overview-size-row");
     await expect.poll(() => sizeRows.count()).toBe(2);
     const masterSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="master"]');
-    const variantSizeRow = sizeRows.filter({
-      has: page.getByText('App Store · iPhone · 6.5"', { exact: true }),
-    });
+    const variantSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="variant"]');
     expect(await iphoneOutput.getByText('6.9"', { exact: true }).count()).toBe(1);
     expect(await iphoneOutput.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.count()).toBe(1);
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("false");
-    expect(await variantSizeRow.getByText("Variant", { exact: true }).count()).toBe(1);
-    expect(await iphoneOutput.getByText("Master", { exact: true }).count()).toBe(1);
+    expect(await variantSizeRow.getByTestId("output-identity-role").textContent()).toBe("variant");
+    expect(await iphoneOutput.getByTestId("output-identity-role").first().textContent()).toBe("master");
 
-    await targetRow.getByRole("button", { name: "Open", exact: true }).click();
+    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
     await expect.poll(() => page.getByText("1284 × 2778 px", { exact: true }).count()).toBe(1);
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
@@ -214,16 +218,117 @@ describe("editor workspace", () => {
       { exact: true },
     ).count()).toBe(1);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    expect(await targetRow.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    expect(await targetRow.getAttribute("aria-current")).toBe("true");
+    expect(await targetRow.getByText("Current", { exact: true }).count()).toBe(0);
     expect(await iphoneOutput.getAttribute("data-editing")).toBe("true");
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("false");
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.getByText("Editing", { exact: true }).count()).toBe(1);
 
-    page.once("dialog", (dialog) => dialog.accept());
-    await targetRow.getByRole("button", { name: "Remove", exact: true }).click();
+    await leadTargetRow.getByRole("button", { name: 'Open 6.9" iPhone (lead)', exact: true }).click();
+    const siblingMaster = project().screens.find((candidate) => (
+      candidate.variantOf === undefined
+      && candidate.platform === masterBefore.platform
+      && candidate.device === masterBefore.device
+      && candidate.locale === masterBefore.locale
+      && candidate.id !== masterBefore.id
+    ))!;
+    await page.getByRole("button", {
+      name: `${siblingMaster.name} · ${siblingMaster.device}`,
+      exact: true,
+    }).click();
+    await expect.poll(() => targetRow.count()).toBe(1);
+    expect(await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).count()).toBe(1);
+    expect(await targetRow.getByRole("button", {
+      name: 'Remove 6.5" iPhone variant',
+      exact: true,
+    }).count()).toBe(1);
+    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
+
+    await targetRow.getByRole("button", { name: 'Remove 6.5" iPhone variant', exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Remove size variant?", exact: true });
+    const confirmationBox = await confirmation.boundingBox();
+    expect(confirmationBox).not.toBeNull();
+    expect(Math.abs(confirmationBox!.x + confirmationBox!.width / 2 - 720)).toBeLessThan(2);
+    const confirmButton = confirmation.getByRole("button", { name: "Remove size", exact: true });
+    expect((await confirmButton.boundingBox())!.height).toBeLessThanOrEqual(32);
+    await confirmButton.click();
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(0);
     expect(project().screens.find((screen) => screen.id === masterBefore.id)!.artboard).toEqual(masterBefore.artboard);
+  });
+
+  it("adds a new screen to the exact store-target variant being edited", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+
+    await page.getByRole("button", { name: "Add size", exact: true }).click();
+    await page.getByRole("menuitem", { name: '6.5" iPhone', exact: true }).click();
+    const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
+    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
+    await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
+      .getByRole("listitem").count()).toBe(1);
+
+    await page.getByRole("button", { name: "Add screen", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Blank screen", exact: true }).click();
+
+    await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
+      timeout: 10_000,
+    }).toBe(2);
+    const persisted = project();
+    expect(persisted.screens.filter((screen) => screen.variantOf === undefined)).toHaveLength(3);
+    const addedVariant = persisted.screens.find((screen) => (
+      screen.storeTargetId === "6.5" && screen.name === "Untitled"
+    ));
+    expect(addedVariant).toMatchObject({
+      device: "iphone",
+      variantOf: expect.any(String),
+      artboard: { width: 1284, height: 2778 },
+      elements: [],
+    });
+    expect(persisted.screens.find((screen) => screen.id === addedVariant!.variantOf)).toMatchObject({
+      name: "Save Fast",
+      device: "iphone",
+      artboard: { width: 1320, height: 2868 },
+    });
+    await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
+      .getByRole("listitem").count()).toBe(2);
+    expect(await page.getByRole("button", { name: "Untitled · iphone", exact: true })
+      .getAttribute("aria-current")).toBe("true");
+    expect(await targetRow.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("keeps screen slots one-to-one only when synchronization is enabled", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+
+    await page.getByRole("button", { name: "Add size", exact: true }).click();
+    await page.getByRole("menuitem", { name: '6.5" iPhone', exact: true }).click();
+    const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
+    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
+    await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
+      timeout: 10_000,
+    }).toBe(1);
+
+    const slotBehavior = page.getByRole("group", { name: "Screen slot behavior", exact: true });
+    await slotBehavior.getByRole("button", { name: "Keep 1:1", exact: true }).click();
+    await expect.poll(() => project().screenSetPolicies?.[0]?.mode, { timeout: 10_000 })
+      .toBe("synchronized");
+    await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
+      timeout: 10_000,
+    }).toBe(3);
+
+    await page.getByRole("button", { name: "Add screen", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Blank screen", exact: true }).click();
+
+    await expect.poll(() => ({
+      primary: project().screens.filter((screen) => screen.storeTargetId === undefined).length,
+      exact: project().screens.filter((screen) => screen.storeTargetId === "6.5").length,
+    }), { timeout: 10_000 }).toEqual({ primary: 4, exact: 4 });
+    const persisted = project();
+    const primaryIds = persisted.screens
+      .filter((screen) => screen.storeTargetId === undefined)
+      .map((screen) => screen.id);
+    expect(persisted.screens
+      .filter((screen) => screen.storeTargetId === "6.5")
+      .map((screen) => screen.variantOf)).toEqual(primaryIds);
   });
 
   it("creates and opens an independent iPad output set without changing iPhone roots", async () => {
@@ -247,7 +352,7 @@ describe("editor workspace", () => {
     )).toBe(true);
     expect(persisted.screens.filter((screen) => screen.device === "iphone" && screen.variantOf === undefined)).toEqual(iphoneBefore);
     const ipadOutput = page.getByRole("group", { name: "App Store · iPad output", exact: true });
-    await expect.poll(() => ipadOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    await expect.poll(() => ipadOutput.getAttribute("aria-current")).toBe("true");
 
     const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
@@ -278,7 +383,7 @@ describe("editor workspace", () => {
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
     const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
-    await iphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
+    await iphoneOutput.getByRole("button", { name: "Open App Store · iPhone output", exact: true }).click();
     const iphoneScreens = page.getByRole("list", { name: "Screens for en · iphone", exact: true });
     await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
@@ -286,7 +391,7 @@ describe("editor workspace", () => {
     expect(await page.getByRole("button", { name: "Hero · ipad", exact: true }).count()).toBe(0);
     expect(await page.getByTestId("overview-output-families").getByRole("region").count()).toBe(2);
 
-    await ipadOutput.getByRole("button", { name: "Open", exact: true }).click();
+    await ipadOutput.getByRole("button", { name: "Open App Store · iPad output", exact: true }).click();
 
     const iphoneRow = page.getByRole("region", { name: "App Store · iPhone output", exact: true });
     const ipadRow = page.getByRole("region", { name: "App Store · iPad output", exact: true });
@@ -313,9 +418,9 @@ describe("editor workspace", () => {
       await page.getByRole("button", { name: "Add output", exact: true }).click();
       await page.getByRole("menuitem", { name: label, exact: true }).click();
       const family = page.getByRole("group", { name: `${label} output`, exact: true });
-      await expect.poll(() => family.getByRole("button", { name: "Current", exact: true }).count(), {
+      await expect.poll(() => family.getAttribute("aria-current"), {
         timeout: 10_000,
-      }).toBe(1);
+      }).toBe("true");
     }
 
     await expect.poll(() => page.getByTestId("overview-output-families").getByRole("region").count(), {
@@ -367,8 +472,8 @@ describe("editor workspace", () => {
     })).toBe(true);
 
     const finalIphoneOutput = page.getByRole("group", { name: "App Store · iPhone output", exact: true });
-    await finalIphoneOutput.getByRole("button", { name: "Open", exact: true }).click();
-    await expect.poll(() => finalIphoneOutput.getByRole("button", { name: "Current", exact: true }).count()).toBe(1);
+    await finalIphoneOutput.getByRole("button", { name: "Open App Store · iPhone output", exact: true }).click();
+    await expect.poll(() => finalIphoneOutput.getAttribute("aria-current")).toBe("true");
   });
 
   it("fits the complete three-screen overview and preserves Space activation on controls", async () => {

@@ -2,8 +2,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { SCREEN_DEVICES_BY_PLATFORM } from "../model/index.js";
-import { parseStoreSpecs } from "./specs.js";
+import { SCREEN_DEVICES_BY_PLATFORM } from "@screenshot-studio/core/model";
+import { parseStoreSpecs, STORE_OUTPUT_TARGETS_KEY } from "./specs.js";
 
 // parseStoreSpecs drops the "$comment" key, so specs holds only real platforms.
 const specs = parseStoreSpecs(
@@ -17,9 +17,11 @@ describe("schema ↔ store-specs lockstep", () => {
     expect(new Set(Object.keys(SCREEN_DEVICES_BY_PLATFORM))).toEqual(new Set(Object.keys(specs)));
   });
 
-  it("declares the same devices per platform as store-specs (both directions)", () => {
+  it("declares the same devices per platform as store-specs, excluding output catalogs", () => {
     for (const [platform, devices] of Object.entries(SCREEN_DEVICES_BY_PLATFORM)) {
-      expect(new Set(devices)).toEqual(new Set(Object.keys(specs[platform] ?? {})));
+      const specDevices = Object.keys(specs[platform] ?? {})
+        .filter((device) => device !== STORE_OUTPUT_TARGETS_KEY);
+      expect(new Set(devices)).toEqual(new Set(specDevices));
     }
     for (const platform of Object.keys(specs)) {
       expect(Object.keys(SCREEN_DEVICES_BY_PLATFORM)).toContain(platform);

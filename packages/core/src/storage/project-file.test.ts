@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Project } from "../model/index.js";
+import type { Project } from "@screenshot-studio/core/model";
 import {
   ProjectRevisionConflictError,
   projectRevision,

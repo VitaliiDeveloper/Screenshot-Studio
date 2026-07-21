@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { collectImageUrls } from "./index.js";
-import type { Background, Project, Element, LeafElement } from "../model/schema.js";
+import type { Background, Project, Element, LeafElement } from "@screenshot-studio/core/model";
 
 function project(elements: Element[], background: Background = { type: "solid", color: "#000000" }): Project {
   return {

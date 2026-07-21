@@ -8,7 +8,6 @@ import { ManagedProjectRepository } from "./managed-project-repository.server.js
 import {
   recentProjectsStore,
   type RecentProjectList,
-  type RecentProjectsStore,
 } from "./recent-projects.server.js";
 import {
   projectSessionRegistry,

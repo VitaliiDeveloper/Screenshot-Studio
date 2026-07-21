@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cx, editorUi } from "./styles.js";
 
@@ -16,6 +17,7 @@ export function DialogShell({
   closeLabel,
   closeDisabled = false,
   initialFocus = "first-control",
+  density = "default",
   motion,
 }: {
   title: string;
@@ -28,6 +30,7 @@ export function DialogShell({
   closeLabel?: string;
   closeDisabled?: boolean;
   initialFocus?: "first-control" | "heading";
+  density?: "default" | "compact";
   motion?: "open" | "closing";
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -90,7 +93,7 @@ export function DialogShell({
     if (!closeDisabled) onClose();
   };
 
-  return (
+  const dialog = (
     <div
       className={cx(
         "fixed inset-0 z-50 flex items-center justify-center bg-[var(--editor-color-overlay)] p-3 backdrop-blur-[2px] sm:p-4",
@@ -113,23 +116,52 @@ export function DialogShell({
         )}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-[var(--editor-color-surface-muted)] px-4 py-4 sm:px-5">
+        <header className={cx(
+          "flex items-start justify-between border-b border-[var(--editor-color-surface-muted)]",
+          density === "compact" ? "gap-3 px-4 py-3" : "gap-4 px-4 py-4 sm:px-5",
+        )}>
           <div className="min-w-0">
-            <h2 ref={headingRef} tabIndex={-1} className="text-base font-semibold tracking-tight text-[color:var(--editor-color-text-strong)] outline-none">{title}</h2>
-            {description ? <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{description}</p> : null}
+            <h2
+              ref={headingRef}
+              tabIndex={-1}
+              className={cx(
+                "font-semibold tracking-tight text-[color:var(--editor-color-text-strong)] outline-none",
+                density === "compact" ? "text-sm" : "text-base",
+              )}
+            >
+              {title}
+            </h2>
+            {description ? (
+              <p className={cx(
+                "mt-1 text-xs text-[color:var(--editor-color-text-secondary)]",
+                density === "compact" ? "leading-4" : "leading-5",
+              )}>
+                {description}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
             aria-label={closeLabel ?? `Close ${title.toLowerCase()}`}
-            className={editorUi.iconButton}
+            className={density === "compact" ? editorUi.compactIconButton : editorUi.iconButton}
             disabled={closeDisabled}
             onClick={requestClose}
           >
-            <X size={16} strokeWidth={1.8} />
+            <X size={density === "compact" ? 14 : 16} strokeWidth={1.8} />
           </button>
         </header>
-        <div className={cx("overflow-y-auto p-4 sm:p-5", bodyClassName)}>{children}</div>
+        <div className={cx(
+          "overflow-y-auto",
+          density === "compact" ? "p-4" : "p-4 sm:p-5",
+          bodyClassName,
+        )}>
+          {children}
+        </div>
       </div>
     </div>
   );
+
+  // Side panels translate and clip their contents. A document-level portal keeps every modal
+  // viewport-owned while retaining the same focus trap and semantic dialog implementation.
+  return typeof document === "undefined" ? dialog : createPortal(dialog, document.body);
 }

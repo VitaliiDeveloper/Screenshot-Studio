@@ -3,8 +3,10 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   buildBundleEntries,
+  bundlePreflightWarnings,
   leadStoreSizeId,
   parseStoreSpecs,
+  parseExportProfile,
   safeLocalePathSegment,
   safeStoreSizePathToken,
   validateBundleArtboards,
@@ -121,6 +123,10 @@ export async function runExportCommand(
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
   const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
   const mode = resolveExportMode(flags);
+  const profile = parseExportProfile(flags.profile);
+  if (profile === "web-share" && mode.kind === "single") {
+    throw new Error("--profile web-share requires a bundle export, not --screen");
+  }
   const layoutId = resolveLayoutReference(await loadProjectFile(projectPath), flags.layout).id;
 
   if (mode.kind === "single") {
@@ -168,6 +174,7 @@ export async function runExportCommand(
       assertProjectFontsResolved(context.project, layoutId);
       const entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
       validateBundleArtboards(entries);
+      for (const warning of bundlePreflightWarnings(entries)) log(`Warning: ${warning.message}`);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
       const zipPath = await failWhenServerExits(server, exportBundleOutputs({
         baseUrl: server.url,
@@ -178,6 +185,8 @@ export async function runExportCommand(
         entries,
         renderSession: session!,
         publicationGuard: context.publish,
+        profile,
+        project: context.project,
       }));
       log(`Exported ${entries.length} screenshots to ${outDir}`);
       log(`Wrote bundle ${zipPath}`);

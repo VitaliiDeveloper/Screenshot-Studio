@@ -7,16 +7,22 @@ import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
 import { projectRequestHeaders } from "../lib/save-project";
+import {
+  createExportOperationId,
+  parseExportProgress,
+  type ExportProgressSnapshot,
+} from "../lib/export-progress";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import {
   DEFAULT_EXPORT_FILTERS,
   launchExportArtifactDownload,
   normalizeExportFilters,
 } from "./export-dialog-model";
+import { ExportProgressStatus } from "./ExportProgressStatus";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
- * to "all"), one pending state, inline errors. It saves the current project first so /render and
+ * to "all"), export progress, inline errors. It saves the current project first so /render and
  * the export route read exactly what the user sees, then downloads the zip the route returns.
  */
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -25,9 +31,11 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [platform, setPlatform] = useState(DEFAULT_EXPORT_FILTERS.platform);
   const [device, setDevice] = useState(DEFAULT_EXPORT_FILTERS.device);
   const [locale, setLocale] = useState<string>(DEFAULT_EXPORT_FILTERS.locale);
+  const [profile, setProfile] = useState<"store-bundle" | "web-share">("store-bundle");
   const [pending, setPending] = useState(false);
+  const [progress, setProgress] = useState<ExportProgressSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [doneDir, setDoneDir] = useState<string | null>(null);
+  const [downloadedFilename, setDownloadedFilename] = useState<string | null>(null);
 
   if (!open || !project || !activeLayoutId) return null;
 
@@ -40,15 +48,47 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     .filter((screen) => platform === "all" || screen.platform === platform)
     .filter((screen) => device === "all" || screen.device === device)
     .map((screen) => screen.locale)));
-
   const runExport = async () => {
     const filters = normalizeExportFilters(layout, { platform, device, locale });
     setPending(true);
     setError(null);
-    setDoneDir(null);
+    setDownloadedFilename(null);
+    const operationId = createExportOperationId();
+    let latestProgress: ExportProgressSnapshot = {
+      operationId,
+      phase: "preparing",
+      completed: 0,
+      total: 0,
+    };
+    setProgress(latestProgress);
     try {
       await withFlushedProject(async () => {
-        const res = await fetch("/api/export", {
+        let stopped = false;
+        let pollInFlight = false;
+        const refreshProgress = async () => {
+          if (stopped || pollInFlight) return;
+          pollInFlight = true;
+          try {
+            const response = await fetch(
+              `/api/export/progress?operationId=${encodeURIComponent(operationId)}`,
+              { cache: "no-store" },
+            );
+            if (!response.ok || stopped) return;
+            const snapshot = parseExportProgress(await response.json().catch(() => undefined));
+            if (snapshot?.operationId === operationId) {
+              latestProgress = snapshot;
+              setProgress(snapshot);
+            }
+          } catch {
+            // Progress is auxiliary; the export request remains the source of success or failure.
+          } finally {
+            pollInFlight = false;
+          }
+        };
+        const pollTimer = window.setInterval(() => { void refreshProgress(); }, 200);
+        void refreshProgress();
+
+        const exportRequest = fetch("/api/export", {
           method: "POST",
           headers: projectRequestHeaders({
             conditional: true,
@@ -59,18 +99,34 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             platform: filters.platform === "all" ? undefined : filters.platform,
             device: filters.device === "all" ? undefined : filters.device,
             locale: filters.locale === "all" ? undefined : filters.locale,
+            profile,
+            operationId,
           }),
         });
+        let res: Response;
+        try {
+          res = await exportRequest;
+        } finally {
+          stopped = true;
+          window.clearInterval(pollTimer);
+        }
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(body.error ?? `Export failed (${res.status})`);
         }
+        latestProgress = {
+          operationId,
+          phase: "ready",
+          completed: latestProgress.total,
+          total: latestProgress.total,
+        };
+        setProgress(latestProgress);
         const ticket = launchExportArtifactDownload(body, {
           origin: window.location.origin,
           createAnchor: () => document.createElement("a"),
           appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
         });
-        setDoneDir(ticket.outputDir);
+        setDownloadedFilename(ticket.filename);
       });
     } catch (err) {
       setError((err as Error).message);
@@ -87,6 +143,19 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
       widthClass="max-w-md"
     >
       <div className="flex flex-col gap-3">
+        <label className="flex items-center justify-between gap-4 text-xs">
+          <span className="font-medium text-slate-600">Export profile</span>
+          <MenuSelect
+            ariaLabel="Export profile"
+            value={profile}
+            options={[
+              { value: "store-bundle", label: "Store bundle" },
+              { value: "web-share", label: "Web Share" },
+            ]}
+            onChange={setProfile}
+            className="w-40"
+          />
+        </label>
         <label className="flex items-center justify-between gap-4 text-xs">
           <span className="font-medium text-slate-600">Platform</span>
           <MenuSelect
@@ -128,7 +197,12 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
         </label>
 
         {error && <p className="whitespace-pre-wrap rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">{error}</p>}
-        {doneDir && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">Wrote bundle to {doneDir}</p>}
+        {downloadedFilename && (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">
+            Download started: {downloadedFilename}
+          </p>
+        )}
+        {pending && progress && <ExportProgressStatus progress={progress} />}
 
         <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button className={editorUi.buttonSecondary} onClick={onClose} disabled={pending}>

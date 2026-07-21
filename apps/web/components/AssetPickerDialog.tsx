@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
-import { FolderOpen, Image as ImageIcon, Search, Smartphone } from "lucide-react";
+import { FolderOpen, Image as ImageIcon, Search, Smartphone, Upload } from "lucide-react";
 import {
   createDeviceFrameElement,
   createImageElement,
@@ -15,36 +15,57 @@ import {
 } from "../lib/project-assets";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import {
-  projectRequestHeaders,
-  resolveActiveProjectAssetUrl,
-} from "../lib/save-project";
+import { projectJsonRequest } from "../lib/project-api-client";
+import { resolveActiveProjectAssetUrl } from "../lib/save-project";
+import { insertAssetAfterCaching } from "./asset-picker-model";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
 
+function actionableAssetError(message: string): string {
+  if (/unable to reopen the managed project/i.test(message)) {
+    return "This project session is no longer connected to its managed files. Reopen the project from Projects, then choose or import an image.";
+  }
+  if (/active project changed|project identity is unavailable/i.test(message)) {
+    return "The active project changed. Reopen this project before choosing or importing an image.";
+  }
+  return message;
+}
+
 export function AssetPickerDialog({
   elementType,
+  targetDeviceFrame,
+  cacheAsset,
   onClose,
 }: {
   elementType: AssetElementType;
+  targetDeviceFrame?: { elementId: string; screenId: string };
+  cacheAsset: (path: string) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [assets, setAssets] = useState<ProjectImageAsset[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeRef = useRef(true);
+
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/assets", { headers: projectRequestHeaders() })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error ?? `Asset listing failed (${response.status})`);
+    void projectJsonRequest<{ assets?: unknown }>("/api/assets", {
+      errorFallback: "Asset listing failed",
+    })
+      .then(({ body }) => {
         if (!Array.isArray(body.assets)) throw new Error("Asset listing returned an invalid response");
         if (!cancelled) setAssets(body.assets as ProjectImageAsset[]);
       })
       .catch((loadError) => {
-        if (!cancelled) setError((loadError as Error).message);
+        if (!cancelled) setError(actionableAssetError((loadError as Error).message));
       });
     return () => { cancelled = true; };
   }, []);
@@ -68,6 +89,16 @@ export function AssetPickerDialog({
       onClose();
       return;
     }
+    if (isFrame && targetDeviceFrame) {
+      mutateAndSave(() => editorStore.getState().patchElement({
+        id: targetDeviceFrame.elementId,
+        screenId: targetDeviceFrame.screenId,
+        type: "device-frame",
+        patch: { assetUrl: path },
+      }));
+      onClose();
+      return;
+    }
     const element = isFrame
       ? createDeviceFrameElement({ assetUrl: path })
       : isStoreBadge
@@ -79,35 +110,110 @@ export function AssetPickerDialog({
     onClose();
   };
 
+  const cacheAndInsert = async (path: string) => {
+    setUploading(true);
+    setError(null);
+    try {
+      await insertAssetAfterCaching(path, cacheAsset, insert, () => activeRef.current);
+    } catch (loadError) {
+      if (!activeRef.current) return;
+      setError(actionableAssetError((loadError as Error).message));
+      setUploading(false);
+    }
+  };
+
+  const importAndInsert = async (file: File) => {
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const { body } = await projectJsonRequest<{
+        asset?: ProjectImageAsset;
+        error?: string;
+      }>("/api/assets", {
+        method: "POST",
+        conditional: true,
+        advanceRevision: true,
+        body: form,
+        errorFallback: "Image import failed",
+      });
+      if (!body.asset?.path || !body.asset.name || body.asset.source !== "assets") {
+        throw new Error("Image import returned an invalid response");
+      }
+      if (!activeRef.current) return;
+      setAssets((current) => [...(current ?? []), body.asset!].sort((first, second) => (
+        first.path < second.path ? -1 : first.path > second.path ? 1 : 0
+      )));
+      await insertAssetAfterCaching(
+        body.asset.path,
+        cacheAsset,
+        insert,
+        () => activeRef.current,
+      );
+    } catch (uploadError) {
+      if (!activeRef.current) return;
+      setError(actionableAssetError((uploadError as Error).message));
+      setUploading(false);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <DialogShell
       title={isFrame ? "Choose device screenshot" : isBackground ? "Choose background image" : isStoreBadge ? "Choose store badge asset" : isImage ? "Choose decorative image" : "Choose screenshot asset"}
       description={isFrame
-        ? "Place a project image inside a deterministic built-in device frame."
+        ? targetDeviceFrame
+          ? "Choose a project image, or import one from your device and use it in this mockup immediately."
+          : "Choose a project image, or import one from your device and place it inside a deterministic built-in frame."
         : isBackground
-          ? "Use an existing project image as this output's artboard background."
+          ? "Choose a project image, or import one and use it as this output's artboard background."
         : isStoreBadge
-          ? "Insert an official store badge image from this project."
+          ? "Choose an official store badge image from this project, or import one from your device."
           : isImage
-          ? "Insert an existing project asset as a decorative image element."
-          : "Insert an existing project image as a screenshot element."}
+          ? "Choose a project asset, or import one and use it as a decorative image immediately."
+          : "Choose a project image, or import one and use it as a screenshot immediately."}
       ariaLabel={isFrame ? "Device frame asset picker" : isBackground ? "Background asset picker" : isStoreBadge ? "Store badge asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
       closeLabel="Close asset picker"
       onClose={onClose}
       widthClass="max-w-4xl"
       bodyClassName="flex min-h-0 flex-col"
     >
-      <label className="relative mb-4 block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} strokeWidth={1.9} />
+      <div className="mb-4 flex items-center gap-2">
+        <label className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} strokeWidth={1.9} />
+          <input
+            type="search"
+            aria-label="Search project assets"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search project images…"
+            className={`${editorUi.field} pl-9`}
+          />
+        </label>
         <input
-          type="search"
-          aria-label="Search project assets"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search assets and source screenshots…"
-          className={`${editorUi.field} pl-9`}
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+          className="sr-only"
+          aria-label="Choose image from device"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            if (file) void importAndInsert(file);
+          }}
         />
-      </label>
+        <button
+          type="button"
+          className={editorUi.buttonSecondary}
+          disabled={uploading}
+          aria-label="Import image from Finder or device"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={15} strokeWidth={1.9} />
+          {uploading ? "Importing…" : "Import image…"}
+        </button>
+      </div>
 
       {error ? (
         <StatusMessage tone="error">{error}</StatusMessage>
@@ -118,7 +224,7 @@ export function AssetPickerDialog({
           icon={FolderOpen}
           title={assets.length === 0 ? "No project images found" : "No matching images"}
           description={assets.length === 0
-            ? "Add PNG, JPEG, or WebP files under assets/ or screenshots/."
+            ? "Import a PNG, JPEG, or WebP from your device. It will be stored in this project and used immediately."
             : "Try another filename or project path."}
           path="assets/ · screenshots/"
         />
@@ -129,8 +235,9 @@ export function AssetPickerDialog({
               key={asset.path}
               type="button"
               aria-label={`Use ${asset.path}`}
+              disabled={uploading}
               className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-              onClick={() => insert(asset.path)}
+              onClick={() => { void cacheAndInsert(asset.path); }}
             >
               <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,#f8fafc_25%,transparent_25%),linear-gradient(-45deg,#f8fafc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f8fafc_75%),linear-gradient(-45deg,transparent_75%,#f8fafc_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
                 <NextImage

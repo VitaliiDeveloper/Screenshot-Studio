@@ -20,6 +20,7 @@ import {
   type Project,
   type Element,
   type LayoutDirection,
+  type ScreenSetMode,
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
 import {
@@ -53,6 +54,7 @@ import {
 } from "./editor-screen-mutations.js";
 import {
   changeProjectLocaleDirection,
+  changeOutputFamilyScreenSetMode,
   cloneProjectLocale,
   createStoreOutputFamily,
   createStoreTargetVariant,
@@ -119,6 +121,7 @@ export interface EditorState {
   ensureStoreOutputFamily: (platform: string, device: string, leadTarget: StoreSize) => void;
   ensureStoreTargetVariant: (target: StoreSize) => void;
   removeStoreTargetVariant: (rootScreenId: string, storeTargetId: string) => void;
+  setOutputFamilyScreenSetMode: (mode: ScreenSetMode) => void;
   addLocale: (sourceLocale: string, targetLocale: string, direction: LayoutDirection) => void;
   setLocaleDirection: (locale: string, direction: LayoutDirection) => void;
   removeLocale: (locale: string) => void;
@@ -528,6 +531,17 @@ export const editorStore = createStore<EditorState>((set) => ({
         state.selectedItems,
         rootScreenId,
         storeTargetId,
+      );
+      return recordProjectChange(state, result.project, null, result);
+    }),
+  setOutputFamilyScreenSetMode: (mode) =>
+    set((state) => {
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
+      const result = changeOutputFamilyScreenSetMode(
+        state.project,
+        state.activeLayoutId,
+        state.activeScreenId,
+        mode,
       );
       return recordProjectChange(state, result.project, null, result);
     }),

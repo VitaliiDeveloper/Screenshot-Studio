@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import Konva from "konva";
-import type { Project, Screen, Element, LayoutDirection } from "../model/schema.js";
-import { assertNever } from "../model/assert-never.js";
+import {
+  assertNever,
+  getLayout,
+  getScreen,
+  projectScreenGroup,
+  type Element,
+  type LayoutDirection,
+  type Project,
+  type Screen,
+} from "@screenshot-studio/core/model";
 import type { ImageCache, NodeConfig } from "./node-config.js";
-import { getLayout, getScreen } from "../model/index.js";
-import { projectScreenGroup } from "../model/connected-canvas.js";
 import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
 
 /**

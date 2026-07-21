@@ -9,6 +9,7 @@ import type {
   TextElement,
 } from "./schema.js";
 import type { FontIdentity } from "./font-identity.js";
+import { DEFAULT_TEXT_FONT } from "./built-in-fonts.js";
 import { DEVICE_FRAME_SPECS } from "./device-frames.js";
 
 /** Optional top-left origin for a newly inserted element (defaults to a fixed offset). */
@@ -43,21 +44,23 @@ function elementBase(origin: SizedOrigin, defaults: { width: number; height: num
  * the exact same defaults (DRY).
  */
 export interface CreateTextElementInput extends ElementOrigin {
-  font: FontIdentity;
+  font?: FontIdentity;
   direction?: LayoutDirection;
 }
 
 export function createTextElement(input: CreateTextElementInput): TextElement {
+  const font = input.font ?? DEFAULT_TEXT_FONT;
   return {
     ...elementBase(input, { width: 400, height: 120 }),
     type: "text",
     content: "Text",
-    fontFamily: input.font.family,
+    fontFamily: font.family,
     size: 64,
-    weight: input.font.weight,
+    weight: font.weight,
     lineHeight: 1.2,
     letterSpacing: 0,
     align: input.direction === "rtl" ? "right" : "left",
+    verticalAlign: "top",
     color: "#000000",
   };
 }
@@ -127,12 +130,12 @@ export function createIconElement(input: CreateIconElementInput = {}): IconEleme
 }
 
 export interface CreateDeviceFrameElementInput extends SizedOrigin {
-  assetUrl: string;
+  assetUrl?: string;
   deviceType?: DeviceFrameElement["deviceType"];
   fit?: DeviceFrameElement["fit"];
 }
 
-export function createDeviceFrameElement(input: CreateDeviceFrameElementInput): DeviceFrameElement {
+export function createDeviceFrameElement(input: CreateDeviceFrameElementInput = {}): DeviceFrameElement {
   const deviceType = input.deviceType ?? "iphone";
   return {
     ...elementBase(input, {
@@ -141,7 +144,7 @@ export function createDeviceFrameElement(input: CreateDeviceFrameElementInput): 
     }),
     type: "device-frame",
     deviceType,
-    assetUrl: input.assetUrl,
+    ...(input.assetUrl ? { assetUrl: input.assetUrl } : {}),
     fit: input.fit ?? "cover",
   };
 }

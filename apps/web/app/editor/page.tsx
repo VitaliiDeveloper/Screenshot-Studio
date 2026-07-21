@@ -18,23 +18,19 @@ import { LeftPanel } from "../../components/LeftPanel";
 import { Inspector } from "../../components/Inspector";
 import { Toolbar } from "../../components/Toolbar";
 import { ToolRail } from "../../components/ToolRail";
-import { FontManagerDialog } from "../../components/FontManagerDialog";
-import { ThemeManagerDialog } from "../../components/ThemeManagerDialog";
-import { TemplateLibraryDialog } from "../../components/TemplateLibraryDialog";
-import { LocaleManagerDialog } from "../../components/LocaleManagerDialog";
-import { AssetPickerDialog } from "../../components/AssetPickerDialog";
+import { CaptureImportDialog } from "../../components/project-launcher/CaptureImportDialog";
+import { ConfirmationDialog } from "../../components/editor-ui";
 import { EditorSidePanel } from "../../components/editor-shell/EditorSidePanel";
 import {
-  flushScheduledSave,
-  hasPendingProjectSave,
-} from "../../lib/debounced-save";
-import {
-  navigateToProjects,
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
 } from "../../lib/editor-workspace-navigation";
+import { EditorResourceDialogs } from "./editor-resource-dialogs";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
+import { useEditorCaptureImport } from "./use-editor-capture-import";
+import { useEditorProjectNavigation } from "./use-editor-project-navigation";
 import { useEditorResources } from "./editor-resources";
+import { useEditorSaveGuards } from "./use-editor-save-guards";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
@@ -56,6 +52,8 @@ export default function EditorPage() {
     retryFonts,
     fontRetrying,
     activeProjectId,
+    reload: reloadResources,
+    cacheImage,
   } = useEditorResources();
   const [zoom, setZoom] = useState(0.5);
   const [view, setView] = useState<WorkspaceView>("overview");
@@ -65,14 +63,18 @@ export default function EditorPage() {
   const [lastPanel, setLastPanel] = useState<WorkspacePanel>("structure");
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [dialog, setDialog] = useState<ResourceDialog | null>(null);
+  const [deviceFrameAssetTarget, setDeviceFrameAssetTarget] = useState<{
+    elementId: string;
+    screenId: string;
+  } | null>(null);
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
-  const [navigationBusy, setNavigationBusy] = useState(false);
-  const [navigationError, setNavigationError] = useState<string | null>(null);
   const [exportRequestKey, setExportRequestKey] = useState(0);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
+  const project = useStore(editorStore, (state) => state.project);
+  const captureImport = useEditorCaptureImport(project, activeProjectId, reloadResources);
   const workspaceNavigationState = useMemo(() => ({
     zoom,
     view,
@@ -86,6 +88,8 @@ export default function EditorPage() {
     setPanelState(next);
     if (next) setLastPanel(next);
   }, []);
+  const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
+  useEditorSaveGuards(saveStatus);
 
   useEffect(() => {
     const overlayQuery = window.matchMedia("(max-width: 1279px)");
@@ -153,36 +157,6 @@ export default function EditorPage() {
     return () => cancelAnimationFrame(frame);
   }, [activeProjectId, router, setPanel, workspaceRestoredFor]);
 
-  useEffect(() => {
-    const onPageHide = () => { void flushScheduledSave().catch(() => undefined); };
-    window.addEventListener("pagehide", onPageHide);
-    return () => window.removeEventListener("pagehide", onPageHide);
-  }, []);
-
-  useEffect(() => {
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!hasPendingProjectSave() && saveStatus !== "saving" && saveStatus !== "error") return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [saveStatus]);
-
-  const openProjects = useCallback(() => {
-    if (navigationBusy) return;
-    if (activeProjectId) {
-      writeWorkspaceNavigationState(activeProjectId, workspaceNavigationState);
-    }
-    setNavigationBusy(true);
-    setNavigationError(null);
-    void navigateToProjects({ navigate: () => router.push("/") })
-      .catch((caught: unknown) => {
-        setNavigationError(caught instanceof Error ? caught.message : String(caught));
-        setNavigationBusy(false);
-      });
-  }, [activeProjectId, navigationBusy, router, workspaceNavigationState]);
-
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
   useEditorKeyboardRouting(openDialog);
@@ -238,8 +212,8 @@ export default function EditorPage() {
         <ToolRail
           tool={tool}
           panel={panel}
-          onOpenProjects={openProjects}
-          projectsBusy={navigationBusy}
+        onOpenProjects={projectNavigation.openProjects}
+        projectsBusy={projectNavigation.busy}
           onToolChange={setTool}
           onPanelToggle={(next) => {
             const opening = panel !== next;
@@ -254,6 +228,7 @@ export default function EditorPage() {
             onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
+            onImportCaptures={captureImport.open}
           />
         </EditorSidePanel>
         <div className="flex min-w-0 flex-1">
@@ -275,20 +250,30 @@ export default function EditorPage() {
           <Inspector
             specs={specs}
             onOpenBackgroundAsset={() => setDialog("background-assets")}
+            onOpenDeviceFrameAsset={(target) => {
+              setDeviceFrameAssetTarget(target);
+              setDialog("device-frame-assets");
+            }}
             onClose={() => setInspectorOpen(false)}
             className="!w-full"
           />
         </EditorSidePanel>
       </div>
-      {saveStatus === "error" && saveError ? (
+      {saveStatus === "error" && saveError && !projectNavigation.error ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
         </div>
       ) : null}
-      {navigationError ? (
-        <div role="alert" className="absolute left-1/2 top-16 z-40 max-w-sm -translate-x-1/2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
-          Projects could not be opened because the latest project changes could not be saved: {navigationError}
-        </div>
+      {projectNavigation.error ? (
+        <ConfirmationDialog
+          title="Project could not be saved"
+          description="The project file may have been moved or deleted. Stay in the editor to retry, or close this project without saving."
+          confirmLabel={projectNavigation.abandoning ? "Closing…" : "Close without saving"}
+          cancelLabel="Stay in editor"
+          busy={projectNavigation.abandoning}
+          onClose={projectNavigation.clearError}
+          onConfirm={projectNavigation.closeWithoutSaving}
+        />
       ) : null}
       {fontWarnings.length > 0 ? (
         <div role="alert" className="absolute bottom-3 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
@@ -313,25 +298,30 @@ export default function EditorPage() {
           </button>
         </div>
       ) : null}
-      <FontManagerDialog open={dialog === "fonts"} onClose={() => setDialog(null)} />
-      {dialog === "themes" ? <ThemeManagerDialog onClose={() => setDialog(null)} /> : null}
-      {dialog === "templates" ? <TemplateLibraryDialog onClose={() => setDialog(null)} /> : null}
-      {dialog === "screenshot-assets" ? (
-        <AssetPickerDialog elementType="screenshot" onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === "image-assets" ? (
-        <AssetPickerDialog elementType="image" onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === "background-assets" ? (
-        <AssetPickerDialog elementType="background" onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === "store-badge-assets" ? (
-        <AssetPickerDialog elementType="store-badge" onClose={() => setDialog(null)} />
-      ) : null}
-      {dialog === "device-frame-assets" ? (
-        <AssetPickerDialog elementType="device-frame" onClose={() => setDialog(null)} />
-      ) : null}
-      {localeDialogOpen ? <LocaleManagerDialog onClose={() => setLocaleDialogOpen(false)} /> : null}
+      <EditorResourceDialogs
+        dialog={dialog}
+        localeDialogOpen={localeDialogOpen}
+        deviceFrameAssetTarget={deviceFrameAssetTarget}
+        cacheImage={cacheImage}
+        closeDialog={() => setDialog(null)}
+        closeLocaleDialog={() => setLocaleDialogOpen(false)}
+        clearDeviceFrameAssetTarget={() => setDeviceFrameAssetTarget(null)}
+      />
+      {captureImport.state.status === "closed" ? null : (
+        <CaptureImportDialog
+          state={captureImport.state}
+          onClose={captureImport.close}
+          onSelectFiles={captureImport.selectFiles}
+          onChooseDestination={captureImport.chooseDestination}
+          onChooseCurrentLayout={captureImport.chooseCurrentLayout}
+          onChangeNewProject={captureImport.changeNewProject}
+          onPreview={captureImport.preview}
+          onApply={captureImport.apply}
+          onCancel={captureImport.cancel}
+          onRetry={captureImport.retry}
+          onRecoverStale={captureImport.recoverStale}
+        />
+      )}
     </main>
   );
 }

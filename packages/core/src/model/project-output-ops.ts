@@ -1,19 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   Screen as ScreenSchema,
+  ScreenSetPolicy as ScreenSetPolicySchema,
   type Project as ProjectModel,
   type Screen,
+  type ScreenSetMode,
 } from "./schema.js";
 import { getLayout, replaceLayout } from "./project-layout.js";
 import {
   cloneScreenWithFreshIds,
   parseScreenPlacement,
-  removeScreenFromProject,
 } from "./project-screen-ops.js";
 import {
   fitElementsToArtboard,
   resizeScreenArtboard,
 } from "./project-artboard-ops.js";
+import {
+  alignSynchronizedScreenSets,
+  isPrimaryScreen,
+  sameOutputFamily,
+  screenSetModeFor,
+} from "./screen-set-policy.js";
 
 export interface StoreTargetDimensions {
   id: string;
@@ -87,9 +94,10 @@ export interface StoreOutputFamilyResult {
 }
 
 /**
- * Create one independent platform/device output set for the source locale. Every root screen in
- * the source family is copied with fresh ids and fitted to the destination master artboard; size
- * variants remain family-local and are deliberately not copied.
+ * Create one separate platform/device output set for the source locale. Every root screen in the
+ * source family is copied with fresh ids and fitted to the destination master artboard; size
+ * variants remain family-local and are deliberately not copied. New families explicitly default
+ * to synchronized screen slots while existing families retain their persisted policy.
  */
 export function ensureStoreOutputFamily(
   project: ProjectModel,
@@ -105,14 +113,17 @@ export function ensureStoreOutputFamily(
   const layout = getLayout(project, layoutId);
   const source = layout.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
-  const sourceRootId = source.variantOf ?? source.id;
-  const sourceRoot = layout.screens.find((screen) => screen.id === sourceRootId);
-  if (!sourceRoot || sourceRoot.variantOf !== undefined) {
-    throw new Error(`Invalid root screen "${sourceRootId}"`);
+  const sourceRoot = source.variantOf
+    ? layout.screens.find((screen) => screen.id === source.variantOf)
+    : isPrimaryScreen(source)
+      ? source
+      : layout.screens.find((screen) => sameOutputFamily(screen, source) && isPrimaryScreen(screen));
+  if (!sourceRoot || !isPrimaryScreen(sourceRoot)) {
+    throw new Error(`No primary screen exists for "${source.id}"`);
   }
 
   const existing = layout.screens.find((screen) =>
-    screen.variantOf === undefined
+    isPrimaryScreen(screen)
     && screen.platform === placement.platform
     && screen.device === placement.device
     && screen.locale === sourceRoot.locale,
@@ -120,12 +131,12 @@ export function ensureStoreOutputFamily(
   if (existing) return { project, firstScreen: existing, created: false };
 
   const sourceRoots = layout.screens.filter((screen) =>
-    screen.variantOf === undefined
+    isPrimaryScreen(screen)
     && screen.platform === sourceRoot.platform
     && screen.device === sourceRoot.device
     && screen.locale === sourceRoot.locale,
   );
-  if (sourceRoots.length === 0) throw new Error(`No source output screens for "${sourceRootId}"`);
+  if (sourceRoots.length === 0) throw new Error(`No source output screens for "${sourceRoot.id}"`);
 
   const masterArtboard = deriveAuthoringArtboard(placement, leadTarget);
   const copies = sourceRoots.map((root) => {
@@ -141,10 +152,20 @@ export function ensureStoreOutputFamily(
     });
   });
   const next = replaceLayout(project, { ...layout, screens: [...layout.screens, ...copies] });
-  return { project: next, firstScreen: copies[0]!, created: true };
+  const synchronized = setOutputFamilyScreenSetMode(
+    next,
+    layoutId,
+    copies[0]!.id,
+    "synchronized",
+  );
+  const firstScreen = getLayout(synchronized, layoutId).screens.find(({ id }) => id === copies[0]!.id)!;
+  return { project: synchronized, firstScreen, created: true };
 }
 
-/** Create one independent target copy, or return the existing variant idempotently. */
+/**
+ * Create an exact target. Independent families materialize one root variant; synchronized
+ * families materialize that target for every logical screen slot in the family.
+ */
 export function ensureStoreTargetVariant(
   project: ProjectModel,
   layoutId: string,
@@ -154,16 +175,21 @@ export function ensureStoreTargetVariant(
   const layout = getLayout(project, layoutId);
   const source = layout.screens.find((screen) => screen.id === sourceScreenId);
   if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
-  const rootId = source.variantOf ?? source.id;
-  const root = layout.screens.find((screen) => screen.id === rootId);
-  if (!root || root.variantOf !== undefined) throw new Error(`Invalid root screen "${rootId}"`);
+  const root = source.variantOf
+    ? layout.screens.find((screen) => screen.id === source.variantOf)
+    : isPrimaryScreen(source)
+      ? source
+      : layout.screens.find((screen) => sameOutputFamily(screen, source) && isPrimaryScreen(screen));
+  if (!root || !isPrimaryScreen(root)) {
+    throw new Error(`No primary screen exists for "${source.id}"`);
+  }
 
   const existing = layout.screens.find((screen) =>
     screen.variantOf === root.id && screen.storeTargetId === target.id,
   );
-  if (existing) return { project, variant: existing, created: false };
+  const synchronized = screenSetModeFor(layout, root) === "synchronized";
+  if (existing && !synchronized) return { project, variant: existing, created: false };
 
-  const copy = cloneScreenWithFreshIds(root);
   const targetSetScreen = layout.screens.find((screen) =>
     screen.platform === root.platform
     && screen.device === root.device
@@ -173,16 +199,33 @@ export function ensureStoreTargetVariant(
   const variantArtboard = targetSetScreen
     ? { ...targetSetScreen.artboard }
     : deriveAuthoringArtboard(root, target);
-  const variant = ScreenSchema.parse({
-    ...copy,
-    name: root.name,
-    variantOf: root.id,
-    storeTargetId: target.id,
-    artboard: variantArtboard,
-    elements: fitElementsToArtboard(copy.elements, root.artboard, variantArtboard),
+  const roots = synchronized
+    ? layout.screens.filter((screen) => sameOutputFamily(screen, root) && isPrimaryScreen(screen))
+    : [root];
+  const additions = roots.flatMap((candidateRoot) => {
+    if (layout.screens.some((screen) =>
+      screen.variantOf === candidateRoot.id && screen.storeTargetId === target.id
+    )) return [];
+    const copy = cloneScreenWithFreshIds(candidateRoot);
+    return [ScreenSchema.parse({
+      ...copy,
+      name: candidateRoot.name,
+      variantOf: candidateRoot.id,
+      storeTargetId: target.id,
+      artboard: variantArtboard,
+      elements: fitElementsToArtboard(copy.elements, candidateRoot.artboard, variantArtboard),
+    })];
   });
-  const next = replaceLayout(project, { ...layout, screens: [...layout.screens, variant] });
-  return { project: next, variant, created: true };
+  if (additions.length === 0) return { project, variant: existing!, created: false };
+
+  const screens = synchronized
+    ? alignSynchronizedScreenSets([...layout.screens, ...additions], root)
+    : [...layout.screens, ...additions];
+  const next = replaceLayout(project, { ...layout, screens });
+  const variant = getLayout(next, layoutId).screens.find((screen) =>
+    screen.variantOf === root.id && screen.storeTargetId === target.id
+  )!;
+  return { project: next, variant, created: existing === undefined };
 }
 
 export function removeStoreTargetVariant(
@@ -192,9 +235,115 @@ export function removeStoreTargetVariant(
   storeTargetId: string,
 ): ProjectModel {
   const layout = getLayout(project, layoutId);
-  const variant = layout.screens.find((screen) =>
-    screen.variantOf === rootScreenId && screen.storeTargetId === storeTargetId,
-  );
+  const variant = layout.screens.find((screen) => (
+    (screen.variantOf === rootScreenId || screen.id === rootScreenId)
+    && screen.storeTargetId === storeTargetId
+  ));
   if (!variant) throw new Error(`Store target variant "${storeTargetId}" does not exist`);
-  return removeScreenFromProject(project, layoutId, variant.id);
+  const screens = layout.screens.filter((screen) => !(
+    sameOutputFamily(screen, variant) && screen.storeTargetId === storeTargetId
+  ));
+  return replaceLayout(project, { ...layout, screens });
+}
+
+/**
+ * Persist one output-family screen-slot policy. Enabling synchronization reconciles every
+ * existing exact target and the primary size by persisted slot order before committing the
+ * strict policy. Existing content is preserved; missing counterparts are fitted clones.
+ */
+export function setOutputFamilyScreenSetMode(
+  project: ProjectModel,
+  layoutId: string,
+  sourceScreenId: string,
+  mode: ScreenSetMode,
+): ProjectModel {
+  const initialLayout = getLayout(project, layoutId);
+  const source = initialLayout.screens.find((screen) => screen.id === sourceScreenId);
+  if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
+
+  if (screenSetModeFor(initialLayout, source) === mode
+    && initialLayout.screenSetPolicies?.some((policy) =>
+      policy.platform === source.platform
+      && policy.device === source.device
+      && policy.locale === source.locale
+      && policy.mode === mode
+    )) return project;
+
+  let screens = [...initialLayout.screens];
+  if (mode === "synchronized") {
+    let roots = screens.filter((screen) => sameOutputFamily(screen, source) && isPrimaryScreen(screen));
+    if (roots.length === 0) throw new Error("Cannot synchronize an output family without a primary size");
+    const targetIds = Array.from(new Set(screens
+      .filter((screen) => sameOutputFamily(screen, source) && screen.storeTargetId !== undefined)
+      .map((screen) => screen.storeTargetId!)));
+    const targetRows = new Map(targetIds.map((targetId) => [
+      targetId,
+      screens.filter((screen) => sameOutputFamily(screen, source) && screen.storeTargetId === targetId),
+    ]));
+    const slotCount = Math.max(roots.length, ...Array.from(targetRows.values(), (row) => row.length));
+
+    const newRoots: Screen[] = [];
+    for (let index = roots.length; index < slotCount; index += 1) {
+      const counterpart = Array.from(targetRows.values()).find((row) => row[index])?.[index];
+      if (!counterpart) throw new Error(`Cannot materialize synchronized slot ${index + 1}`);
+      const copy = cloneScreenWithFreshIds(counterpart);
+      newRoots.push(ScreenSchema.parse({
+        ...copy,
+        name: counterpart.name,
+        variantOf: undefined,
+        storeTargetId: undefined,
+        artboard: { ...roots[0]!.artboard },
+        elements: fitElementsToArtboard(counterpart.elements, counterpart.artboard, roots[0]!.artboard),
+      }));
+    }
+    if (newRoots.length > 0) {
+      const lastRootIndex = screens.reduce((last, screen, index) => (
+        sameOutputFamily(screen, source) && isPrimaryScreen(screen) ? index : last
+      ), -1);
+      screens.splice(lastRootIndex + 1, 0, ...newRoots);
+      roots = [...roots, ...newRoots];
+    }
+
+    const replacements = new Map<string, Screen>();
+    const additions: Screen[] = [];
+    for (const [targetId, row] of targetRows) {
+      const targetArtboard = row[0]!.artboard;
+      roots.forEach((root, index) => {
+        const existing = row[index];
+        if (existing) {
+          replacements.set(existing.id, ScreenSchema.parse({ ...existing, variantOf: root.id }));
+          return;
+        }
+        const copy = cloneScreenWithFreshIds(root);
+        additions.push(ScreenSchema.parse({
+          ...copy,
+          name: root.name,
+          variantOf: root.id,
+          storeTargetId: targetId,
+          artboard: { ...targetArtboard },
+          elements: fitElementsToArtboard(root.elements, root.artboard, targetArtboard),
+        }));
+      });
+    }
+    screens = alignSynchronizedScreenSets([
+      ...screens.map((screen) => replacements.get(screen.id) ?? screen),
+      ...additions,
+    ], source);
+  }
+
+  const policy = ScreenSetPolicySchema.parse({
+    platform: source.platform,
+    device: source.device,
+    locale: source.locale,
+    mode,
+  });
+  const screenSetPolicies = [
+    ...(initialLayout.screenSetPolicies ?? []).filter((candidate) => !(
+      candidate.platform === source.platform
+      && candidate.device === source.device
+      && candidate.locale === source.locale
+    )),
+    policy,
+  ];
+  return replaceLayout(project, { ...initialLayout, screens, screenSetPolicies });
 }

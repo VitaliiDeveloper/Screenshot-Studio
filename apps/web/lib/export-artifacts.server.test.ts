@@ -75,8 +75,9 @@ describe("export artifact store", () => {
       downloadFilename: "screenshot-studio-project.zip",
     });
 
-    const ticket = await store.stage(sourcePath, "Portable project");
+    const ticket = await store.stage(sourcePath);
     expect(ticket.downloadUrl).toMatch(/^\/api\/project-archive\/artifacts\//);
+    expect(ticket.filename).toBe("screenshot-studio-project.zip");
     const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
     expect(consumed.status).toBe("ready");
     if (consumed.status !== "ready") return;
@@ -85,10 +86,24 @@ describe("export artifact store", () => {
     await consumed.artifact.cleanup;
   });
 
+  it("uses a safe per-artifact filename for profile-specific downloads", async () => {
+    const ticket = await store.stage(sourcePath, "web-share-package.zip");
+    expect(ticket.filename).toBe("web-share-package.zip");
+
+    const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
+    expect(consumed.status).toBe("ready");
+    if (consumed.status !== "ready") return;
+    expect(consumed.artifact.filename).toBe("web-share-package.zip");
+    consumed.artifact.stream.resume();
+    await consumed.artifact.cleanup;
+
+    await expect(store.stage(sourcePath, "../unsafe.zip")).rejects.toThrow(/filename/i);
+  });
+
   it("shares the default ticket store across independently evaluated route modules", async () => {
     vi.resetModules();
     const producer = await import("./export-artifacts.server.js");
-    const ticket = await producer.stageExportArtifact(sourcePath, "/project/export");
+    const ticket = await producer.stageExportArtifact(sourcePath);
 
     vi.resetModules();
     const consumer = await import("./export-artifacts.server.js");
@@ -99,7 +114,7 @@ describe("export artifact store", () => {
     expect(await readArtifact(consumed.artifact.stream)).toEqual(Buffer.from("canonical zip bytes"));
     await consumed.artifact.cleanup;
 
-    const key = Symbol.for("screenshot-studio.export-artifact-store");
+    const key = Symbol.for("screenshot-studio.export-artifact-store.v2");
     const globals = globalThis as typeof globalThis & Record<symbol, ExportArtifactStore | undefined>;
     await globals[key]?.close();
     delete globals[key];
@@ -118,7 +133,7 @@ describe("export artifact store", () => {
       },
     });
 
-    await expect(store.stage(sourcePath, "/project/export")).rejects.toThrow(
+    await expect(store.stage(sourcePath)).rejects.toThrow(
       "Export artifact store is closed",
     );
     await expect(closing).resolves.toBeUndefined();
@@ -135,15 +150,15 @@ describe("export artifact store", () => {
       randomBytes: random,
     });
 
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const token = tokenFrom(ticket.downloadUrl);
 
     expect(random).toHaveBeenCalledWith(32);
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(ticket).toEqual({
       downloadUrl: `/api/export/artifacts/${token}`,
-      outputDir: "/project/export",
       expiresAt: "2026-07-15T00:01:00.000Z",
+      filename: "app-store-screenshots-bundle.zip",
     });
     expect(JSON.stringify(ticket)).not.toContain(sourcePath);
     expect(JSON.stringify(ticket)).not.toContain(artifactRoot);
@@ -160,7 +175,7 @@ describe("export artifact store", () => {
   });
 
   it("copies the canonical zip so later source changes cannot alter the download", async () => {
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     await writeFile(sourcePath, "changed after stage");
 
     const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
@@ -171,7 +186,7 @@ describe("export artifact store", () => {
   });
 
   it("expires a ticket once and removes its staged file", async () => {
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const path = await stagedPath();
     now += 60_001;
 
@@ -183,7 +198,7 @@ describe("export artifact store", () => {
   it.each(["symlink", "directory", "different regular file"] as const)(
     "rejects a staged leaf replaced by a %s",
     async (replacement) => {
-      const ticket = await store.stage(sourcePath, "/project/export");
+      const ticket = await store.stage(sourcePath);
       const path = await stagedPath();
       await rm(path);
       if (replacement === "symlink") await symlink(sourcePath, path);
@@ -195,7 +210,7 @@ describe("export artifact store", () => {
   );
 
   it("rejects malformed tokens without touching staged tickets", async () => {
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     await expect(store.consume("../escape")).resolves.toEqual({ status: "missing" });
 
     const valid = await store.consume(tokenFrom(ticket.downloadUrl));
@@ -207,7 +222,7 @@ describe("export artifact store", () => {
   });
 
   it("deletes the private file when the node stream errors", async () => {
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const path = await stagedPath();
     const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
     if (consumed.status !== "ready") throw new Error("Expected ready artifact");
@@ -229,7 +244,7 @@ describe("export artifact store", () => {
         now: () => now,
         ttlMs: 25,
       });
-      const ticket = await store.stage(sourcePath, "/project/export");
+      const ticket = await store.stage(sourcePath);
       const path = await stagedPath();
       consumed = await store.consume(tokenFrom(ticket.downloadUrl));
       if (consumed.status !== "ready") throw new Error("Expected ready artifact");
@@ -259,7 +274,7 @@ describe("export artifact store", () => {
       ttlMs: 60_000,
       unlinkFile,
     });
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const path = await stagedPath();
     const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
     if (consumed.status !== "ready") throw new Error("Expected ready artifact");
@@ -290,7 +305,7 @@ describe("export artifact store", () => {
       ttlMs: 10,
       unlinkFile,
     });
-    await store.stage(sourcePath, "/project/export");
+    await store.stage(sourcePath);
     const path = await stagedPath();
 
     now += 11;
@@ -316,7 +331,7 @@ describe("export artifact store", () => {
       ttlMs: 10,
       unlinkFile,
     });
-    const ticket = await store.stage(sourcePath, "/project/export");
+    const ticket = await store.stage(sourcePath);
     const path = await stagedPath();
     const consumed = await store.consume(tokenFrom(ticket.downloadUrl));
     if (consumed.status !== "ready") throw new Error("Expected ready artifact");

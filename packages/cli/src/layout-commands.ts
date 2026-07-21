@@ -93,7 +93,7 @@ export async function runLayoutCommand(
 
   const updated = await updateProjectFile(projectPath, (project) => {
     if (action.kind === "add") {
-      const source = getPreferredExportLayout(project).screens.find((screen) => screen.variantOf === undefined)
+      const source = getPreferredExportLayout(project).screens.find((screen) => screen.storeTargetId === undefined)
         ?? getPreferredExportLayout(project).screens[0]!;
       return {
         project: addLayout(project, {

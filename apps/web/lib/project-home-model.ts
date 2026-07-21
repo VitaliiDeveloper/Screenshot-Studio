@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
+import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project, Screen } from "@screenshot-studio/core/model";
 import type { ActiveProjectSelection } from "./project-session.js";
 import { storeOutputLabel } from "./editor-workspace.js";
@@ -8,6 +8,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   apple: "App Store",
   android: "Google Play",
   windows: "Microsoft Store",
+  web: "Web",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -74,8 +75,11 @@ export interface ProjectHomeSummary {
 
 function targetLabel(specs: StoreSpecs, screen: Screen): string {
   const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
-  return specs[screen.platform]?.[screen.device]?.find((target) => target.id === targetId)?.label
-    ?? targetId;
+  try {
+    return findStoreTarget(specs, screen.platform, screen.device, targetId).label;
+  } catch {
+    return targetId;
+  }
 }
 
 function buildActions(selection: ActiveProjectSelection): ProjectHomeAction[] {

@@ -86,7 +86,10 @@ describe("editor history transitions", () => {
       projectC,
       "element:s1:e1",
     );
-    expect(second.historyPast).toEqual([projectA.layouts[0]!.screens]);
+    expect(second.historyPast).toEqual([{
+      screens: projectA.layouts[0]!.screens,
+      screenSetPolicies: undefined,
+    }]);
     expect(second.historyFuture).toEqual([]);
 
     let state = makeHistoryState(projectA);
@@ -102,7 +105,10 @@ describe("editor history transitions", () => {
       ...makeHistoryState(projectB),
       activeScreenId: "screen-b",
       selectedItems: [{ screenId: "screen-a", elementId: "text-a" }],
-      historyPast: [projectA.layouts[0]!.screens],
+      historyPast: [{
+        screens: projectA.layouts[0]!.screens,
+        screenSetPolicies: undefined,
+      }],
     });
     expect(undone.project!.meta.name).toBe("B");
     expect(undone.project!.layouts[0]!.screens).toEqual(projectA.layouts[0]!.screens);
@@ -111,5 +117,23 @@ describe("editor history transitions", () => {
     const redone = redoProjectChange(undone);
     expect(redone.project!.meta.name).toBe("B");
     expect(redone.project!.layouts[0]!.screens).toEqual(projectB.layouts[0]!.screens);
+  });
+
+  it("undoes and redoes a screen-slot policy change with its reconciled screens", () => {
+    const synchronized = structuredClone(projectA);
+    synchronized.layouts[0]!.screenSetPolicies = [{
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      mode: "synchronized",
+    }];
+    const changed = recordProjectChange(makeHistoryState(projectA), synchronized);
+    const current = { ...makeHistoryState(synchronized), ...changed };
+
+    const undone = undoProjectChange(current);
+    expect(undone.project!.layouts[0]!.screenSetPolicies).toBeUndefined();
+
+    const redone = redoProjectChange(undone);
+    expect(redone.project!.layouts[0]!.screenSetPolicies?.[0]?.mode).toBe("synchronized");
   });
 });

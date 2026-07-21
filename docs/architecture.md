@@ -19,6 +19,9 @@ apps/web       → Next.js editor, API routes, and the shared browser render tar
 `core` is framework-agnostic and does not depend on Next.js, HTTP, or a particular project picker.
 The web shell owns selection and UI; the CLI owns command parsing and process orchestration. Both
 surfaces use core model and rendering helpers rather than maintaining parallel implementations.
+Inside `core`, dependencies between top-level domains use the package's public
+`@screenshot-studio/core/<domain>` subpaths; relative imports remain local to one domain. This keeps
+the internal dependency graph aligned with the contracts available to web and CLI.
 
 | Concern | Contract |
 |---|---|
@@ -45,8 +48,34 @@ Layouts are independent authoring alternatives with an explicit `isolated` or `c
 Elements stay owned by one screen even when connected rendering lets decoration cross a crop boundary.
 Only strict v1 element types and literals are valid. Workspace selections, viewport state, open panels,
 history, source locators, recents, credentials, and server lifecycle metadata never enter Project JSON.
+Text elements persist horizontal alignment and an optional vertical alignment; the shared renderer
+treats an omitted vertical value as `top` so existing strict documents keep their pixels unchanged.
 
-`store-specs.json` is the runtime authority for configured Apple, Google, and Microsoft dimensions.
+Screen-slot behavior is a layout-local output-family policy keyed by platform, device, and locale.
+New project scaffolds and newly created output families persist `synchronized`; an omitted policy
+still means `independent` for backward compatibility with existing v1 documents. A primary-size screen has no
+`storeTargetId`; an exact-size screen has one. In independent mode an exact-size screen may use
+`variantOf` to pair with a compatible primary slot, or remain standalone when that size has more
+screens. Removing a primary slot in independent mode preserves its exact-size composition by
+detaching any paired exact screens; an explicit force-cascade operation may remove the whole pair.
+In `synchronized` mode every exact target has the same ordered logical slots as the primary
+size and every exact screen references its primary slot. Core mutation helpers mirror slot add,
+delete, and reorder across those rows without sharing element identity or content. Enabling
+synchronization reconciles to the longest existing row, preserves existing content, and materializes
+fitted counterparts only for missing slots. Editor and CLI mutations consume this core policy rather
+than implementing their own platform- or size-specific rules. Removing an exact output target removes
+the complete size row; it is distinct from deleting one independent screen slot.
+
+`store-specs.json` is the runtime authority for configured Apple, Android, Windows, and Web output
+families and exact dimensions. Device frames are presentation elements only: they neither select a
+platform nor determine an export size. Non-device targets such as the Android Play Feature Graphic
+live in the platform-level `$outputs` catalog and are identified by target metadata rather than by a
+fake device or frame. Play Feature Graphic is an exact `kind: "promotion"` target in the Android
+phone output family. The creation starter materializes it as a standalone exact-target screen in an
+independent set, so its default bundle contains no structural phone portrait. Landscape iPad and
+Android tablet templates materialize their exact target as an ordinary `variantOf`/`storeTargetId`
+screen beside the family lead root, so export never falls back to a portrait lead target with a
+different aspect ratio.
 The exporter validates configured targets, exact dimensions, opaque output, and safe paths; it does
 not validate store-listing copy, count, or portal metadata.
 
@@ -66,9 +95,18 @@ Connected mode is still one project model: each exact platform/device/locale/sto
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
 requested artboard crop; it never stitches a separate image or slices a finished PNG.
 
-The UI export route returns a `201` `no-store` ticket with `downloadUrl`, `outputDir`, and
-`expiresAt`. Its download URL is one-shot: a missing artifact returns `404`, an expired artifact
+Export profiles are separate from platforms. The default store bundle and optional `web-share`
+profile consume PNGs produced by the shared browser renderer; Web Share only packages those outputs
+with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer.
+
+The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
+into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
+`no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, and preflight warnings; server
+filesystem paths are not client metadata. A missing artifact returns `404`, an expired artifact
 returns `410`, and clients must not buffer, reuse, or retain an export artifact after download.
+An optional opaque export operation id exposes short-lived, bounded progress snapshots while that
+same request retains its normal lifecycle and project-mutation guards. Progress reports completed
+rendered outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
 
 ## 4. Project sources, sessions, and persistence
 
@@ -106,13 +144,24 @@ lexical and canonical containment; symlink escapes and unsafe paths are rejected
 treats a selected Folder, ZIP, or JSON input as a trusted server path: browser transfer validates a
 bounded input and publishes a managed copy before activation.
 
-Fonts are registered project assets under `assets/fonts/`. System fallbacks are rejected because they
-make output depend on a machine. Google-font requests may occur only at add time; editor rendering and
-CLI export load the same local file bytes through browser `FontFace`.
+Interactive image import accepts bounded PNG, JPEG, or WebP bytes, derives the stored extension from
+the content, and publishes a collision-safe file under project-local `assets/imported/` while holding
+the project mutation lease. Import itself does not rewrite the Project document; the ordinary editor
+mutation assigns the resulting project-relative path to a screen element or background.
 
-Themes and templates are project-local inputs that produce ordinary strict Project literals. They do
-not become hidden renderer state. Asset preprocessing is explicit and non-destructive; results are
-new local files that a user may deliberately assign to an element.
+Custom fonts are registered project assets under `assets/fonts/`. The shared renderer also ships a
+small versioned built-in font catalog so text authoring works before a project adds font resources.
+Built-in identities resolve to local renderer-owned bytes in both editor and CLI export. Operating
+system fallbacks remain rejected because they make output depend on a machine. Google-font requests
+may occur only at add time; later editor rendering and CLI export use local bytes.
+
+Themes and project templates are project-local inputs that produce ordinary strict Project literals.
+The application also ships global read-only built-in template and Design Packs catalogs. Selecting a
+built-in template materializes an ordinary editable root or root/target-variant pair. Applying a pack
+bakes palette, typography, and supported spacing-scale values into render-bearing element literals;
+the pack id is not persisted. No global template or pack definition is copied into a project, and
+neither catalog becomes hidden renderer state. Asset preprocessing is explicit and non-destructive;
+results are new local files that a user may deliberately assign to an element.
 
 ## 6. Interfaces for people and tools
 

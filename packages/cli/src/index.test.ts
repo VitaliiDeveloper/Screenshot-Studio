@@ -127,7 +127,7 @@ describe("resolveExportMode", () => {
   });
 
   it("rejects an unknown device filter", () => {
-    expect(() => resolveExportMode({ device: "tablet" })).toThrow(/Unsupported device filter: tablet/);
+    expect(() => resolveExportMode({ device: "foldable" })).toThrow(/Unsupported device filter: foldable/);
   });
 
   it("rejects a device that does not belong to the selected platform", () => {

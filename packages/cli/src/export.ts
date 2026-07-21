@@ -6,9 +6,10 @@ import {
 } from "@screenshot-studio/core/model";
 import {
   parseStoreSpecs,
-  findStoreSize,
+  findStoreTarget,
   type StoreSize,
   type BundleEntry,
+  type ExportProfile,
 } from "@screenshot-studio/core/export";
 import {
   readIdentifiedProjectSnapshot,
@@ -20,6 +21,7 @@ import {
 import { renderScreenToPng, type RenderBrowserSession } from "./render-driver.js";
 import { renderStoreReadyPng } from "./store-ready-png.js";
 import { writeBundleOutputs, type RenderedBundleEntry } from "./bundle-publisher.js";
+import { buildWebSharePackage } from "./web-share.js";
 import { loadProjectSnapshot } from "./project-io.js";
 
 export { writeBundleOutputs, type RenderedBundleEntry };
@@ -130,6 +132,10 @@ export interface ExportScreenOptions {
   headless?: boolean;
 }
 
+export type ExportBundleProgress =
+  | { phase: "rendering"; completed: number; total: number }
+  | { phase: "packaging"; completed: number; total: number };
+
 /** Render + flatten + verify one screen, returning a store-ready PNG buffer. */
 export async function exportScreenToPng(opts: ExportScreenOptions): Promise<Buffer> {
   const { baseUrl, projectPath, projectRevision, layoutId, screenId, target, headless } = opts;
@@ -164,7 +170,7 @@ export async function resolveTarget(
   sizeId: string,
 ): Promise<StoreSize> {
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  return findStoreSize(specs, platform, device, sizeId);
+  return findStoreTarget(specs, platform, device, sizeId);
 }
 
 export async function exportBundle({
@@ -176,6 +182,9 @@ export async function exportBundle({
   entries,
   renderSession,
   publicationGuard,
+  onProgress,
+  profile = "store-bundle",
+  project,
 }: {
   baseUrl: string;
   projectPath: string;
@@ -185,8 +194,12 @@ export async function exportBundle({
   entries: BundleEntry[];
   renderSession: Pick<RenderBrowserSession, "renderScreenToPng">;
   publicationGuard: <T>(publish: () => Promise<T>) => Promise<T>;
+  onProgress?: (progress: ExportBundleProgress) => void;
+  profile?: ExportProfile;
+  project?: Project;
 }): Promise<string> {
   const rendered: RenderedBundleEntry[] = [];
+  onProgress?.({ phase: "rendering", completed: 0, total: entries.length });
 
   for (const entry of entries) {
     try {
@@ -203,6 +216,7 @@ export async function exportBundle({
         }),
       });
       rendered.push({ entry, png });
+      onProgress?.({ phase: "rendering", completed: rendered.length, total: entries.length });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`Failed to export screen "${entry.screen.id}" target "${entry.target.id}": ${message}`, {
@@ -211,5 +225,17 @@ export async function exportBundle({
     }
   }
 
+  onProgress?.({ phase: "packaging", completed: entries.length, total: entries.length });
+
+  if (profile === "web-share") {
+    if (!project) throw new Error("Web Share export requires the validated project snapshot");
+    const webShare = buildWebSharePackage(project, rendered);
+    return publicationGuard(() => writeBundleOutputs({
+      outDir,
+      entries: webShare.screenshots,
+      extraFiles: webShare.extraFiles,
+      zipFilename: "web-share-package.zip",
+    }));
+  }
   return publicationGuard(() => writeBundleOutputs({ outDir, entries: rendered }));
 }

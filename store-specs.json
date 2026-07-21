@@ -9,6 +9,7 @@
     ],
     "ipad": [
       { "id": "13", "label": "13\" iPad (lead)", "width": 2064, "height": 2752, "orientation": "portrait" },
+      { "id": "13-landscape", "label": "13\" iPad landscape", "width": 2752, "height": 2064, "orientation": "landscape" },
       { "id": "12.9", "label": "12.9\" iPad", "width": 2048, "height": 2732, "orientation": "portrait" },
       { "id": "11", "label": "11\" iPad", "width": 1668, "height": 2420, "orientation": "portrait" }
     ],
@@ -34,7 +35,19 @@
   "android": {
     "phone": [
       { "id": "phone-portrait", "label": "Android phone portrait (lead)", "width": 1080, "height": 1920, "orientation": "portrait" },
-      { "id": "phone-landscape", "label": "Android phone landscape", "width": 1920, "height": 1080, "orientation": "landscape" }
+      { "id": "phone-landscape", "label": "Android phone landscape", "width": 1920, "height": 1080, "orientation": "landscape" },
+      { "id": "phone-portrait-high-res", "label": "Android phone portrait high resolution", "width": 1440, "height": 2560, "orientation": "portrait" }
+    ],
+    "tablet-7": [
+      { "id": "tablet-7-portrait", "label": "7-inch Android tablet portrait (lead)", "width": 1200, "height": 1920, "orientation": "portrait" },
+      { "id": "tablet-7-landscape", "label": "7-inch Android tablet landscape", "width": 1920, "height": 1200, "orientation": "landscape" }
+    ],
+    "tablet-10": [
+      { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait (lead)", "width": 1600, "height": 2560, "orientation": "portrait" },
+      { "id": "tablet-10-landscape", "label": "10-inch Android tablet landscape", "width": 2560, "height": 1600, "orientation": "landscape" }
+    ],
+    "$outputs": [
+      { "id": "play-feature-graphic", "label": "Google Play Feature Graphic", "width": 1024, "height": 500, "orientation": "landscape", "kind": "promotion", "family": "phone", "format": "png-or-jpeg", "alpha": false }
     ]
   },
   "windows": {
@@ -42,6 +55,24 @@
       { "id": "4k", "label": "Windows desktop 4K (lead)", "width": 3840, "height": 2160, "orientation": "landscape" },
       { "id": "full-hd", "label": "Windows desktop Full HD", "width": 1920, "height": 1080, "orientation": "landscape" },
       { "id": "minimum", "label": "Windows desktop minimum", "width": 1366, "height": 768, "orientation": "landscape" }
+    ]
+  },
+  "web": {
+    "desktop": [
+      { "id": "desktop-1920", "label": "Web desktop 1920×1080 (lead)", "width": 1920, "height": 1080, "orientation": "landscape", "kind": "responsive" },
+      { "id": "desktop-1440", "label": "Web desktop 1440×900", "width": 1440, "height": 900, "orientation": "landscape", "kind": "responsive" }
+    ],
+    "laptop": [
+      { "id": "laptop-1440", "label": "Web laptop 1440×900 (lead)", "width": 1440, "height": 900, "orientation": "landscape", "kind": "responsive" },
+      { "id": "laptop-1280", "label": "Web laptop 1280×800", "width": 1280, "height": 800, "orientation": "landscape", "kind": "responsive" }
+    ],
+    "tablet": [
+      { "id": "tablet-portrait", "label": "Web tablet portrait (lead)", "width": 1024, "height": 1366, "orientation": "portrait", "kind": "responsive" },
+      { "id": "tablet-landscape", "label": "Web tablet landscape", "width": 1366, "height": 1024, "orientation": "landscape", "kind": "responsive" }
+    ],
+    "mobile": [
+      { "id": "mobile-portrait", "label": "Web mobile portrait (lead)", "width": 390, "height": 844, "orientation": "portrait", "kind": "responsive" },
+      { "id": "mobile-landscape", "label": "Web mobile landscape", "width": 844, "height": 390, "orientation": "landscape", "kind": "responsive" }
     ]
   }
 }
