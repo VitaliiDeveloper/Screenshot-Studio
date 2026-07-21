@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { LayersHeading } from "./LayersSection";
+import { LayersHeading } from "@web/components/LayersSection";
 
 describe("layers heading", () => {
   it("shows the active screen context without an unexplained owner badge", () => {

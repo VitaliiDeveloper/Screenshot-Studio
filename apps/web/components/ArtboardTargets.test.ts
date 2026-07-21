@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
-import { ArtboardTargets } from "./ArtboardTargets.js";
-import { editorUi } from "./editor-ui/styles.js";
+import { ArtboardTargets } from "@web/components/ArtboardTargets.js";
+import { editorUi } from "@web/components/editor-ui/styles.js";
 
 // Vitest compiles the Next.js-preserved JSX with the classic runtime for this Node-only render.
 Object.assign(globalThis, { React });

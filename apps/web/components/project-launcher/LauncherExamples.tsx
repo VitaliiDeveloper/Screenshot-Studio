@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Images, Languages, LayoutTemplate, PanelsTopLeft } from "lucide-react";
-import { launcherExampleWorkflows, type LauncherExampleWorkflow } from "./launcher-examples";
+import { launcherExampleWorkflows, type LauncherExampleWorkflow } from "@web/components/project-launcher/launcher-examples";
 
 const ICONS = {
   "isolated-project": PanelsTopLeft,

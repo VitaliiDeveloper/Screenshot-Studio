@@ -8,8 +8,8 @@ import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { handleAssetPost } from "./handler.js";
-import { GET, POST } from "./route.js";
+import { handleAssetPost } from "@web/app/api/assets/handler.js";
+import { GET, POST } from "@web/app/api/assets/route.js";
 
 const validProject = {
   meta: { name: "Assets", schemaVersion: 1 },

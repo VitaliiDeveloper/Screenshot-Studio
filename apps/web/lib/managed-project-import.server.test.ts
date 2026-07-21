@@ -3,13 +3,13 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import {
   ManagedProjectImportError,
   ManagedProjectImportService,
   type ProjectImportFile,
-} from "./managed-project-import.server.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+} from "@web/lib/managed-project-import.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 
 const temporaryRoots: string[] = [];
 

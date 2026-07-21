@@ -5,7 +5,7 @@ import type { AriaRole, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { cx, editorUi } from "./editor-ui";
+import { cx, editorUi } from "@web/components/editor-ui";
 
 /**
  * One draggable row for a sortable list. The drag handle is a dedicated span (so buttons/inputs

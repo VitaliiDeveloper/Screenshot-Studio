@@ -7,11 +7,11 @@ import { readProjectSnapshot } from "@screenshot-studio/core/storage";
 import {
   collectRequiredProjectResourcePaths,
   isSupportedProjectArchivePath,
-} from "./project-archive-policy.js";
+} from "@web/lib/project-archive-policy.js";
 import {
   ManagedProjectRepository,
   type ManagedProjectRecord,
-} from "./managed-project-repository.server.js";
+} from "@web/lib/managed-project-repository.server.js";
 
 const PROJECT_FILE = "app-store-screenshots.json";
 const MAX_IMPORT_PATH_BYTES = 1_024;

@@ -3,8 +3,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Plus } from "lucide-react";
-import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
-import { cx, editorUi } from "./styles.js";
+import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "@web/components/editor-ui/menu-behavior.js";
+import { cx, editorUi } from "@web/components/editor-ui/styles.js";
 
 export type AddMenuOption<T extends string> = {
   value: T;

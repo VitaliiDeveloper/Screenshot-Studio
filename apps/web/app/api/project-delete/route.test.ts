@@ -19,7 +19,7 @@ import {
   handleProjectDeleteOperationPost,
   handleProjectDeletePost,
   type ProjectDeleteRouteDependencies,
-} from "./handler.js";
+} from "@web/app/api/project-delete/handler.js";
 
 const PROJECT_ID = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const OPERATION_ID = "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

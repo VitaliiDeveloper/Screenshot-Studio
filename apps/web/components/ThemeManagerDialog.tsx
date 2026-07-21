@@ -9,7 +9,7 @@ import type { DesignPack, Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "@web/lib/editor-store";
 import { withFlushedProject } from "@web/lib/debounced-save";
 import { projectJsonRequest } from "@web/lib/project-api-client";
-import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "@web/components/editor-ui";
 
 async function applyResource(id: string, layoutId: string, source: "built-in" | "project"): Promise<Project> {
   const { body } = await projectJsonRequest<Record<string, unknown>>("/api/themes", {

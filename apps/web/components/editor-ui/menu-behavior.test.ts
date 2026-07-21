@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   handleMenuKeyboardNavigation,
   shouldOpenMenuUpward,
-} from "./menu-behavior.js";
+} from "@web/components/editor-ui/menu-behavior.js";
 
 describe("menu behavior", () => {
   it("opens upward when the rendered menu does not fit below and has more room above", () => {

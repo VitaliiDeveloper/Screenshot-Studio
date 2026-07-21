@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import type { SelectionRef } from "./editor-selection.js";
+import type { SelectionRef } from "@web/lib/editor-selection.js";
 import {
   recordProjectChange,
   redoProjectChange,
   undoProjectChange,
   type LayoutContentSnapshot,
-} from "./editor-history.js";
+} from "@web/lib/editor-history.js";
 
 function makeProject(id: string, screenId: string, elementId: string): Project {
   return {

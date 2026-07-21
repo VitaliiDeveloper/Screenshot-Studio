@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
-import { deriveStageModel } from "./stage-model";
+import { deriveStageModel } from "@web/components/editor-stage/stage-model";
 
 function fixture(mode: CanvasMode): DesignLayout {
   const screen = (id: string, width: number, height: number): DesignLayout["screens"][number] => ({

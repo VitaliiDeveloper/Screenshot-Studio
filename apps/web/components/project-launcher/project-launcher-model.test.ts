@@ -4,7 +4,7 @@ import {
   launcherActions,
   reduceLauncherImportState,
   type LauncherImportState,
-} from "./project-launcher-model.js";
+} from "@web/components/project-launcher/project-launcher-model.js";
 
 describe("project launcher model", () => {
   it("enables project creation and import while Recents remains a stable future extension point", () => {

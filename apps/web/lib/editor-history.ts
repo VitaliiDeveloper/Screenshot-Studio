@@ -5,7 +5,7 @@ import {
   type DesignLayout,
   type Project,
 } from "@screenshot-studio/core/model";
-import { reconcileSelection, type SelectionRef } from "./editor-selection.js";
+import { reconcileSelection, type SelectionRef } from "@web/lib/editor-selection.js";
 
 export interface LayoutContentSnapshot {
   screens: DesignLayout["screens"];

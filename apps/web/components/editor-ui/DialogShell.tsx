@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { cx, editorUi } from "./styles.js";
+import { cx, editorUi } from "@web/components/editor-ui/styles.js";
 
 export const DIALOG_EXIT_DURATION_MS = 180;
 

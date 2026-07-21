@@ -26,8 +26,8 @@ import {
   resolveActiveProjectAssetUrl,
   setProjectRevision,
 } from "@web/lib/save-project";
-import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
-import { reconcileFontMutationResponse } from "./font-manager-model";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "@web/components/editor-ui";
+import { reconcileFontMutationResponse } from "@web/components/font-manager-model";
 
 type PendingAction = "upload" | "google" | "remove" | null;
 

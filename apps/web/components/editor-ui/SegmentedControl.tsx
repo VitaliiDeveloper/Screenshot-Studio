@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as React from "react";
 import type { ReactNode } from "react";
-import { cx, editorUi } from "./styles.js";
+import { cx, editorUi } from "@web/components/editor-ui/styles.js";
 
 export type SegmentedControlOption<Value extends string> = Readonly<{
   value: Value;

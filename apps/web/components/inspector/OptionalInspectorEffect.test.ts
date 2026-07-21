@@ -3,7 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { editorUi } from "@web/components/editor-ui/styles.js";
-import { OptionalInspectorEffect } from "./OptionalInspectorEffect.js";
+import { OptionalInspectorEffect } from "@web/components/inspector/OptionalInspectorEffect.js";
 
 Object.assign(globalThis, { React });
 

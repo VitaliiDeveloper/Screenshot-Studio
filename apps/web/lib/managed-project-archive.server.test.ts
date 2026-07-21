@@ -5,10 +5,10 @@ import { join } from "node:path";
 import JSZip from "jszip";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { acquireProjectMutationLock, projectRevision } from "@screenshot-studio/core/storage";
-import { ManagedProjectArchiveService } from "./managed-project-archive.server.js";
-import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { ManagedProjectImportService, type ProjectImportFile } from "./managed-project-import.server.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import { ManagedProjectArchiveService } from "@web/lib/managed-project-archive.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { ManagedProjectImportService, type ProjectImportFile } from "@web/lib/managed-project-import.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 
 const temporaryRoots: string[] = [];
 

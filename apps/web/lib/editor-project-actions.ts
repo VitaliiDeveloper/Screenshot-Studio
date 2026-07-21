@@ -15,8 +15,8 @@ import {
   type ScreenSetMode,
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
-import type { SelectionRef } from "./editor-selection.js";
-import type { ProjectMutationResult } from "./editor-screen-mutations.js";
+import type { SelectionRef } from "@web/lib/editor-selection.js";
+import type { ProjectMutationResult } from "@web/lib/editor-screen-mutations.js";
 
 export function createStoreOutputFamily(
   project: Project,

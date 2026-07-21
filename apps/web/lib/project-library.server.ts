@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
-import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
-import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
-import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-project-catalog.server.js";
+import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 import {
   recentProjectsStore,
   type RecentProjectList,
-} from "./recent-projects.server.js";
+} from "@web/lib/recent-projects.server.js";
 import {
   projectSessionRegistry,
   type OpenedProjectSource,
   type ProjectSession,
   type ProjectSessionRegistry,
-} from "./project-session.server.js";
+} from "@web/lib/project-session.server.js";
 
 const MANAGED_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const RECENT_ID_PATTERN = /^recent_[0-9a-f]{32}$/;

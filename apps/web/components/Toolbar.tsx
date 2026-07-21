@@ -16,18 +16,18 @@ import {
 import { layoutLocales } from "@screenshot-studio/core/model";
 import type { WorkspaceView } from "@web/lib/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
-import { ExportDialog } from "./ExportDialog";
-import { cx, editorUi, MenuSelect } from "./editor-ui";
+import { ExportDialog } from "@web/components/ExportDialog";
+import { cx, editorUi, MenuSelect } from "@web/components/editor-ui";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { LayoutSelector } from "./LayoutSelector";
+import { LayoutSelector } from "@web/components/LayoutSelector";
 import {
   nextToolbarDensity,
   toolbarGap,
   resolveToolbarDensityProbe,
   toolbarDensityProbeTarget,
   type ToolbarDensity,
-} from "./toolbar/toolbar-density";
-import { ToolbarOverflowMenu } from "./toolbar/ToolbarOverflowMenu";
+} from "@web/components/toolbar/toolbar-density";
+import { ToolbarOverflowMenu } from "@web/components/toolbar/ToolbarOverflowMenu";
 
 const EMPTY_LOCALES: string[] = [];
 const toolbarMotion = "transition-opacity duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] [&_button]:duration-[var(--editor-motion-fast)] [&_button]:ease-[var(--editor-motion-ease)]";

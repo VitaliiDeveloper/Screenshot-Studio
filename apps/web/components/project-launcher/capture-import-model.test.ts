@@ -7,7 +7,7 @@ import {
   reduceCaptureImportState,
   type CaptureImportCurrentTarget,
   type CaptureImportState,
-} from "./capture-import-model.js";
+} from "@web/components/project-launcher/capture-import-model.js";
 
 const currentTarget: CaptureImportCurrentTarget = {
   projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

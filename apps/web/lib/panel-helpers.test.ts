@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { elementLabel, viewToArrayIndex } from "./panel-helpers.js";
+import { elementLabel, viewToArrayIndex } from "@web/lib/panel-helpers.js";
 
 describe("elementLabel", () => {
   it("uses the name when present", () => {

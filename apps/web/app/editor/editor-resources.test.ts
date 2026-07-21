@@ -11,7 +11,7 @@ import {
   runEditorResourceReload,
   selectEditorResourceSerializer,
   type EditorResourceSerializer,
-} from "./editor-resources";
+} from "@web/app/editor/editor-resources";
 import { editorStore } from "@web/lib/editor-store";
 import {
   clearProjectPersistenceIdentity,

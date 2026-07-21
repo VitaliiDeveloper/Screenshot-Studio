@@ -3,8 +3,8 @@
 
 import { useRef, useState } from "react";
 import type { Element } from "@screenshot-studio/core/model";
-import type { StageProjection } from "./stage-model.js";
-import { deriveInlineTextStyle } from "./inline-text-editing-model.js";
+import type { StageProjection } from "@web/components/editor-stage/stage-model.js";
+import { deriveInlineTextStyle } from "@web/components/editor-stage/inline-text-editing-model.js";
 
 export interface InlineTextEditingState {
   screenId: string;

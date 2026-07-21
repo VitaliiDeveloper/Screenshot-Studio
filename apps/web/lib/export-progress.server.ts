@@ -3,7 +3,7 @@ import {
   EXPORT_OPERATION_ID_PATTERN,
   type ExportProgressPhase,
   type ExportProgressSnapshot,
-} from "./export-progress.js";
+} from "@web/lib/export-progress.js";
 
 interface ExportProgressEntry extends ExportProgressSnapshot {
   expiresAt: number;

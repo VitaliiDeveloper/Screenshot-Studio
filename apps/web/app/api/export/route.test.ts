@@ -8,8 +8,8 @@ import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { handleExportPost, type ExportRouteDependencies } from "./handler.js";
-import { POST } from "./route.js";
+import { handleExportPost, type ExportRouteDependencies } from "@web/app/api/export/handler.js";
+import { POST } from "@web/app/api/export/route.js";
 
 const temporaryDirectories: string[] = [];
 const originalInitCwd = process.env.INIT_CWD;

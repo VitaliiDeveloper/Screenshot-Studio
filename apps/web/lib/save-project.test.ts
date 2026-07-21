@@ -43,7 +43,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
   vi.resetModules();
-  api = await import("./save-project.js") as unknown as RevisionAwareSaveProjectModule;
+  api = await import("@web/lib/save-project.js") as unknown as RevisionAwareSaveProjectModule;
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
 });

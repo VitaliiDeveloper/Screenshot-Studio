@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
-import { AppHomeShell } from "./AppHomeShell.js";
+import { AppHomeShell } from "@web/components/project-launcher/AppHomeShell.js";
 
 vi.mock("../ScreenThumbnail.js", () => ({
   ScreenThumbnail: () => createElement("img", { alt: "" }),

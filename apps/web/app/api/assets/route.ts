@@ -4,7 +4,7 @@ import {
   withProjectMutationRequest,
   withProjectReadRequest,
 } from "@web/lib/project-request-fence.server.js";
-import { handleAssetPost } from "./handler.js";
+import { handleAssetPost } from "@web/app/api/assets/handler.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

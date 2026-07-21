@@ -6,7 +6,7 @@ import {
   importProject,
   type BrowserProjectImportSource,
   type ProjectImportTransportOptions,
-} from "./project-import-client.js";
+} from "@web/lib/project-import-client.js";
 
 function browserFile(name: string, contents: string, relativePath?: string): File {
   const file = new Blob([contents], { type: "application/octet-stream" }) as File;

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { parseProject } from "@screenshot-studio/core/model";
 import type { ProjectLibraryEntry } from "@web/lib/project-library-client.js";
-import { closeProjectActionsMenu, ProjectGallery } from "./ProjectGallery.js";
+import { closeProjectActionsMenu, ProjectGallery } from "@web/components/project-launcher/ProjectGallery.js";
 
 vi.mock("../ScreenThumbnail.js", () => ({
   ScreenThumbnail: () => createElement("img", { alt: "" }),

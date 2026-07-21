@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import type { ActiveProjectSelection } from "./project-session.js";
-import { loadProjectHomeData } from "./project-home-client.js";
+import type { ActiveProjectSelection } from "@web/lib/project-session.js";
+import { loadProjectHomeData } from "@web/lib/project-home-client.js";
 
 const selection = {
   sessionId: "session",

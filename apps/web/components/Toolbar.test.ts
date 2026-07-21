@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   toolbarDensityProbeFocusRestoration,
   toolbarDensityTransitionFocusPolicy,
-} from "./Toolbar";
+} from "@web/components/Toolbar";
 
 describe("toolbar responsive labels", () => {
   it("keeps project navigation in the tool rail without replacing Workspace controls", () => {
@@ -21,8 +21,10 @@ describe("toolbar responsive labels", () => {
 
     expect(source).toContain("nextToolbarDensity,");
     expect(source).toContain("toolbarGap,");
-    expect(source).toContain('from "./toolbar/toolbar-density";');
-    expect(source).toContain('import { ToolbarOverflowMenu } from "./toolbar/ToolbarOverflowMenu";');
+    expect(source).toContain('from "@web/components/toolbar/toolbar-density";');
+    expect(source).toContain(
+      'import { ToolbarOverflowMenu } from "@web/components/toolbar/ToolbarOverflowMenu";',
+    );
     expect(source).toContain("nextToolbarDensity({");
     expect(source).toContain("toolbarGap({");
     expect(source).toContain("<ToolbarOverflowMenu");

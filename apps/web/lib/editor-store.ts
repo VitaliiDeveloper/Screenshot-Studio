@@ -29,19 +29,19 @@ import {
   reconcileSelection,
   toggleSelection,
   type SelectionRef,
-} from "./editor-selection.js";
+} from "@web/lib/editor-selection.js";
 import {
   applyMatchingElementPatch,
   type ElementPatchRequest,
-} from "./editor-element-patch.js";
-import { forEachSelectedElement } from "./editor-selection-mutations.js";
+} from "@web/lib/editor-element-patch.js";
+import { forEachSelectedElement } from "@web/lib/editor-selection-mutations.js";
 import {
   recordProjectChange,
   redoProjectChange,
   selectionForProject,
   type LayoutContentSnapshot,
   undoProjectChange,
-} from "./editor-history.js";
+} from "@web/lib/editor-history.js";
 import {
   appendBlankScreen,
   appendClonedScreen,
@@ -52,7 +52,7 @@ import {
   reorderScreenElements,
   resizeProjectArtboards,
   setScreenBackground,
-} from "./editor-screen-mutations.js";
+} from "@web/lib/editor-screen-mutations.js";
 import {
   changeProjectLocaleDirection,
   changeOutputFamilyScreenSetMode,
@@ -61,7 +61,7 @@ import {
   createStoreTargetVariant,
   deleteProjectLocale,
   deleteStoreTargetVariant,
-} from "./editor-project-actions.js";
+} from "@web/lib/editor-project-actions.js";
 
 export {
   applyElementPatch,
@@ -69,7 +69,7 @@ export {
   type ElementPatch,
   type ElementPatchFor,
   type ElementPatchRequest,
-} from "./editor-element-patch.js";
+} from "@web/lib/editor-element-patch.js";
 
 export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
   ElementPatchRequest<T> & { id: string; screenId?: string };

@@ -6,8 +6,8 @@ import {
   discardActiveProjectPersistence,
   hasPendingProjectSave,
   scheduleSave,
-} from "./debounced-save.js";
-import { editorStore } from "./editor-store.js";
+} from "@web/lib/debounced-save.js";
+import { editorStore } from "@web/lib/editor-store.js";
 import type { Project } from "@screenshot-studio/core/model";
 
 const fakeProject = { meta: { name: "X" } } as unknown as Project;

@@ -17,7 +17,7 @@ import {
   canPreviewCaptureImport,
   type CaptureImportDraft,
   type CaptureImportState,
-} from "./capture-import-model";
+} from "@web/components/project-launcher/capture-import-model";
 
 const PREVIEW_ITEM_LIMIT = 50;
 

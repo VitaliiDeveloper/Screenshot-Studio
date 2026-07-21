@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ProjectDeletionDialog,
   type ProjectDeletionDialogState,
-} from "./ProjectDeletionDialog.js";
+} from "@web/components/project-launcher/ProjectDeletionDialog.js";
 
 function render(
   state: ProjectDeletionDialogState,

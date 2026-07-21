@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleTemplateGet, handleTemplatePost } from "./handler.js";
+import { handleTemplateGet, handleTemplatePost } from "@web/app/api/templates/handler.js";
 import {
   withProjectMutationRequest,
   withProjectReadRequest,

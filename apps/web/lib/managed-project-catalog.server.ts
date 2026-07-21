@@ -3,14 +3,14 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
-import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import {
   assertManagedProjectLifecycleLockHeld,
   ensureManagedStorageRoot,
   validateManagedStorageChildRoot,
   type ManagedProjectLifecycleLock,
-} from "./managed-project-lifecycle-lock.server.js";
-import { acquireStorageLock } from "./storage-lock.server.js";
+} from "@web/lib/managed-project-lifecycle-lock.server.js";
+import { acquireStorageLock } from "@web/lib/storage-lock.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;

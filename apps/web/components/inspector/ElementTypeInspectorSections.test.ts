@@ -3,7 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DeviceFrameElement, ScreenshotElement, TextElement } from "@screenshot-studio/core/model";
-import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections.js";
+import { ElementTypeInspectorSections } from "@web/components/inspector/ElementTypeInspectorSections.js";
 
 const text: TextElement = {
   id: "copy",

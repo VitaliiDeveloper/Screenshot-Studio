@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import JSZip, { type JSZipObject } from "jszip";
 import { PassThrough } from "node:stream";
-import type { ProjectImportFile } from "./managed-project-import.server.js";
+import type { ProjectImportFile } from "@web/lib/managed-project-import.server.js";
 
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_SIGNATURE = 0x02014b50;

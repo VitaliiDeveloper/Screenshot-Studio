@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleExportPost } from "./handler.js";
+import { handleExportPost } from "@web/app/api/export/handler.js";
 import { withProjectMutationRequest } from "@web/lib/project-request-fence.server.js";
 
 /**

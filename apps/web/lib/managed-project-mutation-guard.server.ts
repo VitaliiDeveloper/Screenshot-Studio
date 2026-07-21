@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { realpath } from "node:fs/promises";
 import { join } from "node:path";
-import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
+import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
 import {
   withManagedProjectLifecycleLock,
   type ManagedProjectLifecycleLock,
   type ManagedProjectLifecycleLockOptions,
-} from "./managed-project-lifecycle-lock.server.js";
+} from "@web/lib/managed-project-lifecycle-lock.server.js";
 import {
   resolveManagedProjectStorageConfig,
   type ManagedProjectStorageConfig,
-} from "./managed-project-config.server.js";
-import type { ProjectSession } from "./project-session.server.js";
+} from "@web/lib/managed-project-config.server.js";
+import type { ProjectSession } from "@web/lib/project-session.server.js";
 
 export interface ManagedProjectMutationGuardDependencies {
   config?: ManagedProjectStorageConfig;

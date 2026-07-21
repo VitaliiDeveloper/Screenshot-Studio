@@ -6,7 +6,7 @@ import {
 import type {
   ActiveProjectDescriptor,
   ActiveProjectSelection,
-} from "./project-session.js";
+} from "@web/lib/project-session.js";
 
 export type ProjectCreationTransport = (
   input: ProjectCreationInput,

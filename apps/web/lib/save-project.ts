@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
-import { isStrongQuotedETag } from "./http-etag.js";
+import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 
 let projectRevision: string | undefined;
 let projectId: string | undefined;

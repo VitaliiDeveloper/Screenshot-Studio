@@ -5,9 +5,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { createProjectScaffold } from "@screenshot-studio/core/scaffold";
-import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { ManagedProjectRepository } from "./managed-project-repository.server.js";
-import { ManagedProjectCreationService } from "./managed-project-creation.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
+import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 
 const roots: string[] = [];
 const specs = parseStoreSpecs({

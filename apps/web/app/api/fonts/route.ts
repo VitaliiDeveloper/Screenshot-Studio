@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleFontDelete, handleFontGet, handleFontPost } from "./handler.js";
+import { handleFontDelete, handleFontGet, handleFontPost } from "@web/app/api/fonts/handler.js";
 import {
   withProjectMutationRequest,
   withProjectReadRequest,

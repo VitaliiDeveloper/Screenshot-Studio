@@ -22,9 +22,9 @@ surfaces use core model and rendering helpers rather than maintaining parallel i
 Inside `core`, dependencies between top-level domains use the package's public
 `@screenshot-studio/core/<domain>` subpaths; relative imports remain local to one domain. This keeps
 the internal dependency graph aligned with the contracts available to web and CLI.
-Inside `apps/web`, dependencies outside the importing file's directory use the stable `@web/*`
-alias; relative imports are reserved for modules in the same directory. ESLint enforces this boundary
-so moving editor, component, or API files cannot silently reintroduce fragile parent traversals.
+Inside `apps/web`, all web-host dependencies use the stable `@web/*` alias, including modules in the
+same directory. ESLint rejects relative module imports so moving editor, component, or API files does
+not change their specifiers or silently reintroduce filesystem traversal.
 Root-owned E2E tests consume core and CLI through the same `@screenshot-studio/*` public subpaths as
 runtime code; they never reach into `packages/*/src` by filesystem traversal.
 

@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { LauncherExamples } from "./LauncherExamples.js";
+import { LauncherExamples } from "@web/components/project-launcher/LauncherExamples.js";
 
 describe("LauncherExamples", () => {
   it("renders four keyboard-reachable workflows with current terminology", () => {

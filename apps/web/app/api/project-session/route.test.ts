@@ -10,8 +10,8 @@ import {
 import {
   handleProjectSessionDelete,
   handleProjectSessionGet,
-} from "./handler.js";
-import * as projectSessionRoute from "./route.js";
+} from "@web/app/api/project-session/handler.js";
+import * as projectSessionRoute from "@web/app/api/project-session/route.js";
 
 const temporaryRoots: string[] = [];
 

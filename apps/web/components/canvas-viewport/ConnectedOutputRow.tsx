@@ -3,8 +3,8 @@
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { WorkspaceOutputFamily } from "@web/lib/editor-workspace";
 import { EditorStage } from "@web/components/EditorStage";
-import { OutputFamilySection } from "./OutputFamilySection";
-import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";
+import { OutputFamilySection } from "@web/components/canvas-viewport/OutputFamilySection";
+import { ScreenPreviewMetadata, ScreenPreviewTitle } from "@web/components/canvas-viewport/ScreenPreviewLabels";
 
 export function ConnectedOutputRow({
   row,

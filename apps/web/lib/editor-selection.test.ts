@@ -8,7 +8,7 @@ import {
   selectionBounds,
   toggleSelection,
   type SelectionRef,
-} from "./editor-selection.js";
+} from "@web/lib/editor-selection.js";
 
 const first: SelectionRef = { screenId: "a", elementId: "same" };
 const second: SelectionRef = { screenId: "b", elementId: "same" };

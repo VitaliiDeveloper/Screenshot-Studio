@@ -31,9 +31,9 @@ import {
 } from "@web/lib/editor-workspace";
 import { editorStore } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { LayersSection } from "./LayersSection";
-import { ScreensSection } from "./ScreensSection";
-import { cx, editorUi } from "./editor-ui";
+import { LayersSection } from "@web/components/LayersSection";
+import { ScreensSection } from "@web/components/ScreensSection";
+import { cx, editorUi } from "@web/components/editor-ui";
 
 const catalogIcons = {
   text: Type,

@@ -5,7 +5,7 @@ import type {
   GroupElement,
   Screen,
 } from "@screenshot-studio/core/model";
-import type { SelectionRef } from "./editor-selection.js";
+import type { SelectionRef } from "@web/lib/editor-selection.js";
 
 export type SelectedElementIndex = Map<string, Set<string>>;
 

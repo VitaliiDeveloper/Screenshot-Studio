@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { filterProjectImageAssets } from "./project-assets.js";
-import { listProjectImageAssets } from "./project-assets.server.js";
+import { filterProjectImageAssets } from "@web/lib/project-assets.js";
+import { listProjectImageAssets } from "@web/lib/project-assets.server.js";
 
 const cleanup: string[] = [];
 

@@ -2,7 +2,7 @@
 import {
   flushScheduledSave,
   saveLatestProject,
-} from "./debounced-save.js";
+} from "@web/lib/debounced-save.js";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -10,7 +10,7 @@ import {
   type WorkspacePanel,
   type WorkspaceTool,
   type WorkspaceView,
-} from "./editor-workspace.js";
+} from "@web/lib/editor-workspace.js";
 
 const STORAGE_PREFIX = "screenshot-studio:workspace-navigation:v1:";
 

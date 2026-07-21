@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { ActiveProjectDescriptor } from "./project-session.js";
+import type { ActiveProjectDescriptor } from "@web/lib/project-session.js";
 
 export type BrowserProjectImportSource =
   | { kind: "folder"; files: readonly File[] }

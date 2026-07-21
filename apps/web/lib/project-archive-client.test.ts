@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { downloadProjectArchive, requestProjectArchive } from "./project-archive-client.js";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client.js";
 
 describe("project archive client", () => {
   it("requests a revision-fenced archive ticket and validates its immutable Project revision", async () => {

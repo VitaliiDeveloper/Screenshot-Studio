@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { cx } from "./styles.js";
+import { cx } from "@web/components/editor-ui/styles.js";
 
 export type OutputIdentityRole = "master" | "variant";
 

@@ -5,7 +5,7 @@ import {
   fetchProjectLibrary,
   openProjectLibraryEntry,
   projectLibraryAssetUrl,
-} from "./project-library-client.js";
+} from "@web/lib/project-library-client.js";
 
 const project = JSON.parse(readFileSync("fixtures/sample/app-store-screenshots.json", "utf8")) as unknown;
 const entryId = "project_00000000000000000000000000000001";

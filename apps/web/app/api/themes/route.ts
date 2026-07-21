@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleThemeGet, handleThemePost } from "./handler.js";
+import { handleThemeGet, handleThemePost } from "@web/app/api/themes/handler.js";
 import {
   withProjectMutationRequest,
   withProjectReadRequest,

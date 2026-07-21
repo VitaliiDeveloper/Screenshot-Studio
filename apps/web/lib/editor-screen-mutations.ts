@@ -15,7 +15,7 @@ import {
   type Element,
   type Project,
 } from "@screenshot-studio/core/model";
-import { primarySelection, reconcileSelection, type SelectionRef } from "./editor-selection.js";
+import { primarySelection, reconcileSelection, type SelectionRef } from "@web/lib/editor-selection.js";
 
 export interface ProjectMutationResult {
   project: Project;

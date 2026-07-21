@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { RecentProjectsPanel } from "./RecentProjectsPanel.js";
+import { RecentProjectsPanel } from "@web/components/project-launcher/RecentProjectsPanel.js";
 
 const entry = {
   recentId: "recent_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

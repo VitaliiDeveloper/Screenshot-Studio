@@ -10,7 +10,7 @@ import {
   completeCaptureImportHandoff,
   isStaleCaptureImportError,
   resolveCaptureImportRecovery,
-} from "./useCaptureImportController.js";
+} from "@web/components/project-launcher/useCaptureImportController.js";
 
 const source = readFileSync(new URL("./useCaptureImportController.ts", import.meta.url), "utf8");
 

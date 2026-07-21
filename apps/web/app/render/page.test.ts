@@ -5,7 +5,7 @@ import { join } from "node:path";
 import * as React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { projectRevision } from "@screenshot-studio/core/storage";
-import RenderPage from "./page";
+import RenderPage from "@web/app/render/page";
 
 Object.assign(globalThis, { React });
 

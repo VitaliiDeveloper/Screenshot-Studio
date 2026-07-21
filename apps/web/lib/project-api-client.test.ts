@@ -4,8 +4,8 @@ import {
   clearProjectPersistenceIdentity,
   getProjectRevision,
   setProjectPersistenceIdentity,
-} from "./save-project.js";
-import { projectJsonRequest } from "./project-api-client.js";
+} from "@web/lib/save-project.js";
+import { projectJsonRequest } from "@web/lib/project-api-client.js";
 
 afterEach(() => clearProjectPersistenceIdentity());
 

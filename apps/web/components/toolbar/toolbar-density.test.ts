@@ -5,7 +5,7 @@ import {
   resolveToolbarDensityProbe,
   toolbarDensityProbeTarget,
   toolbarGap,
-} from "./toolbar-density";
+} from "@web/components/toolbar/toolbar-density";
 
 describe("nextToolbarDensity", () => {
   it("compacts labels before moving actions into overflow", () => {

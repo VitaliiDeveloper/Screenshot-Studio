@@ -3,14 +3,14 @@ import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
-import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import {
   MAX_RECENT_PROJECTS,
   RecentProjectsStore,
   parseRecentProjectsDocument,
-} from "./recent-projects.server.js";
-import type { ProjectSession, ProjectSessionRegistry } from "./project-session.server.js";
+} from "@web/lib/recent-projects.server.js";
+import type { ProjectSession, ProjectSessionRegistry } from "@web/lib/project-session.server.js";
 
 const roots: string[] = [];
 

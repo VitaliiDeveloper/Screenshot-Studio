@@ -6,7 +6,7 @@ import {
   marqueeHasMoved,
   resolveMarqueeSelection,
   stagePointerPosition,
-} from "./marquee-selection-model.js";
+} from "@web/components/editor-stage/marquee-selection-model.js";
 
 function shape(id: string, x: number, visible = true): Element {
   return {

@@ -7,7 +7,7 @@ import {
   requestProjectDeletionStatus,
   retryProjectDeletion,
   settleProjectDeletion,
-} from "./project-delete-client.js";
+} from "@web/lib/project-delete-client.js";
 
 const input = {
   projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

@@ -4,7 +4,7 @@ import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { parseProjectJson } from "@screenshot-studio/core/model";
 import { createProjectScaffold } from "@screenshot-studio/core/scaffold";
 import { describe, expect, it } from "vitest";
-import { launcherExampleWorkflows } from "./launcher-examples.js";
+import { launcherExampleWorkflows } from "@web/components/project-launcher/launcher-examples.js";
 
 describe("launcher example workflows", () => {
   it("exposes exactly the four closure workflows with unambiguous actions", () => {

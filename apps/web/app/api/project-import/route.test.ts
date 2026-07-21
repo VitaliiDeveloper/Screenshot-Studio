@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
-import { handleProjectImportPost } from "./handler.js";
-import { POST } from "./route.js";
+import { handleProjectImportPost } from "@web/app/api/project-import/handler.js";
+import { POST } from "@web/app/api/project-import/route.js";
 
 let root: string;
 let repository: ManagedProjectRepository;

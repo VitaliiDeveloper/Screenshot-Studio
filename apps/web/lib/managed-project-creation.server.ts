@@ -13,11 +13,11 @@ import {
   type ProjectScaffoldFile,
 } from "@screenshot-studio/core/scaffold";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
-import { resolveStoreSpecsPath } from "./store-specs-path.js";
+import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import {
   ManagedProjectRepository,
   type ManagedProjectRecord,
-} from "./managed-project-repository.server.js";
+} from "@web/lib/managed-project-repository.server.js";
 
 export type ManagedProjectCreationErrorCode =
   | "cancelled"

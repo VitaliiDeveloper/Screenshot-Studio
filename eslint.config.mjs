@@ -55,9 +55,8 @@ export default tseslint.config(
     },
   },
   {
-    // Parent-directory imports in the web host are fragile when files move between app,
-    // components, and lib. Keep same-directory imports local and use the stable web alias
-    // for every dependency outside the current directory.
+    // All web-host dependencies use one root-stable alias so their specifiers remain unchanged
+    // when files move within app, components, or lib.
     files: ["apps/web/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -65,8 +64,8 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["../**"],
-              message: "Import parent-directory dependencies through @web/*.",
+              regex: "^\\.",
+              message: "Import web-host dependencies through @web/*.",
             },
           ],
         },

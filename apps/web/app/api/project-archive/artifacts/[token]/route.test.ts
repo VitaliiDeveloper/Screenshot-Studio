@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createProjectArchiveArtifactStore, type ProjectArchiveArtifactStore } from "@web/lib/project-archive-artifacts.server.js";
-import { handleProjectArchiveArtifactGet } from "./handler.js";
-import { GET } from "./route.js";
+import { handleProjectArchiveArtifactGet } from "@web/app/api/project-archive/artifacts/[token]/handler.js";
+import { GET } from "@web/app/api/project-archive/artifacts/[token]/route.js";
 
 let root: string;
 let sourcePath: string;

@@ -34,9 +34,9 @@ import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/l
 import { isSelected } from "@web/lib/editor-selection";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "@web/lib/panel-helpers";
-import { SortableRow } from "./SortableRow";
-import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
-import { cx, editorUi } from "./editor-ui";
+import { SortableRow } from "@web/components/SortableRow";
+import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "@web/components/editor-ui/menu-behavior.js";
+import { cx, editorUi } from "@web/components/editor-ui";
 
 export function LayersHeading({
   count,

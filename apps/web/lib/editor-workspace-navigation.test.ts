@@ -6,7 +6,7 @@ import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
   type WorkspaceNavigationState,
-} from "./editor-workspace-navigation.js";
+} from "@web/lib/editor-workspace-navigation.js";
 
 class MemoryStorage implements Storage {
   readonly values = new Map<string, string>();

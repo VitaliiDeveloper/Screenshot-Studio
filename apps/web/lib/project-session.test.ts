@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { closeActiveProject, fetchActiveProject } from "./project-session.js";
+import { closeActiveProject, fetchActiveProject } from "@web/lib/project-session.js";
 
 describe("project-session client helpers", () => {
   it("returns null for a 204 active-session response", async () => {

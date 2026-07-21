@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleExportArtifactGet } from "./handler.js";
+import { handleExportArtifactGet } from "@web/app/api/export/artifacts/[token]/handler.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

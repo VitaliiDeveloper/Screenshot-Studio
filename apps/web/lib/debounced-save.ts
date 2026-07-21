@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
-import { editorStore } from "./editor-store.js";
-import { clearProjectPersistenceIdentity, saveProject } from "./save-project.js";
+import { editorStore } from "@web/lib/editor-store.js";
+import { clearProjectPersistenceIdentity, saveProject } from "@web/lib/save-project.js";
 
 /**
  * Returns a debounced version of `saveFn` that coalesces rapid calls into one, keeping only the

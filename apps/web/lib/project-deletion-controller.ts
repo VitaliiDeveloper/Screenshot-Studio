@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-import { withDrainedProjectSaves } from "./debounced-save.js";
+import { withDrainedProjectSaves } from "@web/lib/debounced-save.js";
 import {
   advanceProjectDeletionAttempt,
   createProjectDeletionCredentials,
   type ProjectDeletionAttempt,
   type ProjectDeletionAttemptResult,
   type ProjectDeletionRequest,
-} from "./project-delete-client.js";
-import { loadProjectHomeData, type ProjectHomeData } from "./project-home-client.js";
+} from "@web/lib/project-delete-client.js";
+import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/project-home-client.js";
 
 export interface ProjectDeletionAttemptHolder {
   attempt: ProjectDeletionAttempt | null;

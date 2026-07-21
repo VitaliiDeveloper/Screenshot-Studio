@@ -4,7 +4,7 @@ import {
   LAUNCHER_DIALOG_EXIT_MS,
   launcherDialogExitDelay,
   requestLauncherDialogExit,
-} from "./project-dialog-motion.js";
+} from "@web/components/project-launcher/project-dialog-motion.js";
 
 describe("project dialog motion", () => {
   it("keeps the first close intent and ignores closing during atomic publication", () => {

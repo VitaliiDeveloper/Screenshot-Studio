@@ -7,9 +7,9 @@ import type { Element } from "@screenshot-studio/core/model";
 import type { CommonElementPatch } from "@web/lib/editor-element-patch.js";
 import { isSelected, type SelectionRef } from "@web/lib/editor-selection.js";
 import { snapElementDrag, type SnapGuide } from "@web/lib/editor-snapping.js";
-import type { StageProjection } from "./stage-model.js";
-import { transformedDimensions } from "./element-transform-model.js";
-import { nodeSelectionKey } from "./use-transformer-selection.js";
+import type { StageProjection } from "@web/components/editor-stage/stage-model.js";
+import { transformedDimensions } from "@web/components/editor-stage/element-transform-model.js";
+import { nodeSelectionKey } from "@web/components/editor-stage/use-transformer-selection.js";
 
 export interface ElementTransformInput {
   projections: readonly StageProjection[];

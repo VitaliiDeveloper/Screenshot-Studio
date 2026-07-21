@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   readActiveLayoutPreference,
   writeActiveLayoutPreference,
-} from "./editor-layout-preference.js";
+} from "@web/lib/editor-layout-preference.js";
 
 class MemoryStorage implements Storage {
   readonly values = new Map<string, string>();

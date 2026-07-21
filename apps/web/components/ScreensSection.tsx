@@ -22,12 +22,12 @@ import {
 import { workspaceEditingScope } from "@web/lib/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { SortableRow } from "./SortableRow";
-import { AddMenu, ConfirmationDialog, editorUi } from "./editor-ui";
+import { SortableRow } from "@web/components/SortableRow";
+import { AddMenu, ConfirmationDialog, editorUi } from "@web/components/editor-ui";
 import type { ResourceDialog } from "@web/lib/editor-workspace";
 
 const DynamicScreenThumbnail = dynamic(
-  () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
+  () => import("@web/components/ScreenThumbnail").then((module) => module.ScreenThumbnail),
   { ssr: false },
 );
 

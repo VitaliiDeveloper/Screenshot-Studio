@@ -8,8 +8,8 @@ import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { handleThemeGet, handleThemePost } from "./handler.js";
-import { GET, POST } from "./route.js";
+import { handleThemeGet, handleThemePost } from "@web/app/api/themes/handler.js";
+import { GET, POST } from "@web/app/api/themes/route.js";
 
 let dir: string;
 let projectPath: string;

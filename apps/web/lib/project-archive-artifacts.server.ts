@@ -3,7 +3,7 @@ import {
   createExportArtifactStore,
   type ExportArtifactLookup,
   type ExportArtifactStoreDependencies,
-} from "./export-artifacts.server.js";
+} from "@web/lib/export-artifacts.server.js";
 
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip" as const;
 

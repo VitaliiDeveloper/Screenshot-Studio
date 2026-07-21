@@ -15,7 +15,7 @@ import {
   isProjectTemplateSupported,
   type ProjectCreationForm,
   type ProjectCreationState,
-} from "./project-creation-model";
+} from "@web/components/project-launcher/project-creation-model";
 
 type OpenProjectCreationState = Exclude<ProjectCreationState, { status: "closed" }>;
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { DelayedOpeningState, OPENING_OVERLAY_DELAY_MS } from "./delayed-opening-state.js";
+import { DelayedOpeningState, OPENING_OVERLAY_DELAY_MS } from "@web/components/project-launcher/delayed-opening-state.js";
 
 describe("DelayedOpeningState", () => {
   it("shows an opening overlay only after 200 ms and clears on completion", () => {

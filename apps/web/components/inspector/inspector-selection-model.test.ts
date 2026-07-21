@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import { deriveInspectorSelection } from "./inspector-selection-model";
+import { deriveInspectorSelection } from "@web/components/inspector/inspector-selection-model";
 
 function fixture(): Project {
   const element = (locked: boolean, visible: boolean) => ({

@@ -6,7 +6,7 @@ import {
   readIdentifiedProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
-import { RenderStage } from "./RenderStage";
+import { RenderStage } from "@web/app/render/RenderStage";
 
 /**
  * Headless render host (docs/editor.md). One dev-only route, no editor chrome.
