@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { exportPixelRatio } from "./pixel-ratio.js";
 import { listStoreTargets, type StoreSize, type StoreSpecs } from "./specs.js";
-import type { Screen } from "../model/index.js";
+import type { Screen } from "@screenshot-studio/core/model";
 
 /**
  * Framework-free artboard/target compatibility (spec Slice 3). Classifies an artboard against a

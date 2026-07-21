@@ -9,18 +9,19 @@ import {
   cloneElementWithFreshIds,
   elementLeaves,
   ensureStoreTargetVariant,
+  fontIdentityKey,
   fitElementsToArtboard,
+  getLayout,
+  isBuiltInFontIdentity,
+  replaceLayout,
   setScreenDirection,
+  DEFAULT_TEXT_FONT,
   type CreateScreenInput,
+  type FontIdentity,
   type Project as ProjectModel,
   type Screen,
-} from "../model/index.js";
-import { fontIdentityKey } from "../model/font-identity.js";
-import type { FontIdentity } from "../model/font-identity.js";
-import { DEFAULT_TEXT_FONT, isBuiltInFontIdentity } from "../model/built-in-fonts.js";
-import { getLayout, replaceLayout } from "../model/project-layout.js";
-import { exportPixelRatio } from "../export/pixel-ratio.js";
-import { findStoreTarget, type StoreSpecs } from "../export/specs.js";
+} from "@screenshot-studio/core/model";
+import { exportPixelRatio, findStoreTarget, type StoreSpecs } from "@screenshot-studio/core/export";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),

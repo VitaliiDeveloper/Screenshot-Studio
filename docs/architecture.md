@@ -19,6 +19,9 @@ apps/web       → Next.js editor, API routes, and the shared browser render tar
 `core` is framework-agnostic and does not depend on Next.js, HTTP, or a particular project picker.
 The web shell owns selection and UI; the CLI owns command parsing and process orchestration. Both
 surfaces use core model and rendering helpers rather than maintaining parallel implementations.
+Inside `core`, dependencies between top-level domains use the package's public
+`@screenshot-studio/core/<domain>` subpaths; relative imports remain local to one domain. This keeps
+the internal dependency graph aligned with the contracts available to web and CLI.
 
 | Concern | Contract |
 |---|---|

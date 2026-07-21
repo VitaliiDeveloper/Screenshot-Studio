@@ -2,7 +2,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { parseProjectJson, type Project } from "../model/index.js";
+import { parseProjectJson, type Project } from "@screenshot-studio/core/model";
 import { writeProjectAtomic } from "./project-file.js";
 
 export {

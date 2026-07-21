@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { SCREEN_DEVICES_BY_PLATFORM } from "../model/index.js";
+import { SCREEN_DEVICES_BY_PLATFORM } from "@screenshot-studio/core/model";
 import { parseStoreSpecs, STORE_OUTPUT_TARGETS_KEY } from "./specs.js";
 
 // parseStoreSpecs drops the "$comment" key, so specs holds only real platforms.

@@ -4,12 +4,14 @@ import {
   FontWeight,
   HexColor,
   THEME_ROLES,
+  DEFAULT_TEXT_FONT,
+  fontIdentityKey,
+  getLayout,
+  isBuiltInFontIdentity,
+  mapElementLeaves,
+  replaceLayout,
   type Project as ProjectModel,
-} from "../model/schema.js";
-import { fontIdentityKey } from "../model/font-identity.js";
-import { DEFAULT_TEXT_FONT, isBuiltInFontIdentity } from "../model/built-in-fonts.js";
-import { mapElementLeaves } from "../model/element-tree.js";
-import { getLayout, replaceLayout } from "../model/project-layout.js";
+} from "@screenshot-studio/core/model";
 
 const ThemeFont = z
   .object({

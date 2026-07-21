@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FontAsset } from "../model/schema.js";
+import type { FontAsset } from "@screenshot-studio/core/model";
 import {
   ProjectFontRegistrationError,
   registerFont,

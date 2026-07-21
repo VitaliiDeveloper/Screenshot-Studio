@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from "zod";
-import { collectImageUrls } from "../assets/index.js";
-import type { StoreSpecs } from "../export/index.js";
+import { collectImageUrls } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   CanvasMode,
   HexColor,
@@ -13,15 +13,16 @@ import {
   removeScreenFromProject,
   reorderScreenInProject,
   setOutputFamilyScreenSetMode,
+  getLayout,
+  replaceLayout,
   type Platform,
   type Project as ProjectModel,
-} from "../model/index.js";
-import { getLayout, replaceLayout } from "../model/project-layout.js";
+} from "@screenshot-studio/core/model";
 import {
   createScreenFromTemplate,
   findBuiltInTemplate,
   listBuiltInProjectStarterMetadata,
-} from "../templates/index.js";
+} from "@screenshot-studio/core/templates";
 
 export const PROJECT_DOCUMENT_FILENAME = "app-store-screenshots.json";
 export const PROJECT_NAME_MAX_LENGTH = 120;

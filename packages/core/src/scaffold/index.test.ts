@@ -2,9 +2,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildBundleEntries, parseStoreSpecs, validateBundleArtboards, type StoreSpecs } from "../export/index.js";
-import { parseProject, screenSetModeFor } from "../model/index.js";
-import { applyDesignPack, listBuiltInDesignPacks } from "../themes/index.js";
+import { buildBundleEntries, parseStoreSpecs, validateBundleArtboards, type StoreSpecs } from "@screenshot-studio/core/export";
+import { parseProject, screenSetModeFor } from "@screenshot-studio/core/model";
+import { applyDesignPack, listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
 import {
   PROJECT_NAME_MAX_LENGTH,
   ProjectScaffoldInput,

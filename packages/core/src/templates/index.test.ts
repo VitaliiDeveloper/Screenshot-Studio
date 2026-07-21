@@ -2,14 +2,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseStoreSpecs } from "../export/specs.js";
-import { buildBundleEntries, validateBundleArtboards } from "../export/bundle.js";
+import {
+  buildBundleEntries,
+  parseStoreSpecs,
+  validateBundleArtboards,
+} from "@screenshot-studio/core/export";
 import {
   ensureStoreTargetVariant,
   setLocaleDirection,
   setOutputFamilyScreenSetMode,
-} from "../model/index.js";
-import type { Project } from "../model/schema.js";
+  type Project,
+} from "@screenshot-studio/core/model";
 import { createScreenFromTemplate, listBuiltInTemplates, ScreenTemplate, type ScreenTemplate as Template } from "./index.js";
 
 const storeSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));

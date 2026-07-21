@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Project } from "../model/schema.js";
-import { elementLeaves } from "../model/element-tree.js";
-import { getLayout } from "../model/project-layout.js";
-import type { ImageCache } from "../engine/node-config.js";
+import type { ImageCache } from "@screenshot-studio/core/engine";
+import { elementLeaves, getLayout, type Project } from "@screenshot-studio/core/model";
 
 /**
  * Browser-side image preloading — the asset analog of core/fonts (docs/architecture.md). The
@@ -14,7 +12,7 @@ import type { ImageCache } from "../engine/node-config.js";
  * URL). A failed asset is simply absent from the cache — the map renders a placeholder, the render
  * still completes.
  */
-export type { ImageCache } from "../engine/node-config.js";
+export type { ImageCache } from "@screenshot-studio/core/engine";
 
 /** Every distinct raster assetUrl in the project. Pure. */
 export function collectImageUrls(project: Project, layoutId?: string): string[] {

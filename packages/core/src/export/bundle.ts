@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Project, Screen } from "../model/index.js";
-import { getLayout } from "../model/index.js";
+import { getLayout, type Project, type Screen } from "@screenshot-studio/core/model";
 import { findStoreTarget, type StoreSize, type StoreSpecs } from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
 

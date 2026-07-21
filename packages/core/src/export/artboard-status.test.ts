@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { Screen } from "../model/index.js";
+import type { Screen } from "@screenshot-studio/core/model";
 import { parseStoreSpecs } from "./specs.js";
 import { artboardTargetStatus, artboardTargetStatuses } from "./artboard-status.js";
 

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { FontAsset } from "../model/schema.js";
-import { BUILT_IN_FONT_IDENTITIES } from "../model/built-in-fonts.js";
+import { BUILT_IN_FONT_IDENTITIES, type FontAsset } from "@screenshot-studio/core/model";
 
 /**
  * Browser-side font registration. Runs before any render so the project font is the

@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
 import { backgroundToNodeConfig, elementToNodeConfig, type ImageCache } from "./node-config.js";
-import { ICON_PATHS } from "../model/icons.js";
-import type { TextElement, ShapeElement, ScreenshotElement, ImageElement, IconElement, DeviceFrameElement, GroupElement } from "../model/schema.js";
+import {
+  ICON_PATHS,
+  type DeviceFrameElement,
+  type GroupElement,
+  type IconElement,
+  type ImageElement,
+  type ScreenshotElement,
+  type ShapeElement,
+  type TextElement,
+} from "@screenshot-studio/core/model";
 
 const baseText: TextElement = {
   id: "t1", type: "text", x: 10, y: 20, width: 300, height: 100,

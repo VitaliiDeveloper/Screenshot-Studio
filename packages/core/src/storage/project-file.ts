@@ -3,7 +3,7 @@ import { constants, type BigIntStats } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { link, lstat, mkdir, open, rename, rm, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { parseProjectJson, Project, type Project as ProjectModel } from "../model/index.js";
+import { parseProjectJson, Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import { withOptionalNoFollow } from "./open-flags.js";
 import {
   ProjectPathError,

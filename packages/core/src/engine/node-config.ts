@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import type Konva from "konva";
-import type { Background, Element, LayoutDirection, LinearGradientPaint, MediaCrop } from "../model/schema.js";
-import { assertNever } from "../model/assert-never.js";
-import { DEVICE_FRAME_SPECS } from "../model/device-frames.js";
-import { ICON_PATHS } from "../model/icons.js";
+import {
+  assertNever,
+  DEVICE_FRAME_SPECS,
+  ICON_PATHS,
+  type Background,
+  type Element,
+  type LayoutDirection,
+  type LinearGradientPaint,
+  type MediaCrop,
+} from "@screenshot-studio/core/model";
 
 /**
  * The single element→Konva-props map: both the static export renderer (`renderScreen`) and the

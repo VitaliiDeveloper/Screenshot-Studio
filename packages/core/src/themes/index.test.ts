@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { parseProject } from "../model/index.js";
-import type { Project } from "../model/schema.js";
+import { parseProject, type Project } from "@screenshot-studio/core/model";
 import {
   applyDesignPack,
   applyTheme,

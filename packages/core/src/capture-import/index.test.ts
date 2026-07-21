@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { Project, type Project as ProjectModel } from "../model/index.js";
+import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import {
   applyCaptureImportPlan,
   assertCaptureImportConfirmation,

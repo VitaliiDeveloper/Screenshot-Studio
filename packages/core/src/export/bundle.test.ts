@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { DesignLayout, Project } from "../model/index.js";
+import type { DesignLayout, Project } from "@screenshot-studio/core/model";
 import { parseStoreSpecs } from "./specs.js";
 import {
   buildBundleEntries,

@@ -37,6 +37,24 @@ export default tseslint.config(
     },
   },
   {
+    // A core domain may use relative imports internally, but cross-domain dependencies must go
+    // through the same public subpath contract consumed by web and CLI.
+    files: ["packages/core/src/*/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../*"],
+              message: "Import other core domains through @screenshot-studio/core/<domain>.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // React hooks correctness — the editor leans on hooks heavily. Register the plugin
     // explicitly; the shipped preset still uses the legacy array `plugins` shape.
     files: ["apps/web/**/*.{ts,tsx}", "packages/ui/**/*.{ts,tsx}"],
