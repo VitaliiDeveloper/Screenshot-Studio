@@ -8,6 +8,7 @@ export interface ScreenThumbnailInput {
   screenId: string;
   images: ImageCache;
   fit?: "cover" | "contain";
+  onReady?: (screenId: string) => void;
 }
 
 const MIN_THUMBNAIL_PIXEL_RATIO = 0.12;
@@ -47,7 +48,7 @@ export function screenThumbnailInputsEqual(
   previous: ScreenThumbnailInput,
   next: ScreenThumbnailInput,
 ): boolean {
-  if (previous.images !== next.images || previous.screenId !== next.screenId || previous.layoutId !== next.layoutId || previous.fit !== next.fit) return false;
+  if (previous.images !== next.images || previous.screenId !== next.screenId || previous.layoutId !== next.layoutId || previous.fit !== next.fit || previous.onReady !== next.onReady) return false;
   const previousLayout = getLayout(previous.project, previous.layoutId);
   const nextLayout = getLayout(next.project, next.layoutId);
   if (previous.project.fonts !== next.project.fonts || previousLayout.mode !== nextLayout.mode) return false;
