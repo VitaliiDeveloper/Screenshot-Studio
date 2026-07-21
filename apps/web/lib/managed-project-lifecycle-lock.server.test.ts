@@ -14,6 +14,7 @@ import {
 const roots: string[] = [];
 const children = new Set<ChildProcess>();
 const PROJECT_ID = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const SECOND_PROJECT_ID = "project_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 function shortOptions() {
   return { timeoutMs: 0, staleAfterMs: 5_000, retryDelayMs: 10, heartbeatMs: 1_000 };
@@ -53,6 +54,23 @@ describe("managed project lifecycle lock", () => {
       .rejects.toThrow(/lifecycle lock/i);
     await first.release();
     await expect(stat(managedProjectLifecycleLockPath(config, PROJECT_ID)))
+      .rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("keeps lifecycle leases for different projects isolated in one process", async () => {
+    const root = await mkdtemp(join(tmpdir(), "managed-lifecycle-isolation-"));
+    roots.push(root);
+    const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: root });
+    await mkdir(config.lifecycleLocksRoot, { recursive: true });
+
+    const first = await acquireManagedProjectLifecycleLock(config, PROJECT_ID);
+    const second = await acquireManagedProjectLifecycleLock(config, SECOND_PROJECT_ID);
+
+    await expect(first.release()).resolves.toBeUndefined();
+    await expect(second.release()).resolves.toBeUndefined();
+    await expect(stat(managedProjectLifecycleLockPath(config, PROJECT_ID)))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    await expect(stat(managedProjectLifecycleLockPath(config, SECOND_PROJECT_ID)))
       .rejects.toMatchObject({ code: "ENOENT" });
   });
 

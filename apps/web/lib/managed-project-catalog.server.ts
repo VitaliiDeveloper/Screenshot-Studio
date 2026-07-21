@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
-import { lock as acquireFileLock } from "proper-lockfile";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   assertManagedProjectLifecycleLockHeld,
@@ -11,6 +10,7 @@ import {
   validateManagedStorageChildRoot,
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
+import { acquireStorageLock } from "./storage-lock.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -634,9 +634,7 @@ export class ManagedProjectCatalogStore {
 
   async #withLock<T>(operation: () => Promise<T>): Promise<T> {
     await ensureManagedStorageRoot(this.config);
-    const release = await acquireFileLock(this.config.root, {
-      lockfilePath: join(this.config.root, ".catalog.lock"),
-      realpath: true,
+    const release = await acquireStorageLock(join(this.config.root, ".catalog.lock"), {
       stale: 30_000,
       update: 10_000,
       retries: { retries: 600, factor: 1, minTimeout: 50, maxTimeout: 50, randomize: false },
