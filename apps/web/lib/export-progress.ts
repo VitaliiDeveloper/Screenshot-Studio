@@ -32,6 +32,13 @@ export function createExportOperationId(randomBytes?: Uint8Array): string {
   return `export_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
+export function exportRenderProgressPercent(
+  progress: Pick<ExportProgressSnapshot, "completed" | "total">,
+): number {
+  if (progress.total <= 0) return 0;
+  return Math.min(100, Math.max(0, (progress.completed / progress.total) * 100));
+}
+
 export function parseExportProgress(value: unknown): ExportProgressSnapshot | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
   const candidate = value as Partial<ExportProgressSnapshot>;

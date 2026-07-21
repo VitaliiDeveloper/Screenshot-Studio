@@ -18,23 +18,13 @@ import {
   launchExportArtifactDownload,
   normalizeExportFilters,
 } from "./export-dialog-model";
+import { ExportProgressStatus } from "./ExportProgressStatus";
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
  * to "all"), export progress, inline errors. It saves the current project first so /render and
  * the export route read exactly what the user sees, then downloads the zip the route returns.
  */
-function progressLabel(progress: ExportProgressSnapshot): string {
-  switch (progress.phase) {
-    case "preparing": return "Preparing export…";
-    case "rendering": return `Rendering ${progress.completed} of ${progress.total}…`;
-    case "packaging": return "Packaging ZIP…";
-    case "finalizing": return "Preparing download…";
-    case "ready": return "Export ready";
-    case "failed": return "Export failed";
-  }
-}
-
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeLayoutId = useStore(editorStore, (s) => s.activeLayoutId);
@@ -58,7 +48,6 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     .filter((screen) => platform === "all" || screen.platform === platform)
     .filter((screen) => device === "all" || screen.device === device)
     .map((screen) => screen.locale)));
-
   const runExport = async () => {
     const filters = normalizeExportFilters(layout, { platform, device, locale });
     setPending(true);
@@ -213,30 +202,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             Download started: {downloadedFilename}
           </p>
         )}
-        {pending && progress && (
-          <div className="rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200" role="status" aria-live="polite">
-            <p className="text-xs font-medium text-slate-700">{progressLabel(progress)}</p>
-            {progress.phase === "rendering" && progress.total > 0 ? (
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"
-                role="progressbar"
-                aria-label="Export rendering progress"
-                aria-valuemin={0}
-                aria-valuemax={progress.total}
-                aria-valuenow={progress.completed}
-              >
-                <div
-                  className="h-full rounded-full bg-blue-600 transition-[width]"
-                  style={{ width: `${(progress.completed / progress.total) * 100}%` }}
-                />
-              </div>
-            ) : (
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
-                <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" />
-              </div>
-            )}
-          </div>
-        )}
+        {pending && progress && <ExportProgressStatus progress={progress} />}
 
         <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button className={editorUi.buttonSecondary} onClick={onClose} disabled={pending}>
