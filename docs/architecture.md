@@ -101,6 +101,9 @@ into the one-shot artifact store, and removes the unpacked staging tree before r
 `no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, and preflight warnings; server
 filesystem paths are not client metadata. A missing artifact returns `404`, an expired artifact
 returns `410`, and clients must not buffer, reuse, or retain an export artifact after download.
+An optional opaque export operation id exposes short-lived, bounded progress snapshots while that
+same request retains its normal lifecycle and project-mutation guards. Progress reports completed
+rendered outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
 
 ## 4. Project sources, sessions, and persistence
 

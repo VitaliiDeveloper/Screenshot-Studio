@@ -53,6 +53,10 @@ The editor has five durable interaction roles even if their placement changes:
 - **Feedback and recovery** show save, validation, import, export, missing-resource, and destructive
   outcomes in place, with a clear next action.
 
+Export feedback reports the actual completed-output count while rendering, then honest indeterminate
+packaging and download-preparation phases. The final POST response remains the authority for success
+or failure; unavailable progress status must not cancel an otherwise valid export.
+
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object.
 Locked content stays inspectable but cannot be changed through direct manipulation. Text editing has a

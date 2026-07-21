@@ -20,6 +20,8 @@ import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/ex
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
+import { EXPORT_OPERATION_ID_PATTERN } from "@web/lib/export-progress.js";
+import { exportProgressRegistry, type ExportProgressRegistry } from "@web/lib/export-progress.server.js";
 import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
 
 interface ExportRequest {
@@ -28,12 +30,14 @@ interface ExportRequest {
   device?: BundleFilters["device"];
   locale?: string;
   profile?: string;
+  operationId?: string;
 }
 
 export interface ExportRouteDependencies {
   createRenderBrowserSession?: typeof createRenderBrowserSession;
   exportBundle?: typeof exportBundle;
   stageExportArtifact?: typeof stageExportArtifactDefault;
+  progressRegistry?: Pick<ExportProgressRegistry, "begin" | "update" | "finish">;
 }
 
 function errorText(error: unknown): string {
@@ -68,11 +72,18 @@ export async function handleExportPost(
   const createSession = dependencies.createRenderBrowserSession ?? createRenderBrowserSession;
   const exportBundleOutputs = dependencies.exportBundle ?? exportBundle;
   const stageExportArtifact = dependencies.stageExportArtifact ?? stageExportArtifactDefault;
+  const progressRegistry = dependencies.progressRegistry ?? exportProgressRegistry;
   // Missing/invalid JSON coalesces to an empty body, meaning an unfiltered export.
   const rawBody: unknown = await req.json().catch(() => ({}));
   const body = typeof rawBody === "object" && rawBody !== null && !Array.isArray(rawBody)
     ? rawBody as ExportRequest
     : {};
+  if (body.operationId !== undefined && (
+    typeof body.operationId !== "string" || !EXPORT_OPERATION_ID_PATTERN.test(body.operationId)
+  )) {
+    return Response.json({ error: "Invalid export operation id" }, { status: 422 });
+  }
+  const operationId = body.operationId;
   const filters: BundleFilters = { platform: body.platform, device: body.device, locale: body.locale };
   let profile: ReturnType<typeof parseExportProfile>;
   try {
@@ -85,6 +96,7 @@ export async function handleExportPost(
   let specs: ReturnType<typeof parseStoreSpecs>;
   let layoutId: string;
   let warnings: ReturnType<typeof bundlePreflightWarnings>;
+  let entryCount = 0;
   try {
     const snapshot = await readProjectSnapshot(
       await resolveExistingProjectPath(projectPath),
@@ -101,9 +113,18 @@ export async function handleExportPost(
     specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
     const entries = buildBundleEntries(project, layoutId, specs, filters);
     validateBundleArtboards(entries);
+    entryCount = entries.length;
     warnings = bundlePreflightWarnings(entries);
   } catch (error) {
     return Response.json({ error: errorText(error) }, { status: 422 });
+  }
+
+  if (operationId) {
+    try {
+      progressRegistry.begin(operationId, entryCount);
+    } catch (error) {
+      return Response.json({ error: errorText(error) }, { status: 409 });
+    }
   }
 
   const baseUrl = new URL(req.url).origin;
@@ -136,11 +157,20 @@ export async function handleExportPost(
         entries,
         renderSession: session!,
         publicationGuard: context.publish,
+        onProgress: operationId
+          ? (progress) => progressRegistry.update(
+            operationId,
+            progress.phase,
+            progress.completed,
+            progress.total,
+          )
+          : undefined,
         profile,
         project: context.project,
       });
       // The bundle filename is reusable. Copy it into its private immutable artifact while the
       // stable project/export lease still prevents another export from replacing that pathname.
+      if (operationId) progressRegistry.update(operationId, "finalizing", entryCount, entryCount);
       return stageExportArtifact(zipPath, basename(zipPath));
     });
   } catch (error) {
@@ -165,6 +195,7 @@ export async function handleExportPost(
   }
 
   if (hasOperationError || cleanupFailures.length > 0) {
+    if (operationId) progressRegistry.finish(operationId, "failed");
     if (hasOperationError && cleanupFailures.length === 0) {
       const revisionConflict = projectRevisionConflictResponse(operationError);
       if (revisionConflict) return revisionConflict;
@@ -181,6 +212,8 @@ export async function handleExportPost(
         );
     return Response.json({ error: errorText(error) }, { status: 500 });
   }
+
+  if (operationId) progressRegistry.finish(operationId, "ready");
 
   return Response.json({ ...result!, warnings }, {
     status: 201,

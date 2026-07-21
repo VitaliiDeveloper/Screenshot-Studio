@@ -7,6 +7,11 @@ import { Download } from "lucide-react";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
 import { projectRequestHeaders } from "../lib/save-project";
+import {
+  createExportOperationId,
+  parseExportProgress,
+  type ExportProgressSnapshot,
+} from "../lib/export-progress";
 import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import {
   DEFAULT_EXPORT_FILTERS,
@@ -16,9 +21,20 @@ import {
 
 /**
  * UI export dialog (spec Slice 3). Small on purpose: platform/device/locale filters (all default
- * to "all"), one pending state, inline errors. It saves the current project first so /render and
+ * to "all"), export progress, inline errors. It saves the current project first so /render and
  * the export route read exactly what the user sees, then downloads the zip the route returns.
  */
+function progressLabel(progress: ExportProgressSnapshot): string {
+  switch (progress.phase) {
+    case "preparing": return "Preparing export…";
+    case "rendering": return `Rendering ${progress.completed} of ${progress.total}…`;
+    case "packaging": return "Packaging ZIP…";
+    case "finalizing": return "Preparing download…";
+    case "ready": return "Export ready";
+    case "failed": return "Export failed";
+  }
+}
+
 export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeLayoutId = useStore(editorStore, (s) => s.activeLayoutId);
@@ -27,6 +43,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [locale, setLocale] = useState<string>(DEFAULT_EXPORT_FILTERS.locale);
   const [profile, setProfile] = useState<"store-bundle" | "web-share">("store-bundle");
   const [pending, setPending] = useState(false);
+  const [progress, setProgress] = useState<ExportProgressSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadedFilename, setDownloadedFilename] = useState<string | null>(null);
 
@@ -47,9 +64,42 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
     setPending(true);
     setError(null);
     setDownloadedFilename(null);
+    const operationId = createExportOperationId();
+    let latestProgress: ExportProgressSnapshot = {
+      operationId,
+      phase: "preparing",
+      completed: 0,
+      total: 0,
+    };
+    setProgress(latestProgress);
     try {
       await withFlushedProject(async () => {
-        const res = await fetch("/api/export", {
+        let stopped = false;
+        let pollInFlight = false;
+        const refreshProgress = async () => {
+          if (stopped || pollInFlight) return;
+          pollInFlight = true;
+          try {
+            const response = await fetch(
+              `/api/export/progress?operationId=${encodeURIComponent(operationId)}`,
+              { cache: "no-store" },
+            );
+            if (!response.ok || stopped) return;
+            const snapshot = parseExportProgress(await response.json().catch(() => undefined));
+            if (snapshot?.operationId === operationId) {
+              latestProgress = snapshot;
+              setProgress(snapshot);
+            }
+          } catch {
+            // Progress is auxiliary; the export request remains the source of success or failure.
+          } finally {
+            pollInFlight = false;
+          }
+        };
+        const pollTimer = window.setInterval(() => { void refreshProgress(); }, 200);
+        void refreshProgress();
+
+        const exportRequest = fetch("/api/export", {
           method: "POST",
           headers: projectRequestHeaders({
             conditional: true,
@@ -61,12 +111,27 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             device: filters.device === "all" ? undefined : filters.device,
             locale: filters.locale === "all" ? undefined : filters.locale,
             profile,
+            operationId,
           }),
         });
+        let res: Response;
+        try {
+          res = await exportRequest;
+        } finally {
+          stopped = true;
+          window.clearInterval(pollTimer);
+        }
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(body.error ?? `Export failed (${res.status})`);
         }
+        latestProgress = {
+          operationId,
+          phase: "ready",
+          completed: latestProgress.total,
+          total: latestProgress.total,
+        };
+        setProgress(latestProgress);
         const ticket = launchExportArtifactDownload(body, {
           origin: window.location.origin,
           createAnchor: () => document.createElement("a"),
@@ -147,6 +212,30 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700 ring-1 ring-emerald-200">
             Download started: {downloadedFilename}
           </p>
+        )}
+        {pending && progress && (
+          <div className="rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200" role="status" aria-live="polite">
+            <p className="text-xs font-medium text-slate-700">{progressLabel(progress)}</p>
+            {progress.phase === "rendering" && progress.total > 0 ? (
+              <div
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"
+                role="progressbar"
+                aria-label="Export rendering progress"
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.completed}
+              >
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-[width]"
+                  style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+                />
+              </div>
+            ) : (
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+                <div className="h-full w-1/2 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" />
+              </div>
+            )}
+          </div>
         )}
 
         <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">

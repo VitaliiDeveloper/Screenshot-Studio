@@ -101,6 +101,7 @@ describe("exportBundle", () => {
       publicationGuardCalls += 1;
       return publish();
     };
+    const progress: Array<{ phase: string; completed: number; total: number }> = [];
     const zipPath = await exportBundle({
       baseUrl: "http://localhost:4000",
       projectPath: "fixtures/project.json",
@@ -110,6 +111,7 @@ describe("exportBundle", () => {
       entries,
       renderSession: { renderScreenToPng },
       publicationGuard,
+      onProgress: (event) => progress.push(event),
     });
 
     expect(renderScreenToPng).toHaveBeenCalledTimes(2);
@@ -117,6 +119,12 @@ describe("exportBundle", () => {
     expect(renderScreenToPng.mock.calls.map(([opts]) => opts.projectRevision))
       .toEqual(["a".repeat(64), "a".repeat(64)]);
     expect(publicationGuardCalls).toBe(1);
+    expect(progress).toEqual([
+      { phase: "rendering", completed: 0, total: 2 },
+      { phase: "rendering", completed: 1, total: 2 },
+      { phase: "rendering", completed: 2, total: 2 },
+      { phase: "packaging", completed: 2, total: 2 },
+    ]);
     await expect(stat(zipPath)).resolves.toBeTruthy();
     const written = await readFile(join(outDir, entries[0]!.relativePath));
     expect(inspectPng(written).hasAlpha).toBe(false);

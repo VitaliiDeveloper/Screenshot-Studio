@@ -8,11 +8,12 @@ import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { handleExportPost } from "./handler.js";
+import { handleExportPost, type ExportRouteDependencies } from "./handler.js";
 import { POST } from "./route.js";
 
 const temporaryDirectories: string[] = [];
 const originalInitCwd = process.env.INIT_CWD;
+const exportOperationId = `export_${"ab".repeat(16)}`;
 
 function completeProject(elements: unknown[] = []) {
   return {
@@ -79,6 +80,52 @@ afterEach(async () => {
 });
 
 describe("POST /api/export", () => {
+  it("reports render, packaging, finalization, and ready progress", async () => {
+    const { directory, projectPath } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const progressRegistry = {
+      begin: vi.fn(),
+      update: vi.fn(),
+      finish: vi.fn(),
+    };
+    const exportBundle = vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
+      options.onProgress?.({ phase: "rendering", completed: 0, total: 1 });
+      options.onProgress?.({ phase: "rendering", completed: 1, total: 1 });
+      options.onProgress?.({ phase: "packaging", completed: 1, total: 1 });
+      return zipPath;
+    });
+
+    const response = await handleExportPost(projectPath, req({ operationId: exportOperationId }), {
+      createRenderBrowserSession: vi.fn(async () => ({
+        renderScreenToPng: vi.fn(),
+        close: vi.fn(async () => undefined),
+      })),
+      exportBundle,
+      progressRegistry,
+      stageExportArtifact: vi.fn(async (_source, filename) => ({
+        downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+        expiresAt: "2026-07-15T00:05:00.000Z",
+        filename: filename!,
+      })),
+    });
+
+    expect(response.status).toBe(201);
+    expect(progressRegistry.begin).toHaveBeenCalledWith(exportOperationId, 1);
+    expect(progressRegistry.update.mock.calls).toEqual([
+      [exportOperationId, "rendering", 0, 1],
+      [exportOperationId, "rendering", 1, 1],
+      [exportOperationId, "packaging", 1, 1],
+      [exportOperationId, "finalizing", 1, 1],
+    ]);
+    expect(progressRegistry.finish).toHaveBeenCalledWith(exportOperationId, "ready");
+  });
+
+  it("rejects malformed progress operation ids before resolving the project", async () => {
+    const response = await handleExportPost("/missing/project.json", req({ operationId: "../escape" }));
+    expect(response.status).toBe(422);
+  });
+
   it("rejects a stale expected revision inside the stable export lease", async () => {
     const { directory, projectPath } = await useProject();
     const zipPath = join(directory, "bundle.zip");
