@@ -58,10 +58,6 @@ export function ProjectDeletionDialog({
     >
       {state.status === "choosing-backup" ? (
         <div className="space-y-4">
-          <div className={editorUi.statusWarning}>
-            <p className="font-semibold">This is not Close project.</p>
-            <p className="mt-1">Close keeps project data. Permanent deletion removes it from managed storage.</p>
-          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <button type="button" className={`${editorUi.resourceCard} text-left`} onClick={onExportArchive}>
               <Download aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent)]" />

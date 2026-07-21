@@ -28,13 +28,15 @@ function render(
 }
 
 describe("ProjectDeletionDialog", () => {
-  it("starts with an irreversible choice and keeps archive and no-backup paths explicit", () => {
+  it("starts with a concise irreversible choice and keeps both backup paths explicit", () => {
     const markup = render({ status: "choosing-backup" });
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain("Permanently delete project");
     expect(markup).toContain("Export archive, then continue");
     expect(markup).toContain("Continue without an archive");
     expect(markup).toContain("cannot be recovered");
+    expect(markup).not.toContain("This is not Close project");
+    expect(markup).not.toContain("Close keeps project data");
     expect(markup).not.toContain("Restore");
     expect(markup).not.toContain("Move to Trash");
   });
