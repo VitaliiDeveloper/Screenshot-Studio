@@ -13,6 +13,10 @@ const workspaceModel = readFileSync(
 const screensSection = readFileSync(new URL("../ScreensSection.tsx", import.meta.url), "utf8");
 const leftPanel = readFileSync(new URL("../LeftPanel.tsx", import.meta.url), "utf8");
 const editorPage = readFileSync(new URL("../../app/editor/page.tsx", import.meta.url), "utf8");
+const captureImportHook = readFileSync(
+  new URL("../../app/editor/use-editor-capture-import.ts", import.meta.url),
+  "utf8",
+);
 
 describe("project creation terminology", () => {
   it("names project-local screen starters as screen templates throughout the Workspace UI", () => {
@@ -45,7 +49,8 @@ describe("project creation terminology", () => {
     expect(screensSection).toContain("Keep blank screen");
     expect(screensSection).toContain("setDismissedOnboardingScreenId");
     expect(screensSection).not.toContain("Start blank");
-    expect(editorPage).toContain("useCaptureImportController");
+    expect(captureImportHook).toContain("useCaptureImportController");
+    expect(editorPage).toContain("useEditorCaptureImport");
     expect(editorPage).toContain("<CaptureImportDialog");
     expect(editorPage).toContain("onImportCaptures={captureImport.open}");
     expect(screensSection).not.toContain('href="/"');
