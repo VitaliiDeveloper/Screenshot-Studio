@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
 import type { ProjectLibraryEntry } from "../../lib/project-library-client";
 import { cx, editorUi } from "../editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
+import type { ProjectLibraryNotice } from "./project-action-notice";
 
 export interface ProjectLibraryAction {
   entryId: string;
@@ -70,7 +71,7 @@ export function ProjectGallery({
   entries: readonly ProjectLibraryEntry[];
   action: ProjectLibraryAction | null;
   actionError: string | null;
-  actionNotice: string | null;
+  actionNotice: ProjectLibraryNotice | null;
   visibleOpeningEntryId: string | null;
   onOpen(entryId: string): void;
   onOpenDetails(entryId: string): void;
@@ -78,8 +79,37 @@ export function ProjectGallery({
   onDeleteProject(entryId: string): void;
   onRemoveRecent(entryId: string): void;
 }) {
+  const galleryRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const dismissOutside = (event: PointerEvent) => {
+      const gallery = galleryRef.current;
+      if (!gallery || !(event.target instanceof Node)) return;
+      for (const menu of gallery.querySelectorAll<HTMLDetailsElement>("details[data-project-actions][open]")) {
+        if (!menu.contains(event.target)) menu.open = false;
+      }
+    };
+    const dismissWithEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const menus = galleryRef.current?.querySelectorAll<HTMLDetailsElement>(
+        "details[data-project-actions][open]",
+      );
+      if (!menus?.length) return;
+      const menu = menus.item(menus.length - 1);
+      if (!menu) return;
+      menu.open = false;
+      menu.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissWithEscape);
+    };
+  }, []);
+
   return (
-    <section aria-labelledby="recent-projects-title">
+    <section ref={galleryRef} aria-labelledby="recent-projects-title">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className={editorUi.sectionLabel}>Your workspace</p>
@@ -87,12 +117,19 @@ export function ProjectGallery({
         </div>
         <p className="hidden text-sm text-slate-500 sm:block">Select a project to continue editing.</p>
       </div>
-      {actionNotice ? <p role="status" className={`mb-5 flex items-center gap-2 ${editorUi.statusProgress}`}><CircleCheck aria-hidden="true" className="size-4 shrink-0" />{actionNotice}</p> : null}
       {actionError ? <p role="alert" className={`mb-5 ${editorUi.statusError}`}>{actionError}</p> : null}
       <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {entries.map((entry, index) => {
           const pending = action?.entryId === entry.entryId;
           const archivePending = pending && action?.kind === "archive";
+          const cardNotice = actionNotice?.entryId === entry.entryId ? actionNotice : null;
+          const cardStatus = visibleOpeningEntryId === entry.entryId
+            ? { key: "opening", message: "Opening workspace…", success: false, motion: "visible" as const }
+            : archivePending
+              ? { key: "archive", message: "Preparing archive…", success: false, motion: "visible" as const }
+              : cardNotice
+                ? { key: "archive-ready", ...cardNotice, success: true }
+                : null;
           const unavailable = entry.availability === "unavailable";
           const cardContent = <>
             <ProjectPreviewStrip entry={entry} />
@@ -146,7 +183,7 @@ export function ProjectGallery({
                   {cardContent}
                 </button>
               )}
-              {!unavailable ? <details className="absolute bottom-4 right-4">
+              {!unavailable ? <details data-project-actions className="absolute bottom-4 right-4">
                 <summary aria-label={`More actions for ${entry.name}`} className={cx(editorUi.iconButton, "list-none cursor-pointer bg-white [&::-webkit-details-marker]:hidden")}><Ellipsis aria-hidden="true" className="size-4" /></summary>
                 <div className="absolute bottom-11 right-0 z-20 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                   <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onOpenDetails(entry.entryId); }}><Info aria-hidden="true" className="size-4" />Project details</button>
@@ -158,7 +195,7 @@ export function ProjectGallery({
                   {entry.sourceKind === "local-file" ? <button type="button" disabled={Boolean(action)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" title="Removes history only; project files stay untouched." onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onRemoveRecent(entry.entryId); }}>Remove from recents</button> : null}
                 </div>
               </details> : null}
-              {visibleOpeningEntryId === entry.entryId || archivePending ? <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80 backdrop-blur-[1px]"><span role="status" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 shadow-sm"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />{archivePending ? "Preparing archive…" : "Opening workspace…"}</span></span> : null}
+              {cardStatus ? <span key={cardStatus.key} data-motion={cardStatus.motion} className="project-card-action-status pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80 backdrop-blur-[1px]"><span role="status" className={cx("inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium shadow-sm", cardStatus.success ? "text-emerald-700" : "text-blue-700")}>{cardStatus.success ? <CircleCheck aria-hidden="true" className="size-4" /> : <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />}{cardStatus.message}</span></span> : null}
             </li>
           );
         })}

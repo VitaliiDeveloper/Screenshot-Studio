@@ -33,7 +33,7 @@ function render(
   options: {
     action?: Parameters<typeof ProjectGallery>[0]["action"];
     actionError?: string | null;
-    actionNotice?: string | null;
+    actionNotice?: Parameters<typeof ProjectGallery>[0]["actionNotice"];
     visibleOpeningEntryId?: string | null;
   } = {},
 ) {
@@ -146,9 +146,28 @@ describe("ProjectGallery", () => {
 
   it("announces archive download only after it starts", () => {
     const markup = render([managed], {
-      actionNotice: "Archive ready. Download started.",
+      actionNotice: {
+        entryId: managed.entryId,
+        message: "Archive download started.",
+        motion: "visible",
+      },
     });
     expect(markup).toContain('role="status"');
-    expect(markup).toContain("Archive ready. Download started.");
+    expect(markup).toContain("Archive download started.");
+    expect(markup).toContain("project-card-action-status");
+    expect(markup).toContain('data-motion="visible"');
+  });
+
+  it("keeps an archive notice scoped to its project card", () => {
+    const second = { ...managed, entryId: "project_00000000000000000000000000000002" };
+    const markup = render([managed, second], {
+      actionNotice: {
+        entryId: second.entryId,
+        message: "Archive download started.",
+        motion: "closing",
+      },
+    });
+    expect(markup.match(/Archive download started\./gu)).toHaveLength(1);
+    expect(markup).toContain('data-motion="closing"');
   });
 });

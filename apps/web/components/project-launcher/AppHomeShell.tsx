@@ -15,6 +15,7 @@ import {
   type ProjectLibraryAction,
   type ProjectLibraryState,
 } from "./ProjectGallery";
+import type { ProjectLibraryNotice } from "./project-action-notice";
 
 const launcherActionMotion = "transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
 const firstRunActionMotion = "shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
@@ -27,7 +28,7 @@ export interface AppHomeShellProps {
   projects: ProjectLibraryState;
   projectAction: ProjectLibraryAction | null;
   projectActionError: string | null;
-  projectActionNotice: string | null;
+  projectActionNotice: ProjectLibraryNotice | null;
   visibleOpeningEntryId: string | null;
   deletionDialog?: ReactNode;
   importButtonRef?: Ref<HTMLButtonElement>;

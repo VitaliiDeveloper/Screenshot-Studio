@@ -118,16 +118,27 @@ describe("Projects and Workspace closure journey", () => {
         await route.continue();
       });
       const actionsMenu = card.locator("details");
-      await card.getByLabel("More actions for Product launch story").click();
+      const actionsTrigger = card.getByLabel("More actions for Product launch story");
+      await actionsTrigger.click();
+      expect(await actionsMenu.getAttribute("open")).not.toBeNull();
+      await page.getByRole("heading", { name: "Recent projects", exact: true }).click();
+      expect(await actionsMenu.getAttribute("open")).toBeNull();
+      await actionsTrigger.click();
+      await page.keyboard.press("Escape");
+      expect(await actionsMenu.getAttribute("open")).toBeNull();
+
+      await actionsTrigger.click();
       const downloadPromise = page.waitForEvent("download");
       await card.getByRole("button", { name: "Export archive", exact: true }).click();
       expect(await actionsMenu.getAttribute("open")).toBeNull();
       await card.getByRole("status").filter({ hasText: "Preparing archive…" }).waitFor();
       const download = await downloadPromise;
       expect(download.suggestedFilename()).toBe("screenshot-studio-project.zip");
-      await page.getByRole("status").filter({
-        hasText: "Archive ready. Download started.",
-      }).waitFor();
+      const archiveNotice = card.getByRole("status").filter({
+        hasText: "Archive download started.",
+      });
+      await archiveNotice.waitFor();
+      await archiveNotice.waitFor({ state: "hidden", timeout: 5_000 });
 
       await card.getByLabel("More actions for Product launch story").click();
       await card.getByRole("button", { name: "Project details", exact: true }).click();

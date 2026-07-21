@@ -94,6 +94,23 @@ button:disabled {
   }
 }
 
+@keyframes project-card-action-status-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes project-card-action-status-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 .launcher-dialog-backdrop {
   animation: launcher-backdrop-in 220ms ease-out;
 }
@@ -104,6 +121,14 @@ button:disabled {
 
 .launcher-dialog-state {
   animation: launcher-dialog-state-in 150ms ease-out;
+}
+
+.project-card-action-status {
+  animation: project-card-action-status-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.project-card-action-status[data-motion="closing"] {
+  animation: project-card-action-status-out 180ms ease-in forwards;
 }
 
 .launcher-dialog-backdrop[data-motion="closing"] {
@@ -129,6 +154,14 @@ button:disabled {
   .launcher-dialog-panel,
   .launcher-dialog-state {
     animation: none !important;
+  }
+
+  .project-card-action-status {
+    animation: none !important;
+  }
+
+  .project-card-action-status[data-motion="closing"] {
+    opacity: 0;
   }
 }
 @keyframes menu-select-in {
