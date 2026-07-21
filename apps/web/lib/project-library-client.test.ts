@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchProjectLibrary,
   openProjectLibraryEntry,
+  projectLibraryEntriesEqual,
   projectLibraryAssetUrl,
 } from "./project-library-client.js";
 
@@ -22,7 +23,7 @@ function entry(overrides: Record<string, unknown> = {}) {
     layoutCount: 1,
     previewLayoutId: "default",
     previewScreenIds: ["hero", "feature-2", "feature-3"],
-    project,
+    previewProject: project,
     ...overrides,
   };
 }
@@ -33,7 +34,7 @@ describe("project library client", () => {
     await expect(fetchProjectLibrary({ transport })).resolves.toEqual({
       entries: [expect.objectContaining({
         entryId,
-        project: expect.objectContaining({ meta: expect.objectContaining({ schemaVersion: 1 }) }),
+        previewProject: expect.objectContaining({ meta: expect.objectContaining({ schemaVersion: 1 }) }),
       })],
     });
     expect(transport).toHaveBeenCalledWith("/api/project-library", { cache: "no-store" });
@@ -43,7 +44,7 @@ describe("project library client", () => {
     { projectPath: "/private/secret" },
     { sourceLocator: "/private/secret" },
     { previewScreenIds: ["1", "2", "3", "4"] },
-    { project: { version: 1 } },
+    { previewProject: { version: 1 } },
   ])("rejects invalid or path-bearing responses %#", async (patch) => {
     const transport = vi.fn(async () => Response.json({ entries: [entry(patch)] }));
     await expect(fetchProjectLibrary({ transport })).rejects.toThrow("Invalid project library response");
@@ -62,5 +63,22 @@ describe("project library client", () => {
     expect(projectLibraryAssetUrl(entryId, "assets/Hero image.png")).toBe(
       `/api/project-library/asset?entryId=${entryId}&path=assets%2FHero+image.png`,
     );
+  });
+
+  it("preserves hydrated entries when the refresh is identical", async () => {
+    const first = await fetchProjectLibrary({
+      transport: async () => Response.json({ entries: [entry()] }),
+    });
+    const same = await fetchProjectLibrary({
+      transport: async () => Response.json({ entries: [entry()] }),
+    });
+    const changed = await fetchProjectLibrary({
+      transport: async () => Response.json({ entries: [entry({
+        lastOpenedAt: "2026-07-21T10:00:00.000Z",
+      })] }),
+    });
+
+    expect(projectLibraryEntriesEqual(first.entries, same.entries)).toBe(true);
+    expect(projectLibraryEntriesEqual(first.entries, changed.entries)).toBe(false);
   });
 });

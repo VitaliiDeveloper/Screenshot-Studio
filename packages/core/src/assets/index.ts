@@ -14,12 +14,18 @@ import { elementLeaves, getLayout, type Project } from "@screenshot-studio/core/
  */
 export type { ImageCache } from "@screenshot-studio/core/engine";
 
-/** Every distinct raster assetUrl in the project. Pure. */
-export function collectImageUrls(project: Project, layoutId?: string): string[] {
+/** Every distinct raster assetUrl in the selected project scope. Pure. */
+export function collectImageUrls(
+  project: Project,
+  layoutId?: string,
+  screenIds?: readonly string[],
+): string[] {
   const urls = new Set<string>();
   const layouts = layoutId ? [getLayout(project, layoutId)] : project.layouts;
+  const selectedScreenIds = screenIds ? new Set(screenIds) : null;
   for (const layout of layouts) {
     for (const screen of layout.screens) {
+      if (selectedScreenIds && !selectedScreenIds.has(screen.id)) continue;
       if (screen.background.type === "image") urls.add(screen.background.assetUrl);
       for (const el of screen.elements) {
         for (const leaf of elementLeaves(el)) {
@@ -64,10 +70,11 @@ export async function loadProjectImages(
   project: Project,
   layoutId: string,
   resolve: (assetUrl: string) => string,
+  screenIds?: readonly string[],
 ): Promise<ImageCache> {
   const cache: ImageCache = new Map();
   await Promise.all(
-    collectImageUrls(project, layoutId).map(async (assetUrl) => {
+    collectImageUrls(project, layoutId, screenIds).map(async (assetUrl) => {
       const img = await loadProjectImage(assetUrl, resolve);
       if (img) {
         cache.set(assetUrl, img);

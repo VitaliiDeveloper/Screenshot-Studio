@@ -96,6 +96,14 @@ describe("screen thumbnail memoization", () => {
     )).toBe(false);
   });
 
+  it("rerenders when the readiness observer changes", () => {
+    const current = project();
+    expect(screenThumbnailInputsEqual(
+      { project: current, layoutId: "primary", screenId: "first", images, onReady: () => undefined },
+      { project: current, layoutId: "primary", screenId: "first", images, onReady: () => undefined },
+    )).toBe(false);
+  });
+
   it("invalidates a connected crop when a neighbouring owner changes", () => {
     const previous = project();
     const next = updateLayout(previous, (layout) => ({

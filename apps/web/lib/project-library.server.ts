@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Project } from "@screenshot-studio/core/model";
+import { parseProject, type Project } from "@screenshot-studio/core/model";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
 import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
 import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
@@ -30,7 +30,7 @@ export interface ProjectLibraryEntry {
   layoutCount: number;
   previewLayoutId: string | null;
   previewScreenIds: string[];
-  project: Project | null;
+  previewProject: Project | null;
 }
 
 interface ProjectLibraryCatalog {
@@ -58,6 +58,21 @@ function projectMetadata(project: Project) {
   const previewLayout = project.layouts.find((layout) => layout.id === project.preferredExportLayoutId)
     ?? project.layouts[0]
     ?? null;
+  const previewScreens = previewLayout?.screens
+    .filter((screen) => screen.variantOf === undefined)
+    .slice(0, 3) ?? [];
+  const previewProject = previewLayout && previewScreens.length > 0
+    ? parseProject({
+      ...project,
+      preferredExportLayoutId: previewLayout.id,
+      layouts: [{
+        id: previewLayout.id,
+        name: previewLayout.name,
+        mode: previewLayout.mode,
+        screens: previewScreens,
+      }],
+    })
+    : null;
   const platforms = [...new Set(project.layouts.flatMap((layout) =>
     layout.screens.map((screen) => `${screen.platform}:${screen.device}`)))];
   return {
@@ -65,7 +80,8 @@ function projectMetadata(project: Project) {
     screenCount: project.layouts.reduce((total, layout) => total + layout.screens.length, 0),
     layoutCount: project.layouts.length,
     previewLayoutId: previewLayout?.id ?? null,
-    previewScreenIds: previewLayout?.screens.slice(0, 3).map((screen) => screen.id) ?? [],
+    previewScreenIds: previewScreens.map((screen) => screen.id),
+    previewProject,
   };
 }
 
@@ -86,7 +102,7 @@ function unavailableEntry(input: {
     layoutCount: 0,
     previewLayoutId: null,
     previewScreenIds: [],
-    project: null,
+    previewProject: null,
   };
 }
 
@@ -120,7 +136,6 @@ export class ProjectLibraryService {
           lastOpenedAt: entry.updatedAt,
           availability: "available" as const,
           ...projectMetadata(snapshot.project),
-          project: snapshot.project,
         };
       } catch {
         return unavailableEntry({
@@ -152,7 +167,6 @@ export class ProjectLibraryService {
             lastOpenedAt: entry.lastOpenedAt,
             availability: "available" as const,
             ...projectMetadata(snapshot.project),
-            project: snapshot.project,
           };
         } catch {
           return unavailableEntry({

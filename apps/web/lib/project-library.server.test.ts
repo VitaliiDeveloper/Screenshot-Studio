@@ -73,7 +73,10 @@ describe("ProjectLibraryService", () => {
       availability: "available",
       layoutCount: 1,
     });
-    expect(result.entries[0]!.previewScreenIds.length).toBeLessThanOrEqual(3);
+    expect(result.entries[0]!.previewScreenIds).toHaveLength(3);
+    expect(result.entries[0]!.previewProject?.layouts).toHaveLength(1);
+    expect(result.entries[0]!.previewProject?.layouts[0]?.screens.map((screen) => screen.id))
+      .toEqual(result.entries[0]!.previewScreenIds);
     expect(JSON.stringify(result)).not.toContain(projectPath);
     expect(result.entries.some((entry) => entry.entryId.includes("recent_00000000000000000000000000000001"))).toBe(false);
   });
@@ -98,7 +101,7 @@ describe("ProjectLibraryService", () => {
     await expect(service.list()).resolves.toEqual({ entries: [expect.objectContaining({
       entryId: localRecentId,
       availability: "unavailable",
-      project: null,
+      previewProject: null,
       previewScreenIds: [],
     })] });
   });

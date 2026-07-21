@@ -12,7 +12,7 @@ export interface ProjectLibraryEntry {
   layoutCount: number;
   previewLayoutId: string | null;
   previewScreenIds: string[];
-  project: Project | null;
+  previewProject: Project | null;
 }
 
 export interface ProjectLibraryResult {
@@ -25,7 +25,7 @@ const ENTRY_ID_PATTERN = /^(?:project|recent)_[0-9a-f]{32}$/;
 const PROJECT_ID_PATTERN = /^(?:project_[0-9a-f]{32}|[0-9a-f]{64})$/;
 const ENTRY_KEYS = [
   "entryId", "sourceKind", "name", "lastOpenedAt", "availability", "platforms",
-  "screenCount", "layoutCount", "previewLayoutId", "previewScreenIds", "project",
+  "screenCount", "layoutCount", "previewLayoutId", "previewScreenIds", "previewProject",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -66,9 +66,13 @@ function parseEntry(value: unknown): ProjectLibraryEntry {
       || !value.previewScreenIds.every((screenId) => boundedString(screenId, 200))) {
       throw new Error("shape");
     }
-    const project = value.project === null ? null : parseProject(value.project);
-    if (value.availability === "available" && !project) throw new Error("available project missing");
-    if (value.availability === "unavailable" && project) throw new Error("unavailable project present");
+    const previewProject = value.previewProject === null ? null : parseProject(value.previewProject);
+    if (value.availability === "available" && !previewProject) {
+      throw new Error("available preview project missing");
+    }
+    if (value.availability === "unavailable" && previewProject) {
+      throw new Error("unavailable preview project present");
+    }
     return {
       entryId: value.entryId,
       sourceKind: value.sourceKind,
@@ -80,11 +84,18 @@ function parseEntry(value: unknown): ProjectLibraryEntry {
       layoutCount: value.layoutCount,
       previewLayoutId: value.previewLayoutId,
       previewScreenIds: [...value.previewScreenIds],
-      project,
+      previewProject,
     };
   } catch {
     throw new Error("Invalid project library response");
   }
+}
+
+export function projectLibraryEntriesEqual(
+  left: readonly ProjectLibraryEntry[],
+  right: readonly ProjectLibraryEntry[],
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 async function responseError(response: Response, fallback: string): Promise<Error> {

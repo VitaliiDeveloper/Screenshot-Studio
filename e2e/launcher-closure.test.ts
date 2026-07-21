@@ -108,6 +108,11 @@ describe("Projects and Workspace closure journey", () => {
       const cardPreview = card.locator("img").first();
       await cardPreview.waitFor();
       await expect.poll(() => cardPreview.getAttribute("src")).toMatch(/^data:image\/png/u);
+      await card.locator('[data-preview-state="ready"]').waitFor();
+      expect(await card.locator('img[src^="data:image/png"]').count()).toBe(3);
+      expect(await card.locator('[data-preview-state="ready"] > div > div').first().evaluate(
+        (preview) => getComputedStyle(preview).transitionDuration,
+      )).toBe("0.3s");
       await expectNoSeriousOrCriticalViolations(page, "Populated Projects gallery");
       expect(await card.getByText(/screens/u).count()).toBeGreaterThan(0);
       expect(await card.getByText(/layout/u).count()).toBeGreaterThan(0);

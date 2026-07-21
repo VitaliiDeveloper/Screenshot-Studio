@@ -14,12 +14,14 @@ function ScreenThumbnailImpl({
   screenId,
   images,
   fit = "cover",
+  onReady,
 }: {
   project: Project;
   layoutId: string;
   screenId: string;
   images: ImageCache;
   fit?: "cover" | "contain";
+  onReady?: (screenId: string) => void;
 }) {
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -67,7 +69,7 @@ function ScreenThumbnailImpl({
 
   // A generated data URL cannot use Next Image's loader or remote optimization pipeline.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img ref={imageRef} alt="" className={`size-full ${fit === "contain" ? "object-contain" : "object-cover"}`} />;
+  return <img ref={imageRef} alt="" className={`size-full ${fit === "contain" ? "object-contain" : "object-cover"}`} onLoad={() => onReady?.(screenId)} />;
 }
 
 /** Unrelated screen edits should not synchronously rerasterize every thumbnail in the project. */
