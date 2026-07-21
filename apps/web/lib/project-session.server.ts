@@ -10,10 +10,10 @@ import {
   ManagedProjectNotFoundError,
   ManagedProjectRepository,
   type ManagedProjectRecord,
-} from "@web/lib/managed-project-repository.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { resolveConfiguredProjectPath } from "@web/lib/project-path.js";
-import type { ActiveProjectDescriptor } from "@web/lib/project-session.js";
+} from "./managed-project-repository.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { resolveConfiguredProjectPath } from "./project-path.js";
+import type { ActiveProjectDescriptor } from "./project-session.js";
 
 export const PROJECT_SESSION_COOKIE = "screenshot_studio_project_session";
 export const MANAGED_PROJECT_RECOVERY_COOKIE = "screenshot_studio_managed_project";

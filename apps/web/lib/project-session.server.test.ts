@@ -4,15 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
-import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
-import { ManagedProjectNotFoundError } from "@web/lib/managed-project-repository.server.js";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
+import { ManagedProjectNotFoundError } from "./managed-project-repository.server.js";
 import {
   ManagedProjectSourceAdapter,
   NoActiveProjectError,
   ProjectSessionRegistry,
   resolveActiveProjectSession,
   type LocalFileProjectSourceAdapter,
-} from "@web/lib/project-session.server.js";
+} from "./project-session.server.js";
 
 const temporaryRoots: string[] = [];
 
@@ -99,8 +99,8 @@ describe("ProjectSessionRegistry", () => {
   it("invalidates a cached managed session after permanent deletion is reserved", async () => {
     const root = await mkdtemp(join(tmpdir(), "project-session-delete-"));
     temporaryRoots.push(root);
-    const { resolveManagedProjectStorageConfig } = await import("@web/lib/managed-project-config.server.js");
-    const { ManagedProjectRepository } = await import("@web/lib/managed-project-repository.server.js");
+    const { resolveManagedProjectStorageConfig } = await import("./managed-project-config.server.js");
+    const { ManagedProjectRepository } = await import("./managed-project-repository.server.js");
     const repository = new ManagedProjectRepository(resolveManagedProjectStorageConfig({
       SCREENSHOT_STUDIO_DATA_ROOT: root,
     }));
@@ -426,11 +426,11 @@ describe("ProjectSessionRegistry", () => {
   it("keeps opaque sessions when the server module is re-evaluated", async () => {
     const projectPath = await createProject("Reloaded module");
     vi.resetModules();
-    const firstModule = await import("@web/lib/project-session.server.js");
+    const firstModule = await import("./project-session.server.js");
     const opened = await firstModule.projectSessionRegistry.openLocal(projectPath);
 
     vi.resetModules();
-    const reloadedModule = await import("@web/lib/project-session.server.js");
+    const reloadedModule = await import("./project-session.server.js");
 
     expect(reloadedModule.projectSessionRegistry).toBe(firstModule.projectSessionRegistry);
     expect(reloadedModule.projectSessionRegistry.get(opened.descriptor.sessionId)?.projectPath)

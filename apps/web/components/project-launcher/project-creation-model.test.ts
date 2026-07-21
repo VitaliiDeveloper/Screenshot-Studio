@@ -5,7 +5,7 @@ import {
   initialProjectCreationState,
   isProjectTemplateSupported,
   reduceProjectCreationState,
-} from "@web/components/project-launcher/project-creation-model.js";
+} from "./project-creation-model.js";
 
 const template: ProjectTemplateSummary = {
   id: "mobile-only",

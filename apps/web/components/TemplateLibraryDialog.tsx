@@ -9,7 +9,7 @@ import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "@web/lib/editor-store";
 import { withFlushedProject } from "@web/lib/debounced-save";
 import { projectJsonRequest } from "@web/lib/project-api-client";
-import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "@web/components/editor-ui";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
 export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { editorStore } from "@web/lib/editor-store.js";
-import { saveLatestProject, scheduleSave } from "@web/lib/debounced-save.js";
+import { editorStore } from "./editor-store.js";
+import { saveLatestProject, scheduleSave } from "./debounced-save.js";
 
 /**
  * Persistence helpers for the editor. The store stays free of the network layer; every UI

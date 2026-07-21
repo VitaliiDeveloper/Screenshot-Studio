@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { resolveEditorKeyboardCommand } from "@web/app/editor/editor-keyboard";
+import { resolveEditorKeyboardCommand } from "./editor-keyboard";
 
 const base = {
   key: "",

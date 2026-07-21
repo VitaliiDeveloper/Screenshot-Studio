@@ -18,7 +18,7 @@ import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { GET, PUT } from "@web/app/api/project/route.js";
+import { GET, PUT } from "./route.js";
 import { captureImportIntentPath } from "@screenshot-studio/cli/capture-import-recovery";
 
 const storageHooks = vi.hoisted(() => ({

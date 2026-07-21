@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   handleProjectLibraryGet,
   handleProjectLibraryOpen,
-} from "@web/app/api/project-library/handler.js";
+} from "./handler.js";
 import type { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
 
 const managedId = "project_00000000000000000000000000000001";

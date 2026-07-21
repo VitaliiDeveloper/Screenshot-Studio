@@ -25,17 +25,17 @@ import { withFlushedProject } from "@web/lib/debounced-save";
 import {
   loadAllProjectImages,
   useEditorImageCache,
-} from "@web/app/editor/use-editor-image-cache";
+} from "./use-editor-image-cache";
 import {
   loadProjectFontWarnings,
   useEditorFontWarnings,
-} from "@web/app/editor/use-editor-font-warnings";
+} from "./use-editor-font-warnings";
 
 export {
   cacheDecodedProjectImage,
   missingImageUrls,
-} from "@web/app/editor/use-editor-image-cache";
-export { loadProjectFontWarnings } from "@web/app/editor/use-editor-font-warnings";
+} from "./use-editor-image-cache";
+export { loadProjectFontWarnings } from "./use-editor-font-warnings";
 
 export interface EditorResourceResult {
   project: Project;

@@ -3,11 +3,11 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { acquireManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { withManagedProjectMutationGuard } from "@web/lib/managed-project-mutation-guard.server.js";
-import type { ProjectSession } from "@web/lib/project-session.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { acquireManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
+import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import { withManagedProjectMutationGuard } from "./managed-project-mutation-guard.server.js";
+import type { ProjectSession } from "./project-session.server.js";
 
 const roots: string[] = [];
 

@@ -8,12 +8,12 @@ import type { Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
-import { NumberField } from "@web/components/inspector-fields";
-import { cx, editorUi } from "@web/components/editor-ui";
-import { ElementTypeInspectorSections } from "@web/components/inspector/ElementTypeInspectorSections";
-import { InspectorSection as Section } from "@web/components/inspector/InspectorSection";
-import { ScreenInspectorSections } from "@web/components/inspector/ScreenInspectorSections";
-import { deriveInspectorSelection } from "@web/components/inspector/inspector-selection-model";
+import { NumberField } from "./inspector-fields";
+import { cx, editorUi } from "./editor-ui";
+import { ElementTypeInspectorSections } from "./inspector/ElementTypeInspectorSections";
+import { InspectorSection as Section } from "./inspector/InspectorSection";
+import { ScreenInspectorSections } from "./inspector/ScreenInspectorSections";
+import { deriveInspectorSelection } from "./inspector/inspector-selection-model";
 
 function patch<T extends Element["type"]>(
   id: string,

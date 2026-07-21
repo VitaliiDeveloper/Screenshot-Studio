@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveConfiguredProjectPath, resolveProjectPath } from "@web/lib/project-path.js";
+import { resolveConfiguredProjectPath, resolveProjectPath } from "./project-path.js";
 
 const saved = { PROJECT_PATH: process.env.PROJECT_PATH, INIT_CWD: process.env.INIT_CWD };
 

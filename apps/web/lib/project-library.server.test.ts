@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { ProjectLibraryService } from "@web/lib/project-library.server.js";
-import type { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { ProjectLibraryService } from "./project-library.server.js";
+import type { ProjectSessionRegistry } from "./project-session.server.js";
 
 const projectPath = resolve("fixtures/sample/app-store-screenshots.json");
 const managedId = "project_00000000000000000000000000000001";

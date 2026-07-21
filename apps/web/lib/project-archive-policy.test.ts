@@ -4,7 +4,7 @@ import { parseProject } from "@screenshot-studio/core/model";
 import {
   collectRequiredProjectResourcePaths,
   isSupportedProjectArchivePath,
-} from "@web/lib/project-archive-policy.js";
+} from "./project-archive-policy.js";
 
 describe("project archive policy", () => {
   it.each([

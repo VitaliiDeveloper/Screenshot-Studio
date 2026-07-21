@@ -2,8 +2,8 @@
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { LockOptions } from "proper-lockfile";
-import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { acquireStorageLock } from "@web/lib/storage-lock.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { acquireStorageLock } from "./storage-lock.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const DEFAULT_TIMEOUT_MS = 30_000;

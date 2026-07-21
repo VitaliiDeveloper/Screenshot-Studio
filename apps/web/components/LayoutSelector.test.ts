@@ -7,7 +7,7 @@ import {
   layoutDeleteConfirmation,
   layoutPresentation,
   toggleLayoutMenuState,
-} from "@web/components/LayoutSelector";
+} from "./LayoutSelector";
 
 function project(): Project {
   const screen = {

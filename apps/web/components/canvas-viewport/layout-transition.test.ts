@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { canvasTransitionKind } from "@web/components/canvas-viewport/layout-transition";
+import { canvasTransitionKind } from "./layout-transition";
 
 describe("canvas transition kind", () => {
   it("returns none when the layout and view are unchanged", () => {

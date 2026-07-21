@@ -14,13 +14,13 @@ import {
   parseExportProgress,
   type ExportProgressSnapshot,
 } from "@web/lib/export-progress";
-import { DialogShell, editorUi, MenuSelect } from "@web/components/editor-ui";
+import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import {
   DEFAULT_EXPORT_FILTERS,
   launchExportArtifactDownload,
   normalizeExportFilters,
-} from "@web/components/export-dialog-model";
-import { ExportProgressStatus } from "@web/components/ExportProgressStatus";
+} from "./export-dialog-model";
+import { ExportProgressStatus } from "./ExportProgressStatus";
 
 type ProjectArchiveAvailability =
   | { status: "checking" }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { ExportProgressRegistry } from "@web/lib/export-progress.server.js";
+import { ExportProgressRegistry } from "./export-progress.server.js";
 
 const operationId = `export_${"ab".repeat(16)}`;
 

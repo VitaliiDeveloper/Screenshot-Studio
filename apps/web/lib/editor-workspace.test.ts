@@ -12,7 +12,7 @@ import {
   storeOutputLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
-} from "@web/lib/editor-workspace";
+} from "./editor-workspace";
 
 function scopeProject(mode: CanvasMode): DesignLayout {
   const screen = (

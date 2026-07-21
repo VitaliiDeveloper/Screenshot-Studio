@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
-import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import { isStrongQuotedETag } from "./http-etag.js";
 import {
   withManagedProjectMutationGuard,
   withManagedProjectReadGuard,
-} from "@web/lib/managed-project-mutation-guard.server.js";
-import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import type { ManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "./managed-project-mutation-guard.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import type { ManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
 import {
   withActiveProjectSession,
   withExistingProjectSessionReadOnly,
   type ActiveProjectResolverDependencies,
   type LocalProjectSession,
-} from "@web/lib/project-session.server.js";
+} from "./project-session.server.js";
 
 type ProjectRequestOperation = (
   session: LocalProjectSession,

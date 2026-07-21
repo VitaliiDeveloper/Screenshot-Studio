@@ -5,7 +5,7 @@ import {
   openRecentProject,
   removeRecentProject,
   type RecentProjectsTransport,
-} from "@web/lib/recent-projects-client.js";
+} from "./recent-projects-client.js";
 
 const recentId = "recent_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 

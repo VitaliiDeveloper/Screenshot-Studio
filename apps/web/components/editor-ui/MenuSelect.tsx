@@ -3,8 +3,8 @@
 
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
-import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "@web/components/editor-ui/menu-behavior.js";
-import { cx } from "@web/components/editor-ui/styles.js";
+import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
+import { cx } from "./styles.js";
 
 export type MenuSelectOption<T extends string> = {
   value: T;

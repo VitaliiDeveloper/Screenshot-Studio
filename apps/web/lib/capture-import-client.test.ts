@@ -6,7 +6,7 @@ import {
   previewCaptureImport,
   CaptureImportClientError,
   type CaptureImportTransport,
-} from "@web/lib/capture-import-client.js";
+} from "./capture-import-client.js";
 
 function captureFile(path: string, contents = "png"): File {
   const file = new File([contents], path.split("/").at(-1)!, { type: "image/png" });

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { abandonProjectSession, closeProjectSession } from "@web/lib/project-close.js";
+import { abandonProjectSession, closeProjectSession } from "./project-close.js";
 
 describe("closeProjectSession", () => {
   it("runs close inside the write fence, then clears navigation state and returns Home", async () => {

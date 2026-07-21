@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { CanvasMode, DesignLayout, Project } from "@screenshot-studio/core/model";
-import { screenThumbnailInputsEqual, screenThumbnailPixelRatio } from "@web/lib/screen-thumbnail.js";
+import { screenThumbnailInputsEqual, screenThumbnailPixelRatio } from "./screen-thumbnail.js";
 
 function project(mode: CanvasMode = "connected"): Project {
   const shape = (id: string) => ({

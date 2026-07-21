@@ -5,7 +5,7 @@ import {
   projectActionNoticeExitMs,
   projectActionNoticeVisibleMs,
   type ProjectLibraryNotice,
-} from "@web/components/project-launcher/project-action-notice.js";
+} from "./project-action-notice.js";
 
 afterEach(() => {
   vi.useRealTimers();

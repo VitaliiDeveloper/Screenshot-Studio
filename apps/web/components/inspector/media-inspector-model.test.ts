@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
-import { mediaInspectorModel } from "@web/components/inspector/media-inspector-model";
+import { mediaInspectorModel } from "./media-inspector-model";
 
 const base = {
   x: 0,

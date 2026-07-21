@@ -19,7 +19,7 @@ import {
   handleCaptureImportApplyPost,
   handleCaptureImportPreviewPost,
 } from "@web/app/api/capture-import/handler.js";
-import { POST } from "@web/app/api/capture-import/apply/route.js";
+import { POST } from "./route.js";
 
 let root: string;
 let projectPath: string;

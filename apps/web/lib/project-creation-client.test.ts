@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createProject,
   type ProjectCreationTransport,
-} from "@web/lib/project-creation-client.js";
+} from "./project-creation-client.js";
 
 const input = {
   name: "Launch",

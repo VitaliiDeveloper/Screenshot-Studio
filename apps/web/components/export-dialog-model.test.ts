@@ -6,7 +6,7 @@ import {
   DEFAULT_EXPORT_FILTERS,
   launchExportArtifactDownload,
   normalizeExportFilters,
-} from "@web/components/export-dialog-model.js";
+} from "./export-dialog-model.js";
 
 const token = "a".repeat(43);
 

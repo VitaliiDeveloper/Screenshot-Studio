@@ -5,8 +5,8 @@ import { Readable } from "node:stream";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createExportArtifactStore, type ExportArtifactStore } from "@web/lib/export-artifacts.server.js";
-import { handleExportArtifactGet } from "@web/app/api/export/artifacts/[token]/handler.js";
-import { GET } from "@web/app/api/export/artifacts/[token]/route.js";
+import { handleExportArtifactGet } from "./handler.js";
+import { GET } from "./route.js";
 
 let root: string;
 let artifactRoot: string;

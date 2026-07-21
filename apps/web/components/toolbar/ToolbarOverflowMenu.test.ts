@@ -6,7 +6,7 @@ import {
   initialOverflowMenuFocusEdge,
   TOOLBAR_OVERFLOW_MENU_ITEM_SELECTOR,
   ToolbarOverflowMenu,
-} from "@web/components/toolbar/ToolbarOverflowMenu";
+} from "./ToolbarOverflowMenu";
 
 function renderOverflow(
   density: "overflow-secondary" | "overflow-locale" | "minimal",

@@ -15,7 +15,7 @@ import {
   type CaptureImportCurrentTarget,
   type CaptureImportDraft,
   type CaptureImportState,
-} from "@web/components/project-launcher/capture-import-model";
+} from "./capture-import-model";
 
 type ActivationFence = <T>(operation: () => Promise<T>) => Promise<T>;
 

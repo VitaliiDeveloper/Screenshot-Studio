@@ -25,12 +25,12 @@ import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
 } from "@web/lib/editor-workspace-navigation";
-import { EditorResourceDialogs } from "@web/app/editor/editor-resource-dialogs";
-import { useEditorEscapeRouting, useEditorKeyboardRouting } from "@web/app/editor/editor-keyboard";
-import { useEditorCaptureImport } from "@web/app/editor/use-editor-capture-import";
-import { useEditorProjectNavigation } from "@web/app/editor/use-editor-project-navigation";
-import { useEditorResources } from "@web/app/editor/editor-resources";
-import { useEditorSaveGuards } from "@web/app/editor/use-editor-save-guards";
+import { EditorResourceDialogs } from "./editor-resource-dialogs";
+import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
+import { useEditorCaptureImport } from "./use-editor-capture-import";
+import { useEditorProjectNavigation } from "./use-editor-project-navigation";
+import { useEditorResources } from "./editor-resources";
+import { useEditorSaveGuards } from "./use-editor-save-guards";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(

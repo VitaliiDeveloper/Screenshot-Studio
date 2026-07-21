@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { TextElement } from "@screenshot-studio/core/model";
-import { deriveInlineTextStyle } from "@web/components/editor-stage/inline-text-editing-model.js";
+import { deriveInlineTextStyle } from "./inline-text-editing-model.js";
 
 const element: TextElement = {
   id: "text", type: "text", x: 20, y: 30, width: 100, height: 40,

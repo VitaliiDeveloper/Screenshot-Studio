@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { ProjectZipError, readProjectZipFiles } from "@web/lib/project-zip.server.js";
+import { ProjectZipError, readProjectZipFiles } from "./project-zip.server.js";
 
 async function zipBytes(files: Record<string, string>): Promise<Uint8Array> {
   const zip = new JSZip();

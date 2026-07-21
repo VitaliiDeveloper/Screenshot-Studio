@@ -5,8 +5,8 @@ import React, { useEffect, useRef } from "react";
 import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
 import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
-import { ProjectPreviewStrip } from "@web/components/project-launcher/ProjectPreviewStrip";
-import type { ProjectLibraryNotice } from "@web/components/project-launcher/project-action-notice";
+import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
+import type { ProjectLibraryNotice } from "./project-action-notice";
 
 export interface ProjectLibraryAction {
   entryId: string;

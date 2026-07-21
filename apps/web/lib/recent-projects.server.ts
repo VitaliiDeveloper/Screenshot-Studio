@@ -3,20 +3,20 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, rename, rm, type FileHandle } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-project-catalog.server.js";
-import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
-import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { ensureManagedStorageRoot } from "@web/lib/managed-project-lifecycle-lock.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { acquireStorageLock } from "@web/lib/storage-lock.server.js";
+import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { ensureManagedStorageRoot } from "./managed-project-lifecycle-lock.server.js";
+import { ManagedProjectRepository } from "./managed-project-repository.server.js";
+import { acquireStorageLock } from "./storage-lock.server.js";
 import {
   LocalFileProjectSourceAdapter,
   ManagedProjectSourceAdapter,
   type OpenedProjectSource,
   type ProjectSession,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "./project-session.server.js";
 
 export const MAX_RECENT_PROJECTS = 20;
 

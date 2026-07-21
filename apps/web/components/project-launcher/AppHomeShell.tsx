@@ -6,16 +6,16 @@ import { FolderInput, Layers3, LoaderCircle, Plus, RotateCcw, ShieldCheck } from
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
-import { launcherActions, type LauncherImportState } from "@web/components/project-launcher/project-launcher-model";
-import { ProjectCreationDialog } from "@web/components/project-launcher/ProjectCreationDialog";
-import type { ProjectCreationForm, ProjectCreationState } from "@web/components/project-launcher/project-creation-model";
-import { ProjectImportDialog } from "@web/components/project-launcher/ProjectImportDialog";
+import { launcherActions, type LauncherImportState } from "./project-launcher-model";
+import { ProjectCreationDialog } from "./ProjectCreationDialog";
+import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";
+import { ProjectImportDialog } from "./ProjectImportDialog";
 import {
   ProjectGallery,
   type ProjectLibraryAction,
   type ProjectLibraryState,
-} from "@web/components/project-launcher/ProjectGallery";
-import type { ProjectLibraryNotice } from "@web/components/project-launcher/project-action-notice";
+} from "./ProjectGallery";
+import type { ProjectLibraryNotice } from "./project-action-notice";
 
 const launcherActionMotion = "transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
 const firstRunActionMotion = "shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";

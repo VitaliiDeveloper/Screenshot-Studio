@@ -3,7 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
-import { ProjectCreationDialog } from "@web/components/project-launcher/ProjectCreationDialog.js";
+import { ProjectCreationDialog } from "./ProjectCreationDialog.js";
 
 Object.assign(globalThis, { React });
 

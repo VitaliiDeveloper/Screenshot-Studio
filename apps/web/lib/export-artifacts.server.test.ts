@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createExportArtifactStore, type ExportArtifactStore } from "@web/lib/export-artifacts.server.js";
+import { createExportArtifactStore, type ExportArtifactStore } from "./export-artifacts.server.js";
 
 let root: string;
 let sourcePath: string;
@@ -102,11 +102,11 @@ describe("export artifact store", () => {
 
   it("shares the default ticket store across independently evaluated route modules", async () => {
     vi.resetModules();
-    const producer = await import("@web/lib/export-artifacts.server.js");
+    const producer = await import("./export-artifacts.server.js");
     const ticket = await producer.stageExportArtifact(sourcePath);
 
     vi.resetModules();
-    const consumer = await import("@web/lib/export-artifacts.server.js");
+    const consumer = await import("./export-artifacts.server.js");
     const consumed = await consumer.consumeExportArtifact(tokenFrom(ticket.downloadUrl));
 
     expect(consumed.status).toBe("ready");

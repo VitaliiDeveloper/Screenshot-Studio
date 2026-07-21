@@ -5,7 +5,7 @@ import React, { useEffect, useId, useRef, type ChangeEvent } from "react";
 import { FileArchive, FileJson, FolderOpen, Images, LoaderCircle, X } from "lucide-react";
 import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
 import { editorUi } from "@web/components/editor-ui/styles";
-import type { LauncherImportState } from "@web/components/project-launcher/project-launcher-model";
+import type { LauncherImportState } from "./project-launcher-model";
 
 export interface ProjectImportDialogProps {
   state: Exclude<LauncherImportState, { status: "idle" | "cancelled" }>;

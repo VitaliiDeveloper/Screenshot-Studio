@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ReactNode } from "react";
-import "@web/app/globals.css";
+import "./globals.css";
 
 export const metadata = {
   title: "Screenshot Studio",

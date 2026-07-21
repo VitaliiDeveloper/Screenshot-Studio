@@ -25,35 +25,35 @@ import {
   fetchProjectLibrary,
   openProjectLibraryEntry,
 } from "@web/lib/project-library-client";
-import { AppHomeShell } from "@web/components/project-launcher/AppHomeShell";
-import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
+import { AppHomeShell } from "./AppHomeShell";
+import { CaptureImportDialog } from "./CaptureImportDialog";
 import {
   assertCaptureImportHandoff,
   assertCaptureImportRecoveryTarget,
   useCaptureImportController,
-} from "@web/components/project-launcher/useCaptureImportController";
+} from "./useCaptureImportController";
 import {
   launcherDialogExitDelay,
   requestLauncherDialogExit,
   type LauncherDialogExitAction,
-} from "@web/components/project-launcher/project-dialog-motion";
-import { reduceLauncherImportState } from "@web/components/project-launcher/project-launcher-model";
+} from "./project-dialog-motion";
+import { reduceLauncherImportState } from "./project-launcher-model";
 import {
   initialProjectCreationState,
   reduceProjectCreationState,
   type ProjectCreationForm,
-} from "@web/components/project-launcher/project-creation-model";
+} from "./project-creation-model";
 import type {
   ProjectLibraryAction,
   ProjectLibraryState,
-} from "@web/components/project-launcher/ProjectGallery";
-import { ProjectDeletionDialog } from "@web/components/project-launcher/ProjectDeletionDialog";
-import { DelayedOpeningState } from "@web/components/project-launcher/delayed-opening-state";
-import { useManagedProjectDeletion } from "@web/components/project-launcher/useManagedProjectDeletion";
+} from "./ProjectGallery";
+import { ProjectDeletionDialog } from "./ProjectDeletionDialog";
+import { DelayedOpeningState } from "./delayed-opening-state";
+import { useManagedProjectDeletion } from "./useManagedProjectDeletion";
 import {
   ProjectActionNoticeState,
   type ProjectLibraryNotice,
-} from "@web/components/project-launcher/project-action-notice";
+} from "./project-action-notice";
 
 export function ProjectLauncher({ projectTemplates, initialProjects }: {
   projectTemplates: readonly ProjectTemplateSummary[];

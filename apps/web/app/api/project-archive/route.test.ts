@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
-import { handleProjectArchivePost } from "@web/app/api/project-archive/handler.js";
-import { POST } from "@web/app/api/project-archive/route.js";
+import { handleProjectArchivePost } from "./handler.js";
+import { POST } from "./route.js";
 
 let root: string;
 

@@ -5,7 +5,7 @@ import type { StoreSize } from "@screenshot-studio/core/export";
 import {
   createStoreTargetVariant,
   deleteStoreTargetVariant,
-} from "@web/lib/editor-project-actions.js";
+} from "./editor-project-actions.js";
 
 const rootId = "root-a";
 const target: StoreSize = {

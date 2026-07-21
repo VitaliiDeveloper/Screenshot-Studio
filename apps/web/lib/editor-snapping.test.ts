@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Element, Screen } from "@screenshot-studio/core/model";
-import { snapElementDrag, type SnapProjection } from "@web/lib/editor-snapping.js";
+import { snapElementDrag, type SnapProjection } from "./editor-snapping.js";
 
 function shape(id: string, x: number, y: number, width = 100, height = 100, rotation = 0): Element {
   return {

@@ -6,13 +6,13 @@ import {
   type Project,
   type Screen,
 } from "@screenshot-studio/core/model";
-import * as editorScreenMutations from "@web/lib/editor-screen-mutations.js";
+import * as editorScreenMutations from "./editor-screen-mutations.js";
 import {
   appendBlankScreen,
   appendClonedScreen,
   removeProjectScreen,
   reorderProjectScreens,
-} from "@web/lib/editor-screen-mutations.js";
+} from "./editor-screen-mutations.js";
 
 function screen(id: string, variantOf?: string): Screen {
   return {

@@ -4,9 +4,9 @@ import {
   discardActiveProjectPersistence,
   switchActiveProject,
   withDrainedProjectSaves,
-} from "@web/lib/debounced-save.js";
-import { clearWorkspaceNavigationState } from "@web/lib/editor-workspace-navigation.js";
-import { closeActiveProject } from "@web/lib/project-session.js";
+} from "./debounced-save.js";
+import { clearWorkspaceNavigationState } from "./editor-workspace-navigation.js";
+import { closeActiveProject } from "./project-session.js";
 
 type ProjectSwitch = (activate: () => Promise<void>) => Promise<void>;
 

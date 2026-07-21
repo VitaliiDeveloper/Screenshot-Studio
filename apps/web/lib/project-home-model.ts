@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project, Screen } from "@screenshot-studio/core/model";
-import type { ActiveProjectSelection } from "@web/lib/project-session.js";
-import { storeOutputLabel } from "@web/lib/editor-workspace.js";
+import type { ActiveProjectSelection } from "./project-session.js";
+import { storeOutputLabel } from "./editor-workspace.js";
 
 const PLATFORM_LABELS: Record<string, string> = {
   apple: "App Store",

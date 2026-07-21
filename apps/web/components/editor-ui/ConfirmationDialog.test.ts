@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ConfirmationDialog } from "@web/components/editor-ui/ConfirmationDialog.js";
+import { ConfirmationDialog } from "./ConfirmationDialog.js";
 
 // Vitest compiles the Next.js-preserved JSX with the classic runtime for this Node-only render.
 Object.assign(globalThis, { React });

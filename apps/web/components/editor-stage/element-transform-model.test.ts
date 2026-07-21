@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Element } from "@screenshot-studio/core/model";
-import { transformedDimensions } from "@web/components/editor-stage/element-transform-model.js";
+import { transformedDimensions } from "./element-transform-model.js";
 
 function group(width: number, height: number): Extract<Element, { type: "group" }> {
   return {

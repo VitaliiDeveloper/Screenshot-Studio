@@ -10,7 +10,7 @@ import {
   MousePointer2,
 } from "lucide-react";
 import type { WorkspacePanel, WorkspaceTool } from "@web/lib/editor-workspace";
-import { ToolButton } from "@web/components/editor-ui";
+import { ToolButton } from "./editor-ui";
 
 export function ToolRail({
   tool,

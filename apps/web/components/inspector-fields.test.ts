@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { fontIdentityOptions } from "@web/components/inspector-fields.js";
+import { fontIdentityOptions } from "./inspector-fields.js";
 
 describe("fontIdentityOptions", () => {
   it("offers the renderer-owned default before optional project fonts", () => {

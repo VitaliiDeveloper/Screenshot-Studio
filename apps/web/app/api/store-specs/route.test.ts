@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { handleStoreSpecsGet } from "@web/app/api/store-specs/handler.js";
-import { GET } from "@web/app/api/store-specs/route.js";
+import { handleStoreSpecsGet } from "./handler.js";
+import { GET } from "./route.js";
 
 describe("GET /api/store-specs", () => {
   it("returns parsed store specs including the iphone lead size", async () => {

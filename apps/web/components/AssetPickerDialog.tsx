@@ -21,9 +21,9 @@ import {
   initialMediaElementSize,
   insertAssetAfterCaching,
   type CachedAssetDimensions,
-} from "@web/components/asset-picker-model";
-import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "@web/components/editor-ui";
-import { DIALOG_EXIT_DURATION_MS } from "@web/components/editor-ui/DialogShell";
+} from "./asset-picker-model";
+import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
+import { DIALOG_EXIT_DURATION_MS } from "./editor-ui/DialogShell";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
 

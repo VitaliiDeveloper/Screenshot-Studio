@@ -14,8 +14,8 @@ import {
 } from "@screenshot-studio/core/scaffold";
 import {
   ManagedProjectCreationService,
-} from "@web/lib/managed-project-creation.server.js";
-import type { ManagedProjectRecord } from "@web/lib/managed-project-repository.server.js";
+} from "./managed-project-creation.server.js";
+import type { ManagedProjectRecord } from "./managed-project-repository.server.js";
 
 export async function createManagedProjectFromCaptureImport(input: {
   scaffoldInput: ProjectScaffoldInput;

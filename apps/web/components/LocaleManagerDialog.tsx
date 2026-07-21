@@ -7,7 +7,7 @@ import { ArrowLeftRight, Languages, Trash2 } from "lucide-react";
 import { layoutLocales, type DesignLayout, type LayoutDirection } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { ConfirmationDialog, DialogShell, cx, editorUi } from "@web/components/editor-ui";
+import { ConfirmationDialog, DialogShell, cx, editorUi } from "./editor-ui";
 
 type PendingLocaleAction =
   | { kind: "direction"; locale: string; next: LayoutDirection }

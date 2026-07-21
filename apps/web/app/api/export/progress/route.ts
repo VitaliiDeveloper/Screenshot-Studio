@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleExportProgressGet } from "@web/app/api/export/progress/handler.js";
+import { handleExportProgressGet } from "./handler.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

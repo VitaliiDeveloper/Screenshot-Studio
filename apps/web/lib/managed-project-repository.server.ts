@@ -19,16 +19,16 @@ import {
   type ActiveManagedProjectCatalogEntry,
   type ManagedProjectCatalogDocument,
   type ManagedProjectCatalogEntry,
-} from "@web/lib/managed-project-catalog.server.js";
-import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+} from "./managed-project-catalog.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   assertManagedProjectLifecycleLockHeld,
   ensureManagedStorageRoot,
   withManagedProjectLifecycleLock,
   validateManagedStorageChildRoot,
   type ManagedProjectLifecycleLock,
-} from "@web/lib/managed-project-lifecycle-lock.server.js";
-import { ManagedProjectLifecycleService } from "@web/lib/managed-project-lifecycle.server.js";
+} from "./managed-project-lifecycle-lock.server.js";
+import { ManagedProjectLifecycleService } from "./managed-project-lifecycle.server.js";
 
 const STAGE_TOKEN_PATTERN = /^stage_[0-9a-f]{32}$/;
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;

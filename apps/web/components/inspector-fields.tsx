@@ -9,7 +9,7 @@ import {
   type FontAsset,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
-import { cx, editorUi, MenuSelect, type MenuSelectOption } from "@web/components/editor-ui";
+import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 

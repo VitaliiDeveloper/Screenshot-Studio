@@ -26,16 +26,16 @@ import {
   type WorkspaceView,
 } from "@web/lib/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
-import { EditorStage } from "@web/components/EditorStage";
-import { CanvasSurface } from "@web/components/canvas-viewport/CanvasSurface";
-import { ConnectedOutputRow } from "@web/components/canvas-viewport/ConnectedOutputRow";
-import { canvasTransitionKind, type CanvasTransitionState } from "@web/components/canvas-viewport/layout-transition";
-import { OutputFamilySection } from "@web/components/canvas-viewport/OutputFamilySection";
-import { ScreenPreviewMetadata, ScreenPreviewTitle } from "@web/components/canvas-viewport/ScreenPreviewLabels";
-import { SizeRowHeader } from "@web/components/canvas-viewport/SizeRowHeader";
-import { useCanvasPanZoom } from "@web/components/canvas-viewport/use-canvas-pan-zoom";
-import { useCanvasViewportMetrics } from "@web/components/canvas-viewport/use-canvas-viewport-metrics";
-import { cx, editorUi, MenuSelect, type MenuSelectOption } from "@web/components/editor-ui";
+import { EditorStage } from "./EditorStage";
+import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
+import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
+import { canvasTransitionKind, type CanvasTransitionState } from "./canvas-viewport/layout-transition";
+import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
+import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./canvas-viewport/ScreenPreviewLabels";
+import { SizeRowHeader } from "./canvas-viewport/SizeRowHeader";
+import { useCanvasPanZoom } from "./canvas-viewport/use-canvas-pan-zoom";
+import { useCanvasViewportMetrics } from "./canvas-viewport/use-canvas-viewport-metrics";
+import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
   { value: "dots", label: "Dots", icon: Grip },

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { handleExportProgressGet } from "@web/app/api/export/progress/handler.js";
+import { handleExportProgressGet } from "./handler.js";
 
 const operationId = `export_${"ab".repeat(16)}`;
 

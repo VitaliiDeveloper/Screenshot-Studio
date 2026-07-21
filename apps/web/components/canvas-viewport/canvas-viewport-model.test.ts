@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { clientToViewportPoint, nextAnchoredScroll } from "@web/components/canvas-viewport/canvas-viewport-model.js";
+import { clientToViewportPoint, nextAnchoredScroll } from "./canvas-viewport-model.js";
 
 describe("canvas viewport model", () => {
   it("converts a client point into viewport-local coordinates", () => {

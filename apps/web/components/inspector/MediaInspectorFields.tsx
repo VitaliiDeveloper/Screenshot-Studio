@@ -5,8 +5,8 @@ import { MEDIA_BLUR_MAX, type ImageElement, type ScreenshotElement } from "@scre
 import type { ElementPatchFor } from "@web/lib/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import { NumberField, SelectField, TextField } from "@web/components/inspector-fields";
-import { mediaInspectorModel } from "@web/components/inspector/media-inspector-model";
-import { OptionalInspectorEffect } from "@web/components/inspector/OptionalInspectorEffect";
+import { mediaInspectorModel } from "./media-inspector-model";
+import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 
 export function MediaInspectorFields({
   element,

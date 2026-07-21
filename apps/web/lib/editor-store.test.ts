@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeEach } from "vitest";
-import { editorStore } from "@web/lib/editor-store.js";
-import { applyElementPatch, type ElementPatchFor } from "@web/lib/editor-element-patch.js";
+import { editorStore } from "./editor-store.js";
+import { applyElementPatch, type ElementPatchFor } from "./editor-element-patch.js";
 import {
   createSelectedElementIndex,
   forEachSelectedElement,
-} from "@web/lib/editor-selection-mutations.js";
+} from "./editor-selection-mutations.js";
 import {
   parseProject,
   type IconElement,

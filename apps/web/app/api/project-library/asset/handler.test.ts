@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { handleProjectLibraryAssetGet } from "@web/app/api/project-library/asset/handler.js";
+import { handleProjectLibraryAssetGet } from "./handler.js";
 
 const entryId = "project_00000000000000000000000000000001";
 

@@ -3,8 +3,8 @@ import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog.js";
-import { createCaptureImportState, type CaptureImportState } from "@web/components/project-launcher/capture-import-model.js";
+import { CaptureImportDialog } from "./CaptureImportDialog.js";
+import { createCaptureImportState, type CaptureImportState } from "./capture-import-model.js";
 
 const currentTarget = {
   projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

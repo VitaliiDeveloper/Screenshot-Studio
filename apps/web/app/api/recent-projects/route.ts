@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleRecentProjectsDelete, handleRecentProjectsGet } from "@web/app/api/recent-projects/handler.js";
+import { handleRecentProjectsDelete, handleRecentProjectsGet } from "./handler.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

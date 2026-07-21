@@ -14,13 +14,13 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActiveManagedProjectCatalogEntry, ManagedProjectCatalogEntry } from "@web/lib/managed-project-catalog.server.js";
-import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import type { ActiveManagedProjectCatalogEntry, ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   ManagedProjectNotFoundError,
   ManagedProjectRepository,
-} from "@web/lib/managed-project-repository.server.js";
+} from "./managed-project-repository.server.js";
 
 const temporaryRoots: string[] = [];
 

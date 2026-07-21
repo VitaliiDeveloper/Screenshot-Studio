@@ -4,14 +4,14 @@
 import { useRef, useState } from "react";
 import type Konva from "konva";
 import type { SelectionRef } from "@web/lib/editor-selection.js";
-import type { StageProjection } from "@web/components/editor-stage/stage-model.js";
+import type { StageProjection } from "./stage-model.js";
 import {
   marqueeBounds,
   marqueeHasMoved,
   resolveMarqueeSelection,
   stagePointerPosition,
   type ClientPoint,
-} from "@web/components/editor-stage/marquee-selection-model.js";
+} from "./marquee-selection-model.js";
 
 export interface MarqueeState {
   start: ClientPoint;

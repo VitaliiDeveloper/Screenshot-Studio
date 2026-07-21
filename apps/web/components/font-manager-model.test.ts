@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FontAsset, Project } from "@screenshot-studio/core/model";
 import { editorStore } from "@web/lib/editor-store.js";
-import { reconcileFontMutationResponse } from "@web/components/font-manager-model.js";
+import { reconcileFontMutationResponse } from "./font-manager-model.js";
 
 const font: FontAsset = {
   family: "Inter",

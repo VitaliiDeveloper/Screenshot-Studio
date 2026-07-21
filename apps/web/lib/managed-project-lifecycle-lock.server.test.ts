@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   acquireManagedProjectLifecycleLock,
   managedProjectLifecycleLockPath,
-} from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "./managed-project-lifecycle-lock.server.js";
 
 const roots: string[] = [];
 const children = new Set<ChildProcess>();

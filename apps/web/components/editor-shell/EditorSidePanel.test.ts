@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { EditorSidePanel } from "./EditorSidePanel";
 
 function renderPanel(side: "left" | "right", open: boolean) {
   return renderToStaticMarkup(

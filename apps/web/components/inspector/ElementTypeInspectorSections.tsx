@@ -20,9 +20,9 @@ import {
   TextField,
   ThemeRoleField,
 } from "@web/components/inspector-fields";
-import { InspectorSection as Section } from "@web/components/inspector/InspectorSection";
-import { MediaInspectorFields } from "@web/components/inspector/MediaInspectorFields";
-import { OptionalInspectorEffect } from "@web/components/inspector/OptionalInspectorEffect";
+import { InspectorSection as Section } from "./InspectorSection";
+import { MediaInspectorFields } from "./MediaInspectorFields";
+import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 
 export function ElementTypeInspectorSections({
   element,

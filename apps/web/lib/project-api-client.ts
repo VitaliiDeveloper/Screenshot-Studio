@@ -2,7 +2,7 @@
 import {
   advanceProjectRevisionFromResponse,
   projectRequestHeaders,
-} from "@web/lib/save-project.js";
+} from "./save-project.js";
 
 export interface ProjectJsonRequestOptions extends Omit<RequestInit, "headers"> {
   headers?: HeadersInit;

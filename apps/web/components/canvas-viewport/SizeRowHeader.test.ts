@@ -2,7 +2,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SizeRowHeader } from "@web/components/canvas-viewport/SizeRowHeader.js";
+import { SizeRowHeader } from "./SizeRowHeader.js";
 
 // Vitest compiles the Next.js-preserved JSX with the classic runtime for this Node-only render.
 Object.assign(globalThis, { React });

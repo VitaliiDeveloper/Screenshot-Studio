@@ -23,8 +23,8 @@ import {
   type ManagedProjectDeletionComplete,
   type ManagedProjectDeletionEvidence,
   type ManagedProjectDeletionReservation,
-} from "@web/lib/managed-project-catalog.server.js";
-import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+} from "./managed-project-catalog.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   acquireManagedProjectLifecycleLock,
   assertManagedProjectLifecycleLockHeld,
@@ -32,7 +32,7 @@ import {
   withManagedProjectLifecycleLock,
   validateManagedStorageChildRoot,
   type ManagedProjectLifecycleLock,
-} from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "./managed-project-lifecycle-lock.server.js";
 
 interface ManagedProjectSessionInvalidator {
   invalidateManagedProject(projectId: string): number;

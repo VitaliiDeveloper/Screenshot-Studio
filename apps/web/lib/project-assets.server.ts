@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { PROJECT_IMAGE_EXTENSIONS, type ProjectImageAsset } from "@web/lib/project-assets.js";
+import { PROJECT_IMAGE_EXTENSIONS, type ProjectImageAsset } from "./project-assets.js";
 
 const IMAGE_EXTENSIONS = new Set<string>(PROJECT_IMAGE_EXTENSIONS);
 const ASSET_ROOTS = ["assets", "screenshots"] as const;

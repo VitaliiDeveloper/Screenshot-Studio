@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
 import { describe, expect, it, vi } from "vitest";
-import { createProjectSaveCoordinator } from "@web/lib/debounced-save.js";
+import { createProjectSaveCoordinator } from "./debounced-save.js";
 import {
   advanceProjectDeletionAttempt,
   type ProjectDeletionAttempt,
-} from "@web/lib/project-delete-client.js";
+} from "./project-delete-client.js";
 import {
   advanceProjectHomeDeletion,
   type ProjectDeletionAttemptHolder,
-} from "@web/lib/project-deletion-controller.js";
-import type { ProjectHomeData } from "@web/lib/project-home-client.js";
+} from "./project-deletion-controller.js";
+import type { ProjectHomeData } from "./project-home-client.js";
 
 const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const operationId = "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

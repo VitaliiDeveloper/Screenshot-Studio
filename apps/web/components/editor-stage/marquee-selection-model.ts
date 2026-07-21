@@ -2,7 +2,7 @@
 import type Konva from "konva";
 import { rotatedElementBounds } from "@screenshot-studio/core/model";
 import { boundsIntersect, toggleSelection, type SelectionRef } from "@web/lib/editor-selection.js";
-import type { StageProjection } from "@web/components/editor-stage/stage-model.js";
+import type { StageProjection } from "./stage-model.js";
 
 export interface ClientPoint {
   x: number;

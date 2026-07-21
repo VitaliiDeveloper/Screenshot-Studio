@@ -13,7 +13,7 @@ import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { ArtboardTargets } from "@web/components/ArtboardTargets";
 import { editorUi, MenuSelect, SegmentedControl } from "@web/components/editor-ui";
 import { ColorField, NumberField, SelectField, TextField } from "@web/components/inspector-fields";
-import { InspectorSection as Section } from "@web/components/inspector/InspectorSection";
+import { InspectorSection as Section } from "./InspectorSection";
 
 function editBackground(background: Background) {
   mutateAndScheduleSave(() => editorStore.getState().setBackground(background));

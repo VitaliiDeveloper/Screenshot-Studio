@@ -14,12 +14,12 @@ import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor-store";
 import { isSelected } from "@web/lib/editor-selection";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { deriveStageModel } from "@web/components/editor-stage/stage-model";
-import { useElementTransform } from "@web/components/editor-stage/use-element-transform";
-import { useInlineTextEditing } from "@web/components/editor-stage/use-inline-text-editing";
-import { useMarqueeSelection } from "@web/components/editor-stage/use-marquee-selection";
-import { transformerAppearance } from "@web/components/editor-stage/transformer-appearance";
-import { nodeSelectionKey, useTransformerSelection } from "@web/components/editor-stage/use-transformer-selection";
+import { deriveStageModel } from "./editor-stage/stage-model";
+import { useElementTransform } from "./editor-stage/use-element-transform";
+import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
+import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
+import { transformerAppearance } from "./editor-stage/transformer-appearance";
+import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
 
 /**
  * Interactive canvas over the same elementToNodeConfig map used by export. Isolated mode renders

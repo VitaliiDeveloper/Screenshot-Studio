@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import { editorStore } from "@web/lib/editor-store.js";
+import { editorStore } from "./editor-store.js";
 
 function project(): Project {
   return {

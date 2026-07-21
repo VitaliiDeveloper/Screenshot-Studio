@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
+import { resolveStoreSpecsPath } from "./store-specs-path.js";
 
 describe("resolveStoreSpecsPath", () => {
   it("uses the invocation root when the package runner preserves INIT_CWD", () => {

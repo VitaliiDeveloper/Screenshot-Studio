@@ -5,7 +5,7 @@ import {
   exportRenderProgressPercent,
   parseExportProgress,
   type ExportProgressSnapshot,
-} from "@web/lib/export-progress.js";
+} from "./export-progress.js";
 
 describe("export progress client contract", () => {
   it("creates opaque ids and parses bounded progress", () => {

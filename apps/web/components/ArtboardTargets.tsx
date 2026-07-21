@@ -19,7 +19,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { storeOutputLabel } from "@web/lib/editor-workspace";
-import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "@web/components/editor-ui";
+import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "./editor-ui";
 
 /**
  * Store-target navigation never mutates the active artboard. The lead row opens the root/master;

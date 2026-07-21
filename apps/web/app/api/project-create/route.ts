@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { handleProjectCreatePost } from "@web/app/api/project-create/handler.js";
+import { handleProjectCreatePost } from "./handler.js";
 
 export const runtime = "nodejs";
 

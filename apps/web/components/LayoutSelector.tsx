@@ -7,7 +7,7 @@ import { ArrowLeftRight, Check, ChevronDown, Copy, LayoutTemplate, MoreVertical,
 import { findOwnerOverflows, type CanvasMode, type DesignLayout, type Project } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { ConfirmationDialog, cx, DialogShell, editorUi } from "@web/components/editor-ui";
+import { ConfirmationDialog, cx, DialogShell, editorUi } from "./editor-ui";
 
 const actionMenuItem = "flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60 disabled:pointer-events-none disabled:opacity-45";
 

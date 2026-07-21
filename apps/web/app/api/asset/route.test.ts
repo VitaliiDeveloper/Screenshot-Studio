@@ -7,7 +7,7 @@ import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/project-session.server.js";
-import { GET } from "@web/app/api/asset/route.js";
+import { GET } from "./route.js";
 
 let dir: string;
 let projectFile: string;

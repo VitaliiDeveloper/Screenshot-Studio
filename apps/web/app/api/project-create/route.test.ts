@@ -8,8 +8,8 @@ import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-con
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
 import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
-import { handleProjectCreatePost } from "@web/app/api/project-create/handler.js";
-import { POST } from "@web/app/api/project-create/route.js";
+import { handleProjectCreatePost } from "./handler.js";
+import { POST } from "./route.js";
 
 let root: string;
 let repository: ManagedProjectRepository;

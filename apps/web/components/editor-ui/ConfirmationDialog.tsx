@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { DialogShell } from "@web/components/editor-ui/DialogShell.js";
-import { editorUi } from "@web/components/editor-ui/styles.js";
+import { DialogShell } from "./DialogShell.js";
+import { editorUi } from "./styles.js";
 
 /** App-owned confirmation surface for potentially destructive editor actions. */
 export function ConfirmationDialog({

@@ -2,8 +2,8 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
-import type { ActiveProjectSelection } from "@web/lib/project-session.js";
-import { buildProjectHomeSummary } from "@web/lib/project-home-model.js";
+import type { ActiveProjectSelection } from "./project-session.js";
+import { buildProjectHomeSummary } from "./project-home-model.js";
 
 const project: Project = {
   meta: { name: "Launch Story", schemaVersion: 1 },

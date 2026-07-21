@@ -6,7 +6,7 @@ import {
   handleRecentProjectOpen,
   handleRecentProjectsDelete,
   handleRecentProjectsGet,
-} from "@web/app/api/recent-projects/handler.js";
+} from "./handler.js";
 
 const managedSession: ProjectSession = {
   projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

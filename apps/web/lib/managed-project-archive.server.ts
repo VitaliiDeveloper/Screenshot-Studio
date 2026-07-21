@@ -13,16 +13,16 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import JSZip from "jszip";
 import { projectRevision, withProjectMutation } from "@screenshot-studio/core/storage";
-import { isSupportedProjectArchivePath } from "@web/lib/project-archive-policy.js";
+import { isSupportedProjectArchivePath } from "./project-archive-policy.js";
 import {
   ManagedProjectRepository,
   type ManagedProjectRecord,
-} from "@web/lib/managed-project-repository.server.js";
+} from "./managed-project-repository.server.js";
 import {
   assertManagedProjectLifecycleLockHeld,
   withManagedProjectLifecycleLock,
   type ManagedProjectLifecycleLock,
-} from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "./managed-project-lifecycle-lock.server.js";
 
 const PROJECT_FILE = "app-store-screenshots.json";
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip";

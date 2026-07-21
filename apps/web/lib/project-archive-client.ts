@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import { isStrongQuotedETag } from "./http-etag.js";
 
 const ARCHIVE_URL_PATTERN = /^\/api\/project-archive\/artifacts\/[A-Za-z0-9_-]{43}$/;
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip";

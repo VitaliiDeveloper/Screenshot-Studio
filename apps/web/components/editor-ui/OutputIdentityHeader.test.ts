@@ -2,7 +2,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { OutputIdentityHeader, type OutputIdentityRole } from "@web/components/editor-ui/OutputIdentityHeader.js";
+import { OutputIdentityHeader, type OutputIdentityRole } from "./OutputIdentityHeader.js";
 
 // Vitest compiles the Next.js-preserved JSX with the classic runtime for this Node-only render.
 Object.assign(globalThis, { React });

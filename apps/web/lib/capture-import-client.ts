@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { CanvasMode, Platform } from "@screenshot-studio/core/model";
-import type { ActiveProjectDescriptor } from "@web/lib/project-session.js";
-import { isStrongQuotedETag } from "@web/lib/http-etag.js";
+import type { ActiveProjectDescriptor } from "./project-session.js";
+import { isStrongQuotedETag } from "./http-etag.js";
 
 export interface CaptureImportCurrentDestination {
   kind: "current-project";

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { initialMediaElementSize, insertAssetAfterCaching } from "@web/components/asset-picker-model";
+import { initialMediaElementSize, insertAssetAfterCaching } from "./asset-picker-model";
 
 describe("asset picker model", () => {
   it("waits for the shared image cache before inserting an asset", async () => {

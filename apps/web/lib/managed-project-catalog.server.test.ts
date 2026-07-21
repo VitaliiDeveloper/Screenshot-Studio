@@ -3,15 +3,15 @@ import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { acquireManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
+import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import { acquireManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
 import {
   parseManagedProjectCatalog,
   serializeManagedProjectCatalog,
   ManagedProjectCatalogStore,
-} from "@web/lib/managed-project-catalog.server.js";
-import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-project-catalog.server.js";
-import type { ManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+} from "./managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 
 const PROJECT_ID = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const ID_NAMESPACE = "1234567890abcdef";

@@ -15,7 +15,7 @@ import {
   clientToViewportPoint,
   nextAnchoredScroll,
   type ClientPoint,
-} from "@web/components/canvas-viewport/canvas-viewport-model";
+} from "./canvas-viewport-model";
 
 const WHEEL_ZOOM_SENSITIVITY = 0.002;
 
