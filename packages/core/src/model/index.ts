@@ -6,6 +6,7 @@ export * from "./schema.js";
 export * from "./project-resource-path.js";
 export * from "./device-frames.js";
 export * from "./font-identity.js";
+export * from "./built-in-fonts.js";
 export * from "./project-font-usage.js";
 export * from "./factories.js";
 export * from "./project-ops.js";

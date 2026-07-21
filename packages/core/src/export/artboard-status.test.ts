@@ -11,7 +11,13 @@ const specs = parseStoreSpecs({
       { id: "6.1", label: "6.1", width: 1100, height: 2390, orientation: "portrait" },
     ],
   },
-  android: { phone: [{ id: "phone-portrait", label: "P", width: 1080, height: 1920, orientation: "portrait" }] },
+  android: {
+    phone: [{ id: "phone-portrait", label: "P", width: 1080, height: 1920, orientation: "portrait" }],
+    "$outputs": [{
+      id: "play-feature-graphic", label: "Feature graphic", width: 1024, height: 500,
+      orientation: "landscape", kind: "promotion", family: "phone",
+    }],
+  },
 });
 
 describe("artboardTargetStatus", () => {
@@ -49,5 +55,13 @@ describe("artboardTargetStatuses", () => {
   it("returns an empty list for an unsupported platform/device", () => {
     const screen = { platform: "apple", device: "ipad", artboard: { width: 100, height: 100 } } as Screen;
     expect(artboardTargetStatuses(screen, specs)).toEqual([]);
+  });
+
+  it("includes non-device output targets owned by the screen family", () => {
+    const screen = {
+      platform: "android", device: "phone", artboard: { width: 1024, height: 500 },
+    } as Screen;
+    expect(artboardTargetStatuses(screen, specs).map(({ target, status }) => [target.id, status.kind]))
+      .toEqual([["phone-portrait", "invalid"], ["play-feature-graphic", "exact"]]);
   });
 });

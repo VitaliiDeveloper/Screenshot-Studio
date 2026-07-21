@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
-import { parseStoreSpecs, findStoreSize } from "./specs.js";
+import { parseStoreSpecs, findStoreSize, findStoreTarget } from "./specs.js";
 import { stripAlpha, inspectPng, assertDimensions, base64PngToBuffer } from "./png.js";
 
 const storeSpecsRaw = JSON.parse(
@@ -33,6 +33,19 @@ describe("store-specs.json", () => {
   it("throws for an unknown size id, listing valid options", () => {
     const specs = parseStoreSpecs(storeSpecsRaw);
     expect(() => findStoreSize(specs, "apple", "iphone", "5.5")).toThrow(/Known:/);
+  });
+
+  it("declares Android variants, tablet outputs, promotion art, and responsive Web sizes exactly", () => {
+    const specs = parseStoreSpecs(storeSpecsRaw);
+    expect(findStoreSize(specs, "android", "phone", "phone-portrait-high-res")).toMatchObject({ width: 1440, height: 2560 });
+    expect(findStoreSize(specs, "android", "tablet-7", "tablet-7-landscape")).toMatchObject({ width: 1920, height: 1200 });
+    expect(findStoreSize(specs, "android", "tablet-10", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
+    expect(findStoreTarget(specs, "android", "phone", "play-feature-graphic")).toMatchObject({
+      width: 1024, height: 500, kind: "promotion", family: "phone", alpha: false,
+    });
+    expect(() => findStoreSize(specs, "android", "promotion", "play-feature-graphic")).toThrow(/No store sizes/);
+    expect(findStoreSize(specs, "web", "desktop", "desktop-1920")).toMatchObject({ width: 1920, height: 1080, kind: "responsive" });
+    expect(findStoreSize(specs, "web", "mobile", "mobile-portrait")).toMatchObject({ width: 390, height: 844, kind: "responsive" });
   });
 });
 

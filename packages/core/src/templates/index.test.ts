@@ -1,7 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseStoreSpecs } from "../export/specs.js";
+import { buildBundleEntries, validateBundleArtboards } from "../export/bundle.js";
+import {
+  ensureStoreTargetVariant,
+  setLocaleDirection,
+  setOutputFamilyScreenSetMode,
+} from "../model/index.js";
 import type { Project } from "../model/schema.js";
-import { createScreenFromTemplate, ScreenTemplate, type ScreenTemplate as Template } from "./index.js";
+import { createScreenFromTemplate, listBuiltInTemplates, ScreenTemplate, type ScreenTemplate as Template } from "./index.js";
+
+const storeSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
 
 function project(): Project {
   return {
@@ -25,11 +36,113 @@ const template: Template = {
   ],
 };
 
+function synchronizedAndroidProject(direction: "ltr" | "rtl" = "ltr"): Project {
+  const initial = createScreenFromTemplate(project(), "default", template, "en").project;
+  const withTarget = ensureStoreTargetVariant(initial, "default", "feature-card", {
+    id: "phone-landscape",
+    width: 1920,
+    height: 1080,
+  }).project;
+  const synchronized = setOutputFamilyScreenSetMode(
+    withTarget,
+    "default",
+    "feature-card",
+    "synchronized",
+  );
+  return direction === "rtl"
+    ? setLocaleDirection(synchronized, "default", "en", "rtl")
+    : synchronized;
+}
+
 describe("ScreenTemplate", () => {
   it("strictly validates platform/device and fields", () => {
     expect(ScreenTemplate.parse(template).id).toBe("feature-card");
     expect(() => ScreenTemplate.parse({ ...template, device: "ipad" })).toThrow();
     expect(() => ScreenTemplate.parse({ ...template, unexpected: true })).toThrow();
+  });
+});
+
+describe("built-in templates", () => {
+  it("covers every requested starter and keeps promotion art frame-free", () => {
+    const templates = listBuiltInTemplates(storeSpecs, { family: "Inter", weight: 700 });
+    expect(templates.map(({ id }) => id)).toEqual([
+      "iphone-starter", "ipad-portrait-starter", "ipad-landscape-starter",
+      "android-phone-starter", "android-tablet-portrait-starter",
+      "android-tablet-landscape-starter", "web-desktop-starter", "web-mobile-starter",
+      "play-feature-graphic", "web-share-cover",
+    ]);
+    expect(templates.every((entry) => entry.elements.some((element) => element.type === "text"))).toBe(true);
+    expect(templates.flatMap(({ elements }) => elements)
+      .filter((element) => element.type === "device-frame")
+      .every((frame) => frame.assetUrl === undefined)).toBe(true);
+    const feature = templates.find(({ id }) => id === "play-feature-graphic")!;
+    expect(feature).toMatchObject({
+      platform: "android", device: "phone", targetId: "play-feature-graphic",
+      artboard: { width: 1024, height: 500 },
+    });
+    expect(feature.elements.some((element) => element.type === "device-frame")).toBe(false);
+    expect(feature.elements.map((element) => element.name)).toEqual(expect.arrayContaining(["Safe zone guide", "Focal zone guide"]));
+    expect(templates.every(({ elements }) => (
+      elements.some((element) => (
+        element.name === "Editable headline" && "role" in element && element.role === "heading"
+      ))
+      && elements.some((element) => (
+        element.name === "Accent panel" && "role" in element && element.role === "accent"
+      ))
+    ))).toBe(true);
+    expect(feature.elements
+      .filter((element) => element.name === "Safe zone guide" || element.name === "Focal zone guide")
+      .every((element) => !("role" in element) || element.role === undefined)).toBe(true);
+  });
+
+  it("materializes editable copy in a project with no custom fonts", () => {
+    const emptyFontProject = project();
+    emptyFontProject.fonts = [];
+    const builtIn = listBuiltInTemplates(storeSpecs).find(({ id }) => id === "web-desktop-starter")!;
+
+    const result = createScreenFromTemplate(emptyFontProject, "default", builtIn, "en", storeSpecs);
+
+    expect(result.screen.elements).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "text",
+        fontFamily: "Screenshot Studio Sans",
+        weight: 400,
+      }),
+    ]));
+  });
+
+  it.each([
+    ["ipad-landscape-starter", "13-landscape", 2752, 2064],
+    ["android-tablet-landscape-starter", "tablet-10-landscape", 2560, 1600],
+    ["play-feature-graphic", "play-feature-graphic", 1024, 500],
+  ] as const)("materializes %s as an exportable exact-target variant", (id, targetId, width, height) => {
+    const builtIn = listBuiltInTemplates(storeSpecs).find((candidate) => candidate.id === id)!;
+    const result = createScreenFromTemplate(project(), "default", builtIn, "en", storeSpecs);
+
+    expect(result.screen).toMatchObject({
+      variantOf: expect.any(String), storeTargetId: targetId, artboard: { width, height },
+    });
+    const entries = buildBundleEntries(result.project, "default", storeSpecs, {
+      platform: result.screen.platform,
+      device: result.screen.device,
+    });
+    expect(entries.find((entry) => entry.screen.id === result.screen.id)?.target.id).toBe(targetId);
+    expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
+  it("can materialize an exact target without a primary pair when creation owns that contract", () => {
+    const builtIn = listBuiltInTemplates(storeSpecs).find(({ id }) => id === "play-feature-graphic")!;
+    const result = createScreenFromTemplate(project(), "default", builtIn, "en", storeSpecs, {
+      exactTargetMode: "standalone",
+    });
+
+    expect(result.screen).toMatchObject({
+      platform: "android",
+      device: "phone",
+      storeTargetId: "play-feature-graphic",
+      artboard: { width: 1024, height: 500 },
+    });
+    expect(result.screen.variantOf).toBeUndefined();
   });
 });
 
@@ -81,6 +194,65 @@ describe("createScreenFromTemplate", () => {
   it("uses a unique screen id on repeated creation", () => {
     const first = createScreenFromTemplate(project(), "default", template, "en").project;
     expect(createScreenFromTemplate(first, "default", template, "en").screen.id).toBe("feature-card-2");
+  });
+
+  it("returns and localizes the new root when a synchronized family also creates exact-size variants", () => {
+    const title = template.elements[0]!;
+    if (title.type !== "text") throw new Error("Expected template title text");
+    const rtlTemplate: Template = {
+      ...template,
+      elements: [{ ...title, id: "rtl-title", x: 100, width: 300, align: "left" }],
+    };
+
+    const result = createScreenFromTemplate(
+      synchronizedAndroidProject("rtl"),
+      "default",
+      rtlTemplate,
+      "en",
+    );
+    const mirrored = result.project.layouts[0]!.screens.find((screen) => (
+      screen.variantOf === result.screen.id && screen.storeTargetId === "phone-landscape"
+    ));
+
+    expect(result.screen).toMatchObject({
+      id: "feature-card-2",
+      direction: "rtl",
+    });
+    expect(result.screen.variantOf).toBeUndefined();
+    expect(result.screen.storeTargetId).toBeUndefined();
+    expect(result.screen.elements[0]).toMatchObject({ x: 680, align: "right" });
+    expect(mirrored).toMatchObject({ direction: "rtl", variantOf: result.screen.id });
+    expect(mirrored!.elements[0]).toMatchObject({ align: "right" });
+  });
+
+  it("returns the new non-lead target variant for a synchronized family", () => {
+    const landscape: Template = {
+      ...template,
+      id: "feature-landscape",
+      targetId: "phone-landscape",
+      artboard: { width: 1920, height: 1080 },
+    };
+
+    const result = createScreenFromTemplate(
+      synchronizedAndroidProject(),
+      "default",
+      landscape,
+      "en",
+      storeSpecs,
+    );
+    const root = result.project.layouts[0]!.screens.find((screen) => screen.id === result.screen.variantOf);
+
+    expect(root).toMatchObject({
+      id: "feature-landscape",
+      artboard: { width: 1080, height: 1920 },
+    });
+    expect(root!.variantOf).toBeUndefined();
+    expect(root!.storeTargetId).toBeUndefined();
+    expect(result.screen).toMatchObject({
+      variantOf: root!.id,
+      storeTargetId: "phone-landscape",
+      artboard: { width: 1920, height: 1080 },
+    });
   });
 
   it("validates grouped fonts and regenerates group plus child ids", () => {

@@ -4,6 +4,7 @@ import type { DesignLayout, Project } from "../model/index.js";
 import { parseStoreSpecs } from "./specs.js";
 import {
   buildBundleEntries,
+  bundlePreflightWarnings,
   bundleRelativePath,
   leadStoreSizeId,
   safeLocalePathSegment,
@@ -22,6 +23,8 @@ const specs = parseStoreSpecs({
   },
   android: {
     phone: [{ id: "phone-portrait", label: "Phone", width: 1080, height: 1920, orientation: "portrait" }],
+    "tablet-7": [{ id: "tablet-7-portrait", label: "Tablet", width: 1200, height: 1920, orientation: "portrait" }],
+    "$outputs": [{ id: "play-feature-graphic", label: "Feature graphic", width: 1024, height: 500, orientation: "landscape", kind: "promotion", family: "phone" }],
   },
 });
 
@@ -71,11 +74,34 @@ describe("leadStoreSizeId", () => {
     expect(leadStoreSizeId("apple", "tvos")).toBe("4k");
     expect(leadStoreSizeId("apple", "watchos")).toBe("ultra-3");
     expect(leadStoreSizeId("android", "phone")).toBe("phone-portrait");
+    expect(leadStoreSizeId("android", "tablet-7")).toBe("tablet-7-portrait");
+    expect(leadStoreSizeId("android", "tablet-10")).toBe("tablet-10-portrait");
     expect(leadStoreSizeId("windows", "desktop")).toBe("4k");
+    expect(leadStoreSizeId("web", "desktop")).toBe("desktop-1920");
+    expect(leadStoreSizeId("web", "mobile")).toBe("mobile-portrait");
   });
 
   it("throws for an unsupported pair", () => {
     expect(() => leadStoreSizeId("android", "tablet" as never)).toThrow(/No lead store size/);
+  });
+});
+
+describe("bundlePreflightWarnings", () => {
+  it("warns per Android tablet family and locale below four screens", () => {
+    const source = project();
+    source.layouts[0]!.screens = [1, 2, 3].map((index) => ({
+      ...structuredClone(source.layouts[0]!.screens[2]!),
+      id: `tablet-${index}`,
+      name: `Tablet ${index}`,
+      device: "tablet-7",
+      artboard: { width: 1200, height: 1920 },
+    })) as DesignLayout["screens"];
+    const entries = buildBundleEntries(source, "default", specs);
+    expect(bundlePreflightWarnings(entries)).toEqual([expect.objectContaining({
+      code: "android-tablet-screen-count", device: "tablet-7", locale: "uk", screenCount: 3,
+    })]);
+    source.layouts[0]!.screens.push({ ...structuredClone(source.layouts[0]!.screens[0]!), id: "tablet-4" });
+    expect(bundlePreflightWarnings(buildBundleEntries(source, "default", specs))).toEqual([]);
   });
 });
 
@@ -185,7 +211,7 @@ describe("buildBundleEntries", () => {
   it("throws if store-specs lacks the schema-supported lead target", () => {
     const broken = parseStoreSpecs({ apple: { iphone: [] }, android: { phone: [] } });
     expect(() => buildBundleEntries(project(), "default", broken, { platform: "apple", device: "iphone" })).toThrow(
-      /Unknown size/,
+      /Unknown target/,
     );
   });
 
@@ -197,7 +223,24 @@ describe("buildBundleEntries", () => {
       variantOf: "hero",
       storeTargetId: "unknown-target",
     });
-    expect(() => buildBundleEntries(source, "default", specs)).toThrow(/Unknown size.*unknown-target/);
+    expect(() => buildBundleEntries(source, "default", specs)).toThrow(/Unknown target.*unknown-target/);
+  });
+
+  it("resolves a Play promotion variant without modeling promotion as a device", () => {
+    const source = project();
+    const root = source.layouts[0]!.screens[2]!;
+    source.layouts[0]!.screens.push({
+      ...structuredClone(root),
+      id: "feature-graphic",
+      variantOf: root.id,
+      storeTargetId: "play-feature-graphic",
+      artboard: { width: 1024, height: 500 },
+    });
+    const entry = buildBundleEntries(source, "default", specs)
+      .find(({ screen }) => screen.id === "feature-graphic")!;
+    expect(entry.target).toMatchObject({ id: "play-feature-graphic", kind: "promotion" });
+    expect(entry.screen.device).toBe("phone");
+    expect(() => validateBundleArtboards([entry])).not.toThrow();
   });
 });
 

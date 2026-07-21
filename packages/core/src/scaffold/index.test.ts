@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseStoreSpecs, type StoreSpecs } from "../export/index.js";
-import { parseProject } from "../model/index.js";
+import { buildBundleEntries, parseStoreSpecs, validateBundleArtboards, type StoreSpecs } from "../export/index.js";
+import { parseProject, screenSetModeFor } from "../model/index.js";
+import { applyDesignPack, listBuiltInDesignPacks } from "../themes/index.js";
 import {
   PROJECT_NAME_MAX_LENGTH,
   ProjectScaffoldInput,
@@ -15,7 +18,9 @@ const specs: StoreSpecs = parseStoreSpecs({
   apple: { iphone: [{ id: "lead", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
   android: { phone: [{ id: "lead", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
   windows: { desktop: [{ id: "lead", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
+  web: { desktop: [{ id: "lead", label: "Web lead", width: 1920, height: 1080, orientation: "landscape" }] },
 });
+const fullSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
 
 describe("ProjectScaffoldInput", () => {
   it("exports and enforces one project name length limit", () => {
@@ -45,14 +50,17 @@ describe("starter project templates", () => {
   it("exposes a small strict library with preview, intended use, and platform metadata", () => {
     const templates = listStarterProjectTemplates();
 
-    expect(templates).toHaveLength(2);
-    expect(templates.map(({ id }) => id)).toEqual(["feature-focus", "product-launch"]);
+    expect(templates.map(({ id }) => id)).toEqual([
+      "feature-focus", "product-launch", "iphone-starter", "ipad-portrait-starter",
+      "android-phone-starter", "android-tablet-portrait-starter", "play-feature-graphic",
+      "web-desktop-starter", "web-mobile-starter",
+    ]);
     for (const template of templates) {
       expect(template).toMatchObject({
         id: expect.stringMatching(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
         name: expect.any(String),
         intendedUse: expect.any(String),
-        supportedPlatforms: expect.arrayContaining(["apple", "android"]),
+        supportedPlatforms: expect.any(Array),
         preview: {
           backgroundFrom: expect.stringMatching(/^#/),
           backgroundTo: expect.stringMatching(/^#/),
@@ -78,6 +86,9 @@ describe("createProjectScaffold", () => {
       preferredExportLayoutId: "default",
       layouts: [{
         id: "default", name: "Default", mode: "connected",
+        screenSetPolicies: [{
+          platform: "windows", device: "desktop", locale: "en", mode: "synchronized",
+        }],
         screens: [{
           id: "hero", platform: "windows", device: "desktop",
           artboard: { width: 1920, height: 1080 }, elements: [],
@@ -95,16 +106,81 @@ describe("createProjectScaffold", () => {
           platform,
           layoutMode: "isolated",
           templateId: template.id,
-        }, specs);
+        }, fullSpecs);
 
         expect(parseProject(scaffold.project)).toEqual(scaffold.project);
-        expect(scaffold.project.layouts[0]!.screens.length).toBeGreaterThan(1);
+        expect(scaffold.project.layouts[0]!.screens.length).toBeGreaterThanOrEqual(1);
         expect(new Set(scaffold.project.layouts[0]!.screens.map((screen) => screen.platform))).toEqual(
           new Set([platform]),
         );
+        const root = scaffold.project.layouts[0]!.screens.find((screen) => screen.storeTargetId === undefined);
+        if (root) {
+          expect(screenSetModeFor(scaffold.project.layouts[0]!, root)).toBe("synchronized");
+        }
         expect(scaffold.project.layouts[0]!.screens.some((screen) => screen.elements.length > 0)).toBe(true);
+        expect(scaffold.resources).toEqual([]);
       }
     }
+  });
+
+  it.each([
+    ["iphone-starter", "apple"],
+    ["android-phone-starter", "android"],
+    ["web-desktop-starter", "web"],
+  ] as const)("bakes the global design pack into a newly scaffolded %s", (templateId, platform) => {
+    const scaffold = createProjectScaffold({
+      name: `Packed ${templateId}`,
+      platform,
+      layoutMode: "isolated",
+      templateId,
+    }, fullSpecs);
+    const screen = scaffold.project.layouts[0]!.screens[0]!;
+    const beforeHeading = screen.elements.find((element) => (
+      "role" in element && element.role === "heading"
+    ));
+    const beforeAccent = screen.elements.find((element) => (
+      "role" in element && element.role === "accent"
+    ));
+    expect(beforeHeading).toMatchObject({ type: "text", color: "#FFFFFF" });
+    expect(beforeAccent).toMatchObject({ type: "shape", fill: "#38BDF8" });
+
+    const pack = listBuiltInDesignPacks()[0]!;
+    const packed = applyDesignPack(scaffold.project, "default", pack);
+    const packedScreen = packed.layouts[0]!.screens[0]!;
+    expect(packedScreen.elements.find((element) => (
+      "role" in element && element.role === "heading"
+    ))).toMatchObject({
+      type: "text",
+      color: "#0F172A",
+      fontFamily: "Screenshot Studio Sans",
+      weight: 400,
+      size: 64,
+    });
+    expect(packedScreen.elements.find((element) => (
+      "role" in element && element.role === "accent"
+    ))).toMatchObject({
+      type: "shape",
+      fill: "#2563EB",
+    });
+    expect(parseProject(packed)).toEqual(packed);
+    expect(JSON.stringify(packed)).not.toContain(pack.id);
+  });
+
+  it("creates Play Feature Graphic as the only default Android output", () => {
+    const scaffold = createProjectScaffold({
+      name: "Feature graphic", platform: "android", layoutMode: "isolated",
+      templateId: "play-feature-graphic",
+    }, fullSpecs);
+    const screens = scaffold.project.layouts[0]!.screens;
+    expect(screens).toHaveLength(1);
+    expect(screens[0]).toMatchObject({
+      platform: "android", device: "phone", storeTargetId: "play-feature-graphic",
+      artboard: { width: 1024, height: 500 },
+    });
+    expect(screens[0]!.variantOf).toBeUndefined();
+    const entries = buildBundleEntries(scaffold.project, "default", fullSpecs);
+    expect(entries.map(({ target }) => target.id)).toEqual(["play-feature-graphic"]);
+    expect(() => validateBundleArtboards(entries)).not.toThrow();
   });
 
   it("rejects unknown templates and missing lead store dimensions", () => {

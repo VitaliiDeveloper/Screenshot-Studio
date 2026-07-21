@@ -3,6 +3,7 @@ import type { Project as ProjectModel } from "./schema.js";
 import { fontIdentityKey, type FontIdentity } from "./font-identity.js";
 import { elementLeaves } from "./element-tree.js";
 import { getLayout } from "./project-layout.js";
+import { isBuiltInFontIdentity } from "./built-in-fonts.js";
 
 /** Text font identities that have no file-backed project font. Pure: filesystem loading stays in hosts. */
 export function findUnresolvedFonts(project: ProjectModel, layoutId?: string): FontIdentity[] {
@@ -17,7 +18,9 @@ export function findUnresolvedFonts(project: ProjectModel, layoutId?: string): F
         for (const leaf of elementLeaves(element)) {
           if (leaf.type !== "text") continue;
           const key = fontIdentityKey({ family: leaf.fontFamily, weight: leaf.weight });
-          if (!registered.has(key) && !seen.has(key)) {
+          if (!registered.has(key)
+            && !isBuiltInFontIdentity({ family: leaf.fontFamily, weight: leaf.weight })
+            && !seen.has(key)) {
             unresolved.push({ family: leaf.fontFamily, weight: leaf.weight });
             seen.add(key);
           }
@@ -33,7 +36,7 @@ export function formatUnresolvedFontsError(unresolved: readonly FontIdentity[]):
   return `Cannot export: unresolved project fonts: ${identities}. Register each font in the Fonts dialog or with screenshots font add.`;
 }
 
-/** Reject nondeterministic system-font fallbacks before a render host or browser is created. */
+/** Reject identities that are neither project-local nor renderer-owned before rendering. */
 export function assertProjectFontsResolved(project: ProjectModel, layoutId?: string): void {
   const unresolved = findUnresolvedFonts(project, layoutId);
   if (unresolved.length > 0) throw new Error(formatUnresolvedFontsError(unresolved));

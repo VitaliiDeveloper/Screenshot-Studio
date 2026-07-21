@@ -86,8 +86,15 @@ describe("elementToNodeConfig", () => {
       id: "t1", x: 10, y: 20, width: 300, height: 100,
       rotation: 5, opacity: 0.8, text: "Hi", fontFamily: "Pacifico",
       fontSize: 96, fontStyle: "600", lineHeight: 1.2,
-      letterSpacing: 2, align: "center", direction: "ltr", fill: "#FFFFFF",
+      letterSpacing: 2, align: "center", verticalAlign: "top", direction: "ltr", fill: "#FFFFFF",
     });
+  });
+
+  it("maps persisted vertical text alignment through the shared renderer", () => {
+    const result = elementToNodeConfig({ ...baseText, verticalAlign: "bottom" });
+
+    expect(result.konva).toBe("Text");
+    expect(result.config).toMatchObject({ verticalAlign: "bottom" });
   });
 
   it("maps explicit rtl direction without changing physical alignment", () => {
@@ -320,9 +327,10 @@ describe("elementToNodeConfig — device-frame", () => {
     expect(result.children[3]!.config).toMatchObject({ x: 340, y: 22, width: 320, height: 18 });
   });
 
-  it("drops the content image when the asset is missing (frame + slot bg + notch remain)", () => {
+  it("shows a drop-target placeholder when the frame asset is missing", () => {
     const result = elementToNodeConfig(frame, { images: new Map() });
     if (result.konva !== "Group") throw new Error("expected Group");
-    expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Rect"]);
+    expect(result.children.map((c) => c.konva)).toEqual(["Rect", "Rect", "Rect", "Rect"]);
+    expect(result.children[2]!.config).toMatchObject({ fill: "#374151", stroke: "#9CA3AF" });
   });
 });

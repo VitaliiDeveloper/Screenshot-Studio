@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
+import { parseProject } from "../model/index.js";
 import type { Project } from "../model/schema.js";
-import { applyTheme, Theme } from "./index.js";
+import {
+  applyDesignPack,
+  applyTheme,
+  listBuiltInDesignPacks,
+  Theme,
+} from "./index.js";
 
 function project(): Project {
   return {
@@ -107,5 +113,44 @@ describe("applyTheme", () => {
   it("rejects an unregistered theme font even when no text uses that role", () => {
     expect(() => applyTheme(project(), "default", { ...theme, fonts: { body: { family: "Missing", weight: 400 } } }))
       .toThrow(/unregistered font/);
+  });
+});
+
+describe("built-in design packs", () => {
+  it("exposes detached, read-only-style palette, typography, and spacing literals", () => {
+    const first = listBuiltInDesignPacks();
+    expect(first).toMatchObject([{
+      id: "neutral-default",
+      palette: { heading: "#0F172A", accent: "#2563EB" },
+      typography: { heading: { family: "Screenshot Studio Sans", weight: 400, size: 64 } },
+      spacing: { compact: 8, regular: 16, spacious: 24 },
+    }]);
+    first[0]!.palette.accent = "#000000";
+    expect(listBuiltInDesignPacks()[0]!.palette.accent).toBe("#2563EB");
+  });
+
+  it("bakes pack values into strict project literals without persisting a pack reference", () => {
+    const source = project();
+    source.fonts = [];
+    source.layouts[0]!.screens[0]!.elements.push({
+      id: "media", type: "image", role: "surface", x: 0, y: 150, width: 100, height: 100,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      assetUrl: "assets/media.png", fit: "contain", cornerRadius: 0,
+    });
+    const pack = listBuiltInDesignPacks()[0]!;
+    const next = applyDesignPack(source, "default", pack);
+
+    expect(next.layouts[0]!.screens[0]!.elements[0]).toMatchObject({
+      role: "heading", color: "#0F172A", fontFamily: "Screenshot Studio Sans",
+      weight: 400, size: 64, lineHeight: 1.08, letterSpacing: -1,
+    });
+    expect(next.layouts[0]!.screens[0]!.elements[1]).toMatchObject({
+      role: "accent", fill: "#2563EB", y: 104, radius: 0,
+    });
+    expect(next.layouts[0]!.screens[0]!.elements.at(-1)).toMatchObject({
+      role: "surface", y: 144, cornerRadius: 0,
+    });
+    expect(parseProject(next)).toEqual(next);
+    expect(JSON.stringify(next)).not.toContain(pack.id);
   });
 });

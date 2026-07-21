@@ -91,8 +91,14 @@ describe("discoverCaptureImport", () => {
       ],
     });
 
-    expect(discovery.captures).toHaveLength(1);
+    expect(discovery.captures).toHaveLength(2);
     expect(discovery.captures[0]).toMatchObject({
+      sourcePath: "android/tablet-7/en/01.png",
+      platform: "android",
+      device: "tablet-7",
+      locale: "en",
+    });
+    expect(discovery.captures[1]).toMatchObject({
       sourcePath: "apple/ipad/fr/02.PNG",
       platform: "apple",
       device: "ipad",
@@ -100,11 +106,6 @@ describe("discoverCaptureImport", () => {
       filename: "02.PNG",
     });
     expect(discovery.warnings).toEqual([
-      {
-        code: "unsupported-capture-path",
-        path: "android/tablet-7/en/01.png",
-        message: "Skipping unsupported capture path \"android/tablet-7/en/01.png\"",
-      },
       {
         code: "unsupported-input",
         path: "notes.txt",

@@ -23,6 +23,8 @@ import {
   reorderScreenInProject,
   resizeScreenArtboard,
   resizeStoreOutputArtboards,
+  screenSetModeFor,
+  setOutputFamilyScreenSetMode,
   setLocaleDirection,
   slugify,
   uniqueId,
@@ -143,6 +145,144 @@ describe("project-ops", () => {
     expect(again.created).toBe(false);
     expect(again.variant.id).toBe(result.variant.id);
     expect(again.project).toBe(result.project);
+  });
+
+  it("defaults existing families to independent and reconciles every slot when synchronization is enabled", () => {
+    const independent = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    expect(screenSetModeFor(independent.layouts[0]!, independent.layouts[0]!.screens[0]!))
+      .toBe("independent");
+
+    const synchronized = setOutputFamilyScreenSetMode(
+      independent,
+      "default",
+      "hero",
+      "synchronized",
+    );
+    const layout = synchronized.layouts[0]!;
+    const roots = layout.screens.filter((screen) => screen.storeTargetId === undefined);
+    const variants = layout.screens.filter((screen) => screen.storeTargetId === "6.5");
+
+    expect(screenSetModeFor(layout, roots[0]!)).toBe("synchronized");
+    expect(variants.map((screen) => screen.variantOf)).toEqual(roots.map((screen) => screen.id));
+  });
+
+  it("preserves an extra independent exact-size slot without creating a primary slot", () => {
+    const independent = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    const extra = structuredClone(independent.layouts[0]!.screens.find(
+      (screen) => screen.storeTargetId === "6.5",
+    )!);
+    extra.id = "standalone-small";
+    extra.name = "Standalone small";
+    delete extra.variantOf;
+    independent.layouts[0]!.screens.push(extra);
+
+    const removed = removeScreenFromProject(independent, "default", extra.id);
+
+    expect(removed.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined))
+      .toHaveLength(2);
+    expect(removed.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "6.5"))
+      .toHaveLength(1);
+  });
+
+  it("materializes missing primary slots when Keep 1:1 is enabled from a longer exact-size row", () => {
+    const independent = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    const firstExact = independent.layouts[0]!.screens.find(
+      (screen) => screen.storeTargetId === "6.5",
+    )!;
+    const extra = structuredClone(firstExact);
+    extra.id = "standalone-small";
+    extra.name = "Standalone small";
+    delete extra.variantOf;
+    const secondExtra = structuredClone(firstExact);
+    secondExtra.id = "standalone-small-2";
+    secondExtra.name = "Standalone small 2";
+    delete secondExtra.variantOf;
+    independent.layouts[0]!.screens.push(extra, secondExtra);
+
+    const synchronized = setOutputFamilyScreenSetMode(
+      independent,
+      "default",
+      extra.id,
+      "synchronized",
+    );
+    const layout = synchronized.layouts[0]!;
+    const primaries = layout.screens.filter((screen) => screen.storeTargetId === undefined);
+    const variants = layout.screens.filter((screen) => screen.storeTargetId === "6.5");
+
+    expect(primaries).toHaveLength(3);
+    expect(variants).toHaveLength(3);
+    expect(variants.map((screen) => screen.variantOf))
+      .toEqual(primaries.map((screen) => screen.id));
+    expect(variants[1]).toMatchObject({ id: "standalone-small", name: "Standalone small" });
+    expect(variants[2]).toMatchObject({ id: "standalone-small-2", name: "Standalone small 2" });
+  });
+
+  it("mirrors add, reorder, and delete across exact sizes only in synchronized mode", () => {
+    let synchronized = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    synchronized = setOutputFamilyScreenSetMode(
+      synchronized,
+      "default",
+      "hero",
+      "synchronized",
+    );
+    synchronized = addScreenToProject(synchronized, "default", {
+      id: "pricing",
+      name: "Pricing",
+      platform: "apple",
+      device: "iphone",
+      locale: "en",
+      artboard: { width: 1320, height: 2868 },
+    });
+
+    let layout = synchronized.layouts[0]!;
+    expect(layout.screens.filter((screen) => screen.storeTargetId === undefined)).toHaveLength(3);
+    expect(layout.screens.filter((screen) => screen.storeTargetId === "6.5")).toHaveLength(3);
+
+    synchronized = reorderScreenInProject(synchronized, "default", "pricing", 1);
+    layout = synchronized.layouts[0]!;
+    const roots = layout.screens.filter((screen) => screen.storeTargetId === undefined);
+    const variants = layout.screens.filter((screen) => screen.storeTargetId === "6.5");
+    expect(roots.map((screen) => screen.id)).toEqual(["pricing", "hero", "details"]);
+    expect(variants.map((screen) => screen.variantOf)).toEqual(["pricing", "hero", "details"]);
+
+    const pricingVariant = variants.find((screen) => screen.variantOf === "pricing")!;
+    synchronized = reorderScreenInProject(synchronized, "default", pricingVariant.id, 3);
+    layout = synchronized.layouts[0]!;
+    expect(layout.screens.filter((screen) => screen.storeTargetId === undefined).map((screen) => screen.id))
+      .toEqual(["hero", "details", "pricing"]);
+    expect(layout.screens.filter((screen) => screen.storeTargetId === "6.5").map((screen) => screen.variantOf))
+      .toEqual(["hero", "details", "pricing"]);
+
+    const removed = removeScreenFromProject(synchronized, "default", pricingVariant.id);
+    expect(removed.layouts[0]!.screens.some((screen) =>
+      screen.id === "pricing" || screen.variantOf === "pricing"
+    )).toBe(false);
+  });
+
+  it("removes an exact size from every slot in synchronized mode", () => {
+    let synchronized = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    synchronized = setOutputFamilyScreenSetMode(
+      synchronized,
+      "default",
+      "hero",
+      "synchronized",
+    );
+
+    const removed = removeStoreTargetVariant(synchronized, "default", "hero", "6.5");
+    expect(removed.layouts[0]!.screens.some((screen) => screen.storeTargetId === "6.5"))
+      .toBe(false);
+    expect(screenSetModeFor(removed.layouts[0]!, removed.layouts[0]!.screens[0]!))
+      .toBe("synchronized");
   });
 
   it("resizes one screen artboard and its composition atomically", () => {
@@ -281,7 +421,7 @@ describe("project-ops", () => {
     )).toBe(true);
   });
 
-  it("creates one independent full store-output family and reopens it idempotently", () => {
+  it("creates one separate store-output family with synchronized slots and reopens it idempotently", () => {
     const source = sampleProject();
     source.layouts[0]!.screens[0]!.elements = [{
       id: "shape", type: "shape", x: 100, y: 200, width: 500, height: 100,
@@ -308,6 +448,10 @@ describe("project-ops", () => {
     )).toBe(true);
     expect(ipadRoots[0]!.elements[0]!.id).not.toBe("shape");
     expect(source.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(screenSetModeFor(result.project.layouts[0]!, ipadRoots[0]!)).toBe("synchronized");
+    expect(result.project.layouts[0]!.screenSetPolicies).toContainEqual({
+      platform: "apple", device: "ipad", locale: "en", mode: "synchronized",
+    });
 
     const again = ensureStoreOutputFamily(result.project, "default", "hero", "apple", "ipad", {
       id: "13", width: 2064, height: 2752,
@@ -424,7 +568,7 @@ describe("project-ops", () => {
     expect(result.firstScreen.artboard).toEqual({ width: 422, height: 514 });
   });
 
-  it("removes one target variant and cascades variants when their root is removed", () => {
+  it("removes one target variant and preserves independent exact screens when their primary is removed", () => {
     const first = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
@@ -434,11 +578,40 @@ describe("project-ops", () => {
     const recreated = ensureStoreTargetVariant(first, "default", "details", {
       id: "6.5", width: 1284, height: 2778,
     }).project;
-    expect(() => removeScreenFromProject(recreated, "default", "details"))
-      .toThrow(/has 1 store target variant.*cascade/i);
-    const withoutRoot = removeScreenFromProject(recreated, "default", "details", { cascadeVariants: true });
-    expect(withoutRoot.layouts[0]!.screens).toHaveLength(2);
-    expect(withoutRoot.layouts[0]!.screens.every((screen) => screen.id === "hero" || screen.variantOf === "hero")).toBe(true);
+    const withoutRoot = removeScreenFromProject(recreated, "default", "details");
+    expect(withoutRoot.layouts[0]!.screens).toHaveLength(3);
+    const detached = withoutRoot.layouts[0]!.screens.find((screen) =>
+      screen.storeTargetId === "6.5" && screen.name === "Details"
+    )!;
+    expect(detached.variantOf).toBeUndefined();
+
+    const cascaded = removeScreenFromProject(recreated, "default", "details", {
+      cascadeVariants: true,
+    });
+    expect(cascaded.layouts[0]!.screens).toHaveLength(2);
+    expect(cascaded.layouts[0]!.screens.every((screen) =>
+      screen.id === "hero" || screen.variantOf === "hero"
+    )).toBe(true);
+  });
+
+  it("removes the complete independent exact-size row", () => {
+    const first = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    const second = ensureStoreTargetVariant(first, "default", "details", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    const exact = second.layouts[0]!.screens.find((screen) => screen.storeTargetId === "6.5")!;
+    const standalone = structuredClone(exact);
+    standalone.id = "standalone-small";
+    delete standalone.variantOf;
+    second.layouts[0]!.screens.push(standalone);
+
+    const removed = removeStoreTargetVariant(second, "default", "hero", "6.5");
+
+    expect(removed.layouts[0]!.screens.some((screen) => screen.storeTargetId === "6.5"))
+      .toBe(false);
+    expect(removed.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["hero", "details"]);
   });
 
   it("refuses to remove the last root screen for one locale", () => {
@@ -558,6 +731,23 @@ describe("project-ops", () => {
     const copiedGroup = copy.elements[0]!;
     expect(copiedGroup.id).not.toBe("group");
     expect(copiedGroup.type === "group" && copiedGroup.children[0]!.id).not.toBe("child");
+  });
+
+  it("accepts renderer-owned fonts without weakening missing custom-font checks", () => {
+    const source = sampleProject();
+    source.layouts[0]!.screens[0]!.elements = [{
+      id: "built-in", type: "text", x: 0, y: 0, width: 200, height: 80,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      content: "Ready", fontFamily: "Screenshot Studio Sans", size: 30, weight: 400,
+      lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF",
+    }];
+
+    expect(findUnresolvedFonts(source)).toEqual([]);
+    expect(() => assertProjectFontsResolved(source)).not.toThrow();
+    const element = source.layouts[0]!.screens[0]!.elements[0]!;
+    if (element.type !== "text") throw new Error("expected text element");
+    element.fontFamily = "Missing Custom Font";
+    expect(findUnresolvedFonts(source)).toEqual([{ family: "Missing Custom Font", weight: 400 }]);
   });
 
   it("cloneLocaleSet appends an independent target set in source order", () => {

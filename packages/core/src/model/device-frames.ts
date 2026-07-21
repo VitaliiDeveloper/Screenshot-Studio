@@ -34,6 +34,8 @@ export const DEVICE_FRAME_SPECS: Record<DeviceFrameId, DeviceFrameSpec> = {
   "android-phone": { aspectRatio: 0.48, bezelColor: "#202124", frameCornerRadius: 0.11, slotInset: { top: 0.024, right: 0.028, bottom: 0.024, left: 0.028 }, slotCornerRadius: 0.075, notch: { widthFrac: 0.035, heightFrac: 0.016, topFrac: 0.012 } },
   tablet: { aspectRatio: 0.75, bezelColor: "#242426", frameCornerRadius: 0.055, slotInset: { top: 0.035, right: 0.035, bottom: 0.035, left: 0.035 }, slotCornerRadius: 0.025 },
   desktop: { aspectRatio: 1.6, bezelColor: "#25262A", frameCornerRadius: 0.025, slotInset: { top: 0.035, right: 0.025, bottom: 0.08, left: 0.025 }, slotCornerRadius: 0.012 },
+  laptop: { aspectRatio: 16 / 10, bezelColor: "#202124", frameCornerRadius: 0.022, slotInset: { top: 0.035, right: 0.03, bottom: 0.075, left: 0.03 }, slotCornerRadius: 0.01 },
+  browser: { aspectRatio: 16 / 10, bezelColor: "#D1D5DB", frameCornerRadius: 0.025, slotInset: { top: 0.08, right: 0.012, bottom: 0.018, left: 0.012 }, slotCornerRadius: 0.008 },
   tv: { aspectRatio: 16 / 9, bezelColor: "#17181B", frameCornerRadius: 0.018, slotInset: { top: 0.025, right: 0.025, bottom: 0.055, left: 0.025 }, slotCornerRadius: 0.008 },
   watch: { aspectRatio: 0.82, bezelColor: "#1E1E20", frameCornerRadius: 0.23, slotInset: { top: 0.045, right: 0.055, bottom: 0.045, left: 0.055 }, slotCornerRadius: 0.18 },
 };

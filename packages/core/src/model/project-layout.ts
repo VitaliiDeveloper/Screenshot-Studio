@@ -113,7 +113,15 @@ export function duplicateLayout(
     ...(screen.variantOf ? { variantOf: screenIds.get(screen.variantOf) } : {}),
     elements: screen.elements.map((element) => cloneElementWithFreshIds(element)),
   }));
-  const layout: DesignLayout = { id, name, mode: source.mode, screens };
+  const layout: DesignLayout = {
+    id,
+    name,
+    mode: source.mode,
+    ...(source.screenSetPolicies
+      ? { screenSetPolicies: structuredClone(source.screenSetPolicies) }
+      : {}),
+    screens,
+  };
   const sourceIndex = project.layouts.findIndex((candidate) => candidate.id === source.id);
   const layouts = [...project.layouts];
   layouts.splice(sourceIndex + 1, 0, layout);

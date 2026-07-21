@@ -10,9 +10,18 @@ import {
   SCHEMA_VERSION,
   SCREEN_DEVICES_BY_PLATFORM,
   parseProject,
+  removeScreenFromProject,
+  reorderScreenInProject,
+  setOutputFamilyScreenSetMode,
   type Platform,
   type Project as ProjectModel,
 } from "../model/index.js";
+import { getLayout, replaceLayout } from "../model/project-layout.js";
+import {
+  createScreenFromTemplate,
+  findBuiltInTemplate,
+  listBuiltInProjectStarterMetadata,
+} from "../templates/index.js";
 
 export const PROJECT_DOCUMENT_FILENAME = "app-store-screenshots.json";
 export const PROJECT_NAME_MAX_LENGTH = 120;
@@ -24,7 +33,7 @@ const STARTER_PANEL_TOP_RATIO = 0.18;
 const STARTER_PANEL_VERTICAL_STEP_RATIO = 0.04;
 const STARTER_PANEL_RADIUS_RATIO = 0.12;
 
-const ProjectPlatform = z.enum(["apple", "android", "windows"]);
+const ProjectPlatform = z.enum(["apple", "android", "windows", "web"]);
 
 export const ProjectScaffoldInput = z.object({
   name: z.string().trim().min(1).max(PROJECT_NAME_MAX_LENGTH),
@@ -77,7 +86,7 @@ const STARTER_PROJECT_TEMPLATES: readonly StarterProjectTemplate[] = [
     name: "Feature focus",
     description: "A crisp two-screen foundation with strong focal panels.",
     intendedUse: "Introduce one primary benefit and reinforce it with a supporting proof point.",
-    supportedPlatforms: ["apple", "android", "windows"],
+    supportedPlatforms: ["apple", "android", "windows", "web"],
     preview: { backgroundFrom: "#0F172A", backgroundTo: "#1D4ED8", accent: "#38BDF8" },
     screenCount: 2,
   },
@@ -86,7 +95,7 @@ const STARTER_PROJECT_TEMPLATES: readonly StarterProjectTemplate[] = [
     name: "Product launch",
     description: "A three-screen launch sequence with a bold gradient rhythm.",
     intendedUse: "Present a new product, highlight momentum, and close with a clear visual payoff.",
-    supportedPlatforms: ["apple", "android"],
+    supportedPlatforms: ["apple", "android", "web"],
     preview: { backgroundFrom: "#312E81", backgroundTo: "#DB2777", accent: "#FDE047" },
     screenCount: 3,
   },
@@ -96,12 +105,20 @@ const LEAD_DEVICE_BY_PLATFORM = {
   apple: "iphone",
   android: "phone",
   windows: "desktop",
+  web: "desktop",
 } as const satisfies { [Key in Platform]: (typeof SCREEN_DEVICES_BY_PLATFORM)[Key][number] };
 
 export function listStarterProjectTemplates(): ProjectTemplateSummary[] {
-  return STARTER_PROJECT_TEMPLATES.map(({ screenCount: _screenCount, ...summary }) => (
-    ProjectTemplateSummary.parse(structuredClone(summary))
-  ));
+  const generic = STARTER_PROJECT_TEMPLATES.map(({ screenCount: _screenCount, ...summary }) => summary);
+  const builtIns = listBuiltInProjectStarterMetadata().map((starter) => ({
+    id: starter.id,
+    name: starter.name,
+    description: starter.description,
+    intendedUse: "Start with an editable, correctly sized canvas and assign your own screenshot assets.",
+    supportedPlatforms: [starter.platform],
+    preview: { backgroundFrom: "#0F172A", backgroundTo: "#1D4ED8", accent: "#38BDF8" },
+  }));
+  return [...generic, ...builtIns].map((summary) => ProjectTemplateSummary.parse(structuredClone(summary)));
 }
 
 function leadArtboard(specs: StoreSpecs, platform: Platform): { width: number; height: number } {
@@ -202,17 +219,54 @@ export function validateProjectScaffold(scaffold: ProjectScaffold): ProjectScaff
 
 export function createProjectScaffold(input: ProjectScaffoldInput, specs: StoreSpecs): ProjectScaffold {
   const parsedInput = ProjectScaffoldInput.parse(input);
-  const template = parsedInput.templateId === null
+  const projectTemplate = parsedInput.templateId === null
     ? undefined
     : STARTER_PROJECT_TEMPLATES.find(({ id }) => id === parsedInput.templateId);
-  if (parsedInput.templateId !== null && !template) {
+  const builtInMetadata = parsedInput.templateId === null
+    ? undefined
+    : listBuiltInProjectStarterMetadata().find(({ id }) => id === parsedInput.templateId);
+  if (parsedInput.templateId !== null && !projectTemplate && !builtInMetadata) {
     throw new Error(`Unknown project template: ${parsedInput.templateId}`);
   }
-  if (template && !template.supportedPlatforms.includes(parsedInput.platform)) {
-    throw new Error(`Project template "${template.id}" does not support ${parsedInput.platform}`);
+  if (projectTemplate && !projectTemplate.supportedPlatforms.includes(parsedInput.platform)) {
+    throw new Error(`Project template "${projectTemplate.id}" does not support ${parsedInput.platform}`);
+  }
+  if (builtInMetadata && builtInMetadata.platform !== parsedInput.platform) {
+    throw new Error(`Project template "${builtInMetadata.id}" does not support ${parsedInput.platform}`);
+  }
+
+  let project = parseProject(createRawProject(parsedInput, specs, projectTemplate));
+  if (builtInMetadata) {
+    const template = findBuiltInTemplate(builtInMetadata.id, specs);
+    if (!template) throw new Error(`Unknown built-in screen template: ${builtInMetadata.id}`);
+    const standaloneExactTarget = builtInMetadata.id === "play-feature-graphic";
+    const materialized = createScreenFromTemplate(project, "default", template, "en", specs, {
+      exactTargetMode: standaloneExactTarget ? "standalone" : "paired",
+    });
+    if (standaloneExactTarget) {
+      const layout = getLayout(materialized.project, "default");
+      project = replaceLayout(materialized.project, {
+        ...layout,
+        screens: layout.screens.filter((screen) => screen.id !== "hero"),
+      });
+    } else {
+      project = removeScreenFromProject(materialized.project, "default", "hero");
+      if (materialized.screen.variantOf) {
+        project = reorderScreenInProject(project, "default", materialized.screen.id, 1);
+      }
+    }
+  }
+  const layout = getLayout(project, "default");
+  const synchronizedFamilies = new Set<string>();
+  for (const screen of layout.screens) {
+    if (screen.storeTargetId !== undefined) continue;
+    const key = `${screen.platform}\u0000${screen.device}\u0000${screen.locale}`;
+    if (synchronizedFamilies.has(key)) continue;
+    project = setOutputFamilyScreenSetMode(project, "default", screen.id, "synchronized");
+    synchronizedFamilies.add(key);
   }
   return validateProjectScaffold({
-    project: parseProject(createRawProject(parsedInput, specs, template)),
+    project,
     resources: [],
   });
 }

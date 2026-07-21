@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project, Screen } from "../model/index.js";
 import { getLayout } from "../model/index.js";
-import { findStoreSize, type StoreSize, type StoreSpecs } from "./specs.js";
+import { findStoreTarget, type StoreSize, type StoreSpecs } from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
 
 export interface BundleFilters {
@@ -18,9 +18,50 @@ export interface BundleEntry {
 
 const LEAD_SIZE_BY_PLATFORM_DEVICE = {
   apple: { iphone: "6.9", ipad: "13", macos: "2880x1800", tvos: "4k", watchos: "ultra-3" },
-  android: { phone: "phone-portrait" },
+  android: {
+    phone: "phone-portrait",
+    "tablet-7": "tablet-7-portrait",
+    "tablet-10": "tablet-10-portrait",
+  },
   windows: { desktop: "4k" },
+  web: {
+    desktop: "desktop-1920",
+    laptop: "laptop-1440",
+    tablet: "tablet-portrait",
+    mobile: "mobile-portrait",
+  },
 } as const;
+
+export interface BundlePreflightWarning {
+  code: "android-tablet-screen-count";
+  platform: "android";
+  device: "tablet-7" | "tablet-10";
+  locale: string;
+  screenCount: number;
+  message: string;
+}
+
+/** Advisory listing guidance; rendering/export remains valid below the recommendation. */
+export function bundlePreflightWarnings(entries: readonly BundleEntry[]): BundlePreflightWarning[] {
+  const counts = new Map<string, { device: "tablet-7" | "tablet-10"; locale: string; count: number }>();
+  for (const { screen } of entries) {
+    if (screen.platform !== "android" || (screen.device !== "tablet-7" && screen.device !== "tablet-10")) continue;
+    const key = `${screen.device}\u0000${screen.locale}`;
+    const current = counts.get(key) ?? { device: screen.device, locale: screen.locale, count: 0 };
+    current.count += 1;
+    counts.set(key, current);
+  }
+  return [...counts.values()]
+    .filter(({ count }) => count < 4)
+    .map(({ device, locale, count }) => ({
+      code: "android-tablet-screen-count" as const,
+      platform: "android" as const,
+      device,
+      locale,
+      screenCount: count,
+      message: `${device} locale ${locale} has ${count} screen${count === 1 ? "" : "s"}; four or more are recommended.`,
+    }));
+}
 
 export function leadStoreSizeId(platform: string, device: string): string {
   const byDevice = LEAD_SIZE_BY_PLATFORM_DEVICE[platform as keyof typeof LEAD_SIZE_BY_PLATFORM_DEVICE];
@@ -139,7 +180,7 @@ export function buildBundleEntries(
     const sizeId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
     const groupIndex = byTarget.get(sizeId) ?? 0;
     byTarget.set(sizeId, groupIndex + 1);
-    const target = findStoreSize(specs, screen.platform, screen.device, sizeId);
+    const target = findStoreTarget(specs, screen.platform, screen.device, sizeId);
     return { screen, target, relativePath: bundleRelativePath(screen, target, groupIndex) };
   });
 }
