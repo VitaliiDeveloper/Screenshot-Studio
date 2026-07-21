@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import JSZip from "jszip";
 import { PNG } from "pngjs";
+import { workspaceSharpRuntimePackages } from "../scripts/packed-sharp-runtime.mjs";
 
 const execFile = promisify(execFileCallback);
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -20,6 +21,7 @@ let bin: string;
 let packedFiles: string[];
 let packedBytes: number;
 let packedName: string;
+let sharpRuntimePackageNames: string[];
 
 async function run(command: string, args: string[], cwd: string, timeout = 180_000) {
   let executable = command;
@@ -93,6 +95,16 @@ beforeAll(async () => {
     "--offline",
     "--ignore-scripts",
   ], consumer);
+  const sharpRuntimePackages = await workspaceSharpRuntimePackages(repoRoot);
+  sharpRuntimePackageNames = sharpRuntimePackages.map((path) => basename(path));
+  await run("pnpm", [
+    "--store-dir",
+    store,
+    "add",
+    ...sharpRuntimePackages,
+    "--offline",
+    "--ignore-scripts",
+  ], consumer);
 
   bin = process.platform === "win32"
     ? join(consumer, "node_modules", ".bin", "screenshots.cmd")
@@ -133,6 +145,8 @@ describe("Packaged CLI", () => {
     ]);
     expect(packedFiles.some((path) => path.startsWith("src/") || path.includes("fixtures"))).toBe(false);
     expect(packedBytes).toBeLessThan(64 * 1024 * 1024);
+    const installedImagePackages = await readdir(join(consumer, "node_modules", "@img"));
+    expect(installedImagePackages).toEqual(expect.arrayContaining(sharpRuntimePackageNames));
   });
 
   it("installs, initializes, manages, and exports through the packaged standalone host", async () => {
