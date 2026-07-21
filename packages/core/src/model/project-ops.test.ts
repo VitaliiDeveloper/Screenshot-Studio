@@ -10,6 +10,7 @@ import {
   addScreenToProject,
   cloneLocaleSet,
   cloneScreenWithFreshIds,
+  copyScreenInProject,
   ensureStoreOutputFamily,
   ensureStoreTargetVariant,
   findUnresolvedFonts,
@@ -166,6 +167,42 @@ describe("project-ops", () => {
 
     expect(screenSetModeFor(layout, roots[0]!)).toBe("synchronized");
     expect(variants.map((screen) => screen.variantOf)).toEqual(roots.map((screen) => screen.id));
+  });
+
+  it("copies one synchronized logical slot through the core operation", () => {
+    const independent = ensureStoreTargetVariant(sampleProject(), "default", "hero", {
+      id: "6.5", width: 1284, height: 2778,
+    }).project;
+    const synchronized = setOutputFamilyScreenSetMode(
+      independent,
+      "default",
+      "hero",
+      "synchronized",
+    );
+    const sourceVariant = synchronized.layouts[0]!.screens.find((screen) =>
+      screen.variantOf === "hero" && screen.storeTargetId === "6.5"
+    )!;
+
+    const result = copyScreenInProject(
+      synchronized,
+      "default",
+      sourceVariant.id,
+      "blank",
+    );
+    const layout = result.project.layouts[0]!;
+    const roots = layout.screens.filter((screen) => screen.storeTargetId === undefined);
+    const variants = layout.screens.filter((screen) => screen.storeTargetId === "6.5");
+    const created = layout.screens.find((screen) => screen.id === result.createdScreenId)!;
+
+    expect(roots).toHaveLength(3);
+    expect(variants).toHaveLength(3);
+    expect(variants.map((screen) => screen.variantOf)).toEqual(roots.map((screen) => screen.id));
+    expect(created).toMatchObject({
+      name: "Untitled",
+      variantOf: roots.at(-1)!.id,
+      storeTargetId: "6.5",
+      elements: [],
+    });
   });
 
   it("preserves an extra independent exact-size slot without creating a primary slot", () => {

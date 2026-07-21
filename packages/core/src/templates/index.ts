@@ -11,6 +11,7 @@ import {
   ensureStoreTargetVariant,
   fitElementsToArtboard,
   setScreenDirection,
+  type CreateScreenInput,
   type Project as ProjectModel,
   type Screen,
 } from "../model/index.js";
@@ -239,13 +240,11 @@ export function createScreenFromTemplate(
       elements: elements.map((element) => cloneElementWithFreshIds(element)),
     };
     const existingIds = new Set(getLayout(sourceProject, layoutId).screens.map((screen) => screen.id));
-    const added = template.platform === "apple"
-      ? addScreenToProject(sourceProject, layoutId, { ...common, platform: "apple", device: template.device })
-      : template.platform === "android"
-        ? addScreenToProject(sourceProject, layoutId, { ...common, platform: "android", device: template.device })
-        : template.platform === "windows"
-          ? addScreenToProject(sourceProject, layoutId, { ...common, platform: "windows", device: template.device })
-          : addScreenToProject(sourceProject, layoutId, { ...common, platform: "web", device: template.device });
+    const added = addScreenToProject(sourceProject, layoutId, {
+      ...common,
+      platform: template.platform,
+      device: template.device,
+    } as CreateScreenInput);
     const layout = getLayout(added, layoutId);
     const created = layout.screens.filter((candidate) => !existingIds.has(candidate.id));
     const screen = created.find((candidate) => (

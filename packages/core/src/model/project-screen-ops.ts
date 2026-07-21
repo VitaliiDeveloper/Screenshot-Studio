@@ -201,3 +201,95 @@ export function cloneScreenWithFreshIds(src: Screen): Screen {
   copy.elements = copy.elements.map((element) => cloneElementWithFreshIds(element));
   return copy;
 }
+
+export type ScreenCopyKind = "blank" | "clone";
+
+export interface CopyScreenInProjectResult {
+  project: ProjectModel;
+  createdScreenId: string;
+}
+
+function copyScreen(source: Screen, kind: ScreenCopyKind): Screen {
+  if (kind === "clone") return cloneScreenWithFreshIds(source);
+  const copy = structuredClone(source);
+  copy.id = crypto.randomUUID();
+  copy.name = "Untitled";
+  copy.elements = [];
+  return copy;
+}
+
+function availableVariantRoot(
+  screens: readonly Screen[],
+  source: Screen,
+): Screen | undefined {
+  if (!source.storeTargetId) return undefined;
+  const occupiedRootIds = new Set(screens
+    .filter((screen) => screen.storeTargetId === source.storeTargetId)
+    .map((screen) => screen.variantOf)
+    .filter((id): id is string => id !== undefined));
+  return screens.find((screen) =>
+    isPrimaryScreen(screen)
+    && sameOutputFamily(screen, source)
+    && !occupiedRootIds.has(screen.id),
+  );
+}
+
+/**
+ * Copy one logical screen slot while preserving output-family pairing policy. The returned id is
+ * the copy in the same exact-target row as the requested source (or the new primary screen).
+ */
+export function copyScreenInProject(
+  project: ProjectModel,
+  layoutId: string,
+  sourceScreenId: string,
+  kind: ScreenCopyKind,
+): CopyScreenInProjectResult {
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === sourceScreenId);
+  if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
+
+  const root = source.variantOf
+    ? layout.screens.find((screen) => screen.id === source.variantOf)
+    : isPrimaryScreen(source)
+      ? source
+      : layout.screens.find((screen) => sameOutputFamily(screen, source) && isPrimaryScreen(screen));
+
+  if (root && screenSetModeFor(layout, root) === "synchronized") {
+    const rootCopy = copyScreen(root, kind);
+    const targetScreens = Array.from(new Map(layout.screens
+      .filter((screen) => sameOutputFamily(screen, root) && screen.storeTargetId)
+      .map((screen) => [screen.storeTargetId!, screen])).values());
+    const variants = targetScreens.map((targetScreen) => {
+      const variantSource = layout.screens.find((screen) =>
+        screen.variantOf === root.id && screen.storeTargetId === targetScreen.storeTargetId
+      ) ?? targetScreen;
+      return ScreenSchema.parse({
+        ...copyScreen(variantSource, kind),
+        variantOf: rootCopy.id,
+        storeTargetId: targetScreen.storeTargetId,
+      });
+    });
+    const screens = alignSynchronizedScreenSets(
+      [...layout.screens, rootCopy, ...variants],
+      root,
+    );
+    const createdScreenId = source.storeTargetId
+      ? variants.find((screen) => screen.storeTargetId === source.storeTargetId)!.id
+      : rootCopy.id;
+    return {
+      project: replaceLayout(project, { ...layout, screens }),
+      createdScreenId,
+    };
+  }
+
+  const added = copyScreen(source, kind);
+  if (source.storeTargetId) {
+    const availableRoot = availableVariantRoot(layout.screens, source);
+    if (availableRoot) added.variantOf = availableRoot.id;
+    else delete added.variantOf;
+  }
+  return {
+    project: replaceLayout(project, { ...layout, screens: [...layout.screens, added] }),
+    createdScreenId: added.id,
+  };
+}
