@@ -5,7 +5,7 @@ import { cpSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
 
 /**
  * Slice 4 gate: reordering a layer in the panel persists the new `elements` array order (= z-order)

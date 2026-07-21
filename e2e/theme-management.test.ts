@@ -5,9 +5,9 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseStoreSpecs } from "../packages/core/src/export/index.js";
-import { createProjectScaffold } from "../packages/core/src/scaffold/index.js";
-import { startWebServer, type RunningServer } from "../packages/cli/src/server.js";
+import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { createProjectScaffold } from "@screenshot-studio/core/scaffold";
+import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sample = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");

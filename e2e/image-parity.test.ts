@@ -7,8 +7,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { stripAlpha } from "../packages/core/src/export/png.js";
-import { startWebServer } from "../packages/cli/src/server.js";
+import { stripAlpha } from "@screenshot-studio/core/export";
+import { startWebServer } from "@screenshot-studio/cli/server";
 import {
   closeParityRenderHarness,
   startParityRenderHarness,

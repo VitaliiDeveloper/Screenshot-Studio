@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Project } from "@screenshot-studio/core/model";
-import { startWebServer } from "../packages/cli/src/server.js";
+import { startWebServer } from "@screenshot-studio/cli/server";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/sample");

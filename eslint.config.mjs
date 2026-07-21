@@ -74,6 +74,24 @@ export default tseslint.config(
     },
   },
   {
+    // Root-owned E2E tests consume workspace packages through their public subpaths rather
+    // than reaching into package source trees by filesystem location.
+    files: ["e2e/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?:\\.\\./)+packages/",
+              message: "Import workspace packages through @screenshot-studio/*.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // React hooks correctness — the editor leans on hooks heavily. Register the plugin
     // explicitly; the shipped preset still uses the legacy array `plugins` shape.
     files: ["apps/web/**/*.{ts,tsx}", "packages/ui/**/*.{ts,tsx}"],

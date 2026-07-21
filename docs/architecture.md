@@ -25,6 +25,8 @@ the internal dependency graph aligned with the contracts available to web and CL
 Inside `apps/web`, dependencies outside the importing file's directory use the stable `@web/*`
 alias; relative imports are reserved for modules in the same directory. ESLint enforces this boundary
 so moving editor, component, or API files cannot silently reintroduce fragile parent traversals.
+Root-owned E2E tests consume core and CLI through the same `@screenshot-studio/*` public subpaths as
+runtime code; they never reach into `packages/*/src` by filesystem traversal.
 
 | Concern | Contract |
 |---|---|
