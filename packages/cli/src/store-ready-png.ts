@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Screen } from "@screenshot-studio/core/model";
-import {
-  assertDimensions,
-  exportPixelRatio,
-  stripAlpha,
-  type StoreSize,
-} from "@screenshot-studio/core/export";
+import { exportPixelRatio, type StoreSize } from "@screenshot-studio/core/export";
+import sharp from "sharp";
 
 export async function renderStoreReadyPng({
   screen,
@@ -20,7 +16,17 @@ export async function renderStoreReadyPng({
     width: target.width,
     height: target.height,
   });
-  const flattened = stripAlpha(await render(pixelRatio));
-  assertDimensions(flattened, { width: target.width, height: target.height });
-  return flattened;
+  const rendered = await render(pixelRatio);
+  const { data, info } = await sharp(rendered)
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .removeAlpha()
+    .png()
+    .toBuffer({ resolveWithObject: true });
+
+  if (info.width !== target.width || info.height !== target.height) {
+    throw new Error(
+      `Export dimension mismatch: got ${info.width}×${info.height}, expected ${target.width}×${target.height}`,
+    );
+  }
+  return data;
 }

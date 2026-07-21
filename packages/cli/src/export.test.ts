@@ -69,6 +69,9 @@ describe("renderStoreReadyPng", () => {
     expect(render).toHaveBeenCalledOnce();
     expect(render).toHaveBeenCalledWith(2);
     expect(inspectPng(png)).toEqual({ width: 2, height: 2, hasAlpha: false });
+    const flattened = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+    expect(flattened.info.channels).toBe(3);
+    expect([...flattened.data.subarray(0, 3)]).toEqual([137, 147, 157]);
   });
 
   it("rejects rendered PNG dimensions that do not match the target", async () => {
