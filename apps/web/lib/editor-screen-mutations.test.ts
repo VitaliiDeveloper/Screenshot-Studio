@@ -80,6 +80,7 @@ describe("editor screen mutations", () => {
       name: "Untitled",
       variantOf: "root-b",
       storeTargetId: "target-a",
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
   });
@@ -110,6 +111,7 @@ describe("editor screen mutations", () => {
     expect(addedVariant).toMatchObject({
       name: "Untitled",
       storeTargetId: "target-a",
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
     expect(addedVariant.variantOf).toBeUndefined();

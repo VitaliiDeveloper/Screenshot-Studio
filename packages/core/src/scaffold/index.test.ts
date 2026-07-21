@@ -91,7 +91,8 @@ describe("createProjectScaffold", () => {
         }],
         screens: [{
           id: "hero", platform: "windows", device: "desktop",
-          artboard: { width: 1920, height: 1080 }, elements: [],
+          artboard: { width: 1920, height: 1080 },
+          background: { type: "solid", color: "#FFFFFF" }, elements: [],
         }],
       }],
     });

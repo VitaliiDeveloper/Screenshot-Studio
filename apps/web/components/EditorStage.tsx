@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useRef, type Key } from "react";
+import { useLayoutEffect, useRef, type Key } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
@@ -9,7 +9,7 @@ import {
   assertNever,
   type Element,
 } from "@screenshot-studio/core/model";
-import { backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
+import { applyNodeFilter, backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "../lib/editor-store";
 import { isSelected } from "../lib/editor-selection";
@@ -30,7 +30,7 @@ import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-tr
 function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
   switch (child.konva) {
     case "Image":
-      return <KonvaImage key={key} {...child.config} name={name} listening={listening} />;
+      return <FilteredKonvaImage key={key} nodeConfig={child} name={name} listening={listening} />;
     case "Ellipse":
       return <Ellipse key={key} {...child.config} name={name} listening={listening} />;
     case "Path":
@@ -48,6 +48,29 @@ function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, 
     default:
       return assertNever(child);
   }
+}
+
+function FilteredKonvaImage({
+  nodeConfig,
+  listening,
+  name,
+}: {
+  nodeConfig: Extract<NodeConfig, { konva: "Image" }>;
+  listening: boolean;
+  name?: string;
+}) {
+  const imageRef = useRef<Konva.Image>(null);
+  useLayoutEffect(() => {
+    const node = imageRef.current;
+    if (!node) return;
+    applyNodeFilter(node, nodeConfig.filter);
+    node.getLayer()?.batchDraw();
+    return () => {
+      node.clearCache();
+    };
+  }, [nodeConfig.filter]);
+
+  return <KonvaImage ref={imageRef} {...nodeConfig.config} name={name} listening={listening} />;
 }
 
 export function EditorStage({

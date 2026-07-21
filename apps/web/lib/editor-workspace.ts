@@ -46,6 +46,14 @@ const DEVICE_LABELS: Record<string, string> = {
   "tablet-10": "10-inch Android tablet",
 };
 
+const PLATFORM_DEVICE_LABELS: Record<string, string> = {
+  "windows/desktop": "Windows desktop",
+  "web/desktop": "Desktop",
+  "web/laptop": "Laptop",
+  "web/tablet": "Tablet",
+  "web/mobile": "Mobile",
+};
+
 const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   iphone: "iPhone",
   ipad: "iPad",
@@ -62,7 +70,8 @@ const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
 };
 
 export function storeOutputLabel(platform: string, device: string): string {
-  return `${PLATFORM_LABELS[platform] ?? platform} · ${DEVICE_LABELS[device] ?? device}`;
+  const deviceLabel = PLATFORM_DEVICE_LABELS[`${platform}/${device}`] ?? DEVICE_LABELS[device] ?? device;
+  return `${PLATFORM_LABELS[platform] ?? platform} · ${deviceLabel}`;
 }
 
 /** Remove output-level device copy from a size label while preserving its useful discriminator. */

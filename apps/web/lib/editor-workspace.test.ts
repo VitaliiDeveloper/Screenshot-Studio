@@ -77,6 +77,8 @@ describe("editor workspace helpers", () => {
     expect(storeOutputLabel("apple", "iphone")).toBe("App Store · iPhone");
     expect(storeOutputLabel("apple", "ipad")).toBe("App Store · iPad");
     expect(storeOutputLabel("android", "phone")).toBe("Google Play · Android phone");
+    expect(storeOutputLabel("web", "desktop")).toBe("Web · Desktop");
+    expect(storeOutputLabel("windows", "desktop")).toBe("Microsoft Store · Windows desktop");
   });
 
   it("keeps only the size discriminator when the output already names the device", () => {

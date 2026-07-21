@@ -13,6 +13,7 @@ import { cloneElementWithFreshIds } from "./element-tree.js";
 import { slugify, titleFromId, uniqueId } from "./project-manifest.js";
 import { getLayout, replaceLayout } from "./project-layout.js";
 import { fitElementsToArtboard } from "./project-artboard-ops.js";
+import { DEFAULT_BLANK_SCREEN_COLOR } from "./screen-defaults.js";
 import {
   alignSynchronizedScreenSets,
   isPrimaryScreen,
@@ -59,7 +60,7 @@ export function createScreen(input: CreateScreenInput): Screen {
     direction: input.direction ?? "ltr",
     artboard: input.artboard,
     background: input.background
-      ?? { type: "solid" as const, color: input.backgroundColor ?? "#101827" },
+      ?? { type: "solid" as const, color: input.backgroundColor ?? DEFAULT_BLANK_SCREEN_COLOR },
     elements: input.elements ?? [],
   };
   if (input.platform === "apple") {
@@ -214,6 +215,7 @@ function copyScreen(source: Screen, kind: ScreenCopyKind): Screen {
   const copy = structuredClone(source);
   copy.id = crypto.randomUUID();
   copy.name = "Untitled";
+  copy.background = { type: "solid", color: DEFAULT_BLANK_SCREEN_COLOR };
   copy.elements = [];
   return copy;
 }

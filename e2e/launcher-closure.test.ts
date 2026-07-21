@@ -81,6 +81,22 @@ describe("Projects and Workspace closure journey", () => {
 
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
+
+      await page.getByRole("button", { name: "Export", exact: true }).click();
+      const exportDialog = page.getByRole("dialog", { name: "Export" });
+      expect(await exportDialog.getByRole("heading", { name: "Store images" }).count()).toBe(1);
+      expect(await exportDialog.getByRole("heading", { name: "Editable project" }).count()).toBe(1);
+      const exportProject = exportDialog.getByRole("button", { name: "Export project", exact: true });
+      await expect.poll(() => exportProject.isEnabled()).toBe(true);
+      const projectDownloadPromise = page.waitForEvent("download");
+      await exportProject.click();
+      const projectDownload = await projectDownloadPromise;
+      expect(projectDownload.suggestedFilename()).toBe("screenshot-studio-project.zip");
+      await exportDialog.getByRole("status").filter({
+        hasText: "Project download started: screenshot-studio-project.zip",
+      }).waitFor();
+      await exportDialog.getByRole("button", { name: "Close", exact: true }).click();
+
       await page.getByRole("button", { name: "Projects", exact: true }).click();
       await page.waitForURL(`${server.url}/`);
 
@@ -97,11 +113,27 @@ describe("Projects and Workspace closure journey", () => {
       expect(await card.getByText(/layout/u).count()).toBeGreaterThan(0);
       expect(await card.getByRole("button", { name: "Remove from recents" }).count()).toBe(0);
 
+      await page.route("**/api/project-archive", async (route) => {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 300));
+        await route.continue();
+      });
+      const actionsMenu = card.locator("details");
+      await card.getByLabel("More actions for Product launch story").click();
+      const downloadPromise = page.waitForEvent("download");
+      await card.getByRole("button", { name: "Export archive", exact: true }).click();
+      expect(await actionsMenu.getAttribute("open")).toBeNull();
+      await card.getByRole("status").filter({ hasText: "Preparing archive…" }).waitFor();
+      const download = await downloadPromise;
+      expect(download.suggestedFilename()).toBe("screenshot-studio-project.zip");
+      await page.getByRole("status").filter({
+        hasText: "Archive ready. Download started.",
+      }).waitFor();
+
       await card.getByLabel("More actions for Product launch story").click();
       await card.getByRole("button", { name: "Project details", exact: true }).click();
       await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
       await page.getByRole("heading", { name: "Product launch story", exact: true }).waitFor();
-      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
+      await page.getByRole("link", { name: "Open in Editor", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
 
       await page.setViewportSize({ width: 640, height: 900 });

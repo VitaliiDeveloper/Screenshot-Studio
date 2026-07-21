@@ -38,6 +38,9 @@ library. Reuse them before introducing one-off controls:
 radii, control typography, shadows, focus treatment, and motion. Prefer semantic token names such as
 surface, text, accent, warning, danger, and focus over literal colors or ad-hoc spacing. Reuse
 `editorUi` styles so controls share disabled treatment, focus rings, and transition timing.
+Shared dialogs animate their backdrop and panel on entry and retain the panel through exit; reduced
+motion removes both transitions. Async resource pickers reserve their body geometry while loading so
+replacing progress with results does not move or resize the dialog.
 
 ## 3. Interaction semantics
 
@@ -56,6 +59,9 @@ The editor has five durable interaction roles even if their placement changes:
 Export feedback reports the actual completed-output count while rendering, then honest indeterminate
 packaging and download-preparation phases. The final POST response remains the authority for success
 or failure; unavailable progress status must not cancel an otherwise valid export.
+The Workspace Export dialog keeps rendered store images separate from the portable editable-project
+archive. Project archive export flushes pending saves first and is available only when the active
+managed project advertises archive-export capability.
 
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object.
@@ -68,6 +74,15 @@ Adding text is an authoring action and must never open resource management as a 
 projects use the renderer-owned built-in font, while the Inspector offers built-in and project fonts
 through the same semantic font field. Uploading or downloading custom fonts remains an explicit,
 separate Resources action.
+
+Blank project starters, blank screens, and the first screen in a newly added layout use a white solid
+background. Explicit duplication preserves the source screen exactly. Linear-gradient backgrounds
+offer eight semantic direction presets backed by the persisted angle, while the numeric angle remains
+available for precise custom direction; both editor preview and export use that same project value.
+
+The Inspector offers an optional bounded blur for Screenshot and Image elements. Device Frame exposes
+the same effect as `Content blur`, which softens only its screenshot and keeps the bezel sharp. A zero
+value removes the optional field, and editor preview and export share the same rendering behavior.
 
 Text boxes expose independent horizontal (`left`, `center`, `right`) and vertical (`top`, `middle`,
 `bottom`) alignment. A theme role is a semantic marker for the next explicit theme application; role

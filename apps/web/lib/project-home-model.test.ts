@@ -98,6 +98,7 @@ const specs: StoreSpecs = {
     { id: "phone-portrait", label: "Android phone portrait", width: 1080, height: 1920, orientation: "portrait" },
     { id: "phone-landscape", label: "Android phone landscape", width: 1920, height: 1080, orientation: "landscape" },
   ] },
+  web: { desktop: [{ id: "desktop-1920", label: "Web desktop 1920×1080 (lead)", width: 1920, height: 1080, orientation: "landscape", kind: "responsive" }] },
 };
 
 function selection(overrides: Partial<ActiveProjectSelection> = {}): ActiveProjectSelection {
@@ -132,7 +133,7 @@ describe("buildProjectHomeSummary", () => {
 
     expect(summary).toMatchObject({
       name: "Launch Story",
-      source: { kind: "managed-project", label: "Managed browser project" },
+      source: { kind: "managed-project", label: "Managed project" },
       screenCount: 4,
       emptyScreenCount: 3,
       platforms: ["App Store", "Google Play"],
@@ -144,12 +145,12 @@ describe("buildProjectHomeSummary", () => {
       expect.objectContaining({ id: "connected", name: "Connected campaign", mode: "connected", screenCount: 2, emptyScreenCount: 1, preferred: true }),
     ]);
     expect(summary.outputFamilies).toEqual([
-      expect.objectContaining({ key: "apple/iphone", label: "App Store · iPhone", screenCount: 2, storeTargets: ["6.9-inch iPhone (lead)"] }),
+      expect.objectContaining({ key: "apple/iphone", label: "App Store · iPhone", screenCount: 2, storeTargets: ["6.9-inch iPhone"] }),
       expect.objectContaining({ key: "android/phone", label: "Google Play · Android phone", screenCount: 2, storeTargets: ["Android phone portrait", "Android phone landscape"] }),
     ]);
     expect(summary.representativeScreens).toEqual([
-      { layoutId: "isolated", screenId: "iphone-en", name: "Welcome", layoutName: "Product cards" },
-      { layoutId: "connected", screenId: "android-root", name: "Benefits", layoutName: "Connected campaign" },
+      { layoutId: "isolated", screenId: "iphone-en", name: "Welcome", layoutName: "Product cards", outputLabel: "App Store · iPhone", width: 1320, height: 2868 },
+      { layoutId: "connected", screenId: "android-root", name: "Benefits", layoutName: "Connected campaign", outputLabel: "Google Play · Android phone", width: 1080, height: 1920 },
     ]);
     expect(summary.readiness.map((item) => item.kind)).toEqual([
       "empty-screens",
@@ -161,6 +162,33 @@ describe("buildProjectHomeSummary", () => {
       .toContain("Restore or reimport");
     expect(summary.readiness.find((item) => item.kind === "save-error")?.detail)
       .toContain("Return to Workspace and retry");
+  });
+
+  it("keeps Web and iPhone represented when they share one layout without filling the gallery with empty duplicates", () => {
+    const mixedProject = structuredClone(project);
+    mixedProject.layouts[0]!.screens.push({
+      id: "web-home",
+      name: "Web home",
+      platform: "web",
+      device: "desktop",
+      locale: "en-US",
+      direction: "ltr",
+      artboard: { width: 1920, height: 1080 },
+      background: { type: "solid", color: "#101827" },
+      elements: [],
+    });
+
+    const summary = buildProjectHomeSummary({ project: mixedProject, selection: selection(), specs });
+
+    expect(summary.representativeScreens.map(({ layoutId, screenId, outputLabel }) => ({
+      layoutId,
+      screenId,
+      outputLabel,
+    }))).toEqual([
+      { layoutId: "isolated", screenId: "iphone-en", outputLabel: "App Store · iPhone" },
+      { layoutId: "isolated", screenId: "web-home", outputLabel: "Web · Desktop" },
+      { layoutId: "connected", screenId: "android-root", outputLabel: "Google Play · Android phone" },
+    ]);
   });
 
   it("shows an exact local path only when the descriptor safely exposes it", () => {

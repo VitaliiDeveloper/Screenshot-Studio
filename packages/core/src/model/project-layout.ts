@@ -10,6 +10,7 @@ import type {
 import { Project as ProjectSchema, Screen as ScreenSchema } from "./schema.js";
 import { cloneElementWithFreshIds } from "./element-tree.js";
 import { slugify, uniqueId } from "./project-manifest.js";
+import { DEFAULT_BLANK_SCREEN_COLOR } from "./screen-defaults.js";
 
 export interface AddLayoutInput {
   id?: string;
@@ -90,7 +91,8 @@ export function addLayout(project: Project, input: AddLayoutInput): LayoutMutati
     id: crypto.randomUUID(),
     name: "Screen 1",
     direction: input.screen.direction ?? "ltr",
-    background: input.screen.background ?? { type: "solid", color: "#101827" },
+    background: input.screen.background
+      ?? { type: "solid", color: DEFAULT_BLANK_SCREEN_COLOR },
     elements: [],
   });
   const layout: DesignLayout = { id, name, mode: input.mode, screens: [screen] };

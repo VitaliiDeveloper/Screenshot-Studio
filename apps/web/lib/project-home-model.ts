@@ -13,7 +13,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 const SOURCE_LABELS: Record<string, string> = {
   "local-file": "Local project file",
-  "managed-project": "Managed browser project",
+  "managed-project": "Managed project",
 };
 
 export type ProjectHomeActionId =
@@ -68,6 +68,9 @@ export interface ProjectHomeSummary {
     screenId: string;
     name: string;
     layoutName: string;
+    outputLabel: string;
+    width: number;
+    height: number;
   }>;
   readiness: ProjectHomeReadinessItem[];
   actions: ProjectHomeAction[];
@@ -76,7 +79,8 @@ export interface ProjectHomeSummary {
 function targetLabel(specs: StoreSpecs, screen: Screen): string {
   const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
   try {
-    return findStoreTarget(specs, screen.platform, screen.device, targetId).label;
+    return findStoreTarget(specs, screen.platform, screen.device, targetId).label
+      .replace(/\s+\(lead\)$/i, "");
   } catch {
     return targetId;
   }
@@ -95,6 +99,47 @@ function buildActions(selection: ActiveProjectSelection): ProjectHomeAction[] {
     { id: "project-archive-export", label: "Export project archive", description: "Download a portable project backup for later project import.", enabled: selection.capabilities.exportProjectArchive },
     { id: "permanently-delete-project", label: "Permanently delete project", description: "Irreversibly delete this managed project and its project-local resources.", enabled: selection.capabilities.deleteProjectPermanently },
   ];
+}
+
+function buildRepresentativeScreens(project: Project): ProjectHomeSummary["representativeScreens"] {
+  const candidates = project.layouts.flatMap((layout) => {
+    const primaryScreens = layout.screens.filter((screen) => screen.storeTargetId === undefined);
+    return (primaryScreens.length > 0 ? primaryScreens : layout.screens).map((screen) => ({
+      layoutId: layout.id,
+      layoutName: layout.name,
+      screen,
+    }));
+  });
+  const groups = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    const key = `${candidate.layoutId}/${candidate.screen.platform}/${candidate.screen.device}`;
+    const group = groups.get(key) ?? [];
+    group.push(candidate);
+    groups.set(key, group);
+  }
+
+  const selected = [...groups.values()].map((group) =>
+    group.find(({ screen }) => screen.elements.length > 0) ?? group[0]!,
+  ).slice(0, 4);
+  const selectedIds = new Set(selected.map(({ layoutId, screen }) => `${layoutId}/${screen.id}`));
+  for (const candidate of candidates) {
+    if (selected.length >= 4) break;
+    const id = `${candidate.layoutId}/${candidate.screen.id}`;
+    if (candidate.screen.elements.length > 0 && !selectedIds.has(id)) {
+      selected.push(candidate);
+      selectedIds.add(id);
+    }
+  }
+
+  return selected.map(({ layoutId, layoutName, screen }) => ({
+    layoutId,
+    screenId: screen.id,
+    name: screen.name,
+    layoutName,
+    outputLabel: storeOutputLabel(screen.platform, screen.device),
+    width: screen.artboard.width,
+    height: screen.artboard.height,
+  }));
 }
 
 export function buildProjectHomeSummary({
@@ -184,11 +229,7 @@ export function buildProjectHomeSummary({
       screenCount: family.screens.length,
       storeTargets: [...family.targets],
     })),
-    representativeScreens: project.layouts.map((layout) => {
-      const screen = layout.screens.find((candidate) => candidate.storeTargetId === undefined)
-        ?? layout.screens[0]!;
-      return { layoutId: layout.id, screenId: screen.id, name: screen.name, layoutName: layout.name };
-    }),
+    representativeScreens: buildRepresentativeScreens(project),
     readiness,
     actions: buildActions(selection),
   };

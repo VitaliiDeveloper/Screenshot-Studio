@@ -19,6 +19,7 @@ import { projectJsonRequest } from "../lib/project-api-client";
 import { resolveActiveProjectAssetUrl } from "../lib/save-project";
 import { insertAssetAfterCaching } from "./asset-picker-model";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
+import { DIALOG_EXIT_DURATION_MS } from "./editor-ui/DialogShell";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
 
@@ -47,12 +48,20 @@ export function AssetPickerDialog({
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dialogMotion, setDialogMotion] = useState<"open" | "closing">("open");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef(true);
+  const closingRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     activeRef.current = true;
-    return () => { activeRef.current = false; };
+    return () => {
+      activeRef.current = false;
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -78,6 +87,19 @@ export function AssetPickerDialog({
   const isImage = elementType === "image";
   const isBackground = elementType === "background";
   const isStoreBadge = elementType === "store-badge";
+  const requestClose = () => {
+    if (closingRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      onCloseRef.current();
+      return;
+    }
+    closingRef.current = true;
+    setDialogMotion("closing");
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      onCloseRef.current();
+    }, DIALOG_EXIT_DURATION_MS);
+  };
   const insert = (path: string) => {
     if (isBackground) {
       mutateAndSave(() => editorStore.getState().setBackground({
@@ -86,7 +108,7 @@ export function AssetPickerDialog({
         fit: "cover",
         color: "#000000",
       }));
-      onClose();
+      requestClose();
       return;
     }
     if (isFrame && targetDeviceFrame) {
@@ -96,7 +118,7 @@ export function AssetPickerDialog({
         type: "device-frame",
         patch: { assetUrl: path },
       }));
-      onClose();
+      requestClose();
       return;
     }
     const element = isFrame
@@ -107,7 +129,7 @@ export function AssetPickerDialog({
           ? createImageElement({ assetUrl: path })
           : createScreenshotElement({ assetUrl: path });
     mutateAndSave(() => editorStore.getState().addElement(element));
-    onClose();
+    requestClose();
   };
 
   const cacheAndInsert = async (path: string) => {
@@ -176,9 +198,10 @@ export function AssetPickerDialog({
           : "Choose a project image, or import one and use it as a screenshot immediately."}
       ariaLabel={isFrame ? "Device frame asset picker" : isBackground ? "Background asset picker" : isStoreBadge ? "Store badge asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
       closeLabel="Close asset picker"
-      onClose={onClose}
+      onClose={requestClose}
       widthClass="max-w-4xl"
-      bodyClassName="flex min-h-0 flex-col"
+      bodyClassName="flex h-[min(34rem,calc(88vh-8rem))] min-h-0 flex-col"
+      motion={dialogMotion}
     >
       <div className="mb-4 flex items-center gap-2">
         <label className="relative min-w-0 flex-1">
@@ -218,7 +241,7 @@ export function AssetPickerDialog({
       {error ? (
         <StatusMessage tone="error">{error}</StatusMessage>
       ) : assets === null ? (
-        <p role="status" className="py-12 text-center text-xs text-slate-500">Scanning project images…</p>
+        <p role="status" className="grid flex-1 place-items-center text-center text-xs text-slate-500">Scanning project images…</p>
       ) : visibleAssets.length === 0 ? (
         <EmptyResourceState
           icon={FolderOpen}

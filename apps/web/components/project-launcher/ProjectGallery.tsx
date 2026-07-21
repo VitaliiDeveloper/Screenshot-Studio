@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { Download, Ellipsis, LoaderCircle, Trash2 } from "lucide-react";
+import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
 import type { ProjectLibraryEntry } from "../../lib/project-library-client";
 import { cx, editorUi } from "../editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
@@ -17,18 +17,38 @@ export type ProjectLibraryState =
   | { status: "error"; message: string }
   | { status: "ready"; entries: readonly ProjectLibraryEntry[] };
 
+export function closeProjectActionsMenu(
+  trigger: Pick<HTMLButtonElement, "closest">,
+): void {
+  const menu = trigger.closest("details") as HTMLDetailsElement | null;
+  if (!menu) return;
+  menu.open = false;
+  menu.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+}
+
 function platformLabel(value: string): string {
-  const [, device = value] = value.split(":");
+  const [platform, device = value] = value.split(":");
+  if (platform === "android") return "Android";
+  if (platform === "windows") return "Windows";
   const labels: Record<string, string> = {
     iphone: "iPhone",
     ipad: "iPad",
-    mac: "Mac",
-    "android-phone": "Android",
-    "windows-desktop": "Windows",
+    macos: "macOS",
+    tvos: "Apple TV",
+    watchos: "Apple Watch",
+    desktop: "Desktop",
+    laptop: "Laptop",
+    tablet: "Tablet",
+    mobile: "Mobile",
+    apple: "Apple",
+    android: "Android",
+    windows: "Windows",
+    web: "Web",
     tv: "TV",
     watch: "Watch",
   };
-  return labels[device] ?? device.replaceAll("-", " ");
+  const fallback = device.replaceAll("-", " ");
+  return labels[device] ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
 }
 
 function plural(count: number, singular: string): string {
@@ -39,6 +59,7 @@ export function ProjectGallery({
   entries,
   action,
   actionError,
+  actionNotice,
   visibleOpeningEntryId,
   onOpen,
   onOpenDetails,
@@ -49,6 +70,7 @@ export function ProjectGallery({
   entries: readonly ProjectLibraryEntry[];
   action: ProjectLibraryAction | null;
   actionError: string | null;
+  actionNotice: string | null;
   visibleOpeningEntryId: string | null;
   onOpen(entryId: string): void;
   onOpenDetails(entryId: string): void;
@@ -65,9 +87,12 @@ export function ProjectGallery({
         </div>
         <p className="hidden text-sm text-slate-500 sm:block">Select a project to continue editing.</p>
       </div>
+      {actionNotice ? <p role="status" className={`mb-5 flex items-center gap-2 ${editorUi.statusProgress}`}><CircleCheck aria-hidden="true" className="size-4 shrink-0" />{actionNotice}</p> : null}
+      {actionError ? <p role="alert" className={`mb-5 ${editorUi.statusError}`}>{actionError}</p> : null}
       <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {entries.map((entry, index) => {
           const pending = action?.entryId === entry.entryId;
+          const archivePending = pending && action?.kind === "archive";
           const unavailable = entry.availability === "unavailable";
           const cardContent = <>
             <ProjectPreviewStrip entry={entry} />
@@ -77,7 +102,7 @@ export function ProjectGallery({
                 {index === 0 ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Most recent</span> : null}
               </span>
               <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                {entry.platforms.map(platformLabel).join(" · ") || (unavailable ? "Local project" : "Project")}
+                {[...new Set(entry.platforms.map(platformLabel))].join(" · ") || (unavailable ? "Local project" : "Project")}
                 <span aria-hidden="true">·</span>
                 <span>{plural(entry.screenCount, "screen")}</span>
                 <span aria-hidden="true">·</span>
@@ -124,21 +149,20 @@ export function ProjectGallery({
               {!unavailable ? <details className="absolute bottom-4 right-4">
                 <summary aria-label={`More actions for ${entry.name}`} className={cx(editorUi.iconButton, "list-none cursor-pointer bg-white [&::-webkit-details-marker]:hidden")}><Ellipsis aria-hidden="true" className="size-4" /></summary>
                 <div className="absolute bottom-11 right-0 z-20 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                  <button type="button" disabled={Boolean(action)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={() => onOpenDetails(entry.entryId)}>Project details</button>
+                  <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onOpenDetails(entry.entryId); }}><Info aria-hidden="true" className="size-4" />Project details</button>
                   {entry.sourceKind === "managed-project" ? <>
-                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={() => onExportArchive(entry.entryId)}><Download aria-hidden="true" className="size-4" />Export archive</button>
+                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onExportArchive(entry.entryId); }}><Download aria-hidden="true" className="size-4" />Export archive</button>
                     <div role="separator" className="my-1 border-t border-slate-200" />
-                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" onClick={() => onDeleteProject(entry.entryId)}><Trash2 aria-hidden="true" className="size-4" />Delete project…</button>
+                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onDeleteProject(entry.entryId); }}><Trash2 aria-hidden="true" className="size-4" />Delete project…</button>
                   </> : null}
-                  {entry.sourceKind === "local-file" ? <button type="button" disabled={Boolean(action)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" title="Removes history only; project files stay untouched." onClick={() => onRemoveRecent(entry.entryId)}>Remove from recents</button> : null}
+                  {entry.sourceKind === "local-file" ? <button type="button" disabled={Boolean(action)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" title="Removes history only; project files stay untouched." onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onRemoveRecent(entry.entryId); }}>Remove from recents</button> : null}
                 </div>
               </details> : null}
-              {visibleOpeningEntryId === entry.entryId ? <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80 backdrop-blur-[1px]"><span role="status" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 shadow-sm"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />Opening workspace…</span></span> : null}
+              {visibleOpeningEntryId === entry.entryId || archivePending ? <span className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80 backdrop-blur-[1px]"><span role="status" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-blue-700 shadow-sm"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />{archivePending ? "Preparing archive…" : "Opening workspace…"}</span></span> : null}
             </li>
           );
         })}
       </ul>
-      {actionError ? <p role="alert" className={`mt-5 ${editorUi.statusError}`}>{actionError}</p> : null}
     </section>
   );
 }

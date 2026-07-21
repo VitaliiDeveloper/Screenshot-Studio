@@ -26,10 +26,12 @@ export interface ElementRenderContext {
   direction?: LayoutDirection;
 }
 
+export type NodeFilter = { kind: "blur"; radius: number };
+
 export type NodeConfig =
   | { konva: "Text"; config: Konva.TextConfig }
   | { konva: "Rect"; config: Konva.RectConfig }
-  | { konva: "Image"; config: Konva.ImageConfig }
+  | { konva: "Image"; config: Konva.ImageConfig; filter?: NodeFilter }
   | { konva: "Ellipse"; config: Konva.EllipseConfig }
   | { konva: "Path"; config: Konva.PathConfig }
   | { konva: "Group"; config: Konva.GroupConfig; children: NodeConfig[] };
@@ -53,6 +55,10 @@ interface Fit {
   cropY?: number;
   cropWidth?: number;
   cropHeight?: number;
+}
+
+function mediaFilter(blur: number | undefined): NodeFilter | undefined {
+  return blur && blur > 0 ? { kind: "blur", radius: blur } : undefined;
 }
 
 function gradientConfig(gradient: LinearGradientPaint, box: Box) {
@@ -335,6 +341,7 @@ export function elementToNodeConfig(
           },
           {
             konva: "Image",
+            filter: mediaFilter(element.blur),
             config: {
               x: fit.x,
               y: fit.y,
@@ -393,6 +400,7 @@ export function elementToNodeConfig(
         const fit = computeImageFit(image, { width: slotW, height: slotH }, element.fit);
         children.push({
           konva: "Image",
+          filter: mediaFilter(element.blur),
           config: {
             x: slotX + fit.x,
             y: slotY + fit.y,

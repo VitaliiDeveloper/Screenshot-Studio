@@ -32,13 +32,16 @@ type ShapePatch = Partial<Pick<ShapeElement, "kind" | "fill" | "radius">> & {
 };
 type ScreenshotPatch = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">> & {
   crop?: MediaCrop | null;
+  blur?: number | null;
 };
 type ImagePatch = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">> & {
   crop?: MediaCrop | null;
+  blur?: number | null;
 };
 type IconPatch = Partial<Pick<IconElement, "icon" | "color" | "strokeWidth">>;
 type DeviceFramePatch = Partial<Pick<DeviceFrameElement, "fit" | "deviceType">> & {
   assetUrl?: DeviceFrameElement["assetUrl"] | null;
+  blur?: number | null;
 };
 
 interface ElementPatchByType {
@@ -136,6 +139,8 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
       if (typedPatch.cornerRadius !== undefined) element.cornerRadius = typedPatch.cornerRadius;
       if (typedPatch.crop === null) delete element.crop;
       else if (typedPatch.crop !== undefined) element.crop = typedPatch.crop;
+      if (typedPatch.blur === null) delete element.blur;
+      else if (typedPatch.blur !== undefined) element.blur = typedPatch.blur;
       return;
     }
     case "image": {
@@ -145,6 +150,8 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
       if (typedPatch.cornerRadius !== undefined) element.cornerRadius = typedPatch.cornerRadius;
       if (typedPatch.crop === null) delete element.crop;
       else if (typedPatch.crop !== undefined) element.crop = typedPatch.crop;
+      if (typedPatch.blur === null) delete element.blur;
+      else if (typedPatch.blur !== undefined) element.blur = typedPatch.blur;
       return;
     }
     case "icon": {
@@ -160,6 +167,8 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
       else if (typedPatch.assetUrl !== undefined) element.assetUrl = typedPatch.assetUrl;
       if (typedPatch.fit !== undefined) element.fit = typedPatch.fit;
       if (typedPatch.deviceType !== undefined) element.deviceType = typedPatch.deviceType;
+      if (typedPatch.blur === null) delete element.blur;
+      else if (typedPatch.blur !== undefined) element.blur = typedPatch.blur;
       return;
     }
     case "group":

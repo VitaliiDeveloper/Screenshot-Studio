@@ -2,6 +2,7 @@
 import { assertNever } from "./assert-never.js";
 import {
   LeafElement as LeafElementSchema,
+  MEDIA_BLUR_MAX,
   SHAPE_STROKE_WIDTH_MAX,
   TEXT_SHADOW_BLUR_MAX,
   type LeafElement,
@@ -81,13 +82,38 @@ export function scaleLeafElement<T extends LeafElement>(
       break;
     case "screenshot":
     case "image":
-      scaled = { ...leaf, ...transform, cornerRadius: leaf.cornerRadius * factor };
+      scaled = {
+        ...leaf,
+        ...transform,
+        cornerRadius: leaf.cornerRadius * factor,
+        ...(leaf.blur !== undefined ? {
+          blur: scaleBoundedVisualMetric(
+            leaf.blur,
+            factor,
+            MEDIA_BLUR_MAX,
+            "media blur",
+            leaf.id,
+          ),
+        } : {}),
+      };
       break;
     case "icon":
       scaled = { ...leaf, ...transform, strokeWidth: leaf.strokeWidth * factor };
       break;
     case "device-frame":
-      scaled = { ...leaf, ...transform };
+      scaled = {
+        ...leaf,
+        ...transform,
+        ...(leaf.blur !== undefined ? {
+          blur: scaleBoundedVisualMetric(
+            leaf.blur,
+            factor,
+            MEDIA_BLUR_MAX,
+            "device-frame content blur",
+            leaf.id,
+          ),
+        } : {}),
+      };
       break;
     default:
       return assertNever(leaf);

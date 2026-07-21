@@ -11,12 +11,36 @@ import {
 import { editorStore } from "../../lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "../../lib/mutate-and-save";
 import { ArtboardTargets } from "../ArtboardTargets";
-import { editorUi, SegmentedControl } from "../editor-ui";
+import { editorUi, MenuSelect, SegmentedControl } from "../editor-ui";
 import { ColorField, NumberField, SelectField, TextField } from "../inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 
 function editBackground(background: Background) {
   mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
+}
+
+const GRADIENT_DIRECTIONS = [
+  { value: "left-to-right", label: "Left → right", angle: 0 },
+  { value: "top-left-to-bottom-right", label: "Top-left → bottom-right", angle: 45 },
+  { value: "top-to-bottom", label: "Top → bottom", angle: 90 },
+  { value: "top-right-to-bottom-left", label: "Top-right → bottom-left", angle: 135 },
+  { value: "right-to-left", label: "Right → left", angle: 180 },
+  { value: "bottom-right-to-top-left", label: "Bottom-right → top-left", angle: 225 },
+  { value: "bottom-to-top", label: "Bottom → top", angle: 270 },
+  { value: "bottom-left-to-top-right", label: "Bottom-left → top-right", angle: 315 },
+] as const;
+
+type GradientDirection = (typeof GRADIENT_DIRECTIONS)[number]["value"] | "custom";
+
+const GRADIENT_DIRECTION_OPTIONS = [
+  ...GRADIENT_DIRECTIONS.map(({ value, label }) => ({ value, label })),
+  { value: "custom" as const, label: "Custom angle" },
+];
+
+function gradientDirection(angle: number): GradientDirection {
+  const normalizedAngle = angle === 360 ? 0 : angle;
+  return GRADIENT_DIRECTIONS.find((direction) => direction.angle === normalizedAngle)?.value
+    ?? "custom";
 }
 
 function targetExportDescription(target: StoreSize): string {
@@ -184,6 +208,19 @@ export function ScreenInspectorSections({
           <>
             <ColorField label="From" value={background.from} onChange={(from) => editBackground({ ...background, from })} />
             <ColorField label="To" value={background.to} onChange={(to) => editBackground({ ...background, to })} />
+            <label className="flex items-center justify-between gap-3 text-xs">
+              <span className="shrink-0 whitespace-nowrap text-slate-500">Direction</span>
+              <MenuSelect
+                ariaLabel="Gradient direction"
+                value={gradientDirection(background.angle)}
+                options={GRADIENT_DIRECTION_OPTIONS}
+                onChange={(direction) => {
+                  const preset = GRADIENT_DIRECTIONS.find(({ value }) => value === direction);
+                  if (preset) editBackground({ ...background, angle: preset.angle });
+                }}
+                className="w-40"
+              />
+            </label>
             <NumberField label="Angle" value={background.angle} min={0} max={360} integer onChange={(angle) => editBackground({ ...background, angle })} />
           </>
         ) : (

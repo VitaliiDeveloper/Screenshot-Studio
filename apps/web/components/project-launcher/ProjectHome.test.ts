@@ -5,57 +5,44 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./ProjectHome.tsx", import.meta.url), "utf8");
 const pageSource = readFileSync(new URL("../../app/home/page.tsx", import.meta.url), "utf8");
 const modelSource = readFileSync(new URL("../../lib/project-home-model.ts", import.meta.url), "utf8");
-const completeSource = `${source}\n${modelSource}`;
+const thumbnailSource = readFileSync(new URL("../ScreenThumbnail.tsx", import.meta.url), "utf8");
 
-describe("ProjectHome overview", () => {
-  it("loads the validated project projection and renders shared-renderer previews", () => {
+describe("Project Info overview", () => {
+  it("loads the validated project projection and leads with shared-renderer previews", () => {
     expect(source).toContain("loadProjectHomeData");
     expect(source).toContain("buildProjectHomeSummary");
     expect(source).toContain("DynamicScreenThumbnail");
-    expect(source).toContain("Representative previews");
+    expect(source).toContain('id="project-screens"');
+    expect(source.indexOf('id="project-screens"')).toBeLessThan(source.indexOf('id="project-layouts"'));
+    expect(source.indexOf('id="project-screens"')).toBeLessThan(source.indexOf('id="project-outputs"'));
   });
 
-  it("offers the explicitly named archive action only through its capability", () => {
-    expect(source).toContain("project-archive-export");
-    expect(source).not.toContain('project.sourceKind === "managed-project"');
-    expect(source).toContain("Export project archive");
-    expect(source).toContain("requestProjectArchive");
-    expect(source).toContain("requestProjectArchive(");
-    expect(source).toContain("data.resources.revision");
-    expect(source).toContain("downloadProjectArchive");
+  it("keeps Project Info compact with one primary editor action and a distinct archive action", () => {
+    expect(source).toContain("Open in Editor");
+    expect(source).toContain("Export archive");
+    expect(source.indexOf("{continueAction?.enabled")).toBeLessThan(source.indexOf("{archiveAction?.enabled"));
+    expect(source).toContain('<span className="text-[13px]">');
+    expect(source).toContain("requestProjectArchive(data.selection.projectId, data.resources.revision)");
+    expect(source).toContain("downloadProjectArchive(ticket)");
+    expect(source).toContain('href="/"');
+    expect(source).toContain("Projects");
+    expect(source).not.toContain("Next actions");
+    expect(source).not.toContain("Workflow guide");
+    expect(source).not.toContain("Import another project");
+    expect(source).not.toContain("Continue in Workspace");
+    expect(source).not.toContain("No known blockers");
   });
 
-  it("uses the same capability projection for header actions and scopes prior save errors", () => {
-    expect(source).toContain('action.id === "continue-editing"');
-    expect(source).toContain('action.id === "import-project"');
-    expect(source).toContain("getProjectPersistenceIdentity()?.projectId === data.selection.projectId");
+  it("shows only actual issues and keeps source-safe project identity", () => {
+    expect(source).toContain("summary.readiness.length > 0");
+    expect(source).toContain("Project issues");
+    expect(source).toContain("summary.source.label");
+    expect(source).toContain("summary.source.location");
+    expect(modelSource).not.toContain('selection.sourceKind === "managed-project"\n    && selection.displayLocation');
   });
 
-  it("opens capture import from the established Project Home action boundary", () => {
-    expect(source).toContain('action.id === "capture-import"');
-    expect(source).toContain("CaptureImportDialog");
-    expect(source).toContain("openCaptureImport");
-    expect(source).toContain("currentCaptureTarget");
-    expect(source).toContain("applyEditorResourceResult");
-    expect(source).toContain("assertCaptureImportHandoff");
-    expect(source).not.toContain("_result: unknown");
-    expect(source).toContain("const recoverCaptureTarget = useCallback(async () =>");
-    expect(source).toContain("discardActiveProjectPersistence()");
-    expect(source).toMatch(/discardActiveProjectPersistence\(\);\s*applyEditorResourceResult\(loaded\.resources\)/u);
-    expect(source).toContain("assertCaptureImportRecoveryTarget(loaded)");
-    expect(pageSource).toContain("searchParams");
-    expect(pageSource).toContain("expectedProjectId");
-    expect(source).toContain("expectedProjectId?: string");
-    expect(source).toContain("loaded.selection.projectId !== expectedProjectId");
-  });
-
-  it("keeps project archive and rendered store-image export unambiguous", () => {
-    expect(source).toContain("portable backup for later project import");
-    expect(source).toContain("separate from rendered store-image export");
-    expect(source).toContain('role="alert"');
-  });
-
-  it("closes only the active session behind the shared save fence", () => {
+  it("preserves the unique close-session action in a quiet overflow", () => {
+    expect(source).toContain('aria-label="Project info actions"');
     expect(source).toContain("closeProjectSession");
     expect(source).toContain("Close project");
     expect(source).toContain('router.push("/?switch=1")');
@@ -63,55 +50,25 @@ describe("ProjectHome overview", () => {
     expect(source).not.toContain("deleteManagedProject");
   });
 
-  it("gates irreversible deletion by capability and keeps it distinct from Close", () => {
-    expect(completeSource).toContain("permanently-delete-project");
-    expect(source).toContain("ProjectDeletionDialog");
-    expect(source).toContain("deleteProjectPermanently");
-    expect(source).toContain("hasPendingProjectSave");
-    expect(source).toContain("useManagedProjectDeletion");
-    expect(source).toContain('router.replace("/")');
-    expect(source).toContain("discardActiveProjectPersistence");
-    expect(source).not.toContain("disabled={closeBusy || archiveBusy || deletionDialog !== null}");
-    expect(source).not.toContain("Move to Trash");
-    expect(source).not.toContain("Restore project");
+  it("renders mixed output families in equal, uncropped preview stages with stable identities", () => {
+    expect(modelSource).toContain(".slice(0, 4)");
+    expect(modelSource).toContain("screen.platform}/${screen.device}");
+    expect(modelSource).toContain("screen.elements.length > 0");
+    expect(modelSource).toContain("outputLabel: storeOutputLabel");
+    expect(modelSource).toContain("width: screen.artboard.width");
+    expect(modelSource).toContain("height: screen.artboard.height");
+    expect(source).toContain('key={`${screen.layoutId}/${screen.screenId}`}');
+    expect(source).toContain('fit="contain"');
+    expect(source).toContain('h-[26rem]');
+    expect(thumbnailSource).toContain("screenThumbnailPixelRatio");
+    expect(thumbnailSource).toContain("window.devicePixelRatio");
+    expect(source).not.toContain("aspectRatio:");
   });
 
-  it("covers the complete informational and action-oriented contract", () => {
-    for (const copy of [
-      "Preferred export layout",
-      "Supported platforms",
-      "Locales",
-      "Output families and store targets",
-      "Readiness",
-      "Continue in Workspace",
-      "Manage layouts and screens",
-      "Add a screen",
-      "Manage locales",
-      "Import another project",
-      "Export store images",
-    ]) expect(completeSource).toContain(copy);
-  });
-
-  it("distinguishes capture-folder import from complete project import", () => {
-    for (const term of [
-      "Project templates",
-      "Screen templates",
-      "Component presets",
-      "Layout modes",
-      "Project import",
-      "Capture import",
-      "Project archive export",
-      "Store-image export",
-    ]) expect(source).toContain(term);
-    expect(source).toContain("available from Create project on App Home");
-    expect(source).toContain("Previews raw PNG capture folders before adding them");
-    expect(source).not.toContain("not this launcher slice");
-  });
-
-  it("keeps session, recent-history, and destructive lifecycle terms distinct", () => {
-    expect(source).toContain("Close project ends the active session");
-    expect(source).toContain("Remove from recents changes App Home history only");
-    expect(source).toContain("no Trash or Restore surface");
-    expect(source).toContain("Permanently delete project is a separate managed-only action");
+  it("fences a stale Project Info request to its expected project id", () => {
+    expect(pageSource).toContain("searchParams");
+    expect(pageSource).toContain("expectedProjectId");
+    expect(source).toContain("expectedProjectId?: string");
+    expect(source).toContain("loaded.selection.projectId !== expectedProjectId");
   });
 });

@@ -35,7 +35,8 @@
               "height": 1000,
               "deviceType": "iphone",
               "assetUrl": "assets/shot.png",
-              "fit": "cover"
+              "fit": "cover",
+              "blur": 12
             }
           ]
         }

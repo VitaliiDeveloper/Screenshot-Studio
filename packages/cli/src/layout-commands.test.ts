@@ -114,7 +114,7 @@ describe("runLayoutCommand", () => {
       locale: "en",
       direction: "rtl",
       artboard: { width: 1320, height: 2868 },
-      background: { type: "solid", color: "#101827" },
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
 

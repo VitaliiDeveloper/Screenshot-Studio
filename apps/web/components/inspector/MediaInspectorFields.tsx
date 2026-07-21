@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
+import { MEDIA_BLUR_MAX, type ImageElement, type ScreenshotElement } from "@screenshot-studio/core/model";
 import type { ElementPatchFor } from "../../lib/editor-store";
 import { editorUi, InsetPanel } from "../editor-ui";
 import { NumberField, SelectField, TextField } from "../inspector-fields";
 import { mediaInspectorModel } from "./media-inspector-model";
+import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 
 export function MediaInspectorFields({
   element,
@@ -20,6 +21,17 @@ export function MediaInspectorFields({
       <TextField label="Asset URL" value={element.assetUrl} onChange={(assetUrl) => onChange({ assetUrl })} />
       <SelectField label="Fit" value={element.fit} options={["cover", "contain"] as const} onChange={(fit) => onChange({ fit })} />
       <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => onChange({ cornerRadius })} />
+      <OptionalInspectorEffect
+        title="Blur"
+        description="Soften the media content"
+        enabled={Boolean(element.blur)}
+        onAdd={() => onChange({ blur: 8 })}
+        onRemove={() => onChange({ blur: null })}
+      >
+        {element.blur ? (
+          <NumberField label="Blur radius" value={element.blur} min={0} max={MEDIA_BLUR_MAX} step={1} onChange={(blur) => onChange({ blur: blur === 0 ? null : blur })} />
+        ) : null}
+      </OptionalInspectorEffect>
       {showCrop ? (
         <InsetPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>

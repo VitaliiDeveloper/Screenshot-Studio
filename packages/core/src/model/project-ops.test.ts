@@ -113,6 +113,7 @@ describe("project-ops", () => {
       locale: "uk",
       direction: "ltr",
       artboard: { width: 2048, height: 2732 },
+      background: { type: "solid", color: "#FFFFFF" },
     });
   });
 
@@ -201,6 +202,7 @@ describe("project-ops", () => {
       name: "Untitled",
       variantOf: roots.at(-1)!.id,
       storeTargetId: "6.5",
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
   });
@@ -374,6 +376,16 @@ describe("project-ops", () => {
           stroke: { color: "#FFFFFF", width: 4 },
         }],
       },
+      {
+        id: "image", type: "image", x: 10, y: 10, width: 20, height: 20,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        assetUrl: "assets/image.png", fit: "contain", cornerRadius: 2, blur: 6,
+      },
+      {
+        id: "frame", type: "device-frame", x: 40, y: 10, width: 20, height: 40,
+        rotation: 0, opacity: 1, locked: false, visible: true,
+        deviceType: "iphone", fit: "cover", blur: 5,
+      },
     ];
 
     const resized = resizeScreenArtboard(source, "default", "hero", { width: 200, height: 200 });
@@ -391,6 +403,8 @@ describe("project-ops", () => {
           stroke: { color: "#FFFFFF", width: 8 },
         }],
       },
+      { type: "image", cornerRadius: 4, blur: 12 },
+      { type: "device-frame", blur: 10 },
     ]);
   });
 

@@ -73,22 +73,29 @@ describe("screenshot parity", () => {
     expect(fraction).toBeLessThan(MAX_MISMATCH_FRACTION);
   });
 
-  it("proves the image is live: render differs from a missing-asset placeholder", async () => {
+  it("proves blur is active and the image is live", async () => {
     const project = JSON.parse(readFileSync(fixturePath, "utf8"));
-    project.layouts[0].screens[0].elements[0].assetUrl = "assets/does-not-exist.png";
     const temporaryRoot = mkdtempSync(resolve(tmpdir(), "screenshot-parity-missing-"));
     const temporaryProject = resolve(temporaryRoot, "app-store-screenshots.json");
     try {
       cpSync(resolve(fixtureDir, "assets"), resolve(temporaryRoot, "assets"), { recursive: true });
+      delete project.layouts[0].screens[0].elements[0].blur;
       writeFileSync(temporaryProject, JSON.stringify(project));
 
-      const present = stripAlpha(await harness.headless.renderScreenToPng({
+      const blurred = stripAlpha(await harness.headless.renderScreenToPng({
         baseUrl: harness.server.url, projectPath: fixturePath, layoutId: "default", screenId, pixelRatio,
       }));
+      const sharp = stripAlpha(await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath: temporaryProject, layoutId: "default", screenId, pixelRatio,
+      }));
+      expect(mismatch(blurred, sharp)).toBeGreaterThan(1000);
+
+      project.layouts[0].screens[0].elements[0].assetUrl = "assets/does-not-exist.png";
+      writeFileSync(temporaryProject, JSON.stringify(project));
       const placeholder = stripAlpha(await harness.headless.renderScreenToPng({
         baseUrl: harness.server.url, projectPath: temporaryProject, layoutId: "default", screenId, pixelRatio,
       }));
-      expect(mismatch(present, placeholder)).toBeGreaterThan(2000);
+      expect(mismatch(blurred, placeholder)).toBeGreaterThan(2000);
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }

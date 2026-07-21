@@ -170,16 +170,16 @@ describe("project launcher", () => {
       await page.waitForURL(`${server.url}/editor`);
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
-      expect(await page.getByText("Managed browser project", { exact: true }).count()).toBe(1);
+      expect(await page.getByText("Managed project", { exact: true }).count()).toBe(1);
       const downloadPromise = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Export project archive" }).click();
+      await page.getByRole("button", { name: "Export archive", exact: true }).click();
       const download = await downloadPromise;
       expect(download.suggestedFilename()).toBe("screenshot-studio-project.zip");
       const archivePath = join(directory, "round-trip-project.zip");
       await download.saveAs(archivePath);
 
-      await page.getByRole("link", { name: "Import another project", exact: true }).click();
-      await page.waitForURL(`${server.url}/?switch=1`);
+      await page.getByRole("link", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
       await page.getByRole("button", { name: "Import" }).click();
       await page.getByLabel("Choose project ZIP").setInputFiles(archivePath);
       await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
@@ -188,7 +188,7 @@ describe("project launcher", () => {
       await page.waitForURL(`${server.url}/editor`);
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
-      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
+      await page.getByRole("link", { name: "Open in Editor", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
     } finally {

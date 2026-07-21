@@ -96,7 +96,7 @@ afterAll(async () => {
   rmSync(directory, { recursive: true, force: true });
 });
 
-describe("Project Home and Workspace round trip", () => {
+describe("Project Info and Workspace round trip", () => {
   it("preserves editor context, fences unsaved navigation, and closes only the active session", async () => {
     const server = await startWebServer(undefined, {
       storeSpecsPath: resolve(repoRoot, "store-specs.json"),
@@ -122,11 +122,32 @@ describe("Project Home and Workspace round trip", () => {
       await importedCard.getByRole("button", { name: "Project details", exact: true }).click();
       await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
-      expect(await page.getByText("Managed browser project", { exact: true }).count()).toBe(1);
+      expect(await page.getByText("Managed project", { exact: true }).count()).toBe(1);
       expect(await page.getByText(join(projectRoot, "app-store-screenshots.json"), { exact: true }).count()).toBe(0);
-      await expectNoSeriousOrCriticalViolations(page, "Project Home");
+      expect(await page.getByText(/\(lead\)/u).count()).toBe(0);
+      const firstPreview = page.locator('section[aria-labelledby="project-screens"] img').first();
+      await firstPreview.evaluate((image) => new Promise<void>((resolve) => {
+        if ((image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0) resolve();
+        else image.addEventListener("load", () => resolve(), { once: true });
+      }));
+      const previewDensity = await firstPreview.evaluate((element) => {
+        const image = element as HTMLImageElement;
+        const bounds = image.getBoundingClientRect();
+        const sourceRatio = image.naturalWidth / image.naturalHeight;
+        const renderedWidth = Math.min(bounds.width, bounds.height * sourceRatio);
+        const renderedHeight = Math.min(bounds.height, bounds.width / sourceRatio);
+        return {
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+          requiredWidth: renderedWidth * window.devicePixelRatio,
+          requiredHeight: renderedHeight * window.devicePixelRatio,
+        };
+      });
+      expect(previewDensity.naturalWidth).toBeGreaterThanOrEqual(Math.floor(previewDensity.requiredWidth) - 1);
+      expect(previewDensity.naturalHeight).toBeGreaterThanOrEqual(Math.floor(previewDensity.requiredHeight) - 1);
+      await expectNoSeriousOrCriticalViolations(page, "Project Info");
 
-      await page.getByRole("link", { name: "Continue in Workspace", exact: true }).click();
+      await page.getByRole("link", { name: "Open in Editor", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
       await page.waitForSelector("canvas");
       await page.getByRole("button", { name: "Active layout: Default" }).click();
@@ -198,7 +219,8 @@ describe("Project Home and Workspace round trip", () => {
       );
       const projectBeforeClose = readFileSync(managedProjectPath, "utf8");
 
-      await page.getByRole("button", { name: "Close project", exact: true }).click();
+      await page.getByLabel("Project info actions").click();
+      await page.getByRole("button", { name: /Close project/u }).click();
       await page.waitForURL(`${server.url}/?switch=1`);
       await page.getByRole("heading", { name: "Recent projects" }).waitFor();
       expect(await page.evaluate(async () => (await fetch("/api/project-session", { cache: "no-store" })).status))
@@ -272,7 +294,8 @@ describe("Project Home and Workspace round trip", () => {
       ]);
       expect(projectHomeSessionResponse.status()).toBe(200);
       expect(projectHomeProjectResponse.status()).toBe(200);
-      await page.getByRole("button", { name: "Close project", exact: true }).click();
+      await page.getByLabel("Project info actions").click();
+      await page.getByRole("button", { name: /Close project/u }).click();
       await page.waitForURL(`${server.url}/?switch=1`);
       expect(await page.evaluate(async () => (
         await fetch("/api/project-session", { cache: "no-store" })

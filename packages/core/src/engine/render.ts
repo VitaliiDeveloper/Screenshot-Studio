@@ -12,6 +12,7 @@ import {
 } from "@screenshot-studio/core/model";
 import type { ImageCache, NodeConfig } from "./node-config.js";
 import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
+import { applyNodeFilter } from "./node-filter.js";
 
 /**
  * The single rendering path (docs/architecture.md). Both the web /render route and the CLI
@@ -97,8 +98,11 @@ function buildNode(nc: NodeConfig): Konva.Node {
   switch (nc.konva) {
     case "Text":
       return new Konva.Text(nc.config);
-    case "Image":
-      return new Konva.Image(nc.config);
+    case "Image": {
+      const image = new Konva.Image(nc.config);
+      applyNodeFilter(image, nc.filter);
+      return image;
+    }
     case "Ellipse":
       return new Konva.Ellipse(nc.config);
     case "Path":

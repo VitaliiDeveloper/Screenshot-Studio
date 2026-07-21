@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { parseProject } from "@screenshot-studio/core/model";
 import type { ProjectLibraryEntry } from "../../lib/project-library-client.js";
-import { ProjectGallery } from "./ProjectGallery.js";
+import { closeProjectActionsMenu, ProjectGallery } from "./ProjectGallery.js";
 
 vi.mock("../ScreenThumbnail.js", () => ({
   ScreenThumbnail: () => createElement("img", { alt: "" }),
@@ -30,13 +30,19 @@ const managed: ProjectLibraryEntry = {
 
 function render(
   entries = [managed],
-  visibleOpeningEntryId: string | null = null,
+  options: {
+    action?: Parameters<typeof ProjectGallery>[0]["action"];
+    actionError?: string | null;
+    actionNotice?: string | null;
+    visibleOpeningEntryId?: string | null;
+  } = {},
 ) {
   return renderToStaticMarkup(createElement(ProjectGallery, {
     entries,
-    action: null,
-    actionError: null,
-    visibleOpeningEntryId,
+    action: options.action ?? null,
+    actionError: options.actionError ?? null,
+    actionNotice: options.actionNotice ?? null,
+    visibleOpeningEntryId: options.visibleOpeningEntryId ?? null,
     onOpen: vi.fn(),
     onOpenDetails: vi.fn(),
     onExportArchive: vi.fn(),
@@ -59,10 +65,31 @@ describe("ProjectGallery", () => {
     expect(markup).not.toContain(">Open project<");
   });
 
+  it("shows human-readable platform and device labels instead of internal values", () => {
+    const markup = render([{ ...managed,
+      platforms: [
+        "apple:iphone",
+        "apple:ipad",
+        "android:phone",
+        "android:tablet-10",
+        "windows:desktop",
+        "web:desktop",
+        "web:laptop",
+        "web",
+      ],
+    }]);
+
+    expect(markup).toContain("iPhone · iPad · Android · Windows · Desktop · Laptop · Web");
+    expect(markup).not.toContain("android:phone");
+    expect(markup).not.toContain("windows:desktop");
+    expect(markup).not.toContain(">desktop<");
+  });
+
   it("keeps overflow actions separate and removal local-history only", () => {
     const managedMarkup = render();
     expect(managedMarkup).toContain('aria-label="More actions for Store Launch Demo"');
     expect(managedMarkup).toContain("Project details");
+    expect(managedMarkup).toContain("lucide-info");
     expect(managedMarkup).toContain("Export archive");
     expect(managedMarkup).toContain("Delete project…");
     expect(managedMarkup).not.toContain("Remove from recents");
@@ -97,8 +124,31 @@ describe("ProjectGallery", () => {
   });
 
   it("uses a card-bounded opening overlay instead of an inline opening row", () => {
-    const markup = render([managed], managed.entryId);
+    const markup = render([managed], { visibleOpeningEntryId: managed.entryId });
     expect(markup).toContain("Opening workspace…");
     expect(markup).not.toContain("mt-3 flex items-center");
+  });
+
+  it("closes the overflow and reports archive preparation without shifting card content", () => {
+    const summary = { focus: vi.fn() };
+    const menu = { open: true, querySelector: vi.fn(() => summary) };
+    closeProjectActionsMenu({ closest: vi.fn(() => menu) } as never);
+
+    expect(menu.open).toBe(false);
+    expect(summary.focus).toHaveBeenCalledWith({ preventScroll: true });
+
+    const markup = render([managed], {
+      action: { entryId: managed.entryId, kind: "archive" },
+    });
+    expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain("Preparing archive…");
+  });
+
+  it("announces archive download only after it starts", () => {
+    const markup = render([managed], {
+      actionNotice: "Archive ready. Download started.",
+    });
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain("Archive ready. Download started.");
   });
 });

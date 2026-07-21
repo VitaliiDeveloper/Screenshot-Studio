@@ -161,7 +161,7 @@ describe("screen commands", () => {
       device: "ipad",
       locale: "uk",
       artboard: { width: 2048, height: 2732 },
-      background: { type: "solid", color: "#101827" },
+      background: { type: "solid", color: "#FFFFFF" },
       elements: [],
     });
   });
