@@ -24,6 +24,7 @@ import {
 import {
   fetchProjectLibrary,
   openProjectLibraryEntry,
+  projectLibraryEntriesEqual,
 } from "@web/lib/project-library-client";
 import { AppHomeShell } from "./AppHomeShell";
 import { CaptureImportDialog } from "./CaptureImportDialog";
@@ -129,7 +130,10 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
     .then(() => fetchProjectLibrary())
     .then((result) => {
       if (!mountedRef.current) return;
-      setProjects({ status: "ready", entries: result.entries });
+      setProjects((current) => current.status === "ready"
+        && projectLibraryEntriesEqual(current.entries, result.entries)
+        ? current
+        : { status: "ready", entries: result.entries });
     }).catch((caught: unknown) => {
       if (mountedRef.current) setProjects({
         status: "error",

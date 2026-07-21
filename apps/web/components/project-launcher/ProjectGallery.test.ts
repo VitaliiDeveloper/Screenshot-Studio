@@ -25,7 +25,7 @@ const managed: ProjectLibraryEntry = {
   layoutCount: 1,
   previewLayoutId: "default",
   previewScreenIds: ["hero", "save-fast", "stay-organized"],
-  project,
+  previewProject: project,
 };
 
 function render(
@@ -107,7 +107,7 @@ describe("ProjectGallery", () => {
       entryId: "recent_00000000000000000000000000000002",
       sourceKind: "local-file",
       availability: "unavailable",
-      project: null,
+      previewProject: null,
       previewLayoutId: null,
       previewScreenIds: [],
     }]);

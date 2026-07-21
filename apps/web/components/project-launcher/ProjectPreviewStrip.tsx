@@ -21,8 +21,8 @@ export function ProjectPreviewStrip({ entry }: { entry: ProjectLibraryEntry }) {
 
   useEffect(() => {
     let active = true;
-    if (!entry.project || !entry.previewLayoutId || entry.previewScreenIds.length === 0) return;
-    const project = entry.project;
+    if (!entry.previewProject || !entry.previewLayoutId || entry.previewScreenIds.length === 0) return;
+    const project = entry.previewProject;
     const layoutId = entry.previewLayoutId;
     void loadProjectImages(
       project,
@@ -53,14 +53,14 @@ export function ProjectPreviewStrip({ entry }: { entry: ProjectLibraryEntry }) {
       }
     });
     return () => { active = false; };
-  }, [entry.entryId, entry.previewLayoutId, entry.previewScreenIds.length, entry.project, screenIdsKey]);
+  }, [entry.entryId, entry.previewLayoutId, entry.previewScreenIds.length, entry.previewProject, screenIdsKey]);
 
   const canRender = Boolean(
-    entry.project
+    entry.previewProject
       && entry.previewLayoutId
       && preview?.entryId === entry.entryId
       && preview.layoutId === entry.previewLayoutId
-      && preview.project === entry.project
+      && preview.project === entry.previewProject
       && preview.screenIdsKey === screenIdsKey
       && preview.images
       && !preview.failed,
@@ -69,7 +69,7 @@ export function ProjectPreviewStrip({ entry }: { entry: ProjectLibraryEntry }) {
     <div className="grid h-56 grid-cols-3 items-end gap-3 overflow-hidden rounded-t-2xl bg-slate-50 px-5 pb-0 pt-5">
       {entry.previewScreenIds.length > 0 ? entry.previewScreenIds.map((screenId) => (
         <div key={screenId} className="h-full min-w-0 overflow-hidden rounded-t-lg border border-slate-200 bg-slate-100 shadow-sm">
-          {canRender ? <ScreenThumbnail project={entry.project!} layoutId={entry.previewLayoutId!} screenId={screenId} images={preview!.images!} /> : null}
+          {canRender ? <ScreenThumbnail project={entry.previewProject!} layoutId={entry.previewLayoutId!} screenId={screenId} images={preview!.images!} /> : null}
         </div>
       )) : <div className="col-span-3 self-center text-center text-sm font-medium text-slate-400">Preview unavailable</div>}
     </div>
