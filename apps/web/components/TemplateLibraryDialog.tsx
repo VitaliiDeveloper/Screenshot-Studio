@@ -8,17 +8,8 @@ import { getScreen, parseProject } from "@screenshot-studio/core/model";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
-import {
-  advanceProjectRevisionFromResponse,
-  projectRequestHeaders,
-} from "../lib/save-project";
+import { projectJsonRequest } from "../lib/project-api-client";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
-
-async function responseBody(response: Response): Promise<Record<string, unknown>> {
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(body.error ?? `Template operation failed (${response.status})`));
-  return body as Record<string, unknown>;
-}
 
 export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
@@ -33,12 +24,11 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/templates", {
-      headers: projectRequestHeaders(),
+    void projectJsonRequest<Record<string, unknown>>("/api/templates", {
       signal: controller.signal,
+      errorFallback: "Template operation failed",
     })
-      .then(responseBody)
-      .then((body) => {
+      .then(({ body }) => {
         setTemplates((body.templates ?? []) as ScreenTemplate[]);
         setBuiltIns((body.builtIns ?? []) as ScreenTemplate[]);
       })
@@ -64,18 +54,16 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       await withFlushedProject(async () => {
-        const response = await fetch("/api/templates", {
+        const { body } = await projectJsonRequest<Record<string, unknown>>("/api/templates", {
           method: "POST",
-          headers: projectRequestHeaders({
-            conditional: true,
-            headers: { "content-type": "application/json" },
-          }),
+          conditional: true,
+          advanceRevision: true,
+          headers: { "content-type": "application/json" },
           body: JSON.stringify({ id, source, locale: activeScreen.locale, layoutId: activeLayoutId }),
+          errorFallback: "Template operation failed",
         });
-        const body = await responseBody(response);
         const nextProject = parseProject(body.project);
         const screenId = String(body.screenId);
-        advanceProjectRevisionFromResponse(response);
         editorStore.getState().replaceProject(nextProject);
         editorStore.getState().selectScreen(screenId);
       });

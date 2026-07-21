@@ -15,11 +15,8 @@ import {
 } from "../lib/project-assets";
 import { editorStore } from "../lib/editor-store";
 import { mutateAndSave } from "../lib/mutate-and-save";
-import {
-  advanceProjectRevisionFromResponse,
-  projectRequestHeaders,
-  resolveActiveProjectAssetUrl,
-} from "../lib/save-project";
+import { projectJsonRequest } from "../lib/project-api-client";
+import { resolveActiveProjectAssetUrl } from "../lib/save-project";
 import { insertAssetAfterCaching } from "./asset-picker-model";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
@@ -60,10 +57,10 @@ export function AssetPickerDialog({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/assets", { headers: projectRequestHeaders() })
-      .then(async (response) => {
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error ?? `Asset listing failed (${response.status})`);
+    void projectJsonRequest<{ assets?: unknown }>("/api/assets", {
+      errorFallback: "Asset listing failed",
+    })
+      .then(({ body }) => {
         if (!Array.isArray(body.assets)) throw new Error("Asset listing returned an invalid response");
         if (!cancelled) setAssets(body.assets as ProjectImageAsset[]);
       })
@@ -131,23 +128,20 @@ export function AssetPickerDialog({
     try {
       const form = new FormData();
       form.set("file", file);
-      const response = await fetch("/api/assets", {
-        method: "POST",
-        headers: projectRequestHeaders({ conditional: true }),
-        body: form,
-      });
-      const body = await response.json().catch(() => ({})) as {
+      const { body } = await projectJsonRequest<{
         asset?: ProjectImageAsset;
         error?: string;
-      };
-      if (!response.ok) {
-        throw new Error(body.error ?? `Image import failed (${response.status})`);
-      }
+      }>("/api/assets", {
+        method: "POST",
+        conditional: true,
+        advanceRevision: true,
+        body: form,
+        errorFallback: "Image import failed",
+      });
       if (!body.asset?.path || !body.asset.name || body.asset.source !== "assets") {
         throw new Error("Image import returned an invalid response");
       }
       if (!activeRef.current) return;
-      advanceProjectRevisionFromResponse(response);
       setAssets((current) => [...(current ?? []), body.asset!].sort((first, second) => (
         first.path < second.path ? -1 : first.path > second.path ? 1 : 0
       )));

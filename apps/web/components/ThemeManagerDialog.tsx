@@ -8,30 +8,19 @@ import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core
 import type { DesignPack, Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "../lib/editor-store";
 import { withFlushedProject } from "../lib/debounced-save";
-import {
-  advanceProjectRevisionFromResponse,
-  projectRequestHeaders,
-} from "../lib/save-project";
+import { projectJsonRequest } from "../lib/project-api-client";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 
-async function responseBody(response: Response): Promise<Record<string, unknown>> {
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(body.error ?? `Theme operation failed (${response.status})`));
-  return body as Record<string, unknown>;
-}
-
 async function applyResource(id: string, layoutId: string, source: "built-in" | "project"): Promise<Project> {
-  const response = await fetch("/api/themes", {
+  const { body } = await projectJsonRequest<Record<string, unknown>>("/api/themes", {
     method: "POST",
-    headers: projectRequestHeaders({
-      conditional: true,
-      headers: { "content-type": "application/json" },
-    }),
+    conditional: true,
+    advanceRevision: true,
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ id, layoutId, source }),
+    errorFallback: "Theme operation failed",
   });
-  const project = parseProject(await responseBody(response));
-  advanceProjectRevisionFromResponse(response);
-  return project;
+  return parseProject(body);
 }
 
 export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
@@ -44,12 +33,11 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/themes", {
-      headers: projectRequestHeaders(),
+    void projectJsonRequest<Record<string, unknown>>("/api/themes", {
       signal: controller.signal,
+      errorFallback: "Theme operation failed",
     })
-      .then(responseBody)
-      .then((body) => {
+      .then(({ body }) => {
         setBuiltIns((body.builtIns ?? []) as DesignPack[]);
         setThemes((body.themes ?? []) as Theme[]);
       })
