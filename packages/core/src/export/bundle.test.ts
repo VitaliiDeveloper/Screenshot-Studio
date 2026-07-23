@@ -92,6 +92,7 @@ describe("bundlePreflightWarnings", () => {
     const entries = buildBundleEntries(source, "default", specs);
     expect(bundlePreflightWarnings(entries)).toEqual([expect.objectContaining({
       code: "android-tablet-screen-count", device: "tablet-7", locale: "uk", screenCount: 3,
+      message: "Google Play · 7-inch Android tablet locale uk has 3 screens; four or more are recommended.",
     })]);
     source.layouts[0]!.screens.push({ ...structuredClone(source.layouts[0]!.screens[0]!), id: "tablet-4" });
     expect(bundlePreflightWarnings(buildBundleEntries(source, "default", specs))).toEqual([]);

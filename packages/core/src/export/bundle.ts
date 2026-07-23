@@ -2,6 +2,7 @@
 import {
   getLayout,
   OUTPUT_DEVICE_FAMILIES,
+  outputFamilyLabel,
   type Project,
   type Screen,
 } from "@screenshot-studio/core/model";
@@ -47,7 +48,7 @@ export function bundlePreflightWarnings(entries: readonly BundleEntry[]): Bundle
       device,
       locale,
       screenCount: count,
-      message: `${device} locale ${locale} has ${count} screen${count === 1 ? "" : "s"}; four or more are recommended.`,
+      message: `${outputFamilyLabel("android", device)} locale ${locale} has ${count} screen${count === 1 ? "" : "s"}; four or more are recommended.`,
     }));
 }
 
