@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   canApplyCaptureImport,
   canPreviewCaptureImport,
@@ -7,6 +7,7 @@ import {
   reduceCaptureImportState,
   type CaptureImportAction,
   type CaptureImportCurrentTarget,
+  type CaptureImportNewProjectPatch,
   type CaptureImportState,
 } from "./capture-import-model.js";
 
@@ -29,6 +30,12 @@ const preview = {
 };
 
 describe("capture import model", () => {
+  it("advertises only visible new-project fields at the patch boundary", () => {
+    expectTypeOf<keyof CaptureImportNewProjectPatch>().toEqualTypeOf<
+      "name" | "platform" | "layoutMode"
+    >();
+  });
+
   it("opens without silently choosing a destination", () => {
     const state = createCaptureImportState(currentTarget);
 

@@ -13,7 +13,7 @@ import {
   reduceCaptureImportState,
   type CaptureImportAction,
   type CaptureImportCurrentTarget,
-  type CaptureImportDraft,
+  type CaptureImportNewProjectPatch,
   type CaptureImportState,
 } from "./capture-import-model";
 
@@ -37,7 +37,7 @@ export interface CaptureImportController {
   selectFiles(files: readonly File[]): void;
   chooseDestination(kind: "current-project" | "new-project"): void;
   chooseCurrentLayout(layoutId: string): void;
-  changeNewProject(patch: Partial<CaptureImportDraft["newProject"]>): void;
+  changeNewProject(patch: CaptureImportNewProjectPatch): void;
   preview(): void;
   apply(): void;
   cancel(): void;
@@ -152,7 +152,7 @@ export function useCaptureImportController({
   const chooseCurrentLayout = useCallback((layoutId: string) => {
     dispatch({ type: "choose-current-layout", layoutId });
   }, []);
-  const changeNewProject = useCallback((patch: Partial<CaptureImportDraft["newProject"]>) => {
+  const changeNewProject = useCallback((patch: CaptureImportNewProjectPatch) => {
     dispatch({ type: "change-new-project", patch });
   }, []);
 

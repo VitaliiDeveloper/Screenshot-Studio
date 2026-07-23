@@ -15,7 +15,7 @@ import { editorUi } from "@web/components/editor-ui/styles";
 import {
   canApplyCaptureImport,
   canPreviewCaptureImport,
-  type CaptureImportDraft,
+  type CaptureImportNewProjectPatch,
   type CaptureImportState,
 } from "./capture-import-model";
 
@@ -41,7 +41,7 @@ export interface CaptureImportDialogProps {
   onSelectFiles(files: readonly File[]): void;
   onChooseDestination(kind: "current-project" | "new-project"): void;
   onChooseCurrentLayout(layoutId: string): void;
-  onChangeNewProject(patch: Partial<CaptureImportDraft["newProject"]>): void;
+  onChangeNewProject(patch: CaptureImportNewProjectPatch): void;
   onPreview(): void;
   onApply(): void;
   onCancel(): void;

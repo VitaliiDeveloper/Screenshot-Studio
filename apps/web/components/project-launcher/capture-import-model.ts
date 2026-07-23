@@ -52,7 +52,7 @@ export type CaptureImportState =
   | ApplyingState
   | ErrorState;
 
-type CaptureImportNewProjectPatch = Partial<{
+export type CaptureImportNewProjectPatch = Partial<{
   name: ProjectScaffoldInput["name"];
   platform: ProjectScaffoldInput["platform"];
   layoutMode: ProjectScaffoldInput["layoutMode"];
