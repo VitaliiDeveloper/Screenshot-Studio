@@ -9,17 +9,26 @@ import type { DeviceFrameId } from "./schema.js";
  */
 export interface DeviceFrameSpec {
   /** Canonical outer width / height used when switching presets. */
-  aspectRatio: number;
+  readonly aspectRatio: number;
   /** Frame body fill (the bezel). */
-  bezelColor: string;
+  readonly bezelColor: string;
   /** Outer silhouette rounding, as a fraction of box width. */
-  frameCornerRadius: number;
+  readonly frameCornerRadius: number;
   /** Screen-slot inset: left/right are fractions of box width, top/bottom of box height. */
-  slotInset: { top: number; right: number; bottom: number; left: number };
+  readonly slotInset: {
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+    readonly left: number;
+  };
   /** Screen-corner rounding, as a fraction of slot width. */
-  slotCornerRadius: number;
+  readonly slotCornerRadius: number;
   /** Top notch/pill: width as a fraction of box width; height and top offset of box height. */
-  notch?: { widthFrac: number; heightFrac: number; topFrac: number };
+  readonly notch?: {
+    readonly widthFrac: number;
+    readonly heightFrac: number;
+    readonly topFrac: number;
+  };
 }
 
 export type DeviceFramePresetGroup =
@@ -68,65 +77,103 @@ export type DeviceFrameTag =
   | "wearable";
 
 export interface DeviceFrameOutlineRecipe {
-  color: string;
-  widthFrac: number;
-  insetFrac: number;
+  readonly color: string;
+  readonly widthFrac: number;
+  readonly insetFrac: number;
 }
 
 export interface DeviceFrameShadowRecipe {
-  color: string;
-  opacity: number;
-  blurFrac: number;
-  offsetXFrac: number;
-  offsetYFrac: number;
+  readonly color: string;
+  readonly opacity: number;
+  readonly blurFrac: number;
+  readonly offsetXFrac: number;
+  readonly offsetYFrac: number;
 }
 
 export interface DeviceFrameBaseRecipe {
-  color: string;
-  widthFrac: number;
-  heightFrac: number;
-  cornerRadiusFrac: number;
-  bottomFrac: number;
+  readonly color: string;
+  readonly widthFrac: number;
+  readonly heightFrac: number;
+  readonly cornerRadiusFrac: number;
+  readonly bottomFrac: number;
 }
 
 export interface DeviceFrameCameraRecipe {
-  kind: "circle" | "pill";
-  color: string;
-  xFrac: number;
-  yFrac: number;
-  widthFrac: number;
-  heightFrac: number;
+  readonly kind: "circle" | "pill";
+  readonly color: string;
+  readonly xFrac: number;
+  readonly yFrac: number;
+  readonly widthFrac: number;
+  readonly heightFrac: number;
+}
+
+export interface DeviceFrameBrowserControlsRecipe {
+  readonly color: string;
+  readonly count: number;
+  readonly firstCenterXFrac: number;
+  readonly centerYFrac: number;
+  readonly radiusFrac: number;
+  readonly gapFrac: number;
+}
+
+export interface DeviceFrameBrowserAddressBarRecipe {
+  readonly color: string;
+  readonly leftFrac: number;
+  readonly rightFrac: number;
+  readonly topFrac: number;
+  readonly heightFrac: number;
+  readonly radiusFrac: number;
 }
 
 export interface DeviceFrameBrowserChromeRecipe {
-  backgroundColor: string;
-  controlColor: string;
-  heightFrac: number;
-  controlRadiusFrac: number;
-  controlGapFrac: number;
-  addressBarColor: string;
+  readonly backgroundColor: string;
+  readonly heightFrac: number;
+  readonly controls: DeviceFrameBrowserControlsRecipe;
+  readonly addressBar: DeviceFrameBrowserAddressBarRecipe;
 }
 
-/** Complete deterministic input for the shared renderer. Values ending in `Frac` are normalized. */
+/**
+ * Complete deterministic input for the shared renderer, in element-box-local coordinates.
+ *
+ * Every `*Frac` is normalized. X, width, left/right inset, horizontal gap, blur, corner radius,
+ * outline inset/stroke, and horizontal shadow offset use the element box width. Y, height,
+ * top/bottom inset, and vertical shadow offset use the element box height. Slot insets are measured
+ * inward from their named box edge. A legacy notch is horizontally centered, with `topFrac` measured
+ * from the element top. Positive shadow offsets move right/down from the outer silhouette.
+ *
+ * Camera x/y are its center coordinates and camera width/height are its extents. A base is
+ * horizontally centered and `bottomFrac` measures from the element bottom to the base bottom. An
+ * outline is painted entirely inside the outer silhouette: `insetFrac` is the gap from the
+ * silhouette edge to the stroke's outer edge and `widthFrac` extends inward.
+ *
+ * Browser chrome begins at the element top. Control coordinates are circle centers;
+ * `firstCenterXFrac` anchors the first of `count` controls and `gapFrac` is edge-to-edge. Address-bar
+ * left/right are box-edge insets and top is measured from the element top. Chrome must finish no
+ * lower than the screen slot's top edge.
+ *
+ * Paint order is fixed: shadow of the outer silhouette; body and base; outline; screenshot or empty
+ * placeholder clipped to the screen slot; then legacy notch, camera, and browser-chrome foreground
+ * decorations.
+ */
 export interface DeviceFrameRecipe {
-  spec: DeviceFrameSpec;
-  outline?: DeviceFrameOutlineRecipe;
-  shadow?: DeviceFrameShadowRecipe;
-  base?: DeviceFrameBaseRecipe;
-  camera?: DeviceFrameCameraRecipe;
-  browserChrome?: DeviceFrameBrowserChromeRecipe;
+  readonly spec: DeviceFrameSpec;
+  readonly outline?: DeviceFrameOutlineRecipe;
+  readonly shadow?: DeviceFrameShadowRecipe;
+  readonly base?: DeviceFrameBaseRecipe;
+  readonly camera?: DeviceFrameCameraRecipe;
+  readonly browserChrome?: DeviceFrameBrowserChromeRecipe;
 }
 
 /** Catalog-only presentation and rendering data; only `id` is persisted on an element. */
 export interface DeviceFramePreset {
-  id: DeviceFrameId;
-  label: string;
-  group: DeviceFramePresetGroup;
-  tags: readonly DeviceFrameTag[];
-  finish: DeviceFrameFinish;
-  recommendedFor: readonly DeviceFrameRecommendation[];
-  legacy: boolean;
-  recipe: DeviceFrameRecipe;
+  readonly id: DeviceFrameId;
+  readonly label: string;
+  readonly group: DeviceFramePresetGroup;
+  readonly tags: readonly DeviceFrameTag[];
+  readonly finish: DeviceFrameFinish;
+  readonly recommendedFor: readonly DeviceFrameRecommendation[];
+  readonly legacy: boolean;
+  readonly recipe: DeviceFrameRecipe;
 }
 
 const legacySpecs = {
@@ -256,37 +303,354 @@ const shadow: DeviceFrameShadowRecipe = {
   offsetYFrac: 0.018,
 };
 
-export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = [
-  { id: "iphone", label: "Classic Phone", group: "phone", tags: ["legacy", "classic", "phone", "dark"], finish: "dark", recommendedFor: ["mobile"], legacy: true, recipe: { spec: legacySpecs.iphone } },
-  { id: "android-phone", label: "Classic Punch-Hole Phone", group: "phone", tags: ["legacy", "classic", "phone", "dark"], finish: "dark", recommendedFor: ["mobile"], legacy: true, recipe: { spec: legacySpecs["android-phone"] } },
-  { id: "tablet", label: "Classic Tablet", group: "tablet", tags: ["legacy", "classic", "tablet", "dark"], finish: "dark", recommendedFor: ["tablet"], legacy: true, recipe: { spec: legacySpecs.tablet } },
-  { id: "desktop", label: "Classic Desktop", group: "desktop", tags: ["legacy", "classic", "desktop", "dark"], finish: "dark", recommendedFor: ["desktop"], legacy: true, recipe: { spec: legacySpecs.desktop } },
-  { id: "laptop", label: "Classic Laptop", group: "desktop", tags: ["legacy", "classic", "desktop", "dark"], finish: "dark", recommendedFor: ["desktop"], legacy: true, recipe: { spec: legacySpecs.laptop } },
-  { id: "browser", label: "Classic Browser", group: "browser", tags: ["legacy", "classic", "browser", "light"], finish: "light", recommendedFor: ["web"], legacy: true, recipe: { spec: legacySpecs.browser } },
-  { id: "tv", label: "Classic Television", group: "display", tags: ["legacy", "classic", "television", "dark"], finish: "dark", recommendedFor: ["television"], legacy: true, recipe: { spec: legacySpecs.tv } },
-  { id: "watch", label: "Classic Watch", group: "wearable", tags: ["legacy", "classic", "wearable", "dark"], finish: "dark", recommendedFor: ["wearable"], legacy: true, recipe: { spec: legacySpecs.watch } },
-  { id: "phone-modern-dark", label: "Modern Phone — Dark", group: "phone", tags: ["phone", "modern", "dark"], finish: "dark", recommendedFor: ["mobile"], legacy: false, recipe: { spec: phoneDarkSpec, shadow, camera: { kind: "pill", color: "#09090B", xFrac: 0.5, yFrac: 0.022, widthFrac: 0.25, heightFrac: 0.018 } } },
-  { id: "phone-modern-light", label: "Modern Phone — Light", group: "phone", tags: ["phone", "modern", "light"], finish: "light", recommendedFor: ["mobile"], legacy: false, recipe: { spec: phoneLightSpec, shadow, camera: { kind: "pill", color: "#202124", xFrac: 0.5, yFrac: 0.022, widthFrac: 0.25, heightFrac: 0.018 } } },
-  { id: "phone-punch-hole-dark", label: "Punch-Hole Phone — Dark", group: "phone", tags: ["phone", "modern", "dark"], finish: "dark", recommendedFor: ["mobile"], legacy: false, recipe: { spec: phonePunchHoleSpec, shadow, camera: { kind: "circle", color: "#08090A", xFrac: 0.5, yFrac: 0.018, widthFrac: 0.018, heightFrac: 0.018 } } },
-  { id: "phone-outline", label: "Phone Outline", group: "phone", tags: ["phone", "minimal", "outline"], finish: "outline", recommendedFor: ["mobile"], legacy: false, recipe: { spec: phoneOutlineSpec, outline: { color: "#313238", widthFrac: 0.008, insetFrac: 0.004 } } },
-  { id: "frameless-phone", label: "Frameless Phone", group: "phone", tags: ["minimal", "phone", "frameless"], finish: "frameless", recommendedFor: ["mobile"], legacy: false, recipe: { spec: framelessPhoneSpec, shadow } },
-  { id: "tablet-rounded-light", label: "Rounded Tablet — Light", group: "tablet", tags: ["tablet", "modern", "light"], finish: "light", recommendedFor: ["tablet"], legacy: false, recipe: { spec: tabletLightSpec, shadow, camera: { kind: "circle", color: "#44464A", xFrac: 0.5, yFrac: 0.014, widthFrac: 0.008, heightFrac: 0.008 } } },
-  { id: "browser-dark", label: "Browser — Dark", group: "browser", tags: ["browser", "modern", "dark"], finish: "dark", recommendedFor: ["web", "desktop"], legacy: false, recipe: { spec: browserDarkSpec, shadow, browserChrome: { backgroundColor: "#25262B", controlColor: "#858992", heightFrac: 0.068, controlRadiusFrac: 0.006, controlGapFrac: 0.012, addressBarColor: "#34363C" } } },
-  { id: "laptop-silver", label: "Laptop — Silver", group: "desktop", tags: ["desktop", "modern", "silver"], finish: "silver", recommendedFor: ["desktop", "web"], legacy: false, recipe: { spec: laptopSilverSpec, shadow, base: { color: "#B8BDC3", widthFrac: 0.98, heightFrac: 0.035, cornerRadiusFrac: 0.01, bottomFrac: 0 } } },
-  { id: "display-stand", label: "Display with Stand", group: "display", tags: ["display", "desktop", "modern", "dark"], finish: "dark", recommendedFor: ["desktop", "television"], legacy: false, recipe: { spec: displayStandSpec, shadow, base: { color: "#292B30", widthFrac: 0.24, heightFrac: 0.04, cornerRadiusFrac: 0.012, bottomFrac: 0 } } },
-  { id: "watch-square", label: "Square Watch", group: "wearable", tags: ["wearable", "modern", "dark"], finish: "dark", recommendedFor: ["wearable"], legacy: false, recipe: { spec: watchSquareSpec, shadow, outline: { color: "#34363A", widthFrac: 0.012, insetFrac: 0.006 } } },
-  { id: "foldable", label: "Foldable Display", group: "foldable", tags: ["foldable", "mobile", "modern", "dark"], finish: "dark", recommendedFor: ["mobile", "tablet"], legacy: false, recipe: { spec: foldableSpec, shadow, outline: { color: "#404248", widthFrac: 0.006, insetFrac: 0.003 } } },
-  { id: "automotive-display", label: "Automotive Display", group: "automotive", tags: ["automotive", "display", "modern", "dark"], finish: "dark", recommendedFor: ["automotive"], legacy: false, recipe: { spec: automotiveDisplaySpec, shadow, outline: { color: "#34363A", widthFrac: 0.008, insetFrac: 0.004 } } },
-  { id: "xr-viewport", label: "Spatial Viewport", group: "spatial", tags: ["spatial", "frameless", "modern"], finish: "frameless", recommendedFor: ["spatial"], legacy: false, recipe: { spec: xrViewportSpec, shadow, outline: { color: "#C7D4E8", widthFrac: 0.006, insetFrac: 0.003 } } },
-];
+type DeepReadonly<Value> = Value extends (...args: never[]) => unknown
+  ? Value
+  : Value extends readonly (infer Item)[]
+    ? readonly DeepReadonly<Item>[]
+    : Value extends object
+      ? { readonly [Key in keyof Value]: DeepReadonly<Value[Key]> }
+      : Value;
+
+function deepFreeze<Value>(value: Value): DeepReadonly<Value> {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      deepFreeze(child);
+    }
+    Object.freeze(value);
+  }
+  return value as DeepReadonly<Value>;
+}
+
+export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
+  {
+    id: "iphone",
+    label: "Classic Phone",
+    group: "phone",
+    tags: ["legacy", "classic", "phone", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile"],
+    legacy: true,
+    recipe: { spec: legacySpecs.iphone },
+  },
+  {
+    id: "android-phone",
+    label: "Classic Punch-Hole Phone",
+    group: "phone",
+    tags: ["legacy", "classic", "phone", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile"],
+    legacy: true,
+    recipe: { spec: legacySpecs["android-phone"] },
+  },
+  {
+    id: "tablet",
+    label: "Classic Tablet",
+    group: "tablet",
+    tags: ["legacy", "classic", "tablet", "dark"],
+    finish: "dark",
+    recommendedFor: ["tablet"],
+    legacy: true,
+    recipe: { spec: legacySpecs.tablet },
+  },
+  {
+    id: "desktop",
+    label: "Classic Desktop",
+    group: "desktop",
+    tags: ["legacy", "classic", "desktop", "dark"],
+    finish: "dark",
+    recommendedFor: ["desktop"],
+    legacy: true,
+    recipe: { spec: legacySpecs.desktop },
+  },
+  {
+    id: "laptop",
+    label: "Classic Laptop",
+    group: "desktop",
+    tags: ["legacy", "classic", "desktop", "dark"],
+    finish: "dark",
+    recommendedFor: ["desktop"],
+    legacy: true,
+    recipe: { spec: legacySpecs.laptop },
+  },
+  {
+    id: "browser",
+    label: "Classic Browser",
+    group: "browser",
+    tags: ["legacy", "classic", "browser", "light"],
+    finish: "light",
+    recommendedFor: ["web"],
+    legacy: true,
+    recipe: { spec: legacySpecs.browser },
+  },
+  {
+    id: "tv",
+    label: "Classic Television",
+    group: "display",
+    tags: ["legacy", "classic", "television", "dark"],
+    finish: "dark",
+    recommendedFor: ["television"],
+    legacy: true,
+    recipe: { spec: legacySpecs.tv },
+  },
+  {
+    id: "watch",
+    label: "Classic Watch",
+    group: "wearable",
+    tags: ["legacy", "classic", "wearable", "dark"],
+    finish: "dark",
+    recommendedFor: ["wearable"],
+    legacy: true,
+    recipe: { spec: legacySpecs.watch },
+  },
+  {
+    id: "phone-modern-dark",
+    label: "Modern Phone — Dark",
+    group: "phone",
+    tags: ["phone", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile"],
+    legacy: false,
+    recipe: {
+      spec: phoneDarkSpec,
+      shadow,
+      camera: {
+        kind: "pill",
+        color: "#09090B",
+        xFrac: 0.5,
+        yFrac: 0.022,
+        widthFrac: 0.25,
+        heightFrac: 0.018,
+      },
+    },
+  },
+  {
+    id: "phone-modern-light",
+    label: "Modern Phone — Light",
+    group: "phone",
+    tags: ["phone", "modern", "light"],
+    finish: "light",
+    recommendedFor: ["mobile"],
+    legacy: false,
+    recipe: {
+      spec: phoneLightSpec,
+      shadow,
+      camera: {
+        kind: "pill",
+        color: "#202124",
+        xFrac: 0.5,
+        yFrac: 0.022,
+        widthFrac: 0.25,
+        heightFrac: 0.018,
+      },
+    },
+  },
+  {
+    id: "phone-punch-hole-dark",
+    label: "Punch-Hole Phone — Dark",
+    group: "phone",
+    tags: ["phone", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile"],
+    legacy: false,
+    recipe: {
+      spec: phonePunchHoleSpec,
+      shadow,
+      camera: {
+        kind: "circle",
+        color: "#08090A",
+        xFrac: 0.5,
+        yFrac: 0.018,
+        widthFrac: 0.018,
+        heightFrac: 0.00864,
+      },
+    },
+  },
+  {
+    id: "phone-outline",
+    label: "Phone Outline",
+    group: "phone",
+    tags: ["phone", "minimal", "outline"],
+    finish: "outline",
+    recommendedFor: ["mobile"],
+    legacy: false,
+    recipe: {
+      spec: phoneOutlineSpec,
+      outline: { color: "#313238", widthFrac: 0.008, insetFrac: 0.004 },
+    },
+  },
+  {
+    id: "frameless-phone",
+    label: "Frameless Phone",
+    group: "phone",
+    tags: ["minimal", "phone", "frameless"],
+    finish: "frameless",
+    recommendedFor: ["mobile"],
+    legacy: false,
+    recipe: { spec: framelessPhoneSpec, shadow },
+  },
+  {
+    id: "tablet-rounded-light",
+    label: "Rounded Tablet — Light",
+    group: "tablet",
+    tags: ["tablet", "modern", "light"],
+    finish: "light",
+    recommendedFor: ["tablet"],
+    legacy: false,
+    recipe: {
+      spec: tabletLightSpec,
+      shadow,
+      camera: {
+        kind: "circle",
+        color: "#44464A",
+        xFrac: 0.5,
+        yFrac: 0.014,
+        widthFrac: 0.008,
+        heightFrac: 0.006,
+      },
+    },
+  },
+  {
+    id: "browser-dark",
+    label: "Browser — Dark",
+    group: "browser",
+    tags: ["browser", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["web", "desktop"],
+    legacy: false,
+    recipe: {
+      spec: browserDarkSpec,
+      shadow,
+      browserChrome: {
+        backgroundColor: "#25262B",
+        heightFrac: 0.068,
+        controls: {
+          color: "#858992",
+          count: 3,
+          firstCenterXFrac: 0.025,
+          centerYFrac: 0.034,
+          radiusFrac: 0.006,
+          gapFrac: 0.012,
+        },
+        addressBar: {
+          color: "#34363C",
+          leftFrac: 0.18,
+          rightFrac: 0.025,
+          topFrac: 0.018,
+          heightFrac: 0.032,
+          radiusFrac: 0.008,
+        },
+      },
+    },
+  },
+  {
+    id: "laptop-silver",
+    label: "Laptop — Silver",
+    group: "desktop",
+    tags: ["desktop", "modern", "silver"],
+    finish: "silver",
+    recommendedFor: ["desktop", "web"],
+    legacy: false,
+    recipe: {
+      spec: laptopSilverSpec,
+      shadow,
+      base: {
+        color: "#B8BDC3",
+        widthFrac: 0.98,
+        heightFrac: 0.035,
+        cornerRadiusFrac: 0.01,
+        bottomFrac: 0,
+      },
+    },
+  },
+  {
+    id: "display-stand",
+    label: "Display with Stand",
+    group: "display",
+    tags: ["display", "desktop", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["desktop", "television"],
+    legacy: false,
+    recipe: {
+      spec: displayStandSpec,
+      shadow,
+      base: {
+        color: "#292B30",
+        widthFrac: 0.24,
+        heightFrac: 0.04,
+        cornerRadiusFrac: 0.01,
+        bottomFrac: 0,
+      },
+    },
+  },
+  {
+    id: "watch-square",
+    label: "Square Watch",
+    group: "wearable",
+    tags: ["wearable", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["wearable"],
+    legacy: false,
+    recipe: {
+      spec: watchSquareSpec,
+      shadow,
+      outline: { color: "#34363A", widthFrac: 0.012, insetFrac: 0.006 },
+    },
+  },
+  {
+    id: "foldable",
+    label: "Foldable Display",
+    group: "foldable",
+    tags: ["foldable", "mobile", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile", "tablet"],
+    legacy: false,
+    recipe: {
+      spec: foldableSpec,
+      shadow,
+      outline: { color: "#404248", widthFrac: 0.006, insetFrac: 0.003 },
+    },
+  },
+  {
+    id: "automotive-display",
+    label: "Automotive Display",
+    group: "automotive",
+    tags: ["automotive", "display", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["automotive"],
+    legacy: false,
+    recipe: {
+      spec: automotiveDisplaySpec,
+      shadow,
+      outline: { color: "#34363A", widthFrac: 0.008, insetFrac: 0.004 },
+    },
+  },
+  {
+    id: "xr-viewport",
+    label: "Spatial Viewport",
+    group: "spatial",
+    tags: ["spatial", "frameless", "modern"],
+    finish: "frameless",
+    recommendedFor: ["spatial"],
+    legacy: false,
+    recipe: {
+      spec: xrViewportSpec,
+      shadow,
+      outline: { color: "#C7D4E8", widthFrac: 0.006, insetFrac: 0.003 },
+    },
+  },
+]);
 
 const presetsById = new Map<string, DeviceFramePreset>(
   DEVICE_FRAME_PRESETS.map((preset) => [preset.id, preset]),
 );
 
-export const DEVICE_FRAME_SPECS = Object.fromEntries(
+const deviceFrameSpecs = Object.fromEntries(
   DEVICE_FRAME_PRESETS.map((preset) => [preset.id, preset.recipe.spec]),
 ) as Record<DeviceFrameId, DeviceFrameSpec>;
+
+export const DEVICE_FRAME_SPECS: Readonly<Record<DeviceFrameId, DeviceFrameSpec>> = deepFreeze(
+  deviceFrameSpecs,
+);
 
 export interface DeviceFramePresetFilters {
   group?: DeviceFramePresetGroup;
@@ -297,15 +661,17 @@ export interface DeviceFramePresetFilters {
 }
 
 /** Returns presets in stable catalog order. Every supplied filter and every requested tag must match. */
-export function listDeviceFramePresets(filters: DeviceFramePresetFilters = {}): DeviceFramePreset[] {
-  return DEVICE_FRAME_PRESETS.filter((preset) =>
+export function listDeviceFramePresets(
+  filters: DeviceFramePresetFilters = {},
+): readonly DeviceFramePreset[] {
+  return deepFreeze(DEVICE_FRAME_PRESETS.filter((preset) =>
     (filters.group === undefined || preset.group === filters.group)
     && (filters.finish === undefined || preset.finish === filters.finish)
     && (filters.legacy === undefined || preset.legacy === filters.legacy)
     && (filters.tags === undefined || filters.tags.every((tag) => preset.tags.includes(tag)))
     && (filters.recommendedFor === undefined
       || filters.recommendedFor.every((use) => preset.recommendedFor.includes(use))),
-  );
+  ));
 }
 
 /** Resolves one bundled preset or throws a stable runtime error for untrusted input. */

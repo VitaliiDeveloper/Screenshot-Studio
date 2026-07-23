@@ -103,6 +103,20 @@ describe("device frame preset catalog", () => {
 
   it("provides human metadata and normalized previewable recipes", () => {
     const normalized = (value: number) => Number.isFinite(value) && value >= 0 && value <= 1;
+    const color = /^#[\dA-F]{6}(?:[\dA-F]{2})?$/i;
+    const assertNormalizedRecipeFields = (value: unknown, path: string): void => {
+      if (value === null || typeof value !== "object") return;
+      for (const [field, child] of Object.entries(value)) {
+        const childPath = `${path}.${field}`;
+        if (field.toLowerCase().includes("color")) {
+          expect(child, childPath).toMatch(color);
+        }
+        if (field.endsWith("Frac") || field === "opacity") {
+          expect(normalized(child as number), childPath).toBe(true);
+        }
+        assertNormalizedRecipeFields(child, childPath);
+      }
+    };
 
     for (const preset of DEVICE_FRAME_PRESETS) {
       expect(preset.label).toMatch(/\S+\s*\S*/);
@@ -111,7 +125,7 @@ describe("device frame preset catalog", () => {
       expect(preset.finish).toMatch(/\S/);
       expect(preset.recommendedFor.length).toBeGreaterThan(0);
       expect(preset.recipe.spec.aspectRatio).toBeGreaterThan(0);
-      expect(preset.recipe.spec.bezelColor).toMatch(/^#[\dA-F]{6}(?:[\dA-F]{2})?$/i);
+      expect(preset.recipe.spec.bezelColor).toMatch(color);
       expect(normalized(preset.recipe.spec.frameCornerRadius)).toBe(true);
       expect(normalized(preset.recipe.spec.slotCornerRadius)).toBe(true);
       expect(Object.values(preset.recipe.spec.slotInset).every(normalized)).toBe(true);
@@ -120,15 +134,56 @@ describe("device frame preset catalog", () => {
       if (preset.recipe.spec.notch) {
         expect(Object.values(preset.recipe.spec.notch).every(normalized)).toBe(true);
       }
-      for (const [decoration, recipe] of Object.entries(preset.recipe)) {
-        if (decoration === "spec") continue;
-        for (const [field, value] of Object.entries(recipe)) {
-          if (field.endsWith("Frac") || field === "opacity") {
-            expect(normalized(value as number), `${preset.id}.${decoration}.${field}`).toBe(true);
-          }
+      assertNormalizedRecipeFields(preset.recipe, preset.id);
+      expect(deviceFramePreset(preset.id).recipe.spec).toBe(preset.recipe.spec);
+    }
+  });
+
+  it("keeps camera, base, outline, and browser decorations inside their box-local bounds", () => {
+    for (const preset of DEVICE_FRAME_PRESETS) {
+      const { recipe } = preset;
+      if (recipe.camera) {
+        expect(recipe.camera.widthFrac).toBeGreaterThan(0);
+        expect(recipe.camera.heightFrac).toBeGreaterThan(0);
+        expect(recipe.camera.xFrac - recipe.camera.widthFrac / 2).toBeGreaterThanOrEqual(0);
+        expect(recipe.camera.xFrac + recipe.camera.widthFrac / 2).toBeLessThanOrEqual(1);
+        expect(recipe.camera.yFrac - recipe.camera.heightFrac / 2).toBeGreaterThanOrEqual(0);
+        expect(recipe.camera.yFrac + recipe.camera.heightFrac / 2).toBeLessThanOrEqual(1);
+        if (recipe.camera.kind === "circle") {
+          expect(recipe.camera.widthFrac * recipe.spec.aspectRatio)
+            .toBeCloseTo(recipe.camera.heightFrac, 10);
         }
       }
-      expect(deviceFramePreset(preset.id).recipe.spec).toBe(preset.recipe.spec);
+      if (recipe.base) {
+        expect(recipe.base.widthFrac).toBeGreaterThan(0);
+        expect(recipe.base.heightFrac).toBeGreaterThan(0);
+        expect(recipe.base.bottomFrac + recipe.base.heightFrac).toBeLessThanOrEqual(1);
+        expect(2 * recipe.base.cornerRadiusFrac * recipe.spec.aspectRatio)
+          .toBeLessThanOrEqual(recipe.base.heightFrac);
+      }
+      if (recipe.outline) {
+        expect(recipe.outline.widthFrac).toBeGreaterThan(0);
+        expect(2 * recipe.outline.insetFrac + recipe.outline.widthFrac).toBeLessThanOrEqual(1);
+        expect(2 * (recipe.outline.insetFrac + recipe.outline.widthFrac)
+          * recipe.spec.aspectRatio).toBeLessThanOrEqual(1);
+      }
+      if (recipe.browserChrome) {
+        const { addressBar, controls, heightFrac } = recipe.browserChrome;
+        const lastControlCenter = controls.firstCenterXFrac
+          + (controls.count - 1) * (2 * controls.radiusFrac + controls.gapFrac);
+        expect(controls.count).toBeGreaterThan(0);
+        expect(Number.isInteger(controls.count)).toBe(true);
+        expect(controls.firstCenterXFrac - controls.radiusFrac).toBeGreaterThanOrEqual(0);
+        expect(lastControlCenter + controls.radiusFrac).toBeLessThan(addressBar.leftFrac);
+        const controlRadiusYFrac = controls.radiusFrac * recipe.spec.aspectRatio;
+        expect(controls.centerYFrac - controlRadiusYFrac).toBeGreaterThanOrEqual(0);
+        expect(controls.centerYFrac + controlRadiusYFrac).toBeLessThanOrEqual(heightFrac);
+        expect(addressBar.leftFrac + addressBar.rightFrac).toBeLessThan(1);
+        expect(addressBar.topFrac + addressBar.heightFrac).toBeLessThanOrEqual(heightFrac);
+        expect(2 * addressBar.radiusFrac * recipe.spec.aspectRatio)
+          .toBeLessThanOrEqual(addressBar.heightFrac);
+        expect(heightFrac).toBeLessThanOrEqual(recipe.spec.slotInset.top);
+      }
     }
   });
 
@@ -139,9 +194,56 @@ describe("device frame preset catalog", () => {
       .map(({ id }) => id)).toEqual(["frameless-phone"]);
     expect(listDeviceFramePresets({ recommendedFor: ["mobile"] }).length).toBeGreaterThan(0);
 
-    const result = listDeviceFramePresets();
-    result.pop();
     expect(listDeviceFramePresets()).toHaveLength(DEVICE_FRAME_PRESETS.length);
+  });
+
+  it("deeply freezes every public catalog view and shared geometry reference", () => {
+    const checked = new WeakSet<object>();
+    const expectDeeplyFrozen = (value: unknown): void => {
+      if (value === null || typeof value !== "object" || checked.has(value)) return;
+      checked.add(value);
+      expect(Object.isFrozen(value)).toBe(true);
+      for (const child of Object.values(value)) expectDeeplyFrozen(child);
+    };
+    const preset = deviceFramePreset("phone-modern-dark");
+    const originalLeft = preset.recipe.spec.slotInset.left;
+    const originalTag = preset.tags[0];
+    const originalBezel = DEVICE_FRAME_SPECS["phone-modern-dark"].bezelColor;
+
+    expectDeeplyFrozen(DEVICE_FRAME_PRESETS);
+    expectDeeplyFrozen(DEVICE_FRAME_SPECS);
+    expectDeeplyFrozen(listDeviceFramePresets({ legacy: false }));
+
+    expect(() => {
+      (preset.recipe.spec.slotInset as { left: number }).left = 0.4;
+    }).toThrow(TypeError);
+    expect(() => {
+      (preset.tags as string[])[0] = "hostile";
+    }).toThrow(TypeError);
+    expect(() => {
+      (listDeviceFramePresets() as unknown[]).pop();
+    }).toThrow(TypeError);
+    expect(() => {
+      (DEVICE_FRAME_SPECS as Record<string, { bezelColor: string }>)["phone-modern-dark"]!
+        .bezelColor = "#FF00FF";
+    }).toThrow(TypeError);
+
+    expect(deviceFramePreset("phone-modern-dark").recipe.spec.slotInset.left).toBe(originalLeft);
+    expect(deviceFramePreset("phone-modern-dark").tags[0]).toBe(originalTag);
+    expect(DEVICE_FRAME_SPECS["phone-modern-dark"].bezelColor).toBe(originalBezel);
+
+    if (process.env.TYPECHECK_READONLY_CATALOG === "1") {
+      // @ts-expect-error public recipes are deeply readonly
+      preset.recipe.spec.slotInset.left = 0.4;
+      // @ts-expect-error public metadata arrays are readonly
+      preset.tags.push("hostile");
+      // @ts-expect-error public catalog arrays are readonly
+      DEVICE_FRAME_PRESETS.pop();
+      // @ts-expect-error filtered public arrays are readonly
+      listDeviceFramePresets().pop();
+      // @ts-expect-error public lookup tables are readonly
+      DEVICE_FRAME_SPECS["phone-modern-dark"] = preset.recipe.spec;
+    }
   });
 
   it("returns stable lookups and rejects unknown IDs predictably", () => {
