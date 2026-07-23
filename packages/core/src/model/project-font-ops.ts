@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: Apache-2.0
+import type { Project as ProjectModel } from "./schema.js";
+import { fontIdentityKey, type FontIdentity } from "./font-identity.js";
+import { elementLeaves } from "./element-tree.js";
+import { getLayout } from "./project-layout.js";
+import { isBuiltInFontIdentity } from "./built-in-fonts.js";
+
+/** Text font identities that have no file-backed project font. Pure: filesystem loading stays in hosts. */
+export function findUnresolvedFonts(project: ProjectModel, layoutId?: string): FontIdentity[] {
+  const registered = new Set(project.fonts.map(fontIdentityKey));
+  const unresolved: FontIdentity[] = [];
+  const seen = new Set<string>();
+
+  const layouts = layoutId ? [getLayout(project, layoutId)] : project.layouts;
+  for (const layout of layouts) {
+    for (const screen of layout.screens) {
+      for (const element of screen.elements) {
+        for (const leaf of elementLeaves(element)) {
+          if (leaf.type !== "text") continue;
+          const key = fontIdentityKey({ family: leaf.fontFamily, weight: leaf.weight });
+          if (!registered.has(key)
+            && !isBuiltInFontIdentity({ family: leaf.fontFamily, weight: leaf.weight })
+            && !seen.has(key)) {
+            unresolved.push({ family: leaf.fontFamily, weight: leaf.weight });
+            seen.add(key);
+          }
+        }
+      }
+    }
+  }
+  return unresolved;
+}
+
+export function formatUnresolvedFontsError(unresolved: readonly FontIdentity[]): string {
+  const identities = unresolved.map((font) => `"${font.family}" ${font.weight}`).join(", ");
+  return `Cannot export: unresolved project fonts: ${identities}. Register each font in the Fonts dialog or with screenshots font add.`;
+}
+
+/** Reject identities that are neither project-local nor renderer-owned before rendering. */
+export function assertProjectFontsResolved(project: ProjectModel, layoutId?: string): void {
+  const unresolved = findUnresolvedFonts(project, layoutId);
+  if (unresolved.length > 0) throw new Error(formatUnresolvedFontsError(unresolved));
+}

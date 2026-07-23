@@ -1,0 +1,170 @@
+{
+  "meta": {
+    "name": "RTL parity",
+    "schemaVersion": 1
+  },
+  "fonts": [
+    {
+      "family": "Noto Sans Arabic",
+      "source": "google",
+      "path": "assets/fonts/noto-sans-arabic-700.ttf",
+      "weight": 700
+    }
+  ],
+  "preferredExportLayoutId": "default",
+  "layouts": [
+    {
+      "id": "default",
+      "name": "Default",
+      "mode": "isolated",
+      "screens": [
+        {
+          "platform": "apple",
+          "device": "iphone",
+          "id": "arabic-ltr",
+          "name": "Arabic LTR baseline",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 660,
+            "height": 1434
+          },
+          "background": {
+            "type": "solid",
+            "color": "#07111F"
+          },
+          "elements": [
+            {
+              "type": "shape",
+              "id": "ltr-accent",
+              "x": 70,
+              "y": 90,
+              "width": 520,
+              "height": 12,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "kind": "rect",
+              "fill": "#38BDF8",
+              "radius": 6
+            },
+            {
+              "type": "text",
+              "id": "ltr-title",
+              "x": 70,
+              "y": 145,
+              "width": 520,
+              "height": 300,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "content": "اطلب الآن — التوصيل خلال 24 ساعة!",
+              "fontFamily": "Noto Sans Arabic",
+              "size": 72,
+              "weight": 700,
+              "lineHeight": 1.3,
+              "letterSpacing": 0,
+              "align": "right",
+              "color": "#FFFFFF"
+            },
+            {
+              "type": "text",
+              "id": "ltr-body",
+              "x": 70,
+              "y": 500,
+              "width": 520,
+              "height": 220,
+              "rotation": 0,
+              "opacity": 0.9,
+              "locked": false,
+              "visible": true,
+              "content": "الطلب #123 جاهز (3 عناصر)",
+              "fontFamily": "Noto Sans Arabic",
+              "size": 48,
+              "weight": 700,
+              "lineHeight": 1.4,
+              "letterSpacing": 0,
+              "align": "right",
+              "color": "#BAE6FD"
+            }
+          ]
+        },
+        {
+          "platform": "apple",
+          "device": "iphone",
+          "id": "arabic-rtl",
+          "name": "Arabic RTL",
+          "locale": "ar",
+          "direction": "rtl",
+          "artboard": {
+            "width": 660,
+            "height": 1434
+          },
+          "background": {
+            "type": "solid",
+            "color": "#07111F"
+          },
+          "elements": [
+            {
+              "type": "shape",
+              "id": "rtl-accent",
+              "x": 70,
+              "y": 90,
+              "width": 520,
+              "height": 12,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "kind": "rect",
+              "fill": "#38BDF8",
+              "radius": 6
+            },
+            {
+              "type": "text",
+              "id": "rtl-title",
+              "x": 70,
+              "y": 145,
+              "width": 520,
+              "height": 300,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "content": "اطلب الآن — التوصيل خلال 24 ساعة!",
+              "fontFamily": "Noto Sans Arabic",
+              "size": 72,
+              "weight": 700,
+              "lineHeight": 1.3,
+              "letterSpacing": 0,
+              "align": "right",
+              "color": "#FFFFFF"
+            },
+            {
+              "type": "text",
+              "id": "rtl-body",
+              "x": 70,
+              "y": 500,
+              "width": 520,
+              "height": 220,
+              "rotation": 0,
+              "opacity": 0.9,
+              "locked": false,
+              "visible": true,
+              "content": "الطلب #123 جاهز (3 عناصر)",
+              "fontFamily": "Noto Sans Arabic",
+              "size": 48,
+              "weight": 700,
+              "lineHeight": 1.4,
+              "letterSpacing": 0,
+              "align": "right",
+              "color": "#BAE6FD"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

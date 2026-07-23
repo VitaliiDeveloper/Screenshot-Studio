@@ -1,0 +1,38 @@
+{
+  "name": "@screenshot-studio/web",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@screenshot-studio/cli": "workspace:*",
+    "@screenshot-studio/core": "workspace:*",
+    "immer": "^11.1.11",
+    "jszip": "^3.10.1",
+    "konva": "^9.3.16",
+    "lucide-react": "^1.23.0",
+    "next": "^15.1.3",
+    "proper-lockfile": "4.1.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-konva": "^19.2.5",
+    "sharp": "0.34.5",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/proper-lockfile": "4.1.4",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2"
+  }
+}

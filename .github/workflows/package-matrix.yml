@@ -1,0 +1,76 @@
+name: Package Matrix
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - ".github/workflows/package-matrix.yml"
+      - "apps/web/**"
+      - "packages/cli/**"
+      - "packages/core/**"
+      - "scripts/build-cli-package.mjs"
+      - "scripts/package-archive.*"
+      - "e2e/packaged-cli.test.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "store-specs.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packaged-cli:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: "22"
+            extended: false
+          - os: macos-latest
+            node: "22"
+            extended: false
+          - os: windows-latest
+            node: "22"
+            extended: false
+          - os: ubuntu-latest
+            node: "24"
+            extended: true
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Remove broken Microsoft apt source
+        if: runner.os == 'Linux'
+        shell: bash
+        run: sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ | sudo xargs -0 -r rm -f
+      - name: Install Chromium on Linux
+        if: runner.os == 'Linux'
+        run: pnpm exec playwright install --with-deps chromium chromium-headless-shell
+      - name: Install Chromium on macOS or Windows
+        if: runner.os != 'Linux'
+        run: pnpm exec playwright install chromium chromium-headless-shell
+
+      - name: Verify newer-LTS workspace compatibility
+        if: matrix.extended
+        run: pnpm typecheck && pnpm test
+
+      - name: Verify packed install and exact export
+        run: pnpm test:e2e:package

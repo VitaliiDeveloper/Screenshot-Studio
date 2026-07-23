@@ -1,0 +1,52 @@
+{
+  "name": "@screenshot-studio/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Code-first App Store, Google Play, and Microsoft Store screenshot editor and exporter",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VitaliiDeveloper/Screenshot-Studio.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/VitaliiDeveloper/Screenshot-Studio#readme",
+  "bugs": {
+    "url": "https://github.com/VitaliiDeveloper/Screenshot-Studio/issues"
+  },
+  "keywords": [
+    "app-store",
+    "google-play",
+    "microsoft-store",
+    "screenshots",
+    "cli",
+    "editor"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "screenshots": "./src/index.ts"
+  },
+  "exports": {
+    "./export": "./src/export.ts",
+    "./project-image-service": "./src/project-image-service.ts",
+    "./font-service": "./src/font-service.ts",
+    "./theme-service": "./src/theme-service.ts",
+    "./template-service": "./src/template-service.ts",
+    "./capture-import-recovery": "./src/capture-import-recovery.ts",
+    "./capture-import-transaction": "./src/capture-import-transaction.ts",
+    "./render-driver": "./src/render-driver.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@screenshot-studio/core": "workspace:*",
+    "fontkit": "2.0.4",
+    "jszip": "^3.10.1",
+    "playwright": "1.61.1",
+    "sharp": "0.34.5"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@screenshot-studio/core",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./model": "./src/model/index.ts",
+    "./engine": "./src/engine/index.ts",
+    "./export": "./src/export/index.ts",
+    "./fonts": "./src/fonts/index.ts",
+    "./themes": "./src/themes/index.ts",
+    "./templates": "./src/templates/index.ts",
+    "./assets": "./src/assets/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./scaffold": "./src/scaffold/index.ts",
+    "./capture-import": "./src/capture-import/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "konva": "^9.3.16",
+    "pngjs": "^7.0.0",
+    "proper-lockfile": "4.1.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "@types/proper-lockfile": "4.1.4",
+    "playwright": "1.61.1"
+  }
+}

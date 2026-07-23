@@ -1,0 +1,78 @@
+{
+  "$comment": "Store export sizes as DATA, not hardcode (docs/architecture.md). Apple values are accepted sizes Apple publishes; Google and Microsoft values are recommended presets within their allowed requirements. store-specs.json is the runtime source of truth for export dimensions.",
+  "apple": {
+    "iphone": [
+      { "id": "6.9", "label": "6.9\" iPhone (lead)", "width": 1320, "height": 2868, "orientation": "portrait" },
+      { "id": "6.5", "label": "6.5\" iPhone", "width": 1284, "height": 2778, "orientation": "portrait" },
+      { "id": "6.3", "label": "6.3\" iPhone", "width": 1206, "height": 2622, "orientation": "portrait" },
+      { "id": "6.1", "label": "6.1\" iPhone", "width": 1125, "height": 2436, "orientation": "portrait" }
+    ],
+    "ipad": [
+      { "id": "13", "label": "13\" iPad (lead)", "width": 2064, "height": 2752, "orientation": "portrait" },
+      { "id": "13-landscape", "label": "13\" iPad landscape", "width": 2752, "height": 2064, "orientation": "landscape" },
+      { "id": "12.9", "label": "12.9\" iPad", "width": 2048, "height": 2732, "orientation": "portrait" },
+      { "id": "11", "label": "11\" iPad", "width": 1668, "height": 2420, "orientation": "portrait" }
+    ],
+    "macos": [
+      { "id": "2880x1800", "label": "Mac 2880×1800 (lead)", "width": 2880, "height": 1800, "orientation": "landscape" },
+      { "id": "2560x1600", "label": "Mac 2560×1600", "width": 2560, "height": 1600, "orientation": "landscape" },
+      { "id": "1440x900", "label": "Mac 1440×900", "width": 1440, "height": 900, "orientation": "landscape" },
+      { "id": "1280x800", "label": "Mac 1280×800", "width": 1280, "height": 800, "orientation": "landscape" }
+    ],
+    "tvos": [
+      { "id": "4k", "label": "Apple TV 4K (lead)", "width": 3840, "height": 2160, "orientation": "landscape" },
+      { "id": "hd", "label": "Apple TV HD", "width": 1920, "height": 1080, "orientation": "landscape" }
+    ],
+    "watchos": [
+      { "id": "ultra-3", "label": "Apple Watch Ultra 3 (lead)", "width": 422, "height": 514, "orientation": "portrait" },
+      { "id": "ultra-2", "label": "Apple Watch Ultra 2", "width": 410, "height": 502, "orientation": "portrait" },
+      { "id": "series-11", "label": "Apple Watch Series 11", "width": 416, "height": 496, "orientation": "portrait" },
+      { "id": "series-9", "label": "Apple Watch Series 9", "width": 396, "height": 484, "orientation": "portrait" },
+      { "id": "series-6", "label": "Apple Watch Series 6", "width": 368, "height": 448, "orientation": "portrait" },
+      { "id": "series-3", "label": "Apple Watch Series 3", "width": 312, "height": 390, "orientation": "portrait" }
+    ]
+  },
+  "android": {
+    "phone": [
+      { "id": "phone-portrait", "label": "Android phone portrait (lead)", "width": 1080, "height": 1920, "orientation": "portrait" },
+      { "id": "phone-landscape", "label": "Android phone landscape", "width": 1920, "height": 1080, "orientation": "landscape" },
+      { "id": "phone-portrait-high-res", "label": "Android phone portrait high resolution", "width": 1440, "height": 2560, "orientation": "portrait" }
+    ],
+    "tablet-7": [
+      { "id": "tablet-7-portrait", "label": "7-inch Android tablet portrait (lead)", "width": 1200, "height": 1920, "orientation": "portrait" },
+      { "id": "tablet-7-landscape", "label": "7-inch Android tablet landscape", "width": 1920, "height": 1200, "orientation": "landscape" }
+    ],
+    "tablet-10": [
+      { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait (lead)", "width": 1600, "height": 2560, "orientation": "portrait" },
+      { "id": "tablet-10-landscape", "label": "10-inch Android tablet landscape", "width": 2560, "height": 1600, "orientation": "landscape" }
+    ],
+    "$outputs": [
+      { "id": "play-feature-graphic", "label": "Google Play Feature Graphic", "width": 1024, "height": 500, "orientation": "landscape", "kind": "promotion", "family": "phone", "format": "png-or-jpeg", "alpha": false }
+    ]
+  },
+  "windows": {
+    "desktop": [
+      { "id": "4k", "label": "Windows desktop 4K (lead)", "width": 3840, "height": 2160, "orientation": "landscape" },
+      { "id": "full-hd", "label": "Windows desktop Full HD", "width": 1920, "height": 1080, "orientation": "landscape" },
+      { "id": "minimum", "label": "Windows desktop minimum", "width": 1366, "height": 768, "orientation": "landscape" }
+    ]
+  },
+  "web": {
+    "desktop": [
+      { "id": "desktop-1920", "label": "Web desktop 1920×1080 (lead)", "width": 1920, "height": 1080, "orientation": "landscape", "kind": "responsive" },
+      { "id": "desktop-1440", "label": "Web desktop 1440×900", "width": 1440, "height": 900, "orientation": "landscape", "kind": "responsive" }
+    ],
+    "laptop": [
+      { "id": "laptop-1440", "label": "Web laptop 1440×900 (lead)", "width": 1440, "height": 900, "orientation": "landscape", "kind": "responsive" },
+      { "id": "laptop-1280", "label": "Web laptop 1280×800", "width": 1280, "height": 800, "orientation": "landscape", "kind": "responsive" }
+    ],
+    "tablet": [
+      { "id": "tablet-portrait", "label": "Web tablet portrait (lead)", "width": 1024, "height": 1366, "orientation": "portrait", "kind": "responsive" },
+      { "id": "tablet-landscape", "label": "Web tablet landscape", "width": 1366, "height": 1024, "orientation": "landscape", "kind": "responsive" }
+    ],
+    "mobile": [
+      { "id": "mobile-portrait", "label": "Web mobile portrait (lead)", "width": 390, "height": 844, "orientation": "portrait", "kind": "responsive" },
+      { "id": "mobile-landscape", "label": "Web mobile landscape", "width": 844, "height": 390, "orientation": "landscape", "kind": "responsive" }
+    ]
+  }
+}

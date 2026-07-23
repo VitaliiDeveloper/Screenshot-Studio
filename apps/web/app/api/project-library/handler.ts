@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: Apache-2.0
+import {
+  projectLibraryService,
+  type ProjectLibraryService,
+} from "@web/lib/project-library.server.js";
+import {
+  projectSessionRegistry,
+  type ProjectSessionRegistry,
+} from "@web/lib/project-session.server.js";
+import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+
+const ENTRY_ID_PATTERN = /^(?:project|recent)_[0-9a-f]{32}$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function entryIdFromBody(request: Request): Promise<string> {
+  const value = await request.json() as unknown;
+  if (!isRecord(value) || Object.keys(value).length !== 1
+    || typeof value.entryId !== "string" || !ENTRY_ID_PATTERN.test(value.entryId)) {
+    throw new TypeError("Invalid project library request");
+  }
+  return value.entryId;
+}
+
+export async function handleProjectLibraryGet(
+  service: Pick<ProjectLibraryService, "list"> = projectLibraryService,
+): Promise<Response> {
+  try {
+    return Response.json(await service.list(), {
+      headers: { "cache-control": "no-store" },
+    });
+  } catch {
+    return Response.json({
+      error: "Projects could not be loaded. Retry, or reopen a local project from its source.",
+    }, { status: 500, headers: { "cache-control": "no-store" } });
+  }
+}
+
+export async function handleProjectLibraryOpen(
+  request: Request,
+  service: Pick<ProjectLibraryService, "activate"> = projectLibraryService,
+  registry: ProjectSessionRegistry = projectSessionRegistry,
+): Promise<Response> {
+  let entryId: string;
+  try {
+    entryId = await entryIdFromBody(request);
+  } catch {
+    return Response.json({ error: "A valid project entry id is required." }, { status: 400 });
+  }
+  try {
+    const session = await service.activate(entryId, registry);
+    return Response.json({ projectId: session.projectId }, {
+      headers: projectSessionResponseHeaders(session, request),
+    });
+  } catch {
+    return Response.json({
+      error: "This project is unavailable. Reopen or import its source to continue.",
+    }, { status: 409, headers: { "cache-control": "no-store" } });
+  }
+}

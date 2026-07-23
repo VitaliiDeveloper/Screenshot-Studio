@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: Apache-2.0
+import { describe, it, expect } from "vitest";
+import { collectImageUrls } from "./index.js";
+import type { Background, Project, Element, LeafElement } from "@screenshot-studio/core/model";
+
+function project(elements: Element[], background: Background = { type: "solid", color: "#000000" }): Project {
+  return {
+    meta: { name: "T", schemaVersion: 1 },
+    fonts: [],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default", name: "Default", mode: "isolated",
+      screens: [{
+        id: "s", name: "S", platform: "apple", device: "iphone", locale: "en", direction: "ltr",
+        artboard: { width: 660, height: 1434 },
+        background,
+        elements,
+      }],
+    }],
+  };
+}
+
+function projectWithScreens(): Project {
+  const base = project([]);
+  return {
+    ...base,
+    layouts: [{
+      ...base.layouts[0]!,
+      screens: [
+        { ...base.layouts[0]!.screens[0]!, id: "first", elements: [shot("first-shot", "first.png")] },
+        { ...base.layouts[0]!.screens[0]!, id: "second", elements: [shot("second-shot", "second.png")] },
+        { ...base.layouts[0]!.screens[0]!, id: "third", elements: [shot("third-shot", "third.png")] },
+        { ...base.layouts[0]!.screens[0]!, id: "fourth", elements: [shot("fourth-shot", "fourth.png")] },
+      ],
+    }],
+  };
+}
+
+const shot = (id: string, assetUrl: string): LeafElement => ({
+  id, type: "screenshot", x: 0, y: 0, width: 10, height: 10,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  assetUrl, fit: "cover", cornerRadius: 0,
+});
+
+const framed = (id: string, assetUrl: string): LeafElement => ({
+  id, type: "device-frame", x: 0, y: 0, width: 10, height: 20,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  deviceType: "iphone", assetUrl, fit: "cover",
+});
+
+const image = (id: string, assetUrl: string): LeafElement => ({
+  id, type: "image", x: 0, y: 0, width: 10, height: 10,
+  rotation: 0, opacity: 1, locked: false, visible: true,
+  assetUrl, fit: "contain", cornerRadius: 0,
+});
+
+describe("collectImageUrls", () => {
+  it("returns every screenshot url, de-duplicated", () => {
+    expect(collectImageUrls(project([shot("a", "a.png"), shot("b", "b.png"), shot("c", "a.png")])).sort())
+      .toEqual(["a.png", "b.png"]);
+  });
+
+  it("includes device-frame content urls and dedups across element types", () => {
+    expect(collectImageUrls(project([shot("a", "a.png"), image("i", "decor.png"), framed("f", "b.png"), framed("g", "a.png")])).sort())
+      .toEqual(["a.png", "b.png", "decor.png"]);
+  });
+
+  it("deduplicates decorative images against semantic screenshots", () => {
+    expect(collectImageUrls(project([image("i", "a.png"), shot("a", "a.png")])).sort())
+      .toEqual(["a.png"]);
+  });
+
+  it("returns empty when there are no image-bearing elements", () => {
+    expect(collectImageUrls(project([]))).toEqual([]);
+  });
+
+  it("includes and deduplicates image-background assets", () => {
+    const background: Background = {
+      type: "image", assetUrl: "background.png", fit: "cover", color: "#000000",
+    };
+    expect(collectImageUrls(project([image("same", "background.png")], background)))
+      .toEqual(["background.png"]);
+  });
+
+  it("collects image-bearing leaves inside a persisted group", () => {
+    const grouped: Element = {
+      id: "group", type: "group", x: 0, y: 0, width: 20, height: 20,
+      rotation: 0, opacity: 1, locked: false, visible: true,
+      children: [shot("nested-shot", "nested.png"), framed("nested-frame", "frame.png")],
+    };
+    expect(collectImageUrls(project([grouped])).sort()).toEqual(["frame.png", "nested.png"]);
+  });
+
+  it("limits collection to selected preview screens", () => {
+    expect(collectImageUrls(projectWithScreens(), "default", ["first", "second", "third"]).sort())
+      .toEqual(["first.png", "second.png", "third.png"]);
+  });
+});

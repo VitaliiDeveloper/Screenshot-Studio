@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: Apache-2.0
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { chromium } from "playwright";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { PNG } from "pngjs";
+import pixelmatch from "pixelmatch";
+import { stripAlpha } from "@screenshot-studio/core/export";
+import { startWebServer } from "@screenshot-studio/cli/server";
+import {
+  closeParityRenderHarness,
+  startParityRenderHarness,
+  type ParityRenderHarness,
+} from "./support/parity-render-harness.js";
+
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const fixturePath = resolve(repoRoot, "fixtures/regressions/group-parity/app-store-screenshots.json");
+const pixelRatio = 2;
+const target = { width: 600, height: 600 };
+const MAX_MISMATCH_FRACTION = 0.001;
+
+let harness: ParityRenderHarness;
+
+beforeAll(async () => {
+  process.env.PROJECT_PATH = fixturePath;
+  harness = await startParityRenderHarness(
+    () => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }),
+    () => chromium.launch(),
+  );
+}, 180_000);
+
+afterAll(async () => {
+  await closeParityRenderHarness(harness);
+  delete process.env.PROJECT_PATH;
+});
+
+function pixel(png: PNG, x: number, y: number): [number, number, number] {
+  const offset = (y * png.width + x) * 4;
+  return [png.data[offset]!, png.data[offset + 1]!, png.data[offset + 2]!];
+}
+
+function mismatch(first: Buffer, second: Buffer): number {
+  const a = PNG.sync.read(first);
+  const b = PNG.sync.read(second);
+  expect({ width: a.width, height: a.height }).toEqual({ width: b.width, height: b.height });
+  const diff = new PNG({ width: a.width, height: a.height });
+  return pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1 });
+}
+
+describe("group render parity", () => {
+  it("matches headed/headless exact crops and the interactive shared node tree", async () => {
+    const headedSecond = stripAlpha(await harness.headed.renderScreenToPng({
+      baseUrl: harness.server.url,
+      projectPath: fixturePath,
+      layoutId: "default",
+      screenId: "group-second",
+      pixelRatio,
+      timeoutMs: 60_000,
+    }));
+    const headlessSecond = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
+      projectPath: fixturePath,
+      layoutId: "default",
+      screenId: "group-second",
+      pixelRatio,
+    }));
+    const headlessFirst = stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url,
+      projectPath: fixturePath,
+      layoutId: "default",
+      screenId: "group-first",
+      pixelRatio,
+    }));
+
+    for (const bytes of [headedSecond, headlessSecond, headlessFirst]) {
+      const png = PNG.sync.read(bytes);
+      expect({ width: png.width, height: png.height }).toEqual(target);
+    }
+    const first = PNG.sync.read(headlessFirst);
+    const second = PNG.sync.read(headlessSecond);
+    expect(pixel(first, 540, 220)).toEqual([0, 255, 0]);
+    expect(pixel(second, 40, 220)).toEqual([255, 0, 0]);
+    expect(pixel(second, 500, 100)).toEqual([32, 32, 32]);
+    expect(mismatch(headedSecond, headlessSecond) / (target.width * target.height))
+      .toBeLessThan(MAX_MISMATCH_FRACTION);
+
+    const page = await harness.interactive!.newPage({ viewport: { width: 1400, height: 900 } });
+    await page.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
+    const stage = page.getByTestId("editor-stage");
+    await stage.waitFor({ state: "visible" });
+    const canvas = stage.locator("canvas").first();
+    await expect.poll(() => canvas.count()).toBe(1);
+    const interactivePixels = await canvas.evaluate((node: HTMLCanvasElement) => {
+      const context = node.getContext("2d")!;
+      const sample = (x: number, y: number) => Array.from(context.getImageData(
+        Math.round(x * node.width / 600),
+        Math.round(y * node.height / 300),
+        1,
+        1,
+      ).data.slice(0, 3));
+      return { green: sample(270, 110), red: sample(320, 110) };
+    });
+    expect(interactivePixels.green).toEqual([0, 255, 0]);
+    expect(interactivePixels.red).toEqual([255, 0, 0]);
+
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.click(box.x + 270 * box.width / 600, box.y + 110 * box.height / 300);
+    await page.getByText("2 children. Resize stays uniform to preserve child transforms.", { exact: true })
+      .waitFor({ state: "visible" });
+    await page.close();
+  });
+});

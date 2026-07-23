@@ -1,0 +1,72 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output / monorepo
+dist/
+build/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Next.js (apps/web)
+.next/
+next-env.d.ts
+.vercel/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing (Vitest / Playwright)
+coverage/
+.vitest/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Generated screenshot bundles (CLI export output). The unanchored pattern also matches
+# source directories of the same name, so re-include those explicitly.
+export/
+!packages/core/src/export/
+!apps/web/app/api/export/
+
+# Lint / tool caches
+.eslintcache
+.cache/
+packages/cli/package/
+
+# Agent planning artifacts (local, not the curated docs/ contract)
+docs/superpowers/
+docs/archive/superpowers/
+.superpowers/
+.worktrees/
+/.codex/config.toml
+/.screenshot-studio/
+/apps/web/.screenshot-studio/
+
+# E2E scratch (parity harness temp renders)
+e2e/.tmp/
+fixtures/slice-2-screenshot/_missing.json
+
+# Certs / keys
+*.pem
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+fixtures/slice-3-device-frame/_missing.json

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Screenshot Studio"
+  short_description: "Bootstrap code-first store screenshot projects"
+  default_prompt: "Use $screenshot-studio to initialize a screenshot project and follow its generated AGENTS.md."
