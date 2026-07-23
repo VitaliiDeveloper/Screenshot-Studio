@@ -42,9 +42,11 @@ PROJECT_PATH="$PWD/fixtures/sample/app-store-screenshots.json" pnpm dev
 pnpm screenshots dev --project "$PWD/fixtures/sample/app-store-screenshots.json"
 ```
 
-Both commands start the host with the sample as a `local-file` project and land on Project Info;
-**Open in Editor** then opens `/editor`. Editor saves update `fixtures/sample` directly, so copy the
-fixture to a separate directory first when experimenting with changes you do not want to keep.
+Both commands start the host with the sample as a `local-file` project. Opening the root URL lists
+the configured source in **Recent projects**, and its card opens `/editor` directly. The CLI also
+prints the direct `/editor` URL. **Project details** remains available from the card overflow menu.
+Editor saves update `fixtures/sample` directly, so copy the fixture to a separate directory first
+when experimenting with changes you do not want to keep.
 
 Exporting store-ready PNGs (and the e2e suite) additionally needs a one-time Playwright
 browser download — see **Requirements** below.
@@ -75,7 +77,12 @@ It only discovers or initializes a project and then follows the generated projec
 
 ## Documentation
 
-- [docs/architecture.md](docs/architecture.md) — stack, core/shell, data model, render/export parity, CLI & conventions _(the technical contract)_
+- [docs/architecture.md](docs/architecture.md) — data model, source/session boundaries, rendering,
+  export, and CLI architecture _(the technical contract)_
+- [docs/editor.md](docs/editor.md) — durable editor interaction, navigation, and accessibility semantics
+- [docs/testing.md](docs/testing.md) — test ownership, exact browser groups, and CI policy
+- [docs/project-mutation-locking.md](docs/project-mutation-locking.md) — concurrent project-write contract
+- [docs/safe-file-publication.md](docs/safe-file-publication.md) — asset and output publication safety
 - [docs/releasing.md](docs/releasing.md) — candidate verification, publication boundary, upgrade, and uninstall
 
 ## Project structure
@@ -319,7 +326,7 @@ references screenshots, uploaded fonts, an app icon, or other project-local reso
 import lists the missing paths so the complete source can be chosen. Import is bounded by
 `SCREENSHOT_STUDIO_MAX_IMPORT_UPLOAD_BYTES` (256 MiB by default),
 `SCREENSHOT_STUDIO_MAX_PROJECT_FILES`, and `SCREENSHOT_STUDIO_MAX_PROJECT_BYTES`, then atomically
-activates the managed copy and opens Project Info. Selection remains in the browser until the user
+activates the managed copy and opens Workspace. Selection remains in the browser until the user
 confirms the managed copy; choosing another source, cancellation, or failure preserves the previous
 active session.
 
@@ -327,8 +334,9 @@ active session.
 then offers **Blank**, supported generic project templates, and platform-aware built-ins: iPhone and
 iPad portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and
 Web mobile. Built-ins use the same screen-template materializer as onboarding and Resources, need no
-pre-existing assets, and keep device-frame slots empty and assignable. The browser never accepts a server path: it validates and
-atomically publishes into managed storage, activates the new session, and opens Project Info. CLI
+pre-existing assets, and keep device-frame slots empty and assignable. The browser never accepts a
+server path: it validates and atomically publishes into managed storage, activates the new session,
+and opens Workspace. CLI
 `screenshots init --dir <directory>` uses the same scaffold contract with an explicit local destination.
 
 **Capture import** is distinct from complete project import. Choose a directory containing the
@@ -338,7 +346,7 @@ project, review the no-write counts, planned fresh ids/resource paths, warnings,
 then confirm. Current-project requests are fenced by active project identity and revision; new-project
 destinations reuse the same strict scaffold and atomic managed publication as **Create project**.
 Failure rolls back Project/resource changes or managed publication, and success opens only the
-verified receiving Project Info. The CLI command remains supported through the same discovery and
+verified receiving Workspace. The CLI command remains supported through the same discovery and
 atomic apply services:
 
 ```bash
@@ -416,7 +424,7 @@ pnpm test:e2e:browsers # Chromium/Firefox/WebKit editor smoke
 pnpm test:e2e:package  # production build + packed temp-install/export smoke
 pnpm test:e2e:skill    # optional skill install + clean-project bootstrap smoke
 pnpm test:e2e:examples # validate and export the living example projects
-pnpm test:e2e:ci       # targeted browser subset automated on pushes to dev
+pnpm test:e2e:ci       # targeted browser subset for explicit local/automation use
 pnpm test:e2e:release-surfaces # browsers/package/skill/examples aggregate
 pnpm test:e2e          # full browser gate (dev -> main CI only; do not run locally)
 pnpm build:cli-package # assemble the installable CLI + standalone render host

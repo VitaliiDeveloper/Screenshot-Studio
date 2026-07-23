@@ -1,8 +1,8 @@
 # Screenshot Studio CLI
 
-Built command-line distribution for Screenshot Studio. It manages strict Apple, Android, Windows,
-and Web screenshot projects, opens the local editor, and exports exact output PNGs
-through the packaged shared web renderer.
+Built command-line distribution for Screenshot Studio. It manages strict Apple App Store, Google
+Play, Microsoft Store, and Web screenshot projects, opens the local editor, and exports exact output
+PNGs through the packaged shared web renderer.
 
 After installing the `0.1.0` dry-run package artifact and its matching Chromium builds:
 

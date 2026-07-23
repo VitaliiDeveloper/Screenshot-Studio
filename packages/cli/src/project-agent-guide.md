@@ -47,6 +47,7 @@ Project
 ├── preferredExportLayoutId: string
 └── layouts: DesignLayout[]
     ├── id, name, mode: isolated | connected
+    ├── screenSetPolicies?: ScreenSetPolicy[] # per output family/locale; independent | synchronized
     └── screens: Screen[]
         ├── id, name, platform, device, locale, direction
         ├── variantOf?, storeTargetId?      # paired only on explicit target variants
@@ -71,8 +72,8 @@ Screenshot and decorative-image leaves may store normalized `crop: { x, y, zoom 
 are in `0…1`, zoom is `1…4`, and the literal affects `cover` only. `contain` keeps but ignores it.
 Text may store one literal shadow. Shapes may be rect or ellipse and may add a two-stop linear
 gradient and stroke; do not invent generic effects, paths, or extra stops.
-Device frames use only `iphone | android-phone | tablet | desktop | tv | watch`; the shared core
-owns their vector bezel/slot geometry and render never downloads vendor artwork.
+Device frames use only `iphone | android-phone | tablet | desktop | laptop | browser | tv | watch`;
+the shared core owns their vector bezel/slot geometry and render never downloads vendor artwork.
 
 Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
 an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and
@@ -85,6 +86,11 @@ case-insensitively unique. `preferredExportLayoutId` is the CLI export default, 
 Use `screenshots layout list` to inspect ids/names/modes. Layout-aware mutations infer the layout
 only when exactly one exists; in multi-layout projects pass `--layout <id-or-full-name>`.
 
+`screenSetPolicies` records the authoring behavior for one platform/device/locale output family.
+Missing policy rows retain `independent` behavior; `synchronized` is the persisted form of the
+editor's **Keep 1:1** mode and requires every exact-size target to match the root screen count and
+order. The policy changes structural screen operations, not rendered pixels.
+
 `isolated` clips every screen independently. In `connected`, each exact
 platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order;
 root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
@@ -95,7 +101,7 @@ Selecting a cross-screen element resolves to its owner screen, and transforms st
 
 The recipes below omit `--layout` only for a one-layout project. In a multi-layout project, first
 run `screenshots layout list`, choose the intended id or full name, and add
-`--layout <id-or-full-name>` to every screen, locale, theme, template, import, and export command.
+`--layout <id-or-full-name>` to every screen, locale, theme, import, and export command.
 
 ## Recipe: generate or refresh copy
 
