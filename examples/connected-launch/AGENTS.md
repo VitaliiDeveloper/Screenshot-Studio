@@ -21,12 +21,42 @@ against the repository's current strict v1 schema. The root [`AGENTS.md`](../../
 
 The current strict ids are:
 
+<!-- DEVICE_FRAME_IDS:START -->
 ```text
-iphone, android-phone, tablet, desktop, laptop, browser, tv, watch,
-phone-modern-dark, phone-modern-light, phone-punch-hole-dark, phone-outline,
-frameless-phone, tablet-rounded-light, browser-dark, laptop-silver, display-stand,
-watch-square, foldable, automotive-display, xr-viewport
+iphone
+android-phone
+tablet
+desktop
+laptop
+browser
+tv
+watch
+phone-modern-dark
+phone-modern-light
+phone-punch-hole-dark
+phone-outline
+frameless-phone
+tablet-rounded-dark
+tablet-rounded-light
+tablet-outline
+frameless-tablet
+browser-light
+browser-dark
+browser-minimal
+frameless-browser
+laptop-silver
+laptop-dark
+display-stand
+display-minimal
+tv-flat
+watch-rounded
+watch-square
+frameless-watch
+foldable
+automotive-display
+xr-viewport
 ```
+<!-- DEVICE_FRAME_IDS:END -->
 
 The first eight ids are retained for backward compatibility. All bundled presets use brand-neutral
 renderer-owned vector geometry; official Apple artwork and other vendor frame assets are not bundled.

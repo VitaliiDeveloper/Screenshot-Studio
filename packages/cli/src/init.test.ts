@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
-import { parseProjectJson } from "@screenshot-studio/core/model";
+import {
+  DEVICE_FRAME_IDS,
+  parseProjectJson,
+  SCREEN_DEVICES_BY_PLATFORM,
+} from "@screenshot-studio/core/model";
 import {
   createProjectScaffold,
   projectScaffoldFiles,
@@ -15,6 +19,27 @@ import { runInit } from "./init.js";
 const storeSpecs = parseStoreSpecs(JSON.parse(
   await readFile(new URL("../../../store-specs.json", import.meta.url), "utf8"),
 ));
+
+function parseGuideContract(source: string, contract: string): string[] {
+  const start = `<!-- ${contract}:START -->`;
+  const end = `<!-- ${contract}:END -->`;
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end);
+  expect(startIndex, `missing ${start}`).toBeGreaterThanOrEqual(0);
+  expect(endIndex, `missing ${end}`).toBeGreaterThan(startIndex);
+  expect(source.lastIndexOf(start), `duplicate ${start}`).toBe(startIndex);
+  expect(source.lastIndexOf(end), `duplicate ${end}`).toBe(endIndex);
+
+  const boundedSection = source.slice(startIndex + start.length, endIndex).trim();
+  const match = /^```text\n([\s\S]*?)\n```$/.exec(boundedSection);
+  expect(match, `${contract} must contain exactly one bounded text block`).not.toBeNull();
+  return match![1]!.split("\n");
+}
+
+const captureDestinationPaths = Object.entries(SCREEN_DEVICES_BY_PLATFORM)
+  .flatMap(([platform, devices]) => devices.map(
+    (device) => `screenshots/${platform}/${device}/{locale}/NN.png`,
+  ));
 
 describe("runInit", () => {
   it("creates a valid project, standard directories, and agent workflow guides", async () => {
@@ -51,6 +76,10 @@ describe("runInit", () => {
     }
 
     const agentGuide = await readFile(join(dir, "AGENTS.md"), "utf8");
+    const sourceAgentGuide = await readFile(new URL("./project-agent-guide.md", import.meta.url), "utf8");
+    expect(agentGuide).toBe(sourceAgentGuide);
+    expect(parseGuideContract(agentGuide, "DEVICE_FRAME_IDS")).toEqual(DEVICE_FRAME_IDS);
+    expect(parseGuideContract(agentGuide, "SCREEN_CAPTURE_DESTINATIONS")).toEqual(captureDestinationPaths);
     expect(agentGuide).toContain("strict v1 JSON");
     expect(agentGuide).toContain("mode: isolated | connected");
     expect(agentGuide).toContain("platform/device/locale/`storeTargetId` group");
@@ -68,6 +97,15 @@ describe("runInit", () => {
     expect(agentGuide).toContain("screenshots asset remove-background");
 
     await expect(readFile(join(dir, "CLAUDE.md"), "utf8")).resolves.toContain("@AGENTS.md");
+  });
+
+  it("keeps the connected-launch guide exhaustive over strict device-frame ids", async () => {
+    const guide = await readFile(
+      new URL("../../../examples/connected-launch/AGENTS.md", import.meta.url),
+      "utf8",
+    );
+
+    expect(parseGuideContract(guide, "DEVICE_FRAME_IDS")).toEqual(DEVICE_FRAME_IDS);
   });
 
   it("refuses to overwrite an existing agent control file before writing the project", async () => {
