@@ -10,8 +10,8 @@ export type ProjectCreationForm = ProjectScaffoldInput;
 
 export type ProjectCreationState =
   | { status: "closed" }
-  | { status: "editing"; form: ProjectCreationForm }
-  | { status: "creating"; form: ProjectCreationForm }
+  | { status: "editing"; form: ProjectCreationForm; previousErrorMessage?: string }
+  | { status: "creating"; form: ProjectCreationForm; previousErrorMessage?: string }
   | { status: "completing"; form: ProjectCreationForm; projectId: string }
   | { status: "error"; form: ProjectCreationForm; message: string };
 
@@ -51,13 +51,29 @@ export function reduceProjectCreationState(
         ? state
         : { status: "closed" };
     case "change":
-      return state.status === "editing" || state.status === "error"
-        ? { status: "editing", form: { ...state.form, ...action.patch } }
-        : state;
+      return state.status === "editing"
+        ? {
+            status: "editing",
+            form: { ...state.form, ...action.patch },
+            previousErrorMessage: state.previousErrorMessage,
+          }
+        : state.status === "error"
+          ? {
+              status: "editing",
+              form: { ...state.form, ...action.patch },
+              previousErrorMessage: state.message,
+            }
+          : state;
     case "submit":
-      return state.status === "editing" || state.status === "error"
-        ? { status: "creating", form: state.form }
-        : state;
+      return state.status === "editing"
+        ? {
+            status: "creating",
+            form: state.form,
+            previousErrorMessage: state.previousErrorMessage,
+          }
+        : state.status === "error"
+          ? { status: "creating", form: state.form, previousErrorMessage: state.message }
+          : state;
     case "fail":
       return state.status === "creating"
         ? { status: "error", form: state.form, message: action.message }

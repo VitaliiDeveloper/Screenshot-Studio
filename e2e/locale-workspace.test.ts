@@ -196,23 +196,26 @@ describe("locale workspace", () => {
     await page.getByRole("button", { name: "Manage locales" }).click();
     const reopenedManager = page.getByRole("dialog", { name: "Locale manager" });
     const arabicRow = reopenedManager.locator('[data-locale="ar"]');
-    page.once("dialog", (dialog) => dialog.accept());
     await arabicRow.getByRole("button", { name: "Mirror ar to LTR" }).click();
+    await page.getByRole("dialog", { name: "Change layout direction?", exact: true })
+      .getByRole("button", { name: "Make LTR", exact: true }).click();
     await expect.poll(
       () => localeScreens("ar").every((screen) => screen.direction === "ltr"),
       { timeout: 10_000 },
     ).toBe(true);
     expect(localeScreens("ar")).not.toEqual(rtlSnapshot);
 
-    page.once("dialog", (dialog) => dialog.accept());
     await arabicRow.getByRole("button", { name: "Mirror ar to RTL" }).click();
+    await page.getByRole("dialog", { name: "Change layout direction?", exact: true })
+      .getByRole("button", { name: "Make RTL", exact: true }).click();
     await expect.poll(() => roundedElementX(localeScreens("ar")), { timeout: 10_000 })
       .toEqual(roundedElementX(rtlSnapshot));
 
-    page.once("dialog", (dialog) => dialog.accept());
     await arabicRow
       .getByRole("button", { name: "Delete locale ar" })
       .click();
+    await page.getByRole("dialog", { name: "Delete locale?", exact: true })
+      .getByRole("button", { name: "Delete locale", exact: true }).click();
     await expect.poll(() => locales().join(","), { timeout: 10_000 }).toBe("en");
     expect(localeScreenIds("en")).toEqual(sourceScreenIds);
     expect(await reopenedManager.locator('[data-locale="en"]')

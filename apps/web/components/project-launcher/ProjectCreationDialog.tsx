@@ -48,6 +48,12 @@ export function ProjectCreationDialog({
   onSubmit,
 }: ProjectCreationDialogProps) {
   const busy = state.status === "creating" || state.status === "completing";
+  const statusMessage = state.status === "error"
+    ? state.message
+    : state.status === "editing" || state.status === "creating"
+      ? state.previousErrorMessage
+      : undefined;
+  const statusMessageVisible = state.status === "error";
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!busy) onSubmit();
@@ -155,7 +161,15 @@ export function ProjectCreationDialog({
           </fieldset>
 
           <div className="min-h-9">
-            {state.status === "error" ? <p role="alert" className={editorUi.statusError}>{state.message} Check the configuration and try again.</p> : null}
+            {statusMessage ? (
+              <p
+                role={state.status === "error" ? "alert" : undefined}
+                aria-hidden={!statusMessageVisible || undefined}
+                className={cx(editorUi.statusError, !statusMessageVisible ? "invisible" : undefined)}
+              >
+                {statusMessage} Check the configuration and try again.
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--editor-color-border)] pt-5">

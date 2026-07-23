@@ -129,8 +129,8 @@ describe("managed project creation", () => {
       ) as { entries: Array<{ name: string }> };
       expect(recoveredCatalog.entries.map(({ name }) => name)).toEqual(["Empty desktop story"]);
 
-      await page.getByRole("link", { name: "Import another project", exact: true }).click();
-      await page.waitForURL(`${server.url}/?switch=1`);
+      await page.getByRole("link", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
       await page.getByRole("button", { name: "New project" }).click();
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       const nameInput = dialog.getByLabel("Project name");

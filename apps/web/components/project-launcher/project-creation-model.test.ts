@@ -68,11 +68,14 @@ describe("project creation model", () => {
 
     const failed = reduceProjectCreationState(creating, { type: "fail", message: "Try again" });
     expect(failed).toMatchObject({ status: "error", message: "Try again", form: editing.form });
-    expect(reduceProjectCreationState(failed, {
+    const editedAfterFailure = reduceProjectCreationState(failed, {
       type: "change", patch: { name: "Retry" },
-    })).toMatchObject({ status: "editing", form: { name: "Retry" } });
-    expect(reduceProjectCreationState(failed, { type: "submit" })).toMatchObject({
-      status: "creating", form: editing.form,
+    });
+    expect(editedAfterFailure).toMatchObject({
+      status: "editing", form: { name: "Retry" }, previousErrorMessage: "Try again",
+    });
+    expect(reduceProjectCreationState(editedAfterFailure, { type: "submit" })).toMatchObject({
+      status: "creating", form: { name: "Retry" }, previousErrorMessage: "Try again",
     });
 
     const completing = reduceProjectCreationState(creating, {

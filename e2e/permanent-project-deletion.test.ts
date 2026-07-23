@@ -82,6 +82,7 @@ describe("Permanent managed-project deletion", () => {
       await page.waitForURL(`${server.url}/editor`, { waitUntil: "domcontentloaded" });
 
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
+      await page.getByLabel("Project info actions", { exact: true }).click();
       await page.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL((url) => url.pathname === "/", { waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: /^Import/ }).click();
@@ -90,6 +91,7 @@ describe("Permanent managed-project deletion", () => {
       await page.waitForURL(`${server.url}/editor`, { waitUntil: "domcontentloaded" });
 
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
+      await page.getByLabel("Project info actions", { exact: true }).click();
       await page.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL((url) => url.pathname === "/", { waitUntil: "domcontentloaded" });
       await page.getByRole("button", {
