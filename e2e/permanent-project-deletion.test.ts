@@ -82,8 +82,13 @@ describe("Permanent managed-project deletion", () => {
       await page.waitForURL(`${server.url}/editor`, { waitUntil: "domcontentloaded" });
 
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
-      await page.getByLabel("Project info actions", { exact: true }).click();
-      await page.getByRole("button", { name: "Close project", exact: true }).click();
+      const projectInfoActions = page.locator("details").filter({
+        has: page.getByLabel("Project info actions", { exact: true }),
+      });
+      await projectInfoActions.getByLabel("Project info actions", { exact: true }).click();
+      await expect.poll(() => projectInfoActions.evaluate((element) => element.hasAttribute("open")))
+        .toBe(true);
+      await projectInfoActions.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL((url) => url.pathname === "/", { waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: /^Import/ }).click();
       await page.getByLabel("Choose project folder").setInputFiles(remainingProjectRoot);
@@ -91,8 +96,10 @@ describe("Permanent managed-project deletion", () => {
       await page.waitForURL(`${server.url}/editor`, { waitUntil: "domcontentloaded" });
 
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
-      await page.getByLabel("Project info actions", { exact: true }).click();
-      await page.getByRole("button", { name: "Close project", exact: true }).click();
+      await projectInfoActions.getByLabel("Project info actions", { exact: true }).click();
+      await expect.poll(() => projectInfoActions.evaluate((element) => element.hasAttribute("open")))
+        .toBe(true);
+      await projectInfoActions.getByRole("button", { name: "Close project", exact: true }).click();
       await page.waitForURL((url) => url.pathname === "/", { waitUntil: "domcontentloaded" });
       await page.getByRole("button", {
         name: "Open Remaining project in Workspace",

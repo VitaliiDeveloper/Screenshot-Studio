@@ -161,15 +161,13 @@ export function ProjectCreationDialog({
           </fieldset>
 
           <div className="min-h-9">
-            {statusMessage ? (
-              <p
-                role={state.status === "error" ? "alert" : undefined}
-                aria-hidden={!statusMessageVisible || undefined}
-                className={cx(editorUi.statusError, !statusMessageVisible ? "invisible" : undefined)}
-              >
-                {statusMessage} Check the configuration and try again.
-              </p>
-            ) : null}
+            <p
+              role={state.status === "error" ? "alert" : undefined}
+              aria-hidden={!statusMessageVisible || undefined}
+              className={cx(editorUi.statusError, !statusMessageVisible ? "invisible" : undefined)}
+            >
+              {statusMessage ? `${statusMessage} Check the configuration and try again.` : "\u00a0"}
+            </p>
           </div>
 
           <div className="flex flex-wrap justify-end gap-3 border-t border-[var(--editor-color-border)] pt-5">

@@ -242,8 +242,8 @@ describe("managed project creation", () => {
       await page.unroute("**/api/project-create");
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: "Launch sequence retry", exact: true }).waitFor();
-      await page.getByRole("link", { name: "Import another project", exact: true }).click();
-      await page.waitForURL(`${server.url}/?switch=1`);
+      await page.getByRole("link", { name: "Projects", exact: true }).click();
+      await page.waitForURL(`${server.url}/`);
       await page.getByRole("button", { name: "New project" }).click();
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.getByLabel("Project name").fill("Built-in iPhone story");
