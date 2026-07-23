@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { CanvasMode, Platform } from "@screenshot-studio/core/model";
+import type { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
+import {
+  isDeviceSupportedForPlatform,
+  recommendedDeviceForPlatform,
+} from "@screenshot-studio/core/scaffold";
 import type {
   CaptureImportDestination,
   CaptureImportPreview,
@@ -19,12 +23,7 @@ export interface CaptureImportDraft {
   destinationKind: CaptureImportDestination["kind"] | null;
   currentTarget: CaptureImportCurrentTarget | null;
   currentLayoutId: string;
-  newProject: {
-    name: string;
-    platform: Platform;
-    layoutMode: CanvasMode;
-    templateId: null;
-  };
+  newProject: ProjectScaffoldInput & { templateId: null };
 }
 
 type EditingState = { status: "editing"; draft: CaptureImportDraft; notice?: string };
@@ -83,6 +82,7 @@ function draft(currentTarget: CaptureImportCurrentTarget | null): CaptureImportD
     newProject: {
       name: "Imported captures",
       platform: "apple",
+      device: recommendedDeviceForPlatform("apple"),
       layoutMode: "isolated",
       templateId: null,
     },
@@ -176,9 +176,16 @@ export function reduceCaptureImportState(
   if (action.type === "change-new-project") {
     const next = editable(state);
     if (!next) return state;
+    const merged = { ...next.draft.newProject, ...action.patch };
+    const device = isDeviceSupportedForPlatform(merged.platform, merged.device)
+      ? merged.device
+      : recommendedDeviceForPlatform(merged.platform);
     return {
       status: "editing",
-      draft: { ...next.draft, newProject: { ...next.draft.newProject, ...action.patch } },
+      draft: {
+        ...next.draft,
+        newProject: { ...merged, device } as CaptureImportDraft["newProject"],
+      },
     };
   }
   if (action.type === "request-preview") {

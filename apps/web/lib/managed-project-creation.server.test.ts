@@ -37,10 +37,10 @@ describe("ManagedProjectCreationService", () => {
     const service = new ManagedProjectCreationService(managed, { storeSpecs: specs });
 
     const empty = await service.create({
-      name: "Empty", platform: "windows", layoutMode: "connected", templateId: null,
+      name: "Empty", platform: "windows", device: "desktop", layoutMode: "connected", templateId: null,
     });
     const starter = await service.create({
-      name: "Starter", platform: "android", layoutMode: "isolated", templateId: "product-launch",
+      name: "Starter", platform: "android", device: "phone", layoutMode: "isolated", templateId: "product-launch",
     });
 
     expect(empty.id).not.toBe(starter.id);
@@ -59,7 +59,7 @@ describe("ManagedProjectCreationService", () => {
     const managed = await repository();
     const service = new ManagedProjectCreationService(managed, { storeSpecs: specs });
     const input = {
-      name: "Prepared", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Prepared", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     } as const;
     const scaffold = await service.buildScaffold(input);
     scaffold.project.meta.name = "Prepared exact";
@@ -89,7 +89,7 @@ describe("ManagedProjectCreationService", () => {
     });
 
     await expect(service.create({
-      name: "Invalid", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Invalid", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     })).rejects.toThrow(/missing.*assets\/missing\.png/i);
     expect(createStage).not.toHaveBeenCalled();
     await expect(managed.list()).resolves.toEqual([]);
@@ -103,7 +103,7 @@ describe("ManagedProjectCreationService", () => {
     });
 
     await expect(service.create({
-      name: "Write failure", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Write failure", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     })).rejects.toThrow("injected stage write failure");
     await expect(managed.list()).resolves.toEqual([]);
     await expect(readdir(managed.config.stagingRoot)).resolves.toEqual([]);
@@ -134,7 +134,7 @@ describe("ManagedProjectCreationService", () => {
     });
 
     await expect(service.create({
-      name: "Missing staged dependency", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Missing staged dependency", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     })).rejects.toThrow(/required\.png|ENOENT/i);
     await expect(managed.list()).resolves.toEqual([]);
     await expect(readdir(managed.config.stagingRoot)).resolves.toEqual([]);
@@ -145,8 +145,8 @@ describe("ManagedProjectCreationService", () => {
     const service = new ManagedProjectCreationService(managed, { storeSpecs: specs });
 
     const [first, second] = await Promise.all([
-      service.create({ name: "Same name", platform: "apple", layoutMode: "isolated", templateId: null }),
-      service.create({ name: "Same name", platform: "apple", layoutMode: "connected", templateId: null }),
+      service.create({ name: "Same name", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null }),
+      service.create({ name: "Same name", platform: "apple", device: "iphone", layoutMode: "connected", templateId: null }),
     ]);
 
     expect(first.id).not.toBe(second.id);
@@ -170,7 +170,7 @@ describe("ManagedProjectCreationService", () => {
     const service = new ManagedProjectCreationService(managed, { storeSpecs: specs });
 
     await expect(service.create({
-      name: "Rollback", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Rollback", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     })).rejects.toThrow("injected catalog failure");
     await expect(managed.list()).resolves.toEqual([]);
     await expect(readdir(managed.config.stagingRoot)).resolves.toEqual([]);
@@ -197,7 +197,7 @@ describe("ManagedProjectCreationService", () => {
     const service = new ManagedProjectCreationService(managed, { storeSpecs: specs });
 
     await expect(service.create({
-      name: "Recovery owned", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Recovery owned", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     })).rejects.toThrow(/stage cleanup|recovery/i);
 
     await expect(lstat(join(managed.config.stagingRoot, `stage_${identifier}`))).resolves.toMatchObject({
@@ -218,7 +218,7 @@ describe("ManagedProjectCreationService", () => {
     });
 
     await expect(service.createFromValidatedScaffold(await service.buildScaffold({
-      name: "Cancelled", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Cancelled", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     }), { signal: controller.signal })).rejects.toThrow(/cancelled/i);
 
     expect(publish).not.toHaveBeenCalled();

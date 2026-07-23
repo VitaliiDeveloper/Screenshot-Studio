@@ -61,6 +61,7 @@ function captureRequest(input: {
   else {
     form.set("name", "New receiver");
     form.set("platform", "apple");
+    form.set("device", "iphone");
     form.set("layoutMode", "isolated");
     form.set("templateId", "");
   }
@@ -366,6 +367,7 @@ describe("POST /api/capture-import/preview", () => {
     misalignedForm.set("destinationKind", "new-project");
     misalignedForm.set("name", "Broken");
     misalignedForm.set("platform", "apple");
+    misalignedForm.set("device", "iphone");
     misalignedForm.set("layoutMode", "isolated");
     misalignedForm.set("templateId", "");
     misalignedForm.set("paths", "apple/iphone/en/01.png");
@@ -376,6 +378,7 @@ describe("POST /api/capture-import/preview", () => {
     missingTemplateForm.set("destinationKind", "new-project");
     missingTemplateForm.set("name", "Missing explicit template choice");
     missingTemplateForm.set("platform", "apple");
+    missingTemplateForm.set("device", "iphone");
     missingTemplateForm.set("layoutMode", "isolated");
     missingTemplateForm.set("paths", "apple/iphone/en/01.png");
     missingTemplateForm.set("files", new Blob([png]), "01.png");

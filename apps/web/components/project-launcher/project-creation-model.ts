@@ -3,10 +3,21 @@ import type {
   ProjectScaffoldInput,
   ProjectTemplateSummary,
 } from "@screenshot-studio/core/scaffold";
+import {
+  isDeviceSupportedForPlatform,
+  recommendedDeviceForPlatform,
+} from "@screenshot-studio/core/scaffold";
 
 export const initialProjectCreationState: ProjectCreationState = { status: "closed" };
 
 export type ProjectCreationForm = ProjectScaffoldInput;
+export type ProjectCreationFormPatch = Partial<{
+  name: ProjectCreationForm["name"];
+  platform: ProjectCreationForm["platform"];
+  device: ProjectCreationForm["device"];
+  layoutMode: ProjectCreationForm["layoutMode"];
+  templateId: ProjectCreationForm["templateId"];
+}>;
 
 export type ProjectCreationState =
   | { status: "closed" }
@@ -18,7 +29,7 @@ export type ProjectCreationState =
 export type ProjectCreationAction =
   | { type: "open"; form?: ProjectCreationForm }
   | { type: "close" }
-  | { type: "change"; patch: Partial<ProjectCreationForm> }
+  | { type: "change"; patch: ProjectCreationFormPatch }
   | { type: "submit" }
   | { type: "fail"; message: string }
   | { type: "complete"; projectId: string };
@@ -26,6 +37,7 @@ export type ProjectCreationAction =
 const DEFAULT_FORM: ProjectCreationForm = {
   name: "My App Screenshots",
   platform: "apple",
+  device: "iphone",
   layoutMode: "isolated",
   templateId: null,
 };
@@ -33,8 +45,21 @@ const DEFAULT_FORM: ProjectCreationForm = {
 export function isProjectTemplateSupported(
   template: ProjectTemplateSummary,
   platform: ProjectCreationForm["platform"],
+  device: ProjectCreationForm["device"],
 ): boolean {
-  return template.supportedPlatforms.includes(platform);
+  return template.supportedPlatforms.includes(platform)
+    && (template.device === undefined || template.device === device);
+}
+
+function changedForm(
+  form: ProjectCreationForm,
+  patch: ProjectCreationFormPatch,
+): ProjectCreationForm {
+  const merged = { ...form, ...patch };
+  const device = isDeviceSupportedForPlatform(merged.platform, merged.device)
+    ? merged.device
+    : recommendedDeviceForPlatform(merged.platform);
+  return { ...merged, device } as ProjectCreationForm;
 }
 
 export function reduceProjectCreationState(
@@ -54,13 +79,13 @@ export function reduceProjectCreationState(
       return state.status === "editing"
         ? {
             status: "editing",
-            form: { ...state.form, ...action.patch },
+            form: changedForm(state.form, action.patch),
             previousErrorMessage: state.previousErrorMessage,
           }
         : state.status === "error"
           ? {
               status: "editing",
-              form: { ...state.form, ...action.patch },
+              form: changedForm(state.form, action.patch),
               previousErrorMessage: state.message,
             }
           : state;

@@ -36,6 +36,12 @@ async function selectTargetPlatform(dialog: Locator, name: string): Promise<void
   await menu.getByRole("menuitemradio", { name }).click();
 }
 
+async function selectDeviceFamily(dialog: Locator, name: string): Promise<void> {
+  await dialog.getByRole("button", { name: "Device family" }).click();
+  const menu = dialog.getByRole("menu", { name: "Device family options" });
+  await menu.getByRole("menuitemradio", { name }).click();
+}
+
 beforeAll(async () => {
   inheritedProjectPath = process.env.PROJECT_PATH;
   inheritedDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
@@ -101,6 +107,7 @@ describe("managed project creation", () => {
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.getByLabel("Project name").fill("Empty desktop story");
       await selectTargetPlatform(dialog, "Microsoft Store");
+      await selectDeviceFamily(dialog, "Xbox");
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
@@ -231,7 +238,12 @@ describe("managed project creation", () => {
         if (entry.name === "Empty desktop story") {
           expect(project.layouts[0]).toMatchObject({ mode: "connected" });
           expect(project.layouts[0]!.screens).toHaveLength(1);
-          expect(project.layouts[0]!.screens[0]).toMatchObject({ platform: "windows", elements: [] });
+          expect(project.layouts[0]!.screens[0]).toMatchObject({
+            platform: "windows",
+            device: "xbox",
+            artboard: { width: 1920, height: 1080 },
+            elements: [],
+          });
         } else {
           expect(project.layouts[0]!.screens).toHaveLength(3);
           expect(project.layouts[0]!.screens.every((screen) => screen.platform === "apple")).toBe(true);

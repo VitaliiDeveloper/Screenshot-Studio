@@ -71,6 +71,7 @@ const NEW_FIELDS = new Set([
   ...COMMON_FIELDS,
   "name",
   "platform",
+  "device",
   "layoutMode",
   "templateId",
   "confirmationFingerprint",
@@ -126,6 +127,7 @@ function parseDestination(form: FormData): CaptureDestination {
   const scaffold = ProjectScaffoldInput.safeParse({
     name: oneString(form, "name"),
     platform: oneString(form, "platform"),
+    device: oneString(form, "device"),
     layoutMode: oneString(form, "layoutMode"),
     templateId: templateId || null,
   });

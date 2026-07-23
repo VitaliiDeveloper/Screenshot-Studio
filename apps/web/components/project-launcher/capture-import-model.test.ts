@@ -37,10 +37,20 @@ describe("capture import model", () => {
         files: [],
         destinationKind: null,
         currentLayoutId: "primary",
-        newProject: { platform: "apple", layoutMode: "isolated", templateId: null },
+        newProject: { platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null },
       },
     });
     expect(canPreviewCaptureImport(state)).toBe(false);
+  });
+
+  it("updates only the validated scaffold seed when the capture-import destination changes", () => {
+    let state: CaptureImportState = createCaptureImportState(null);
+    state = reduceCaptureImportState(state, {
+      type: "change-new-project", patch: { platform: "android" },
+    });
+    expect(state).toMatchObject({
+      draft: { newProject: { platform: "android", device: "phone" } },
+    });
   });
 
   it("requires files and an explicit valid current or new destination before preview", () => {

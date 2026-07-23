@@ -48,7 +48,7 @@ describe("createManagedProjectFromCaptureImport", () => {
       files: [{ relativePath: "apple/iphone/en/01.png", bytes: png }],
     });
     const scaffoldInput = {
-      name: "Preview only", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Preview only", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     } as const;
     const createStage = vi.spyOn(repository, "createStage");
 
@@ -88,7 +88,7 @@ describe("createManagedProjectFromCaptureImport", () => {
 
     const record = await createManagedProjectFromCaptureImport({
       scaffoldInput: {
-        name: "Captured", platform: "apple", layoutMode: "connected", templateId: null,
+        name: "Captured", platform: "apple", device: "iphone", layoutMode: "connected", templateId: null,
       },
       discovery,
       creationService: service,
@@ -126,14 +126,14 @@ describe("createManagedProjectFromCaptureImport", () => {
 
     await expect(createManagedProjectFromCaptureImport({
       scaffoldInput: {
-        name: "Invalid", platform: "apple", layoutMode: "isolated", templateId: null,
+        name: "Invalid", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
       },
       discovery: invalid,
       creationService: service,
     })).rejects.toThrow(/invalid/i);
     await expect(createManagedProjectFromCaptureImport({
       scaffoldInput: {
-        name: "Cancelled", platform: "apple", layoutMode: "isolated", templateId: null,
+        name: "Cancelled", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
       },
       discovery: invalid,
       creationService: service,

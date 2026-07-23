@@ -25,6 +25,7 @@ const newDestination = {
   kind: "new-project" as const,
   name: "Captured launch",
   platform: "apple" as const,
+  device: "iphone" as const,
   layoutMode: "connected" as const,
   templateId: null,
 };
@@ -104,6 +105,7 @@ describe("capture import client", () => {
       expect(init.headers).toBeUndefined();
       expect(form.get("name")).toBe("Captured launch");
       expect(form.get("platform")).toBe("apple");
+      expect(form.get("device")).toBe("iphone");
       expect(form.get("layoutMode")).toBe("connected");
       expect(form.get("templateId")).toBe("");
       expect(form.get("confirmationFingerprint")).toBe(preview.confirmationFingerprint);

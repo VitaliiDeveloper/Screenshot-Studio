@@ -13,7 +13,13 @@ import {
   setOutputFamilyScreenSetMode,
   type Project,
 } from "@screenshot-studio/core/model";
-import { createScreenFromTemplate, listBuiltInTemplates, ScreenTemplate, type ScreenTemplate as Template } from "./index.js";
+import {
+  createScreenFromTemplate,
+  listBuiltInProjectStarterMetadata,
+  listBuiltInTemplates,
+  ScreenTemplate,
+  type ScreenTemplate as Template,
+} from "./index.js";
 
 const storeSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
 
@@ -66,6 +72,14 @@ describe("ScreenTemplate", () => {
 });
 
 describe("built-in templates", () => {
+  it("exposes the exact device restriction for project-creation starters", () => {
+    expect(listBuiltInProjectStarterMetadata()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "iphone-starter", platform: "apple", device: "iphone" }),
+      expect.objectContaining({ id: "ipad-portrait-starter", platform: "apple", device: "ipad" }),
+      expect.objectContaining({ id: "web-mobile-starter", platform: "web", device: "mobile" }),
+    ]));
+  });
+
   it("covers every requested starter and keeps promotion art frame-free", () => {
     const templates = listBuiltInTemplates(storeSpecs, { family: "Inter", weight: 700 });
     expect(templates.map(({ id }) => id)).toEqual([

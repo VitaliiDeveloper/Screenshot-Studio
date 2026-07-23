@@ -66,6 +66,7 @@ function request(input: {
   else {
     form.set("name", "Imported capture project");
     form.set("platform", "apple");
+    form.set("device", "iphone");
     form.set("layoutMode", "connected");
     form.set("templateId", "");
   }

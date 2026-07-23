@@ -95,13 +95,20 @@ export interface BuiltInProjectStarterMetadata {
   name: string;
   description: string;
   platform: ScreenTemplate["platform"];
+  device: ScreenTemplate["device"];
 }
 
 /** Creation-dialog subset of the global catalog; landscape starters stay available in Resources. */
 export function listBuiltInProjectStarterMetadata(): BuiltInProjectStarterMetadata[] {
   return BUILT_IN_PROJECT_STARTER_IDS.map((id) => {
     const definition = BUILT_IN_DEFINITIONS.find((candidate) => candidate.id === id)!;
-    return { id, name: definition.name, description: definition.description, platform: definition.platform };
+    return {
+      id,
+      name: definition.name,
+      description: definition.description,
+      platform: definition.platform,
+      device: definition.device,
+    };
   });
 }
 

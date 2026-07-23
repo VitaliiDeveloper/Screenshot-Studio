@@ -74,6 +74,7 @@ describe("AppHomeShell", () => {
         form: {
           name: "Desktop launch",
           platform: "windows",
+          device: "desktop",
           layoutMode: "connected",
           templateId: null,
         },

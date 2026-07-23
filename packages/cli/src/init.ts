@@ -55,6 +55,7 @@ export async function runInit(
   const scaffoldFiles = projectScaffoldFiles(createProjectScaffold({
     name: projectName ?? "My App Screenshots",
     platform: "apple",
+    device: "iphone",
     layoutMode: "isolated",
     templateId: null,
   }, storeSpecs));

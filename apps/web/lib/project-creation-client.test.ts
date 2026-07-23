@@ -8,6 +8,7 @@ import {
 const input = {
   name: "Launch",
   platform: "android" as const,
+  device: "wear" as const,
   layoutMode: "connected" as const,
   templateId: "product-launch",
 };

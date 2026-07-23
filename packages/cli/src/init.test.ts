@@ -30,6 +30,7 @@ describe("runInit", () => {
     expect(bytes).toBe(new TextDecoder().decode(projectScaffoldFiles(createProjectScaffold({
       name: "Launch Deck",
       platform: "apple",
+      device: "iphone",
       layoutMode: "isolated",
       templateId: null,
     }, storeSpecs))[0]!.bytes));

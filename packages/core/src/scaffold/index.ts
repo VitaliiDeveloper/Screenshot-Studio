@@ -10,6 +10,7 @@ import {
   ProjectRelativePath,
   SCHEMA_VERSION,
   SCREEN_DEVICES_BY_PLATFORM,
+  OUTPUT_DEVICE_FAMILIES,
   parseProject,
   removeScreenFromProject,
   reorderScreenInProject,
@@ -35,15 +36,38 @@ const STARTER_PANEL_TOP_RATIO = 0.18;
 const STARTER_PANEL_VERTICAL_STEP_RATIO = 0.04;
 const STARTER_PANEL_RADIUS_RATIO = 0.12;
 
-const ProjectPlatform = z.enum(["apple", "android", "windows", "web"]);
-
-export const ProjectScaffoldInput = z.object({
+const projectScaffoldBase = {
   name: z.string().trim().min(1).max(PROJECT_NAME_MAX_LENGTH),
-  platform: ProjectPlatform,
   layoutMode: CanvasMode,
   templateId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable(),
-}).strict();
+};
+
+const ProjectPlatform = z.enum(["apple", "android", "windows", "web"]);
+
+export const ProjectScaffoldInput = z.discriminatedUnion("platform", [
+  z.object({ platform: z.literal("apple"), device: z.enum(SCREEN_DEVICES_BY_PLATFORM.apple), ...projectScaffoldBase }).strict(),
+  z.object({ platform: z.literal("android"), device: z.enum(SCREEN_DEVICES_BY_PLATFORM.android), ...projectScaffoldBase }).strict(),
+  z.object({ platform: z.literal("windows"), device: z.enum(SCREEN_DEVICES_BY_PLATFORM.windows), ...projectScaffoldBase }).strict(),
+  z.object({ platform: z.literal("web"), device: z.enum(SCREEN_DEVICES_BY_PLATFORM.web), ...projectScaffoldBase }).strict(),
+]);
 export type ProjectScaffoldInput = z.infer<typeof ProjectScaffoldInput>;
+
+export function isDeviceSupportedForPlatform(
+  platform: Platform,
+  device: string,
+): device is ProjectScaffoldInput["device"] {
+  return (SCREEN_DEVICES_BY_PLATFORM[platform] as readonly string[]).includes(device);
+}
+
+export function recommendedDeviceForPlatform<P extends Platform>(
+  platform: P,
+): (typeof SCREEN_DEVICES_BY_PLATFORM)[P][number] {
+  const family = OUTPUT_DEVICE_FAMILIES.find(({ key, creatable, recommended }) => (
+    key.startsWith(`${platform}/`) && creatable && recommended
+  ));
+  if (!family) throw new Error(`No recommended output device family configured for ${platform}`);
+  return family.key.slice(platform.length + 1) as (typeof SCREEN_DEVICES_BY_PLATFORM)[P][number];
+}
 
 const ProjectTemplatePreview = z.object({
   backgroundFrom: HexColor,
@@ -57,6 +81,12 @@ export const ProjectTemplateSummary = z.object({
   description: z.string().min(1),
   intendedUse: z.string().min(1),
   supportedPlatforms: z.array(ProjectPlatform).min(1),
+  device: z.union([
+    z.enum(SCREEN_DEVICES_BY_PLATFORM.apple),
+    z.enum(SCREEN_DEVICES_BY_PLATFORM.android),
+    z.enum(SCREEN_DEVICES_BY_PLATFORM.windows),
+    z.enum(SCREEN_DEVICES_BY_PLATFORM.web),
+  ]).optional(),
   preview: ProjectTemplatePreview,
 }).strict();
 export type ProjectTemplateSummary = z.infer<typeof ProjectTemplateSummary>;
@@ -103,13 +133,6 @@ const STARTER_PROJECT_TEMPLATES: readonly StarterProjectTemplate[] = [
   },
 ] as const;
 
-const LEAD_DEVICE_BY_PLATFORM = {
-  apple: "iphone",
-  android: "phone",
-  windows: "desktop",
-  web: "desktop",
-} as const satisfies { [Key in Platform]: (typeof SCREEN_DEVICES_BY_PLATFORM)[Key][number] };
-
 export function listStarterProjectTemplates(): ProjectTemplateSummary[] {
   const generic = STARTER_PROJECT_TEMPLATES.map(({ screenCount: _screenCount, ...summary }) => summary);
   const builtIns = listBuiltInProjectStarterMetadata().map((starter) => ({
@@ -118,15 +141,15 @@ export function listStarterProjectTemplates(): ProjectTemplateSummary[] {
     description: starter.description,
     intendedUse: "Start with an editable, correctly sized canvas and assign your own screenshot assets.",
     supportedPlatforms: [starter.platform],
+    device: starter.device,
     preview: { backgroundFrom: "#0F172A", backgroundTo: "#1D4ED8", accent: "#38BDF8" },
   }));
   return [...generic, ...builtIns].map((summary) => ProjectTemplateSummary.parse(structuredClone(summary)));
 }
 
-function leadArtboard(specs: StoreSpecs, platform: Platform): { width: number; height: number } {
-  const device = LEAD_DEVICE_BY_PLATFORM[platform];
-  const size = specs[platform]?.[device]?.[0];
-  if (!size) throw new Error(`No lead store size is configured for ${platform}/${device}`);
+function leadArtboard(specs: StoreSpecs, input: ProjectScaffoldInput): { width: number; height: number } {
+  const size = specs[input.platform]?.[input.device]?.[0];
+  if (!size) throw new Error(`No lead store size is configured for ${input.platform}/${input.device}`);
   return { width: size.width, height: size.height };
 }
 
@@ -159,8 +182,7 @@ function createRawProject(
   specs: StoreSpecs,
   template: StarterProjectTemplate | undefined,
 ): unknown {
-  const artboard = leadArtboard(specs, input.platform);
-  const device = LEAD_DEVICE_BY_PLATFORM[input.platform];
+  const artboard = leadArtboard(specs, input);
   const screenCount = template?.screenCount ?? 1;
   const colors = template?.preview ?? {
     backgroundFrom: DEFAULT_BLANK_SCREEN_COLOR,
@@ -171,7 +193,7 @@ function createRawProject(
     id: index === 0 ? "hero" : `story-${index + 1}`,
     name: index === 0 ? "Hero" : `Story ${index + 1}`,
     platform: input.platform,
-    device,
+    device: input.device,
     locale: "en",
     direction: "ltr",
     artboard,
@@ -235,6 +257,9 @@ export function createProjectScaffold(input: ProjectScaffoldInput, specs: StoreS
   }
   if (builtInMetadata && builtInMetadata.platform !== parsedInput.platform) {
     throw new Error(`Project template "${builtInMetadata.id}" does not support ${parsedInput.platform}`);
+  }
+  if (builtInMetadata && builtInMetadata.device !== parsedInput.device) {
+    throw new Error(`Project template "${builtInMetadata.id}" does not support ${parsedInput.platform}/${parsedInput.device}`);
   }
 
   let project = parseProject(createRawProject(parsedInput, specs, projectTemplate));

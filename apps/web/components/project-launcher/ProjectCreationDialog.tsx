@@ -6,14 +6,17 @@ import { Layers3, LoaderCircle, Plus } from "lucide-react";
 import {
   PROJECT_NAME_MAX_LENGTH,
   PROJECT_TEMPLATE_GRADIENT_ANGLE_DEGREES,
+  recommendedDeviceForPlatform,
   type ProjectTemplateSummary,
 } from "@screenshot-studio/core/scaffold";
+import { OUTPUT_DEVICE_FAMILIES } from "@screenshot-studio/core/model";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import {
   isProjectTemplateSupported,
   type ProjectCreationForm,
+  type ProjectCreationFormPatch,
   type ProjectCreationState,
 } from "./project-creation-model";
 
@@ -23,7 +26,7 @@ export interface ProjectCreationDialogProps {
   state: OpenProjectCreationState;
   templates: readonly ProjectTemplateSummary[];
   onClose(): void;
-  onChange(patch: Partial<ProjectCreationForm>): void;
+  onChange(patch: ProjectCreationFormPatch): void;
   onSubmit(): void;
 }
 
@@ -59,14 +62,34 @@ export function ProjectCreationDialog({
     if (!busy) onSubmit();
   };
   const changePlatform = (platform: ProjectCreationForm["platform"]) => {
+    const currentDeviceIsValid = OUTPUT_DEVICE_FAMILIES.some(({ key, creatable }) => (
+      key === `${platform}/${state.form.device}` && creatable
+    ));
+    const nextDevice = currentDeviceIsValid
+      ? state.form.device
+      : recommendedDeviceForPlatform(platform);
     const selected = templates.find(({ id }) => id === state.form.templateId);
     onChange({
       platform,
-      ...(selected && !isProjectTemplateSupported(selected, platform) ? { templateId: null } : {}),
+      device: nextDevice,
+      ...(selected && !isProjectTemplateSupported(selected, platform, nextDevice) ? { templateId: null } : {}),
     });
   };
+  const changeDevice = (device: ProjectCreationForm["device"]) => {
+    const selected = templates.find(({ id }) => id === state.form.templateId);
+    onChange({
+      device,
+      ...(selected && !isProjectTemplateSupported(selected, state.form.platform, device) ? { templateId: null } : {}),
+    });
+  };
+  const deviceOptions = OUTPUT_DEVICE_FAMILIES
+    .filter(({ key, creatable }) => key.startsWith(`${state.form.platform}/`) && creatable)
+    .map(({ key, label }) => ({
+      value: key.split("/")[1] as ProjectCreationForm["device"],
+      label,
+    }));
   const visibleTemplates = templates.filter((template) => (
-    isProjectTemplateSupported(template, state.form.platform)
+    isProjectTemplateSupported(template, state.form.platform, state.form.device)
   ));
 
   return (
@@ -83,7 +106,7 @@ export function ProjectCreationDialog({
     >
         <form className="space-y-6" onSubmit={submit}>
           <fieldset disabled={busy} className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <label className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
                 Project name
                 <input
@@ -107,6 +130,17 @@ export function ProjectCreationDialog({
                   onChange={changePlatform}
                 />
               </div>
+              <div className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">
+                <span>Device family</span>
+                <MenuSelect
+                  ariaLabel="Device family"
+                  menuLabel="Device family options"
+                  className="mt-2"
+                  value={state.form.device}
+                  options={deviceOptions}
+                  onChange={changeDevice}
+                />
+              </div>
             </div>
 
             <fieldset>
@@ -127,7 +161,7 @@ export function ProjectCreationDialog({
 
             <fieldset>
               <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Starting point</legend>
-              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Choose a complete starter here, then add more built-in or project-local screen templates from Resources.</p>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Choose a starter. Specialized output families may follow different store artwork rules.</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <label className={editorUi.choiceCard}>
                   <input type="radio" name="starter" checked={state.form.templateId === null} onChange={() => onChange({ templateId: null })} />

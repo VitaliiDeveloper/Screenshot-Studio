@@ -10,6 +10,7 @@ import {
   ProjectScaffoldInput,
   createProjectScaffold,
   listStarterProjectTemplates,
+  recommendedDeviceForPlatform,
   projectScaffoldFiles,
   validateProjectScaffold,
 } from "./index.js";
@@ -28,6 +29,7 @@ describe("ProjectScaffoldInput", () => {
     expect(() => ProjectScaffoldInput.parse({
       name: "a".repeat(PROJECT_NAME_MAX_LENGTH + 1),
       platform: "apple",
+      device: "iphone",
       layoutMode: "isolated",
       templateId: null,
     })).toThrow();
@@ -35,14 +37,27 @@ describe("ProjectScaffoldInput", () => {
 
   it("strictly normalizes creation input without accepting destination paths", () => {
     expect(ProjectScaffoldInput.parse({
-      name: "  Launch Story  ", platform: "apple", layoutMode: "connected", templateId: null,
+      name: "  Launch Story  ", platform: "apple", device: "iphone", layoutMode: "connected", templateId: null,
     })).toEqual({
-      name: "Launch Story", platform: "apple", layoutMode: "connected", templateId: null,
+      name: "Launch Story", platform: "apple", device: "iphone", layoutMode: "connected", templateId: null,
     });
     expect(() => ProjectScaffoldInput.parse({
-      name: "Unsafe", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Unsafe", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
       path: "/srv/projects/unsafe",
     })).toThrow();
+  });
+
+  it("requires a platform-compatible device family at the API boundary", () => {
+    expect(ProjectScaffoldInput.parse({
+      name: "Tablet", platform: "apple", device: "ipad", layoutMode: "isolated", templateId: null,
+    })).toMatchObject({ platform: "apple", device: "ipad" });
+    expect(() => ProjectScaffoldInput.parse({
+      name: "Invalid", platform: "apple", device: "wear", layoutMode: "isolated", templateId: null,
+    })).toThrow();
+    expect(() => ProjectScaffoldInput.parse({
+      name: "Missing", platform: "apple", layoutMode: "isolated", templateId: null,
+    })).toThrow();
+    expect(recommendedDeviceForPlatform("android")).toBe("phone");
   });
 });
 
@@ -67,17 +82,33 @@ describe("starter project templates", () => {
           accent: expect.stringMatching(/^#/),
         },
       });
-      expect(Object.keys(template).sort()).toEqual([
-        "description", "id", "intendedUse", "name", "preview", "supportedPlatforms",
-      ]);
+      expect(Object.keys(template).sort()).toEqual(template.device
+        ? ["description", "device", "id", "intendedUse", "name", "preview", "supportedPlatforms"]
+        : ["description", "id", "intendedUse", "name", "preview", "supportedPlatforms"]);
     }
   });
 });
 
 describe("createProjectScaffold", () => {
+  it.each([
+    ["apple", "ipad"],
+    ["android", "wear"],
+    ["windows", "xbox"],
+    ["web", "mobile"],
+  ] as const)("uses the selected %s/%s family lead target", (platform, device) => {
+    const scaffold = createProjectScaffold(ProjectScaffoldInput.parse({
+      name: `${platform} ${device}`, platform, device, layoutMode: "isolated", templateId: null,
+    }), fullSpecs);
+    const expected = fullSpecs[platform]![device]![0]!;
+
+    expect(scaffold.project.layouts[0]!.screens[0]).toMatchObject({
+      platform, device, artboard: { width: expected.width, height: expected.height },
+    });
+  });
+
   it("creates a valid empty project using the selected platform lead size and layout mode", () => {
     const scaffold = createProjectScaffold({
-      name: "Desktop Story", platform: "windows", layoutMode: "connected", templateId: null,
+      name: "Desktop Story", platform: "windows", device: "desktop", layoutMode: "connected", templateId: null,
     }, specs);
 
     expect(parseProject(scaffold.project)).toEqual(scaffold.project);
@@ -102,12 +133,13 @@ describe("createProjectScaffold", () => {
   it("instantiates every starter as an ordinary strict project for each supported platform", () => {
     for (const template of listStarterProjectTemplates()) {
       for (const platform of template.supportedPlatforms) {
-        const scaffold = createProjectScaffold({
+        const scaffold = createProjectScaffold(ProjectScaffoldInput.parse({
           name: `${template.name} ${platform}`,
           platform,
+          device: template.device ?? recommendedDeviceForPlatform(platform),
           layoutMode: "isolated",
           templateId: template.id,
-        }, fullSpecs);
+        }), fullSpecs);
 
         expect(parseProject(scaffold.project)).toEqual(scaffold.project);
         expect(scaffold.project.layouts[0]!.screens.length).toBeGreaterThanOrEqual(1);
@@ -129,12 +161,13 @@ describe("createProjectScaffold", () => {
     ["android-phone-starter", "android"],
     ["web-desktop-starter", "web"],
   ] as const)("bakes the global design pack into a newly scaffolded %s", (templateId, platform) => {
-    const scaffold = createProjectScaffold({
+    const scaffold = createProjectScaffold(ProjectScaffoldInput.parse({
       name: `Packed ${templateId}`,
       platform,
+      device: recommendedDeviceForPlatform(platform),
       layoutMode: "isolated",
       templateId,
-    }, fullSpecs);
+    }), fullSpecs);
     const screen = scaffold.project.layouts[0]!.screens[0]!;
     const beforeHeading = screen.elements.find((element) => (
       "role" in element && element.role === "heading"
@@ -169,7 +202,7 @@ describe("createProjectScaffold", () => {
 
   it("creates Play Feature Graphic as the only default Android output", () => {
     const scaffold = createProjectScaffold({
-      name: "Feature graphic", platform: "android", layoutMode: "isolated",
+      name: "Feature graphic", platform: "android", device: "phone", layoutMode: "isolated",
       templateId: "play-feature-graphic",
     }, fullSpecs);
     const screens = scaffold.project.layouts[0]!.screens;
@@ -186,13 +219,13 @@ describe("createProjectScaffold", () => {
 
   it("rejects unknown templates and missing lead store dimensions", () => {
     expect(() => createProjectScaffold({
-      name: "Unknown", platform: "apple", layoutMode: "isolated", templateId: "not-registered",
+      name: "Unknown", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: "not-registered",
     }, specs)).toThrow(/unknown project template/i);
     expect(() => createProjectScaffold({
-      name: "Missing specs", platform: "windows", layoutMode: "isolated", templateId: null,
+      name: "Missing specs", platform: "windows", device: "desktop", layoutMode: "isolated", templateId: null,
     }, parseStoreSpecs({ apple: { iphone: [] } }))).toThrow(/store size/i);
     expect(() => createProjectScaffold({
-      name: "Unsupported", platform: "windows", layoutMode: "isolated", templateId: "product-launch",
+      name: "Unsupported", platform: "windows", device: "desktop", layoutMode: "isolated", templateId: "product-launch",
     }, specs)).toThrow(/does not support windows/i);
   });
 });
@@ -200,7 +233,7 @@ describe("createProjectScaffold", () => {
 describe("validateProjectScaffold", () => {
   it("requires every referenced project resource before returning publishable files", () => {
     const scaffold = createProjectScaffold({
-      name: "Dependencies", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Dependencies", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     }, specs);
     scaffold.project.layouts[0]!.screens[0]!.elements.push({
       id: "shot", type: "screenshot", x: 0, y: 0, width: 100, height: 100,
@@ -225,7 +258,7 @@ describe("validateProjectScaffold", () => {
 
   it("rejects reserved and portable-colliding resource paths", () => {
     const scaffold = createProjectScaffold({
-      name: "Unsafe resources", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Unsafe resources", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     }, specs);
 
     expect(() => validateProjectScaffold({
