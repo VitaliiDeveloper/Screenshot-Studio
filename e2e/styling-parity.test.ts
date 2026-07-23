@@ -25,12 +25,20 @@ const fixtureRoot = resolve(repoRoot, "fixtures/sample");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const artboard = { width: 1320, height: 2868 };
 const magentaAssetUrl = "assets/semantic-magenta.png";
+const frameGrid = {
+  columns: 4,
+  originX: 30,
+  originY: 1800,
+  columnPitch: 210,
+  rowPitch: 500,
+  frameWidth: 170,
+} as const;
 const frameRegions = DEVICE_FRAME_IDS.map((deviceType, index) => ({
   deviceType,
-  x: 30 + (index % 4) * 210,
-  y: 1800 + Math.floor(index / 4) * 500,
-  width: 170,
-  height: 170 / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
+  x: frameGrid.originX + (index % frameGrid.columns) * frameGrid.columnPitch,
+  y: frameGrid.originY + Math.floor(index / frameGrid.columns) * frameGrid.rowPitch,
+  width: frameGrid.frameWidth,
+  height: frameGrid.frameWidth / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
 }));
 
 interface Rgb {
@@ -40,12 +48,60 @@ interface Rgb {
 }
 
 function hexToRgb(value: string): Rgb {
-  const hex = value.slice(1);
+  const match = /^#([\da-f]{6})$/iu.exec(value);
+  if (!match) throw new Error(`Expected a #RRGGBB color, received ${JSON.stringify(value)}`);
+  const hex = match[1]!;
   return {
     r: Number.parseInt(hex.slice(0, 2), 16),
     g: Number.parseInt(hex.slice(2, 4), 16),
     b: Number.parseInt(hex.slice(4, 6), 16),
   };
+}
+
+function assertFrameRegionsInsideArtboard(): void {
+  for (const frame of frameRegions) {
+    if (
+      frame.x < 0
+      || frame.y < 0
+      || frame.x + frame.width > artboard.width
+      || frame.y + frame.height > artboard.height
+    ) {
+      throw new Error(
+        `${frame.deviceType} frame region is outside the ${artboard.width}x${artboard.height} artboard`,
+      );
+    }
+  }
+}
+
+function bezelProbe(frame: (typeof frameRegions)[number]): LogicalPoint {
+  const spec = DEVICE_FRAME_SPECS[frame.deviceType];
+  const candidates = [
+    {
+      thickness: spec.slotInset.top * frame.height,
+      point: { x: frame.x + frame.width / 2, y: frame.y + (spec.slotInset.top * frame.height) / 2 },
+    },
+    {
+      thickness: spec.slotInset.right * frame.width,
+      point: {
+        x: frame.x + frame.width - (spec.slotInset.right * frame.width) / 2,
+        y: frame.y + frame.height / 2,
+      },
+    },
+    {
+      thickness: spec.slotInset.bottom * frame.height,
+      point: {
+        x: frame.x + frame.width / 2,
+        y: frame.y + frame.height - (spec.slotInset.bottom * frame.height) / 2,
+      },
+    },
+    {
+      thickness: spec.slotInset.left * frame.width,
+      point: { x: frame.x + (spec.slotInset.left * frame.width) / 2, y: frame.y + frame.height / 2 },
+    },
+  ];
+  return candidates.reduce((widest, candidate) => (
+    candidate.thickness > widest.thickness ? candidate : widest
+  )).point;
 }
 
 interface LogicalPoint {
@@ -152,7 +208,7 @@ function expectHeroSemantics(raster: Raster, surface: string): void {
     const spec = DEVICE_FRAME_SPECS[frame.deviceType];
     expectRgbNear(
       raster,
-      { x: frame.x + (frame.width * spec.slotInset.left) / 2, y: frame.y + frame.height / 2 },
+      bezelProbe(frame),
       hexToRgb(spec.bezelColor),
       12,
       `${surface} ${frame.deviceType} bezel`,
@@ -181,6 +237,7 @@ async function canvasRaster(canvas: Locator): Promise<PNG> {
 }
 
 beforeAll(async () => {
+  assertFrameRegionsInsideArtboard();
   directory = mkdtempSync(join(tmpdir(), "styling-parity-"));
   cpSync(fixtureRoot, directory, { recursive: true });
   projectPath = join(directory, "app-store-screenshots.json");
