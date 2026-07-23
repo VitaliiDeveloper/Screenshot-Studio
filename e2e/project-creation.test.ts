@@ -169,9 +169,9 @@ describe("managed project creation", () => {
       expect(await nameInput.evaluate((element) => element === document.activeElement)).toBe(true);
 
       const submitButton = dialog.getByRole("button", { name: "Create project", exact: true });
-      await submitButton.evaluate((button: HTMLButtonElement) => {
-        button.focus({ preventScroll: true });
-      });
+      await submitButton.scrollIntoViewIfNeeded();
+      const dialogBody = dialog.locator(":scope > div").last();
+      const scrollTopBeforePublication = await dialogBody.evaluate((element) => element.scrollTop);
       const dialogBeforePublication = await dialog.boundingBox();
       const formBeforePublication = await dialog.locator("form").boundingBox();
       const submitBeforePublication = await submitButton.boundingBox();
@@ -179,8 +179,9 @@ describe("managed project creation", () => {
       expect(formBeforePublication).not.toBeNull();
       expect(submitBeforePublication).not.toBeNull();
 
-      await submitButton.evaluate((button: HTMLButtonElement) => button.click());
+      await submitButton.click();
       expect(await dialog.getByText("Creating your project…", { exact: true }).count()).toBe(0);
+      const scrollTopDuringPublication = await dialogBody.evaluate((element) => element.scrollTop);
       const dialogDuringPublication = await dialog.boundingBox();
       const formDuringPublication = await dialog.locator("form").boundingBox();
       const submitDuringPublication = await dialog.getByRole("button", {
@@ -195,6 +196,8 @@ describe("managed project creation", () => {
         width: dialogBeforePublication!.width,
         height: dialogBeforePublication!.height,
       });
+      expect(Math.abs(scrollTopDuringPublication - scrollTopBeforePublication))
+        .toBeLessThanOrEqual(2);
       expect(Math.abs(submitDuringPublication!.y - submitBeforePublication!.y))
         .toBeLessThanOrEqual(2);
       expect(Math.abs(formDuringPublication!.y - formBeforePublication!.y))
