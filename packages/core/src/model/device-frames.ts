@@ -239,12 +239,57 @@ const tabletLightSpec = {
   slotCornerRadius: 0.025,
 } satisfies DeviceFrameSpec;
 
+const tabletDarkSpec = {
+  ...tabletLightSpec,
+  bezelColor: "#202124",
+} satisfies DeviceFrameSpec;
+
+const tabletOutlineSpec = {
+  aspectRatio: 0.75,
+  bezelColor: "#00000000",
+  frameCornerRadius: 0.055,
+  slotInset: { top: 0.018, right: 0.018, bottom: 0.018, left: 0.018 },
+  slotCornerRadius: 0.03,
+} satisfies DeviceFrameSpec;
+
+const framelessTabletSpec = {
+  aspectRatio: 0.75,
+  bezelColor: "#00000000",
+  frameCornerRadius: 0.03,
+  slotInset: { top: 0, right: 0, bottom: 0, left: 0 },
+  slotCornerRadius: 0.03,
+} satisfies DeviceFrameSpec;
+
+const browserLightSpec = {
+  aspectRatio: 16 / 10,
+  bezelColor: "#ECEFF3",
+  frameCornerRadius: 0.025,
+  slotInset: { top: 0.08, right: 0.012, bottom: 0.018, left: 0.012 },
+  slotCornerRadius: 0.008,
+} satisfies DeviceFrameSpec;
+
 const browserDarkSpec = {
   aspectRatio: 16 / 10,
   bezelColor: "#25262B",
   frameCornerRadius: 0.025,
   slotInset: { top: 0.08, right: 0.012, bottom: 0.018, left: 0.012 },
   slotCornerRadius: 0.008,
+} satisfies DeviceFrameSpec;
+
+const browserMinimalSpec = {
+  aspectRatio: 16 / 10,
+  bezelColor: "#F5F6F8",
+  frameCornerRadius: 0.018,
+  slotInset: { top: 0.055, right: 0.008, bottom: 0.01, left: 0.008 },
+  slotCornerRadius: 0.006,
+} satisfies DeviceFrameSpec;
+
+const framelessBrowserSpec = {
+  aspectRatio: 16 / 10,
+  bezelColor: "#00000000",
+  frameCornerRadius: 0.015,
+  slotInset: { top: 0, right: 0, bottom: 0, left: 0 },
+  slotCornerRadius: 0.015,
 } satisfies DeviceFrameSpec;
 
 const laptopSilverSpec = {
@@ -255,6 +300,11 @@ const laptopSilverSpec = {
   slotCornerRadius: 0.01,
 } satisfies DeviceFrameSpec;
 
+const laptopDarkSpec = {
+  ...laptopSilverSpec,
+  bezelColor: "#1B1C20",
+} satisfies DeviceFrameSpec;
+
 const displayStandSpec = {
   aspectRatio: 16 / 9,
   bezelColor: "#202124",
@@ -263,12 +313,44 @@ const displayStandSpec = {
   slotCornerRadius: 0.008,
 } satisfies DeviceFrameSpec;
 
+const displayMinimalSpec = {
+  aspectRatio: 16 / 9,
+  bezelColor: "#00000000",
+  frameCornerRadius: 0.012,
+  slotInset: { top: 0.012, right: 0.012, bottom: 0.012, left: 0.012 },
+  slotCornerRadius: 0.008,
+} satisfies DeviceFrameSpec;
+
+const tvFlatSpec = {
+  aspectRatio: 16 / 9,
+  bezelColor: "#18191C",
+  frameCornerRadius: 0.008,
+  slotInset: { top: 0.018, right: 0.018, bottom: 0.03, left: 0.018 },
+  slotCornerRadius: 0.004,
+} satisfies DeviceFrameSpec;
+
+const watchRoundedSpec = {
+  aspectRatio: 1,
+  bezelColor: "#202124",
+  frameCornerRadius: 0.32,
+  slotInset: { top: 0.055, right: 0.055, bottom: 0.055, left: 0.055 },
+  slotCornerRadius: 0.28,
+} satisfies DeviceFrameSpec;
+
 const watchSquareSpec = {
   aspectRatio: 0.82,
   bezelColor: "#202124",
   frameCornerRadius: 0.23,
   slotInset: { top: 0.045, right: 0.055, bottom: 0.045, left: 0.055 },
   slotCornerRadius: 0.18,
+} satisfies DeviceFrameSpec;
+
+const framelessWatchSpec = {
+  aspectRatio: 1,
+  bezelColor: "#00000000",
+  frameCornerRadius: 0,
+  slotInset: { top: 0, right: 0, bottom: 0, left: 0 },
+  slotCornerRadius: 0,
 } satisfies DeviceFrameSpec;
 
 const foldableSpec = {
@@ -489,6 +571,27 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
     recipe: { spec: framelessPhoneSpec, shadow },
   },
   {
+    id: "tablet-rounded-dark",
+    label: "Rounded Tablet — Dark",
+    group: "tablet",
+    tags: ["tablet", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["tablet"],
+    legacy: false,
+    recipe: {
+      spec: tabletDarkSpec,
+      shadow,
+      camera: {
+        kind: "circle",
+        color: "#73767D",
+        xFrac: 0.5,
+        yFrac: 0.014,
+        widthFrac: 0.008,
+        heightFrac: 0.006,
+      },
+    },
+  },
+  {
     id: "tablet-rounded-light",
     label: "Rounded Tablet — Light",
     group: "tablet",
@@ -506,6 +609,62 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
         yFrac: 0.014,
         widthFrac: 0.008,
         heightFrac: 0.006,
+      },
+    },
+  },
+  {
+    id: "tablet-outline",
+    label: "Tablet Outline",
+    group: "tablet",
+    tags: ["tablet", "minimal", "outline"],
+    finish: "outline",
+    recommendedFor: ["tablet"],
+    legacy: false,
+    recipe: {
+      spec: tabletOutlineSpec,
+      outline: { color: "#313238", widthFrac: 0.006, insetFrac: 0.003 },
+    },
+  },
+  {
+    id: "frameless-tablet",
+    label: "Frameless Tablet",
+    group: "tablet",
+    tags: ["tablet", "minimal", "frameless"],
+    finish: "frameless",
+    recommendedFor: ["tablet"],
+    legacy: false,
+    recipe: { spec: framelessTabletSpec, shadow },
+  },
+  {
+    id: "browser-light",
+    label: "Browser — Light",
+    group: "browser",
+    tags: ["browser", "modern", "light"],
+    finish: "light",
+    recommendedFor: ["web", "desktop"],
+    legacy: false,
+    recipe: {
+      spec: browserLightSpec,
+      shadow,
+      browserChrome: {
+        backgroundColor: "#ECEFF3",
+        heightFrac: 0.068,
+        controls: {
+          color: "#9CA1AA",
+          count: 3,
+          firstCenterXFrac: 0.025,
+          centerYFrac: 0.034,
+          radiusFrac: 0.006,
+          gapFrac: 0.012,
+        },
+        addressBar: {
+          color: "#DDE0E5",
+          leftFrac: 0.18,
+          rightFrac: 0.025,
+          topFrac: 0.018,
+          heightFrac: 0.032,
+          radiusFrac: 0.008,
+        },
       },
     },
   },
@@ -543,6 +702,49 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
     },
   },
   {
+    id: "browser-minimal",
+    label: "Minimal Browser",
+    group: "browser",
+    tags: ["browser", "minimal", "light"],
+    finish: "light",
+    recommendedFor: ["web", "desktop"],
+    legacy: false,
+    recipe: {
+      spec: browserMinimalSpec,
+      outline: { color: "#9CA1AA", widthFrac: 0.003, insetFrac: 0.0015 },
+      browserChrome: {
+        backgroundColor: "#F5F6F8",
+        heightFrac: 0.05,
+        controls: {
+          color: "#A6AAB2",
+          count: 3,
+          firstCenterXFrac: 0.02,
+          centerYFrac: 0.025,
+          radiusFrac: 0.004,
+          gapFrac: 0.009,
+        },
+        addressBar: {
+          color: "#E3E5E9",
+          leftFrac: 0.13,
+          rightFrac: 0.018,
+          topFrac: 0.014,
+          heightFrac: 0.022,
+          radiusFrac: 0.006,
+        },
+      },
+    },
+  },
+  {
+    id: "frameless-browser",
+    label: "Frameless Browser",
+    group: "browser",
+    tags: ["browser", "minimal", "frameless"],
+    finish: "frameless",
+    recommendedFor: ["web", "desktop"],
+    legacy: false,
+    recipe: { spec: framelessBrowserSpec },
+  },
+  {
     id: "laptop-silver",
     label: "Laptop — Silver",
     group: "desktop",
@@ -555,6 +757,26 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
       shadow,
       base: {
         color: "#B8BDC3",
+        widthFrac: 0.98,
+        heightFrac: 0.035,
+        cornerRadiusFrac: 0.01,
+        bottomFrac: 0,
+      },
+    },
+  },
+  {
+    id: "laptop-dark",
+    label: "Laptop — Dark",
+    group: "desktop",
+    tags: ["desktop", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["desktop", "web"],
+    legacy: false,
+    recipe: {
+      spec: laptopDarkSpec,
+      shadow,
+      base: {
+        color: "#121317",
         widthFrac: 0.98,
         heightFrac: 0.035,
         cornerRadiusFrac: 0.01,
@@ -583,6 +805,39 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
     },
   },
   {
+    id: "display-minimal",
+    label: "Minimal Display",
+    group: "display",
+    tags: ["display", "desktop", "television", "minimal", "outline"],
+    finish: "outline",
+    recommendedFor: ["desktop", "television"],
+    legacy: false,
+    recipe: {
+      spec: displayMinimalSpec,
+      outline: { color: "#414349", widthFrac: 0.004, insetFrac: 0.002 },
+    },
+  },
+  {
+    id: "tv-flat",
+    label: "Flat TV",
+    group: "display",
+    tags: ["display", "television", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["television"],
+    legacy: false,
+    recipe: { spec: tvFlatSpec, shadow },
+  },
+  {
+    id: "watch-rounded",
+    label: "Rounded Watch",
+    group: "wearable",
+    tags: ["wearable", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["wearable"],
+    legacy: false,
+    recipe: { spec: watchRoundedSpec, shadow },
+  },
+  {
     id: "watch-square",
     label: "Square Watch",
     group: "wearable",
@@ -595,6 +850,16 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
       shadow,
       outline: { color: "#34363A", widthFrac: 0.012, insetFrac: 0.006 },
     },
+  },
+  {
+    id: "frameless-watch",
+    label: "Frameless Watch",
+    group: "wearable",
+    tags: ["wearable", "minimal", "frameless"],
+    finish: "frameless",
+    recommendedFor: ["wearable"],
+    legacy: false,
+    recipe: { spec: framelessWatchSpec },
   },
   {
     id: "foldable",

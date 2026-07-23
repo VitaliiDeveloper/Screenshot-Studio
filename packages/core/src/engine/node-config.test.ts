@@ -584,4 +584,50 @@ describe("elementToNodeConfig — device-frame", () => {
       config: { x: 0, y: 0, width: 1600, height: 900, cornerRadius: 128 },
     });
   });
+
+  it("maps every added initial-set recipe through the shared device-frame composition", () => {
+    const addedPresetIds = [
+      "tablet-rounded-dark", "tablet-outline", "frameless-tablet", "browser-light",
+      "browser-minimal", "frameless-browser", "laptop-dark", "display-minimal", "tv-flat",
+      "watch-rounded", "frameless-watch",
+    ] as const;
+
+    for (const deviceType of addedPresetIds) {
+      const result = elementToNodeConfig(
+        { ...frame, deviceType, width: 600, height: 600 },
+        { images: frameCache },
+      );
+      expect(result.konva, deviceType).toBe("Group");
+      if (result.konva !== "Group") continue;
+      expect(result.children.length, deviceType).toBeGreaterThanOrEqual(3);
+      expect(result.children.every((child) => Object.values(child.config)
+        .filter((value) => typeof value === "number")
+        .every(Number.isFinite)), deviceType).toBe(true);
+    }
+  });
+
+  it("renders the Wear insertion preset as square content without bezel or shadow", () => {
+    const result = elementToNodeConfig(
+      { ...frame, deviceType: "frameless-watch", width: 300, height: 300 },
+      { images: frameCache },
+    );
+    if (result.konva !== "Group") throw new Error("expected Group");
+
+    expect(result.children).toHaveLength(3);
+    expect(result.children[0]).toEqual({
+      konva: "Rect",
+      config: {
+        x: 0, y: 0, width: 300, height: 300, fill: "#00000000", cornerRadius: 0,
+      },
+    });
+    expect(result.children[0]!.config).not.toHaveProperty("shadowEnabled");
+    expect(result.children[1]).toMatchObject({
+      konva: "Rect",
+      config: { x: 0, y: 0, width: 300, height: 300, cornerRadius: 0 },
+    });
+    expect(result.children[2]).toMatchObject({
+      konva: "Image",
+      config: { x: 0, y: 0, width: 300, height: 300, cornerRadius: 0 },
+    });
+  });
 });

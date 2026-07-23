@@ -20,7 +20,19 @@ let projectPath: string;
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "asset-picker-"));
   projectPath = join(directory, "app-store-screenshots.json");
-  writeFileSync(projectPath, readFileSync(fixturePath));
+  const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+  fixture.layouts[0].screens.push({
+    id: "wear-target",
+    name: "Wear Target",
+    platform: "android",
+    device: "wear",
+    locale: "en",
+    direction: "ltr",
+    artboard: { width: 384, height: 384 },
+    background: { type: "solid", color: "#101010" },
+    elements: [],
+  });
+  writeFileSync(projectPath, `${JSON.stringify(fixture, null, 2)}\n`);
   mkdirSync(join(directory, "assets"), { recursive: true });
   cpSync(imagePath, join(directory, "assets", "demo-logistics-app.png"), { recursive: true });
   process.env.PROJECT_PATH = projectPath;
@@ -201,10 +213,10 @@ describe("Project asset picker", () => {
     await presetDialog.getByLabel("Search frames").fill("phone-modern-dark");
     await presetDialog.getByText("No frames match", { exact: false }).waitFor();
     await presetDialog.getByLabel("Search frames").fill("");
-    const classicPunchHole = presetDialog.getByRole("button", { name: "Classic Punch-Hole Phone" });
-    const adjacentPhone = presetDialog.getByRole("button", { name: "Modern Phone — Dark, Recommended" });
-    await classicPunchHole.focus();
-    await classicPunchHole.press("ArrowRight");
+    const modernDark = presetDialog.getByRole("button", { name: "Modern Phone — Dark, Recommended" });
+    const adjacentPhone = presetDialog.getByRole("button", { name: "Modern Phone — Light" });
+    await modernDark.focus();
+    await modernDark.press("ArrowRight");
     await expect.poll(() => adjacentPhone.evaluate((element) => document.activeElement === element)).toBe(true);
     await adjacentPhone.press("Escape");
     await presetDialog.waitFor({ state: "hidden" });
@@ -246,6 +258,49 @@ describe("Project asset picker", () => {
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
     expect(await page.getByText("Loading workspace…").count()).toBe(0);
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    await page.getByRole("button", {
+      name: "Edit Google Play · Wear OS connected row",
+      exact: true,
+    }).click();
+    await page.getByRole("button", { name: "Place screenshot in mockup", exact: true }).click();
+    const wearAssetDialog = page.getByRole("dialog", { name: "Mockup screenshot picker" });
+    await wearAssetDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
+    await wearAssetDialog.waitFor({ state: "hidden" });
+
+    const wearElements = () => project().layouts[0].screens
+      .find((screen: { id: string }) => screen.id === "wear-target").elements;
+    await expect.poll(() => wearElements().at(-1)).toMatchObject({
+      type: "device-frame",
+      deviceType: "frameless-watch",
+      width: 300,
+      height: 300,
+    });
+
+    const wearChooseFrame = page.getByRole("button", { name: "Choose frame", exact: true });
+    await wearChooseFrame.click();
+    const wearPresetDialog = page.getByRole("dialog", { name: "Device frame picker" });
+    await expect.poll(() => wearPresetDialog.getByText("Recommended", { exact: true }).count()).toBe(0);
+    const framelessWatch = wearPresetDialog.getByRole("button", { name: "Frameless Watch", exact: true });
+    expect(await framelessWatch.getAttribute("aria-pressed")).toBe("true");
+    await framelessWatch.click();
+    await wearPresetDialog.waitFor({ state: "hidden" });
+    await expect.poll(() => wearElements().at(-1)).toMatchObject({
+      deviceType: "frameless-watch",
+      width: 300,
+      height: 300,
+    });
+
+    await wearChooseFrame.click();
+    const reopenedWearPresetDialog = page.getByRole("dialog", { name: "Device frame picker" });
+    await reopenedWearPresetDialog.getByRole("button", { name: /^Rounded Watch/ }).click();
+    await reopenedWearPresetDialog.waitFor({ state: "hidden" });
+    await expect.poll(() => wearElements().at(-1)).toMatchObject({
+      deviceType: "watch-rounded",
+      width: 300,
+      height: 300,
+    });
 
     await page.close();
   });

@@ -8,6 +8,8 @@ import {
   deviceFramePreset,
   ICON_IDS,
   MEDIA_BLUR_MAX,
+  type DeviceFrameElement,
+  type DeviceFrameId,
   type Element,
   type FontAsset,
   type Screen,
@@ -30,6 +32,16 @@ const DeviceFramePresetPicker = dynamic(
   () => import("../DeviceFramePresetPicker").then((module) => module.DeviceFramePresetPicker),
   { ssr: false },
 );
+
+export function deviceFrameSelectionPatch(
+  element: Pick<DeviceFrameElement, "width">,
+  deviceType: DeviceFrameId,
+): ElementPatchFor<"device-frame"> {
+  return {
+    deviceType,
+    height: element.width / deviceFramePreset(deviceType).recipe.spec.aspectRatio,
+  };
+}
 
 export function ElementTypeInspectorSections({
   element,
@@ -264,10 +276,7 @@ export function ElementTypeInspectorSections({
             <DeviceFramePresetPicker
               selectedId={element.deviceType}
               screen={screen}
-              onSelect={(deviceType) => patchDeviceFrame({
-                deviceType,
-                height: element.width / deviceFramePreset(deviceType).recipe.spec.aspectRatio,
-              })}
+              onSelect={(deviceType) => patchDeviceFrame(deviceFrameSelectionPatch(element, deviceType))}
               onClose={() => setFramePickerOpen(false)}
             />
           ) : null}

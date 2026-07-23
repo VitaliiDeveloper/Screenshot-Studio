@@ -4,6 +4,8 @@ import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
 import {
   clampZoom,
   compactStoreSizeLabel,
+  defaultDeviceFrameInputForScreen,
+  deviceFrameContextForScreen,
   filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
@@ -43,6 +45,26 @@ function scopeProject(mode: CanvasMode): DesignLayout {
 }
 
 describe("editor workspace helpers", () => {
+  it("separates Wear OS insertion from Store recommendation semantics", () => {
+    const wearScreen = {
+      platform: "android",
+      device: "wear",
+      artboard: { width: 384, height: 384 },
+    } as const;
+
+    expect(deviceFrameContextForScreen(wearScreen)).toMatchObject({
+      insertionPresetId: "frameless-watch",
+      recommendedPresetId: undefined,
+      recommendation: "wearable",
+      insertionAspectRatio: 1,
+    });
+    expect(defaultDeviceFrameInputForScreen(wearScreen)).toEqual({
+      deviceType: "frameless-watch",
+      width: 300,
+      height: 300,
+    });
+  });
+
   it("clamps zoom to the supported viewport range", () => {
     expect(clampZoom(0.01)).toBe(0.05);
     expect(clampZoom(1.23456)).toBe(1.235);

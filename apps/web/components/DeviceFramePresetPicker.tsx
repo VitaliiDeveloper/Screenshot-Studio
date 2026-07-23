@@ -17,8 +17,8 @@ import { DeviceFramePresetThumbnail } from "./DeviceFramePresetThumbnail";
 type DeviceFrameScreenContext = Pick<Screen, "platform" | "device" | "artboard">;
 
 export const deviceFramePickerGroups: readonly {
-  label: "Phone" | "Tablet" | "Browser" | "Computer" | "TV" | "Watch" | "Special";
-  groups: readonly DeviceFramePresetGroup[];
+  label: "Phone" | "Tablet" | "Browser" | "Computer" | "TV" | "Watch" | "Special" | "Legacy";
+  groups?: readonly DeviceFramePresetGroup[];
 }[] = [
   { label: "Phone", groups: ["phone"] },
   { label: "Tablet", groups: ["tablet"] },
@@ -27,7 +27,16 @@ export const deviceFramePickerGroups: readonly {
   { label: "TV", groups: ["display"] },
   { label: "Watch", groups: ["wearable"] },
   { label: "Special", groups: ["foldable", "automotive", "spatial"] },
+  { label: "Legacy" },
 ];
+
+function presetBelongsToPickerGroup(
+  preset: DeviceFramePreset,
+  group: (typeof deviceFramePickerGroups)[number],
+): boolean {
+  if (group.label === "Legacy") return preset.legacy;
+  return !preset.legacy && group.groups?.includes(preset.group) === true;
+}
 
 export function nextDeviceFrameCardIndex(
   key: string,
@@ -60,8 +69,8 @@ function matchesFrameSearch(preset: DeviceFramePreset, query: string): boolean {
 
 export function groupedVisibleDeviceFramePresets(query: string): readonly DeviceFramePreset[] {
   const matchingPresets = DEVICE_FRAME_PRESETS.filter((preset) => matchesFrameSearch(preset, query));
-  return deviceFramePickerGroups.flatMap(({ groups }) =>
-    matchingPresets.filter((preset) => groups.includes(preset.group)));
+  return deviceFramePickerGroups.flatMap((group) =>
+    matchingPresets.filter((preset) => presetBelongsToPickerGroup(preset, group)));
 }
 
 export function DeviceFramePresetCatalog({
@@ -104,7 +113,7 @@ export function DeviceFramePresetCatalog({
   return (
     <div className="space-y-5">
       {deviceFramePickerGroups.map((group) => {
-        const groupPresets = presets.filter((preset) => group.groups.includes(preset.group));
+        const groupPresets = presets.filter((preset) => presetBelongsToPickerGroup(preset, group));
         if (groupPresets.length === 0) return null;
         return (
           <section key={group.label} aria-labelledby={`frame-group-${group.label.toLocaleLowerCase()}`}>

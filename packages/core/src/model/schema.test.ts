@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_FONT_WEIGHT,
+  DEVICE_FRAME_IDS,
   Element,
   FONT_WEIGHT_MAX,
   FONT_WEIGHT_MIN,
@@ -869,12 +870,17 @@ describe("DeviceFrameElement", () => {
   });
 
   it("accepts every trusted built-in frame preset", () => {
-    for (const deviceType of [
+    const expectedDeviceFrameIds = [
       "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
       "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
-      "frameless-phone", "tablet-rounded-light", "browser-dark", "laptop-silver", "display-stand",
-      "watch-square", "foldable", "automotive-display", "xr-viewport",
-    ] as const) {
+      "frameless-phone", "tablet-rounded-dark", "tablet-rounded-light", "tablet-outline",
+      "frameless-tablet", "browser-light", "browser-dark", "browser-minimal", "frameless-browser",
+      "laptop-silver", "laptop-dark", "display-stand", "display-minimal", "tv-flat",
+      "watch-rounded", "watch-square", "frameless-watch", "foldable", "automotive-display",
+      "xr-viewport",
+    ] as const;
+    expect(DEVICE_FRAME_IDS).toEqual(expectedDeviceFrameIds);
+    for (const deviceType of expectedDeviceFrameIds) {
       expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
     }
   });

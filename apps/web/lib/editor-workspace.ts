@@ -35,7 +35,8 @@ export type ResourceDialog =
 type DeviceFrameScreenContext = Pick<Screen, "platform" | "device" | "artboard">;
 
 export interface DeviceFrameContext {
-  readonly recommendedPresetId: DeviceFrameId;
+  readonly insertionPresetId: DeviceFrameId;
+  readonly recommendedPresetId?: DeviceFrameId;
   readonly recommendation: DeviceFrameRecommendation;
   readonly unsuitablePresetIds: readonly DeviceFrameId[];
   /** Optional insertion-only ratio for store surfaces that require an unadorned exact shape. */
@@ -52,6 +53,7 @@ export function deviceFrameContextForScreen(
 ): DeviceFrameContext {
   if (!screen) {
     return {
+      insertionPresetId: "iphone",
       recommendedPresetId: "iphone",
       recommendation: "mobile",
       unsuitablePresetIds: [],
@@ -61,7 +63,8 @@ export function deviceFrameContextForScreen(
   const key = `${screen.platform}/${screen.device}`;
   if (key === "android/wear") {
     return {
-      recommendedPresetId: "frameless-phone",
+      insertionPresetId: "frameless-watch",
+      recommendedPresetId: undefined,
       recommendation: "wearable",
       unsuitablePresetIds: decoratedWatchPresetIds,
       insertionAspectRatio: screen.artboard.width / screen.artboard.height,
@@ -106,6 +109,7 @@ export function deviceFrameContextForScreen(
   })();
 
   return {
+    insertionPresetId: recommendation[0],
     recommendedPresetId: recommendation[0],
     recommendation: recommendation[1],
     unsuitablePresetIds: [],
@@ -117,11 +121,11 @@ export function defaultDeviceFrameInputForScreen(
 ): { deviceType: DeviceFrameId; width?: number; height?: number } {
   const context = deviceFrameContextForScreen(screen);
   if (context.insertionAspectRatio === undefined) {
-    return { deviceType: context.recommendedPresetId };
+    return { deviceType: context.insertionPresetId };
   }
   const width = 300;
   return {
-    deviceType: context.recommendedPresetId,
+    deviceType: context.insertionPresetId,
     width,
     height: width / context.insertionAspectRatio,
   };

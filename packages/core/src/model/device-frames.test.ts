@@ -70,21 +70,20 @@ const LEGACY_SPECS = {
   },
 } satisfies Record<string, DeviceFrameSpec>;
 
-const SEMANTIC_IDS = [
-  "phone-modern-dark",
-  "phone-modern-light",
-  "phone-punch-hole-dark",
-  "phone-outline",
-  "frameless-phone",
-  "tablet-rounded-light",
-  "browser-dark",
-  "laptop-silver",
-  "display-stand",
-  "watch-square",
-  "foldable",
-  "automotive-display",
-  "xr-viewport",
-] as const;
+const INITIAL_BUNDLED_FRAME_SET = {
+  Phone: [
+    "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
+    "frameless-phone",
+  ],
+  Tablet: ["tablet-rounded-dark", "tablet-rounded-light", "tablet-outline", "frameless-tablet"],
+  Browser: ["browser-light", "browser-dark", "browser-minimal", "frameless-browser"],
+  Computer: ["laptop-silver", "laptop-dark", "display-stand", "display-minimal"],
+  TV: ["tv-flat", "display-minimal"],
+  Watch: ["watch-rounded", "watch-square", "frameless-watch"],
+  Special: ["foldable", "automotive-display", "xr-viewport"],
+} as const satisfies Record<string, readonly DeviceFrameId[]>;
+
+const SEMANTIC_IDS = [...new Set(Object.values(INITIAL_BUNDLED_FRAME_SET).flat())];
 
 describe("device frame preset catalog", () => {
   it("preserves every legacy renderer spec exactly", () => {
@@ -94,11 +93,42 @@ describe("device frame preset catalog", () => {
     }
   });
 
-  it("contains unique stable IDs and every initial semantic preset", () => {
+  it("contains exactly the complete initial bundled frame set", () => {
     const ids = DEVICE_FRAME_PRESETS.map(({ id }) => id);
+    const semanticIds = DEVICE_FRAME_PRESETS.filter(({ legacy }) => !legacy).map(({ id }) => id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toEqual(DEVICE_FRAME_IDS);
-    expect(ids).toEqual(expect.arrayContaining([...SEMANTIC_IDS]));
+    expect(SEMANTIC_IDS).toHaveLength(24);
+    expect(semanticIds).toHaveLength(24);
+    expect(new Set(semanticIds)).toEqual(new Set(SEMANTIC_IDS));
+    expect(DEVICE_FRAME_PRESETS.filter(({ legacy }) => legacy).map(({ id }) => id))
+      .toEqual(Object.keys(LEGACY_SPECS));
+  });
+
+  it("reuses one minimal display across desktop and television contexts", () => {
+    expect(INITIAL_BUNDLED_FRAME_SET.Computer).toContain("display-minimal");
+    expect(INITIAL_BUNDLED_FRAME_SET.TV).toContain("display-minimal");
+    expect(deviceFramePreset("display-minimal").recommendedFor)
+      .toEqual(expect.arrayContaining(["desktop", "television"]));
+    expect(DEVICE_FRAME_PRESETS.filter(({ id }) => id === "display-minimal")).toHaveLength(1);
+  });
+
+  it("keeps the Wear insertion frame square, bezel-free, and shadow-free", () => {
+    const preset = deviceFramePreset("frameless-watch");
+    expect(preset).toMatchObject({
+      group: "wearable",
+      finish: "frameless",
+      legacy: false,
+      recipe: {
+        spec: {
+          aspectRatio: 1,
+          bezelColor: "#00000000",
+          slotInset: { top: 0, right: 0, bottom: 0, left: 0 },
+        },
+      },
+    });
+    expect(preset.recipe.shadow).toBeUndefined();
+    expect(preset.recipe.outline).toBeUndefined();
   });
 
   it("provides human metadata and normalized previewable recipes", () => {
@@ -198,7 +228,9 @@ describe("device frame preset catalog", () => {
     expect(listDeviceFramePresets({ group: "phone", finish: "dark", legacy: false })
       .map(({ id }) => id)).toEqual(["phone-modern-dark", "phone-punch-hole-dark"]);
     expect(listDeviceFramePresets({ tags: ["minimal", "frameless"] })
-      .map(({ id }) => id)).toEqual(["frameless-phone"]);
+      .map(({ id }) => id)).toEqual([
+        "frameless-phone", "frameless-tablet", "frameless-browser", "frameless-watch",
+      ]);
     expect(listDeviceFramePresets({ recommendedFor: ["mobile"] }).length).toBeGreaterThan(0);
 
     expect(listDeviceFramePresets()).toHaveLength(DEVICE_FRAME_PRESETS.length);

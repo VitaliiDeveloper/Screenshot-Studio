@@ -3,7 +3,10 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DeviceFrameElement, ScreenshotElement, TextElement } from "@screenshot-studio/core/model";
-import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections.js";
+import {
+  deviceFrameSelectionPatch,
+  ElementTypeInspectorSections,
+} from "./ElementTypeInspectorSections.js";
 
 const text: TextElement = {
   id: "copy",
@@ -87,6 +90,21 @@ function renderDeviceFrame(element: DeviceFrameElement): string {
 }
 
 describe("ElementTypeInspectorSections device mockup assets", () => {
+  it("keeps a square Wear mockup from becoming phone-shaped through the inspector callback", () => {
+    const wearFrame = {
+      ...deviceFrame,
+      width: 300,
+      height: 300,
+      deviceType: "frameless-watch",
+    } as const;
+
+    expect(deviceFrameSelectionPatch(wearFrame, "frameless-watch")).toEqual({
+      deviceType: "frameless-watch",
+      height: 300,
+    });
+    expect(deviceFrameSelectionPatch(wearFrame, "watch-rounded").height).not.toBe(650);
+  });
+
   it("uses a project asset chooser instead of exposing the internal asset path as a field", () => {
     const markup = renderDeviceFrame(deviceFrame);
 

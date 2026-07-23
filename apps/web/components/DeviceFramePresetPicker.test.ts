@@ -43,12 +43,18 @@ describe("DeviceFramePresetPicker catalog", () => {
     const markup = renderCatalog();
 
     expect(deviceFramePickerGroups.map(({ label }) => label)).toEqual([
-      "Phone", "Tablet", "Browser", "Computer", "TV", "Watch", "Special",
+      "Phone", "Tablet", "Browser", "Computer", "TV", "Watch", "Special", "Legacy",
     ]);
     for (const { label } of deviceFramePickerGroups) expect(markup).toContain(`>${label}<`);
     for (const preset of DEVICE_FRAME_PRESETS) {
       expect(markup).toContain(`>${preset.label}<`);
       if (preset.id !== preset.label) expect(markup).not.toContain(`>${preset.id}<`);
+    }
+    const legacyHeadingIndex = markup.indexOf(">Legacy<");
+    expect(legacyHeadingIndex).toBeGreaterThan(0);
+    for (const preset of DEVICE_FRAME_PRESETS) {
+      const labelIndex = markup.indexOf(`>${preset.label}<`);
+      expect(labelIndex > legacyHeadingIndex).toBe(preset.legacy);
     }
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain("Classic Phone");
@@ -78,15 +84,18 @@ describe("DeviceFramePresetPicker catalog", () => {
       device: "wear",
       artboard: { width: 384, height: 384 },
     } as Pick<Screen, "platform" | "device" | "artboard">);
-    expect(wear.recommendedPresetId).toBe("frameless-phone");
+    expect(wear.insertionPresetId).toBe("frameless-watch");
+    expect(wear.recommendedPresetId).toBeUndefined();
     expect(wear.insertionAspectRatio).toBe(1);
-    expect(wear.unsuitablePresetIds).toEqual(expect.arrayContaining(["watch", "watch-square"]));
+    expect(wear.unsuitablePresetIds).toEqual(expect.arrayContaining([
+      "watch", "watch-rounded", "watch-square",
+    ]));
     expect(defaultDeviceFrameInputForScreen({
       platform: "android",
       device: "wear",
       artboard: { width: 384, height: 384 },
     } as Pick<Screen, "platform" | "device" | "artboard">)).toEqual({
-      deviceType: "frameless-phone",
+      deviceType: "frameless-watch",
       width: 300,
       height: 300,
     });
@@ -111,14 +120,14 @@ describe("DeviceFramePresetPicker catalog", () => {
 
   it("moves to the adjacent rendered card in flattened group order", () => {
     const presets = groupedVisibleDeviceFramePresets("");
-    const classicPunchHoleIndex = presets.findIndex(({ id }) => id === "android-phone");
+    const modernDarkIndex = presets.findIndex(({ id }) => id === "phone-modern-dark");
     const adjacentIndex = nextDeviceFrameCardIndex(
       "ArrowRight",
-      classicPunchHoleIndex,
+      modernDarkIndex,
       presets.length,
     );
 
     expect(adjacentIndex).not.toBeNull();
-    expect(presets[adjacentIndex!]?.id).toBe("phone-modern-dark");
+    expect(presets[adjacentIndex!]?.id).toBe("phone-modern-light");
   });
 });
