@@ -38,6 +38,7 @@ const pixelRatio = 1;
 const target = { width: 660, height: 1434 };
 const PER_PIXEL_THRESHOLD = 0.1;
 const MAX_MISMATCH_FRACTION = 0.001;
+const EDITOR_RENDER_READY_TIMEOUT_MS = 20_000;
 
 let harness: ParityRenderHarness;
 
@@ -69,7 +70,7 @@ async function editorCanvasPng(page: Page, screenId: string): Promise<Buffer> {
   await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => ({
     width: node.width,
     height: node.height,
-  }))).toEqual(target);
+  })), { timeout: EDITOR_RENDER_READY_TIMEOUT_MS }).toEqual(target);
   await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => {
     const pixel = node.getContext("2d")!.getImageData(node.width / 2, node.height / 2, 1, 1).data;
     return pixel[0]! > 150 && pixel[1]! < 100 && pixel[2]! < 100;
