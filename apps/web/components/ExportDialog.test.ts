@@ -24,11 +24,15 @@ vi.mock("./editor-ui", async (importOriginal) => {
     ...actual,
     MenuSelect: ({ ariaLabel, options }: {
       ariaLabel: string;
-      options: readonly { label: string }[];
+      options: readonly { value: string; label: string }[];
     }) => React.createElement(
       "div",
       { "aria-label": `${ariaLabel} visible options` },
-      options.map(({ label }) => React.createElement("span", { key: label }, label)),
+      options.map(({ value, label }) => React.createElement(
+        "span",
+        { key: `${value}:${label}`, "data-value": value },
+        label,
+      )),
     ),
   };
 });
@@ -96,6 +100,9 @@ describe("ExportDialog", () => {
       "Desktop",
       "Laptop",
     ]) expect(markup).toContain(label);
+    expect(markup).toContain('<span data-value="apple">App Store</span>');
+    expect(markup).toContain('<span data-value="tablet-7">7-inch Android tablet</span>');
+    expect(markup).toContain('<span data-value="laptop">Laptop</span>');
     expect(markup).not.toMatch(/>apple</u);
     expect(markup).not.toMatch(/>tablet-7</u);
     expect(markup).not.toMatch(/>watchos</u);
