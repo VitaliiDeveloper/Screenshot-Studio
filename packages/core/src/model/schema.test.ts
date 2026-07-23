@@ -398,6 +398,13 @@ describe("parseProject", () => {
     expect(parseProject(raw).layouts[0]!.screens[0]).toMatchObject({ platform, device });
   });
 
+  it("rejects square orientation as an unknown persisted Screen field", () => {
+    const raw = validProject();
+    Object.assign(raw.layouts[0]!.screens[0]!, { orientation: "square" });
+
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
+  });
+
   it.each([2, 10])("rejects unsupported numeric schema version %s with a dedicated error", (version) => {
     const raw = validProject();
     raw.meta.schemaVersion = version as typeof SCHEMA_VERSION;

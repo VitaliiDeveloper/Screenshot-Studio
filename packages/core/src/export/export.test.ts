@@ -72,7 +72,7 @@ describe("store-specs.json", () => {
     }
   });
 
-  it("parses and displays a square runtime store target without widening Screen orientation", () => {
+  it("parses and displays a square runtime store target", () => {
     const specs = parseStoreSpecs({
       android: {
         wear: [{
