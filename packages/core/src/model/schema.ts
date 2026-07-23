@@ -182,6 +182,9 @@ export type IconElement = z.infer<typeof IconElement>;
 
 export const DEVICE_FRAME_IDS = [
   "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+  "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
+  "frameless-phone", "tablet-rounded-light", "browser-dark", "laptop-silver", "display-stand",
+  "watch-square", "foldable", "automotive-display", "xr-viewport",
 ] as const;
 export const DeviceFrameId = z.enum(DEVICE_FRAME_IDS);
 export type DeviceFrameId = z.infer<typeof DeviceFrameId>;

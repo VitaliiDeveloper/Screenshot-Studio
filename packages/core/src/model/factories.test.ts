@@ -80,6 +80,19 @@ describe("element factories (slice 5)", () => {
     expect(el).toMatchObject({ type: "device-frame", deviceType: "iphone" });
   });
 
+  it("keeps the legacy iphone default and sizes semantic presets from catalog geometry", () => {
+    expect(createDeviceFrameElement()).toMatchObject({
+      deviceType: "iphone",
+      width: 300,
+      height: 650,
+    });
+    expect(createDeviceFrameElement({ deviceType: "phone-modern-dark" })).toMatchObject({
+      deviceType: "phone-modern-dark",
+      width: 300,
+      height: 650,
+    });
+  });
+
   it("createDeviceFrameElement can create an assignable placeholder", () => {
     const el = createDeviceFrameElement();
     expect(() => Element.parse(el)).not.toThrow();

@@ -869,8 +869,19 @@ describe("DeviceFrameElement", () => {
   });
 
   it("accepts every trusted built-in frame preset", () => {
-    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"] as const) {
+    for (const deviceType of [
+      "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+      "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
+      "frameless-phone", "tablet-rounded-light", "browser-dark", "laptop-silver", "display-stand",
+      "watch-square", "foldable", "automotive-display", "xr-viewport",
+    ] as const) {
       expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
+    }
+  });
+
+  it("does not persist catalog presentation or renderer recipe metadata", () => {
+    for (const extra of ["label", "group", "tags", "finish", "recommendedFor", "legacy", "recipe"]) {
+      expect(() => Element.parse({ ...base, [extra]: "catalog-only" })).toThrow();
     }
   });
 
