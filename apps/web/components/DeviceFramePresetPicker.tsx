@@ -58,8 +58,10 @@ function matchesFrameSearch(preset: DeviceFramePreset, query: string): boolean {
     || preset.tags.some((tag) => tag.includes(needle));
 }
 
-function visiblePresets(query: string): readonly DeviceFramePreset[] {
-  return DEVICE_FRAME_PRESETS.filter((preset) => matchesFrameSearch(preset, query));
+export function groupedVisibleDeviceFramePresets(query: string): readonly DeviceFramePreset[] {
+  const matchingPresets = DEVICE_FRAME_PRESETS.filter((preset) => matchesFrameSearch(preset, query));
+  return deviceFramePickerGroups.flatMap(({ groups }) =>
+    matchingPresets.filter((preset) => groups.includes(preset.group)));
 }
 
 export function DeviceFramePresetCatalog({
@@ -73,7 +75,7 @@ export function DeviceFramePresetCatalog({
   screen?: DeviceFrameScreenContext | null;
   onSelect: (id: DeviceFrameId) => void;
 }) {
-  const presets = useMemo(() => visiblePresets(query), [query]);
+  const presets = useMemo(() => groupedVisibleDeviceFramePresets(query), [query]);
   const context = deviceFrameContextForScreen(screen);
   const [focusedId, setFocusedId] = useState<DeviceFrameId>(selectedId);
   const cardRefs = useRef(new Map<DeviceFrameId, HTMLButtonElement>());

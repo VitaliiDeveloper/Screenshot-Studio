@@ -6,6 +6,7 @@ import { DEVICE_FRAME_PRESETS, type DeviceFrameId, type Screen } from "@screensh
 import {
   DeviceFramePresetCatalog,
   deviceFramePickerGroups,
+  groupedVisibleDeviceFramePresets,
   nextDeviceFrameCardIndex,
 } from "./DeviceFramePresetPicker.js";
 import {
@@ -106,5 +107,18 @@ describe("DeviceFramePresetPicker catalog", () => {
     expect(nextDeviceFrameCardIndex("Home", 3, 5)).toBe(0);
     expect(nextDeviceFrameCardIndex("End", 1, 5)).toBe(4);
     expect(nextDeviceFrameCardIndex("Enter", 2, 5)).toBeNull();
+  });
+
+  it("moves to the adjacent rendered card in flattened group order", () => {
+    const presets = groupedVisibleDeviceFramePresets("");
+    const classicPunchHoleIndex = presets.findIndex(({ id }) => id === "android-phone");
+    const adjacentIndex = nextDeviceFrameCardIndex(
+      "ArrowRight",
+      classicPunchHoleIndex,
+      presets.length,
+    );
+
+    expect(adjacentIndex).not.toBeNull();
+    expect(presets[adjacentIndex!]?.id).toBe("phone-modern-dark");
   });
 });

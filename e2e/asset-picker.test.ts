@@ -200,11 +200,23 @@ describe("Project asset picker", () => {
     expect(await selectedFrame.getAttribute("aria-pressed")).toBe("true");
     await presetDialog.getByLabel("Search frames").fill("phone-modern-dark");
     await presetDialog.getByText("No frames match", { exact: false }).waitFor();
-    await presetDialog.getByLabel("Search frames").fill("Classic Desktop");
-    const desktopFrame = presetDialog.getByRole("button", { name: "Classic Desktop" });
+    await presetDialog.getByLabel("Search frames").fill("");
+    const classicPunchHole = presetDialog.getByRole("button", { name: "Classic Punch-Hole Phone" });
+    const adjacentPhone = presetDialog.getByRole("button", { name: "Modern Phone — Dark, Recommended" });
+    await classicPunchHole.focus();
+    await classicPunchHole.press("ArrowRight");
+    await expect.poll(() => adjacentPhone.evaluate((element) => document.activeElement === element)).toBe(true);
+    await adjacentPhone.press("Escape");
+    await presetDialog.waitFor({ state: "hidden" });
+    await expect.poll(() => chooseFrame.evaluate((element) => document.activeElement === element)).toBe(true);
+
+    await chooseFrame.click();
+    const reopenedPresetDialog = page.getByRole("dialog", { name: "Device frame picker" });
+    await reopenedPresetDialog.getByLabel("Search frames").fill("Classic Desktop");
+    const desktopFrame = reopenedPresetDialog.getByRole("button", { name: "Classic Desktop" });
     await desktopFrame.focus();
     await desktopFrame.press("Enter");
-    await presetDialog.waitFor({ state: "hidden" });
+    await reopenedPresetDialog.waitFor({ state: "hidden" });
     await expect.poll(() => chooseFrame.evaluate((element) => document.activeElement === element)).toBe(true);
     await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       deviceType: "desktop",
