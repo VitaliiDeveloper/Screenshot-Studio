@@ -27,6 +27,10 @@ const validProject = {
   }],
 };
 
+// The first successful import performs a real Sharp decode. Native decoder startup can exceed
+// Vitest's 5 s default on a cold, contended CI runner even though warm local runs take about 1 s.
+const COLD_IMAGE_DECODE_TIMEOUT_MS = 15_000;
+
 function projectJson(name = "Assets"): string {
   return JSON.stringify({
     ...validProject,
@@ -85,7 +89,7 @@ describe("/api/assets", () => {
     });
     expect(await readFile(join(directory, "assets/imported/Finder-capture.png"))).toEqual(imageBytes);
     expect(await readFile(projectPath)).toEqual(before);
-  }, 15_000);
+  }, COLD_IMAGE_DECODE_TIMEOUT_MS);
 
   it("rejects undecodable bytes and a stale project revision without publishing", async () => {
     const invalid = await handleAssetPost(
