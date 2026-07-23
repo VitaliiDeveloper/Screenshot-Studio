@@ -79,10 +79,7 @@ describe("representative cross-browser editor smoke", () => {
         expect(inserted.type).toBe("shape");
         await page.reload({ waitUntil: "load" });
         await page.waitForSelector("canvas");
-        await page.getByRole("button", {
-          name: `${secondScreen.name} · ${secondScreen.device}`,
-          exact: true,
-        }).click();
+        await page.getByRole("heading", { name: "Add", exact: true }).waitFor({ state: "visible" });
         const structurePanel = page.getByRole("button", {
           name: "Structure panel",
           exact: true,
@@ -90,6 +87,10 @@ describe("representative cross-browser editor smoke", () => {
         if ((await structurePanel.getAttribute("aria-pressed")) !== "true") {
           await structurePanel.click();
         }
+        await page.getByRole("button", {
+          name: `${secondScreen.name} · ${secondScreen.device}`,
+          exact: true,
+        }).click();
         const layers = page.getByRole("list", { name: `Layers for ${secondScreen.name}` });
         await layers.waitFor();
         expect(await layers.getByRole("button", { name: "Shape", exact: true }).count()).toBe(priorShapeCount + 1);

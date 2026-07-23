@@ -10,6 +10,7 @@ import { startWebServer, type RunningServer } from "@screenshot-studio/cli/serve
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixturePath = resolve(repoRoot, "fixtures/regressions/connected-canvas/app-store-screenshots.json");
 const imagePath = resolve(repoRoot, "fixtures/sample/assets/demo-logistics-app.png");
+const MAX_INITIAL_MEDIA_HEIGHT = 600;
 
 let server: RunningServer;
 let browser: Browser;
@@ -36,6 +37,14 @@ afterAll(async () => {
 
 function project() {
   return JSON.parse(readFileSync(projectPath, "utf8"));
+}
+
+function expectInitialMediaSize(
+  element: { width: number; height: number },
+  source: { width: number; height: number },
+) {
+  expect(element.height).toBe(MAX_INITIAL_MEDIA_HEIGHT);
+  expect(element.width / element.height).toBeCloseTo(source.width / source.height);
 }
 
 describe("Project asset picker", () => {
@@ -82,22 +91,27 @@ describe("Project asset picker", () => {
       name: "Use assets/demo-logistics-app.png",
     });
     await reopenedScreenshotOption.waitFor();
-    await expect.poll(() => reopenedScreenshotOption.locator("img").evaluate((image) => (
+    const screenshotThumbnail = reopenedScreenshotOption.locator("img");
+    await expect.poll(() => screenshotThumbnail.evaluate((image) => (
       image.complete && image.naturalWidth > 0
     ))).toBe(true);
+    const sourceDimensions = await screenshotThumbnail.evaluate((image) => ({
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+    }));
     await reopenedScreenshotOption.click();
     await reopenedScreenshotDialog.waitFor({ state: "hidden" });
 
     await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(2);
-    expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
+    const insertedScreenshot = project().layouts[0].screens[0].elements.at(-1);
+    expect(insertedScreenshot).toMatchObject({
       type: "screenshot",
       assetUrl: "assets/demo-logistics-app.png",
       fit: "cover",
       x: 100,
       y: 100,
-      width: 300,
-      height: 300,
     });
+    expectInitialMediaSize(insertedScreenshot, sourceDimensions);
     expect(project().layouts[0].screens[1].elements).toHaveLength(1);
 
     await page.getByRole("button", { name: "Image", exact: true }).click();
@@ -107,18 +121,18 @@ describe("Project asset picker", () => {
     await imageDialog.waitFor({ state: "hidden" });
 
     await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(3);
-    expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
+    const insertedImage = project().layouts[0].screens[0].elements.at(-1);
+    expect(insertedImage).toMatchObject({
       type: "image",
       assetUrl: "assets/demo-logistics-app.png",
       fit: "contain",
       cornerRadius: 0,
       x: 100,
       y: 100,
-      width: 300,
-      height: 300,
     });
-    await page.getByLabel("Fit", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "cover", exact: true }).click();
+    expectInitialMediaSize(insertedImage, sourceDimensions);
+    await page.getByLabel("Content mode", { exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Fill", exact: true }).click();
     await page.getByLabel("Corner radius", { exact: true }).fill("24");
     await page.getByLabel("Corner radius", { exact: true }).blur();
     await page.getByLabel("Focal X %", { exact: true }).fill("25");

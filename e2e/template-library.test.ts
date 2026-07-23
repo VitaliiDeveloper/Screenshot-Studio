@@ -65,9 +65,10 @@ describe("template library UI", () => {
     await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     const templatesButton = page.getByRole("button", { name: /Screen templates/ });
     await templatesButton.click();
-    await page.getByRole("dialog", { name: "Screen template library" }).waitFor({ state: "visible" });
+    const templateDialog = page.getByRole("dialog", { name: "Screen template library" });
+    await templateDialog.waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
-    expect(await page.getByRole("dialog", { name: "Screen template library" }).count()).toBe(0);
+    await templateDialog.waitFor({ state: "hidden" });
     expect(await templatesButton.evaluate((node) => document.activeElement === node)).toBe(true);
     await templatesButton.click();
     const builtInRow = page.getByTestId("template-row-web-desktop-starter");

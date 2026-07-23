@@ -80,6 +80,12 @@ async function expectNoSeriousOrCriticalViolations(page: Page, state: string): P
   expect(blockers, `${state}: ${JSON.stringify(blockers, null, 2)}`).toEqual([]);
 }
 
+async function waitForElementAnimations(element: import("playwright").Locator): Promise<void> {
+  await element.evaluate(async (node) => {
+    await Promise.all(node.getAnimations().map((animation) => animation.finished));
+  });
+}
+
 describe("editor accessibility states", () => {
   it("has no serious or critical violations across desktop shell, panels, menus, dialogs, and alerts", async () => {
     const { context, page } = await openEditor({ width: 1440, height: 1000 });
@@ -103,9 +109,12 @@ describe("editor accessibility states", () => {
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "Manage locales", exact: true }).click();
-    await page.getByRole("dialog", { name: "Locale manager", exact: true }).waitFor();
+    const desktopLocaleDialog = page.getByRole("dialog", { name: "Locale manager", exact: true });
+    await desktopLocaleDialog.waitFor();
+    await waitForElementAnimations(desktopLocaleDialog);
     await expectNoSeriousOrCriticalViolations(page, "desktop locale dialog");
     await page.getByRole("button", { name: "Close locale manager", exact: true }).click();
+    await desktopLocaleDialog.waitFor({ state: "hidden" });
 
     await openPanel(page, "Structure panel");
     await page.getByRole("button", { name: "Hero headline", exact: true }).click();
@@ -140,7 +149,9 @@ describe("editor accessibility states", () => {
     await expectNoSeriousOrCriticalViolations(page, "compact add panel");
 
     await page.getByRole("button", { name: "Manage locales", exact: true }).click();
-    await page.getByRole("dialog", { name: "Locale manager", exact: true }).waitFor();
+    const compactLocaleDialog = page.getByRole("dialog", { name: "Locale manager", exact: true });
+    await compactLocaleDialog.waitFor();
+    await waitForElementAnimations(compactLocaleDialog);
     await expectNoSeriousOrCriticalViolations(page, "compact locale dialog");
     await context.close();
   });

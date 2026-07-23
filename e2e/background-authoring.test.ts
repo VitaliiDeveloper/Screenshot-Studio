@@ -94,8 +94,9 @@ describe("background authoring", () => {
     const dialog = page.getByRole("dialog", { name: "Background asset picker" });
     await dialog.waitFor({ state: "visible" });
     await dialog.getByRole("button", { name: "Use assets/background.png" }).click();
-    await inspector.getByLabel("Fit", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "contain", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await inspector.getByLabel("Content mode", { exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Fit", exact: true }).click();
     await inspector.getByLabel("Fallback", { exact: true }).fill("#123456");
     await inspector.getByLabel("Fallback", { exact: true }).blur();
     await expect.poll(() => background()).toMatchObject({

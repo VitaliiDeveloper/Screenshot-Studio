@@ -71,6 +71,8 @@ describe("icon authoring", () => {
     expect(elements()[0]).toMatchObject({ icon: "heart", color: "#ff0066" });
 
     await page.reload({ waitUntil: "load" });
+    await page.getByRole("heading", { name: "Add", exact: true }).waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     const layers = page.getByRole("list", { name: "Layers for First" });
     await layers.waitFor({ state: "visible" });
     await layers.getByRole("button", { name: "Icon", exact: true }).click();
