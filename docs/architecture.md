@@ -83,15 +83,27 @@ than implementing their own platform- or size-specific rules. Removing an exact 
 the complete size row; it is distinct from deleting one independent screen slot.
 
 `store-specs.json` is the runtime authority for configured Apple, Android, Windows, and Web output
-families and exact dimensions. Device frames are presentation elements only: they neither select a
-platform nor determine an export size. Non-device targets such as the Android Play Feature Graphic
-live in the platform-level `$outputs` catalog and are identified by target metadata rather than by a
-fake device or frame. Play Feature Graphic is an exact `kind: "promotion"` target in the Android
-phone output family. The creation starter materializes it as a standalone exact-target screen in an
-independent set, so its default bundle contains no structural phone portrait. Landscape iPad and
-Android tablet templates materialize their exact target as an ordinary `variantOf`/`storeTargetId`
-screen beside the family lead root, so export never falls back to a portrait lead target with a
-different aspect ratio.
+families and exact dimensions. The catalog is deliberately curated, not an archive of every size a
+store has accepted historically: Apple entries cover selected accepted sizes, while Google Play and
+Microsoft Store entries are recommended presets within their broader requirements. Store rules can
+change independently of an application release. Before submission, compare the runtime catalog with
+the official [App Store screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/),
+[Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en),
+and [Microsoft Store screenshot guidance](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images).
+Documentation may explain policy, but it must not duplicate the dimensions or become a competing
+source of runtime truth.
+
+Device frames are presentation elements only: they neither select a destination/device family nor
+determine an export size. Bundled presets use renderer-owned, brand-neutral vector geometry; official
+Apple device artwork and other vendor frame assets are not bundled. A persisted frame preset id
+therefore selects visual treatment inside the artboard, not a claim about the exported target or a
+specific hardware model. Non-device targets such as the Android Play Feature Graphic live in the
+platform-level `$outputs` catalog and are identified by target metadata rather than by a fake device
+or frame. Play Feature Graphic is an exact `kind: "promotion"` target in the Android phone output
+family. The creation starter materializes it as a standalone exact-target screen in an independent
+set, so its default bundle contains no structural phone portrait. Landscape iPad and Android tablet
+templates materialize their exact target as an ordinary `variantOf`/`storeTargetId` screen beside the
+family lead root, so export never falls back to a portrait lead target with a different aspect ratio.
 When no explicit `STORE_SPECS_PATH` is configured, the web runtime resolves this authority from the
 invocation/workspace root even when a package runner changes its process directory to `apps/web`.
 The exporter validates configured targets, exact dimensions, opaque output, and safe paths; it does
@@ -199,6 +211,8 @@ initializes such a project, then defers to its generated guide.
 - Put durable data/render/persistence constraints here; put UI semantics and component conventions in
   [`docs/editor.md`](editor.md).
 - Keep store sizes in `store-specs.json` and validate new outputs against it.
+- Treat that file as a curated runtime catalog, not a promise of exhaustive historical store sizes;
+  verify changing submission rules against the official store documentation linked above.
 - Treat schema widening, filesystem publication, session identity, and render changes as high-risk
   changes with focused tests.
 - Publication is separate from implementation. Candidate verification and owner authorization live in

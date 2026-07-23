@@ -45,7 +45,9 @@ replacing progress with results does not move or resize the dialog.
 UI copy calls App Store, Google Play, Microsoft Store, and Web **destinations**. A destination plus a
 device family is an **output family**. UI surfaces take both labels from the shared core output
 catalog; they do not expose persisted `platform` or `device` IDs as user-facing copy or maintain
-parallel label maps.
+parallel label maps. An **export size** is one exact pixel target inside that family. A **frame
+preset** is only an artboard element's visual style: selecting one must not relabel the destination,
+move the screen to another family, or change its export size.
 
 ## 3. Interaction semantics
 
@@ -198,7 +200,8 @@ an arbitrary local filesystem path.
   screenshot in mockup** is a separate action; an assigned local screenshot can be replaced or
   removed later. The inspector exposes project-image Choose, Replace, and Remove actions rather
   than making users edit the persisted project-relative `assetUrl`. Frames do not change the screen
-  destination, family, or output target.
+  destination, family, or output target. Preset names and thumbnails describe brand-neutral bundled
+  geometry, not official device artwork; official Apple frame artwork is not bundled.
 - Project-image pickers combine reusable images already owned by the project with an explicit system
   file-picker import. A successful import copies the validated image into project-local `assets/`
   storage and immediately applies that resource to the current action; users never enter an asset URL
