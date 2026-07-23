@@ -6,8 +6,10 @@ import {
   Project,
   addScreenToProject,
   createScreenshotElement,
+  destinationLabel,
   getLayout,
   isProjectRelativePath,
+  outputFamilyLabel,
   parseScreenPlacement,
   slugify,
   uniqueId,
@@ -384,8 +386,8 @@ export function discoverCaptureImport(input: {
   const summary = {
     screenCount: captures.length,
     assetCount: assets.length,
-    platforms: count(captures.map(({ platform }) => platform)),
-    devices: count(captures.map(({ platform, device }) => `${platform}/${device}`)),
+    platforms: count(captures.map(({ platform }) => destinationLabel(platform))),
+    devices: count(captures.map(({ platform, device }) => outputFamilyLabel(platform, device))),
     locales: count(captures.map(({ locale }) => locale)),
   };
   const fingerprint = jsonDigest({
@@ -399,12 +401,6 @@ export function discoverCaptureImport(input: {
     invalidEntries,
   });
   return { captures, assets, summary, warnings, invalidEntries, fingerprint };
-}
-
-function displayDevice(device: string): string {
-  if (device === "iphone") return "iPhone";
-  if (device === "ipad") return "iPad";
-  return device.slice(0, 1).toUpperCase() + device.slice(1);
 }
 
 function baseProjectFingerprint(project: ProjectModel): string {
@@ -436,9 +432,7 @@ export function planCaptureImport(input: {
       "imports",
       `${screenId}-${capture.digest.slice(0, IMPORT_DIGEST_LENGTH)}.png`,
     );
-    const name = `${capture.platform.slice(0, 1).toUpperCase()}${capture.platform.slice(1)} ${displayDevice(
-      capture.device,
-    )} ${capture.locale} ${stem}`;
+    const name = `${outputFamilyLabel(capture.platform, capture.device)} · ${capture.locale} · ${stem}`;
     project = addScreenToProject(project, input.layoutId, {
       ...capture,
       id: screenId,

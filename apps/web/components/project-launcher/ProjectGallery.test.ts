@@ -70,18 +70,23 @@ describe("ProjectGallery", () => {
       platforms: [
         "apple:iphone",
         "apple:ipad",
+        "apple:watchos",
         "android:phone",
-        "android:tablet-10",
-        "windows:desktop",
+        "android:tablet-7",
+        "android:wear",
+        "windows:xbox",
         "web:desktop",
         "web:laptop",
         "web",
       ],
     }]);
 
-    expect(markup).toContain("iPhone · iPad · Android · Windows · Desktop · Laptop · Web");
+    expect(markup).toContain(
+      "iPhone · iPad · watchOS · Android phone · 7-inch Android tablet · Wear OS · Xbox · Desktop · Laptop · Web",
+    );
     expect(markup).not.toContain("android:phone");
-    expect(markup).not.toContain("windows:desktop");
+    expect(markup).not.toContain("android:tablet-7");
+    expect(markup).not.toContain("windows:xbox");
     expect(markup).not.toContain(">desktop<");
   });
 

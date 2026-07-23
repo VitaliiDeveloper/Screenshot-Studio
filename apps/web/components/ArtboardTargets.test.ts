@@ -59,6 +59,69 @@ const specs = {
 } as StoreSpecs;
 
 describe("ArtboardTargets", () => {
+  it("names the section Output targets and keeps store-specific size terminology", () => {
+    const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
+      layout,
+      screen,
+      specs,
+      onOpen: vi.fn(),
+      onCreateOutput: vi.fn(),
+      onCreate: vi.fn(),
+      onRemove: vi.fn(),
+      onScreenSetModeChange: vi.fn(),
+    }));
+
+    expect(markup).toContain("Output targets");
+    expect(markup).toContain("Store listing sizes");
+    expect(markup).not.toContain("Store outputs");
+  });
+
+  it("does not offer legacy Web laptop as a new output but keeps an existing family visible", () => {
+    const laptop = {
+      ...screen,
+      id: "web-laptop",
+      device: "laptop",
+      artboard: { width: 1440, height: 900 },
+    } as Screen;
+    const legacySpecs = {
+      web: {
+        desktop: specs.web!.desktop,
+        laptop: [{
+          id: "laptop-1440",
+          label: "Web laptop 1440×900 (lead)",
+          width: 1440,
+          height: 900,
+          orientation: "landscape",
+          kind: "responsive",
+        }],
+      },
+    } as StoreSpecs;
+    const withoutLegacy = renderToStaticMarkup(React.createElement(ArtboardTargets, {
+      layout,
+      screen,
+      specs: legacySpecs,
+      onOpen: vi.fn(),
+      onCreateOutput: vi.fn(),
+      onCreate: vi.fn(),
+      onRemove: vi.fn(),
+      onScreenSetModeChange: vi.fn(),
+    }));
+    const withLegacy = renderToStaticMarkup(React.createElement(ArtboardTargets, {
+      layout: { ...layout, screens: [screen, laptop] },
+      screen: laptop,
+      specs: legacySpecs,
+      onOpen: vi.fn(),
+      onCreateOutput: vi.fn(),
+      onCreate: vi.fn(),
+      onRemove: vi.fn(),
+      onScreenSetModeChange: vi.fn(),
+    }));
+
+    expect(withoutLegacy).toMatch(/aria-label="Add output"[^>]*disabled/);
+    expect(withLegacy).toContain("Web · Laptop");
+    expect(withLegacy).toContain("Web laptop 1440×900");
+  });
+
   it("keeps the lead marker out of the target name and orders it before master", () => {
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout,

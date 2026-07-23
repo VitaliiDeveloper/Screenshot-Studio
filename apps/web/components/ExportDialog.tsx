@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Archive, Download, Images } from "lucide-react";
 import { editorStore } from "@web/lib/editor-store";
+import {
+  destinationLabel,
+  OUTPUT_DEVICE_FAMILIES,
+  type DesignLayout,
+} from "@screenshot-studio/core/model";
 import { withFlushedProject } from "@web/lib/debounced-save";
 import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
 import { fetchActiveProject } from "@web/lib/project-session";
@@ -26,6 +31,22 @@ type ProjectArchiveAvailability =
   | { status: "checking" }
   | { status: "available" }
   | { status: "unavailable"; message: string };
+
+function exportDeviceLabel(
+  layout: DesignLayout,
+  platform: string,
+  device: string,
+): string {
+  const labels = [...new Set(layout.screens
+    .filter((screen) => platform === "all" || screen.platform === platform)
+    .filter((screen) => screen.device === device)
+    .map((screen) => OUTPUT_DEVICE_FAMILIES.find(
+      ({ key }) => key === `${screen.platform}/${screen.device}`,
+    )?.label)
+    .filter((label) => label !== undefined))];
+  if (labels.length === 0) throw new Error(`No output device family configured for ${platform}/${device}`);
+  return labels.join(" / ");
+}
 
 /**
  * Keeps rendered outputs and the portable editable project as distinct export actions. Both paths
@@ -236,7 +257,10 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             <MenuSelect
               ariaLabel="Platform"
               value={platform}
-              options={[{ value: "all", label: "all" }, ...platforms.map((value) => ({ value, label: value }))]}
+              options={[{ value: "all", label: "all" }, ...platforms.map((value) => ({
+                value,
+                label: destinationLabel(value),
+              }))]}
               onChange={(value) => {
                 setPlatform(value);
                 setDevice("all");
@@ -251,7 +275,10 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
             <MenuSelect
               ariaLabel="Device"
               value={device}
-              options={[{ value: "all", label: "all" }, ...devices.map((value) => ({ value, label: value }))]}
+              options={[{ value: "all", label: "all" }, ...devices.map((value) => ({
+                value,
+                label: exportDeviceLabel(layout, platform, value),
+              }))]}
               onChange={(value) => {
                 setDevice(value);
                 setLocale("all");

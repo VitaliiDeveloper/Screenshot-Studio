@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { sameScreenGroup, type DesignLayout, type Screen } from "@screenshot-studio/core/model";
+import {
+  outputFamilyLabel,
+  sameScreenGroup,
+  type DesignLayout,
+  type Screen,
+} from "@screenshot-studio/core/model";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
@@ -24,36 +29,6 @@ export type ResourceDialog =
   | "store-badge-assets"
   | "device-frame-assets";
 
-const PLATFORM_LABELS: Record<string, string> = {
-  apple: "App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-  web: "Web",
-};
-
-const DEVICE_LABELS: Record<string, string> = {
-  iphone: "iPhone",
-  ipad: "iPad",
-  macos: "macOS",
-  tvos: "tvOS",
-  watchos: "watchOS",
-  phone: "Android phone",
-  desktop: "Windows desktop",
-  laptop: "Web laptop",
-  tablet: "Web tablet",
-  mobile: "Web mobile",
-  "tablet-7": "7-inch Android tablet",
-  "tablet-10": "10-inch Android tablet",
-};
-
-const PLATFORM_DEVICE_LABELS: Record<string, string> = {
-  "windows/desktop": "Windows desktop",
-  "web/desktop": "Desktop",
-  "web/laptop": "Laptop",
-  "web/tablet": "Tablet",
-  "web/mobile": "Mobile",
-};
-
 const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   iphone: "iPhone",
   ipad: "iPad",
@@ -70,8 +45,7 @@ const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
 };
 
 export function storeOutputLabel(platform: string, device: string): string {
-  const deviceLabel = PLATFORM_DEVICE_LABELS[`${platform}/${device}`] ?? DEVICE_LABELS[device] ?? device;
-  return `${PLATFORM_LABELS[platform] ?? platform} · ${deviceLabel}`;
+  return outputFamilyLabel(platform, device);
 }
 
 /** Remove output-level device copy from a size label while preserving its useful discriminator. */

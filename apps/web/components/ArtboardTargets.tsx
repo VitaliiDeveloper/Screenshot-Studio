@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 import {
   isPrimaryScreen,
+  OUTPUT_DEVICE_FAMILIES,
   sameOutputFamily,
   screenSetModeFor,
   type DesignLayout,
@@ -77,7 +78,7 @@ export function ArtboardTargets({
   }
 
   if (targets.length === 0) {
-    return <p className="text-xs text-slate-400">No store targets for {screen.platform}/{screen.device}.</p>;
+    return <p className="text-xs text-slate-400">No store listing sizes for {storeOutputLabel(screen.platform, screen.device)}.</p>;
   }
 
   const familyRows = families.map(({ platform, device, sizes }) => {
@@ -104,7 +105,11 @@ export function ArtboardTargets({
   });
   const createdFamilies = familyRows.filter((family) => family.existingRoot);
   const availableFamilies = root
-    ? familyRows.filter((family) => !family.existingRoot && family.leadTarget)
+    ? familyRows.filter((family) => (
+        !family.existingRoot
+        && family.leadTarget
+        && OUTPUT_DEVICE_FAMILIES.some(({ key, creatable }) => key === family.key && creatable)
+      ))
     : [];
   const familyVariantsByTargetId = new Map<string, Screen>();
   const rootVariantsByTargetId = new Map<string, Screen>();
@@ -136,10 +141,10 @@ export function ArtboardTargets({
     >
       <div>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Store outputs</h3>
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Output targets</h3>
           <AddMenu
             ariaLabel="Add output"
-            menuLabel="Available store outputs"
+            menuLabel="Available output targets"
             options={availableFamilies.map((family) => ({
               value: family.key,
               label: family.label,
@@ -171,7 +176,7 @@ export function ArtboardTargets({
         </div> : null}
       </div>
 
-      <div className="flex flex-col gap-1.5" aria-label="Store output families">
+      <div className="flex flex-col gap-1.5" aria-label="Output target families">
         {createdFamilies.map(({ key, platform, device, label, existingRoot }) => {
           const isCurrentFamily = platform === screen.platform && device === screen.device;
           return (
@@ -205,11 +210,11 @@ export function ArtboardTargets({
       <div className="border-t border-slate-100 pt-2.5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-            {storeOutputLabel(screen.platform, screen.device)} sizes
+            Store listing sizes
           </p>
           <AddMenu
             ariaLabel="Add size"
-            menuLabel={`Available ${storeOutputLabel(screen.platform, screen.device)} sizes`}
+            menuLabel={`Available ${storeOutputLabel(screen.platform, screen.device)} store listing sizes`}
             options={availableTargets.map((target) => ({
               value: target.id,
               label: target.label,

@@ -191,6 +191,38 @@ describe("buildProjectHomeSummary", () => {
     ]);
   });
 
+  it("summarizes every destination and representative family with catalog labels", () => {
+    const catalogProject = structuredClone(project);
+    const base = catalogProject.layouts[0]!.screens[0]!;
+    catalogProject.layouts[0]!.screens.push(
+      { ...base, id: "ipad", platform: "apple", device: "ipad" },
+      { ...base, id: "android-tablet", platform: "android", device: "tablet-7" },
+      { ...base, id: "wear", platform: "android", device: "wear" },
+      { ...base, id: "xbox", platform: "windows", device: "xbox" },
+      { ...base, id: "web-desktop", platform: "web", device: "desktop" },
+      { ...base, id: "web-laptop", platform: "web", device: "laptop" },
+    );
+
+    const summary = buildProjectHomeSummary({
+      project: catalogProject,
+      selection: selection(),
+      specs,
+    });
+
+    expect(summary.platforms).toEqual(["App Store", "Google Play", "Microsoft Store", "Web"]);
+    expect(summary.outputFamilies.map(({ label }) => label)).toEqual([
+      "App Store · iPhone",
+      "App Store · iPad",
+      "Google Play · 7-inch Android tablet",
+      "Google Play · Wear OS",
+      "Microsoft Store · Xbox",
+      "Web · Desktop",
+      "Web · Laptop",
+      "Google Play · Android phone",
+    ]);
+    expect(summary.outputFamilies.map(({ label }) => label).join(" ")).not.toContain("tablet-7");
+  });
+
   it("shows an exact local path only when the descriptor safely exposes it", () => {
     const local = buildProjectHomeSummary({
       project,

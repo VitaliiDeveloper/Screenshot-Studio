@@ -76,9 +76,14 @@ describe("editor workspace helpers", () => {
   it("uses human-readable labels for store output families", () => {
     expect(storeOutputLabel("apple", "iphone")).toBe("App Store · iPhone");
     expect(storeOutputLabel("apple", "ipad")).toBe("App Store · iPad");
+    expect(storeOutputLabel("apple", "watchos")).toBe("App Store · watchOS");
     expect(storeOutputLabel("android", "phone")).toBe("Google Play · Android phone");
+    expect(storeOutputLabel("android", "tablet-7")).toBe("Google Play · 7-inch Android tablet");
+    expect(storeOutputLabel("android", "wear")).toBe("Google Play · Wear OS");
     expect(storeOutputLabel("web", "desktop")).toBe("Web · Desktop");
+    expect(storeOutputLabel("web", "laptop")).toBe("Web · Laptop");
     expect(storeOutputLabel("windows", "desktop")).toBe("Microsoft Store · Windows desktop");
+    expect(storeOutputLabel("windows", "xbox")).toBe("Microsoft Store · Xbox");
   });
 
   it("keeps only the size discriminator when the output already names the device", () => {

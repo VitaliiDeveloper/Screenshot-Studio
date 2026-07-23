@@ -68,12 +68,12 @@ describe("discoverCaptureImport", () => {
       screenCount: 2,
       assetCount: 1,
       platforms: [
-        { id: "android", count: 1 },
-        { id: "apple", count: 1 },
+        { id: "App Store", count: 1 },
+        { id: "Google Play", count: 1 },
       ],
       devices: [
-        { id: "android/phone", count: 1 },
-        { id: "apple/iphone", count: 1 },
+        { id: "App Store · iPhone", count: 1 },
+        { id: "Google Play · Android phone", count: 1 },
       ],
       locales: [{ id: "en", count: 2 }],
     });
@@ -113,6 +113,42 @@ describe("discoverCaptureImport", () => {
       },
     ]);
     expect(discovery.invalidEntries).toEqual([]);
+  });
+
+  it("uses catalog labels for every destination and representative device summary", () => {
+    const discovery = discoverCaptureImport({
+      files: [
+        file("apple/iphone/en/01.png"),
+        file("apple/ipad/en/01.png"),
+        file("apple/watchos/en/01.png"),
+        file("android/phone/en/01.png"),
+        file("android/tablet-7/en/01.png"),
+        file("android/wear/en/01.png"),
+        file("windows/xbox/en/01.png"),
+        file("web/desktop/en/01.png"),
+        file("web/laptop/en/01.png"),
+      ],
+    });
+
+    expect(discovery.summary.platforms).toEqual([
+      { id: "App Store", count: 3 },
+      { id: "Google Play", count: 3 },
+      { id: "Microsoft Store", count: 1 },
+      { id: "Web", count: 2 },
+    ]);
+    expect(discovery.summary.devices).toEqual([
+      { id: "App Store · iPad", count: 1 },
+      { id: "App Store · iPhone", count: 1 },
+      { id: "App Store · watchOS", count: 1 },
+      { id: "Google Play · 7-inch Android tablet", count: 1 },
+      { id: "Google Play · Android phone", count: 1 },
+      { id: "Google Play · Wear OS", count: 1 },
+      { id: "Microsoft Store · Xbox", count: 1 },
+      { id: "Web · Desktop", count: 1 },
+      { id: "Web · Laptop", count: 1 },
+    ]);
+    expect(discovery.summary.platforms.map(({ id }) => id)).not.toContain("apple");
+    expect(discovery.summary.devices.map(({ id }) => id)).not.toContain("android/tablet-7");
   });
 
   it("reports unsafe, duplicate portable, hidden, malformed PNG, and bounded inputs as invalid", () => {

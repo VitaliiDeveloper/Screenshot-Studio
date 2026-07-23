@@ -1,15 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
-import type { Project, Screen } from "@screenshot-studio/core/model";
+import { destinationLabel, type Project, type Screen } from "@screenshot-studio/core/model";
 import type { ActiveProjectSelection } from "./project-session.js";
 import { storeOutputLabel } from "./editor-workspace.js";
-
-const PLATFORM_LABELS: Record<string, string> = {
-  apple: "App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-  web: "Web",
-};
 
 const SOURCE_LABELS: Record<string, string> = {
   "local-file": "Local project file",
@@ -158,7 +151,7 @@ export function buildProjectHomeSummary({
   saveError?: string | null;
 }): ProjectHomeSummary {
   const allScreens = project.layouts.flatMap((layout) => layout.screens);
-  const platforms = [...new Set(allScreens.map((screen) => PLATFORM_LABELS[screen.platform] ?? screen.platform))];
+  const platforms = [...new Set(allScreens.map((screen) => destinationLabel(screen.platform)))];
   const locales = [...new Set(allScreens.map((screen) => screen.locale))];
   const emptyScreenCount = allScreens.filter((screen) => screen.elements.length === 0).length;
   const preferred = project.layouts.find((layout) => layout.id === project.preferredExportLayoutId)!;

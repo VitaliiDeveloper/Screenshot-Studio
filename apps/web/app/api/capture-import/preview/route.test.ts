@@ -145,7 +145,7 @@ describe("POST /api/capture-import/preview", () => {
     expect(firstBody).toMatchObject({
       preview: {
         receiving: { kind: "current-project", projectName: "Current receiver", layoutId: "default" },
-        summary: { screenCount: 1, platforms: [{ id: "apple", count: 1 }] },
+        summary: { screenCount: 1, platforms: [{ id: "App Store", count: 1 }] },
         canApply: true,
       },
     });
