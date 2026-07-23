@@ -24,6 +24,7 @@ import type { ImageCache } from "@screenshot-studio/core/assets";
 import { createBadgePrimitive, createDeviceFrameElement, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
   ADD_CATEGORIES,
+  defaultDeviceFrameInputForScreen,
   filterAddCatalog,
   type AddCatalogItem,
   type ResourceDialog,
@@ -135,10 +136,11 @@ function AddPanel({
 }) {
   const [query, setQuery] = useState("");
   const defaultFont = useStore(editorStore, (state) => state.project?.fonts[0]);
-  const activeDirection = useStore(editorStore, (state) =>
+  const activeScreen = useStore(editorStore, (state) =>
     state.project?.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens
-      .find((screen) => screen.id === state.activeScreenId)?.direction ?? "ltr",
+      .find((screen) => screen.id === state.activeScreenId),
   );
+  const activeDirection = activeScreen?.direction ?? "ltr";
   const items = useMemo(() => filterAddCatalog(query), [query]);
 
   const insert = (element: Element) => {
@@ -164,7 +166,7 @@ function AddPanel({
         }));
         break;
       case "insert-device-frame":
-        insert(createDeviceFrameElement());
+        insert(createDeviceFrameElement(defaultDeviceFrameInputForScreen(activeScreen)));
         break;
       case "open-templates":
         onOpenDialog("templates");
@@ -172,7 +174,7 @@ function AddPanel({
       case "open-asset-picker":
         if (item.id === "screenshot") onOpenDialog("screenshot-assets");
         else if (item.id === "image") onOpenDialog("image-assets");
-        else if (item.id === "device-frame-image") onOpenDialog("device-frame-assets");
+        else if (item.id === "device-frame-image") onOpenDialog("mockup-screenshot-assets");
         break;
       case "open-store-badge-picker":
         onOpenDialog("store-badge-assets");

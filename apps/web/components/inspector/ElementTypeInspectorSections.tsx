@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Copy, ImagePlus, Smartphone, Trash2, Ungroup } from "lucide-react";
 import {
-  DEVICE_FRAME_IDS,
-  DEVICE_FRAME_SPECS,
+  deviceFramePreset,
   ICON_IDS,
   MEDIA_BLUR_MAX,
   type Element,
   type FontAsset,
+  type Screen,
 } from "@screenshot-studio/core/model";
 import type { ElementPatchFor } from "@web/lib/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
@@ -24,6 +26,11 @@ import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 
+const DeviceFramePresetPicker = dynamic(
+  () => import("../DeviceFramePresetPicker").then((module) => module.DeviceFramePresetPicker),
+  { ssr: false },
+);
+
 export function ElementTypeInspectorSections({
   element,
   fonts,
@@ -31,6 +38,7 @@ export function ElementTypeInspectorSections({
   onDuplicate,
   onUngroup,
   onChooseDeviceFrameAsset,
+  screen,
 }: {
   element: Element;
   fonts: FontAsset[];
@@ -38,7 +46,9 @@ export function ElementTypeInspectorSections({
   onDuplicate: () => void;
   onUngroup: () => void;
   onChooseDeviceFrameAsset?: () => void;
+  screen?: Pick<Screen, "platform" | "device" | "artboard">;
 }) {
+  const [framePickerOpen, setFramePickerOpen] = useState(false);
   const patchText = (change: ElementPatchFor<"text">) => onPatch(element.id, "text", change);
   const patchShape = (change: ElementPatchFor<"shape">) => onPatch(element.id, "shape", change);
   const patchScreenshot = (change: ElementPatchFor<"screenshot">) => onPatch(element.id, "screenshot", change);
@@ -231,10 +241,36 @@ export function ElementTypeInspectorSections({
               <NumberField label="Blur radius" value={element.blur} min={0} max={MEDIA_BLUR_MAX} step={1} onChange={(blur) => patchDeviceFrame({ blur: blur === 0 ? null : blur })} />
             ) : null}
           </OptionalInspectorEffect>
-          <SelectField label="Frame preset" value={element.deviceType} options={DEVICE_FRAME_IDS} onChange={(deviceType) => patchDeviceFrame({
-            deviceType,
-            height: element.width / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
-          })} />
+          <InsetPanel>
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-[10px] font-medium uppercase tracking-[0.1em] text-[color:var(--editor-color-text-muted)]">
+                  Frame
+                </span>
+                <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--editor-color-text-strong)]">
+                  {deviceFramePreset(element.deviceType).label}
+                </span>
+              </span>
+              <button
+                type="button"
+                className={editorUi.buttonSecondary}
+                onClick={() => setFramePickerOpen(true)}
+              >
+                Choose frame
+              </button>
+            </div>
+          </InsetPanel>
+          {framePickerOpen ? (
+            <DeviceFramePresetPicker
+              selectedId={element.deviceType}
+              screen={screen}
+              onSelect={(deviceType) => patchDeviceFrame({
+                deviceType,
+                height: element.width / deviceFramePreset(deviceType).recipe.spec.aspectRatio,
+              })}
+              onClose={() => setFramePickerOpen(false)}
+            />
+          ) : null}
         </Section>
       )}
     </>

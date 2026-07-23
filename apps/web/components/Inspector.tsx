@@ -190,6 +190,7 @@ export function Inspector({
             onPatch={patch}
             onDuplicate={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
             onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
+            screen={screen}
             onChooseDeviceFrameAsset={element.type === "device-frame" && selectedItems[0]
               ? () => onOpenDeviceFrameAsset?.({
                 elementId: element.id,

@@ -27,7 +27,7 @@ import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-tr
  * screen-local element coordinates without changing persisted ownership or geometry. Connected
  * Focus uses the same projection with the active artboard as a non-interactive exact crop preview.
  */
-function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
+export function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
   switch (child.konva) {
     case "Image":
       return <FilteredKonvaImage key={key} nodeConfig={child} name={name} listening={listening} />;

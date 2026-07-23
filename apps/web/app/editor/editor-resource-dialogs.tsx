@@ -45,7 +45,7 @@ export function EditorResourceDialogs({
       {dialog === "store-badge-assets" ? (
         <AssetPickerDialog elementType="store-badge" cacheAsset={cacheImage} onClose={closeDialog} />
       ) : null}
-      {dialog === "device-frame-assets" ? (
+      {dialog === "mockup-screenshot-assets" ? (
         <AssetPickerDialog
           elementType="device-frame"
           targetDeviceFrame={deviceFrameAssetTarget ?? undefined}

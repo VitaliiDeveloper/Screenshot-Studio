@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
+  DEVICE_FRAME_PRESETS,
   outputFamilyLabel,
   sameScreenGroup,
+  type DeviceFrameId,
+  type DeviceFrameRecommendation,
   type DesignLayout,
   type Screen,
 } from "@screenshot-studio/core/model";
@@ -27,7 +30,102 @@ export type ResourceDialog =
   | "image-assets"
   | "background-assets"
   | "store-badge-assets"
-  | "device-frame-assets";
+  | "mockup-screenshot-assets";
+
+type DeviceFrameScreenContext = Pick<Screen, "platform" | "device" | "artboard">;
+
+export interface DeviceFrameContext {
+  readonly recommendedPresetId: DeviceFrameId;
+  readonly recommendation: DeviceFrameRecommendation;
+  readonly unsuitablePresetIds: readonly DeviceFrameId[];
+  /** Optional insertion-only ratio for store surfaces that require an unadorned exact shape. */
+  readonly insertionAspectRatio?: number;
+}
+
+const decoratedWatchPresetIds = DEVICE_FRAME_PRESETS
+  .filter((preset) => preset.group === "wearable" && preset.finish !== "frameless")
+  .map(({ id }) => id);
+
+/** Transient authoring guidance; no recommendation or suitability data is persisted. */
+export function deviceFrameContextForScreen(
+  screen?: DeviceFrameScreenContext | null,
+): DeviceFrameContext {
+  if (!screen) {
+    return {
+      recommendedPresetId: "iphone",
+      recommendation: "mobile",
+      unsuitablePresetIds: [],
+    };
+  }
+
+  const key = `${screen.platform}/${screen.device}`;
+  if (key === "android/wear") {
+    return {
+      recommendedPresetId: "frameless-phone",
+      recommendation: "wearable",
+      unsuitablePresetIds: decoratedWatchPresetIds,
+      insertionAspectRatio: screen.artboard.width / screen.artboard.height,
+    };
+  }
+
+  const recommendation = (() => {
+    switch (key) {
+      case "apple/iphone":
+      case "android/phone":
+      case "web/mobile":
+        return ["phone-modern-dark", "mobile"] as const;
+      case "apple/ipad":
+      case "android/tablet-7":
+      case "android/tablet-10":
+      case "web/tablet":
+        return ["tablet-rounded-light", "tablet"] as const;
+      case "web/desktop":
+        return ["browser-dark", "web"] as const;
+      case "apple/macos":
+      case "android/chromebook":
+      case "windows/desktop":
+      case "web/laptop":
+        return ["laptop-silver", "desktop"] as const;
+      case "apple/tvos":
+      case "android/tv":
+      case "windows/xbox":
+        return ["display-stand", "television"] as const;
+      case "apple/watchos":
+        return ["watch-square", "wearable"] as const;
+      case "android/automotive":
+        return ["automotive-display", "automotive"] as const;
+      case "apple/visionos":
+      case "android/xr":
+      case "windows/holographic":
+        return ["xr-viewport", "spatial"] as const;
+      default:
+        // The strict Screen schema currently makes this unreachable. Keep an active but future
+        // family on the semantic catalog instead of silently falling back to the legacy preset.
+        return ["phone-modern-dark", "mobile"] as const;
+    }
+  })();
+
+  return {
+    recommendedPresetId: recommendation[0],
+    recommendation: recommendation[1],
+    unsuitablePresetIds: [],
+  };
+}
+
+export function defaultDeviceFrameInputForScreen(
+  screen?: DeviceFrameScreenContext | null,
+): { deviceType: DeviceFrameId; width?: number; height?: number } {
+  const context = deviceFrameContextForScreen(screen);
+  if (context.insertionAspectRatio === undefined) {
+    return { deviceType: context.recommendedPresetId };
+  }
+  const width = 300;
+  return {
+    deviceType: context.recommendedPresetId,
+    width,
+    height: width / context.insertionAspectRatio,
+  };
+}
 
 const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   iphone: "iPhone",

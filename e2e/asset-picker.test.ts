@@ -147,7 +147,7 @@ describe("Project asset picker", () => {
     });
 
     await page.getByRole("button", { name: "Place screenshot in mockup", exact: true }).click();
-    const frameDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
+    const frameDialog = page.getByRole("dialog", { name: "Mockup screenshot picker" });
     await frameDialog.waitFor({ state: "visible" });
     await frameDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
     await frameDialog.waitFor({ state: "hidden" });
@@ -155,7 +155,7 @@ describe("Project asset picker", () => {
     await expect.poll(() => project().layouts[0].screens[0].elements.length).toBe(4);
     expect(project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
       type: "device-frame",
-      deviceType: "iphone",
+      deviceType: "phone-modern-dark",
       assetUrl: "assets/demo-logistics-app.png",
       fit: "cover",
       x: 100,
@@ -170,21 +170,56 @@ describe("Project asset picker", () => {
     await page.getByText("No screenshot assigned", { exact: true }).waitFor();
 
     await page.getByRole("button", { name: "Choose screenshot", exact: true }).click();
-    const assignmentDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
+    const assignmentDialog = page.getByRole("dialog", { name: "Mockup screenshot picker" });
     await assignmentDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
     await assignmentDialog.waitFor({ state: "hidden" });
     await expect.poll(() => project().layouts[0].screens[0].elements.at(-1).assetUrl)
       .toBe("assets/demo-logistics-app.png");
     expect(project().layouts[0].screens[0].elements).toHaveLength(4);
 
-    await page.getByLabel("Frame preset", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "desktop", exact: true }).click();
+    await page.getByLabel("Content mode", { exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Fit", exact: true }).click();
+    await page.getByRole("button", { name: "Add content blur" }).click();
+    await page.getByLabel("X", { exact: true }).fill("140");
+    await page.getByLabel("X", { exact: true }).blur();
+    await page.getByLabel("Y", { exact: true }).fill("120");
+    await page.getByLabel("Y", { exact: true }).blur();
+    await page.getByLabel("Width", { exact: true }).fill("320");
+    await page.getByLabel("Width", { exact: true }).blur();
+    await page.getByLabel("Rotation", { exact: true }).fill("5");
+    await page.getByLabel("Rotation", { exact: true }).blur();
+
+    const chooseFrame = page.getByRole("button", { name: "Choose frame", exact: true });
+    await chooseFrame.click();
+    const presetDialog = page.getByRole("dialog", { name: "Device frame picker" });
+    await presetDialog.waitFor({ state: "visible" });
+    await expect.poll(() => presetDialog.getByText("phone-modern-dark", { exact: true }).count()).toBe(0);
+    const selectedFrame = presetDialog.getByRole("button", {
+      name: "Modern Phone — Dark, Recommended",
+    });
+    expect(await selectedFrame.getAttribute("aria-pressed")).toBe("true");
+    await presetDialog.getByLabel("Search frames").fill("phone-modern-dark");
+    await presetDialog.getByText("No frames match", { exact: false }).waitFor();
+    await presetDialog.getByLabel("Search frames").fill("Classic Desktop");
+    const desktopFrame = presetDialog.getByRole("button", { name: "Classic Desktop" });
+    await desktopFrame.focus();
+    await desktopFrame.press("Enter");
+    await presetDialog.waitFor({ state: "hidden" });
+    await expect.poll(() => chooseFrame.evaluate((element) => document.activeElement === element)).toBe(true);
     await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
-      deviceType: "desktop", width: 300, height: 187.5,
+      deviceType: "desktop",
+      assetUrl: "assets/demo-logistics-app.png",
+      fit: "contain",
+      blur: 8,
+      x: 140,
+      y: 120,
+      width: 320,
+      height: 200,
+      rotation: 5,
     });
 
     await page.getByRole("button", { name: "Replace screenshot", exact: true }).click();
-    const importDialog = page.getByRole("dialog", { name: "Device frame asset picker" });
+    const importDialog = page.getByRole("dialog", { name: "Mockup screenshot picker" });
     await importDialog.getByLabel("Choose image from device").setInputFiles({
       name: "finder-device-shot.png",
       mimeType: "image/png",

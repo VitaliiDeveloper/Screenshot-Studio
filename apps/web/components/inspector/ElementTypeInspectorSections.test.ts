@@ -102,6 +102,15 @@ describe("ElementTypeInspectorSections device mockup assets", () => {
     expect(markup).toContain("Replace screenshot");
     expect(markup).toContain('aria-label="Remove screenshot from device mockup"');
   });
+
+  it("summarizes the human frame name and opens a visual picker instead of exposing raw IDs", () => {
+    const markup = renderDeviceFrame(deviceFrame);
+
+    expect(markup).toContain("Classic Punch-Hole Phone");
+    expect(markup).toContain("Choose frame");
+    expect(markup).not.toContain('aria-label="Frame preset"');
+    expect(markup).not.toContain(">android-phone<");
+  });
 });
 
 describe("ElementTypeInspectorSections media content mode", () => {

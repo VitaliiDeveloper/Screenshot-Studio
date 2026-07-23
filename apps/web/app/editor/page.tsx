@@ -252,7 +252,7 @@ export default function EditorPage() {
             onOpenBackgroundAsset={() => setDialog("background-assets")}
             onOpenDeviceFrameAsset={(target) => {
               setDeviceFrameAssetTarget(target);
-              setDialog("device-frame-assets");
+              setDialog("mockup-screenshot-assets");
             }}
             onClose={() => setInspectorOpen(false)}
             className="!w-full"
