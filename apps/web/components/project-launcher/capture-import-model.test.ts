@@ -5,6 +5,7 @@ import {
   canPreviewCaptureImport,
   createCaptureImportState,
   reduceCaptureImportState,
+  type CaptureImportAction,
   type CaptureImportCurrentTarget,
   type CaptureImportState,
 } from "./capture-import-model.js";
@@ -48,6 +49,14 @@ describe("capture import model", () => {
     state = reduceCaptureImportState(state, {
       type: "change-new-project", patch: { platform: "android" },
     });
+    expect(state).toMatchObject({
+      draft: { newProject: { platform: "android", device: "phone" } },
+    });
+
+    state = reduceCaptureImportState(state, {
+      type: "change-new-project",
+      patch: { platform: "android", device: "wear" },
+    } as CaptureImportAction);
     expect(state).toMatchObject({
       draft: { newProject: { platform: "android", device: "phone" } },
     });

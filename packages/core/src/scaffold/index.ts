@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from "zod";
 import { collectImageUrls } from "@screenshot-studio/core/assets";
-import type { StoreSpecs } from "@screenshot-studio/core/export";
+import {
+  findStoreTarget,
+  leadStoreSizeId,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import {
   CanvasMode,
   DEFAULT_BLANK_SCREEN_COLOR,
@@ -148,8 +152,12 @@ export function listStarterProjectTemplates(): ProjectTemplateSummary[] {
 }
 
 function leadArtboard(specs: StoreSpecs, input: ProjectScaffoldInput): { width: number; height: number } {
-  const size = specs[input.platform]?.[input.device]?.[0];
-  if (!size) throw new Error(`No lead store size is configured for ${input.platform}/${input.device}`);
+  const size = findStoreTarget(
+    specs,
+    input.platform,
+    input.device,
+    leadStoreSizeId(input.platform, input.device),
+  );
   return { width: size.width, height: size.height };
 }
 

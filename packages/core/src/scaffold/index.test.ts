@@ -2,7 +2,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildBundleEntries, parseStoreSpecs, validateBundleArtboards, type StoreSpecs } from "@screenshot-studio/core/export";
+import {
+  buildBundleEntries,
+  findStoreTarget,
+  leadStoreSizeId,
+  parseStoreSpecs,
+  validateBundleArtboards,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import { parseProject, screenSetModeFor } from "@screenshot-studio/core/model";
 import { applyDesignPack, listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
 import {
@@ -16,12 +23,20 @@ import {
 } from "./index.js";
 
 const specs: StoreSpecs = parseStoreSpecs({
-  apple: { iphone: [{ id: "lead", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "lead", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "lead", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-  web: { desktop: [{ id: "lead", label: "Web lead", width: 1920, height: 1080, orientation: "landscape" }] },
+  apple: { iphone: [{ id: "6.9", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
+  android: { phone: [{ id: "phone-portrait", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
+  windows: { desktop: [{ id: "4k", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
+  web: { desktop: [{ id: "desktop-1920", label: "Web lead", width: 1920, height: 1080, orientation: "landscape" }] },
 });
 const fullSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
+const reorderedLeadSpecs = parseStoreSpecs({
+  apple: {
+    iphone: [
+      { id: "6.1", label: "6.1-inch display", width: 1179, height: 2556, orientation: "portrait" },
+      { id: "6.9", label: "6.9-inch display", width: 1320, height: 2868, orientation: "portrait" },
+    ],
+  },
+});
 
 describe("ProjectScaffoldInput", () => {
   it("exports and enforces one project name length limit", () => {
@@ -99,11 +114,20 @@ describe("createProjectScaffold", () => {
     const scaffold = createProjectScaffold(ProjectScaffoldInput.parse({
       name: `${platform} ${device}`, platform, device, layoutMode: "isolated", templateId: null,
     }), fullSpecs);
-    const expected = fullSpecs[platform]![device]![0]!;
+    const expected = findStoreTarget(fullSpecs, platform, device, leadStoreSizeId(platform, device));
 
     expect(scaffold.project.layouts[0]!.screens[0]).toMatchObject({
       platform, device, artboard: { width: expected.width, height: expected.height },
     });
+  });
+
+  it("uses the catalog-declared lead target regardless of store-spec target order", () => {
+    const scaffold = createProjectScaffold({
+      name: "Ordered by catalog", platform: "apple", device: "iphone",
+      layoutMode: "isolated", templateId: null,
+    }, reorderedLeadSpecs);
+
+    expect(scaffold.project.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
   });
 
   it("creates a valid empty project using the selected platform lead size and layout mode", () => {

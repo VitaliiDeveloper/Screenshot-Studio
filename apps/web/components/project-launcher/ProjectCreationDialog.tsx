@@ -59,7 +59,10 @@ export function ProjectCreationDialog({
   const statusMessageVisible = state.status === "error";
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!busy) onSubmit();
+    if (!busy) {
+      event.currentTarget.closest<HTMLElement>("[role='dialog']")?.focus({ preventScroll: true });
+      onSubmit();
+    }
   };
   const changePlatform = (platform: ProjectCreationForm["platform"]) => {
     const currentDeviceIsValid = OUTPUT_DEVICE_FAMILIES.some(({ key, creatable }) => (

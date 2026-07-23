@@ -37,7 +37,7 @@ export type ProjectCreationAction =
 const DEFAULT_FORM: ProjectCreationForm = {
   name: "My App Screenshots",
   platform: "apple",
-  device: "iphone",
+  device: recommendedDeviceForPlatform("apple"),
   layoutMode: "isolated",
   templateId: null,
 };

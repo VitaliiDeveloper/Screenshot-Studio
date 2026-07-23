@@ -2,7 +2,11 @@
 import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
-import { createProjectScaffold, projectScaffoldFiles } from "@screenshot-studio/core/scaffold";
+import {
+  createProjectScaffold,
+  projectScaffoldFiles,
+  recommendedDeviceForPlatform,
+} from "@screenshot-studio/core/scaffold";
 import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
 
 /**
@@ -55,7 +59,7 @@ export async function runInit(
   const scaffoldFiles = projectScaffoldFiles(createProjectScaffold({
     name: projectName ?? "My App Screenshots",
     platform: "apple",
-    device: "iphone",
+    device: recommendedDeviceForPlatform("apple"),
     layoutMode: "isolated",
     templateId: null,
   }, storeSpecs));

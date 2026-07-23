@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { parseProjectJson } from "@screenshot-studio/core/model";
-import { createProjectScaffold, projectScaffoldFiles } from "@screenshot-studio/core/scaffold";
+import {
+  createProjectScaffold,
+  projectScaffoldFiles,
+  recommendedDeviceForPlatform,
+} from "@screenshot-studio/core/scaffold";
 import { runInit } from "./init.js";
 
 const storeSpecs = parseStoreSpecs(JSON.parse(
@@ -30,7 +34,7 @@ describe("runInit", () => {
     expect(bytes).toBe(new TextDecoder().decode(projectScaffoldFiles(createProjectScaffold({
       name: "Launch Deck",
       platform: "apple",
-      device: "iphone",
+      device: recommendedDeviceForPlatform("apple"),
       layoutMode: "isolated",
       templateId: null,
     }, storeSpecs))[0]!.bytes));

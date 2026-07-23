@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
-import {
-  isDeviceSupportedForPlatform,
-  recommendedDeviceForPlatform,
-} from "@screenshot-studio/core/scaffold";
+import { recommendedDeviceForPlatform } from "@screenshot-studio/core/scaffold";
 import type {
   CaptureImportDestination,
   CaptureImportPreview,
@@ -55,12 +52,18 @@ export type CaptureImportState =
   | ApplyingState
   | ErrorState;
 
+type CaptureImportNewProjectPatch = Partial<{
+  name: ProjectScaffoldInput["name"];
+  platform: ProjectScaffoldInput["platform"];
+  layoutMode: ProjectScaffoldInput["layoutMode"];
+}>;
+
 export type CaptureImportAction =
   | { type: "open"; currentTarget: CaptureImportCurrentTarget | null }
   | { type: "choose-files"; files: readonly File[] }
   | { type: "choose-destination"; kind: CaptureImportDestination["kind"] }
   | { type: "choose-current-layout"; layoutId: string }
-  | { type: "change-new-project"; patch: Partial<CaptureImportDraft["newProject"]> }
+  | { type: "change-new-project"; patch: CaptureImportNewProjectPatch }
   | { type: "request-preview" }
   | { type: "preview-succeeded"; preview: CaptureImportPreview }
   | { type: "apply" }
@@ -177,14 +180,17 @@ export function reduceCaptureImportState(
     const next = editable(state);
     if (!next) return state;
     const merged = { ...next.draft.newProject, ...action.patch };
-    const device = isDeviceSupportedForPlatform(merged.platform, merged.device)
-      ? merged.device
-      : recommendedDeviceForPlatform(merged.platform);
     return {
       status: "editing",
       draft: {
         ...next.draft,
-        newProject: { ...merged, device } as CaptureImportDraft["newProject"],
+        newProject: {
+          name: merged.name,
+          platform: merged.platform,
+          device: recommendedDeviceForPlatform(merged.platform),
+          layoutMode: merged.layoutMode,
+          templateId: null,
+        } as CaptureImportDraft["newProject"],
       },
     };
   }
