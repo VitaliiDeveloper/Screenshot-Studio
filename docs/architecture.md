@@ -44,6 +44,14 @@ runtime code; they never reach into `packages/*/src` by filesystem traversal.
 git-trackable JSON: unknown fields fail validation and a new persisted field needs explicit schema,
 renderer, fixture, and parity work.
 
+Persisted `platform` and `device` values are technical identity, not user-facing copy. The strict
+schema owns which pairs are valid. `packages/core/src/model/output-catalog.ts` owns their shared
+presentation metadata: a platform is presented as a **destination** (for example, Google Play), and
+a platform/device pair is presented as an **output family** (for example, Google Play · Android
+phone). Catalog labels, creation recommendations, and legacy-family replacements are not persisted
+project fields. Its lead target IDs select entries from `store-specs.json`; the JSON file remains the
+only authority for target dimensions.
+
 The enforced schema is the authority for exact members and bounds. At a high level, a Project owns
 metadata, file-backed fonts, a preferred export layout, and ordered layouts. A layout owns ordered
 screens; each screen owns its artboard, background, locale/direction, optional explicit store-target
@@ -59,7 +67,7 @@ Screenshot and decorative-image elements may persist a bounded Gaussian blur rad
 elements use the same field for screenshot content only, leaving the bezel sharp. The editor and
 browser export renderer apply that effect through the same cached Konva filter contract.
 
-Screen-slot behavior is a layout-local output-family policy keyed by platform, device, and locale.
+Screen-slot behavior is a layout-local output-family policy keyed by persisted platform, device, and locale.
 New project scaffolds and newly created output families persist `synchronized`; an omitted policy
 still means `independent` for backward compatibility with existing v1 documents. A primary-size screen has no
 `storeTargetId`; an exact-size screen has one. In independent mode an exact-size screen may use

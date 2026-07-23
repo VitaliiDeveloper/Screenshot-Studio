@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { getLayout, type Project, type Screen } from "@screenshot-studio/core/model";
+import {
+  getLayout,
+  OUTPUT_DEVICE_FAMILIES,
+  type Project,
+  type Screen,
+} from "@screenshot-studio/core/model";
 import { findStoreTarget, type StoreSize, type StoreSpecs } from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
 
@@ -14,22 +19,6 @@ export interface BundleEntry {
   target: StoreSize;
   relativePath: string;
 }
-
-const LEAD_SIZE_BY_PLATFORM_DEVICE = {
-  apple: { iphone: "6.9", ipad: "13", macos: "2880x1800", tvos: "4k", watchos: "ultra-3" },
-  android: {
-    phone: "phone-portrait",
-    "tablet-7": "tablet-7-portrait",
-    "tablet-10": "tablet-10-portrait",
-  },
-  windows: { desktop: "4k" },
-  web: {
-    desktop: "desktop-1920",
-    laptop: "laptop-1440",
-    tablet: "tablet-portrait",
-    mobile: "mobile-portrait",
-  },
-} as const;
 
 export interface BundlePreflightWarning {
   code: "android-tablet-screen-count";
@@ -63,10 +52,9 @@ export function bundlePreflightWarnings(entries: readonly BundleEntry[]): Bundle
 }
 
 export function leadStoreSizeId(platform: string, device: string): string {
-  const byDevice = LEAD_SIZE_BY_PLATFORM_DEVICE[platform as keyof typeof LEAD_SIZE_BY_PLATFORM_DEVICE];
-  const id = byDevice?.[device as keyof typeof byDevice];
-  if (!id) throw new Error(`No lead store size configured for ${platform}/${device}`);
-  return id;
+  const family = OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`);
+  if (!family) throw new Error(`No lead store size configured for ${platform}/${device}`);
+  return family.leadStoreSizeId;
 }
 
 export function selectBundleScreens(

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { DesignLayout, Project } from "@screenshot-studio/core/model";
+import { OUTPUT_DEVICE_FAMILIES, type DesignLayout, type Project } from "@screenshot-studio/core/model";
 import { parseStoreSpecs } from "./specs.js";
 import {
   buildBundleEntries,
@@ -67,18 +67,11 @@ function screen(
 }
 
 describe("leadStoreSizeId", () => {
-  it("returns the lead target per platform/device", () => {
-    expect(leadStoreSizeId("apple", "iphone")).toBe("6.9");
-    expect(leadStoreSizeId("apple", "ipad")).toBe("13");
-    expect(leadStoreSizeId("apple", "macos")).toBe("2880x1800");
-    expect(leadStoreSizeId("apple", "tvos")).toBe("4k");
-    expect(leadStoreSizeId("apple", "watchos")).toBe("ultra-3");
-    expect(leadStoreSizeId("android", "phone")).toBe("phone-portrait");
-    expect(leadStoreSizeId("android", "tablet-7")).toBe("tablet-7-portrait");
-    expect(leadStoreSizeId("android", "tablet-10")).toBe("tablet-10-portrait");
-    expect(leadStoreSizeId("windows", "desktop")).toBe("4k");
-    expect(leadStoreSizeId("web", "desktop")).toBe("desktop-1920");
-    expect(leadStoreSizeId("web", "mobile")).toBe("mobile-portrait");
+  it("delegates every platform/device lead to the output catalog", () => {
+    for (const family of OUTPUT_DEVICE_FAMILIES) {
+      const [platform, device] = family.key.split("/");
+      expect(leadStoreSizeId(platform!, device!)).toBe(family.leadStoreSizeId);
+    }
   });
 
   it("throws for an unsupported pair", () => {
