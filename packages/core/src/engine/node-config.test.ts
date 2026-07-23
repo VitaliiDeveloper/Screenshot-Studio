@@ -416,57 +416,85 @@ describe("elementToNodeConfig — device-frame", () => {
       ["phone-modern-dark", "#151518"],
       ["phone-modern-light", "#E8E8EA"],
     ] as const) {
-      const result = elementToNodeConfig({ ...frame, deviceType }, { images: frameCache });
+      const result = elementToNodeConfig(
+        { ...frame, deviceType, width: 600, height: 1300 },
+        { images: frameCache },
+      );
       if (result.konva !== "Group") throw new Error("expected Group");
       expect(result.children[0]).toEqual({
         konva: "Rect",
         config: {
-          x: 0, y: 0, width: 1000, height: 1000, fill, cornerRadius: 140,
-          shadowColor: "#000000", shadowOpacity: 0.24, shadowBlur: 35,
-          shadowOffsetX: 0, shadowOffsetY: 18, shadowEnabled: true,
+          x: 0, y: 0, width: 600, height: 1300, fill, cornerRadius: 0.14 * 600,
+          shadowColor: "#000000", shadowOpacity: 0.24, shadowBlur: 0.035 * 600,
+          shadowOffsetX: 0, shadowOffsetY: 23.4, shadowEnabled: true,
         },
       });
     }
   });
 
   it("paints inset outlines before clipped slot content", () => {
-    const result = elementToNodeConfig({ ...frame, deviceType: "phone-outline" }, { images: frameCache });
+    const result = elementToNodeConfig(
+      { ...frame, deviceType: "phone-outline", width: 600, height: 1300 },
+      { images: frameCache },
+    );
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children.map((child) => child.konva)).toEqual(["Rect", "Rect", "Rect", "Image"]);
     expect(result.children[1]).toEqual({
       konva: "Rect",
       config: {
-        x: 8, y: 8, width: 984, height: 984,
-        stroke: "#313238", strokeWidth: 8, cornerRadius: 132,
+        x: 4.8, y: 4.8, width: 590.4, height: 1290.4,
+        stroke: "#313238", strokeWidth: 4.8,
+        cornerRadius: 0.14 * 600 - (0.004 * 600 + 0.008 * 600 / 2),
       },
     });
   });
 
   it("renders pill and punch-hole cameras in box-local coordinates after content", () => {
-    const pill = elementToNodeConfig({ ...frame, deviceType: "phone-modern-dark" }, { images: frameCache });
+    const pill = elementToNodeConfig(
+      { ...frame, deviceType: "phone-modern-dark", width: 600, height: 1300 },
+      { images: frameCache },
+    );
     if (pill.konva !== "Group") throw new Error("expected Group");
     expect(pill.children.at(-1)).toEqual({
       konva: "Rect",
-      config: { x: 375, y: 13, width: 250, height: 18, fill: "#09090B", cornerRadius: 9 },
+      config: { x: 225, y: 16.9, width: 150, height: 23.4, fill: "#09090B", cornerRadius: 11.7 },
     });
 
     const punchHole = elementToNodeConfig(
-      { ...frame, deviceType: "phone-punch-hole-dark" },
+      { ...frame, deviceType: "phone-punch-hole-dark", width: 480, height: 1000 },
       { images: frameCache },
     );
     if (punchHole.konva !== "Group") throw new Error("expected Group");
     expect(punchHole.children.at(-1)).toEqual({
       konva: "Ellipse",
-      config: { x: 500, y: 18, radiusX: 9, radiusY: 4.32, fill: "#08090A" },
+      config: {
+        x: 240, y: 18,
+        radiusX: 0.018 * 480 / 2,
+        radiusY: 0.00864 * 1000 / 2,
+        fill: "#08090A",
+      },
+    });
+
+    const tablet = elementToNodeConfig(
+      { ...frame, deviceType: "tablet-rounded-light", width: 750, height: 1000 },
+      { images: frameCache },
+    );
+    if (tablet.konva !== "Group") throw new Error("expected Group");
+    expect(tablet.children.at(-1)).toEqual({
+      konva: "Ellipse",
+      config: { x: 375, y: 14, radiusX: 3, radiusY: 3, fill: "#44464A" },
     });
   });
 
   it("renders laptop and display bases between the body and content", () => {
-    for (const [deviceType, expected] of [
-      ["laptop-silver", { x: 10, y: 965, width: 980, height: 35, fill: "#B8BDC3", cornerRadius: 10 }],
-      ["display-stand", { x: 380, y: 960, width: 240, height: 40, fill: "#292B30", cornerRadius: 10 }],
+    for (const [deviceType, width, height, expected] of [
+      ["laptop-silver", 800, 500, { x: 8, y: 482.5, width: 784, height: 17.5, fill: "#B8BDC3", cornerRadius: 8 }],
+      ["display-stand", 800, 450, { x: 304, y: 432, width: 192, height: 18, fill: "#292B30", cornerRadius: 8 }],
     ] as const) {
-      const result = elementToNodeConfig({ ...frame, deviceType }, { images: frameCache });
+      const result = elementToNodeConfig(
+        { ...frame, deviceType, width, height },
+        { images: frameCache },
+      );
       if (result.konva !== "Group") throw new Error("expected Group");
       expect(result.children[1]).toEqual({ konva: "Rect", config: expected });
       expect(result.children[2]).toMatchObject({ konva: "Rect", config: { fill: "#000000" } });
@@ -474,56 +502,86 @@ describe("elementToNodeConfig — device-frame", () => {
   });
 
   it("renders dark browser chrome and controls above slot content", () => {
-    const result = elementToNodeConfig({ ...frame, deviceType: "browser-dark" }, { images: frameCache });
+    const result = elementToNodeConfig(
+      { ...frame, deviceType: "browser-dark", width: 800, height: 500 },
+      { images: frameCache },
+    );
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children.slice(-5)).toEqual([
-      { konva: "Rect", config: { x: 0, y: 0, width: 1000, height: 68, fill: "#25262B" } },
-      { konva: "Ellipse", config: { x: 25, y: 34, radiusX: 6, radiusY: 6, fill: "#858992" } },
-      { konva: "Ellipse", config: { x: 49, y: 34, radiusX: 6, radiusY: 6, fill: "#858992" } },
-      { konva: "Ellipse", config: { x: 73, y: 34, radiusX: 6, radiusY: 6, fill: "#858992" } },
-      { konva: "Rect", config: { x: 180, y: 18, width: 795, height: 32, fill: "#34363C", cornerRadius: 8 } },
+      { konva: "Rect", config: { x: 0, y: 0, width: 800, height: 34, fill: "#25262B" } },
+      { konva: "Ellipse", config: { x: 20, y: 17, radiusX: 4.8, radiusY: 4.8, fill: "#858992" } },
+      { konva: "Ellipse", config: { x: 39.2, y: 17, radiusX: 4.8, radiusY: 4.8, fill: "#858992" } },
+      { konva: "Ellipse", config: { x: 58.4, y: 17, radiusX: 4.8, radiusY: 4.8, fill: "#858992" } },
+      { konva: "Rect", config: { x: 144, y: 9, width: 636, height: 16, fill: "#34363C", cornerRadius: 6.4 } },
     ]);
   });
 
   it("clips frameless screenshots without painting an opaque bezel", () => {
-    const result = elementToNodeConfig({ ...frame, deviceType: "frameless-phone" }, { images: frameCache });
+    const result = elementToNodeConfig(
+      { ...frame, deviceType: "frameless-phone", width: 600, height: 1300 },
+      { images: frameCache },
+    );
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children[0]).toMatchObject({
       konva: "Rect",
       config: {
-        x: 0, y: 0, width: 1000, height: 1000, fill: "#000000", cornerRadius: 105,
-        shadowColor: "#000000", shadowOpacity: 0.24, shadowBlur: 35,
-        shadowOffsetX: 0, shadowOffsetY: 18, shadowEnabled: true,
+        x: 0, y: 0, width: 600, height: 1300, fill: "#000000", cornerRadius: 63,
+        shadowColor: "#000000", shadowOpacity: 0.24, shadowBlur: 0.035 * 600,
+        shadowOffsetX: 0, shadowOffsetY: 23.4, shadowEnabled: true,
       },
     });
     expect(result.children[1]).toMatchObject({
-      konva: "Rect", config: { fill: "#00000000", cornerRadius: 105 },
+      konva: "Rect", config: { fill: "#00000000", cornerRadius: 63 },
     });
     expect(result.children[2]).toMatchObject({
-      konva: "Rect", config: { x: 0, y: 0, width: 1000, height: 1000, cornerRadius: 105 },
+      konva: "Rect", config: { x: 0, y: 0, width: 600, height: 1300, cornerRadius: 63 },
     });
     expect(result.children[3]).toMatchObject({
-      konva: "Image", config: { x: 0, y: 0, width: 1000, height: 1000, cornerRadius: 105 },
+      konva: "Image", config: { x: 0, y: 0, width: 600, height: 1300, cornerRadius: 63 },
     });
   });
 
   it("keeps semantic missing-screen placeholders deterministic and clipped by the slot", () => {
     const result = elementToNodeConfig(
-      { ...frame, deviceType: "tablet-rounded-light", assetUrl: undefined },
+      {
+        ...frame,
+        deviceType: "tablet-rounded-light",
+        assetUrl: undefined,
+        width: 750,
+        height: 1000,
+      },
       { images: new Map() },
     );
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children[1]).toEqual({
       konva: "Rect",
-      config: { x: 28, y: 28, width: 944, height: 944, fill: "#000000", cornerRadius: 23.6 },
+      config: { x: 21, y: 28, width: 708, height: 944, fill: "#000000", cornerRadius: 17.7 },
     });
     expect(result.children[2]).toEqual({
       konva: "Rect",
       config: {
-        x: 103.52, y: 28 + 944 * 0.42, width: 792.9599999999999, height: 151.04,
-        fill: "#374151", stroke: "#9CA3AF", strokeWidth: 4,
-        dash: [15, 10], cornerRadius: 23.6,
+        x: 77.64, y: 28 + 944 * 0.42, width: 594.72, height: 151.04,
+        fill: "#374151", stroke: "#9CA3AF", strokeWidth: 3,
+        dash: [11.25, 7.5], cornerRadius: 17.7,
       },
+    });
+  });
+
+  it("keeps the XR viewport outline-free with deterministic landscape clipping", () => {
+    const result = elementToNodeConfig(
+      { ...frame, deviceType: "xr-viewport", width: 1600, height: 900 },
+      { images: frameCache },
+    );
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.children).toHaveLength(4);
+    expect(result.children.every((child) => !("stroke" in child.config))).toBe(true);
+    expect(result.children[2]).toMatchObject({
+      konva: "Rect",
+      config: { x: 0, y: 0, width: 1600, height: 900, cornerRadius: 128 },
+    });
+    expect(result.children[3]).toMatchObject({
+      konva: "Image",
+      config: { x: 0, y: 0, width: 1600, height: 900, cornerRadius: 128 },
     });
   });
 });

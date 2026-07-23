@@ -187,6 +187,13 @@ describe("device frame preset catalog", () => {
     }
   });
 
+  it("keeps the spatial viewport truly frameless with no declared outline", () => {
+    const xr = deviceFramePreset("xr-viewport");
+    expect(xr.finish).toBe("frameless");
+    expect(xr.recipe.spec.slotInset).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(xr.recipe.outline).toBeUndefined();
+  });
+
   it("filters with AND semantics without exposing mutable catalog storage", () => {
     expect(listDeviceFramePresets({ group: "phone", finish: "dark", legacy: false })
       .map(({ id }) => id)).toEqual(["phone-modern-dark", "phone-punch-hole-dark"]);

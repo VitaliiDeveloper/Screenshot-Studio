@@ -635,7 +635,6 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
     recipe: {
       spec: xrViewportSpec,
       shadow,
-      outline: { color: "#C7D4E8", widthFrac: 0.006, insetFrac: 0.003 },
     },
   },
 ]);
