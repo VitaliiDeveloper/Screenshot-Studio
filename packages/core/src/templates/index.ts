@@ -23,7 +23,12 @@ import {
   type Project as ProjectModel,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { exportPixelRatio, findStoreTarget, type StoreSpecs } from "@screenshot-studio/core/export";
+import {
+  exportPixelRatio,
+  findStoreTarget,
+  leadStoreSizeId,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -322,8 +327,12 @@ export function createScreenFromTemplate(
   if (options.exactTargetMode === "standalone") {
     return append(project, template.artboard, template.elements, target.id);
   }
-  const lead = specs[template.platform]?.[template.device]?.[0];
-  if (!lead) throw new Error(`No lead store size is configured for ${template.platform}/${template.device}`);
+  const lead = findStoreTarget(
+    specs,
+    template.platform,
+    template.device,
+    leadStoreSizeId(template.platform, template.device),
+  );
   if (lead.id === target.id) return append(project, template.artboard, template.elements);
 
   // Root screens remain the family master. A non-lead starter is the exact target variant,

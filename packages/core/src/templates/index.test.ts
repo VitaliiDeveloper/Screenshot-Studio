@@ -23,6 +23,13 @@ import {
 } from "./index.js";
 
 const storeSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
+const reorderedIpadSpecs = parseStoreSpecs({
+  ...storeSpecs,
+  apple: {
+    ...storeSpecs.apple,
+    ipad: [...storeSpecs.apple!.ipad!].reverse(),
+  },
+});
 
 function project(): Project {
   return {
@@ -205,6 +212,34 @@ describe("built-in templates", () => {
     });
     expect(entries.find((entry) => entry.screen.id === result.screen.id)?.target.id).toBe(targetId);
     expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
+  it("uses the catalog lead when materializing a non-lead template from reordered targets", () => {
+    const builtIn = listBuiltInTemplates(reorderedIpadSpecs)
+      .find(({ id }) => id === "ipad-landscape-starter")!;
+
+    const result = createScreenFromTemplate(
+      project(),
+      "default",
+      builtIn,
+      "en",
+      reorderedIpadSpecs,
+    );
+    const root = result.project.layouts[0]!.screens.find((screen) => (
+      screen.id === result.screen.variantOf
+    ));
+
+    expect(reorderedIpadSpecs.apple!.ipad![0]!.id).toBe("11-landscape");
+    expect(root).toMatchObject({
+      platform: "apple",
+      device: "ipad",
+      artboard: { width: 2064, height: 2752 },
+    });
+    expect(result.screen).toMatchObject({
+      variantOf: root!.id,
+      storeTargetId: "13-landscape",
+      artboard: { width: 2752, height: 2064 },
+    });
   });
 
   it("can materialize an exact target without a primary pair when creation owns that contract", () => {
