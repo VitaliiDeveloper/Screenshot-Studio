@@ -4,12 +4,28 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { LayoutTemplate } from "lucide-react";
-import { getScreen, parseProject } from "@screenshot-studio/core/model";
+import { getScreen, outputFamilyLabel, parseProject } from "@screenshot-studio/core/model";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "@web/lib/editor-store";
 import { withFlushedProject } from "@web/lib/debounced-save";
 import { projectJsonRequest } from "@web/lib/project-api-client";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
+
+type OutputFamily = { platform: string; device: string };
+
+export function compatibleTemplates(
+  templates: readonly ScreenTemplate[],
+  outputFamily: OutputFamily | null,
+): ScreenTemplate[] {
+  if (!outputFamily) return [];
+  return templates.filter((template) => (
+    template.platform === outputFamily.platform && template.device === outputFamily.device
+  ));
+}
+
+export function templateOutputFamilyLabel(template: OutputFamily): string {
+  return outputFamilyLabel(template.platform, template.device);
+}
 
 export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
@@ -44,6 +60,8 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const activeScreen = project && activeLayoutId && activeScreenId
     ? getScreen(project, activeLayoutId, activeScreenId)
     : null;
+  const sourceTemplates = tab === "built-in" ? builtIns : templates;
+  const visibleTemplates = compatibleTemplates(sourceTemplates, activeScreen);
   const close = () => {
     setError(null);
     onClose();
@@ -97,9 +115,17 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
           path="templates/<id>.json"
         />
       ) : null}
+      {!loading && sourceTemplates.length > 0 && visibleTemplates.length === 0 ? (
+        <EmptyResourceState
+          icon={LayoutTemplate}
+          title="No compatible screen templates"
+          description="Choose a template from the same destination and device family as the active screen."
+          path={activeScreen ? templateOutputFamilyLabel(activeScreen) : "Active output family"}
+        />
+      ) : null}
 
       <div className="flex flex-col gap-3">
-        {(tab === "built-in" ? builtIns : templates).map((template) => (
+        {visibleTemplates.map((template) => (
           <section key={template.id} data-testid={`template-row-${template.id}`} className={editorUi.resourceCard}>
               <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -109,7 +135,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
                   </div>
                   {template.description ? <p className="mt-1 text-xs leading-5 text-slate-500">{template.description}</p> : null}
                   <p className="mt-2 text-xs font-medium text-slate-500">
-                    {template.platform} / {template.device} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
+                    {templateOutputFamilyLabel(template)} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
                   </p>
                 </div>
                 <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={!activeScreen || creating !== null} onClick={() => create(template.id, tab)}>

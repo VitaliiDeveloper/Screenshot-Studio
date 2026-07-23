@@ -21,6 +21,14 @@ beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "template-library-e2e-"));
   projectFile = join(dir, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(sample, "utf8"));
+  project.layouts[0].screens[0] = {
+    ...project.layouts[0].screens[0],
+    name: "Computer target",
+    platform: "apple",
+    device: "macos",
+    artboard: { width: 2880, height: 1800 },
+    elements: [],
+  };
   initialScreenCount = project.layouts[0].screens.length;
   writeFileSync(projectFile, JSON.stringify(project));
   cpSync(sampleAssets, join(dir, "assets"), { recursive: true });
@@ -31,7 +39,7 @@ beforeAll(async () => {
     name: "Promo card",
     description: "Reusable headline and accent layout",
     platform: "apple",
-    device: "iphone",
+    device: "macos",
     artboard: { width: 660, height: 1434 },
     background: { type: "solid", color: "#0F172A" },
     elements: [
@@ -71,14 +79,20 @@ describe("template library UI", () => {
     await templateDialog.waitFor({ state: "hidden" });
     expect(await templatesButton.evaluate((node) => document.activeElement === node)).toBe(true);
     await templatesButton.click();
-    const builtInRow = page.getByTestId("template-row-web-desktop-starter");
+    const builtInRow = page.getByTestId("template-row-macos-starter");
     await builtInRow.waitFor({ state: "visible" });
+    expect(await builtInRow.textContent()).toContain("App Store · macOS");
+    expect(await page.getByTestId("template-row-tvos-starter").count()).toBe(0);
+    expect(await page.getByTestId("template-row-visionos-starter").count()).toBe(0);
+    expect(await page.getByTestId("template-row-wear-os-starter").count()).toBe(0);
     await builtInRow.getByRole("button", { name: "Create screen", exact: true }).click();
     await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 1);
-    expect(project().layouts[0].screens.at(-1)).toMatchObject({
-      name: "Web desktop",
-      platform: "web",
-      device: "desktop",
+    expect(project().layouts[0].screens.find((screen: { id: string }) => (
+      screen.id === "macos-starter"
+    ))).toMatchObject({
+      name: "macOS",
+      platform: "apple",
+      device: "macos",
     });
     await page.getByRole("tab", { name: "Project templates", exact: true }).click();
     const row = page.getByTestId("template-row-promo-card");
@@ -106,20 +120,22 @@ describe("template library UI", () => {
     expect((await templateAssetLoaded).ok()).toBe(true);
 
     await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 2);
-    const created = project().layouts[0].screens.at(-1);
+    const created = project().layouts[0].screens.find((screen: { id: string }) => (
+      screen.id === "promo-card"
+    ));
     expect(created).toMatchObject({ id: "promo-card", name: "Promo card", locale: "en" });
     expect(created.elements.map((element: { id: string }) => element.id))
       .not.toContain("template-title");
 
     await page.getByRole("button", { name: "Close screen template library", exact: true }).click();
     await page.getByRole("button", { name: "Structure panel", exact: true }).click();
-    const screenButton = page.getByRole("button", { name: /Promo card · iphone/ });
+    const screenButton = page.getByRole("button", { name: /Promo card · macos/ });
     await screenButton.waitFor({ state: "visible" });
     expect(await screenButton.getAttribute("class")).toContain("text-blue-700");
 
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
-    expect(await page.getByRole("button", { name: /Promo card · iphone/ }).count()).toBe(1);
+    expect(await page.getByRole("button", { name: /Promo card · macos/ }).count()).toBe(1);
     await page.close();
   });
 });
