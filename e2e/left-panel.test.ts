@@ -120,8 +120,9 @@ describe("left panel", () => {
     await page.keyboard.press("Space");
     await expect.poll(() => screenIds().join(","), { timeout: 10_000 }).not.toBe(before.join(","));
 
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Delete Save Fast", exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Delete screen?", exact: true });
+    await confirmation.getByRole("button", { name: "Delete screen", exact: true }).click();
     await expect.poll(() => screenIds().length, { timeout: 10_000 }).toBe(before.length - 1);
     expect(screenIds()).not.toContain("save-fast");
     await page.close();
