@@ -48,6 +48,16 @@ beforeAll(async () => {
       { id: "template-accent", type: "shape", role: "accent", x: 60, y: 320, width: 540, height: 30, rotation: 0, opacity: 1, locked: false, visible: true, kind: "rect", fill: "#38BDF8", radius: 15 },
     ],
   }));
+  writeFileSync(join(dir, "templates/windows-desktop.json"), JSON.stringify({
+    id: "windows-desktop",
+    name: "Windows desktop",
+    description: "Incompatible project-local template from another destination.",
+    platform: "windows",
+    device: "desktop",
+    artboard: { width: 1920, height: 1080 },
+    background: { type: "solid", color: "#0F172A" },
+    elements: [],
+  }));
   process.env.PROJECT_PATH = projectFile;
   server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
@@ -97,6 +107,7 @@ describe("template library UI", () => {
     await page.getByRole("tab", { name: "Project templates", exact: true }).click();
     const row = page.getByTestId("template-row-promo-card");
     await row.waitFor({ state: "visible" });
+    expect(await page.getByTestId("template-row-windows-desktop").count()).toBe(0);
     let releaseCreate!: () => void;
     const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
     await page.route("**/api/templates", async (route) => {

@@ -23,22 +23,21 @@ function template(
   } as ScreenTemplate;
 }
 
-const wearScreen = {
-  platform: "android",
-  device: "wear",
+const webDesktopScreen = {
+  platform: "web",
+  device: "desktop",
 } as Screen;
 
 describe("TemplateLibraryDialog output compatibility", () => {
   it("shows only templates for the active destination/device family", () => {
     const templates = [
-      template("macos-starter", "apple", "macos"),
-      template("tvos-starter", "apple", "tvos"),
-      template("visionos-starter", "apple", "visionos"),
-      template("wear-os-starter", "android", "wear"),
+      template("windows-desktop", "windows", "desktop"),
+      template("web-desktop", "web", "desktop"),
+      template("web-mobile", "web", "mobile"),
     ];
 
-    expect(compatibleTemplates(templates, wearScreen).map(({ id }) => id))
-      .toEqual(["wear-os-starter"]);
+    expect(compatibleTemplates(templates, webDesktopScreen).map(({ id }) => id))
+      .toEqual(["web-desktop"]);
   });
 
   it("uses shared destination and device labels for template metadata", () => {

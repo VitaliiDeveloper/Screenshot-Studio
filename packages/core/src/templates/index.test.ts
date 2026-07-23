@@ -80,9 +80,12 @@ describe("built-in templates", () => {
       expect.objectContaining({ id: "ipad-portrait-starter", platform: "apple", device: "ipad" }),
       expect.objectContaining({ id: "web-mobile-starter", platform: "web", device: "mobile" }),
     ]));
-    expect(starters.map(({ id }) => id)).not.toEqual(expect.arrayContaining([
+    const starterIds = starters.map(({ id }) => id);
+    for (const resourceOnlyId of [
       "macos-starter", "tvos-starter", "visionos-starter", "wear-os-starter",
-    ]));
+    ]) {
+      expect(starterIds).not.toContain(resourceOnlyId);
+    }
   });
 
   it("covers every requested starter and keeps promotion art frame-free", () => {
