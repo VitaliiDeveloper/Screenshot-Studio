@@ -49,14 +49,13 @@ describe("editor workspace helpers", () => {
     const wearScreen = {
       platform: "android",
       device: "wear",
-      artboard: { width: 384, height: 384 },
+      artboard: { width: 384, height: 400 },
     } as const;
 
     expect(deviceFrameContextForScreen(wearScreen)).toMatchObject({
       insertionPresetId: "frameless-watch",
       recommendedPresetId: undefined,
       recommendation: "wearable",
-      insertionAspectRatio: 1,
     });
     expect(defaultDeviceFrameInputForScreen(wearScreen)).toEqual({
       deviceType: "frameless-watch",

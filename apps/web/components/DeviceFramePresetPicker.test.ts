@@ -6,7 +6,7 @@ import { DEVICE_FRAME_PRESETS, type DeviceFrameId, type Screen } from "@screensh
 import {
   DeviceFramePresetCatalog,
   deviceFramePickerGroups,
-  groupedVisibleDeviceFramePresets,
+  groupedVisibleDeviceFramePresetOccurrences,
   nextDeviceFrameCardIndex,
 } from "./DeviceFramePresetPicker.js";
 import {
@@ -42,8 +42,33 @@ describe("DeviceFramePresetPicker catalog", () => {
   it("groups every legacy and semantic preset under human category names without visible raw IDs", () => {
     const markup = renderCatalog();
 
-    expect(deviceFramePickerGroups.map(({ label }) => label)).toEqual([
-      "Phone", "Tablet", "Browser", "Computer", "TV", "Watch", "Special", "Legacy",
+    expect(deviceFramePickerGroups).toEqual([
+      {
+        label: "Phone",
+        presetIds: [
+          "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
+          "frameless-phone",
+        ],
+      },
+      {
+        label: "Tablet",
+        presetIds: ["tablet-rounded-dark", "tablet-rounded-light", "tablet-outline", "frameless-tablet"],
+      },
+      {
+        label: "Browser",
+        presetIds: ["browser-light", "browser-dark", "browser-minimal", "frameless-browser"],
+      },
+      {
+        label: "Computer",
+        presetIds: ["laptop-silver", "laptop-dark", "display-stand", "display-minimal"],
+      },
+      { label: "TV", presetIds: ["tv-flat", "display-minimal"] },
+      { label: "Watch", presetIds: ["watch-rounded", "watch-square", "frameless-watch"] },
+      { label: "Special", presetIds: ["foldable", "automotive-display", "xr-viewport"] },
+      {
+        label: "Legacy",
+        presetIds: ["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"],
+      },
     ]);
     for (const { label } of deviceFramePickerGroups) expect(markup).toContain(`>${label}<`);
     for (const preset of DEVICE_FRAME_PRESETS) {
@@ -58,6 +83,23 @@ describe("DeviceFramePresetPicker catalog", () => {
     }
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain("Classic Phone");
+  });
+
+  it("resolves exactly 25 semantic row appearances with occurrence-safe duplicate keys", () => {
+    const occurrences = groupedVisibleDeviceFramePresetOccurrences("");
+    const semanticOccurrences = occurrences.filter(({ preset }) => !preset.legacy);
+
+    expect(semanticOccurrences).toHaveLength(25);
+    expect(semanticOccurrences.map(({ groupLabel, preset }) => [groupLabel, preset.id])).toEqual(
+      deviceFramePickerGroups.slice(0, -1).flatMap(({ label, presetIds }) =>
+        presetIds.map((id) => [label, id])),
+    );
+    expect(occurrences.filter(({ preset }) => preset.legacy).map(({ preset }) => preset.id))
+      .toEqual(["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"]);
+    expect(occurrences.filter(({ preset }) => preset.id === "display-minimal")
+      .map(({ groupLabel }) => groupLabel)).toEqual(["Computer", "TV"]);
+    expect(new Set(occurrences.map(({ occurrenceKey }) => occurrenceKey)).size)
+      .toBe(occurrences.length);
   });
 
   it("searches human labels and tags, not internal preset IDs, and explains an empty result", () => {
@@ -86,14 +128,13 @@ describe("DeviceFramePresetPicker catalog", () => {
     } as Pick<Screen, "platform" | "device" | "artboard">);
     expect(wear.insertionPresetId).toBe("frameless-watch");
     expect(wear.recommendedPresetId).toBeUndefined();
-    expect(wear.insertionAspectRatio).toBe(1);
     expect(wear.unsuitablePresetIds).toEqual(expect.arrayContaining([
       "watch", "watch-rounded", "watch-square",
     ]));
     expect(defaultDeviceFrameInputForScreen({
       platform: "android",
       device: "wear",
-      artboard: { width: 384, height: 384 },
+      artboard: { width: 384, height: 400 },
     } as Pick<Screen, "platform" | "device" | "artboard">)).toEqual({
       deviceType: "frameless-watch",
       width: 300,
@@ -119,15 +160,32 @@ describe("DeviceFramePresetPicker catalog", () => {
   });
 
   it("moves to the adjacent rendered card in flattened group order", () => {
-    const presets = groupedVisibleDeviceFramePresets("");
-    const modernDarkIndex = presets.findIndex(({ id }) => id === "phone-modern-dark");
+    const occurrences = groupedVisibleDeviceFramePresetOccurrences("");
+    const modernDarkIndex = occurrences.findIndex(({ preset }) => preset.id === "phone-modern-dark");
     const adjacentIndex = nextDeviceFrameCardIndex(
       "ArrowRight",
       modernDarkIndex,
-      presets.length,
+      occurrences.length,
     );
 
     expect(adjacentIndex).not.toBeNull();
-    expect(presets[adjacentIndex!]?.id).toBe("phone-modern-light");
+    expect(occurrences[adjacentIndex!]?.preset.id).toBe("phone-modern-light");
+  });
+
+  it("navigates around both minimal-display occurrences independently", () => {
+    const occurrences = groupedVisibleDeviceFramePresetOccurrences("");
+    const computerDisplayIndex = occurrences.findIndex(({ groupLabel, preset }) =>
+      groupLabel === "Computer" && preset.id === "display-minimal");
+    const tvDisplayIndex = occurrences.findIndex(({ groupLabel, preset }) =>
+      groupLabel === "TV" && preset.id === "display-minimal");
+
+    expect(occurrences[nextDeviceFrameCardIndex(
+      "ArrowRight", computerDisplayIndex, occurrences.length,
+    )!]).toMatchObject({ groupLabel: "TV", preset: { id: "tv-flat" } });
+    expect(occurrences[nextDeviceFrameCardIndex(
+      "ArrowRight", tvDisplayIndex, occurrences.length,
+    )!]).toMatchObject({ groupLabel: "Watch", preset: { id: "watch-rounded" } });
+    expect(occurrences[computerDisplayIndex]!.occurrenceKey)
+      .not.toBe(occurrences[tvDisplayIndex]!.occurrenceKey);
   });
 });

@@ -28,7 +28,7 @@ beforeAll(async () => {
     device: "wear",
     locale: "en",
     direction: "ltr",
-    artboard: { width: 384, height: 384 },
+    artboard: { width: 384, height: 400 },
     background: { type: "solid", color: "#101010" },
     elements: [],
   });
@@ -224,21 +224,33 @@ describe("Project asset picker", () => {
 
     await chooseFrame.click();
     const reopenedPresetDialog = page.getByRole("dialog", { name: "Device frame picker" });
-    await reopenedPresetDialog.getByLabel("Search frames").fill("Classic Desktop");
-    const desktopFrame = reopenedPresetDialog.getByRole("button", { name: "Classic Desktop" });
-    await desktopFrame.focus();
-    await desktopFrame.press("Enter");
+    const minimalDisplays = reopenedPresetDialog.getByRole("button", { name: "Minimal Display" });
+    await expect.poll(() => minimalDisplays.count()).toBe(2);
+    const computerMinimalDisplay = minimalDisplays.nth(0);
+    const flatTv = reopenedPresetDialog.getByRole("button", { name: "Flat TV" });
+    const tvMinimalDisplay = minimalDisplays.nth(1);
+    const roundedWatch = reopenedPresetDialog.getByRole("button", { name: /^Rounded Watch/ });
+    await computerMinimalDisplay.focus();
+    await computerMinimalDisplay.press("ArrowRight");
+    await expect.poll(() => flatTv.evaluate((element) => document.activeElement === element)).toBe(true);
+    await flatTv.press("ArrowRight");
+    await expect.poll(() => tvMinimalDisplay.evaluate((element) => document.activeElement === element)).toBe(true);
+    await tvMinimalDisplay.press("ArrowRight");
+    await expect.poll(() => roundedWatch.evaluate((element) => document.activeElement === element)).toBe(true);
+    await roundedWatch.press("ArrowLeft");
+    await expect.poll(() => tvMinimalDisplay.evaluate((element) => document.activeElement === element)).toBe(true);
+    await tvMinimalDisplay.press("Enter");
     await reopenedPresetDialog.waitFor({ state: "hidden" });
     await expect.poll(() => chooseFrame.evaluate((element) => document.activeElement === element)).toBe(true);
     await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
-      deviceType: "desktop",
+      deviceType: "display-minimal",
       assetUrl: "assets/demo-logistics-app.png",
       fit: "contain",
       blur: 8,
       x: 140,
       y: 120,
       width: 320,
-      height: 200,
+      height: 180,
       rotation: 5,
     });
 
@@ -294,10 +306,10 @@ describe("Project asset picker", () => {
 
     await wearChooseFrame.click();
     const reopenedWearPresetDialog = page.getByRole("dialog", { name: "Device frame picker" });
-    await reopenedWearPresetDialog.getByRole("button", { name: /^Rounded Watch/ }).click();
+    await reopenedWearPresetDialog.getByRole("button", { name: /^Square Watch/ }).click();
     await reopenedWearPresetDialog.waitFor({ state: "hidden" });
     await expect.poll(() => wearElements().at(-1)).toMatchObject({
-      deviceType: "watch-rounded",
+      deviceType: "watch-square",
       width: 300,
       height: 300,
     });

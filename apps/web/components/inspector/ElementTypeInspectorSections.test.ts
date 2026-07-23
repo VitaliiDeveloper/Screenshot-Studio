@@ -90,19 +90,30 @@ function renderDeviceFrame(element: DeviceFrameElement): string {
 }
 
 describe("ElementTypeInspectorSections device mockup assets", () => {
-  it("keeps a square Wear mockup from becoming phone-shaped through the inspector callback", () => {
+  it("selects the decorated square watch at 300x300 without replacing screenshot fields", () => {
     const wearFrame = {
       ...deviceFrame,
       width: 300,
       height: 300,
       deviceType: "frameless-watch",
-    } as const;
+      assetUrl: "screenshots/wear-home.png",
+      fit: "contain",
+      blur: 6,
+    } as const satisfies DeviceFrameElement;
 
-    expect(deviceFrameSelectionPatch(wearFrame, "frameless-watch")).toEqual({
-      deviceType: "frameless-watch",
+    const patch = deviceFrameSelectionPatch(wearFrame, "watch-square");
+    expect(patch).toEqual({
+      deviceType: "watch-square",
       height: 300,
     });
-    expect(deviceFrameSelectionPatch(wearFrame, "watch-rounded").height).not.toBe(650);
+    expect({ ...wearFrame, ...patch }).toMatchObject({
+      deviceType: "watch-square",
+      width: 300,
+      height: 300,
+      assetUrl: "screenshots/wear-home.png",
+      fit: "contain",
+      blur: 6,
+    });
   });
 
   it("uses a project asset chooser instead of exposing the internal asset path as a field", () => {

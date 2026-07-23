@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   DEVICE_FRAME_PRESETS,
+  deviceFramePreset,
   outputFamilyLabel,
   sameScreenGroup,
   type DeviceFrameId,
@@ -39,8 +40,6 @@ export interface DeviceFrameContext {
   readonly recommendedPresetId?: DeviceFrameId;
   readonly recommendation: DeviceFrameRecommendation;
   readonly unsuitablePresetIds: readonly DeviceFrameId[];
-  /** Optional insertion-only ratio for store surfaces that require an unadorned exact shape. */
-  readonly insertionAspectRatio?: number;
 }
 
 const decoratedWatchPresetIds = DEVICE_FRAME_PRESETS
@@ -67,7 +66,6 @@ export function deviceFrameContextForScreen(
       recommendedPresetId: undefined,
       recommendation: "wearable",
       unsuitablePresetIds: decoratedWatchPresetIds,
-      insertionAspectRatio: screen.artboard.width / screen.artboard.height,
     };
   }
 
@@ -120,14 +118,15 @@ export function defaultDeviceFrameInputForScreen(
   screen?: DeviceFrameScreenContext | null,
 ): { deviceType: DeviceFrameId; width?: number; height?: number } {
   const context = deviceFrameContextForScreen(screen);
-  if (context.insertionAspectRatio === undefined) {
+  if (context.insertionPresetId !== "frameless-watch") {
     return { deviceType: context.insertionPresetId };
   }
   const width = 300;
+  const aspectRatio = deviceFramePreset(context.insertionPresetId).recipe.spec.aspectRatio;
   return {
     deviceType: context.insertionPresetId,
     width,
-    height: width / context.insertionAspectRatio,
+    height: width / aspectRatio,
   };
 }
 

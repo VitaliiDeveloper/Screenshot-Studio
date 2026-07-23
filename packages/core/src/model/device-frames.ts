@@ -338,7 +338,7 @@ const watchRoundedSpec = {
 } satisfies DeviceFrameSpec;
 
 const watchSquareSpec = {
-  aspectRatio: 0.82,
+  aspectRatio: 1,
   bezelColor: "#202124",
   frameCornerRadius: 0.23,
   slotInset: { top: 0.045, right: 0.055, bottom: 0.045, left: 0.055 },

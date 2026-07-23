@@ -131,6 +131,16 @@ describe("device frame preset catalog", () => {
     expect(preset.recipe.outline).toBeUndefined();
   });
 
+  it("defines the decorated square watch with exact normalized square geometry", () => {
+    expect(deviceFramePreset("watch-square").recipe.spec).toEqual({
+      aspectRatio: 1,
+      bezelColor: "#202124",
+      frameCornerRadius: 0.23,
+      slotInset: { top: 0.045, right: 0.055, bottom: 0.045, left: 0.055 },
+      slotCornerRadius: 0.18,
+    });
+  });
+
   it("provides human metadata and normalized previewable recipes", () => {
     const normalized = (value: number) => Number.isFinite(value) && value >= 0 && value <= 1;
     const color = /^#[\dA-F]{6}(?:[\dA-F]{2})?$/i;
