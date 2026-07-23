@@ -126,9 +126,13 @@ describe("font management UI", () => {
       return `${element.fontFamily}:${element.weight}`;
     }).toBe("Pacifico Alt:700");
 
+    const fontManager = page.getByRole("dialog", { name: "Font manager" });
     await page.getByRole("button", { name: "Close font manager", exact: true }).click();
+    await fontManager.waitFor({ state: "hidden" });
     await page.reload({ waitUntil: "load" });
     await waitForEditorCanvas(page);
+    await page.getByRole("heading", { name: "Resources", exact: true }).waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     await page.getByRole("button", { name: "Font headline", exact: true }).click();
     expect(await page.getByRole("button", { name: "Font", exact: true }).textContent()).toContain("Pacifico Alt · 700");
 

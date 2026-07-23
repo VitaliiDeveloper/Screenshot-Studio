@@ -163,7 +163,7 @@ export function ArtboardTargets({
             ]}
             onChange={onScreenSetModeChange}
           />
-          <p className="text-[10px] leading-4 text-[color:var(--editor-color-text-subtle)]">
+          <p className="text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
             {screenSetMode === "synchronized"
               ? "Add, delete, and order mirror across sizes. Layer edits stay independent."
               : "Each size keeps its own screen count and order."}

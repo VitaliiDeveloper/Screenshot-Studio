@@ -61,27 +61,18 @@ function elements() {
 }
 
 describe("badge authoring", () => {
-  it("guards missing fonts and inserts editable grouped and official-image badges", async () => {
+  it("uses the built-in font fallback and inserts editable grouped and official-image badges", async () => {
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByRole("button", { name: "Add element" }).click();
     await page.getByRole("button", { name: "Rating badge", exact: true }).click();
-    await page.getByRole("dialog", { name: "Font manager" }).waitFor({ state: "visible" });
-    expect(elements()).toHaveLength(0);
-    await page.getByRole("button", { name: "Close font manager" }).click();
-
-    const persisted = project();
-    persisted.fonts = [{
-      family: "Pacifico", weight: 400, source: "uploaded", path: "assets/fonts/pacifico.ttf",
-    }];
-    writeFileSync(projectPath, JSON.stringify(persisted));
-    await page.reload({ waitUntil: "load" });
-    await page.getByRole("button", { name: "Add element" }).click();
-
-    await page.getByRole("button", { name: "Rating badge", exact: true }).click();
     await expect.poll(() => elements().length).toBe(1);
     expect(elements()[0]).toMatchObject({ type: "group", name: "Rating badge", width: 420, height: 120 });
     expect(elements()[0]!.children?.map((child) => child.type)).toEqual(["shape", "icon", "text"]);
+    expect(elements()[0]!.children?.[2]).toMatchObject({
+      fontFamily: "Screenshot Studio Sans",
+      weight: 400,
+    });
 
     await page.getByRole("button", { name: "As seen on badge", exact: true }).click();
     await expect.poll(() => elements().length).toBe(2);
