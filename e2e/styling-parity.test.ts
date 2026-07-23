@@ -27,8 +27,8 @@ const artboard = { width: 1320, height: 2868 };
 const magentaAssetUrl = "assets/semantic-magenta.png";
 const frameRegions = DEVICE_FRAME_IDS.map((deviceType, index) => ({
   deviceType,
-  x: 30 + index * 210,
-  y: 1800,
+  x: 30 + (index % 4) * 210,
+  y: 1800 + Math.floor(index / 4) * 500,
   width: 170,
   height: 170 / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
 }));
@@ -37,6 +37,15 @@ interface Rgb {
   r: number;
   g: number;
   b: number;
+}
+
+function hexToRgb(value: string): Rgb {
+  const hex = value.slice(1);
+  return {
+    r: Number.parseInt(hex.slice(0, 2), 16),
+    g: Number.parseInt(hex.slice(2, 4), 16),
+    b: Number.parseInt(hex.slice(4, 6), 16),
+  };
 }
 
 interface LogicalPoint {
@@ -140,11 +149,14 @@ function expectHeroSemantics(raster: Raster, surface: string): void {
       20,
       `${surface} ${frame.deviceType} frame content`,
     );
-    const bezel = rgbAt(raster, { x: frame.x + 3, y: frame.y + frame.height / 2 });
-    expect(
-      bezel.r < 60 && bezel.g < 60 && bezel.b < 60,
-      `${surface} ${frame.deviceType} dark bezel; actual ${JSON.stringify(bezel)}`,
-    ).toBe(true);
+    const spec = DEVICE_FRAME_SPECS[frame.deviceType];
+    expectRgbNear(
+      raster,
+      { x: frame.x + (frame.width * spec.slotInset.left) / 2, y: frame.y + frame.height / 2 },
+      hexToRgb(spec.bezelColor),
+      12,
+      `${surface} ${frame.deviceType} bezel`,
+    );
   }
 }
 

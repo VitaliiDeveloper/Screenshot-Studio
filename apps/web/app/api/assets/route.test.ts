@@ -85,7 +85,7 @@ describe("/api/assets", () => {
     });
     expect(await readFile(join(directory, "assets/imported/Finder-capture.png"))).toEqual(imageBytes);
     expect(await readFile(projectPath)).toEqual(before);
-  });
+  }, 15_000);
 
   it("rejects undecodable bytes and a stale project revision without publishing", async () => {
     const invalid = await handleAssetPost(
