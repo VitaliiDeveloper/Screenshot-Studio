@@ -77,6 +77,28 @@ describe("leadStoreSizeId", () => {
   it("throws for an unsupported pair", () => {
     expect(() => leadStoreSizeId("android", "tablet" as never)).toThrow(/No lead store size/);
   });
+
+  it("selects curated leads for the added destination families", () => {
+    expect([
+      leadStoreSizeId("apple", "visionos"),
+      leadStoreSizeId("android", "chromebook"),
+      leadStoreSizeId("android", "tv"),
+      leadStoreSizeId("android", "wear"),
+      leadStoreSizeId("android", "automotive"),
+      leadStoreSizeId("android", "xr"),
+      leadStoreSizeId("windows", "xbox"),
+      leadStoreSizeId("windows", "holographic"),
+    ]).toEqual([
+      "vision-pro",
+      "chromebook-landscape",
+      "tv-landscape",
+      "wear-square",
+      "automotive-portrait",
+      "xr-landscape",
+      "full-hd",
+      "minimum",
+    ]);
+  });
 });
 
 describe("bundlePreflightWarnings", () => {

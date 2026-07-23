@@ -64,6 +64,19 @@ describe("output presentation catalog", () => {
     }
   });
 
+  it("presents every newly supported store output family", () => {
+    expect(OUTPUT_DEVICE_FAMILIES).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "apple/visionos", label: "Apple Vision Pro" }),
+      expect.objectContaining({ key: "android/chromebook", label: "Chromebook" }),
+      expect.objectContaining({ key: "android/tv", label: "Android TV" }),
+      expect.objectContaining({ key: "android/wear", label: "Wear OS" }),
+      expect.objectContaining({ key: "android/automotive", label: "Android Automotive OS" }),
+      expect.objectContaining({ key: "android/xr", label: "Android XR" }),
+      expect.objectContaining({ key: "windows/xbox", label: "Xbox" }),
+      expect.objectContaining({ key: "windows/holographic", label: "Holographic" }),
+    ]));
+  });
+
   it("offers exactly one creatable recommended family per destination", () => {
     for (const { id } of OUTPUT_DESTINATIONS) {
       const recommended = OUTPUT_DEVICE_FAMILIES.filter((family) =>

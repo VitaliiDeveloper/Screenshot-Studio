@@ -3,15 +3,21 @@
   "apple": {
     "iphone": [
       { "id": "6.9", "label": "6.9\" iPhone (lead)", "width": 1320, "height": 2868, "orientation": "portrait" },
+      { "id": "6.9-landscape", "label": "6.9\" iPhone landscape", "width": 2868, "height": 1320, "orientation": "landscape" },
       { "id": "6.5", "label": "6.5\" iPhone", "width": 1284, "height": 2778, "orientation": "portrait" },
+      { "id": "6.5-landscape", "label": "6.5\" iPhone landscape", "width": 2778, "height": 1284, "orientation": "landscape" },
       { "id": "6.3", "label": "6.3\" iPhone", "width": 1206, "height": 2622, "orientation": "portrait" },
-      { "id": "6.1", "label": "6.1\" iPhone", "width": 1125, "height": 2436, "orientation": "portrait" }
+      { "id": "6.3-landscape", "label": "6.3\" iPhone landscape", "width": 2622, "height": 1206, "orientation": "landscape" },
+      { "id": "6.1", "label": "6.1\" iPhone", "width": 1125, "height": 2436, "orientation": "portrait" },
+      { "id": "6.1-landscape", "label": "6.1\" iPhone landscape", "width": 2436, "height": 1125, "orientation": "landscape" }
     ],
     "ipad": [
       { "id": "13", "label": "13\" iPad (lead)", "width": 2064, "height": 2752, "orientation": "portrait" },
       { "id": "13-landscape", "label": "13\" iPad landscape", "width": 2752, "height": 2064, "orientation": "landscape" },
       { "id": "12.9", "label": "12.9\" iPad", "width": 2048, "height": 2732, "orientation": "portrait" },
-      { "id": "11", "label": "11\" iPad", "width": 1668, "height": 2420, "orientation": "portrait" }
+      { "id": "12.9-landscape", "label": "12.9\" iPad landscape", "width": 2732, "height": 2048, "orientation": "landscape" },
+      { "id": "11", "label": "11\" iPad", "width": 1668, "height": 2420, "orientation": "portrait" },
+      { "id": "11-landscape", "label": "11\" iPad landscape", "width": 2420, "height": 1668, "orientation": "landscape" }
     ],
     "macos": [
       { "id": "2880x1800", "label": "Mac 2880×1800 (lead)", "width": 2880, "height": 1800, "orientation": "landscape" },
@@ -30,6 +36,9 @@
       { "id": "series-9", "label": "Apple Watch Series 9", "width": 396, "height": 484, "orientation": "portrait" },
       { "id": "series-6", "label": "Apple Watch Series 6", "width": 368, "height": 448, "orientation": "portrait" },
       { "id": "series-3", "label": "Apple Watch Series 3", "width": 312, "height": 390, "orientation": "portrait" }
+    ],
+    "visionos": [
+      { "id": "vision-pro", "label": "Apple Vision Pro (lead)", "width": 3840, "height": 2160, "orientation": "landscape" }
     ]
   },
   "android": {
@@ -46,6 +55,23 @@
       { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait (lead)", "width": 1600, "height": 2560, "orientation": "portrait" },
       { "id": "tablet-10-landscape", "label": "10-inch Android tablet landscape", "width": 2560, "height": 1600, "orientation": "landscape" }
     ],
+    "chromebook": [
+      { "id": "chromebook-landscape", "label": "Chromebook landscape (lead)", "width": 1920, "height": 1080, "orientation": "landscape" },
+      { "id": "chromebook-portrait", "label": "Chromebook portrait", "width": 1080, "height": 1920, "orientation": "portrait" }
+    ],
+    "tv": [
+      { "id": "tv-landscape", "label": "Android TV landscape (lead)", "width": 1920, "height": 1080, "orientation": "landscape" }
+    ],
+    "wear": [
+      { "id": "wear-square", "label": "Wear OS square (frameless)", "width": 384, "height": 384, "orientation": "square" }
+    ],
+    "automotive": [
+      { "id": "automotive-portrait", "label": "Android Automotive OS portrait (lead)", "width": 800, "height": 1280, "orientation": "portrait" },
+      { "id": "automotive-landscape", "label": "Android Automotive OS landscape", "width": 1024, "height": 768, "orientation": "landscape" }
+    ],
+    "xr": [
+      { "id": "xr-landscape", "label": "Android XR landscape (lead)", "width": 3840, "height": 2400, "orientation": "landscape" }
+    ],
     "$outputs": [
       { "id": "play-feature-graphic", "label": "Google Play Feature Graphic", "width": 1024, "height": 500, "orientation": "landscape", "kind": "promotion", "family": "phone", "format": "png-or-jpeg", "alpha": false }
     ]
@@ -55,6 +81,14 @@
       { "id": "4k", "label": "Windows desktop 4K (lead)", "width": 3840, "height": 2160, "orientation": "landscape" },
       { "id": "full-hd", "label": "Windows desktop Full HD", "width": 1920, "height": 1080, "orientation": "landscape" },
       { "id": "minimum", "label": "Windows desktop minimum", "width": 1366, "height": 768, "orientation": "landscape" }
+    ],
+    "xbox": [
+      { "id": "full-hd", "label": "Xbox Full HD (lead)", "width": 1920, "height": 1080, "orientation": "landscape" },
+      { "id": "4k", "label": "Xbox 4K", "width": 3840, "height": 2160, "orientation": "landscape" }
+    ],
+    "holographic": [
+      { "id": "minimum", "label": "Holographic minimum (lead)", "width": 1268, "height": 720, "orientation": "landscape" },
+      { "id": "4k", "label": "Holographic 4K", "width": 3840, "height": 2160, "orientation": "landscape" }
     ]
   },
   "web": {

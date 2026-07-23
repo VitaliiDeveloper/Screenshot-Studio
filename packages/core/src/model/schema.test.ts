@@ -57,6 +57,26 @@ function setRawFonts(project: ReturnType<typeof validProject>, fonts: unknown[])
   (project as { fonts: unknown[] }).fonts = fonts;
 }
 
+const LEGACY_SCREEN_FAMILIES = [
+  ["apple", "iphone"],
+  ["apple", "ipad"],
+  ["apple", "macos"],
+  ["apple", "tvos"],
+  ["apple", "watchos"],
+  ["android", "phone"],
+  ["android", "tablet-7"],
+  ["android", "tablet-10"],
+  ["windows", "desktop"],
+  ["web", "desktop"],
+  ["web", "laptop"],
+  ["web", "tablet"],
+  ["web", "mobile"],
+] as const;
+
+const LEGACY_DEVICE_FRAME_IDS = [
+  "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+] as const;
+
 describe("project resource paths", () => {
   const transform = { x: 0, y: 0, width: 100, height: 200 };
 
@@ -326,6 +346,56 @@ describe("parseProject", () => {
     expect(project.meta.schemaVersion).toBe(1);
     expect(project.layouts[0]!.screens[0]!.direction).toBe("ltr");
     expect(raw).toEqual(before);
+  });
+
+  it.each(LEGACY_SCREEN_FAMILIES)(
+    "keeps strict-v1 %s/%s project literals valid without migration",
+    (platform, device) => {
+      const raw = validProject();
+      Object.assign(raw.layouts[0]!.screens[0]!, { platform, device });
+
+      const parsed = parseProject(raw);
+
+      expect(parsed.meta.schemaVersion).toBe(1);
+      expect(parsed.layouts[0]!.screens[0]).toMatchObject({ platform, device });
+    },
+  );
+
+  it("keeps every legacy device-frame literal valid in a strict-v1 project", () => {
+    const raw = validProject();
+    (raw.layouts[0]!.screens[0]! as unknown as { elements: unknown[] }).elements =
+      LEGACY_DEVICE_FRAME_IDS.map((deviceType, index) => ({
+        id: `legacy-frame-${index}`,
+        type: "device-frame",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 200,
+        deviceType,
+      }));
+
+    const parsed = parseProject(raw);
+
+    expect(parsed.meta.schemaVersion).toBe(1);
+    expect(parsed.layouts[0]!.screens[0]!.elements.map((element) =>
+      element.type === "device-frame" ? element.deviceType : undefined))
+      .toEqual(LEGACY_DEVICE_FRAME_IDS);
+  });
+
+  it.each([
+    ["apple", "visionos"],
+    ["android", "chromebook"],
+    ["android", "tv"],
+    ["android", "wear"],
+    ["android", "automotive"],
+    ["android", "xr"],
+    ["windows", "xbox"],
+    ["windows", "holographic"],
+  ] as const)("accepts the widened %s/%s output family", (platform, device) => {
+    const raw = validProject();
+    Object.assign(raw.layouts[0]!.screens[0]!, { platform, device });
+
+    expect(parseProject(raw).layouts[0]!.screens[0]).toMatchObject({ platform, device });
   });
 
   it.each([2, 10])("rejects unsupported numeric schema version %s with a dedicated error", (version) => {

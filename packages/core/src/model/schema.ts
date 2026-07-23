@@ -287,9 +287,11 @@ export type FontAsset = z.infer<typeof FontAsset>;
  * pair is declared in exactly one place. Widen HERE and in store-specs.json in the same change.
  */
 export const SCREEN_DEVICES_BY_PLATFORM = {
-  apple: ["iphone", "ipad", "macos", "tvos", "watchos"],
-  android: ["phone", "tablet-7", "tablet-10"],
-  windows: ["desktop"],
+  apple: ["iphone", "ipad", "macos", "tvos", "watchos", "visionos"],
+  android: [
+    "phone", "tablet-7", "tablet-10", "chromebook", "tv", "wear", "automotive", "xr",
+  ],
+  windows: ["desktop", "xbox", "holographic"],
   web: ["desktop", "laptop", "tablet", "mobile"],
 } as const;
 export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;

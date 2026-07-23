@@ -13,7 +13,7 @@ const StoreSize = z
     label: z.string(),
     width: z.number().int().positive(),
     height: z.number().int().positive(),
-    orientation: z.enum(["portrait", "landscape"]),
+    orientation: z.enum(["portrait", "landscape", "square"]),
     kind: z.enum(["device", "promotion", "responsive"]).optional(),
     /** Device family whose root owns this non-device output target. */
     family: z.string().min(1).optional(),
