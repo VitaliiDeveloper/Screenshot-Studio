@@ -154,5 +154,14 @@ describe("capture import client", () => {
         imported: 1,
       }),
     })).rejects.toBeInstanceOf(CaptureImportClientError);
+    await expect(applyCaptureImport({
+      files: [captureFile("screenshots/apple/iphone/en/01.png")],
+      destination: newDestination,
+    }, preview.confirmationFingerprint, {
+      transport: async () => Response.json({
+        project: { sessionId: "session", name: "Receiver", sourceKind: "managed-project", capabilities: {} },
+        imported: 1,
+      }, { headers: { "x-project-id": "a".repeat(64) } }),
+    })).rejects.toBeInstanceOf(CaptureImportClientError);
   });
 });

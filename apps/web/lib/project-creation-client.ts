@@ -16,6 +16,8 @@ export interface CreateProjectOptions {
   transport?: ProjectCreationTransport;
 }
 
+const MANAGED_PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
+
 export class ProjectCreationClientError extends Error {
   constructor(message: string, readonly code: string) {
     super(message);
@@ -54,7 +56,7 @@ export async function createProject(
     throw new ProjectCreationClientError("Project creation returned an invalid response", "invalid-response");
   }
   const projectId = response.headers.get("x-project-id")?.trim();
-  if (!projectId) {
+  if (!projectId || !MANAGED_PROJECT_ID_PATTERN.test(projectId)) {
     throw new ProjectCreationClientError(
       "Project creation response is missing its project identity",
       "invalid-response",

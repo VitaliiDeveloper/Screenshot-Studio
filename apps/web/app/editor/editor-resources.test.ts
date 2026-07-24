@@ -282,6 +282,28 @@ describe("editor resources", () => {
     expect(dependencies.loadImages).not.toHaveBeenCalled();
   });
 
+  it("rejects a route identity mismatch before applying any resource state", async () => {
+    editorStore.getState().resetProjectState();
+    const dependencies = {
+      ...successfulDependencies(),
+      expectedProjectId: "project-route",
+    };
+    const apply = vi.fn(applyEditorResourceResult);
+
+    await expect(runEditorResourceReload({
+      serialize: (operation) => operation(),
+      load: () => loadEditorResources(dependencies),
+      apply,
+      isCurrent: () => true,
+    })).rejects.toThrow(/active project changed/i);
+
+    expect(dependencies.loadImages).not.toHaveBeenCalled();
+    expect(dependencies.registerFonts).not.toHaveBeenCalled();
+    expect(dependencies.fetchStoreSpecs).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(editorStore.getState().project).toBeNull();
+  });
+
   it("keeps ordered font registration failures as recoverable warnings", async () => {
     const dependencies = successfulDependencies();
     const secondFont = { ...brokenFont, family: "Also Broken", path: "assets/fonts/also-broken.ttf" };

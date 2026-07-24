@@ -22,6 +22,7 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("loadManagedProjectAction");
     expect(source).toContain("onRetryProjects={loadProjects}");
     expect(source).toContain("onRemoveRecent={removeRecent}");
+    expect(source).toContain("projectInfoUrl(result.projectId, entryId)");
   });
 
   it("removes page-level starter examples and keeps capture import behind Import", () => {
@@ -33,7 +34,7 @@ describe("ProjectLauncher import integration", () => {
   it("records any configured session before loading Projects and routes imports to Workspace", () => {
     expect(source).not.toContain('router.replace("/home")');
     expect(source).toContain("fetchActiveProject()\n    .then(() => fetchProjectLibrary())");
-    expect(source).toContain('router.push("/editor")');
+    expect(source).toContain("router.push(editorProjectUrl(result.projectId))");
     expect(source).toContain("router.refresh()");
   });
 
@@ -74,7 +75,7 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("createProject");
     expect(source).toContain("reduceProjectCreationState");
     expect(source).toContain("switchActiveProject(() => createProject");
-    expect(source).toContain('router.push("/editor")');
+    expect(source).toContain("router.push(editorProjectUrl(result.projectId))");
     expect(source).toContain("creationButtonRef.current?.focus()");
   });
 
@@ -87,7 +88,7 @@ describe("ProjectLauncher import integration", () => {
       'dispatchCreation({ type: "complete", projectId: result.projectId })',
     );
     expect(successBranch).toContain(
-      'router.push("/editor")',
+      "router.push(editorProjectUrl(result.projectId))",
     );
     expect(successBranch).toContain("launcherDialogExitDelay(reducedMotion)");
     expect(successBranch).not.toContain("router.refresh()");
@@ -102,7 +103,7 @@ describe("ProjectLauncher import integration", () => {
     expect(source).toContain("await fetchActiveProject()");
     expect(source).toContain("assertCaptureImportRecoveryTarget(activeProject)");
     expect(source).toContain("discardActiveProjectPersistence()");
-    expect(source).toContain('router.push("/editor")');
+    expect(source).toContain("router.push(editorProjectUrl(result.projectId))");
     expect(source).toContain("afterImportExitRef.current = captureImport.open");
     expect(source).toContain("onChooseCapture={chooseCaptureImport}");
   });

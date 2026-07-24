@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { ActiveProjectDescriptor } from "./project-session.js";
+import type {
+  ActiveProjectDescriptor,
+  ActiveProjectSelection,
+} from "./project-session.js";
+
+const MANAGED_PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 
 export type BrowserProjectImportSource =
   | { kind: "folder"; files: readonly File[] }
@@ -78,7 +83,10 @@ export const xhrProjectImportTransport: ProjectImportTransport = (form, options)
     xhr.upload.addEventListener("load", () => options.onUploadComplete?.(), { once: true });
     xhr.addEventListener("load", () => finish(() => resolve(new Response(xhr.responseText, {
       status: xhr.status,
-      headers: { "content-type": xhr.getResponseHeader("content-type") ?? "application/json" },
+      headers: {
+        "content-type": xhr.getResponseHeader("content-type") ?? "application/json",
+        "x-project-id": xhr.getResponseHeader("x-project-id") ?? "",
+      },
     }))));
     xhr.addEventListener("error", () => finish(() => reject(new Error("Project import request failed"))));
     xhr.addEventListener("abort", () => finish(() => reject(abortError())));
@@ -90,7 +98,7 @@ export const xhrProjectImportTransport: ProjectImportTransport = (form, options)
 export async function importProject(
   source: BrowserProjectImportSource,
   options: ImportProjectOptions = {},
-): Promise<ActiveProjectDescriptor> {
+): Promise<ActiveProjectSelection> {
   const response = await (options.transport ?? xhrProjectImportTransport)(
     buildProjectImportForm(source),
     options,
@@ -117,5 +125,12 @@ export async function importProject(
     || body.project.capabilities === null) {
     throw new ProjectImportClientError("Project import returned an invalid response", "invalid-response");
   }
-  return body.project;
+  const projectId = response.headers.get("x-project-id")?.trim();
+  if (!projectId || !MANAGED_PROJECT_ID_PATTERN.test(projectId)) {
+    throw new ProjectImportClientError(
+      "Project import response is missing its project identity",
+      "invalid-response",
+    );
+  }
+  return { ...body.project, projectId };
 }

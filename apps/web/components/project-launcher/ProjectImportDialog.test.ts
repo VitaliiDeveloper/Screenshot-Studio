@@ -12,5 +12,6 @@ describe("ProjectImportDialog entry choices", () => {
     expect(source).toContain("Folder");
     expect(source).toContain("Project ZIP");
     expect(source).toContain("Standalone JSON");
+    expect(source.match(/flex h-full flex-col items-start justify-start/g)).toHaveLength(3);
   });
 });

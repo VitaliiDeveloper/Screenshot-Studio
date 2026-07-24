@@ -20,6 +20,7 @@ import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/project-home
 import { buildProjectHomeSummary } from "@web/lib/project-home-model";
 import { editorStore } from "@web/lib/editor-store";
 import { getProjectPersistenceIdentity } from "@web/lib/save-project";
+import { projectInfoEntryBindingError } from "@web/lib/editor-route";
 import { editorUi } from "@web/components/editor-ui/styles";
 
 const DynamicScreenThumbnail = dynamic(
@@ -31,7 +32,10 @@ function screenCountLabel(count: number): string {
   return `${count} screen${count === 1 ? "" : "s"}`;
 }
 
-export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string }) {
+export function ProjectHome({ expectedProjectId, expectedEntryId }: {
+  expectedProjectId?: string;
+  expectedEntryId?: string;
+}) {
   const router = useRouter();
   const [data, setData] = useState<ProjectHomeData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +44,11 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const saveError = useStore(editorStore, (state) => state.saveError);
+  const entryBindingError = projectInfoEntryBindingError(expectedProjectId, expectedEntryId);
 
   useEffect(() => {
     let active = true;
+    if (entryBindingError) return () => { active = false; };
     void loadProjectHomeData().then((loaded) => {
       if (!active) return;
       if (!loaded) {
@@ -58,7 +64,7 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
       if (active) setError(caught instanceof Error ? caught.message : String(caught));
     });
     return () => { active = false; };
-  }, [expectedProjectId, router]);
+  }, [entryBindingError, expectedProjectId, router]);
 
   const summary = useMemo(() => data ? buildProjectHomeSummary({
     project: data.resources.project,
@@ -70,7 +76,8 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
     saveError: getProjectPersistenceIdentity()?.projectId === data.selection.projectId
       ? saveError
       : null,
-  }) : null, [data, saveError]);
+    entryId: expectedEntryId,
+  }) : null, [data, expectedEntryId, saveError]);
 
   const closeCurrentProject = async () => {
     if (!data || closeBusy || archiveBusy) return;
@@ -100,8 +107,8 @@ export function ProjectHome({ expectedProjectId }: { expectedProjectId?: string 
     }
   };
 
-  if (error) {
-    return <main className="grid min-h-dvh place-items-center p-6"><p role="alert" className={editorUi.statusError}>{error}</p></main>;
+  if (entryBindingError || error) {
+    return <main className="grid min-h-dvh place-items-center p-6"><p role="alert" className={editorUi.statusError}>{entryBindingError ?? error}</p></main>;
   }
   if (!data || !summary) {
     return <main className="grid min-h-dvh place-items-center p-6 text-sm text-[color:var(--editor-color-text-secondary)]">Loading project info…</main>;

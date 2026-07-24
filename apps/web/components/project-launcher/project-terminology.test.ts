@@ -12,7 +12,7 @@ const workspaceModel = readFileSync(
 );
 const screensSection = readFileSync(new URL("../ScreensSection.tsx", import.meta.url), "utf8");
 const leftPanel = readFileSync(new URL("../LeftPanel.tsx", import.meta.url), "utf8");
-const editorPage = readFileSync(new URL("../../app/editor/page.tsx", import.meta.url), "utf8");
+const editorPage = readFileSync(new URL("../../app/editor/editor-workspace.tsx", import.meta.url), "utf8");
 const captureImportHook = readFileSync(
   new URL("../../app/editor/use-editor-capture-import.ts", import.meta.url),
   "utf8",

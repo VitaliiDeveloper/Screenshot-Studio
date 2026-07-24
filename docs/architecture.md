@@ -148,6 +148,13 @@ An active project is a request-scoped session, not one process-global filesystem
 adapter opens a local file, managed project, or future provider into a validated Project snapshot,
 revision evidence, capabilities, and the resource services needed for that source. Browser clients
 receive only safe descriptors; server-only locators and filesystem paths are not project fields.
+The canonical Workspace route is `/editor/[entryId]`, where `entryId` is an opaque managed
+`project_*` or local-history `recent_*` Project Library identity. That route activates the named
+entry before editor resources mount and fails closed when the entry is invalid or unavailable; it
+must never render a different cookie-selected project as a fallback. A local session's SHA-256
+`projectId` remains a request fence and is not interchangeable with its `recent_*` entry identity.
+The legacy `/editor` route remains a session-based compatibility entry and may canonicalize only
+when the active selection already exposes an exact managed entry identity.
 
 Every project-bound operation resolves one active context and sends its `X-Project-Id`; a missing
 identity returns `428` and an inactive identity returns `409`. Versioned operations such as save,

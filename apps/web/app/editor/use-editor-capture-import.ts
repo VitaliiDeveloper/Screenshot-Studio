@@ -2,12 +2,16 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { Project } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   assertCaptureImportHandoff,
   useCaptureImportController,
 } from "@web/components/project-launcher/useCaptureImportController";
+import { discardActiveProjectPersistence } from "@web/lib/debounced-save";
+import { editorProjectUrl } from "@web/lib/editor-route";
+import { fetchActiveProject } from "@web/lib/project-session";
 import { getProjectPersistenceIdentity } from "@web/lib/save-project";
 
 export function useEditorCaptureImport(
@@ -16,6 +20,7 @@ export function useEditorCaptureImport(
   reloadResources: () => Promise<boolean>,
   specs: StoreSpecs | null,
 ) {
+  const router = useRouter();
   const persistence = getProjectPersistenceIdentity();
   const currentTarget = useMemo(() => project && activeProjectId
     && persistence?.projectId === activeProjectId
@@ -30,14 +35,22 @@ export function useEditorCaptureImport(
 
   const complete = useCallback(async (
     result: Parameters<typeof assertCaptureImportHandoff>[0],
-    _destinationKind: "current-project" | "new-project",
+    destinationKind: "current-project" | "new-project",
     signal: AbortSignal,
   ) => {
+    if (destinationKind === "new-project") {
+      const activeProject = await fetchActiveProject();
+      if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
+      assertCaptureImportHandoff(result, activeProject?.projectId);
+      discardActiveProjectPersistence();
+      router.replace(editorProjectUrl(result.projectId));
+      return;
+    }
     const reloaded = await reloadResources();
     if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
     if (!reloaded) throw new Error("Capture import completed, but the editor could not reload it");
     assertCaptureImportHandoff(result, getProjectPersistenceIdentity()?.projectId);
-  }, [reloadResources]);
+  }, [reloadResources, router]);
 
   const recover = useCallback(async () => {
     const reloaded = await reloadResources();

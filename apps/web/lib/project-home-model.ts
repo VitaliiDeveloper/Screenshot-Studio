@@ -8,6 +8,10 @@ import {
 import { type Project, type Screen } from "@screenshot-studio/core/model";
 import type { ActiveProjectSelection } from "./project-session.js";
 import { storeOutputLabel } from "./editor-workspace.js";
+import {
+  canonicalEditorUrlForSelection,
+  editorProjectUrl,
+} from "./editor-route.js";
 
 const SOURCE_LABELS: Record<string, string> = {
   "local-file": "Local project file",
@@ -84,16 +88,22 @@ function targetLabel(specs: StoreSpecs, screen: Screen): string {
   }
 }
 
-function buildActions(selection: ActiveProjectSelection): ProjectHomeAction[] {
+function buildActions(selection: ActiveProjectSelection, entryId?: string): ProjectHomeAction[] {
   const canEdit = selection.capabilities.writeInPlace;
+  const editorUrl = entryId
+    ? editorProjectUrl(entryId)
+    : canonicalEditorUrlForSelection(selection) ?? "/editor";
+  const editorIntentUrl = (intent: string) => entryId
+    ? editorProjectUrl(entryId, intent)
+    : `${editorUrl}?${new URLSearchParams({ intent }).toString()}`;
   return [
-    { id: "continue-editing", label: "Continue in Workspace", description: "Return to the full editor with this project selected.", enabled: canEdit, href: canEdit ? "/editor" : undefined },
-    { id: "manage-layouts", label: "Manage layouts and screens", description: "Open the existing Workspace structure tools.", enabled: canEdit, href: canEdit ? "/editor?intent=layouts" : undefined },
-    { id: "add-screen", label: "Add a screen", description: "Open the existing screen actions in Workspace.", enabled: canEdit, href: canEdit ? "/editor?intent=add-screen" : undefined },
-    { id: "manage-locales", label: "Manage locales", description: "Open the existing locale manager in Workspace.", enabled: canEdit, href: canEdit ? "/editor?intent=locales" : undefined },
+    { id: "continue-editing", label: "Continue in Workspace", description: "Return to the full editor with this project selected.", enabled: canEdit, href: canEdit ? editorUrl : undefined },
+    { id: "manage-layouts", label: "Manage layouts and screens", description: "Open the existing Workspace structure tools.", enabled: canEdit, href: canEdit ? editorIntentUrl("layouts") : undefined },
+    { id: "add-screen", label: "Add a screen", description: "Open the existing screen actions in Workspace.", enabled: canEdit, href: canEdit ? editorIntentUrl("add-screen") : undefined },
+    { id: "manage-locales", label: "Manage locales", description: "Open the existing locale manager in Workspace.", enabled: canEdit, href: canEdit ? editorIntentUrl("locales") : undefined },
     { id: "capture-import", label: "Capture import", description: "Preview a PNG capture folder, then add it to this project or a new managed project.", enabled: true },
     { id: "import-project", label: "Import another project", description: "Validate a Folder, project ZIP, or JSON into a separate managed copy.", enabled: true, href: "/?switch=1" },
-    { id: "store-image-export", label: "Export store images", description: "Render exact store-ready PNG bundles from the shared Workspace renderer.", enabled: true, href: "/editor?intent=export" },
+    { id: "store-image-export", label: "Export store images", description: "Render exact store-ready PNG bundles from the shared Workspace renderer.", enabled: true, href: editorIntentUrl("export") },
     { id: "project-archive-export", label: "Export project archive", description: "Download a portable project backup for later project import.", enabled: selection.capabilities.exportProjectArchive },
     { id: "permanently-delete-project", label: "Permanently delete project", description: "Irreversibly delete this managed project and its project-local resources.", enabled: selection.capabilities.deleteProjectPermanently },
   ];
@@ -150,6 +160,7 @@ export function buildProjectHomeSummary({
   missingAssets = [],
   fontWarnings = [],
   saveError,
+  entryId,
 }: {
   project: Project;
   selection: ActiveProjectSelection;
@@ -157,6 +168,7 @@ export function buildProjectHomeSummary({
   missingAssets?: string[];
   fontWarnings?: string[];
   saveError?: string | null;
+  entryId?: string;
 }): ProjectHomeSummary {
   const allScreens = project.layouts.flatMap((layout) => layout.screens);
   const platforms = [...new Set(allScreens.map((screen) => destinationLabel(screen.platform, specs)))];
@@ -232,6 +244,6 @@ export function buildProjectHomeSummary({
     })),
     representativeScreens: buildRepresentativeScreens(project, specs),
     readiness,
-    actions: buildActions(selection),
+    actions: buildActions(selection, entryId),
   };
 }

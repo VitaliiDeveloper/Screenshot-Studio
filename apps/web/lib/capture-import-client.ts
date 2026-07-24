@@ -258,8 +258,11 @@ export async function applyCaptureImport(
   const body = await responseBody(response);
   if (!response.ok) return throwResponseError(response, body);
   const projectId = response.headers.get("x-project-id")?.trim();
+  const validProjectId = request.destination.kind === "new-project"
+    ? /^project_[0-9a-f]{32}$/u.test(projectId ?? "")
+    : /^(?:project_[0-9a-f]{32}|[0-9a-f]{64})$/u.test(projectId ?? "");
   if (!validProjectDescriptor(body.project)
-    || !projectId
+    || !projectId || !validProjectId
     || !Number.isSafeInteger(body.imported) || Number(body.imported) < 0) {
     throw new CaptureImportClientError(
       "Capture import apply returned an invalid response",

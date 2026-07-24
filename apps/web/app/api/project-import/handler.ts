@@ -182,9 +182,11 @@ export async function handleProjectImportPost(
     });
     const session = registry.openManagedRecord(record);
     await (dependencies.recentProjects ?? recentProjectsStore).record(session).catch(() => undefined);
+    const headers = projectSessionResponseHeaders(session, request);
+    headers.set("x-project-id", session.projectId);
     return Response.json({ project: session.descriptor }, {
       status: 201,
-      headers: projectSessionResponseHeaders(session, request),
+      headers,
     });
   } catch (error) {
     if (error instanceof ManagedProjectImportError) {

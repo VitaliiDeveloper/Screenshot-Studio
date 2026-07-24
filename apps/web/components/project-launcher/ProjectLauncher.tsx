@@ -10,6 +10,7 @@ import {
   switchActiveProject,
 } from "@web/lib/debounced-save";
 import { clearWorkspaceNavigationState } from "@web/lib/editor-workspace-navigation";
+import { editorProjectUrl, projectInfoUrl } from "@web/lib/editor-route";
 import { loadProjectHomeData } from "@web/lib/project-home-client";
 import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
 import { fetchActiveProject } from "@web/lib/project-session";
@@ -111,14 +112,14 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
     const activeProject = await fetchActiveProject();
     if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
     assertCaptureImportHandoff(result, activeProject?.projectId);
-    router.push("/editor");
+    router.push(editorProjectUrl(result.projectId));
     router.refresh();
   }, [router]);
   const recoverCaptureTarget = useCallback(async () => {
     const activeProject = await fetchActiveProject();
     assertCaptureImportRecoveryTarget(activeProject);
     discardActiveProjectPersistence();
-    router.replace("/editor");
+    router.replace(editorProjectUrl(activeProject.projectId));
     router.refresh();
   }, [router]);
   const captureImport = useCaptureImportController({
@@ -228,10 +229,10 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
         publishingRef.current = true;
         dispatchImport({ type: "publishing" });
       },
-    })).then(() => {
+    })).then((result) => {
       if (!mountedRef.current) return;
       dispatchImport({ type: "complete" });
-      router.push("/editor");
+      router.push(editorProjectUrl(result.projectId));
       router.refresh();
     }).catch((caught: unknown) => {
       publishingRef.current = false;
@@ -272,7 +273,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
       const navigate = () => {
         creationExitTimerRef.current = null;
         if (mountedRef.current) {
-          router.push("/editor");
+          router.push(editorProjectUrl(result.projectId));
         }
       };
       const delay = launcherDialogExitDelay(reducedMotion);
@@ -295,8 +296,8 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
     void switchActiveProject(() => openProjectLibraryEntry(entryId)).then((result) => {
       if (!mountedRef.current) return;
       router.push(destination === "workspace"
-        ? "/editor"
-        : `/home?project=${encodeURIComponent(result.projectId)}`);
+        ? editorProjectUrl(entryId)
+        : projectInfoUrl(result.projectId, entryId));
     }).catch((caught: unknown) => {
       if (mountedRef.current) setProjectActionError(
         caught instanceof Error ? caught.message : String(caught),
