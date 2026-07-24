@@ -289,11 +289,14 @@ export function CanvasViewport({
     if (transitionFrameRef.current !== null) cancelAnimationFrame(transitionFrameRef.current);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (lastFitLayoutRef.current === fitLayoutKey) return;
     lastFitLayoutRef.current = fitLayoutKey;
-    const id = requestAnimationFrame(fit);
-    return () => cancelAnimationFrame(id);
+
+    // Structural canvas changes (for example adding an output family) must install their new fit
+    // before paint. Deferring this to an effect/frame briefly renders the new geometry at the old
+    // zoom and makes the canvas visibly jump.
+    fit();
   }, [fit, fitLayoutKey]);
 
   useEffect(() => {
