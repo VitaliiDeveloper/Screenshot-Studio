@@ -420,6 +420,7 @@ export function CanvasViewport({
                       key={family.key}
                       label={family.label}
                       editing={family.editing}
+                      headerEditing={masterRow?.editing ?? false}
                       artworkWidth={artworkWidth}
                       sizeLabel={masterRow ? outputSizeLabel(masterRow, specs) : undefined}
                       role={masterRow ? "master" : undefined}
