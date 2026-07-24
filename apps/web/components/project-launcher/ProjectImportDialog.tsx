@@ -128,7 +128,7 @@ export function ProjectImportDialog({
           <div className="mt-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]">Project folder or archive</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <button type="button" onClick={() => folderInputRef.current?.click()} className="group rounded-2xl border-2 border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 text-left transition hover:border-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
+            <button type="button" onClick={() => folderInputRef.current?.click()} className="group flex h-full flex-col items-start justify-start rounded-2xl border-2 border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 text-left transition hover:border-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]">
                 <FolderOpen aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent)]" /> Folder
               </span>
@@ -136,11 +136,11 @@ export function ProjectImportDialog({
               <span className="mt-2 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Best for complete projects with screenshots, fonts, and assets.</span>
               <span className="mt-3 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">Your browser may ask you to confirm uploading the selected files.</span>
             </button>
-            <button type="button" onClick={() => archiveInputRef.current?.click()} className="rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-border-strong)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
+            <button type="button" onClick={() => archiveInputRef.current?.click()} className="flex h-full flex-col items-start justify-start rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-border-strong)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]"><FileArchive aria-hidden="true" className="size-5" /> Project ZIP</span>
               <span className="mt-7 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Import a portable project archive with its referenced resources.</span>
             </button>
-            <button type="button" onClick={() => jsonInputRef.current?.click()} className="rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-border-strong)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
+            <button type="button" onClick={() => jsonInputRef.current?.click()} className="flex h-full flex-col items-start justify-start rounded-2xl border border-[var(--editor-color-border)] bg-white p-5 text-left transition hover:border-[var(--editor-color-border-strong)] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]"><FileJson aria-hidden="true" className="size-5" /> Standalone JSON</span>
               <span className="mt-7 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Eligible only when the project has no referenced local resources.</span>
             </button>
