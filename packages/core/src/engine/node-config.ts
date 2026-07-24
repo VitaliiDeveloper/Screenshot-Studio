@@ -549,6 +549,12 @@ export function elementToNodeConfig(
             width: W,
             height: chrome.heightFrac * H,
             fill: chrome.backgroundColor,
+            cornerRadius: [
+              spec.frameCornerRadius * W,
+              spec.frameCornerRadius * W,
+              0,
+              0,
+            ],
           },
         });
         const controlRadius = chrome.controls.radiusFrac * W;

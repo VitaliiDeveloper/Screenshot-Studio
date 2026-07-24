@@ -104,6 +104,13 @@ describe("device-frame parity", () => {
         const px = PNG.sync.read(cli);
         expect({ width: px.width, height: px.height }).toEqual(target);
 
+        if (screenId === "browser-dark") {
+          // Browser chrome must preserve the rounded outer silhouette instead of repainting its
+          // top corners. This pixel sits inside the frame box but outside its rounded corner.
+          const corner = (537 * px.width + 41) * 4;
+          expect(Math.max(...px.data.subarray(corner, corner + 3))).toBeLessThan(24);
+        }
+
         // Every fixture centers the red source image at the artboard center. This positive assertion
         // catches a shared-path failure that an editor/CLI diff alone cannot detect.
         const i = (717 * px.width + 330) * 4;

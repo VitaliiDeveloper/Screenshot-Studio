@@ -508,7 +508,17 @@ describe("elementToNodeConfig — device-frame", () => {
     );
     if (result.konva !== "Group") throw new Error("expected Group");
     expect(result.children.slice(-5)).toEqual([
-      { konva: "Rect", config: { x: 0, y: 0, width: 800, height: 34, fill: "#25262B" } },
+      {
+        konva: "Rect",
+        config: {
+          x: 0,
+          y: 0,
+          width: 800,
+          height: 34,
+          fill: "#25262B",
+          cornerRadius: [20, 20, 0, 0],
+        },
+      },
       { konva: "Ellipse", config: { x: 20, y: 17, radiusX: 4.8, radiusY: 4.8, fill: "#858992" } },
       { konva: "Ellipse", config: { x: 39.2, y: 17, radiusX: 4.8, radiusY: 4.8, fill: "#858992" } },
       { konva: "Ellipse", config: { x: 58.4, y: 17, radiusX: 4.8, radiusY: 4.8, fill: "#858992" } },
