@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Copy, ImagePlus, Smartphone, Trash2, Ungroup } from "lucide-react";
+import { Copy, ImagePlus, PanelsTopLeft, Smartphone, Trash2, Ungroup } from "lucide-react";
 import {
   deviceFramePreset,
   ICON_IDS,
@@ -197,44 +197,6 @@ export function ElementTypeInspectorSections({
 
       {element.type === "device-frame" && (
         <Section title="Device frame">
-          <InsetPanel>
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
-                <Smartphone size={17} strokeWidth={1.8} />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text-strong)]" title={element.assetUrl}>
-                  {element.assetUrl?.split("/").at(-1) ?? "No screenshot assigned"}
-                </span>
-                <span className="mt-0.5 block text-[10px] leading-4 text-[color:var(--editor-color-text-muted)]">
-                  {element.assetUrl ? "Project screenshot" : "The mockup shows a placeholder until you choose one."}
-                </span>
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {onChooseDeviceFrameAsset ? (
-                <button
-                  type="button"
-                  className={`${editorUi.buttonSecondary} min-w-0 flex-1`}
-                  onClick={onChooseDeviceFrameAsset}
-                >
-                  <ImagePlus size={14} strokeWidth={1.9} />
-                  {element.assetUrl ? "Replace screenshot" : "Choose screenshot"}
-                </button>
-              ) : null}
-              {element.assetUrl ? (
-                <button
-                  type="button"
-                  className={editorUi.iconButtonDanger}
-                  aria-label="Remove screenshot from device mockup"
-                  title="Remove screenshot"
-                  onClick={() => patchDeviceFrame({ assetUrl: null })}
-                >
-                  <Trash2 size={15} strokeWidth={1.9} />
-                </button>
-              ) : null}
-            </div>
-          </InsetPanel>
           <SelectField
             label="Content mode"
             value={element.fit}
@@ -254,23 +216,65 @@ export function ElementTypeInspectorSections({
             ) : null}
           </OptionalInspectorEffect>
           <InsetPanel>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
+                <Smartphone size={17} strokeWidth={1.8} />
+              </span>
               <span className="min-w-0">
-                <span className="block text-[10px] font-medium uppercase tracking-[0.1em] text-[color:var(--editor-color-text-muted)]">
-                  Frame
+                <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text-strong)]" title={element.assetUrl}>
+                  {element.assetUrl?.split("/").at(-1) ?? "No screenshot assigned"}
                 </span>
-                <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--editor-color-text-strong)]">
-                  {deviceFramePreset(element.deviceType).label}
+                <span className="mt-0.5 block text-[10px] leading-4 text-[color:var(--editor-color-text-muted)]">
+                  {element.assetUrl ? "Project screenshot" : "The mockup shows a placeholder until you choose one."}
                 </span>
               </span>
-              <button
-                type="button"
-                className={editorUi.buttonSecondary}
-                onClick={() => setFramePickerOpen(true)}
-              >
-                Choose frame
-              </button>
             </div>
+            <div className="flex items-center gap-2">
+              {onChooseDeviceFrameAsset ? (
+                <button
+                  type="button"
+                  className={`${editorUi.buttonSecondary} min-w-0 flex-1 !text-[13px]`}
+                  onClick={onChooseDeviceFrameAsset}
+                >
+                  <ImagePlus size={14} strokeWidth={1.9} />
+                  {element.assetUrl ? "Replace screenshot" : "Choose screenshot"}
+                </button>
+              ) : null}
+              {element.assetUrl ? (
+                <button
+                  type="button"
+                  className={editorUi.iconButtonDanger}
+                  aria-label="Remove screenshot from device mockup"
+                  title="Remove screenshot"
+                  onClick={() => patchDeviceFrame({ assetUrl: null })}
+                >
+                  <Trash2 size={15} strokeWidth={1.9} />
+                </button>
+              ) : null}
+            </div>
+          </InsetPanel>
+          <InsetPanel>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
+                <PanelsTopLeft size={17} strokeWidth={1.8} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text-strong)]">
+                  {deviceFramePreset(element.deviceType).label}
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-4 text-[color:var(--editor-color-text-muted)]">
+                  Built-in device frame preset
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`${editorUi.buttonSecondary} w-full !text-[13px]`}
+              onClick={() => setFramePickerOpen(true)}
+            >
+              <PanelsTopLeft size={14} strokeWidth={1.9} />
+              Choose frame
+            </button>
           </InsetPanel>
           {framePickerOpen ? (
             <DeviceFramePresetPicker

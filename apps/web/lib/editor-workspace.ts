@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   DEVICE_FRAME_PRESETS,
+  destinationLabel,
   deviceFramePreset,
+  OUTPUT_DEVICE_FAMILIES,
   outputFamilyLabel,
   sameScreenGroup,
   type DeviceFrameId,
@@ -9,6 +11,7 @@ import {
   type DesignLayout,
   type Screen,
 } from "@screenshot-studio/core/model";
+import type { StoreSize } from "@screenshot-studio/core/export";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
@@ -149,18 +152,91 @@ export function storeOutputLabel(platform: string, device: string): string {
   return outputFamilyLabel(platform, device);
 }
 
+function capitalizeDisplayLabel(value: string): string {
+  if (/^(?:iPhone|iPad|macOS|tvOS|watchOS)\b/.test(value)) return value;
+  return value.length === 0 ? value : `${value[0]!.toUpperCase()}${value.slice(1)}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Short family copy for UI that already supplies the destination and output context. */
+export function outputFamilyEditorLabel(platform: string, device: string): string {
+  const family = OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`);
+  if (!family) return storeOutputLabel(platform, device);
+  const legacySuffix = /\s+\(legacy\)$/i.test(family.label) ? " (legacy)" : "";
+  const base = family.label
+    .replace(/\s+\(legacy\)$/i, "")
+    .replace(/\bAndroid\s+/i, "")
+    .replace(/\bWindows\s+/i, "");
+  return `${capitalizeDisplayLabel(base)}${legacySuffix}`;
+}
+
 /** Remove output-level device copy from a size label while preserving its useful discriminator. */
 export function compactStoreSizeLabel(label: string, device: string): string {
   const withoutLead = label.replace(/\s+\(lead\)$/i, "");
+  if (device === "tablet-7") {
+    const canonicalTabletSize = /^(\d+-inch) Android tablet(?: (.+))?$/.exec(withoutLead);
+    if (canonicalTabletSize) {
+      return [canonicalTabletSize[1], canonicalTabletSize[2]].filter(Boolean).join(" ");
+    }
+  }
   const deviceLabel = STORE_SIZE_DEVICE_LABELS[device];
   if (!deviceLabel) return withoutLead;
-  if (withoutLead.startsWith(`${deviceLabel} `)) {
-    return withoutLead.slice(deviceLabel.length + 1);
+  return withoutLead
+    .replace(new RegExp(`(?:^|\\s)${escapeRegExp(deviceLabel)}(?=\\s|$)`, "i"), " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Format every target as `discriminator · orientation · qualifier`.
+ * The family card supplies destination/device context, so this copy never repeats it.
+ */
+export function conciseStoreTargetLabel(
+  target: StoreSize,
+  platform: string,
+  device: string,
+): string {
+  if (target.kind === "promotion") {
+    const withoutDestination = target.label.replace(
+      new RegExp(`^${escapeRegExp(destinationLabel(platform))}\\s+`, "i"),
+      "",
+    );
+    return target.id === "play-feature-graphic"
+      ? "Feature graphic"
+      : capitalizeDisplayLabel(withoutDestination);
   }
-  if (withoutLead.endsWith(` ${deviceLabel}`)) {
-    return withoutLead.slice(0, -(deviceLabel.length + 1));
+
+  let compact = compactStoreSizeLabel(target.label, device);
+  const family = OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`);
+  if (family) {
+    const familyLabel = family.label.replace(/\s+\(legacy\)$/i, "");
+    compact = compact.replace(
+      new RegExp(
+        `^(?:${platform === "web" ? "Web\\s+" : ""}${escapeRegExp(familyLabel)})(?:\\s+|$)`,
+        "i",
+      ),
+      "",
+    );
   }
-  return withoutLead;
+
+  const qualifiers: string[] = [];
+  if (/\bhigh resolution\b/i.test(compact)) qualifiers.push("High-res");
+  if (/\(frameless\)/i.test(compact)) qualifiers.push("Frameless");
+  const base = compact
+    .replace(/\bhigh resolution\b/gi, "")
+    .replace(/\s*\(frameless\)\s*/gi, " ")
+    .replace(/\b(?:portrait|landscape|square)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    base ? capitalizeDisplayLabel(base) : "",
+    capitalizeDisplayLabel(target.orientation),
+    ...qualifiers,
+  ].filter(Boolean).join(" · ");
 }
 
 export interface OutputFamily {

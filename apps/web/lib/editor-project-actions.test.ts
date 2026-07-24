@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
 import {
+  createStoreOutputFamily,
   createStoreTargetVariant,
+  deleteStoreOutputFamily,
   deleteStoreTargetVariant,
 } from "./editor-project-actions.js";
 
@@ -83,6 +85,27 @@ describe("editor project actions", () => {
       [{ screenId: standalone.id, elementId: "selected" }],
       standalone.id,
       target.id,
+    );
+
+    expect(result.project.layouts[0]!.screens.map((screen) => screen.id)).toEqual([rootId]);
+    expect(result.activeScreenId).toBe(rootId);
+    expect(result.selectedItems).toEqual([]);
+  });
+
+  it("removes an output family and selects a remaining family", () => {
+    const created = createStoreOutputFamily(project, "primary", rootId, "apple", "ipad", {
+      id: "13",
+      label: "13-inch iPad",
+      width: 2064,
+      height: 2752,
+      orientation: "portrait",
+    });
+    const result = deleteStoreOutputFamily(
+      created.project,
+      "primary",
+      created.activeScreenId!,
+      [{ screenId: created.activeScreenId!, elementId: "selected" }],
+      created.activeScreenId!,
     );
 
     expect(result.project.layouts[0]!.screens.map((screen) => screen.id)).toEqual([rootId]);

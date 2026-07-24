@@ -92,7 +92,15 @@ export function AddMenu<T extends string>({
           setOpen(true);
         }}
       >
-        <Plus size={14} strokeWidth={2} aria-hidden="true" />
+        <Plus
+          size={14}
+          strokeWidth={2}
+          aria-hidden="true"
+          className={cx(
+            "transition-transform duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)]",
+            open && "rotate-45",
+          )}
+        />
       </button>
 
       {open ? (
@@ -101,6 +109,7 @@ export function AddMenu<T extends string>({
           id={menuId}
           role="menu"
           aria-label={menuLabel}
+          data-placement={openUpward ? "top" : "bottom"}
           className={cx(
             "absolute right-0 z-40 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/10",
             openUpward ? "bottom-full mb-1" : "top-full mt-1",

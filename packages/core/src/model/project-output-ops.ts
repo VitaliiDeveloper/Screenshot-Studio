@@ -247,6 +247,35 @@ export function removeStoreTargetVariant(
 }
 
 /**
+ * Remove one complete platform/device output family for a locale. At least one family must remain
+ * for that locale so the editor never leaves a localized layout without an authoring target.
+ */
+export function removeStoreOutputFamily(
+  project: ProjectModel,
+  layoutId: string,
+  sourceScreenId: string,
+): ProjectModel {
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((screen) => screen.id === sourceScreenId);
+  if (!source) throw new Error(`Unknown screen "${sourceScreenId}"`);
+
+  const familyKeys = new Set(layout.screens
+    .filter((screen) => screen.locale === source.locale && isPrimaryScreen(screen))
+    .map((screen) => `${screen.platform}/${screen.device}`));
+  if (familyKeys.size <= 1) {
+    throw new Error(`Cannot remove the last output family for locale "${source.locale}"`);
+  }
+
+  const screens = layout.screens.filter((screen) => !sameOutputFamily(screen, source));
+  const screenSetPolicies = layout.screenSetPolicies?.filter((policy) => !(
+    policy.platform === source.platform
+    && policy.device === source.device
+    && policy.locale === source.locale
+  ));
+  return replaceLayout(project, { ...layout, screens, screenSetPolicies });
+}
+
+/**
  * Persist one output-family screen-slot policy. Enabling synchronization reconciles every
  * existing exact target and the primary size by persisted slot order before committing the
  * strict policy. Existing content is preserved; missing counterparts are fitted clones.

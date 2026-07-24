@@ -49,7 +49,9 @@
     ],
     "tablet-7": [
       { "id": "tablet-7-portrait", "label": "7-inch Android tablet portrait (lead)", "width": 1200, "height": 1920, "orientation": "portrait" },
-      { "id": "tablet-7-landscape", "label": "7-inch Android tablet landscape", "width": 1920, "height": 1200, "orientation": "landscape" }
+      { "id": "tablet-7-landscape", "label": "7-inch Android tablet landscape", "width": 1920, "height": 1200, "orientation": "landscape" },
+      { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait", "width": 1600, "height": 2560, "orientation": "portrait" },
+      { "id": "tablet-10-landscape", "label": "10-inch Android tablet landscape", "width": 2560, "height": 1600, "orientation": "landscape" }
     ],
     "tablet-10": [
       { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait (lead)", "width": 1600, "height": 2560, "orientation": "portrait" },

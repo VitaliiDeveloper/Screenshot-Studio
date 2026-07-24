@@ -213,7 +213,7 @@ describe("buildProjectHomeSummary", () => {
     expect(summary.outputFamilies.map(({ label }) => label)).toEqual([
       "App Store · iPhone",
       "App Store · iPad",
-      "Google Play · 7-inch Android tablet",
+      "Google Play · Android tablet",
       "Google Play · Wear OS",
       "Microsoft Store · Xbox",
       "Web · Desktop",

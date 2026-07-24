@@ -82,7 +82,7 @@ describe("ProjectGallery", () => {
     }]);
 
     expect(markup).toContain(
-      "iPhone · iPad · watchOS · Android phone · 7-inch Android tablet · Wear OS · Xbox · Desktop · Laptop · Web",
+      "iPhone · iPad · watchOS · Android phone · Android tablet · Wear OS · Xbox · Desktop · Laptop · Web",
     );
     expect(markup).not.toContain("android:phone");
     expect(markup).not.toContain("android:tablet-7");

@@ -85,8 +85,22 @@ describe("output presentation catalog", () => {
     }
   });
 
-  it("keeps only the legacy Web laptop family non-creatable", () => {
+  it("keeps superseded families visible but non-creatable", () => {
     expect(OUTPUT_DEVICE_FAMILIES.filter(({ creatable }) => !creatable))
-      .toEqual([expect.objectContaining({ key: "web/laptop", replacementKey: "web/desktop" })]);
+      .toEqual([
+        expect.objectContaining({
+          key: "android/tablet-10", replacementKey: "android/tablet-7",
+        }),
+        expect.objectContaining({ key: "web/laptop", replacementKey: "web/desktop" }),
+      ]);
+  });
+
+  it("presents one creatable Android tablet family with 7-inch and 10-inch sizes", () => {
+    expect(OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === "android/tablet-7"))
+      .toMatchObject({ label: "Android tablet", creatable: true });
+    expect(OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === "android/tablet-10"))
+      .toMatchObject({ creatable: false, replacementKey: "android/tablet-7" });
+    expect(findStoreTarget(specs, "android", "tablet-7", "tablet-10-portrait"))
+      .toMatchObject({ width: 1600, height: 2560 });
   });
 });

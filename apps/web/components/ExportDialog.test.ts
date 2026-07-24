@@ -94,14 +94,14 @@ describe("ExportDialog", () => {
       "iPad",
       "watchOS",
       "Android phone",
-      "7-inch Android tablet",
+      "Android tablet",
       "Wear OS",
       "Xbox",
       "Desktop",
       "Laptop",
     ]) expect(markup).toContain(label);
     expect(markup).toContain('<span data-value="apple">App Store</span>');
-    expect(markup).toContain('<span data-value="tablet-7">7-inch Android tablet</span>');
+    expect(markup).toContain('<span data-value="tablet-7">Android tablet</span>');
     expect(markup).toContain('<span data-value="laptop">Laptop</span>');
     expect(markup).not.toMatch(/>apple</u);
     expect(markup).not.toMatch(/>tablet-7</u);

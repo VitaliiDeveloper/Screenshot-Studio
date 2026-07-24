@@ -9,9 +9,21 @@ import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "@web/lib/editor-store";
 import { withFlushedProject } from "@web/lib/debounced-save";
 import { projectJsonRequest } from "@web/lib/project-api-client";
-import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
+import {
+  DialogShell,
+  EmptyResourceState,
+  editorUi,
+  SegmentedControl,
+  StatusMessage,
+} from "./editor-ui";
 
 type OutputFamily = { platform: string; device: string };
+type TemplateSource = "built-in" | "project";
+
+const TEMPLATE_SOURCE_OPTIONS = [
+  { value: "built-in", label: "Built-in templates" },
+  { value: "project", label: "Project templates" },
+] as const;
 
 export function compatibleTemplates(
   templates: readonly ScreenTemplate[],
@@ -33,7 +45,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const [templates, setTemplates] = useState<ScreenTemplate[]>([]);
   const [builtIns, setBuiltIns] = useState<ScreenTemplate[]>([]);
-  const [tab, setTab] = useState<"built-in" | "project">("built-in");
+  const [tab, setTab] = useState<TemplateSource>("built-in");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +97,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
         editorStore.getState().replaceProject(nextProject);
         editorStore.getState().selectScreen(screenId);
       });
+      close();
     } catch (createError) {
       setError((createError as Error).message);
     } finally {
@@ -102,9 +115,13 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
       widthClass="max-w-2xl"
     >
       {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
-      <div role="tablist" aria-label="Template sources" className="mb-4 flex gap-2 border-b border-slate-200 pb-2">
-        <button type="button" role="tab" aria-selected={tab === "built-in"} className={tab === "built-in" ? editorUi.buttonPrimary : editorUi.buttonSecondary} onClick={() => setTab("built-in")}>Built-in templates</button>
-        <button type="button" role="tab" aria-selected={tab === "project"} className={tab === "project" ? editorUi.buttonPrimary : editorUi.buttonSecondary} onClick={() => setTab("project")}>Project templates</button>
+      <div className="mb-4 flex justify-center">
+        <SegmentedControl
+          label="Template source"
+          value={tab}
+          options={TEMPLATE_SOURCE_OPTIONS}
+          onChange={setTab}
+        />
       </div>
       {loading ? <p className="text-xs text-slate-500">Loading screen templates…</p> : null}
       {!loading && tab === "project" && templates.length === 0 ? (

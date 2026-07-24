@@ -121,6 +121,7 @@ describe("ElementTypeInspectorSections device mockup assets", () => {
 
     expect(markup).toContain("No screenshot assigned");
     expect(markup).toContain("Choose screenshot");
+    expect(markup).toMatch(/class="[^"]*!text-\[13px\][^"]*"[^>]*>.*Choose screenshot/s);
     expect(markup).not.toContain('aria-label="Screenshot asset"');
   });
 
@@ -134,11 +135,22 @@ describe("ElementTypeInspectorSections device mockup assets", () => {
 
   it("summarizes the human frame name and opens a visual picker instead of exposing raw IDs", () => {
     const markup = renderDeviceFrame(deviceFrame);
+    const screenshotCard = markup.indexOf("No screenshot assigned");
+    const frameCard = markup.indexOf("Classic Punch-Hole Phone");
+    const contentMode = markup.indexOf("Content mode");
+    const contentBlur = markup.indexOf("Content blur");
 
     expect(markup).toContain("Classic Punch-Hole Phone");
+    expect(markup).toContain("Built-in device frame preset");
     expect(markup).toContain("Choose frame");
+    expect(markup).toMatch(/class="[^"]*!text-\[13px\][^"]*"[^>]*>.*Choose frame/s);
+    expect(markup.match(/lucide-panels-top-left/g)).toHaveLength(2);
     expect(markup).not.toContain('aria-label="Frame preset"');
     expect(markup).not.toContain(">android-phone<");
+    expect(screenshotCard).toBeGreaterThanOrEqual(0);
+    expect(contentBlur).toBeGreaterThan(contentMode);
+    expect(screenshotCard).toBeGreaterThan(contentBlur);
+    expect(frameCard).toBeGreaterThan(screenshotCard);
   });
 });
 

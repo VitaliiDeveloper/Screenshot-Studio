@@ -39,6 +39,7 @@ describe("store-specs.json", () => {
     const specs = parseStoreSpecs(storeSpecsRaw);
     expect(findStoreSize(specs, "android", "phone", "phone-portrait-high-res")).toMatchObject({ width: 1440, height: 2560 });
     expect(findStoreSize(specs, "android", "tablet-7", "tablet-7-landscape")).toMatchObject({ width: 1920, height: 1200 });
+    expect(findStoreSize(specs, "android", "tablet-7", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
     expect(findStoreSize(specs, "android", "tablet-10", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
     expect(findStoreTarget(specs, "android", "phone", "play-feature-graphic")).toMatchObject({
       width: 1024, height: 500, kind: "promotion", family: "phone", alpha: false,

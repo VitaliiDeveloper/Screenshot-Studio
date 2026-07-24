@@ -6,6 +6,7 @@ import {
   getLayout,
   isPrimaryScreen,
   removeLocaleSet,
+  removeStoreOutputFamily,
   removeStoreTargetVariant,
   sameOutputFamily,
   setOutputFamilyScreenSetMode as setOutputFamilyScreenSetModeCore,
@@ -71,6 +72,31 @@ export function deleteStoreTargetVariant(
       : remainingIds.has(fallbackRootId)
         ? fallbackRootId
         : nextLayout.screens[0]?.id ?? null,
+    selectedItems: selectedItems.filter((item) => remainingIds.has(item.screenId)),
+  };
+}
+
+export function deleteStoreOutputFamily(
+  project: Project,
+  layoutId: string,
+  activeScreenId: string | null,
+  selectedItems: SelectionRef[],
+  sourceScreenId: string,
+): ProjectMutationResult {
+  const source = getLayout(project, layoutId).screens.find((screen) => screen.id === sourceScreenId);
+  if (!source) return { project, activeScreenId, selectedItems };
+
+  const nextProject = removeStoreOutputFamily(project, layoutId, sourceScreenId);
+  const nextLayout = getLayout(nextProject, layoutId);
+  const remainingIds = new Set(nextLayout.screens.map((screen) => screen.id));
+  const fallback = nextLayout.screens.find((screen) =>
+    screen.locale === source.locale && isPrimaryScreen(screen)
+  ) ?? nextLayout.screens[0];
+  return {
+    project: nextProject,
+    activeScreenId: activeScreenId && remainingIds.has(activeScreenId)
+      ? activeScreenId
+      : fallback?.id ?? null,
     selectedItems: selectedItems.filter((item) => remainingIds.has(item.screenId)),
   };
 }

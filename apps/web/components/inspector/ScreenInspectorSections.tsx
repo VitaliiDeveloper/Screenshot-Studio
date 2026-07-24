@@ -177,6 +177,9 @@ export function ScreenInspectorSections({
           onCreateOutput={(platform, device, target) => mutateAndSave(
             () => editorStore.getState().ensureStoreOutputFamily(platform, device, target),
           )}
+          onRemoveOutput={(sourceScreenId) => mutateAndSave(
+            () => editorStore.getState().removeStoreOutputFamily(sourceScreenId),
+          )}
           onCreate={(target) => mutateAndSave(() => editorStore.getState().ensureStoreTargetVariant(target))}
           onRemove={(rootScreenId, targetId) => mutateAndSave(
             () => editorStore.getState().removeStoreTargetVariant(rootScreenId, targetId),
