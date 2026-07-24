@@ -25,9 +25,18 @@ import {
 const storeSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
 const reorderedIpadSpecs = parseStoreSpecs({
   ...storeSpecs,
-  apple: {
-    ...storeSpecs.apple,
-    ipad: [...storeSpecs.apple!.ipad!].reverse(),
+  platforms: {
+    ...storeSpecs.platforms,
+    apple: {
+      ...storeSpecs.platforms.apple,
+      families: {
+        ...storeSpecs.platforms.apple.families,
+        ipad: {
+          ...storeSpecs.platforms.apple.families.ipad,
+          targets: [...storeSpecs.platforms.apple.families.ipad.targets].reverse(),
+        },
+      },
+    },
   },
 });
 
@@ -229,7 +238,7 @@ describe("built-in templates", () => {
       screen.id === result.screen.variantOf
     ));
 
-    expect(reorderedIpadSpecs.apple!.ipad![0]!.id).toBe("11-landscape");
+    expect(reorderedIpadSpecs.platforms.apple.families.ipad.targets[0]!.id).toBe("11-landscape");
     expect(root).toMatchObject({
       platform: "apple",
       device: "ipad",

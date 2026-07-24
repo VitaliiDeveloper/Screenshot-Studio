@@ -9,7 +9,12 @@ import {
   recommendedDeviceForPlatform,
   type ProjectTemplateSummary,
 } from "@screenshot-studio/core/scaffold";
-import { OUTPUT_DESTINATIONS, OUTPUT_DEVICE_FAMILIES } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  listOutputDestinations,
+  listOutputFamilies,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
@@ -25,17 +30,19 @@ type OpenProjectCreationState = Exclude<ProjectCreationState, { status: "closed"
 export interface ProjectCreationDialogProps {
   state: OpenProjectCreationState;
   templates: readonly ProjectTemplateSummary[];
+  specs?: StoreSpecs;
   onClose(): void;
   onChange(patch: ProjectCreationFormPatch): void;
   onSubmit(): void;
 }
 
 export const projectCreationPlatformOptions: readonly MenuSelectOption<ProjectCreationForm["platform"]>[] =
-  OUTPUT_DESTINATIONS.map(({ id, label }) => ({ value: id, label }));
+  listOutputDestinations(DEFAULT_STORE_SPECS).map(({ id, label }) => ({ value: id, label }));
 
-function platformList(template: ProjectTemplateSummary): string {
+function platformList(template: ProjectTemplateSummary, specs: StoreSpecs): string {
+  const destinations = listOutputDestinations(specs);
   return template.supportedPlatforms.map((platform) => {
-    const destination = OUTPUT_DESTINATIONS.find(({ id }) => id === platform);
+    const destination = destinations.find(({ id }) => id === platform);
     if (!destination) throw new Error(`No output destination configured for ${platform}`);
     return destination.shortLabel;
   }).join(", ");
@@ -44,10 +51,14 @@ function platformList(template: ProjectTemplateSummary): string {
 export function ProjectCreationDialog({
   state,
   templates,
+  specs = DEFAULT_STORE_SPECS,
   onClose,
   onChange,
   onSubmit,
 }: ProjectCreationDialogProps) {
+  const destinations = listOutputDestinations(specs);
+  const families = listOutputFamilies(specs);
+  const platformOptions = destinations.map(({ id, label }) => ({ value: id, label }));
   const busy = state.status === "creating" || state.status === "completing";
   const statusMessage = state.status === "error"
     ? state.message
@@ -63,12 +74,12 @@ export function ProjectCreationDialog({
     }
   };
   const changePlatform = (platform: ProjectCreationForm["platform"]) => {
-    const currentDeviceIsValid = OUTPUT_DEVICE_FAMILIES.some(({ key, creatable }) => (
+    const currentDeviceIsValid = families.some(({ key, creatable }) => (
       key === `${platform}/${state.form.device}` && creatable
     ));
     const nextDevice = currentDeviceIsValid
       ? state.form.device
-      : recommendedDeviceForPlatform(platform);
+      : recommendedDeviceForPlatform(platform, specs);
     const selected = templates.find(({ id }) => id === state.form.templateId);
     onChange({
       platform,
@@ -83,7 +94,7 @@ export function ProjectCreationDialog({
       ...(selected && !isProjectTemplateSupported(selected, state.form.platform, device) ? { templateId: null } : {}),
     });
   };
-  const deviceOptions = OUTPUT_DEVICE_FAMILIES
+  const deviceOptions = families
     .filter(({ key, creatable }) => key.startsWith(`${state.form.platform}/`) && creatable)
     .map(({ key, label }) => ({
       value: key.split("/")[1] as ProjectCreationForm["device"],
@@ -127,7 +138,7 @@ export function ProjectCreationDialog({
                   menuLabel="Target platform options"
                   className="mt-2"
                   value={state.form.platform}
-                  options={projectCreationPlatformOptions}
+                  options={platformOptions}
                   onChange={changePlatform}
                 />
               </div>
@@ -187,7 +198,7 @@ export function ProjectCreationDialog({
                       <span className="mt-3 block font-semibold text-[color:var(--editor-color-text-strong)]">{template.name}</span>
                       <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">{template.description}</span>
                       <span className="mt-2 block text-[11px] font-semibold text-[color:var(--editor-color-text-muted)]">Best for: {template.intendedUse}</span>
-                      <span className="mt-2 block text-[10px] uppercase tracking-wide text-[color:var(--editor-color-text-secondary)]">Supports {platformList(template)}</span>
+                      <span className="mt-2 block text-[10px] uppercase tracking-wide text-[color:var(--editor-color-text-secondary)]">Supports {platformList(template, specs)}</span>
                     </label>
                   );
                 })}

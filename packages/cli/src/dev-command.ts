@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runWithCleanup } from "./cli-runtime.js";
 import { importCaptures } from "./import-command.js";
 import { resolveProjectPath } from "./project-io.js";
@@ -57,9 +59,12 @@ export async function runDevCommand(
 export async function runImportCommand(
   args: string[],
   flags: Record<string, string>,
+  defaultStoreSpecsPath: string,
 ): Promise<void> {
   const options = resolveImportOptions(args, flags);
-  const result = await importCaptures(options);
+  const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
+  const storeSpecs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
+  const result = await importCaptures(options, { storeSpecs });
   for (const warning of result.warnings) console.warn(warning);
   console.log(`Imported ${result.imported} screenshots`);
 }

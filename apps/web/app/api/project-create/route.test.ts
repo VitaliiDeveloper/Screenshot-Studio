@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
@@ -16,11 +16,7 @@ let repository: ManagedProjectRepository;
 let registry: ProjectSessionRegistry;
 let service: ManagedProjectCreationService;
 
-const specs = parseStoreSpecs({
-  apple: { iphone: [{ id: "6.9", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "phone-portrait", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "4k", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 function request(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("http://localhost/api/project-create", {

@@ -331,7 +331,7 @@ export function createScreenFromTemplate(
     specs,
     template.platform,
     template.device,
-    leadStoreSizeId(template.platform, template.device),
+    leadStoreSizeId(specs, template.platform, template.device),
   );
   if (lead.id === target.id) return append(project, template.artboard, template.elements);
 

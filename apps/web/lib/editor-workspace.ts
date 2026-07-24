@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   DEVICE_FRAME_PRESETS,
-  destinationLabel,
   deviceFramePreset,
-  OUTPUT_DEVICE_FAMILIES,
-  outputFamilyLabel,
   sameScreenGroup,
   type DeviceFrameId,
   type DeviceFrameRecommendation,
   type DesignLayout,
   type Screen,
 } from "@screenshot-studio/core/model";
-import type { StoreSize } from "@screenshot-studio/core/export";
+import {
+  DEFAULT_STORE_SPECS,
+  destinationLabel,
+  listOutputFamilies,
+  outputFamilyLabel,
+  type StoreSize,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
@@ -148,8 +152,12 @@ const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   "tablet-10": "10-inch Android tablet",
 };
 
-export function storeOutputLabel(platform: string, device: string): string {
-  return outputFamilyLabel(platform, device);
+export function storeOutputLabel(
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string {
+  return outputFamilyLabel(platform, device, specs);
 }
 
 function capitalizeDisplayLabel(value: string): string {
@@ -162,9 +170,13 @@ function escapeRegExp(value: string): string {
 }
 
 /** Short family copy for UI that already supplies the destination and output context. */
-export function outputFamilyEditorLabel(platform: string, device: string): string {
-  const family = OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`);
-  if (!family) return storeOutputLabel(platform, device);
+export function outputFamilyEditorLabel(
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string {
+  const family = listOutputFamilies(specs).find(({ key }) => key === `${platform}/${device}`);
+  if (!family) return storeOutputLabel(platform, device, specs);
   const legacySuffix = /\s+\(legacy\)$/i.test(family.label) ? " (legacy)" : "";
   const base = family.label
     .replace(/\s+\(legacy\)$/i, "")
@@ -198,10 +210,11 @@ export function conciseStoreTargetLabel(
   target: StoreSize,
   platform: string,
   device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
 ): string {
   if (target.kind === "promotion") {
     const withoutDestination = target.label.replace(
-      new RegExp(`^${escapeRegExp(destinationLabel(platform))}\\s+`, "i"),
+      new RegExp(`^${escapeRegExp(destinationLabel(platform, specs))}\\s+`, "i"),
       "",
     );
     return target.id === "play-feature-graphic"
@@ -210,7 +223,7 @@ export function conciseStoreTargetLabel(
   }
 
   let compact = compactStoreSizeLabel(target.label, device);
-  const family = OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`);
+  const family = listOutputFamilies(specs).find(({ key }) => key === `${platform}/${device}`);
   if (family) {
     const familyLabel = family.label.replace(/\s+\(legacy\)$/i, "");
     compact = compact.replace(
@@ -254,14 +267,17 @@ function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
 }
 
 /** Preserve project order while separating independent output families into canvas rows. */
-export function groupScreensByOutput(screens: readonly Screen[]): OutputFamily[] {
+export function groupScreensByOutput(
+  screens: readonly Screen[],
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): OutputFamily[] {
   const rows: OutputFamily[] = [];
   const byKey = new Map<string, OutputFamily>();
   for (const screen of screens) {
     const key = `${screen.platform}/${screen.device}`;
     let row = byKey.get(key);
     if (!row) {
-      row = { key, label: storeOutputLabel(screen.platform, screen.device), screens: [] };
+      row = { key, label: storeOutputLabel(screen.platform, screen.device, specs), screens: [] };
       byKey.set(key, row);
       rows.push(row);
     }
@@ -290,6 +306,7 @@ export function workspaceEditingScope(layout: DesignLayout, activeScreen: Screen
 export function workspaceOverviewRows(
   layout: DesignLayout,
   activeScreen: Screen,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
 ): WorkspaceOutputFamily[] {
   const families = new Map<string, Screen[]>();
   for (const screen of layout.screens) {
@@ -315,7 +332,7 @@ export function workspaceOverviewRows(
         ? [{ targetId: undefined, screens: roots }]
         : [];
       rows.push(...Array.from(variantsByTarget, ([targetId, screens]) => ({ targetId, screens })));
-      const familyLabel = storeOutputLabel(familyScreens[0]!.platform, familyScreens[0]!.device);
+      const familyLabel = storeOutputLabel(familyScreens[0]!.platform, familyScreens[0]!.device, specs);
 
       return rows.map(({ targetId, screens }) => ({
         key: targetId === undefined ? key : `${key}/${targetId}`,
@@ -335,7 +352,7 @@ export function workspaceOverviewRows(
       ? layout.screens.filter((screen) => sameScreenGroup(screen, anchor))
       : roots;
     const targetId = screens[0]?.storeTargetId;
-    const familyLabel = storeOutputLabel(anchor.platform, anchor.device);
+    const familyLabel = storeOutputLabel(anchor.platform, anchor.device, specs);
 
     return {
       key,

@@ -99,6 +99,19 @@ describe("runInit", () => {
     await expect(readFile(join(dir, "CLAUDE.md"), "utf8")).resolves.toContain("@AGENTS.md");
   });
 
+  it("uses the runtime catalog recommendation for the project and capture directory", async () => {
+    const customSpecs = structuredClone(storeSpecs);
+    Object.assign(customSpecs.platforms.apple.families.iphone, { recommended: false });
+    Object.assign(customSpecs.platforms.apple.families.ipad, { recommended: true });
+    const dir = await mkdtemp(join(tmpdir(), "screenshot-studio-init-custom-catalog-"));
+
+    await runInit(dir, "Tablet launch", customSpecs);
+
+    const project = parseProjectJson(await readFile(join(dir, "app-store-screenshots.json"), "utf8"));
+    expect(project.layouts[0]!.screens[0]).toMatchObject({ platform: "apple", device: "ipad" });
+    expect((await stat(join(dir, "screenshots/apple/ipad/en"))).isDirectory()).toBe(true);
+  });
+
   it("keeps the connected-launch guide exhaustive over strict device-frame ids", async () => {
     const guide = await readFile(
       new URL("../../../examples/connected-launch/AGENTS.md", import.meta.url),

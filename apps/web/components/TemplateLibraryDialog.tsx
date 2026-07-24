@@ -4,7 +4,12 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { LayoutTemplate } from "lucide-react";
-import { getScreen, outputFamilyLabel, parseProject } from "@screenshot-studio/core/model";
+import { getScreen, parseProject } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  outputFamilyLabel,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
 import { editorStore } from "@web/lib/editor-store";
 import { withFlushedProject } from "@web/lib/debounced-save";
@@ -35,11 +40,20 @@ export function compatibleTemplates(
   ));
 }
 
-export function templateOutputFamilyLabel(template: OutputFamily): string {
-  return outputFamilyLabel(template.platform, template.device);
+export function templateOutputFamilyLabel(
+  template: OutputFamily,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string {
+  return outputFamilyLabel(template.platform, template.device, specs);
 }
 
-export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
+export function TemplateLibraryDialog({
+  onClose,
+  specs = DEFAULT_STORE_SPECS,
+}: {
+  onClose: () => void;
+  specs?: StoreSpecs;
+}) {
   const project = useStore(editorStore, (state) => state.project);
   const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
@@ -137,7 +151,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
           icon={LayoutTemplate}
           title="No compatible screen templates"
           description="Choose a template from the same destination and device family as the active screen."
-          path={activeScreen ? templateOutputFamilyLabel(activeScreen) : "Active output family"}
+          path={activeScreen ? templateOutputFamilyLabel(activeScreen, specs) : "Active output family"}
         />
       ) : null}
 
@@ -152,7 +166,7 @@ export function TemplateLibraryDialog({ onClose }: { onClose: () => void }) {
                   </div>
                   {template.description ? <p className="mt-1 text-xs leading-5 text-slate-500">{template.description}</p> : null}
                   <p className="mt-2 text-xs font-medium text-slate-500">
-                    {templateOutputFamilyLabel(template)} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
+                    {templateOutputFamilyLabel(template, specs)} · {template.artboard.width}×{template.artboard.height} · {template.elements.length} elements
                   </p>
                 </div>
                 <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={!activeScreen || creating !== null} onClick={() => create(template.id, tab)}>

@@ -129,10 +129,21 @@ export class ManagedProjectCreationService {
     this.#revalidateStage = dependencies.revalidateStage ?? revalidateStagedScaffold;
   }
 
-  async buildScaffold(input: ProjectScaffoldInput): Promise<ProjectScaffold> {
+  async buildScaffold(input: ProjectScaffoldInput, specs?: StoreSpecs): Promise<ProjectScaffold> {
     const parsedInput = ProjectScaffoldInput.parse(input);
     try {
-      return validateProjectScaffold(this.#createScaffold(parsedInput, await this.#loadStoreSpecs()));
+      return validateProjectScaffold(this.#createScaffold(
+        parsedInput,
+        specs ?? await this.loadStoreSpecs(),
+      ));
+    } catch (error) {
+      throw creationError(error, "invalid-scaffold");
+    }
+  }
+
+  async loadStoreSpecs(): Promise<StoreSpecs> {
+    try {
+      return await this.#loadStoreSpecs();
     } catch (error) {
       throw creationError(error, "invalid-scaffold");
     }

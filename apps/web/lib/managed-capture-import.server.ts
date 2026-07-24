@@ -8,6 +8,7 @@ import {
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
 import { Project } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   validateProjectScaffold,
   type ProjectScaffoldInput,
@@ -22,10 +23,11 @@ export async function createManagedProjectFromCaptureImport(input: {
   discovery: CaptureImportDiscovery;
   confirmationFingerprint?: string;
   creationService: ManagedProjectCreationService;
+  specs: StoreSpecs;
   signal?: AbortSignal;
 }): Promise<ManagedProjectRecord> {
   assertCaptureImportNotCancelled(input.signal);
-  const scaffold = await input.creationService.buildScaffold(input.scaffoldInput);
+  const scaffold = await input.creationService.buildScaffold(input.scaffoldInput, input.specs);
   assertCaptureImportNotCancelled(input.signal);
   const targetLayout = scaffold.project.layouts[0]!;
   const starterIds = new Set(targetLayout.screens.map(({ id }) => id));
@@ -34,6 +36,7 @@ export async function createManagedProjectFromCaptureImport(input: {
     layoutId: targetLayout.id,
     destinationKind: "new-project",
     discovery: input.discovery,
+    specs: input.specs,
   });
   if (input.confirmationFingerprint !== undefined) {
     assertCaptureImportConfirmation(plan, input.confirmationFingerprint);
@@ -61,10 +64,11 @@ export async function previewManagedProjectCaptureImport(input: {
   scaffoldInput: ProjectScaffoldInput;
   discovery: CaptureImportDiscovery;
   creationService: ManagedProjectCreationService;
+  specs: StoreSpecs;
   signal?: AbortSignal;
 }): Promise<CaptureImportPlan> {
   assertCaptureImportNotCancelled(input.signal);
-  const scaffold = await input.creationService.buildScaffold(input.scaffoldInput);
+  const scaffold = await input.creationService.buildScaffold(input.scaffoldInput, input.specs);
   assertCaptureImportNotCancelled(input.signal);
   const targetLayout = scaffold.project.layouts[0]!;
   return planCaptureImport({
@@ -72,5 +76,6 @@ export async function previewManagedProjectCaptureImport(input: {
     layoutId: targetLayout.id,
     destinationKind: "new-project",
     discovery: input.discovery,
+    specs: input.specs,
   });
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import {
   applyCaptureImportPlan,
@@ -230,6 +231,27 @@ describe("discoverCaptureImport", () => {
 });
 
 describe("planCaptureImport", () => {
+  it("uses runtime catalog labels in discovery summaries and generated screen names", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple, { label: "Custom Store" });
+    Object.assign(specs.platforms.apple.families.iphone, { label: "Custom Phone" });
+    const discovery = discoverCaptureImport({
+      files: [file("apple/iphone/fr/02.png")],
+      specs,
+    });
+    const plan = planCaptureImport({
+      project: sampleProject(),
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery,
+      specs,
+    });
+
+    expect(discovery.summary.platforms).toEqual([{ id: "Custom Store", count: 1 }]);
+    expect(discovery.summary.devices).toEqual([{ id: "Custom Store · Custom Phone", count: 1 }]);
+    expect(plan.project.layouts[0]!.screens.at(-1)!.name).toBe("Custom Store · Custom Phone · fr · 02");
+  });
+
   it("accepts only the exact server-planned confirmation fingerprint", () => {
     const plan = planCaptureImport({
       project: sampleProject(),

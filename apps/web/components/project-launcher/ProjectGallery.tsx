@@ -4,9 +4,11 @@
 import React, { useEffect, useRef } from "react";
 import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
 import {
+  DEFAULT_STORE_SPECS,
   destinationLabel,
-  OUTPUT_DEVICE_FAMILIES,
-} from "@screenshot-studio/core/model";
+  listOutputFamilies,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
@@ -31,12 +33,12 @@ export function closeProjectActionsMenu(
   menu.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
 }
 
-function projectOutputLabel(value: string): string {
+function projectOutputLabel(value: string, specs: StoreSpecs): string {
   const [platform, device] = value.split(":");
   if (!platform) return "Project";
-  if (!device) return destinationLabel(platform);
-  return OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`)?.label
-    ?? destinationLabel(platform);
+  if (!device) return destinationLabel(platform, specs);
+  return listOutputFamilies(specs).find(({ key }) => key === `${platform}/${device}`)?.label
+    ?? destinationLabel(platform, specs);
 }
 
 function plural(count: number, singular: string): string {
@@ -45,6 +47,7 @@ function plural(count: number, singular: string): string {
 
 export function ProjectGallery({
   entries,
+  specs = DEFAULT_STORE_SPECS,
   action,
   actionError,
   actionNotice,
@@ -56,6 +59,7 @@ export function ProjectGallery({
   onRemoveRecent,
 }: {
   entries: readonly ProjectLibraryEntry[];
+  specs?: StoreSpecs;
   action: ProjectLibraryAction | null;
   actionError: string | null;
   actionNotice: ProjectLibraryNotice | null;
@@ -126,7 +130,7 @@ export function ProjectGallery({
                 {index === 0 ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Most recent</span> : null}
               </span>
               <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                {[...new Set(entry.platforms.map(projectOutputLabel))].join(" · ") || (unavailable ? "Local project" : "Project")}
+                {[...new Set(entry.platforms.map((value) => projectOutputLabel(value, specs)))].join(" · ") || (unavailable ? "Local project" : "Project")}
                 <span aria-hidden="true">·</span>
                 <span>{plural(entry.screenCount, "screen")}</span>
                 <span aria-hidden="true">·</span>

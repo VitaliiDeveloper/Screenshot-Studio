@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   getLayout,
-  OUTPUT_DEVICE_FAMILIES,
-  outputFamilyLabel,
   type Project,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { findStoreTarget, type StoreSize, type StoreSpecs } from "./specs.js";
+import {
+  DEFAULT_STORE_SPECS,
+  findStoreTarget,
+  leadStoreSizeId,
+  outputFamilyLabel,
+  type StoreSize,
+  type StoreSpecs,
+} from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
 
 export interface BundleFilters {
@@ -31,7 +36,10 @@ export interface BundlePreflightWarning {
 }
 
 /** Advisory listing guidance; rendering/export remains valid below the recommendation. */
-export function bundlePreflightWarnings(entries: readonly BundleEntry[]): BundlePreflightWarning[] {
+export function bundlePreflightWarnings(
+  entries: readonly BundleEntry[],
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): BundlePreflightWarning[] {
   const counts = new Map<string, { device: "tablet-7" | "tablet-10"; locale: string; count: number }>();
   for (const { screen } of entries) {
     if (screen.platform !== "android" || (screen.device !== "tablet-7" && screen.device !== "tablet-10")) continue;
@@ -48,14 +56,8 @@ export function bundlePreflightWarnings(entries: readonly BundleEntry[]): Bundle
       device,
       locale,
       screenCount: count,
-      message: `${outputFamilyLabel("android", device)} locale ${locale} has ${count} screen${count === 1 ? "" : "s"}; four or more are recommended.`,
+      message: `${outputFamilyLabel("android", device, specs)} locale ${locale} has ${count} screen${count === 1 ? "" : "s"}; four or more are recommended.`,
     }));
-}
-
-export function leadStoreSizeId(platform: string, device: string): string {
-  const family = OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === `${platform}/${device}`);
-  if (!family) throw new Error(`No lead store size configured for ${platform}/${device}`);
-  return family.leadStoreSizeId;
 }
 
 export function selectBundleScreens(
@@ -165,7 +167,7 @@ export function buildBundleEntries(
       byTarget = new Map();
       byLocale.set(screen.locale, byTarget);
     }
-    const sizeId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+    const sizeId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
     const groupIndex = byTarget.get(sizeId) ?? 0;
     byTarget.set(sizeId, groupIndex + 1);
     const target = findStoreTarget(specs, screen.platform, screen.device, sizeId);

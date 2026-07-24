@@ -2,8 +2,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
+import type { CanvasMode, DesignLayout, Platform } from "@screenshot-studio/core/model";
 import {
+  DEFAULT_STORE_SPECS,
   listStoreTargets,
   parseStoreSpecs,
   type StoreSize,
@@ -54,6 +55,15 @@ function scopeProject(mode: CanvasMode): DesignLayout {
 }
 
 describe("editor workspace helpers", () => {
+  it("uses destination and family labels from the runtime catalog", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple, { label: "Custom Store" });
+    Object.assign(specs.platforms.apple.families.iphone, { label: "Custom Phone" });
+
+    expect(storeOutputLabel("apple", "iphone", specs)).toBe("Custom Store · Custom Phone");
+    expect(outputFamilyEditorLabel("apple", "iphone", specs)).toBe("Custom Phone");
+  });
+
   it("separates Wear OS insertion from Store recommendation semantics", () => {
     const wearScreen = {
       platform: "android",
@@ -190,8 +200,8 @@ describe("editor workspace helpers", () => {
       "utf8",
     )));
 
-    for (const [platform, devices] of Object.entries(fullSpecs)) {
-      for (const device of Object.keys(devices).filter((key) => key !== "$outputs")) {
+    for (const platform of Object.keys(fullSpecs.platforms) as Platform[]) {
+      for (const device of Object.keys(fullSpecs.platforms[platform].families)) {
         for (const target of listStoreTargets(fullSpecs, platform, device)) {
           const label = conciseStoreTargetLabel(target, platform, device);
           const orientation = target.orientation[0]!.toUpperCase() + target.orientation.slice(1);

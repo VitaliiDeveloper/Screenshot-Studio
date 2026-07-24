@@ -8,7 +8,12 @@ import {
   FolderOpen,
   LoaderCircle,
 } from "lucide-react";
-import { OUTPUT_DESTINATIONS, type CanvasMode, type Platform } from "@screenshot-studio/core/model";
+import { type CanvasMode, type Platform } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  listOutputDestinations,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { editorUi } from "@web/components/editor-ui/styles";
@@ -22,7 +27,7 @@ import {
 const PREVIEW_ITEM_LIMIT = 50;
 
 export const captureImportPlatformOptions: readonly MenuSelectOption<Platform>[] =
-  OUTPUT_DESTINATIONS.map(({ id, label }) => ({ value: id, label }));
+  listOutputDestinations(DEFAULT_STORE_SPECS).map(({ id, label }) => ({ value: id, label }));
 
 const LAYOUT_MODE_OPTIONS: readonly MenuSelectOption<CanvasMode>[] = [
   { value: "isolated", label: "Isolated screens" },
@@ -33,6 +38,7 @@ type OpenCaptureImportState = Exclude<CaptureImportState, { status: "closed" }>;
 
 export interface CaptureImportDialogProps {
   state: OpenCaptureImportState;
+  specs?: StoreSpecs;
   onClose(): void;
   onSelectFiles(files: readonly File[]): void;
   onChooseDestination(kind: "current-project" | "new-project"): void;
@@ -140,6 +146,7 @@ function CapturePreview({ state }: { state: Extract<OpenCaptureImportState, { st
 
 export function CaptureImportDialog({
   state,
+  specs = DEFAULT_STORE_SPECS,
   onClose,
   onSelectFiles,
   onChooseDestination,
@@ -151,6 +158,8 @@ export function CaptureImportDialog({
   onRetry,
   onRecoverStale,
 }: CaptureImportDialogProps) {
+  const platformOptions = listOutputDestinations(specs)
+    .map(({ id, label }) => ({ value: id, label }));
   const folderInputRef = useRef<HTMLInputElement>(null);
   const requiresRecovery = state.status === "error" && state.staleTarget;
   const recovering = state.status === "error" && state.recovering === true;
@@ -241,7 +250,7 @@ export function CaptureImportDialog({
               <div className="mt-4 space-y-4 rounded-xl bg-slate-50 p-4">
                 <label className="block text-xs font-semibold text-slate-700">Project name<input className={`mt-2 ${editorUi.field}`} type="text" required autoComplete="off" value={state.draft.newProject.name} onChange={(event) => onChangeNewProject({ name: event.currentTarget.value })} /></label>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="text-xs font-semibold text-slate-700"><span>Target platform</span><MenuSelect ariaLabel="Target platform" menuLabel="Target platform options" className="mt-2" value={state.draft.newProject.platform} options={captureImportPlatformOptions} onChange={(platform) => onChangeNewProject({ platform })} /></div>
+                  <div className="text-xs font-semibold text-slate-700"><span>Target platform</span><MenuSelect ariaLabel="Target platform" menuLabel="Target platform options" className="mt-2" value={state.draft.newProject.platform} options={platformOptions} onChange={(platform) => onChangeNewProject({ platform })} /></div>
                   <div className="text-xs font-semibold text-slate-700"><span>Layout mode</span><MenuSelect ariaLabel="Layout mode" menuLabel="Layout mode options" className="mt-2" value={state.draft.newProject.layoutMode} options={LAYOUT_MODE_OPTIONS} onChange={(layoutMode) => onChangeNewProject({ layoutMode })} /></div>
                 </div>
                 <p className="text-xs leading-5 text-slate-600"><strong className="text-slate-900">Capture-ready empty project.</strong> The selected platform and layout mode define the validated scaffold; discovered captures replace its starter screen.</p>

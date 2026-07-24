@@ -22,19 +22,29 @@ import {
   validateProjectScaffold,
 } from "./index.js";
 
-const specs: StoreSpecs = parseStoreSpecs({
-  apple: { iphone: [{ id: "6.9", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "phone-portrait", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "4k", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-  web: { desktop: [{ id: "desktop-1920", label: "Web lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
 const fullSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
+const specs: StoreSpecs = structuredClone(fullSpecs);
+Object.assign(
+  specs.platforms.windows.families.desktop.targets.find(({ id }) => id === "4k")!,
+  { width: 1920, height: 1080 },
+);
 const reorderedLeadSpecs = parseStoreSpecs({
-  apple: {
-    iphone: [
-      { id: "6.1", label: "6.1-inch display", width: 1179, height: 2556, orientation: "portrait" },
-      { id: "6.9", label: "6.9-inch display", width: 1320, height: 2868, orientation: "portrait" },
-    ],
+  ...fullSpecs,
+  platforms: {
+    ...fullSpecs.platforms,
+    apple: {
+      ...fullSpecs.platforms.apple,
+      families: {
+        ...fullSpecs.platforms.apple.families,
+        iphone: {
+          ...fullSpecs.platforms.apple.families.iphone,
+          targets: [
+            { id: "6.1", label: "6.1-inch display", width: 1179, height: 2556, orientation: "portrait" },
+            { id: "6.9", label: "6.9-inch display", width: 1320, height: 2868, orientation: "portrait" },
+          ],
+        },
+      },
+    },
   },
 });
 
@@ -74,6 +84,14 @@ describe("ProjectScaffoldInput", () => {
     })).toThrow();
     expect(recommendedDeviceForPlatform("android")).toBe("phone");
   });
+
+  it("uses the recommended family declared by the supplied catalog", () => {
+    const customSpecs = structuredClone(fullSpecs);
+    Object.assign(customSpecs.platforms.apple.families.iphone, { recommended: false });
+    Object.assign(customSpecs.platforms.apple.families.ipad, { recommended: true });
+
+    expect(recommendedDeviceForPlatform("apple", customSpecs)).toBe("ipad");
+  });
 });
 
 describe("starter project templates", () => {
@@ -105,6 +123,17 @@ describe("starter project templates", () => {
 });
 
 describe("createProjectScaffold", () => {
+  it("rejects families disabled for creation by the runtime catalog", () => {
+    const customSpecs = structuredClone(fullSpecs);
+    Object.assign(customSpecs.platforms.apple.families.iphone, { creatable: false, recommended: false });
+    Object.assign(customSpecs.platforms.apple.families.ipad, { recommended: true });
+
+    expect(() => createProjectScaffold({
+      name: "Disabled phone", platform: "apple", device: "iphone",
+      layoutMode: "isolated", templateId: null,
+    }, customSpecs)).toThrow(/creation is not enabled for apple\/iphone/i);
+  });
+
   it.each([
     ["apple", "ipad"],
     ["android", "wear"],
@@ -247,7 +276,11 @@ describe("createProjectScaffold", () => {
     }, specs)).toThrow(/unknown project template/i);
     expect(() => createProjectScaffold({
       name: "Missing specs", platform: "windows", device: "desktop", layoutMode: "isolated", templateId: null,
-    }, parseStoreSpecs({ apple: { iphone: [] } }))).toThrow(/store size/i);
+    }, (() => {
+      const missing = structuredClone(specs);
+      missing.platforms.windows.families.desktop.targets = [];
+      return missing;
+    })())).toThrow(/store size|Unknown target/i);
     expect(() => createProjectScaffold({
       name: "Unsupported", platform: "windows", device: "desktop", layoutMode: "isolated", templateId: "product-launch",
     }, specs)).toThrow(/does not support windows/i);

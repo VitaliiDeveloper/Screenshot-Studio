@@ -8,7 +8,8 @@ import {
   type Project,
 } from "@screenshot-studio/core/model";
 import {
-  parseStoreSpecs,
+  DEFAULT_STORE_SPECS,
+  findStoreTarget,
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
@@ -57,8 +58,10 @@ function sourceProject(): Project {
   };
 }
 
-const watchSpecs = parseStoreSpecs({ apple: { watchos: [leadTarget, series11Target] } });
-const leadOnlyWatchSpecs = parseStoreSpecs({ apple: { watchos: [leadTarget] } });
+const watchSpecs = structuredClone(DEFAULT_STORE_SPECS);
+watchSpecs.platforms.apple.families.watchos.targets = [leadTarget, series11Target];
+const leadOnlyWatchSpecs = structuredClone(DEFAULT_STORE_SPECS);
+leadOnlyWatchSpecs.platforms.apple.families.watchos.targets = [leadTarget];
 
 function createWatchFamily() {
   return ensureStoreOutputFamily(
@@ -97,7 +100,13 @@ function renderInspector(
   specs: StoreSpecs,
 ): string {
   const target = screen.storeTargetId
-    ? specs[screen.platform]?.[screen.device]?.find((candidate) => candidate.id === screen.storeTargetId)
+    ? (() => {
+        try {
+          return findStoreTarget(specs, screen.platform, screen.device, screen.storeTargetId!);
+        } catch {
+          return undefined;
+        }
+      })()
     : leadTarget;
   return renderToStaticMarkup(React.createElement(ScreenInspectorSections, {
     layout: project.layouts[0]!,

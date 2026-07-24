@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { OUTPUT_DESTINATIONS } from "@screenshot-studio/core/model";
+import { OUTPUT_DESTINATIONS } from "@screenshot-studio/core/export";
 import { CaptureImportDialog, captureImportPlatformOptions } from "./CaptureImportDialog.js";
 import { createCaptureImportState, type CaptureImportState } from "./capture-import-model.js";
 

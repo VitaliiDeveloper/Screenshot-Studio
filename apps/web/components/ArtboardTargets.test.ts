@@ -3,7 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
-import type { StoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { ArtboardTargets } from "./ArtboardTargets.js";
 import { editorUi } from "./editor-ui/styles.js";
 
@@ -27,36 +27,7 @@ const layout = {
   mode: "isolated",
   screens: [screen],
 } as DesignLayout;
-const specs = {
-  web: {
-    desktop: [
-      {
-        id: "desktop-1920",
-        label: "Web desktop 1920×1080 (lead)",
-        width: 1920,
-        height: 1080,
-        orientation: "landscape",
-        kind: "responsive",
-      },
-      {
-        id: "desktop-1440",
-        label: "Web desktop 1440×900",
-        width: 1440,
-        height: 900,
-        orientation: "landscape",
-        kind: "responsive",
-      },
-    ],
-    mobile: [{
-      id: "mobile-portrait",
-      label: "Web mobile portrait (lead)",
-      width: 390,
-      height: 844,
-      orientation: "portrait",
-      kind: "responsive",
-    }],
-  },
-} as StoreSpecs;
+const specs = DEFAULT_STORE_SPECS;
 
 describe("ArtboardTargets", () => {
   it("presents output destination, family, structure, and sizes as distinct hierarchy levels", () => {
@@ -97,19 +68,7 @@ describe("ArtboardTargets", () => {
       device: "laptop",
       artboard: { width: 1440, height: 900 },
     } as Screen;
-    const legacySpecs = {
-      web: {
-        desktop: specs.web!.desktop,
-        laptop: [{
-          id: "laptop-1440",
-          label: "Web laptop 1440×900 (lead)",
-          width: 1440,
-          height: 900,
-          orientation: "landscape",
-          kind: "responsive",
-        }],
-      },
-    } as StoreSpecs;
+    const legacySpecs = specs;
     const withoutLegacy = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout,
       screen,
@@ -249,40 +208,7 @@ describe("ArtboardTargets", () => {
       device: "tablet-7",
       artboard: { width: 1200, height: 1920 },
     } as Screen;
-    const androidSpecs = {
-      android: {
-        phone: [{
-          id: "phone-portrait",
-          label: "Android phone portrait (lead)",
-          width: 1080,
-          height: 1920,
-          orientation: "portrait",
-        }],
-        "tablet-7": [
-          {
-            id: "tablet-7-portrait",
-            label: "7-inch Android tablet portrait (lead)",
-            width: 1200,
-            height: 1920,
-            orientation: "portrait",
-          },
-          {
-            id: "tablet-10-portrait",
-            label: "10-inch Android tablet portrait",
-            width: 1600,
-            height: 2560,
-            orientation: "portrait",
-          },
-        ],
-        "tablet-10": [{
-          id: "tablet-10-portrait",
-          label: "10-inch Android tablet portrait (lead)",
-          width: 1600,
-          height: 2560,
-          orientation: "portrait",
-        }],
-      },
-    } as StoreSpecs;
+    const androidSpecs = specs;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout: { ...layout, screens: [androidPhone, androidTablet] },
       screen: androidTablet,
@@ -314,31 +240,7 @@ describe("ArtboardTargets", () => {
       device: "tablet-10",
       artboard: { width: 1600, height: 2560 },
     } as Screen;
-    const androidSpecs = {
-      android: {
-        phone: [{
-          id: "phone-portrait",
-          label: "Android phone portrait (lead)",
-          width: 1080,
-          height: 1920,
-          orientation: "portrait",
-        }],
-        "tablet-7": [{
-          id: "tablet-7-portrait",
-          label: "7-inch Android tablet portrait (lead)",
-          width: 1200,
-          height: 1920,
-          orientation: "portrait",
-        }],
-        "tablet-10": [{
-          id: "tablet-10-portrait",
-          label: "10-inch Android tablet portrait (lead)",
-          width: 1600,
-          height: 2560,
-          orientation: "portrait",
-        }],
-      },
-    } as StoreSpecs;
+    const androidSpecs = specs;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout: { ...layout, screens: [androidPhone, legacyTablet] },
       screen: androidPhone,
@@ -461,27 +363,7 @@ describe("ArtboardTargets", () => {
       storeTargetId: "play-feature-graphic",
       artboard: { width: 1024, height: 500 },
     } as Screen;
-    const androidSpecs = {
-      android: {
-        phone: [{
-          id: "phone-portrait",
-          label: "Android phone portrait (lead)",
-          width: 1080,
-          height: 1920,
-          orientation: "portrait",
-          kind: "device",
-        }],
-        "$outputs": [{
-          id: "play-feature-graphic",
-          label: "Google Play Feature Graphic",
-          width: 1024,
-          height: 500,
-          orientation: "landscape",
-          kind: "promotion",
-          family: "phone",
-        }],
-      },
-    } as StoreSpecs;
+    const androidSpecs = specs;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout: { ...layout, screens: [androidScreen, featureGraphic] },
       screen: featureGraphic,
@@ -527,33 +409,7 @@ describe("ArtboardTargets", () => {
       storeTargetId: "phone-portrait-high-res",
       artboard: { width: 1440, height: 2560 },
     } as Screen;
-    const androidSpecs = {
-      android: {
-        phone: [
-          {
-            id: "phone-portrait",
-            label: "Android phone portrait (lead)",
-            width: 1080,
-            height: 1920,
-            orientation: "portrait",
-          },
-          {
-            id: "phone-landscape",
-            label: "Android phone landscape",
-            width: 1920,
-            height: 1080,
-            orientation: "landscape",
-          },
-          {
-            id: "phone-portrait-high-res",
-            label: "Android phone portrait high resolution",
-            width: 1440,
-            height: 2560,
-            orientation: "portrait",
-          },
-        ],
-      },
-    } as StoreSpecs;
+    const androidSpecs = specs;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout: { ...layout, screens: [androidScreen, landscape, highResolution] },
       screen: androidScreen,
@@ -578,24 +434,7 @@ describe("ArtboardTargets", () => {
   });
 
   it("preserves Apple product casing in family names", () => {
-    const appleSpecs = {
-      apple: {
-        iphone: [{
-          id: "6.9",
-          label: '6.9" iPhone (lead)',
-          width: 1320,
-          height: 2868,
-          orientation: "portrait",
-        }],
-        macos: [{
-          id: "2880x1800",
-          label: "Mac 2880×1800 (lead)",
-          width: 2880,
-          height: 1800,
-          orientation: "landscape",
-        }],
-      },
-    } as StoreSpecs;
+    const appleSpecs = specs;
     const iphone = {
       ...screen,
       id: "iphone",
@@ -646,27 +485,7 @@ describe("ArtboardTargets", () => {
       storeTargetId: "play-feature-graphic",
       artboard: { width: 1024, height: 500 },
     } as Screen;
-    const androidSpecs = {
-      android: {
-        phone: [{
-          id: "phone-portrait",
-          label: "Android phone portrait (lead)",
-          width: 1080,
-          height: 1920,
-          orientation: "portrait",
-          kind: "device",
-        }],
-        "$outputs": [{
-          id: "play-feature-graphic",
-          label: "Google Play Feature Graphic",
-          width: 1024,
-          height: 500,
-          orientation: "landscape",
-          kind: "promotion",
-          family: "phone",
-        }],
-      },
-    } as StoreSpecs;
+    const androidSpecs = specs;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
       layout: { ...layout, screens: [featureGraphic] },
       screen: featureGraphic,

@@ -4,9 +4,7 @@
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import {
-  destinationLabel,
   isPrimaryScreen,
-  OUTPUT_DEVICE_FAMILIES,
   sameOutputFamily,
   screenSetModeFor,
   type DesignLayout,
@@ -14,9 +12,10 @@ import {
   type ScreenSetMode,
 } from "@screenshot-studio/core/model";
 import {
+  destinationLabel,
   leadStoreSizeId,
+  listOutputFamilies,
   listStoreTargets,
-  STORE_OUTPUT_TARGETS_KEY,
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
@@ -73,11 +72,13 @@ export function ArtboardTargets({
       return [];
     }
   })();
-  const families = Object.entries(specs).flatMap(([platform, devices]) =>
-    Object.entries(devices)
-      .filter(([device]) => device !== STORE_OUTPUT_TARGETS_KEY)
-      .map(([device, sizes]) => ({ platform, device, sizes })),
-  );
+  const families = listOutputFamilies(specs).map(({ key, platform, device, creatable }) => ({
+    key,
+    platform,
+    device,
+    creatable,
+    sizes: listStoreTargets(specs, platform, device),
+  }));
   const root = screen.variantOf
     ? layout.screens.find((candidate) => candidate.id === screen.variantOf)
     : isPrimaryScreen(screen)
@@ -87,16 +88,16 @@ export function ArtboardTargets({
   const screenSetMode = root ? screenSetModeFor(layout, root) : "independent";
   let leadId: string | undefined;
   try {
-    leadId = leadStoreSizeId(screen.platform, screen.device);
+    leadId = leadStoreSizeId(specs, screen.platform, screen.device);
   } catch {
     leadId = undefined;
   }
 
   if (targets.length === 0) {
-    return <p className="text-xs text-slate-400">No store listing sizes for {storeOutputLabel(screen.platform, screen.device)}.</p>;
+    return <p className="text-xs text-slate-400">No store listing sizes for {storeOutputLabel(screen.platform, screen.device, specs)}.</p>;
   }
 
-  const familyRows = families.map(({ platform, device, sizes }) => {
+  const familyRows = families.map(({ platform, device, creatable, sizes }) => {
     const existingRoot = layout.screens.find((candidate) =>
       isPrimaryScreen(candidate)
       && candidate.platform === platform
@@ -105,7 +106,7 @@ export function ArtboardTargets({
     );
     let familyLeadId: string | undefined;
     try {
-      familyLeadId = leadStoreSizeId(platform, device);
+      familyLeadId = leadStoreSizeId(specs, platform, device);
     } catch {
       familyLeadId = undefined;
     }
@@ -113,6 +114,7 @@ export function ArtboardTargets({
       key: `${platform}/${device}`,
       platform,
       device,
+      creatable,
       existingRoot,
       leadTarget: sizes.find((size) => size.id === familyLeadId) ?? sizes[0],
     };
@@ -122,7 +124,7 @@ export function ArtboardTargets({
     ? familyRows.filter((family) => (
         !family.existingRoot
         && family.leadTarget
-        && OUTPUT_DEVICE_FAMILIES.some(({ key, creatable }) => key === family.key && creatable)
+        && family.creatable
       ))
     : [];
   const familyVariantsByTargetId = new Map<string, Screen>();
@@ -156,7 +158,7 @@ export function ArtboardTargets({
     const isCurrent = target.id === leadId
       ? isPrimaryScreen(screen)
       : screen.storeTargetId === target.id;
-    const displayLabel = conciseStoreTargetLabel(target, screen.platform, screen.device);
+    const displayLabel = conciseStoreTargetLabel(target, screen.platform, screen.device, specs);
     const canRemove = !isLead && root !== undefined && targetScreen !== undefined;
     return (
       <div
@@ -232,7 +234,7 @@ export function ArtboardTargets({
           menuClassName="menu-select-surface"
           options={available.map((target) => ({
             value: target.id,
-            label: conciseStoreTargetLabel(target, screen.platform, screen.device),
+            label: conciseStoreTargetLabel(target, screen.platform, screen.device, specs),
             description: dimensionsLabel(target),
           }))}
           onSelect={(targetId) => {
@@ -259,7 +261,7 @@ export function ArtboardTargets({
             menuClassName="menu-select-surface"
             options={availableFamilies.map((family) => ({
               value: family.key,
-              label: `${destinationLabel(family.platform)} · ${outputFamilyEditorLabel(family.platform, family.device)}`,
+              label: `${destinationLabel(family.platform, specs)} · ${outputFamilyEditorLabel(family.platform, family.device, specs)}`,
             }))}
             onSelect={(key) => {
               const family = availableFamilies.find((candidate) => candidate.key === key);
@@ -269,8 +271,8 @@ export function ArtboardTargets({
         </div>
         {createdFamilies.map(({ key, platform, device, existingRoot }) => {
           const isCurrentFamily = platform === screen.platform && device === screen.device;
-          const familyLabel = outputFamilyEditorLabel(platform, device);
-          const destination = destinationLabel(platform);
+          const familyLabel = outputFamilyEditorLabel(platform, device, specs);
+          const destination = destinationLabel(platform, specs);
           const canRemove = createdFamilies.length > 1 && existingRoot !== undefined;
           return (
             <div

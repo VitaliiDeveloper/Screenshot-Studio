@@ -2,7 +2,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { OUTPUT_DESTINATIONS } from "@screenshot-studio/core/model";
+import { OUTPUT_DESTINATIONS } from "@screenshot-studio/core/export";
 import { listStarterProjectTemplates, ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
 import { ProjectCreationDialog, projectCreationPlatformOptions } from "./ProjectCreationDialog.js";
 

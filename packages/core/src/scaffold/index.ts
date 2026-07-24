@@ -2,8 +2,10 @@
 import { z } from "zod";
 import { collectImageUrls } from "@screenshot-studio/core/assets";
 import {
+  DEFAULT_STORE_SPECS,
   findStoreTarget,
   leadStoreSizeId,
+  listOutputFamilies,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import {
@@ -14,7 +16,6 @@ import {
   ProjectRelativePath,
   SCHEMA_VERSION,
   SCREEN_DEVICES_BY_PLATFORM,
-  OUTPUT_DEVICE_FAMILIES,
   parseProject,
   removeScreenFromProject,
   reorderScreenInProject,
@@ -65,8 +66,9 @@ export function isDeviceSupportedForPlatform(
 
 export function recommendedDeviceForPlatform<P extends Platform>(
   platform: P,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
 ): (typeof SCREEN_DEVICES_BY_PLATFORM)[P][number] {
-  const family = OUTPUT_DEVICE_FAMILIES.find(({ key, creatable, recommended }) => (
+  const family = listOutputFamilies(specs).find(({ key, creatable, recommended }) => (
     key.startsWith(`${platform}/`) && creatable && recommended
   ));
   if (!family) throw new Error(`No recommended output device family configured for ${platform}`);
@@ -156,7 +158,7 @@ function leadArtboard(specs: StoreSpecs, input: ProjectScaffoldInput): { width: 
     specs,
     input.platform,
     input.device,
-    leadStoreSizeId(input.platform, input.device),
+    leadStoreSizeId(specs, input.platform, input.device),
   );
   return { width: size.width, height: size.height };
 }
@@ -251,6 +253,12 @@ export function validateProjectScaffold(scaffold: ProjectScaffold): ProjectScaff
 
 export function createProjectScaffold(input: ProjectScaffoldInput, specs: StoreSpecs): ProjectScaffold {
   const parsedInput = ProjectScaffoldInput.parse(input);
+  const selectedFamily = listOutputFamilies(specs).find(({ platform, device }) => (
+    platform === parsedInput.platform && device === parsedInput.device
+  ));
+  if (!selectedFamily?.creatable) {
+    throw new Error(`Project creation is not enabled for ${parsedInput.platform}/${parsedInput.device}`);
+  }
   const projectTemplate = parsedInput.templateId === null
     ? undefined
     : STARTER_PROJECT_TEMPLATES.find(({ id }) => id === parsedInput.templateId);

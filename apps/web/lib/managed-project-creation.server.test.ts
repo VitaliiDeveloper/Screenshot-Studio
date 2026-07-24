@@ -3,18 +3,14 @@ import { lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { createProjectScaffold } from "@screenshot-studio/core/scaffold";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { ManagedProjectRepository } from "./managed-project-repository.server.js";
 import { ManagedProjectCreationService } from "./managed-project-creation.server.js";
 
 const roots: string[] = [];
-const specs = parseStoreSpecs({
-  apple: { iphone: [{ id: "6.9", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "phone-portrait", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "4k", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 async function repository(dependencies: ConstructorParameters<typeof ManagedProjectRepository>[1] = {}) {
   const root = await mkdtemp(join(tmpdir(), "managed-project-creation-"));

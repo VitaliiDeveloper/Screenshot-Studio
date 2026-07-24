@@ -8,6 +8,7 @@ import {
   previewCaptureImport,
   type CaptureImportApplyResult,
 } from "@web/lib/capture-import-client";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import {
   captureImportRequest,
   reduceCaptureImportState,
@@ -21,6 +22,7 @@ type ActivationFence = <T>(operation: () => Promise<T>) => Promise<T>;
 
 export interface CaptureImportControllerOptions {
   currentTarget: CaptureImportCurrentTarget | null;
+  specs?: StoreSpecs;
   activateNewProject?: ActivationFence;
   onCompleted(
     result: CaptureImportApplyResult,
@@ -123,11 +125,17 @@ export function captureImportApplyFailureAction(error: unknown): CaptureImportAc
 
 export function useCaptureImportController({
   currentTarget,
+  specs = DEFAULT_STORE_SPECS,
   activateNewProject = directActivation,
   onCompleted,
   onRecoverStale,
 }: CaptureImportControllerOptions): CaptureImportController {
-  const [state, dispatch] = useReducer(reduceCaptureImportState, { status: "closed" });
+  const [state, dispatch] = useReducer(
+    (current: CaptureImportState, action: CaptureImportAction) => (
+      reduceCaptureImportState(current, action, specs)
+    ),
+    { status: "closed" },
+  );
   const controllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 

@@ -74,7 +74,7 @@ export default function EditorPage() {
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
-  const captureImport = useEditorCaptureImport(project, activeProjectId, reloadResources);
+  const captureImport = useEditorCaptureImport(project, activeProjectId, reloadResources, specs);
   const workspaceNavigationState = useMemo(() => ({
     zoom,
     view,
@@ -193,11 +193,14 @@ export default function EditorPage() {
       </main>
     );
   }
-  if (!images) return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;
+  if (!images || !specs) {
+    return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;
+  }
   return (
     <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-white">
       <Toolbar
         view={view}
+        specs={specs}
         inspectorOpen={inspectorOpen}
         exportRequestKey={exportRequestKey}
         onViewChange={setView}
@@ -300,6 +303,7 @@ export default function EditorPage() {
       ) : null}
       <EditorResourceDialogs
         dialog={dialog}
+        specs={specs}
         localeDialogOpen={localeDialogOpen}
         deviceFrameAssetTarget={deviceFrameAssetTarget}
         cacheImage={cacheImage}
@@ -310,6 +314,7 @@ export default function EditorPage() {
       {captureImport.state.status === "closed" ? null : (
         <CaptureImportDialog
           state={captureImport.state}
+          specs={specs}
           onClose={captureImport.close}
           onSelectFiles={captureImport.selectFiles}
           onChooseDestination={captureImport.chooseDestination}

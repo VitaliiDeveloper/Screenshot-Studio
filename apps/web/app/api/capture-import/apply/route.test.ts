@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { type Project } from "@screenshot-studio/core/model";
 import { projectRevision, serializeProject } from "@screenshot-studio/core/storage";
 import {
@@ -33,11 +33,7 @@ const png = new Uint8Array(await readFile(new URL(
   "../../../../../../fixtures/regressions/screenshot-parity/assets/shot.png",
   import.meta.url,
 )));
-const specs = parseStoreSpecs({
-  apple: { iphone: [{ id: "6.9", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "phone-portrait", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "4k", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 function currentProject(): Project {
   return {

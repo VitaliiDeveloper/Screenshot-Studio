@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import {
   initialProjectCreationState,
@@ -60,6 +61,15 @@ describe("project creation model", () => {
         templateId: "product-launch",
       },
     });
+  });
+
+  it("opens with the recommended family from the runtime catalog", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple.families.iphone, { recommended: false });
+    Object.assign(specs.platforms.apple.families.ipad, { recommended: true });
+
+    expect(reduceProjectCreationState(initialProjectCreationState, { type: "open" }, specs))
+      .toMatchObject({ form: { platform: "apple", device: "ipad" } });
   });
 
   it("preserves a valid device across layout and destination changes and resets only invalid pairs", () => {

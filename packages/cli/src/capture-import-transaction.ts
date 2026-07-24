@@ -12,6 +12,7 @@ import {
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
 import type { Project } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   ProjectRevisionConflictError,
   projectRevision,
@@ -124,6 +125,7 @@ export async function applyCaptureImportToProject(input: {
   layoutId: string;
   confirmationFingerprint?: string;
   signal?: AbortSignal;
+  specs?: StoreSpecs;
 }, dependencies: CaptureImportTransactionDependencies = {}): Promise<ApplyCaptureImportResult> {
   const canonicalPath = await resolveExistingProjectPath(input.projectPath);
   const root = dirname(canonicalPath);
@@ -146,6 +148,7 @@ export async function applyCaptureImportToProject(input: {
       layoutId: input.layoutId,
       destinationKind: "current-project",
       discovery: input.discovery,
+      specs: input.specs,
     }));
     if (input.confirmationFingerprint !== undefined) {
       assertCaptureImportConfirmation(plan, input.confirmationFingerprint);

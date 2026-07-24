@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import {
   canApplyCaptureImport,
   canPreviewCaptureImport,
@@ -49,6 +50,15 @@ describe("capture import model", () => {
       },
     });
     expect(canPreviewCaptureImport(state)).toBe(false);
+  });
+
+  it("seeds a new project from the runtime catalog recommendation", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple.families.iphone, { recommended: false });
+    Object.assign(specs.platforms.apple.families.ipad, { recommended: true });
+
+    expect(createCaptureImportState(null, specs))
+      .toMatchObject({ draft: { newProject: { platform: "apple", device: "ipad" } } });
   });
 
   it("updates only the validated scaffold seed when the capture-import destination changes", () => {

@@ -58,7 +58,7 @@ export function Inspector({
   const target = specs
     ? (() => {
         try {
-          const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+          const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
           return findStoreTarget(specs, screen.platform, screen.device, targetId);
         } catch {
           return undefined;

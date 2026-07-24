@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 import { SCREEN_DEVICES_BY_PLATFORM } from "@screenshot-studio/core/model";
-import { OUTPUT_DEVICE_FAMILIES } from "@screenshot-studio/core/model";
 import {
+  listOutputFamilies,
   listStoreTargets,
   parseStoreSpecs,
-  STORE_OUTPUT_TARGETS_KEY,
+  type StoreFamily,
   type StoreSpecs,
 } from "./specs.js";
 
-// parseStoreSpecs drops the "$comment" key, so specs holds only real platforms.
-const specs = parseStoreSpecs(
-  JSON.parse(
-    readFileSync(fileURLToPath(new URL("../../../../store-specs.json", import.meta.url)), "utf8"),
-  ),
-);
+const rawCatalog = JSON.parse(readFileSync(
+  fileURLToPath(new URL("../../../../store-specs.json", import.meta.url)),
+  "utf8",
+));
+const specs = parseStoreSpecs(rawCatalog);
 
 const EXPECTED_DEVICE_FAMILIES = {
   apple: ["iphone", "ipad", "macos", "tvos", "watchos", "visionos"],
@@ -32,78 +31,62 @@ function assertFamilyTargetIntegrity(
   platform: string,
   device: string,
 ): void {
-  const deviceTargets = source[platform]?.[device] ?? [];
-  expect(deviceTargets.length, `${platform}/${device} has no device targets`).toBeGreaterThan(0);
   const targets = listStoreTargets(source, platform, device);
+  expect(targets.length, `${platform}/${device} has no targets`).toBeGreaterThan(0);
   expect(new Set(targets.map(({ id }) => id)).size, `${platform}/${device} target ids`)
     .toBe(targets.length);
-  expect(
-    new Set(targets.map(({ width, height, orientation }) =>
-      `${width}x${height}/${orientation}`)).size,
-    `${platform}/${device} target tuples`,
-  ).toBe(targets.length);
+  expect(new Set(targets.map(({ width, height, orientation }) =>
+    `${width}x${height}/${orientation}`)).size,
+  `${platform}/${device} target tuples`).toBe(targets.length);
 
-  const catalogFamilies = OUTPUT_DEVICE_FAMILIES.filter(({ key }) =>
-    key === `${platform}/${device}`);
-  expect(catalogFamilies, `${platform}/${device} catalog entry`).toHaveLength(1);
-  const leadId = catalogFamilies[0]!.leadStoreSizeId;
-  expect(
-    listStoreTargets(source, platform, device).filter(({ id }) => id === leadId),
-    `${platform}/${device} lead ${leadId}`,
-  ).toHaveLength(1);
+  const families = source.platforms[platform as keyof StoreSpecs["platforms"]]!.families as
+    Record<string, StoreFamily>;
+  const family = families[device]!;
+  expect(targets.filter(({ id }) => id === family.leadStoreSizeId),
+    `${platform}/${device} lead ${family.leadStoreSizeId}`).toHaveLength(1);
 }
 
-describe("schema ↔ store-specs lockstep", () => {
-  it("declares the same platforms as store-specs", () => {
-    expect(new Set(Object.keys(SCREEN_DEVICES_BY_PLATFORM))).toEqual(new Set(Object.keys(specs)));
-  });
-
-  it("declares the same devices per platform as store-specs, excluding output catalogs", () => {
+describe("schema ↔ store catalog lockstep", () => {
+  it("declares exactly the strict-schema platforms and families", () => {
+    expect(new Set(Object.keys(specs.platforms)))
+      .toEqual(new Set(Object.keys(SCREEN_DEVICES_BY_PLATFORM)));
     for (const [platform, devices] of Object.entries(SCREEN_DEVICES_BY_PLATFORM)) {
-      const specDevices = Object.keys(specs[platform] ?? {})
-        .filter((device) => device !== STORE_OUTPUT_TARGETS_KEY);
-      expect(new Set(devices)).toEqual(new Set(specDevices));
+      expect(new Set(Object.keys(specs.platforms[platform as keyof StoreSpecs["platforms"]]!.families)))
+        .toEqual(new Set(devices));
     }
-    for (const platform of Object.keys(specs)) {
-      expect(Object.keys(SCREEN_DEVICES_BY_PLATFORM)).toContain(platform);
-    }
-  });
-
-  it("keeps the complete destination-family set explicit", () => {
     expect(SCREEN_DEVICES_BY_PLATFORM).toEqual(EXPECTED_DEVICE_FAMILIES);
   });
 
   it("gives every family non-empty, unambiguous targets and one catalog-owned lead", () => {
-    for (const [platform, devices] of Object.entries(SCREEN_DEVICES_BY_PLATFORM)) {
-      for (const device of devices) {
-        assertFamilyTargetIntegrity(specs, platform, device);
-      }
+    for (const family of listOutputFamilies(specs)) {
+      assertFamilyTargetIntegrity(specs, family.platform, family.device);
     }
   });
 
-  it.each([
-    ["non-lead id", {
-      id: "phone-secondary", width: 1024, height: 768, orientation: "landscape",
-    }],
-    ["dimension/orientation tuple", {
-      id: "promotion-copy", width: 1440, height: 2560, orientation: "portrait",
-    }],
-  ] as const)("rejects a duplicate %s across device sizes and family-owned outputs", (_case, duplicate) => {
-    const conflicting = parseStoreSpecs({
-      android: {
-        phone: [
-          { id: "phone-portrait", label: "Lead", width: 1080, height: 1920, orientation: "portrait" },
-          { id: "phone-secondary", label: "Secondary", width: 1440, height: 2560, orientation: "portrait" },
-        ],
-        $outputs: [{
-          ...duplicate,
-          label: "Family output",
-          kind: "promotion",
-          family: "phone",
-        }],
-      },
-    });
+  it("nests non-device outputs under their owning family", () => {
+    expect(listStoreTargets(specs, "android", "phone")).toContainEqual(expect.objectContaining({
+      id: "play-feature-graphic",
+      kind: "promotion",
+      width: 1024,
+      height: 500,
+    }));
+    expect(Object.keys(specs.platforms.android.families)).not.toContain("$outputs");
+  });
 
-    expect(() => assertFamilyTargetIntegrity(conflicting, "android", "phone")).toThrow();
+  it("rejects duplicate target ids and dimension tuples inside a family", () => {
+    const duplicateId = structuredClone(rawCatalog);
+    duplicateId.platforms.android.families.phone.targets.push({
+      ...duplicateId.platforms.android.families.phone.targets[0],
+      width: 1000,
+      height: 2000,
+    });
+    expect(() => parseStoreSpecs(duplicateId)).toThrow(/Target ids must be unique/);
+
+    const duplicateTuple = structuredClone(rawCatalog);
+    duplicateTuple.platforms.android.families.phone.targets.push({
+      ...duplicateTuple.platforms.android.families.phone.targets[0],
+      id: "another-phone-portrait",
+    });
+    expect(() => parseStoreSpecs(duplicateTuple)).toThrow(/Target dimensions must be unique/);
   });
 });

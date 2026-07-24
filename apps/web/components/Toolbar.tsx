@@ -14,6 +14,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { layoutLocales } from "@screenshot-studio/core/model";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { WorkspaceView } from "@web/lib/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
@@ -106,6 +107,7 @@ export function Toolbar({
   onToggleInspector,
   onOpenLocales,
   exportRequestKey = 0,
+  specs = DEFAULT_STORE_SPECS,
 }: {
   view: WorkspaceView;
   inspectorOpen: boolean;
@@ -113,6 +115,7 @@ export function Toolbar({
   onToggleInspector: () => void;
   onOpenLocales: () => void;
   exportRequestKey?: number;
+  specs?: StoreSpecs;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -495,6 +498,7 @@ export function Toolbar({
         key={activeLayout?.id ?? "no-layout"}
         open={exportOpen}
         onClose={() => setExportOpen(false)}
+        specs={specs}
       />
     </header>
   );

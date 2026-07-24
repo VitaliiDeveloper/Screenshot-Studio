@@ -3,6 +3,7 @@
 
 import { useCallback, useMemo } from "react";
 import type { Project } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   assertCaptureImportHandoff,
   useCaptureImportController,
@@ -13,6 +14,7 @@ export function useEditorCaptureImport(
   project: Project | null,
   activeProjectId: string | null,
   reloadResources: () => Promise<boolean>,
+  specs: StoreSpecs | null,
 ) {
   const persistence = getProjectPersistenceIdentity();
   const currentTarget = useMemo(() => project && activeProjectId
@@ -44,6 +46,7 @@ export function useEditorCaptureImport(
 
   return useCaptureImportController({
     currentTarget,
+    ...(specs ? { specs } : {}),
     onCompleted: complete,
     onRecoverStale: recover,
   });

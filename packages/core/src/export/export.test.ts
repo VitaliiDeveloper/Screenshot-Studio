@@ -42,7 +42,7 @@ describe("store-specs.json", () => {
     expect(findStoreSize(specs, "android", "tablet-7", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
     expect(findStoreSize(specs, "android", "tablet-10", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
     expect(findStoreTarget(specs, "android", "phone", "play-feature-graphic")).toMatchObject({
-      width: 1024, height: 500, kind: "promotion", family: "phone", alpha: false,
+      width: 1024, height: 500, kind: "promotion", alpha: false,
     });
     expect(() => findStoreSize(specs, "android", "promotion", "play-feature-graphic")).toThrow(/No store sizes/);
     expect(findStoreSize(specs, "web", "desktop", "desktop-1920")).toMatchObject({ width: 1920, height: 1080, kind: "responsive" });
@@ -74,17 +74,7 @@ describe("store-specs.json", () => {
   });
 
   it("parses and displays a square runtime store target", () => {
-    const specs = parseStoreSpecs({
-      android: {
-        wear: [{
-          id: "wear-square",
-          label: "Wear OS square (frameless)",
-          width: 384,
-          height: 384,
-          orientation: "square",
-        }],
-      },
-    });
+    const specs = parseStoreSpecs(structuredClone(storeSpecsRaw));
 
     expect(findStoreSize(specs, "android", "wear", "wear-square")).toMatchObject({
       label: "Wear OS square (frameless)",
@@ -95,10 +85,11 @@ describe("store-specs.json", () => {
   it("adds landscape counterparts for every currently curated iPhone and iPad portrait", () => {
     const specs = parseStoreSpecs(storeSpecsRaw);
     for (const device of ["iphone", "ipad"] as const) {
-      const portraitTargets = specs.apple![device]!.filter(({ orientation }) =>
+      const targets = specs.platforms.apple.families[device].targets;
+      const portraitTargets = targets.filter(({ orientation }) =>
         orientation === "portrait");
       for (const portrait of portraitTargets) {
-        expect(specs.apple![device]).toContainEqual(expect.objectContaining({
+        expect(targets).toContainEqual(expect.objectContaining({
           id: `${portrait.id}-landscape`,
           width: portrait.height,
           height: portrait.width,

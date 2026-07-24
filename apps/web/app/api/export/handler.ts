@@ -114,7 +114,7 @@ export async function handleExportPost(
     const entries = buildBundleEntries(project, layoutId, specs, filters);
     validateBundleArtboards(entries);
     entryCount = entries.length;
-    warnings = bundlePreflightWarnings(entries);
+    warnings = bundlePreflightWarnings(entries, specs);
   } catch (error) {
     return Response.json({ error: errorText(error) }, { status: 422 });
   }
@@ -147,7 +147,7 @@ export async function handleExportPost(
       // Return warnings for the exact revision being rendered, not for the earlier fail-fast
       // snapshot. This also keeps un-fenced API callers consistent if the project changes between
       // preflight and the stable export lease.
-      warnings = bundlePreflightWarnings(entries);
+      warnings = bundlePreflightWarnings(entries, specs);
       const zipPath = await exportBundleOutputs({
         baseUrl,
         projectPath: context.projectPath,

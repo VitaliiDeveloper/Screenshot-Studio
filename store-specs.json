@@ -1,114 +1,628 @@
 {
-  "$comment": "Store export sizes as DATA, not hardcode (docs/architecture.md). Apple values are accepted sizes Apple publishes; Google and Microsoft values are recommended presets within their allowed requirements. store-specs.json is the runtime source of truth for export dimensions.",
-  "apple": {
-    "iphone": [
-      { "id": "6.9", "label": "6.9\" iPhone (lead)", "width": 1320, "height": 2868, "orientation": "portrait" },
-      { "id": "6.9-landscape", "label": "6.9\" iPhone landscape", "width": 2868, "height": 1320, "orientation": "landscape" },
-      { "id": "6.5", "label": "6.5\" iPhone", "width": 1284, "height": 2778, "orientation": "portrait" },
-      { "id": "6.5-landscape", "label": "6.5\" iPhone landscape", "width": 2778, "height": 1284, "orientation": "landscape" },
-      { "id": "6.3", "label": "6.3\" iPhone", "width": 1206, "height": 2622, "orientation": "portrait" },
-      { "id": "6.3-landscape", "label": "6.3\" iPhone landscape", "width": 2622, "height": 1206, "orientation": "landscape" },
-      { "id": "6.1", "label": "6.1\" iPhone", "width": 1125, "height": 2436, "orientation": "portrait" },
-      { "id": "6.1-landscape", "label": "6.1\" iPhone landscape", "width": 2436, "height": 1125, "orientation": "landscape" }
-    ],
-    "ipad": [
-      { "id": "13", "label": "13\" iPad (lead)", "width": 2064, "height": 2752, "orientation": "portrait" },
-      { "id": "13-landscape", "label": "13\" iPad landscape", "width": 2752, "height": 2064, "orientation": "landscape" },
-      { "id": "12.9", "label": "12.9\" iPad", "width": 2048, "height": 2732, "orientation": "portrait" },
-      { "id": "12.9-landscape", "label": "12.9\" iPad landscape", "width": 2732, "height": 2048, "orientation": "landscape" },
-      { "id": "11", "label": "11\" iPad", "width": 1668, "height": 2420, "orientation": "portrait" },
-      { "id": "11-landscape", "label": "11\" iPad landscape", "width": 2420, "height": 1668, "orientation": "landscape" }
-    ],
-    "macos": [
-      { "id": "2880x1800", "label": "Mac 2880×1800 (lead)", "width": 2880, "height": 1800, "orientation": "landscape" },
-      { "id": "2560x1600", "label": "Mac 2560×1600", "width": 2560, "height": 1600, "orientation": "landscape" },
-      { "id": "1440x900", "label": "Mac 1440×900", "width": 1440, "height": 900, "orientation": "landscape" },
-      { "id": "1280x800", "label": "Mac 1280×800", "width": 1280, "height": 800, "orientation": "landscape" }
-    ],
-    "tvos": [
-      { "id": "4k", "label": "Apple TV 4K (lead)", "width": 3840, "height": 2160, "orientation": "landscape" },
-      { "id": "hd", "label": "Apple TV HD", "width": 1920, "height": 1080, "orientation": "landscape" }
-    ],
-    "watchos": [
-      { "id": "ultra-3", "label": "Apple Watch Ultra 3 (lead)", "width": 422, "height": 514, "orientation": "portrait" },
-      { "id": "ultra-2", "label": "Apple Watch Ultra 2", "width": 410, "height": 502, "orientation": "portrait" },
-      { "id": "series-11", "label": "Apple Watch Series 11", "width": 416, "height": 496, "orientation": "portrait" },
-      { "id": "series-9", "label": "Apple Watch Series 9", "width": 396, "height": 484, "orientation": "portrait" },
-      { "id": "series-6", "label": "Apple Watch Series 6", "width": 368, "height": 448, "orientation": "portrait" },
-      { "id": "series-3", "label": "Apple Watch Series 3", "width": 312, "height": 390, "orientation": "portrait" }
-    ],
-    "visionos": [
-      { "id": "vision-pro", "label": "Apple Vision Pro (lead)", "width": 3840, "height": 2160, "orientation": "landscape" }
-    ]
-  },
-  "android": {
-    "phone": [
-      { "id": "phone-portrait", "label": "Android phone portrait (lead)", "width": 1080, "height": 1920, "orientation": "portrait" },
-      { "id": "phone-landscape", "label": "Android phone landscape", "width": 1920, "height": 1080, "orientation": "landscape" },
-      { "id": "phone-portrait-high-res", "label": "Android phone portrait high resolution", "width": 1440, "height": 2560, "orientation": "portrait" }
-    ],
-    "tablet-7": [
-      { "id": "tablet-7-portrait", "label": "7-inch Android tablet portrait (lead)", "width": 1200, "height": 1920, "orientation": "portrait" },
-      { "id": "tablet-7-landscape", "label": "7-inch Android tablet landscape", "width": 1920, "height": 1200, "orientation": "landscape" },
-      { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait", "width": 1600, "height": 2560, "orientation": "portrait" },
-      { "id": "tablet-10-landscape", "label": "10-inch Android tablet landscape", "width": 2560, "height": 1600, "orientation": "landscape" }
-    ],
-    "tablet-10": [
-      { "id": "tablet-10-portrait", "label": "10-inch Android tablet portrait (lead)", "width": 1600, "height": 2560, "orientation": "portrait" },
-      { "id": "tablet-10-landscape", "label": "10-inch Android tablet landscape", "width": 2560, "height": 1600, "orientation": "landscape" }
-    ],
-    "chromebook": [
-      { "id": "chromebook-landscape", "label": "Chromebook landscape (lead)", "width": 1920, "height": 1080, "orientation": "landscape" },
-      { "id": "chromebook-portrait", "label": "Chromebook portrait", "width": 1080, "height": 1920, "orientation": "portrait" }
-    ],
-    "tv": [
-      { "id": "tv-landscape", "label": "Android TV landscape (lead)", "width": 1920, "height": 1080, "orientation": "landscape" }
-    ],
-    "wear": [
-      { "id": "wear-square", "label": "Wear OS square (frameless)", "width": 384, "height": 384, "orientation": "square" }
-    ],
-    "automotive": [
-      { "id": "automotive-portrait", "label": "Android Automotive OS portrait (lead)", "width": 800, "height": 1280, "orientation": "portrait" },
-      { "id": "automotive-landscape", "label": "Android Automotive OS landscape", "width": 1024, "height": 768, "orientation": "landscape" }
-    ],
-    "xr": [
-      { "id": "xr-landscape", "label": "Android XR landscape (lead)", "width": 3840, "height": 2400, "orientation": "landscape" }
-    ],
-    "$outputs": [
-      { "id": "play-feature-graphic", "label": "Google Play Feature Graphic", "width": 1024, "height": 500, "orientation": "landscape", "kind": "promotion", "family": "phone", "format": "png-or-jpeg", "alpha": false }
-    ]
-  },
-  "windows": {
-    "desktop": [
-      { "id": "4k", "label": "Windows desktop 4K (lead)", "width": 3840, "height": 2160, "orientation": "landscape" },
-      { "id": "full-hd", "label": "Windows desktop Full HD", "width": 1920, "height": 1080, "orientation": "landscape" },
-      { "id": "minimum", "label": "Windows desktop minimum", "width": 1366, "height": 768, "orientation": "landscape" }
-    ],
-    "xbox": [
-      { "id": "full-hd", "label": "Xbox Full HD (lead)", "width": 1920, "height": 1080, "orientation": "landscape" },
-      { "id": "4k", "label": "Xbox 4K", "width": 3840, "height": 2160, "orientation": "landscape" }
-    ],
-    "holographic": [
-      { "id": "minimum", "label": "Holographic minimum (lead)", "width": 1268, "height": 720, "orientation": "landscape" },
-      { "id": "4k", "label": "Holographic 4K", "width": 3840, "height": 2160, "orientation": "landscape" }
-    ]
-  },
-  "web": {
-    "desktop": [
-      { "id": "desktop-1920", "label": "Web desktop 1920×1080 (lead)", "width": 1920, "height": 1080, "orientation": "landscape", "kind": "responsive" },
-      { "id": "desktop-1440", "label": "Web desktop 1440×900", "width": 1440, "height": 900, "orientation": "landscape", "kind": "responsive" }
-    ],
-    "laptop": [
-      { "id": "laptop-1440", "label": "Web laptop 1440×900 (lead)", "width": 1440, "height": 900, "orientation": "landscape", "kind": "responsive" },
-      { "id": "laptop-1280", "label": "Web laptop 1280×800", "width": 1280, "height": 800, "orientation": "landscape", "kind": "responsive" }
-    ],
-    "tablet": [
-      { "id": "tablet-portrait", "label": "Web tablet portrait (lead)", "width": 1024, "height": 1366, "orientation": "portrait", "kind": "responsive" },
-      { "id": "tablet-landscape", "label": "Web tablet landscape", "width": 1366, "height": 1024, "orientation": "landscape", "kind": "responsive" }
-    ],
-    "mobile": [
-      { "id": "mobile-portrait", "label": "Web mobile portrait (lead)", "width": 390, "height": 844, "orientation": "portrait", "kind": "responsive" },
-      { "id": "mobile-landscape", "label": "Web mobile landscape", "width": 844, "height": 390, "orientation": "landscape", "kind": "responsive" }
-    ]
+  "$comment": "Single versioned catalog for output destinations, families, creation policy, and export targets. TypeScript decodes and validates this data; persisted projects store only stable ids.",
+  "schemaVersion": 1,
+  "platforms": {
+    "apple": {
+      "label": "App Store",
+      "shortLabel": "Apple",
+      "kind": "store",
+      "families": {
+        "iphone": {
+          "label": "iPhone",
+          "creatable": true,
+          "recommended": true,
+          "leadStoreSizeId": "6.9",
+          "targets": [
+            {
+              "id": "6.9",
+              "label": "6.9\" iPhone (lead)",
+              "width": 1320,
+              "height": 2868,
+              "orientation": "portrait"
+            },
+            {
+              "id": "6.9-landscape",
+              "label": "6.9\" iPhone landscape",
+              "width": 2868,
+              "height": 1320,
+              "orientation": "landscape"
+            },
+            {
+              "id": "6.5",
+              "label": "6.5\" iPhone",
+              "width": 1284,
+              "height": 2778,
+              "orientation": "portrait"
+            },
+            {
+              "id": "6.5-landscape",
+              "label": "6.5\" iPhone landscape",
+              "width": 2778,
+              "height": 1284,
+              "orientation": "landscape"
+            },
+            {
+              "id": "6.3",
+              "label": "6.3\" iPhone",
+              "width": 1206,
+              "height": 2622,
+              "orientation": "portrait"
+            },
+            {
+              "id": "6.3-landscape",
+              "label": "6.3\" iPhone landscape",
+              "width": 2622,
+              "height": 1206,
+              "orientation": "landscape"
+            },
+            {
+              "id": "6.1",
+              "label": "6.1\" iPhone",
+              "width": 1125,
+              "height": 2436,
+              "orientation": "portrait"
+            },
+            {
+              "id": "6.1-landscape",
+              "label": "6.1\" iPhone landscape",
+              "width": 2436,
+              "height": 1125,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "ipad": {
+          "label": "iPad",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "13",
+          "targets": [
+            {
+              "id": "13",
+              "label": "13\" iPad (lead)",
+              "width": 2064,
+              "height": 2752,
+              "orientation": "portrait"
+            },
+            {
+              "id": "13-landscape",
+              "label": "13\" iPad landscape",
+              "width": 2752,
+              "height": 2064,
+              "orientation": "landscape"
+            },
+            {
+              "id": "12.9",
+              "label": "12.9\" iPad",
+              "width": 2048,
+              "height": 2732,
+              "orientation": "portrait"
+            },
+            {
+              "id": "12.9-landscape",
+              "label": "12.9\" iPad landscape",
+              "width": 2732,
+              "height": 2048,
+              "orientation": "landscape"
+            },
+            {
+              "id": "11",
+              "label": "11\" iPad",
+              "width": 1668,
+              "height": 2420,
+              "orientation": "portrait"
+            },
+            {
+              "id": "11-landscape",
+              "label": "11\" iPad landscape",
+              "width": 2420,
+              "height": 1668,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "macos": {
+          "label": "macOS",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "2880x1800",
+          "targets": [
+            {
+              "id": "2880x1800",
+              "label": "Mac 2880×1800 (lead)",
+              "width": 2880,
+              "height": 1800,
+              "orientation": "landscape"
+            },
+            {
+              "id": "2560x1600",
+              "label": "Mac 2560×1600",
+              "width": 2560,
+              "height": 1600,
+              "orientation": "landscape"
+            },
+            {
+              "id": "1440x900",
+              "label": "Mac 1440×900",
+              "width": 1440,
+              "height": 900,
+              "orientation": "landscape"
+            },
+            {
+              "id": "1280x800",
+              "label": "Mac 1280×800",
+              "width": 1280,
+              "height": 800,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "tvos": {
+          "label": "tvOS",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "4k",
+          "targets": [
+            {
+              "id": "4k",
+              "label": "Apple TV 4K (lead)",
+              "width": 3840,
+              "height": 2160,
+              "orientation": "landscape"
+            },
+            {
+              "id": "hd",
+              "label": "Apple TV HD",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "watchos": {
+          "label": "watchOS",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "ultra-3",
+          "targets": [
+            {
+              "id": "ultra-3",
+              "label": "Apple Watch Ultra 3 (lead)",
+              "width": 422,
+              "height": 514,
+              "orientation": "portrait"
+            },
+            {
+              "id": "ultra-2",
+              "label": "Apple Watch Ultra 2",
+              "width": 410,
+              "height": 502,
+              "orientation": "portrait"
+            },
+            {
+              "id": "series-11",
+              "label": "Apple Watch Series 11",
+              "width": 416,
+              "height": 496,
+              "orientation": "portrait"
+            },
+            {
+              "id": "series-9",
+              "label": "Apple Watch Series 9",
+              "width": 396,
+              "height": 484,
+              "orientation": "portrait"
+            },
+            {
+              "id": "series-6",
+              "label": "Apple Watch Series 6",
+              "width": 368,
+              "height": 448,
+              "orientation": "portrait"
+            },
+            {
+              "id": "series-3",
+              "label": "Apple Watch Series 3",
+              "width": 312,
+              "height": 390,
+              "orientation": "portrait"
+            }
+          ]
+        },
+        "visionos": {
+          "label": "Apple Vision Pro",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "vision-pro",
+          "targets": [
+            {
+              "id": "vision-pro",
+              "label": "Apple Vision Pro (lead)",
+              "width": 3840,
+              "height": 2160,
+              "orientation": "landscape"
+            }
+          ]
+        }
+      }
+    },
+    "android": {
+      "label": "Google Play",
+      "shortLabel": "Android",
+      "kind": "store",
+      "families": {
+        "phone": {
+          "label": "Android phone",
+          "creatable": true,
+          "recommended": true,
+          "leadStoreSizeId": "phone-portrait",
+          "targets": [
+            {
+              "id": "phone-portrait",
+              "label": "Android phone portrait (lead)",
+              "width": 1080,
+              "height": 1920,
+              "orientation": "portrait"
+            },
+            {
+              "id": "phone-landscape",
+              "label": "Android phone landscape",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape"
+            },
+            {
+              "id": "phone-portrait-high-res",
+              "label": "Android phone portrait high resolution",
+              "width": 1440,
+              "height": 2560,
+              "orientation": "portrait"
+            },
+            {
+              "id": "play-feature-graphic",
+              "label": "Google Play Feature Graphic",
+              "width": 1024,
+              "height": 500,
+              "orientation": "landscape",
+              "kind": "promotion",
+              "format": "png-or-jpeg",
+              "alpha": false
+            }
+          ]
+        },
+        "tablet-7": {
+          "label": "Android tablet",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "tablet-7-portrait",
+          "targets": [
+            {
+              "id": "tablet-7-portrait",
+              "label": "7-inch Android tablet portrait (lead)",
+              "width": 1200,
+              "height": 1920,
+              "orientation": "portrait"
+            },
+            {
+              "id": "tablet-7-landscape",
+              "label": "7-inch Android tablet landscape",
+              "width": 1920,
+              "height": 1200,
+              "orientation": "landscape"
+            },
+            {
+              "id": "tablet-10-portrait",
+              "label": "10-inch Android tablet portrait",
+              "width": 1600,
+              "height": 2560,
+              "orientation": "portrait"
+            },
+            {
+              "id": "tablet-10-landscape",
+              "label": "10-inch Android tablet landscape",
+              "width": 2560,
+              "height": 1600,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "tablet-10": {
+          "label": "10-inch Android tablet (legacy)",
+          "creatable": false,
+          "recommended": false,
+          "leadStoreSizeId": "tablet-10-portrait",
+          "replacementKey": "android/tablet-7",
+          "targets": [
+            {
+              "id": "tablet-10-portrait",
+              "label": "10-inch Android tablet portrait (lead)",
+              "width": 1600,
+              "height": 2560,
+              "orientation": "portrait"
+            },
+            {
+              "id": "tablet-10-landscape",
+              "label": "10-inch Android tablet landscape",
+              "width": 2560,
+              "height": 1600,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "chromebook": {
+          "label": "Chromebook",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "chromebook-landscape",
+          "targets": [
+            {
+              "id": "chromebook-landscape",
+              "label": "Chromebook landscape (lead)",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape"
+            },
+            {
+              "id": "chromebook-portrait",
+              "label": "Chromebook portrait",
+              "width": 1080,
+              "height": 1920,
+              "orientation": "portrait"
+            }
+          ]
+        },
+        "tv": {
+          "label": "Android TV",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "tv-landscape",
+          "targets": [
+            {
+              "id": "tv-landscape",
+              "label": "Android TV landscape (lead)",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "wear": {
+          "label": "Wear OS",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "wear-square",
+          "targets": [
+            {
+              "id": "wear-square",
+              "label": "Wear OS square (frameless)",
+              "width": 384,
+              "height": 384,
+              "orientation": "square"
+            }
+          ]
+        },
+        "automotive": {
+          "label": "Android Automotive OS",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "automotive-portrait",
+          "targets": [
+            {
+              "id": "automotive-portrait",
+              "label": "Android Automotive OS portrait (lead)",
+              "width": 800,
+              "height": 1280,
+              "orientation": "portrait"
+            },
+            {
+              "id": "automotive-landscape",
+              "label": "Android Automotive OS landscape",
+              "width": 1024,
+              "height": 768,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "xr": {
+          "label": "Android XR",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "xr-landscape",
+          "targets": [
+            {
+              "id": "xr-landscape",
+              "label": "Android XR landscape (lead)",
+              "width": 3840,
+              "height": 2400,
+              "orientation": "landscape"
+            }
+          ]
+        }
+      }
+    },
+    "windows": {
+      "label": "Microsoft Store",
+      "shortLabel": "Windows",
+      "kind": "store",
+      "families": {
+        "desktop": {
+          "label": "Windows desktop",
+          "creatable": true,
+          "recommended": true,
+          "leadStoreSizeId": "4k",
+          "targets": [
+            {
+              "id": "4k",
+              "label": "Windows desktop 4K (lead)",
+              "width": 3840,
+              "height": 2160,
+              "orientation": "landscape"
+            },
+            {
+              "id": "full-hd",
+              "label": "Windows desktop Full HD",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape"
+            },
+            {
+              "id": "minimum",
+              "label": "Windows desktop minimum",
+              "width": 1366,
+              "height": 768,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "xbox": {
+          "label": "Xbox",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "full-hd",
+          "targets": [
+            {
+              "id": "full-hd",
+              "label": "Xbox Full HD (lead)",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape"
+            },
+            {
+              "id": "4k",
+              "label": "Xbox 4K",
+              "width": 3840,
+              "height": 2160,
+              "orientation": "landscape"
+            }
+          ]
+        },
+        "holographic": {
+          "label": "Holographic",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "minimum",
+          "targets": [
+            {
+              "id": "minimum",
+              "label": "Holographic minimum (lead)",
+              "width": 1268,
+              "height": 720,
+              "orientation": "landscape"
+            },
+            {
+              "id": "4k",
+              "label": "Holographic 4K",
+              "width": 3840,
+              "height": 2160,
+              "orientation": "landscape"
+            }
+          ]
+        }
+      }
+    },
+    "web": {
+      "label": "Web",
+      "shortLabel": "Web",
+      "kind": "web",
+      "families": {
+        "desktop": {
+          "label": "Desktop",
+          "creatable": true,
+          "recommended": true,
+          "leadStoreSizeId": "desktop-1920",
+          "targets": [
+            {
+              "id": "desktop-1920",
+              "label": "Web desktop 1920×1080 (lead)",
+              "width": 1920,
+              "height": 1080,
+              "orientation": "landscape",
+              "kind": "responsive"
+            },
+            {
+              "id": "desktop-1440",
+              "label": "Web desktop 1440×900",
+              "width": 1440,
+              "height": 900,
+              "orientation": "landscape",
+              "kind": "responsive"
+            }
+          ]
+        },
+        "laptop": {
+          "label": "Laptop",
+          "creatable": false,
+          "recommended": false,
+          "leadStoreSizeId": "laptop-1440",
+          "replacementKey": "web/desktop",
+          "targets": [
+            {
+              "id": "laptop-1440",
+              "label": "Web laptop 1440×900 (lead)",
+              "width": 1440,
+              "height": 900,
+              "orientation": "landscape",
+              "kind": "responsive"
+            },
+            {
+              "id": "laptop-1280",
+              "label": "Web laptop 1280×800",
+              "width": 1280,
+              "height": 800,
+              "orientation": "landscape",
+              "kind": "responsive"
+            }
+          ]
+        },
+        "tablet": {
+          "label": "Tablet",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "tablet-portrait",
+          "targets": [
+            {
+              "id": "tablet-portrait",
+              "label": "Web tablet portrait (lead)",
+              "width": 1024,
+              "height": 1366,
+              "orientation": "portrait",
+              "kind": "responsive"
+            },
+            {
+              "id": "tablet-landscape",
+              "label": "Web tablet landscape",
+              "width": 1366,
+              "height": 1024,
+              "orientation": "landscape",
+              "kind": "responsive"
+            }
+          ]
+        },
+        "mobile": {
+          "label": "Mobile",
+          "creatable": true,
+          "recommended": false,
+          "leadStoreSizeId": "mobile-portrait",
+          "targets": [
+            {
+              "id": "mobile-portrait",
+              "label": "Web mobile portrait (lead)",
+              "width": 390,
+              "height": 844,
+              "orientation": "portrait",
+              "kind": "responsive"
+            },
+            {
+              "id": "mobile-landscape",
+              "label": "Web mobile landscape",
+              "width": 844,
+              "height": 390,
+              "orientation": "landscape",
+              "kind": "responsive"
+            }
+          ]
+        }
+      }
+    }
   }
 }

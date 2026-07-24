@@ -50,7 +50,10 @@ interface IsolatedOverviewFamily {
   editing: boolean;
 }
 
-function groupIsolatedOverviewRows(rows: readonly WorkspaceOutputFamily[]): IsolatedOverviewFamily[] {
+function groupIsolatedOverviewRows(
+  rows: readonly WorkspaceOutputFamily[],
+  specs: StoreSpecs | null,
+): IsolatedOverviewFamily[] {
   const families = new Map<string, IsolatedOverviewFamily>();
   for (const row of rows) {
     const screen = row.screens[0];
@@ -58,7 +61,9 @@ function groupIsolatedOverviewRows(rows: readonly WorkspaceOutputFamily[]): Isol
     const key = `${screen.platform}/${screen.device}`;
     const family = families.get(key) ?? {
       key,
-      label: storeOutputLabel(screen.platform, screen.device),
+      label: specs
+        ? storeOutputLabel(screen.platform, screen.device, specs)
+        : storeOutputLabel(screen.platform, screen.device),
       rows: [],
       editing: false,
     };
@@ -75,7 +80,9 @@ function outputSizeLabel(row: WorkspaceOutputFamily, specs: StoreSpecs | null): 
   let targetId = screen.storeTargetId;
   if (targetId === undefined) {
     try {
-      targetId = leadStoreSizeId(screen.platform, screen.device);
+      targetId = specs
+        ? leadStoreSizeId(specs, screen.platform, screen.device)
+        : leadStoreSizeId(screen.platform, screen.device);
     } catch {
       return "Master";
     }
@@ -144,11 +151,13 @@ export function CanvasViewport({
   }, [activeScreen, layout]);
   const outputRows = useMemo(() => {
     if (!layout || !activeScreen || view !== "overview") return [];
-    return workspaceOverviewRows(layout, activeScreen);
-  }, [activeScreen, layout, view]);
+    return specs
+      ? workspaceOverviewRows(layout, activeScreen, specs)
+      : workspaceOverviewRows(layout, activeScreen);
+  }, [activeScreen, layout, specs, view]);
   const isolatedOutputFamilies = useMemo(
-    () => groupIsolatedOverviewRows(outputRows),
-    [outputRows],
+    () => groupIsolatedOverviewRows(outputRows, specs),
+    [outputRows, specs],
   );
   const screens = view === "focus" && activeScreen ? [activeScreen] : editingScreens;
   const { fitLayoutKey, fit } = useCanvasViewportMetrics({

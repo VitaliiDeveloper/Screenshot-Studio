@@ -1,32 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { OUTPUT_DEVICE_FAMILIES, type DesignLayout, type Project } from "@screenshot-studio/core/model";
-import { parseStoreSpecs } from "./specs.js";
+import { type DesignLayout, type Project } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  OUTPUT_DEVICE_FAMILIES,
+  leadStoreSizeId,
+} from "./specs.js";
 import {
   buildBundleEntries,
   bundlePreflightWarnings,
   bundleRelativePath,
-  leadStoreSizeId,
   safeLocalePathSegment,
   safeStoreSizePathToken,
   selectBundleScreens,
   validateBundleArtboards,
 } from "./bundle.js";
 
-const specs = parseStoreSpecs({
-  apple: {
-    iphone: [
-      { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
-      { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
-    ],
-    ipad: [{ id: "13", label: "13", width: 2064, height: 2752, orientation: "portrait" }],
-  },
-  android: {
-    phone: [{ id: "phone-portrait", label: "Phone", width: 1080, height: 1920, orientation: "portrait" }],
-    "tablet-7": [{ id: "tablet-7-portrait", label: "Tablet", width: 1200, height: 1920, orientation: "portrait" }],
-    "$outputs": [{ id: "play-feature-graphic", label: "Feature graphic", width: 1024, height: 500, orientation: "landscape", kind: "promotion", family: "phone" }],
-  },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 function project(): Project {
   return {
@@ -225,7 +215,8 @@ describe("buildBundleEntries", () => {
   });
 
   it("throws if store-specs lacks the schema-supported lead target", () => {
-    const broken = parseStoreSpecs({ apple: { iphone: [] }, android: { phone: [] } });
+    const broken = structuredClone(specs);
+    broken.platforms.apple.families.iphone.targets = [];
     expect(() => buildBundleEntries(project(), "default", broken, { platform: "apple", device: "iphone" })).toThrow(
       /Unknown target/,
     );

@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
-import { inspectPng } from "@screenshot-studio/core/export";
+import {
+  DEFAULT_STORE_SPECS,
+  destinationLabel,
+  inspectPng,
+  outputFamilyLabel,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import {
   Project,
   addScreenToProject,
   createScreenshotElement,
-  destinationLabel,
   getLayout,
   isProjectRelativePath,
-  outputFamilyLabel,
   parseScreenPlacement,
   slugify,
   uniqueId,
@@ -253,8 +257,10 @@ export function resolveCaptureImportLimits(
 export function discoverCaptureImport(input: {
   files: readonly CaptureImportInputFile[];
   limits?: Partial<CaptureImportLimits>;
+  specs?: StoreSpecs;
 }): CaptureImportDiscovery {
   const limits = resolveCaptureImportLimits(input.limits);
+  const specs = input.specs ?? DEFAULT_STORE_SPECS;
   if (input.files.length > limits.maxFiles) {
     throw new Error("Capture import exceeds the configured file limit");
   }
@@ -386,8 +392,8 @@ export function discoverCaptureImport(input: {
   const summary = {
     screenCount: captures.length,
     assetCount: assets.length,
-    platforms: count(captures.map(({ platform }) => destinationLabel(platform))),
-    devices: count(captures.map(({ platform, device }) => outputFamilyLabel(platform, device))),
+    platforms: count(captures.map(({ platform }) => destinationLabel(platform, specs))),
+    devices: count(captures.map(({ platform, device }) => outputFamilyLabel(platform, device, specs))),
     locales: count(captures.map(({ locale }) => locale)),
   };
   const fingerprint = jsonDigest({
@@ -412,7 +418,9 @@ export function planCaptureImport(input: {
   layoutId: string;
   destinationKind: CaptureImportDestinationKind;
   discovery: CaptureImportDiscovery;
+  specs?: StoreSpecs;
 }): CaptureImportPlan {
+  const specs = input.specs ?? DEFAULT_STORE_SPECS;
   const base = Project.parse(structuredClone(input.project));
   const layout = getLayout(base, input.layoutId);
   let project = base;
@@ -432,7 +440,7 @@ export function planCaptureImport(input: {
       "imports",
       `${screenId}-${capture.digest.slice(0, IMPORT_DIGEST_LENGTH)}.png`,
     );
-    const name = `${outputFamilyLabel(capture.platform, capture.device)} · ${capture.locale} · ${stem}`;
+    const name = `${outputFamilyLabel(capture.platform, capture.device, specs)} · ${capture.locale} · ${stem}`;
     project = addScreenToProject(project, input.layoutId, {
       ...capture,
       id: screenId,
