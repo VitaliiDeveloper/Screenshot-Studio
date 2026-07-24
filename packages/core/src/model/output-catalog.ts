@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import { z } from "zod";
+import rawOutputCatalog from "./output-catalog.json";
 import { SCREEN_DEVICES_BY_PLATFORM, type Platform } from "./schema.js";
 
 type DeviceByPlatform<P extends Platform> = (typeof SCREEN_DEVICES_BY_PLATFORM)[P][number];
@@ -23,41 +25,118 @@ export interface OutputDeviceFamily {
   replacementKey?: OutputFamilyKey;
 }
 
-/** User-facing destination metadata. Persisted projects continue to store only the destination ID. */
-export const OUTPUT_DESTINATIONS = [
-  { id: "apple", label: "App Store", shortLabel: "Apple", kind: "store" },
-  { id: "android", label: "Google Play", shortLabel: "Android", kind: "store" },
-  { id: "windows", label: "Microsoft Store", shortLabel: "Windows", kind: "store" },
-  { id: "web", label: "Web", shortLabel: "Web", kind: "web" },
-] as const satisfies readonly OutputDestination[];
+export interface OutputCatalog {
+  schemaVersion: 1;
+  destinations: readonly OutputDestination[];
+  families: readonly OutputDeviceFamily[];
+}
 
-/**
- * Presentation and creation policy for every strict-schema output family.
- * Legacy families remain here so existing project documents can always be labelled and exported.
- */
-export const OUTPUT_DEVICE_FAMILIES = [
-  { key: "apple/iphone", label: "iPhone", creatable: true, recommended: true, leadStoreSizeId: "6.9" },
-  { key: "apple/ipad", label: "iPad", creatable: true, recommended: false, leadStoreSizeId: "13" },
-  { key: "apple/macos", label: "macOS", creatable: true, recommended: false, leadStoreSizeId: "2880x1800" },
-  { key: "apple/tvos", label: "tvOS", creatable: true, recommended: false, leadStoreSizeId: "4k" },
-  { key: "apple/watchos", label: "watchOS", creatable: true, recommended: false, leadStoreSizeId: "ultra-3" },
-  { key: "apple/visionos", label: "Apple Vision Pro", creatable: true, recommended: false, leadStoreSizeId: "vision-pro" },
-  { key: "android/phone", label: "Android phone", creatable: true, recommended: true, leadStoreSizeId: "phone-portrait" },
-  { key: "android/tablet-7", label: "Android tablet", creatable: true, recommended: false, leadStoreSizeId: "tablet-7-portrait" },
-  { key: "android/tablet-10", label: "10-inch Android tablet (legacy)", creatable: false, recommended: false, leadStoreSizeId: "tablet-10-portrait", replacementKey: "android/tablet-7" },
-  { key: "android/chromebook", label: "Chromebook", creatable: true, recommended: false, leadStoreSizeId: "chromebook-landscape" },
-  { key: "android/tv", label: "Android TV", creatable: true, recommended: false, leadStoreSizeId: "tv-landscape" },
-  { key: "android/wear", label: "Wear OS", creatable: true, recommended: false, leadStoreSizeId: "wear-square" },
-  { key: "android/automotive", label: "Android Automotive OS", creatable: true, recommended: false, leadStoreSizeId: "automotive-portrait" },
-  { key: "android/xr", label: "Android XR", creatable: true, recommended: false, leadStoreSizeId: "xr-landscape" },
-  { key: "windows/desktop", label: "Windows desktop", creatable: true, recommended: true, leadStoreSizeId: "4k" },
-  { key: "windows/xbox", label: "Xbox", creatable: true, recommended: false, leadStoreSizeId: "full-hd" },
-  { key: "windows/holographic", label: "Holographic", creatable: true, recommended: false, leadStoreSizeId: "minimum" },
-  { key: "web/desktop", label: "Desktop", creatable: true, recommended: true, leadStoreSizeId: "desktop-1920" },
-  { key: "web/laptop", label: "Laptop", creatable: false, recommended: false, leadStoreSizeId: "laptop-1440", replacementKey: "web/desktop" },
-  { key: "web/tablet", label: "Tablet", creatable: true, recommended: false, leadStoreSizeId: "tablet-portrait" },
-  { key: "web/mobile", label: "Mobile", creatable: true, recommended: false, leadStoreSizeId: "mobile-portrait" },
-] as const satisfies readonly OutputDeviceFamily[];
+function isPlatform(value: unknown): value is Platform {
+  return typeof value === "string" && Object.hasOwn(SCREEN_DEVICES_BY_PLATFORM, value);
+}
+
+function isOutputFamilyKey(value: unknown): value is OutputFamilyKey {
+  if (typeof value !== "string") return false;
+  const separator = value.indexOf("/");
+  if (separator <= 0 || separator !== value.lastIndexOf("/")) return false;
+  const platform = value.slice(0, separator);
+  const device = value.slice(separator + 1);
+  if (!isPlatform(platform)) return false;
+  return (SCREEN_DEVICES_BY_PLATFORM[platform] as readonly string[]).includes(device);
+}
+
+const PlatformId = z.custom<Platform>(isPlatform, "Unknown output destination");
+const FamilyKey = z.custom<OutputFamilyKey>(isOutputFamilyKey, "Unknown output family");
+
+const OutputDestinationSchema = z.object({
+  id: PlatformId,
+  label: z.string().trim().min(1),
+  shortLabel: z.string().trim().min(1),
+  kind: z.enum(["store", "web"]),
+}).strict();
+
+const OutputDeviceFamilySchema = z.object({
+  key: FamilyKey,
+  label: z.string().trim().min(1),
+  creatable: z.boolean(),
+  recommended: z.boolean(),
+  leadStoreSizeId: z.string().trim().min(1),
+  replacementKey: FamilyKey.optional(),
+}).strict();
+
+const OutputCatalogSchema = z.object({
+  schemaVersion: z.literal(1),
+  destinations: z.array(OutputDestinationSchema).min(1),
+  families: z.array(OutputDeviceFamilySchema).min(1),
+}).strict().superRefine((catalog, context) => {
+  const expectedDestinations = Object.keys(SCREEN_DEVICES_BY_PLATFORM);
+  const destinationIds = catalog.destinations.map(({ id }) => id);
+  if (new Set(destinationIds).size !== destinationIds.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["destinations"], message: "Destination ids must be unique" });
+  }
+  for (const platform of expectedDestinations) {
+    if (!destinationIds.includes(platform as Platform)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["destinations"], message: `Missing destination ${platform}` });
+    }
+  }
+
+  const expectedFamilies = Object.entries(SCREEN_DEVICES_BY_PLATFORM)
+    .flatMap(([platform, devices]) => devices.map((device) => `${platform}/${device}`));
+  const familyKeys = catalog.families.map(({ key }) => key);
+  if (new Set(familyKeys).size !== familyKeys.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["families"], message: "Family keys must be unique" });
+  }
+  for (const key of expectedFamilies) {
+    if (!familyKeys.includes(key as OutputFamilyKey)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["families"], message: `Missing output family ${key}` });
+    }
+  }
+
+  for (const destination of catalog.destinations) {
+    const recommended = catalog.families.filter(({ key, creatable, recommended: isRecommended }) =>
+      key.startsWith(`${destination.id}/`) && creatable && isRecommended);
+    if (recommended.length !== 1) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["families"],
+        message: `Destination ${destination.id} must have exactly one creatable recommended family`,
+      });
+    }
+  }
+
+  for (const [index, family] of catalog.families.entries()) {
+    if (family.recommended && !family.creatable) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["families", index, "recommended"], message: "A recommended family must be creatable" });
+    }
+    if (!family.creatable && !family.replacementKey) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["families", index, "replacementKey"], message: "A non-creatable family must declare its replacement" });
+    }
+    if (family.replacementKey) {
+      const replacement = catalog.families.find(({ key }) => key === family.replacementKey);
+      if (!replacement || replacement.key === family.key || !replacement.creatable) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["families", index, "replacementKey"], message: "Replacement must reference another creatable family" });
+      }
+    }
+  }
+});
+
+/** Decode presentation and creation policy without widening the persisted Project schema. */
+export function parseOutputCatalog(raw: unknown): OutputCatalog {
+  const catalog = OutputCatalogSchema.parse(raw);
+  return {
+    schemaVersion: catalog.schemaVersion,
+    destinations: catalog.destinations,
+    families: catalog.families,
+  };
+}
+
+const outputCatalog = parseOutputCatalog(rawOutputCatalog);
+
+/** User-facing destination metadata. Persisted projects continue to store only the destination ID. */
+export const OUTPUT_DESTINATIONS = outputCatalog.destinations;
+
+/** Presentation and creation policy for every strict-schema output family. */
+export const OUTPUT_DEVICE_FAMILIES = outputCatalog.families;
 
 export function destinationLabel(platform: string): string {
   const destination = OUTPUT_DESTINATIONS.find(({ id }) => id === platform);

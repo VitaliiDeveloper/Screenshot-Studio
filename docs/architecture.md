@@ -34,6 +34,7 @@ runtime code; they never reach into `packages/*/src` by filesystem traversal.
 | Render engine | Konva through one shared NodeConfig mapping |
 | UI and CLI export | The same browser `/render` stage, driven by Playwright for CLI export |
 | Store dimensions | `store-specs.json`, never duplicated constants |
+| Output metadata | `packages/core/src/model/output-catalog.json`, strictly decoded against the Project schema |
 | Fonts | File-backed browser `FontFace` loading |
 | Editor state | Zustand with persistent Project content separated from transient UI state |
 | UI system | Local editor primitives, Tailwind, Lucide; no package-level design system until a second consumer exists |
@@ -45,12 +46,14 @@ git-trackable JSON: unknown fields fail validation and a new persisted field nee
 renderer, fixture, and parity work.
 
 Persisted `platform` and `device` values are technical identity, not user-facing copy. The strict
-schema owns which pairs are valid. `packages/core/src/model/output-catalog.ts` owns their shared
-presentation metadata: a platform is presented as a **destination** (for example, Google Play), and
-a platform/device pair is presented as an **output family** (for example, Google Play · Android
-phone). Catalog labels, creation recommendations, and legacy-family replacements are not persisted
-project fields. Its lead target IDs select entries from `store-specs.json`; the JSON file remains the
-only authority for target dimensions.
+schema owns which pairs are valid. `packages/core/src/model/output-catalog.json` owns their shared
+presentation and creation metadata; `output-catalog.ts` strictly decodes that document and rejects
+missing schema families, duplicate identities, invalid recommendations, and unsafe replacement
+references. A platform is presented as a **destination** (for example, Google Play), and a
+platform/device pair is presented as an **output family** (for example, Google Play · Android phone).
+Catalog labels, creation recommendations, legacy-family replacements, and lead target IDs are not
+persisted project fields. Lead IDs select entries from `store-specs.json`; that separate JSON file
+remains the only authority for target dimensions.
 
 The enforced schema is the authority for exact members and bounds. At a high level, a Project owns
 metadata, file-backed fonts, a preferred export layout, and ordered layouts. A layout owns ordered

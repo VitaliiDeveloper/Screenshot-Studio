@@ -9,6 +9,7 @@ import {
   OUTPUT_DEVICE_FAMILIES,
   destinationLabel,
   outputFamilyLabel,
+  parseOutputCatalog,
 } from "./output-catalog.js";
 
 const specs = parseStoreSpecs(JSON.parse(readFileSync(
@@ -18,6 +19,14 @@ const specs = parseStoreSpecs(JSON.parse(readFileSync(
 
 const schemaKeys = Object.entries(SCREEN_DEVICES_BY_PLATFORM)
   .flatMap(([platform, devices]) => devices.map((device) => `${platform}/${device}`));
+
+function catalogDocument() {
+  return {
+    schemaVersion: 1,
+    destinations: OUTPUT_DESTINATIONS.map((destination) => ({ ...destination })),
+    families: OUTPUT_DEVICE_FAMILIES.map((family) => ({ ...family })),
+  };
+}
 
 describe("output presentation catalog", () => {
   it("covers every strict-schema platform/device pair exactly once", () => {
@@ -102,5 +111,35 @@ describe("output presentation catalog", () => {
       .toMatchObject({ creatable: false, replacementKey: "android/tablet-7" });
     expect(findStoreTarget(specs, "android", "tablet-7", "tablet-10-portrait"))
       .toMatchObject({ width: 1600, height: 2560 });
+  });
+
+  it("strictly decodes the JSON document and rejects unknown fields", () => {
+    expect(parseOutputCatalog(catalogDocument())).toMatchObject({ schemaVersion: 1 });
+    expect(() => parseOutputCatalog({ ...catalogDocument(), extra: true }))
+      .toThrow(/Unrecognized key/);
+  });
+
+  it("rejects missing and duplicate strict-schema families", () => {
+    const missing = catalogDocument();
+    missing.families = missing.families.filter(({ key }) => key !== "web/mobile");
+    expect(() => parseOutputCatalog(missing)).toThrow(/Missing output family web\/mobile/);
+
+    const duplicate = catalogDocument();
+    duplicate.families.push({ ...duplicate.families[0]! });
+    expect(() => parseOutputCatalog(duplicate)).toThrow(/Family keys must be unique/);
+  });
+
+  it("rejects unsafe creation and replacement policy", () => {
+    const missingReplacement = catalogDocument();
+    const legacy = missingReplacement.families.find(({ key }) => key === "web/laptop")!;
+    delete legacy.replacementKey;
+    expect(() => parseOutputCatalog(missingReplacement))
+      .toThrow(/A non-creatable family must declare its replacement/);
+
+    const invalidRecommended = catalogDocument();
+    const mobile = invalidRecommended.families.find(({ key }) => key === "web/mobile")!;
+    mobile.recommended = true;
+    expect(() => parseOutputCatalog(invalidRecommended))
+      .toThrow(/exactly one creatable recommended family/);
   });
 });

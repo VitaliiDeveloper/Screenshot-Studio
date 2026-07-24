@@ -289,8 +289,8 @@ export type FontAsset = z.infer<typeof FontAsset>;
 
 /**
  * Source of truth for which devices each platform allows. The schema enums below are built
- * from this, and the store-specs lockstep test compares it against store-specs.json — so the
- * pair is declared in exactly one place. Widen HERE and in store-specs.json in the same change.
+ * from this. The output-catalog decoder and store-specs lockstep test compare their JSON documents
+ * against it. Widen HERE and both catalogs in the same coordinated change.
  */
 export const SCREEN_DEVICES_BY_PLATFORM = {
   apple: ["iphone", "ipad", "macos", "tvos", "watchos", "visionos"],
