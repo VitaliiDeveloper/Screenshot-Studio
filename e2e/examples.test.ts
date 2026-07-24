@@ -16,13 +16,15 @@ const examples = [
   {
     name: "connected launch",
     projectPath: resolve(repoRoot, "examples/connected-launch/app-store-screenshots.json"),
-    screenId: "hero",
+    screenId: "frame-gallery-web",
+    targetId: "desktop-1920",
     elementTypes: ["group", "icon", "image"],
   },
   {
     name: "RTL delivery",
     projectPath: resolve(repoRoot, "examples/rtl-delivery/app-store-screenshots.json"),
     screenId: "arabic-rtl",
+    targetId: "6.9",
     elementTypes: ["group", "icon"],
   },
 ] as const;
@@ -61,9 +63,23 @@ describe("living examples", () => {
       expect(leaves.some((leaf) => leaf.type === "text" && leaf.shadow)).toBe(true);
       expect(leaves.some((leaf) => leaf.type === "shape" && leaf.kind === "ellipse" && leaf.gradient)).toBe(true);
       if (example.name === "connected launch") {
+        expect(new Set(project.layouts[0].screens.map(({ platform }) => platform))).toEqual(
+          new Set(["apple", "android", "web"]),
+        );
         expect(project.layouts[0].screens.some(({ background }) => background.type === "image")).toBe(true);
         expect(leaves.some((leaf) => (leaf.type === "image" || leaf.type === "screenshot") && leaf.crop)).toBe(true);
-        expect(leaves.some((leaf) => leaf.type === "device-frame" && leaf.deviceType === "tablet")).toBe(true);
+        const framePresetIds = new Set(leaves
+          .filter((leaf) => leaf.type === "device-frame")
+          .map(({ deviceType }) => deviceType));
+        const requiredFramePresetIds = [
+          "iphone",
+          "phone-modern-dark",
+          "phone-punch-hole-dark",
+          "browser",
+          "browser-dark",
+          "laptop-silver",
+        ] as const;
+        expect(requiredFramePresetIds.every((presetId) => framePresetIds.has(presetId))).toBe(true);
       }
       if (example.name === "RTL delivery") {
         expect(project.layouts[0]!.mode).toBe("connected");
@@ -71,7 +87,12 @@ describe("living examples", () => {
         expect(project.layouts[0].screens.filter(({ locale }) => locale === "ar")).toHaveLength(2);
       }
       const screen = project.layouts[0].screens.find(({ id }) => id === example.screenId)!;
-      const target = await resolveTarget(storeSpecsPath, screen.platform, screen.device, "6.9");
+      const target = await resolveTarget(
+        storeSpecsPath,
+        screen.platform,
+        screen.device,
+        example.targetId,
+      );
       const png = await exportScreenToPng({
         baseUrl: server.url,
         projectPath: example.projectPath,

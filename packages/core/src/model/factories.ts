@@ -10,7 +10,7 @@ import type {
 } from "./schema.js";
 import type { FontIdentity } from "./font-identity.js";
 import { DEFAULT_TEXT_FONT } from "./built-in-fonts.js";
-import { DEVICE_FRAME_SPECS } from "./device-frames.js";
+import { deviceFramePreset } from "./device-frames.js";
 
 /** Optional top-left origin for a newly inserted element (defaults to a fixed offset). */
 export interface ElementOrigin {
@@ -137,10 +137,11 @@ export interface CreateDeviceFrameElementInput extends SizedOrigin {
 
 export function createDeviceFrameElement(input: CreateDeviceFrameElementInput = {}): DeviceFrameElement {
   const deviceType = input.deviceType ?? "iphone";
+  const spec = deviceFramePreset(deviceType).recipe.spec;
   return {
     ...elementBase(input, {
       width: input.width ?? 300,
-      height: input.height ?? 300 / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
+      height: input.height ?? 300 / spec.aspectRatio,
     }),
     type: "device-frame",
     deviceType,

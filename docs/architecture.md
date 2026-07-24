@@ -33,7 +33,7 @@ runtime code; they never reach into `packages/*/src` by filesystem traversal.
 | Model validation | Zod strict schema in `packages/core/src/model/schema.ts` |
 | Render engine | Konva through one shared NodeConfig mapping |
 | UI and CLI export | The same browser `/render` stage, driven by Playwright for CLI export |
-| Store dimensions | `store-specs.json`, never duplicated constants |
+| Output catalog | `store-specs.json` owns destination/family metadata and exact dimensions; TypeScript only decodes and selects it |
 | Fonts | File-backed browser `FontFace` loading |
 | Editor state | Zustand with persistent Project content separated from transient UI state |
 | UI system | Local editor primitives, Tailwind, Lucide; no package-level design system until a second consumer exists |
@@ -43,6 +43,17 @@ runtime code; they never reach into `packages/*/src` by filesystem traversal.
 `app-store-screenshots.json` is the only persisted Project document. It is versioned, strict,
 git-trackable JSON: unknown fields fail validation and a new persisted field needs explicit schema,
 renderer, fixture, and parity work.
+
+Persisted `platform` and `device` values are technical identity, not user-facing copy. The strict
+schema owns which pairs are valid. The unified `store-specs.json` catalog owns their shared
+presentation and creation metadata together with every exact output target. Its vertical structure
+is `platforms → families → targets`, so one family contains its labels, creation policy, lead target,
+legacy replacement, and complete size list. `packages/core/src/export/specs.ts` strictly decodes that
+document and rejects missing schema families, duplicate identities or dimensions, invalid
+recommendations, unsafe replacement references, and lead IDs that do not resolve inside their
+family. A platform is presented as a **destination** (for example, Google Play), and a
+platform/device pair is presented as an **output family** (for example, Google Play · Android phone).
+These catalog values are runtime configuration and are not persisted project fields.
 
 The enforced schema is the authority for exact members and bounds. At a high level, a Project owns
 metadata, file-backed fonts, a preferred export layout, and ordered layouts. A layout owns ordered
@@ -59,7 +70,7 @@ Screenshot and decorative-image elements may persist a bounded Gaussian blur rad
 elements use the same field for screenshot content only, leaving the bezel sharp. The editor and
 browser export renderer apply that effect through the same cached Konva filter contract.
 
-Screen-slot behavior is a layout-local output-family policy keyed by platform, device, and locale.
+Screen-slot behavior is a layout-local output-family policy keyed by persisted platform, device, and locale.
 New project scaffolds and newly created output families persist `synchronized`; an omitted policy
 still means `independent` for backward compatibility with existing v1 documents. A primary-size screen has no
 `storeTargetId`; an exact-size screen has one. In independent mode an exact-size screen may use
@@ -74,16 +85,29 @@ fitted counterparts only for missing slots. Editor and CLI mutations consume thi
 than implementing their own platform- or size-specific rules. Removing an exact output target removes
 the complete size row; it is distinct from deleting one independent screen slot.
 
-`store-specs.json` is the runtime authority for configured Apple, Android, Windows, and Web output
-families and exact dimensions. Device frames are presentation elements only: they neither select a
-platform nor determine an export size. Non-device targets such as the Android Play Feature Graphic
-live in the platform-level `$outputs` catalog and are identified by target metadata rather than by a
-fake device or frame. Play Feature Graphic is an exact `kind: "promotion"` target in the Android
-phone output family. The creation starter materializes it as a standalone exact-target screen in an
-independent set, so its default bundle contains no structural phone portrait. Landscape iPad and
-Android tablet templates materialize their exact target as an ordinary `variantOf`/`storeTargetId`
-screen beside the family lead root, so export never falls back to a portrait lead target with a
-different aspect ratio.
+`store-specs.json` is the single runtime authority for configured Apple, Android, Windows, and Web
+destinations, output families, creation policy, and exact dimensions. The catalog is deliberately
+curated, not an archive of every size a
+store has accepted historically: Apple entries cover selected accepted sizes, while Google Play and
+Microsoft Store entries are recommended presets within their broader requirements. Store rules can
+change independently of an application release. Before submission, compare the runtime catalog with
+the official [App Store screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/),
+[Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en),
+and [Microsoft Store screenshot guidance](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images).
+Documentation may explain policy, but it must not duplicate the dimensions or become a competing
+source of runtime truth.
+
+Device frames are presentation elements only: they neither select a destination/device family nor
+determine an export size. Bundled presets use renderer-owned, brand-neutral vector geometry; official
+Apple device artwork and other vendor frame assets are not bundled. A persisted frame preset id
+therefore selects visual treatment inside the artboard, not a claim about the exported target or a
+specific hardware model. Non-device targets such as the Android Play Feature Graphic live alongside
+device sizes in their owning family's `targets` list and are identified by target metadata rather
+than by a fake device or frame. Play Feature Graphic is an exact `kind: "promotion"` target in the Android phone output
+family. The creation starter materializes it as a standalone exact-target screen in an independent
+set, so its default bundle contains no structural phone portrait. Landscape iPad and Android tablet
+templates materialize their exact target as an ordinary `variantOf`/`storeTargetId` screen beside the
+family lead root, so export never falls back to a portrait lead target with a different aspect ratio.
 When no explicit `STORE_SPECS_PATH` is configured, the web runtime resolves this authority from the
 invocation/workspace root even when a package runner changes its process directory to `apps/web`.
 The exporter validates configured targets, exact dimensions, opaque output, and safe paths; it does
@@ -198,6 +222,8 @@ initializes such a project, then defers to its generated guide.
 - Put durable data/render/persistence constraints here; put UI semantics and component conventions in
   [`docs/editor.md`](editor.md).
 - Keep store sizes in `store-specs.json` and validate new outputs against it.
+- Treat that file as a curated runtime catalog, not a promise of exhaustive historical store sizes;
+  verify changing submission rules against the official store documentation linked above.
 - Treat schema widening, filesystem publication, session identity, and render changes as high-risk
   changes with focused tests.
 - Publication is separate from implementation. Candidate verification and owner authorization live in

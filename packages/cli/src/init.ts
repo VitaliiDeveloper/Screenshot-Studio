@@ -2,7 +2,11 @@
 import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
-import { createProjectScaffold, projectScaffoldFiles } from "@screenshot-studio/core/scaffold";
+import {
+  createProjectScaffold,
+  projectScaffoldFiles,
+  recommendedDeviceForPlatform,
+} from "@screenshot-studio/core/scaffold";
 import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
 
 /**
@@ -11,8 +15,7 @@ import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
  * literal-layout, and translation workflows without adding persisted agent state.
  */
 
-const STANDARD_DIRS = [
-  "screenshots/apple/iphone/en",
+const STANDARD_ASSET_DIRS = [
   "assets/fonts",
   "assets/icons",
   "themes",
@@ -52,13 +55,16 @@ export async function runInit(
   }
 
   const agentGuide = await readFile(new URL("./project-agent-guide.md", import.meta.url), "utf8");
+  const device = recommendedDeviceForPlatform("apple", storeSpecs);
   const scaffoldFiles = projectScaffoldFiles(createProjectScaffold({
     name: projectName ?? "My App Screenshots",
     platform: "apple",
+    device,
     layoutMode: "isolated",
     templateId: null,
   }, storeSpecs));
-  await Promise.all(STANDARD_DIRS.map((d) => mkdir(join(cwd, d), { recursive: true })));
+  const standardDirs = [`screenshots/apple/${device}/en`, ...STANDARD_ASSET_DIRS];
+  await Promise.all(standardDirs.map((directory) => mkdir(join(cwd, directory), { recursive: true })));
 
   await Promise.all([
     ...scaffoldFiles.map((file) => writeFile(join(cwd, file.path), file.bytes, { flag: "wx" })),

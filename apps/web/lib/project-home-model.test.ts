@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import type { StoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { ActiveProjectSelection } from "./project-session.js";
 import { buildProjectHomeSummary } from "./project-home-model.js";
 
@@ -92,14 +92,17 @@ const project: Project = {
   ],
 };
 
-const specs: StoreSpecs = {
-  apple: { iphone: [{ id: "6.9", label: "6.9-inch iPhone (lead)", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [
-    { id: "phone-portrait", label: "Android phone portrait", width: 1080, height: 1920, orientation: "portrait" },
-    { id: "phone-landscape", label: "Android phone landscape", width: 1920, height: 1080, orientation: "landscape" },
-  ] },
-  web: { desktop: [{ id: "desktop-1920", label: "Web desktop 1920×1080 (lead)", width: 1920, height: 1080, orientation: "landscape", kind: "responsive" }] },
-};
+const specs: StoreSpecs = structuredClone(DEFAULT_STORE_SPECS);
+specs.platforms.apple.families.iphone.targets = [
+  { id: "6.9", label: "6.9-inch iPhone (lead)", width: 1320, height: 2868, orientation: "portrait" },
+];
+specs.platforms.android.families.phone.targets = [
+  { id: "phone-portrait", label: "Android phone portrait", width: 1080, height: 1920, orientation: "portrait" },
+  { id: "phone-landscape", label: "Android phone landscape", width: 1920, height: 1080, orientation: "landscape" },
+];
+specs.platforms.web.families.desktop.targets = [
+  { id: "desktop-1920", label: "Web desktop 1920×1080 (lead)", width: 1920, height: 1080, orientation: "landscape", kind: "responsive" },
+];
 
 function selection(overrides: Partial<ActiveProjectSelection> = {}): ActiveProjectSelection {
   return {
@@ -193,6 +196,38 @@ describe("buildProjectHomeSummary", () => {
     ]);
   });
 
+  it("summarizes every destination and representative family with catalog labels", () => {
+    const catalogProject = structuredClone(project);
+    const base = catalogProject.layouts[0]!.screens[0]!;
+    catalogProject.layouts[0]!.screens.push(
+      { ...base, id: "ipad", platform: "apple", device: "ipad" },
+      { ...base, id: "android-tablet", platform: "android", device: "tablet-7" },
+      { ...base, id: "wear", platform: "android", device: "wear" },
+      { ...base, id: "xbox", platform: "windows", device: "xbox" },
+      { ...base, id: "web-desktop", platform: "web", device: "desktop" },
+      { ...base, id: "web-laptop", platform: "web", device: "laptop" },
+    );
+
+    const summary = buildProjectHomeSummary({
+      project: catalogProject,
+      selection: selection(),
+      specs,
+    });
+
+    expect(summary.platforms).toEqual(["App Store", "Google Play", "Microsoft Store", "Web"]);
+    expect(summary.outputFamilies.map(({ label }) => label)).toEqual([
+      "App Store · iPhone",
+      "App Store · iPad",
+      "Google Play · Android tablet",
+      "Google Play · Wear OS",
+      "Microsoft Store · Xbox",
+      "Web · Desktop",
+      "Web · Laptop",
+      "Google Play · Android phone",
+    ]);
+    expect(summary.outputFamilies.map(({ label }) => label).join(" ")).not.toContain("tablet-7");
+  });
+
   it("shows an exact local path only when the descriptor safely exposes it", () => {
     const local = buildProjectHomeSummary({
       project,
@@ -223,21 +258,18 @@ describe("buildProjectHomeSummary", () => {
     variant.name = "Feature graphic";
     variant.storeTargetId = "play-feature-graphic";
     variant.artboard = { width: 1024, height: 500 };
-    const promotionSpecs: StoreSpecs = {
-      ...specs,
-      android: {
-        ...specs.android,
-        "$outputs": [{
+    const promotionSpecs = structuredClone(specs);
+    promotionSpecs.platforms.android.families.phone.targets = [
+      specs.platforms.android.families.phone.targets[0]!,
+      {
           id: "play-feature-graphic",
           label: "Google Play Feature Graphic",
           width: 1024,
           height: 500,
           orientation: "landscape",
           kind: "promotion",
-          family: "phone",
-        }],
-      },
-    };
+        },
+      ];
 
     const summary = buildProjectHomeSummary({
       project: promotionProject,

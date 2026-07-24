@@ -10,6 +10,7 @@ import { cx } from "@web/components/editor-ui/styles.js";
 export function OutputFamilySection({
   label,
   editing,
+  headerEditing = editing,
   sizeLabel,
   role,
   testId = "overview-output-row",
@@ -21,6 +22,8 @@ export function OutputFamilySection({
 }: {
   label: string;
   editing: boolean;
+  /** The selected exact-size row controls the status badge; the family can stay selected separately. */
+  headerEditing?: boolean;
   sizeLabel?: string;
   role?: OutputIdentityRole;
   testId?: string;
@@ -58,7 +61,7 @@ export function OutputFamilySection({
     >
       <OutputIdentityHeader
         label={label}
-        editing={editing}
+        editing={headerEditing}
         sizeLabel={sizeLabel}
         role={role}
         constrained={artworkWidth !== undefined}

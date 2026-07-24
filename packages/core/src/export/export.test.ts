@@ -39,13 +39,64 @@ describe("store-specs.json", () => {
     const specs = parseStoreSpecs(storeSpecsRaw);
     expect(findStoreSize(specs, "android", "phone", "phone-portrait-high-res")).toMatchObject({ width: 1440, height: 2560 });
     expect(findStoreSize(specs, "android", "tablet-7", "tablet-7-landscape")).toMatchObject({ width: 1920, height: 1200 });
+    expect(findStoreSize(specs, "android", "tablet-7", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
     expect(findStoreSize(specs, "android", "tablet-10", "tablet-10-portrait")).toMatchObject({ width: 1600, height: 2560 });
     expect(findStoreTarget(specs, "android", "phone", "play-feature-graphic")).toMatchObject({
-      width: 1024, height: 500, kind: "promotion", family: "phone", alpha: false,
+      width: 1024, height: 500, kind: "promotion", alpha: false,
     });
     expect(() => findStoreSize(specs, "android", "promotion", "play-feature-graphic")).toThrow(/No store sizes/);
     expect(findStoreSize(specs, "web", "desktop", "desktop-1920")).toMatchObject({ width: 1920, height: 1080, kind: "responsive" });
     expect(findStoreSize(specs, "web", "mobile", "mobile-portrait")).toMatchObject({ width: 390, height: 844, kind: "responsive" });
+  });
+
+  it("exposes the curated destination-family targets with their exact dimensions", () => {
+    const specs = parseStoreSpecs(storeSpecsRaw);
+    const expected = [
+      ["apple", "visionos", "vision-pro", 3840, 2160, "landscape"],
+      ["android", "chromebook", "chromebook-landscape", 1920, 1080, "landscape"],
+      ["android", "chromebook", "chromebook-portrait", 1080, 1920, "portrait"],
+      ["android", "tv", "tv-landscape", 1920, 1080, "landscape"],
+      ["android", "wear", "wear-square", 384, 384, "square"],
+      ["android", "automotive", "automotive-portrait", 800, 1280, "portrait"],
+      ["android", "automotive", "automotive-landscape", 1024, 768, "landscape"],
+      ["android", "xr", "xr-landscape", 3840, 2400, "landscape"],
+      ["windows", "xbox", "full-hd", 1920, 1080, "landscape"],
+      ["windows", "xbox", "4k", 3840, 2160, "landscape"],
+      ["windows", "holographic", "minimum", 1268, 720, "landscape"],
+      ["windows", "holographic", "4k", 3840, 2160, "landscape"],
+    ] as const;
+
+    for (const [platform, device, id, width, height, orientation] of expected) {
+      expect(findStoreSize(specs, platform, device, id)).toMatchObject({
+        id, width, height, orientation,
+      });
+    }
+  });
+
+  it("parses and displays a square runtime store target", () => {
+    const specs = parseStoreSpecs(structuredClone(storeSpecsRaw));
+
+    expect(findStoreSize(specs, "android", "wear", "wear-square")).toMatchObject({
+      label: "Wear OS square (frameless)",
+      orientation: "square",
+    });
+  });
+
+  it("adds landscape counterparts for every currently curated iPhone and iPad portrait", () => {
+    const specs = parseStoreSpecs(storeSpecsRaw);
+    for (const device of ["iphone", "ipad"] as const) {
+      const targets = specs.platforms.apple.families[device].targets;
+      const portraitTargets = targets.filter(({ orientation }) =>
+        orientation === "portrait");
+      for (const portrait of portraitTargets) {
+        expect(targets).toContainEqual(expect.objectContaining({
+          id: `${portrait.id}-landscape`,
+          width: portrait.height,
+          height: portrait.width,
+          orientation: "landscape",
+        }));
+      }
+    }
   });
 });
 

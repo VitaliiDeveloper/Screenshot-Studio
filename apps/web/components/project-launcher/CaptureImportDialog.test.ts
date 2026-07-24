@@ -3,7 +3,8 @@ import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { CaptureImportDialog } from "./CaptureImportDialog.js";
+import { OUTPUT_DESTINATIONS } from "@screenshot-studio/core/export";
+import { CaptureImportDialog, captureImportPlatformOptions } from "./CaptureImportDialog.js";
 import { createCaptureImportState, type CaptureImportState } from "./capture-import-model.js";
 
 const currentTarget = {
@@ -98,6 +99,10 @@ describe("CaptureImportDialog", () => {
     expect(newMarkup).toContain("Target platform");
     expect(newMarkup).toContain("Layout mode");
     expect(newMarkup).toContain("Capture-ready empty project");
+    expect(captureImportPlatformOptions).toEqual(
+      OUTPUT_DESTINATIONS.map(({ id, label }) => ({ value: id, label })),
+    );
+    expect(newMarkup).not.toContain("Apple App Store");
   });
 
   it("renders the server preview destination, counts, planned IDs/paths, and warnings before apply", () => {

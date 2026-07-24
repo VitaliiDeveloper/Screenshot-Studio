@@ -8,7 +8,8 @@ describe("GET /api/store-specs", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.apple.iphone.some((s: { id: string }) => s.id === "6.9")).toBe(true);
+    expect(body.platforms.apple.families.iphone.targets
+      .some((target: { id: string }) => target.id === "6.9")).toBe(true);
   });
 
   it("returns a structured 404 when the configured file is missing", async () => {

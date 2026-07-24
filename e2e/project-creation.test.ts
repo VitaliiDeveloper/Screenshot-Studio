@@ -36,6 +36,12 @@ async function selectTargetPlatform(dialog: Locator, name: string): Promise<void
   await menu.getByRole("menuitemradio", { name }).click();
 }
 
+async function selectDeviceFamily(dialog: Locator, name: string): Promise<void> {
+  await dialog.getByRole("button", { name: "Device family" }).click();
+  const menu = dialog.getByRole("menu", { name: "Device family options" });
+  await menu.getByRole("menuitemradio", { name }).click();
+}
+
 beforeAll(async () => {
   inheritedProjectPath = process.env.PROJECT_PATH;
   inheritedDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
@@ -84,7 +90,7 @@ describe("managed project creation", () => {
 
       const platformTrigger = dialog.getByRole("button", { name: "Target platform" });
       await platformTrigger.click();
-      await dialog.getByRole("menuitemradio", { name: "Apple App Store" }).press("Escape");
+      await dialog.getByRole("menuitemradio", { name: "App Store" }).press("Escape");
       expect(await dialog.isVisible()).toBe(true);
       await expect.poll(() => platformTrigger.evaluate(
         (element) => element === document.activeElement,
@@ -101,6 +107,7 @@ describe("managed project creation", () => {
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.getByLabel("Project name").fill("Empty desktop story");
       await selectTargetPlatform(dialog, "Microsoft Store");
+      await selectDeviceFamily(dialog, "Xbox");
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);
@@ -135,7 +142,7 @@ describe("managed project creation", () => {
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       const nameInput = dialog.getByLabel("Project name");
       await nameInput.fill("Launch sequence");
-      await selectTargetPlatform(dialog, "Apple App Store");
+      await selectTargetPlatform(dialog, "App Store");
       await dialog.getByRole("radio", { name: /Product launch/ }).check();
 
       let attempt = 0;
@@ -162,9 +169,9 @@ describe("managed project creation", () => {
       expect(await nameInput.evaluate((element) => element === document.activeElement)).toBe(true);
 
       const submitButton = dialog.getByRole("button", { name: "Create project", exact: true });
-      await submitButton.evaluate((button: HTMLButtonElement) => {
-        button.focus({ preventScroll: true });
-      });
+      await submitButton.scrollIntoViewIfNeeded();
+      const dialogBody = dialog.locator(":scope > div").last();
+      const scrollTopBeforePublication = await dialogBody.evaluate((element) => element.scrollTop);
       const dialogBeforePublication = await dialog.boundingBox();
       const formBeforePublication = await dialog.locator("form").boundingBox();
       const submitBeforePublication = await submitButton.boundingBox();
@@ -172,8 +179,9 @@ describe("managed project creation", () => {
       expect(formBeforePublication).not.toBeNull();
       expect(submitBeforePublication).not.toBeNull();
 
-      await submitButton.evaluate((button: HTMLButtonElement) => button.click());
+      await submitButton.click();
       expect(await dialog.getByText("Creating your project…", { exact: true }).count()).toBe(0);
+      const scrollTopDuringPublication = await dialogBody.evaluate((element) => element.scrollTop);
       const dialogDuringPublication = await dialog.boundingBox();
       const formDuringPublication = await dialog.locator("form").boundingBox();
       const submitDuringPublication = await dialog.getByRole("button", {
@@ -188,6 +196,8 @@ describe("managed project creation", () => {
         width: dialogBeforePublication!.width,
         height: dialogBeforePublication!.height,
       });
+      expect(Math.abs(scrollTopDuringPublication - scrollTopBeforePublication))
+        .toBeLessThanOrEqual(2);
       expect(Math.abs(submitDuringPublication!.y - submitBeforePublication!.y))
         .toBeLessThanOrEqual(2);
       expect(Math.abs(formDuringPublication!.y - formBeforePublication!.y))
@@ -231,7 +241,12 @@ describe("managed project creation", () => {
         if (entry.name === "Empty desktop story") {
           expect(project.layouts[0]).toMatchObject({ mode: "connected" });
           expect(project.layouts[0]!.screens).toHaveLength(1);
-          expect(project.layouts[0]!.screens[0]).toMatchObject({ platform: "windows", elements: [] });
+          expect(project.layouts[0]!.screens[0]).toMatchObject({
+            platform: "windows",
+            device: "xbox",
+            artboard: { width: 1920, height: 1080 },
+            elements: [],
+          });
         } else {
           expect(project.layouts[0]!.screens).toHaveLength(3);
           expect(project.layouts[0]!.screens.every((screen) => screen.platform === "apple")).toBe(true);
@@ -247,7 +262,7 @@ describe("managed project creation", () => {
       await page.getByRole("button", { name: "New project" }).click();
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.getByLabel("Project name").fill("Built-in iPhone story");
-      await selectTargetPlatform(dialog, "Apple App Store");
+      await selectTargetPlatform(dialog, "App Store");
       await dialog.getByRole("radio", { name: /^iPhone\b/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);

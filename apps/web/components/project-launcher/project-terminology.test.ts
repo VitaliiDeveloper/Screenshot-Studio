@@ -30,6 +30,18 @@ describe("project creation terminology", () => {
     expect(screenTemplateDialog).not.toContain("from a project template");
   });
 
+  it("presents template sources as a selector without an action-style tab separator", () => {
+    expect(screenTemplateDialog).toContain("<SegmentedControl");
+    expect(screenTemplateDialog).toContain('label="Template source"');
+    expect(screenTemplateDialog).toContain('className="mb-4 flex justify-center"');
+    expect(screenTemplateDialog).not.toContain('role="tablist"');
+    expect(screenTemplateDialog).not.toContain("border-b border-slate-200 pb-2");
+  });
+
+  it("closes the screen-template dialog after a screen is created successfully", () => {
+    expect(screenTemplateDialog).toMatch(/await withFlushedProject[\s\S]*?\n {6}close\(\);/);
+  });
+
   it("does not label the screen-template action as project templates or component presets", () => {
     expect(workspaceModel).toContain('label: "Screen templates"');
     expect(workspaceModel).toContain('hint: "Create a screen from a project-local screen template"');

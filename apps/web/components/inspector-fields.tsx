@@ -13,8 +13,16 @@ import { cx, editorUi, MenuSelect, type MenuSelectOption } from "./editor-ui";
 
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
 
+export function normalizeNumberFieldValue(value: number, precision?: number): number {
+  return precision === undefined ? value : Number(value.toFixed(precision));
+}
+
+export function formatNumberFieldValue(value: number, precision?: number): string {
+  return String(normalizeNumberFieldValue(value, precision));
+}
+
 export function NumberField({
-  label, value, onChange, step = 1, min, max, integer = false, layout = "row",
+  label, value, onChange, step = 1, min, max, integer = false, precision, layout = "row",
 }: {
   label: string;
   value: number;
@@ -23,10 +31,11 @@ export function NumberField({
   min?: number;
   max?: number;
   integer?: boolean;
+  precision?: number;
   layout?: "row" | "column";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState(formatNumberFieldValue(value, precision));
   const parse = (raw: string): number | null => {
     if (raw.trim() === "") return null;
     const next = Number(raw);
@@ -39,8 +48,10 @@ export function NumberField({
   const valid = parse(draft) !== null;
 
   useEffect(() => {
-    if (document.activeElement !== inputRef.current) setDraft(String(value));
-  }, [value]);
+    if (document.activeElement !== inputRef.current) {
+      setDraft(formatNumberFieldValue(value, precision));
+    }
+  }, [precision, value]);
 
   return (
     <label className={layout === "column"
@@ -60,11 +71,11 @@ export function NumberField({
           const raw = event.target.value;
           setDraft(raw);
           const next = parse(raw);
-          if (next !== null) onChange(next);
+          if (next !== null) onChange(normalizeNumberFieldValue(next, precision));
         }}
         onBlur={() => {
           const next = parse(draft);
-          if (next === null) setDraft(String(value));
+          setDraft(formatNumberFieldValue(next ?? value, precision));
         }}
         className={cx(
           editorUi.field,

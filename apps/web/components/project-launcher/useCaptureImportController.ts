@@ -8,12 +8,13 @@ import {
   previewCaptureImport,
   type CaptureImportApplyResult,
 } from "@web/lib/capture-import-client";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import {
   captureImportRequest,
   reduceCaptureImportState,
   type CaptureImportAction,
   type CaptureImportCurrentTarget,
-  type CaptureImportDraft,
+  type CaptureImportNewProjectPatch,
   type CaptureImportState,
 } from "./capture-import-model";
 
@@ -21,6 +22,7 @@ type ActivationFence = <T>(operation: () => Promise<T>) => Promise<T>;
 
 export interface CaptureImportControllerOptions {
   currentTarget: CaptureImportCurrentTarget | null;
+  specs?: StoreSpecs;
   activateNewProject?: ActivationFence;
   onCompleted(
     result: CaptureImportApplyResult,
@@ -37,7 +39,7 @@ export interface CaptureImportController {
   selectFiles(files: readonly File[]): void;
   chooseDestination(kind: "current-project" | "new-project"): void;
   chooseCurrentLayout(layoutId: string): void;
-  changeNewProject(patch: Partial<CaptureImportDraft["newProject"]>): void;
+  changeNewProject(patch: CaptureImportNewProjectPatch): void;
   preview(): void;
   apply(): void;
   cancel(): void;
@@ -123,11 +125,17 @@ export function captureImportApplyFailureAction(error: unknown): CaptureImportAc
 
 export function useCaptureImportController({
   currentTarget,
+  specs = DEFAULT_STORE_SPECS,
   activateNewProject = directActivation,
   onCompleted,
   onRecoverStale,
 }: CaptureImportControllerOptions): CaptureImportController {
-  const [state, dispatch] = useReducer(reduceCaptureImportState, { status: "closed" });
+  const [state, dispatch] = useReducer(
+    (current: CaptureImportState, action: CaptureImportAction) => (
+      reduceCaptureImportState(current, action, specs)
+    ),
+    { status: "closed" },
+  );
   const controllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
@@ -152,7 +160,7 @@ export function useCaptureImportController({
   const chooseCurrentLayout = useCallback((layoutId: string) => {
     dispatch({ type: "choose-current-layout", layoutId });
   }, []);
-  const changeNewProject = useCallback((patch: Partial<CaptureImportDraft["newProject"]>) => {
+  const changeNewProject = useCallback((patch: CaptureImportNewProjectPatch) => {
     dispatch({ type: "change-new-project", patch });
   }, []);
 

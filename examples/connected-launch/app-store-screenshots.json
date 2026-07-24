@@ -471,6 +471,186 @@
               "strokeWidth": 4
             }
           ]
+        },
+        {
+          "platform": "android",
+          "device": "phone",
+          "id": "frame-gallery-android",
+          "name": "Android Frame Styles",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 1080,
+            "height": 1920
+          },
+          "background": {
+            "type": "linear-gradient",
+            "from": "#111827",
+            "to": "#0F766E",
+            "angle": 90
+          },
+          "elements": [
+            {
+              "type": "text",
+              "id": "android-gallery-headline",
+              "x": 90,
+              "y": 120,
+              "width": 900,
+              "height": 150,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Android frame gallery headline",
+              "role": "heading",
+              "content": "Choose your frame",
+              "fontFamily": "Pacifico",
+              "size": 92,
+              "weight": 400,
+              "lineHeight": 1.1,
+              "letterSpacing": 0,
+              "align": "center",
+              "color": "#FFFFFF"
+            },
+            {
+              "type": "device-frame",
+              "id": "android-gallery-legacy",
+              "x": 75,
+              "y": 470,
+              "width": 270,
+              "height": 562.5,
+              "rotation": -4,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Legacy punch-hole phone",
+              "deviceType": "android-phone",
+              "assetUrl": "assets/demo-logistics-app.png",
+              "fit": "cover"
+            },
+            {
+              "type": "device-frame",
+              "id": "android-gallery-modern",
+              "x": 405,
+              "y": 435,
+              "width": 270,
+              "height": 585,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Modern dark phone",
+              "deviceType": "phone-modern-dark",
+              "assetUrl": "assets/demo-logistics-app.png",
+              "fit": "cover"
+            },
+            {
+              "type": "device-frame",
+              "id": "android-gallery-punch-hole",
+              "x": 735,
+              "y": 470,
+              "width": 270,
+              "height": 562.5,
+              "rotation": 4,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Modern punch-hole phone",
+              "deviceType": "phone-punch-hole-dark",
+              "assetUrl": "assets/demo-logistics-app.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "platform": "web",
+          "device": "desktop",
+          "id": "frame-gallery-web",
+          "name": "Web Frame Styles",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 1920,
+            "height": 1080
+          },
+          "background": {
+            "type": "linear-gradient",
+            "from": "#172554",
+            "to": "#581C87",
+            "angle": 24
+          },
+          "elements": [
+            {
+              "type": "text",
+              "id": "web-gallery-headline",
+              "x": 160,
+              "y": 90,
+              "width": 1600,
+              "height": 150,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Web frame gallery headline",
+              "role": "heading",
+              "content": "Present every experience",
+              "fontFamily": "Pacifico",
+              "size": 96,
+              "weight": 400,
+              "lineHeight": 1.1,
+              "letterSpacing": 0,
+              "align": "center",
+              "color": "#FFFFFF"
+            },
+            {
+              "type": "device-frame",
+              "id": "web-gallery-classic-browser",
+              "x": 70,
+              "y": 360,
+              "width": 520,
+              "height": 325,
+              "rotation": -2,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Classic browser",
+              "deviceType": "browser",
+              "assetUrl": "assets/demo-logistics-app.png",
+              "fit": "cover"
+            },
+            {
+              "type": "device-frame",
+              "id": "web-gallery-dark-browser",
+              "x": 700,
+              "y": 330,
+              "width": 520,
+              "height": 325,
+              "rotation": 0,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Dark browser",
+              "deviceType": "browser-dark",
+              "assetUrl": "assets/demo-logistics-app.png",
+              "fit": "cover"
+            },
+            {
+              "type": "device-frame",
+              "id": "web-gallery-silver-laptop",
+              "x": 1330,
+              "y": 360,
+              "width": 520,
+              "height": 325,
+              "rotation": 2,
+              "opacity": 1,
+              "locked": false,
+              "visible": true,
+              "name": "Silver laptop",
+              "deviceType": "laptop-silver",
+              "assetUrl": "assets/demo-logistics-app.png",
+              "fit": "cover"
+            }
+          ]
         }
       ]
     }

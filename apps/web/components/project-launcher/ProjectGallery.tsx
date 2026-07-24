@@ -3,6 +3,12 @@
 
 import React, { useEffect, useRef } from "react";
 import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
+import {
+  DEFAULT_STORE_SPECS,
+  destinationLabel,
+  listOutputFamilies,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
@@ -27,29 +33,12 @@ export function closeProjectActionsMenu(
   menu.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
 }
 
-function platformLabel(value: string): string {
-  const [platform, device = value] = value.split(":");
-  if (platform === "android") return "Android";
-  if (platform === "windows") return "Windows";
-  const labels: Record<string, string> = {
-    iphone: "iPhone",
-    ipad: "iPad",
-    macos: "macOS",
-    tvos: "Apple TV",
-    watchos: "Apple Watch",
-    desktop: "Desktop",
-    laptop: "Laptop",
-    tablet: "Tablet",
-    mobile: "Mobile",
-    apple: "Apple",
-    android: "Android",
-    windows: "Windows",
-    web: "Web",
-    tv: "TV",
-    watch: "Watch",
-  };
-  const fallback = device.replaceAll("-", " ");
-  return labels[device] ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
+function projectOutputLabel(value: string, specs: StoreSpecs): string {
+  const [platform, device] = value.split(":");
+  if (!platform) return "Project";
+  if (!device) return destinationLabel(platform, specs);
+  return listOutputFamilies(specs).find(({ key }) => key === `${platform}/${device}`)?.label
+    ?? destinationLabel(platform, specs);
 }
 
 function plural(count: number, singular: string): string {
@@ -58,6 +47,7 @@ function plural(count: number, singular: string): string {
 
 export function ProjectGallery({
   entries,
+  specs = DEFAULT_STORE_SPECS,
   action,
   actionError,
   actionNotice,
@@ -69,6 +59,7 @@ export function ProjectGallery({
   onRemoveRecent,
 }: {
   entries: readonly ProjectLibraryEntry[];
+  specs?: StoreSpecs;
   action: ProjectLibraryAction | null;
   actionError: string | null;
   actionNotice: ProjectLibraryNotice | null;
@@ -139,7 +130,7 @@ export function ProjectGallery({
                 {index === 0 ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Most recent</span> : null}
               </span>
               <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                {[...new Set(entry.platforms.map(platformLabel))].join(" · ") || (unavailable ? "Local project" : "Project")}
+                {[...new Set(entry.platforms.map((value) => projectOutputLabel(value, specs)))].join(" · ") || (unavailable ? "Local project" : "Project")}
                 <span aria-hidden="true">·</span>
                 <span>{plural(entry.screenCount, "screen")}</span>
                 <span aria-hidden="true">·</span>

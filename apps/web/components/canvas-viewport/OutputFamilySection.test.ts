@@ -27,4 +27,17 @@ describe("OutputFamilySection", () => {
     expect(metaRow).toContain("master");
     expect(metaRow).not.toContain("Editing");
   });
+
+  it("keeps the selected family highlighted without labelling an unselected master as editing", () => {
+    const markup = renderToStaticMarkup(React.createElement(OutputFamilySection, {
+      label: "App Store · iPhone",
+      editing: true,
+      headerEditing: false,
+      children: React.createElement("div", null, "Variant artwork"),
+    }));
+
+    const titleRow = markup.match(/data-testid="output-identity-title-row"[^>]*>(.*?)<\/div>/)?.[1] ?? "";
+    expect(markup).toContain('data-editing="true"');
+    expect(titleRow).not.toContain("Editing");
+  });
 });

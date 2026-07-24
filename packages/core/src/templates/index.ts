@@ -7,6 +7,7 @@ import {
   SCREEN_DEVICES_BY_PLATFORM,
   addScreenToProject,
   cloneElementWithFreshIds,
+  deviceFramePreset,
   elementLeaves,
   ensureStoreTargetVariant,
   fontIdentityKey,
@@ -17,11 +18,17 @@ import {
   setScreenDirection,
   DEFAULT_TEXT_FONT,
   type CreateScreenInput,
+  type DeviceFrameId,
   type FontIdentity,
   type Project as ProjectModel,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { exportPixelRatio, findStoreTarget, type StoreSpecs } from "@screenshot-studio/core/export";
+import {
+  exportPixelRatio,
+  findStoreTarget,
+  leadStoreSizeId,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -53,6 +60,10 @@ export const BUILT_IN_TEMPLATE_IDS = [
   "web-mobile-starter",
   "play-feature-graphic",
   "web-share-cover",
+  "macos-starter",
+  "tvos-starter",
+  "visionos-starter",
+  "wear-os-starter",
 ] as const;
 
 export const BUILT_IN_PROJECT_STARTER_IDS = [
@@ -73,8 +84,9 @@ type BuiltInDefinition = {
   platform: ScreenTemplate["platform"];
   device: ScreenTemplate["device"];
   targetId: string;
-  frame?: "iphone" | "android-phone" | "tablet" | "browser";
+  frame?: DeviceFrameId;
   promotion?: boolean;
+  appScreenshotOnly?: boolean;
 };
 
 const BUILT_IN_DEFINITIONS: readonly BuiltInDefinition[] = [
@@ -83,11 +95,15 @@ const BUILT_IN_DEFINITIONS: readonly BuiltInDefinition[] = [
   { id: "ipad-landscape-starter", name: "iPad landscape", description: "Landscape tablet composition with safe edge spacing.", platform: "apple", device: "ipad", targetId: "13-landscape", frame: "tablet" },
   { id: "android-phone-starter", name: "Android phone", description: "Google Play phone starter with an empty assignable mockup.", platform: "android", device: "phone", targetId: "phone-portrait", frame: "android-phone" },
   { id: "android-tablet-portrait-starter", name: "Android tablet portrait", description: "7-inch tablet portrait starter.", platform: "android", device: "tablet-7", targetId: "tablet-7-portrait", frame: "tablet" },
-  { id: "android-tablet-landscape-starter", name: "Android tablet landscape", description: "10-inch tablet landscape starter.", platform: "android", device: "tablet-10", targetId: "tablet-10-landscape", frame: "tablet" },
+  { id: "android-tablet-landscape-starter", name: "Android tablet landscape", description: "10-inch tablet landscape starter.", platform: "android", device: "tablet-7", targetId: "tablet-10-landscape", frame: "tablet" },
   { id: "web-desktop-starter", name: "Web desktop", description: "Responsive desktop review composition with a browser frame.", platform: "web", device: "desktop", targetId: "desktop-1920", frame: "browser" },
   { id: "web-mobile-starter", name: "Web mobile", description: "Responsive mobile composition with an editable browser mockup.", platform: "web", device: "mobile", targetId: "mobile-portrait", frame: "browser" },
   { id: "play-feature-graphic", name: "Play Feature Graphic", description: "Opaque promotion art with named safe and focal guides; no device frame.", platform: "android", device: "phone", targetId: "play-feature-graphic", promotion: true },
   { id: "web-share-cover", name: "Web Share cover", description: "Responsive campaign and review cover starter for the Web Share profile.", platform: "web", device: "desktop", targetId: "desktop-1920", frame: "browser" },
+  { id: "macos-starter", name: "macOS", description: "Computer composition with one editable laptop mockup.", platform: "apple", device: "macos", targetId: "2880x1800", frame: "laptop-silver" },
+  { id: "tvos-starter", name: "tvOS", description: "Large-screen composition with one editable TV mockup.", platform: "apple", device: "tvos", targetId: "4k", frame: "tv" },
+  { id: "visionos-starter", name: "Apple Vision Pro", description: "Spatial composition with one editable XR viewport.", platform: "apple", device: "visionos", targetId: "vision-pro", frame: "xr-viewport" },
+  { id: "wear-os-starter", name: "Wear OS Store screenshot", description: "Frameless app UI sized for a compliant Wear OS Store screenshot.", platform: "android", device: "wear", targetId: "wear-square", appScreenshotOnly: true },
 ];
 
 export interface BuiltInProjectStarterMetadata {
@@ -95,13 +111,20 @@ export interface BuiltInProjectStarterMetadata {
   name: string;
   description: string;
   platform: ScreenTemplate["platform"];
+  device: ScreenTemplate["device"];
 }
 
 /** Creation-dialog subset of the global catalog; landscape starters stay available in Resources. */
 export function listBuiltInProjectStarterMetadata(): BuiltInProjectStarterMetadata[] {
   return BUILT_IN_PROJECT_STARTER_IDS.map((id) => {
     const definition = BUILT_IN_DEFINITIONS.find((candidate) => candidate.id === id)!;
-    return { id, name: definition.name, description: definition.description, platform: definition.platform };
+    return {
+      id,
+      name: definition.name,
+      description: definition.description,
+      platform: definition.platform,
+      device: definition.device,
+    };
   });
 }
 
@@ -118,6 +141,24 @@ function resolveBuiltInDefinition(definition: BuiltInDefinition, specs: StoreSpe
 
 function builtInElements(definition: ResolvedBuiltInDefinition, font?: FontIdentity): ScreenTemplate["elements"] {
   const { width, height } = definition;
+  if (definition.appScreenshotOnly) {
+    return [{
+      id: "app-screenshot",
+      type: "screenshot",
+      name: "Replace with app screenshot",
+      x: 0,
+      y: 0,
+      width,
+      height,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      assetUrl: "assets/replace-with-wear-app-screenshot.png",
+      fit: "cover",
+      cornerRadius: 0,
+    }];
+  }
   const safe = Math.round(Math.min(width, height) * 0.08);
   const elements: ScreenTemplate["elements"] = [
     {
@@ -145,11 +186,12 @@ function builtInElements(definition: ResolvedBuiltInDefinition, font?: FontIdent
     );
   } else if (definition.frame) {
     const frameWidth = Math.round(width * (width > height ? 0.42 : 0.6));
+    const frameAspectRatio = deviceFramePreset(definition.frame).recipe.spec.aspectRatio;
     elements.push({
       id: "mockup", type: "device-frame", name: "Drop screenshot here",
       x: width > height ? Math.round(width * 0.54) : Math.round((width - frameWidth) / 2),
       y: Math.round(height * (width > height ? 0.18 : 0.39)), width: frameWidth,
-      height: Math.round(frameWidth / (definition.frame === "tablet" ? 0.75 : definition.frame === "browser" ? 1.6 : definition.frame === "android-phone" ? 0.48 : 6 / 13)),
+      height: Math.round(frameWidth / frameAspectRatio),
       rotation: 0, opacity: 1, locked: false, visible: true, deviceType: definition.frame, fit: "cover",
     });
   }
@@ -285,8 +327,12 @@ export function createScreenFromTemplate(
   if (options.exactTargetMode === "standalone") {
     return append(project, template.artboard, template.elements, target.id);
   }
-  const lead = specs[template.platform]?.[template.device]?.[0];
-  if (!lead) throw new Error(`No lead store size is configured for ${template.platform}/${template.device}`);
+  const lead = findStoreTarget(
+    specs,
+    template.platform,
+    template.device,
+    leadStoreSizeId(specs, template.platform, template.device),
+  );
   if (lead.id === target.id) return append(project, template.artboard, template.elements);
 
   // Root screens remain the family master. A non-lead starter is the exact target variant,

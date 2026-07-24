@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
 import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
@@ -16,11 +16,7 @@ let repository: ManagedProjectRepository;
 let registry: ProjectSessionRegistry;
 let service: ManagedProjectCreationService;
 
-const specs = parseStoreSpecs({
-  apple: { iphone: [{ id: "lead", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "lead", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "lead", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 function request(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("http://localhost/api/project-create", {
@@ -50,7 +46,7 @@ describe("POST /api/project-create", () => {
   it("creates an empty managed project and activates only its new session", async () => {
     const recordRecent = vi.fn(async () => undefined);
     const response = await handleProjectCreatePost(request({
-      name: "New managed project", platform: "windows", layoutMode: "connected", templateId: null,
+      name: "New managed project", platform: "windows", device: "desktop", layoutMode: "connected", templateId: null,
     }), { service, registry, recentProjects: { record: recordRecent } });
 
     expect(response.status).toBe(201);
@@ -79,7 +75,7 @@ describe("POST /api/project-create", () => {
 
   it("creates a compatible starter project template through the same endpoint", async () => {
     const response = await handleProjectCreatePost(request({
-      name: "Launch", platform: "android", layoutMode: "isolated", templateId: "product-launch",
+      name: "Launch", platform: "android", device: "phone", layoutMode: "isolated", templateId: "product-launch",
     }), { service, registry });
 
     expect(response.status).toBe(201);
@@ -88,19 +84,27 @@ describe("POST /api/project-create", () => {
 
   it("rejects paths, unknown fields, malformed JSON, and oversized bodies before publication", async () => {
     const pathResponse = await handleProjectCreatePost(request({
-      name: "Unsafe", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Unsafe", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
       path: "/srv/unsafe",
     }), { service, registry });
     const malformed = await handleProjectCreatePost(new Request("http://localhost/api/project-create", {
       method: "POST", headers: { "content-type": "application/json" }, body: "{",
     }), { service, registry });
     const oversized = await handleProjectCreatePost(request({
-      name: "Large", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Large", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     }, { "content-length": "20000" }), { service, registry });
+    const invalidDevice = await handleProjectCreatePost(request({
+      name: "Invalid pair", platform: "apple", device: "wear", layoutMode: "isolated", templateId: null,
+    }), { service, registry });
+    const missingDevice = await handleProjectCreatePost(request({
+      name: "Missing device", platform: "apple", layoutMode: "isolated", templateId: null,
+    }), { service, registry });
 
     expect(pathResponse.status).toBe(400);
     expect(malformed.status).toBe(400);
     expect(oversized.status).toBe(413);
+    expect(invalidDevice.status).toBe(400);
+    expect(missingDevice.status).toBe(400);
     expect(pathResponse.headers.get("set-cookie")).toBeNull();
     await expect(repository.list()).resolves.toEqual([]);
   });
@@ -159,7 +163,7 @@ describe("POST /api/project-create", () => {
       lifecycleRevision: 1,
     });
     const failed = request({
-      name: "Unsupported", platform: "windows", layoutMode: "isolated", templateId: "product-launch",
+      name: "Unsupported", platform: "windows", device: "desktop", layoutMode: "isolated", templateId: "product-launch",
     }, { cookie: `screenshot_studio_project_session=${previous.descriptor.sessionId}` });
 
     const response = await handleProjectCreatePost(failed, { service, registry });
@@ -177,7 +181,7 @@ describe("POST /api/project-create", () => {
     });
 
     const response = await handleProjectCreatePost(request({
-      name: "Path safe", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Path safe", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     }), { service: failingService, registry });
     const body = await response.text();
 
@@ -192,7 +196,7 @@ describe("POST /api/project-create", () => {
     });
 
     const response = await handleProjectCreatePost(request({
-      name: "No orphan", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "No orphan", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     }), { service, registry: failingRegistry });
 
     expect(response.status).toBe(500);

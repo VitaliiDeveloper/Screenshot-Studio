@@ -4,6 +4,7 @@
 import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Project } from "@screenshot-studio/core/model";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   assertCaptureImportHandoff,
   useCaptureImportController,
@@ -17,6 +18,7 @@ export function useEditorCaptureImport(
   project: Project | null,
   activeProjectId: string | null,
   reloadResources: () => Promise<boolean>,
+  specs: StoreSpecs | null,
 ) {
   const router = useRouter();
   const persistence = getProjectPersistenceIdentity();
@@ -57,6 +59,7 @@ export function useEditorCaptureImport(
 
   return useCaptureImportController({
     currentTarget,
+    ...(specs ? { specs } : {}),
     onCompleted: complete,
     onRecoverStale: recover,
   });

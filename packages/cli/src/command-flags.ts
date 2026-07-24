@@ -21,7 +21,7 @@ export const COMMAND_FLAG_SPECS = {
     boolean: ["cascade"],
   },
   dev: { value: ["project", "store-specs", "port"], boolean: [] },
-  import: { value: ["project", "layout"], boolean: [] },
+  import: { value: ["project", "store-specs", "layout"], boolean: [] },
   font: { value: ["project", "weight", "google", "family"], boolean: [] },
   theme: { value: ["project", "layout"], boolean: [] },
   locale: { value: ["project", "from", "direction", "to", "layout"], boolean: [] },

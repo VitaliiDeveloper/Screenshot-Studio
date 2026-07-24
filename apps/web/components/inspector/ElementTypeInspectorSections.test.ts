@@ -3,7 +3,10 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DeviceFrameElement, ScreenshotElement, TextElement } from "@screenshot-studio/core/model";
-import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections.js";
+import {
+  deviceFrameSelectionPatch,
+  ElementTypeInspectorSections,
+} from "./ElementTypeInspectorSections.js";
 
 const text: TextElement = {
   id: "copy",
@@ -87,11 +90,38 @@ function renderDeviceFrame(element: DeviceFrameElement): string {
 }
 
 describe("ElementTypeInspectorSections device mockup assets", () => {
+  it("selects the decorated square watch at 300x300 without replacing screenshot fields", () => {
+    const wearFrame = {
+      ...deviceFrame,
+      width: 300,
+      height: 300,
+      deviceType: "frameless-watch",
+      assetUrl: "screenshots/wear-home.png",
+      fit: "contain",
+      blur: 6,
+    } as const satisfies DeviceFrameElement;
+
+    const patch = deviceFrameSelectionPatch(wearFrame, "watch-square");
+    expect(patch).toEqual({
+      deviceType: "watch-square",
+      height: 300,
+    });
+    expect({ ...wearFrame, ...patch }).toMatchObject({
+      deviceType: "watch-square",
+      width: 300,
+      height: 300,
+      assetUrl: "screenshots/wear-home.png",
+      fit: "contain",
+      blur: 6,
+    });
+  });
+
   it("uses a project asset chooser instead of exposing the internal asset path as a field", () => {
     const markup = renderDeviceFrame(deviceFrame);
 
     expect(markup).toContain("No screenshot assigned");
     expect(markup).toContain("Choose screenshot");
+    expect(markup).toMatch(/class="[^"]*!text-\[13px\][^"]*"[^>]*>.*Choose screenshot/s);
     expect(markup).not.toContain('aria-label="Screenshot asset"');
   });
 
@@ -101,6 +131,26 @@ describe("ElementTypeInspectorSections device mockup assets", () => {
     expect(markup).toContain("checkout.png");
     expect(markup).toContain("Replace screenshot");
     expect(markup).toContain('aria-label="Remove screenshot from device mockup"');
+  });
+
+  it("summarizes the human frame name and opens a visual picker instead of exposing raw IDs", () => {
+    const markup = renderDeviceFrame(deviceFrame);
+    const screenshotCard = markup.indexOf("No screenshot assigned");
+    const frameCard = markup.indexOf("Classic Punch-Hole Phone");
+    const contentMode = markup.indexOf("Content mode");
+    const contentBlur = markup.indexOf("Content blur");
+
+    expect(markup).toContain("Classic Punch-Hole Phone");
+    expect(markup).toContain("Built-in device frame preset");
+    expect(markup).toContain("Choose frame");
+    expect(markup).toMatch(/class="[^"]*!text-\[13px\][^"]*"[^>]*>.*Choose frame/s);
+    expect(markup.match(/lucide-panels-top-left/g)).toHaveLength(2);
+    expect(markup).not.toContain('aria-label="Frame preset"');
+    expect(markup).not.toContain(">android-phone<");
+    expect(screenshotCard).toBeGreaterThanOrEqual(0);
+    expect(contentBlur).toBeGreaterThan(contentMode);
+    expect(screenshotCard).toBeGreaterThan(contentBlur);
+    expect(frameCard).toBeGreaterThan(screenshotCard);
   });
 });
 

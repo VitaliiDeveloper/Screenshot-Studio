@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
-import type { Project, Screen } from "@screenshot-studio/core/model";
+import {
+  destinationLabel,
+  findStoreTarget,
+  leadStoreSizeId,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
+import { type Project, type Screen } from "@screenshot-studio/core/model";
 import type { ActiveProjectSelection } from "./project-session.js";
 import { storeOutputLabel } from "./editor-workspace.js";
 import {
   canonicalEditorUrlForSelection,
   editorProjectUrl,
 } from "./editor-route.js";
-
-const PLATFORM_LABELS: Record<string, string> = {
-  apple: "App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-  web: "Web",
-};
 
 const SOURCE_LABELS: Record<string, string> = {
   "local-file": "Local project file",
@@ -81,7 +79,7 @@ export interface ProjectHomeSummary {
 }
 
 function targetLabel(specs: StoreSpecs, screen: Screen): string {
-  const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+  const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
   try {
     return findStoreTarget(specs, screen.platform, screen.device, targetId).label
       .replace(/\s+\(lead\)$/i, "");
@@ -111,7 +109,10 @@ function buildActions(selection: ActiveProjectSelection, entryId?: string): Proj
   ];
 }
 
-function buildRepresentativeScreens(project: Project): ProjectHomeSummary["representativeScreens"] {
+function buildRepresentativeScreens(
+  project: Project,
+  specs: StoreSpecs,
+): ProjectHomeSummary["representativeScreens"] {
   const candidates = project.layouts.flatMap((layout) => {
     const primaryScreens = layout.screens.filter((screen) => screen.storeTargetId === undefined);
     return (primaryScreens.length > 0 ? primaryScreens : layout.screens).map((screen) => ({
@@ -146,7 +147,7 @@ function buildRepresentativeScreens(project: Project): ProjectHomeSummary["repre
     screenId: screen.id,
     name: screen.name,
     layoutName,
-    outputLabel: storeOutputLabel(screen.platform, screen.device),
+    outputLabel: storeOutputLabel(screen.platform, screen.device, specs),
     width: screen.artboard.width,
     height: screen.artboard.height,
   }));
@@ -170,7 +171,7 @@ export function buildProjectHomeSummary({
   entryId?: string;
 }): ProjectHomeSummary {
   const allScreens = project.layouts.flatMap((layout) => layout.screens);
-  const platforms = [...new Set(allScreens.map((screen) => PLATFORM_LABELS[screen.platform] ?? screen.platform))];
+  const platforms = [...new Set(allScreens.map((screen) => destinationLabel(screen.platform, specs)))];
   const locales = [...new Set(allScreens.map((screen) => screen.locale))];
   const emptyScreenCount = allScreens.filter((screen) => screen.elements.length === 0).length;
   const preferred = project.layouts.find((layout) => layout.id === project.preferredExportLayoutId)!;
@@ -178,7 +179,7 @@ export function buildProjectHomeSummary({
   for (const screen of allScreens) {
     const key = `${screen.platform}/${screen.device}`;
     const family = outputFamilies.get(key) ?? {
-      label: storeOutputLabel(screen.platform, screen.device),
+      label: storeOutputLabel(screen.platform, screen.device, specs),
       screens: [],
       targets: new Set<string>(),
     };
@@ -241,7 +242,7 @@ export function buildProjectHomeSummary({
       screenCount: family.screens.length,
       storeTargets: [...family.targets],
     })),
-    representativeScreens: buildRepresentativeScreens(project),
+    representativeScreens: buildRepresentativeScreens(project, specs),
     readiness,
     actions: buildActions(selection, entryId),
   };

@@ -3,7 +3,7 @@ import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/p
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { type Project } from "@screenshot-studio/core/model";
 import { projectRevision, serializeProject } from "@screenshot-studio/core/storage";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
@@ -27,11 +27,7 @@ const png = new Uint8Array(await readFile(new URL(
   "../../../../../../fixtures/regressions/screenshot-parity/assets/shot.png",
   import.meta.url,
 )));
-const specs = parseStoreSpecs({
-  apple: { iphone: [{ id: "lead", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "lead", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "lead", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 function currentProject(): Project {
   return {
@@ -61,6 +57,7 @@ function captureRequest(input: {
   else {
     form.set("name", "New receiver");
     form.set("platform", "apple");
+    form.set("device", "iphone");
     form.set("layoutMode", "isolated");
     form.set("templateId", "");
   }
@@ -145,7 +142,7 @@ describe("POST /api/capture-import/preview", () => {
     expect(firstBody).toMatchObject({
       preview: {
         receiving: { kind: "current-project", projectName: "Current receiver", layoutId: "default" },
-        summary: { screenCount: 1, platforms: [{ id: "apple", count: 1 }] },
+        summary: { screenCount: 1, platforms: [{ id: "App Store", count: 1 }] },
         canApply: true,
       },
     });
@@ -159,6 +156,27 @@ describe("POST /api/capture-import/preview", () => {
     expect(first.headers.get("set-cookie")).toBeNull();
     expect(await readFile(projectPath)).toEqual(before);
     await expect(repository.list()).resolves.toHaveLength(1);
+  });
+
+  it("uses runtime catalog labels in the public capture summary", async () => {
+    const customSpecs = structuredClone(specs);
+    Object.assign(customSpecs.platforms.apple, { label: "Custom Store" });
+    Object.assign(customSpecs.platforms.apple.families.iphone, { label: "Custom Phone" });
+    const customService = new ManagedProjectCreationService(repository, { storeSpecs: customSpecs });
+
+    const response = await handleCaptureImportPreviewPost(captureRequest({
+      destinationKind: "current-project",
+    }), { repository, creationService: customService, registry });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      preview: {
+        summary: {
+          platforms: [{ id: "Custom Store", count: 1 }],
+          devices: [{ id: "Custom Store · Custom Phone", count: 1 }],
+        },
+      },
+    });
   });
 
   it("rejects a cached current-project preview after permanent deletion is reserved", async () => {
@@ -366,6 +384,7 @@ describe("POST /api/capture-import/preview", () => {
     misalignedForm.set("destinationKind", "new-project");
     misalignedForm.set("name", "Broken");
     misalignedForm.set("platform", "apple");
+    misalignedForm.set("device", "iphone");
     misalignedForm.set("layoutMode", "isolated");
     misalignedForm.set("templateId", "");
     misalignedForm.set("paths", "apple/iphone/en/01.png");
@@ -376,6 +395,7 @@ describe("POST /api/capture-import/preview", () => {
     missingTemplateForm.set("destinationKind", "new-project");
     missingTemplateForm.set("name", "Missing explicit template choice");
     missingTemplateForm.set("platform", "apple");
+    missingTemplateForm.set("device", "iphone");
     missingTemplateForm.set("layoutMode", "isolated");
     missingTemplateForm.set("paths", "apple/iphone/en/01.png");
     missingTemplateForm.set("files", new Blob([png]), "01.png");

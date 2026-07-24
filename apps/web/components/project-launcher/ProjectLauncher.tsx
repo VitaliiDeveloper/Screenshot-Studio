@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   discardActiveProjectPersistence,
   switchActiveProject,
@@ -57,14 +58,15 @@ import {
   type ProjectLibraryNotice,
 } from "./project-action-notice";
 
-export function ProjectLauncher({ projectTemplates, initialProjects }: {
+export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs }: {
   projectTemplates: readonly ProjectTemplateSummary[];
   initialProjects: ProjectLibraryState;
+  storeSpecs: StoreSpecs;
 }) {
   const router = useRouter();
   const [importState, dispatchImport] = useReducer(reduceLauncherImportState, { status: "idle" });
   const [creationState, dispatchCreation] = useReducer(
-    reduceProjectCreationState,
+    (state, action) => reduceProjectCreationState(state, action, storeSpecs),
     initialProjectCreationState,
   );
   const [dialogClosing, setDialogClosing] = useState(false);
@@ -122,6 +124,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
   }, [router]);
   const captureImport = useCaptureImportController({
     currentTarget: null,
+    specs: storeSpecs,
     activateNewProject: switchActiveProject,
     onCompleted: completeCaptureImport,
     onRecoverStale: recoverCaptureTarget,
@@ -356,6 +359,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
       state={importState}
       creationState={creationState}
       projectTemplates={projectTemplates}
+      storeSpecs={storeSpecs}
       dialogClosing={dialogClosing}
       projects={projects}
       projectAction={projectAction}
@@ -368,6 +372,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects }: {
       captureDialog={captureImport.state.status === "closed" ? null : (
         <CaptureImportDialog
           state={captureImport.state}
+          specs={storeSpecs}
           onClose={captureImport.close}
           onSelectFiles={captureImport.selectFiles}
           onChooseDestination={captureImport.chooseDestination}

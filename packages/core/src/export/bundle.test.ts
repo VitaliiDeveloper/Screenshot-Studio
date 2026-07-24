@@ -1,32 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import type { DesignLayout, Project } from "@screenshot-studio/core/model";
-import { parseStoreSpecs } from "./specs.js";
+import { type DesignLayout, type Project } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  OUTPUT_DEVICE_FAMILIES,
+  leadStoreSizeId,
+} from "./specs.js";
 import {
   buildBundleEntries,
   bundlePreflightWarnings,
   bundleRelativePath,
-  leadStoreSizeId,
   safeLocalePathSegment,
   safeStoreSizePathToken,
   selectBundleScreens,
   validateBundleArtboards,
 } from "./bundle.js";
 
-const specs = parseStoreSpecs({
-  apple: {
-    iphone: [
-      { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
-      { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
-    ],
-    ipad: [{ id: "13", label: "13", width: 2064, height: 2752, orientation: "portrait" }],
-  },
-  android: {
-    phone: [{ id: "phone-portrait", label: "Phone", width: 1080, height: 1920, orientation: "portrait" }],
-    "tablet-7": [{ id: "tablet-7-portrait", label: "Tablet", width: 1200, height: 1920, orientation: "portrait" }],
-    "$outputs": [{ id: "play-feature-graphic", label: "Feature graphic", width: 1024, height: 500, orientation: "landscape", kind: "promotion", family: "phone" }],
-  },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 function project(): Project {
   return {
@@ -67,22 +57,37 @@ function screen(
 }
 
 describe("leadStoreSizeId", () => {
-  it("returns the lead target per platform/device", () => {
-    expect(leadStoreSizeId("apple", "iphone")).toBe("6.9");
-    expect(leadStoreSizeId("apple", "ipad")).toBe("13");
-    expect(leadStoreSizeId("apple", "macos")).toBe("2880x1800");
-    expect(leadStoreSizeId("apple", "tvos")).toBe("4k");
-    expect(leadStoreSizeId("apple", "watchos")).toBe("ultra-3");
-    expect(leadStoreSizeId("android", "phone")).toBe("phone-portrait");
-    expect(leadStoreSizeId("android", "tablet-7")).toBe("tablet-7-portrait");
-    expect(leadStoreSizeId("android", "tablet-10")).toBe("tablet-10-portrait");
-    expect(leadStoreSizeId("windows", "desktop")).toBe("4k");
-    expect(leadStoreSizeId("web", "desktop")).toBe("desktop-1920");
-    expect(leadStoreSizeId("web", "mobile")).toBe("mobile-portrait");
+  it("delegates every platform/device lead to the output catalog", () => {
+    for (const family of OUTPUT_DEVICE_FAMILIES) {
+      const [platform, device] = family.key.split("/");
+      expect(leadStoreSizeId(platform!, device!)).toBe(family.leadStoreSizeId);
+    }
   });
 
   it("throws for an unsupported pair", () => {
     expect(() => leadStoreSizeId("android", "tablet" as never)).toThrow(/No lead store size/);
+  });
+
+  it("selects curated leads for the added destination families", () => {
+    expect([
+      leadStoreSizeId("apple", "visionos"),
+      leadStoreSizeId("android", "chromebook"),
+      leadStoreSizeId("android", "tv"),
+      leadStoreSizeId("android", "wear"),
+      leadStoreSizeId("android", "automotive"),
+      leadStoreSizeId("android", "xr"),
+      leadStoreSizeId("windows", "xbox"),
+      leadStoreSizeId("windows", "holographic"),
+    ]).toEqual([
+      "vision-pro",
+      "chromebook-landscape",
+      "tv-landscape",
+      "wear-square",
+      "automotive-portrait",
+      "xr-landscape",
+      "full-hd",
+      "minimum",
+    ]);
   });
 });
 
@@ -99,6 +104,7 @@ describe("bundlePreflightWarnings", () => {
     const entries = buildBundleEntries(source, "default", specs);
     expect(bundlePreflightWarnings(entries)).toEqual([expect.objectContaining({
       code: "android-tablet-screen-count", device: "tablet-7", locale: "uk", screenCount: 3,
+      message: "Google Play · Android tablet locale uk has 3 screens; four or more are recommended.",
     })]);
     source.layouts[0]!.screens.push({ ...structuredClone(source.layouts[0]!.screens[0]!), id: "tablet-4" });
     expect(bundlePreflightWarnings(buildBundleEntries(source, "default", specs))).toEqual([]);
@@ -209,7 +215,8 @@ describe("buildBundleEntries", () => {
   });
 
   it("throws if store-specs lacks the schema-supported lead target", () => {
-    const broken = parseStoreSpecs({ apple: { iphone: [] }, android: { phone: [] } });
+    const broken = structuredClone(specs);
+    broken.platforms.apple.families.iphone.targets = [];
     expect(() => buildBundleEntries(project(), "default", broken, { platform: "apple", device: "iphone" })).toThrow(
       /Unknown target/,
     );

@@ -11,11 +11,15 @@ interface LauncherExampleBase {
 export type LauncherExampleWorkflow = LauncherExampleBase & (
   | {
     action: "create-project";
-    creation: Pick<ProjectScaffoldInput, "platform" | "layoutMode" | "templateId">;
+    creation: LauncherExampleCreation;
   }
   | { action: "project-import" }
   | { action: "capture-import" }
 );
+
+type LauncherExampleCreation<Input = ProjectScaffoldInput> = Input extends ProjectScaffoldInput
+  ? Omit<Input, "name">
+  : never;
 
 export const launcherExampleWorkflows: readonly LauncherExampleWorkflow[] = [
   {
@@ -24,7 +28,7 @@ export const launcherExampleWorkflows: readonly LauncherExampleWorkflow[] = [
     description: "Start with independent store images and a focused two-screen project template.",
     action: "create-project",
     actionLabel: "Create isolated example",
-    creation: { platform: "apple", layoutMode: "isolated", templateId: "feature-focus" },
+    creation: { platform: "apple", device: "iphone", layoutMode: "isolated", templateId: "feature-focus" },
   },
   {
     id: "connected-deck",
@@ -32,7 +36,7 @@ export const launcherExampleWorkflows: readonly LauncherExampleWorkflow[] = [
     description: "Build a continuous three-screen launch story that still exports exact store images.",
     action: "create-project",
     actionLabel: "Create connected example",
-    creation: { platform: "apple", layoutMode: "connected", templateId: "product-launch" },
+    creation: { platform: "apple", device: "iphone", layoutMode: "connected", templateId: "product-launch" },
   },
   {
     id: "rtl-multi-locale",

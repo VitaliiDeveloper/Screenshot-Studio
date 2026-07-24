@@ -2,6 +2,7 @@
 "use client";
 
 import type { ResourceDialog } from "@web/lib/editor-workspace";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { AssetPickerDialog } from "@web/components/AssetPickerDialog";
 import { FontManagerDialog } from "@web/components/FontManagerDialog";
 import { LocaleManagerDialog } from "@web/components/LocaleManagerDialog";
@@ -12,6 +13,7 @@ import type { CachedAssetDimensions } from "@web/components/asset-picker-model";
 interface EditorResourceDialogsProps {
   dialog: ResourceDialog | null;
   localeDialogOpen: boolean;
+  specs: StoreSpecs;
   deviceFrameAssetTarget: { elementId: string; screenId: string } | null;
   cacheImage(assetUrl: string): Promise<CachedAssetDimensions | null>;
   closeDialog(): void;
@@ -22,6 +24,7 @@ interface EditorResourceDialogsProps {
 export function EditorResourceDialogs({
   dialog,
   localeDialogOpen,
+  specs,
   deviceFrameAssetTarget,
   cacheImage,
   closeDialog,
@@ -32,7 +35,7 @@ export function EditorResourceDialogs({
     <>
       <FontManagerDialog open={dialog === "fonts"} onClose={closeDialog} />
       {dialog === "themes" ? <ThemeManagerDialog onClose={closeDialog} /> : null}
-      {dialog === "templates" ? <TemplateLibraryDialog onClose={closeDialog} /> : null}
+      {dialog === "templates" ? <TemplateLibraryDialog specs={specs} onClose={closeDialog} /> : null}
       {dialog === "screenshot-assets" ? (
         <AssetPickerDialog elementType="screenshot" cacheAsset={cacheImage} onClose={closeDialog} />
       ) : null}
@@ -45,7 +48,7 @@ export function EditorResourceDialogs({
       {dialog === "store-badge-assets" ? (
         <AssetPickerDialog elementType="store-badge" cacheAsset={cacheImage} onClose={closeDialog} />
       ) : null}
-      {dialog === "device-frame-assets" ? (
+      {dialog === "mockup-screenshot-assets" ? (
         <AssetPickerDialog
           elementType="device-frame"
           targetDeviceFrame={deviceFrameAssetTarget ?? undefined}

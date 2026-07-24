@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildBundleEntries,
+  findStoreTarget,
   parseStoreSpecs,
   validateBundleArtboards,
 } from "@screenshot-studio/core/export";
@@ -13,9 +14,31 @@ import {
   setOutputFamilyScreenSetMode,
   type Project,
 } from "@screenshot-studio/core/model";
-import { createScreenFromTemplate, listBuiltInTemplates, ScreenTemplate, type ScreenTemplate as Template } from "./index.js";
+import {
+  createScreenFromTemplate,
+  listBuiltInProjectStarterMetadata,
+  listBuiltInTemplates,
+  ScreenTemplate,
+  type ScreenTemplate as Template,
+} from "./index.js";
 
 const storeSpecs = parseStoreSpecs(JSON.parse(readFileSync(join(process.cwd(), "store-specs.json"), "utf8")));
+const reorderedIpadSpecs = parseStoreSpecs({
+  ...storeSpecs,
+  platforms: {
+    ...storeSpecs.platforms,
+    apple: {
+      ...storeSpecs.platforms.apple,
+      families: {
+        ...storeSpecs.platforms.apple.families,
+        ipad: {
+          ...storeSpecs.platforms.apple.families.ipad,
+          targets: [...storeSpecs.platforms.apple.families.ipad.targets].reverse(),
+        },
+      },
+    },
+  },
+});
 
 function project(): Project {
   return {
@@ -66,15 +89,34 @@ describe("ScreenTemplate", () => {
 });
 
 describe("built-in templates", () => {
+  it("exposes the exact device restriction for project-creation starters", () => {
+    const starters = listBuiltInProjectStarterMetadata();
+    expect(starters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "iphone-starter", platform: "apple", device: "iphone" }),
+      expect.objectContaining({ id: "ipad-portrait-starter", platform: "apple", device: "ipad" }),
+      expect.objectContaining({ id: "web-mobile-starter", platform: "web", device: "mobile" }),
+    ]));
+    const starterIds = starters.map(({ id }) => id);
+    for (const resourceOnlyId of [
+      "macos-starter", "tvos-starter", "visionos-starter", "wear-os-starter",
+    ]) {
+      expect(starterIds).not.toContain(resourceOnlyId);
+    }
+  });
+
   it("covers every requested starter and keeps promotion art frame-free", () => {
     const templates = listBuiltInTemplates(storeSpecs, { family: "Inter", weight: 700 });
     expect(templates.map(({ id }) => id)).toEqual([
       "iphone-starter", "ipad-portrait-starter", "ipad-landscape-starter",
       "android-phone-starter", "android-tablet-portrait-starter",
       "android-tablet-landscape-starter", "web-desktop-starter", "web-mobile-starter",
-      "play-feature-graphic", "web-share-cover",
+      "play-feature-graphic", "web-share-cover", "macos-starter", "tvos-starter",
+      "visionos-starter", "wear-os-starter",
     ]);
-    expect(templates.every((entry) => entry.elements.some((element) => element.type === "text"))).toBe(true);
+    const marketingTemplates = templates.filter(({ id }) => id !== "wear-os-starter");
+    expect(marketingTemplates.every((entry) => (
+      entry.elements.some((element) => element.type === "text")
+    ))).toBe(true);
     expect(templates.flatMap(({ elements }) => elements)
       .filter((element) => element.type === "device-frame")
       .every((frame) => frame.assetUrl === undefined)).toBe(true);
@@ -85,7 +127,7 @@ describe("built-in templates", () => {
     });
     expect(feature.elements.some((element) => element.type === "device-frame")).toBe(false);
     expect(feature.elements.map((element) => element.name)).toEqual(expect.arrayContaining(["Safe zone guide", "Focal zone guide"]));
-    expect(templates.every(({ elements }) => (
+    expect(marketingTemplates.every(({ elements }) => (
       elements.some((element) => (
         element.name === "Editable headline" && "role" in element && element.role === "heading"
       ))
@@ -96,6 +138,54 @@ describe("built-in templates", () => {
     expect(feature.elements
       .filter((element) => element.name === "Safe zone guide" || element.name === "Focal zone guide")
       .every((element) => !("role" in element) || element.role === undefined)).toBe(true);
+  });
+
+  it.each([
+    ["macos-starter", "apple", "macos", "2880x1800", 2880, 1800],
+    ["tvos-starter", "apple", "tvos", "4k", 3840, 2160],
+    ["visionos-starter", "apple", "visionos", "vision-pro", 3840, 2160],
+    ["wear-os-starter", "android", "wear", "wear-square", 384, 384],
+  ] as const)(
+    "declares %s for its exact output family and configured target",
+    (id, platform, device, targetId, width, height) => {
+      const starter = listBuiltInTemplates(storeSpecs).find((candidate) => candidate.id === id)!;
+
+      expect(starter).toMatchObject({
+        platform,
+        device,
+        targetId,
+        artboard: { width, height },
+      });
+      expect(findStoreTarget(storeSpecs, platform, device, targetId)).toMatchObject({
+        id: targetId,
+        width,
+        height,
+      });
+    },
+  );
+
+  it("keeps the Wear OS Store starter to one frameless, artboard-filling app screenshot", () => {
+    const starter = listBuiltInTemplates(storeSpecs)
+      .find(({ id }) => id === "wear-os-starter")!;
+
+    expect(starter.elements).toEqual([
+      expect.objectContaining({
+        type: "screenshot",
+        name: "Replace with app screenshot",
+        x: 0,
+        y: 0,
+        width: starter.artboard.width,
+        height: starter.artboard.height,
+      }),
+    ]);
+    expect(starter.elements.some((element) => (
+      element.type === "device-frame"
+      || element.type === "image"
+      || element.type === "shape"
+      || element.type === "text"
+      || element.type === "icon"
+      || element.type === "group"
+    ))).toBe(false);
   });
 
   it("materializes editable copy in a project with no custom fonts", () => {
@@ -131,6 +221,34 @@ describe("built-in templates", () => {
     });
     expect(entries.find((entry) => entry.screen.id === result.screen.id)?.target.id).toBe(targetId);
     expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
+  it("uses the catalog lead when materializing a non-lead template from reordered targets", () => {
+    const builtIn = listBuiltInTemplates(reorderedIpadSpecs)
+      .find(({ id }) => id === "ipad-landscape-starter")!;
+
+    const result = createScreenFromTemplate(
+      project(),
+      "default",
+      builtIn,
+      "en",
+      reorderedIpadSpecs,
+    );
+    const root = result.project.layouts[0]!.screens.find((screen) => (
+      screen.id === result.screen.variantOf
+    ));
+
+    expect(reorderedIpadSpecs.platforms.apple.families.ipad.targets[0]!.id).toBe("11-landscape");
+    expect(root).toMatchObject({
+      platform: "apple",
+      device: "ipad",
+      artboard: { width: 2064, height: 2752 },
+    });
+    expect(result.screen).toMatchObject({
+      variantOf: root!.id,
+      storeTargetId: "13-landscape",
+      artboard: { width: 2752, height: 2064 },
+    });
   });
 
   it("can materialize an exact target without a primary pair when creation owns that contract", () => {

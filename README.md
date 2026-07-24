@@ -258,6 +258,30 @@ flowchart LR
 core and the same browser render stage; Web Share packages those rendered PNGs and never substitutes
 another pixel path.
 
+### Destinations, output families, sizes, and frames
+
+These concepts are independent:
+
+| Concept | Example | What it controls |
+|---|---|---|
+| Destination | App Store or Google Play | The publishing surface and its configured output families |
+| Device family | iPhone or Android phone | A destination-scoped group of compatible export targets |
+| Export size | 1320×2868 or 1080×1920 | The exact pixel dimensions of one rendered PNG |
+| Visual frame preset | Modern Phone — Dark or Browser — Dark | Only the decorative device-frame element drawn inside an artboard |
+
+Choosing a frame never changes a screen's destination, device family, or export size. Screenshot
+Studio bundles brand-neutral vector frame styles rather than vendor product artwork; official Apple
+device artwork is not bundled.
+
+The sizes in [`store-specs.json`](store-specs.json) are a curated working set: accepted Apple sizes
+and recommended presets within Google Play and Microsoft Store requirements. They are not a claim
+that every historically accepted resolution is bundled. Store requirements change, so
+`store-specs.json` remains the runtime authority for what this version exports, while the official
+[App Store screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/),
+[Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en),
+and [Microsoft Store screenshot guidance](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images)
+remain the submission authority. Check the relevant store guidance before publishing.
+
 Projects can be opened explicitly as local files or imported into app-managed storage. A browser
 Folder, ZIP, or JSON selection is always treated as import input, validated, and copied before the
 managed project becomes active. Detailed source, session, rendering, and persistence contracts are

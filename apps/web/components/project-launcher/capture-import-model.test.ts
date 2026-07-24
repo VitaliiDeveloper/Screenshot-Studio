@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import {
   canApplyCaptureImport,
   canPreviewCaptureImport,
   createCaptureImportState,
   reduceCaptureImportState,
+  type CaptureImportAction,
   type CaptureImportCurrentTarget,
+  type CaptureImportNewProjectPatch,
   type CaptureImportState,
 } from "./capture-import-model.js";
 
@@ -28,6 +31,12 @@ const preview = {
 };
 
 describe("capture import model", () => {
+  it("advertises only visible new-project fields at the patch boundary", () => {
+    expectTypeOf<keyof CaptureImportNewProjectPatch>().toEqualTypeOf<
+      "name" | "platform" | "layoutMode"
+    >();
+  });
+
   it("opens without silently choosing a destination", () => {
     const state = createCaptureImportState(currentTarget);
 
@@ -37,10 +46,37 @@ describe("capture import model", () => {
         files: [],
         destinationKind: null,
         currentLayoutId: "primary",
-        newProject: { platform: "apple", layoutMode: "isolated", templateId: null },
+        newProject: { platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null },
       },
     });
     expect(canPreviewCaptureImport(state)).toBe(false);
+  });
+
+  it("seeds a new project from the runtime catalog recommendation", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple.families.iphone, { recommended: false });
+    Object.assign(specs.platforms.apple.families.ipad, { recommended: true });
+
+    expect(createCaptureImportState(null, specs))
+      .toMatchObject({ draft: { newProject: { platform: "apple", device: "ipad" } } });
+  });
+
+  it("updates only the validated scaffold seed when the capture-import destination changes", () => {
+    let state: CaptureImportState = createCaptureImportState(null);
+    state = reduceCaptureImportState(state, {
+      type: "change-new-project", patch: { platform: "android" },
+    });
+    expect(state).toMatchObject({
+      draft: { newProject: { platform: "android", device: "phone" } },
+    });
+
+    state = reduceCaptureImportState(state, {
+      type: "change-new-project",
+      patch: { platform: "android", device: "wear" },
+    } as CaptureImportAction);
+    expect(state).toMatchObject({
+      draft: { newProject: { platform: "android", device: "phone" } },
+    });
   });
 
   it("requires files and an explicit valid current or new destination before preview", () => {

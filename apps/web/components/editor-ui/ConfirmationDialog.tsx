@@ -39,7 +39,7 @@ export function ConfirmationDialog({
       <div className="flex justify-end gap-2">
         <button
           type="button"
-          className={`${editorUi.buttonSecondary} whitespace-nowrap`}
+          className={`${editorUi.buttonSecondary} whitespace-nowrap !text-xs`}
           disabled={busy}
           onClick={close}
         >
@@ -47,7 +47,7 @@ export function ConfirmationDialog({
         </button>
         <button
           type="button"
-          className={`${destructive ? editorUi.buttonDanger : editorUi.buttonPrimary} whitespace-nowrap`}
+          className={`${destructive ? editorUi.buttonDangerFilled : editorUi.buttonPrimary} whitespace-nowrap !text-xs`}
           disabled={busy}
           onClick={onConfirm}
         >

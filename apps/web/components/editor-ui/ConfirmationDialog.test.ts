@@ -26,6 +26,8 @@ describe("ConfirmationDialog", () => {
     expect(markup).toContain("Remove variant");
     expect(markup).toContain("max-w-xs");
     expect(markup).toContain("text-sm");
+    expect(markup).toContain("bg-[var(--editor-color-danger)]");
+    expect(markup).toContain("!text-xs");
     expect(markup).toContain("whitespace-nowrap");
   });
 

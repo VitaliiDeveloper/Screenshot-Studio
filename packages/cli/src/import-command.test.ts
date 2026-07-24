@@ -93,7 +93,7 @@ describe("importCaptures", () => {
     ]);
     expect(screens[1]).toMatchObject({
       id: "android-tablet-7-en-01",
-      name: "Android Tablet-7 en 01",
+      name: "Google Play · Android tablet · en · 01",
       platform: "android",
       device: "tablet-7",
       locale: "en",
@@ -114,7 +114,7 @@ describe("importCaptures", () => {
     });
     expect(screens[2]).toMatchObject({
       id: "apple-iphone-en-01",
-      name: "Apple iPhone en 01",
+      name: "App Store · iPhone · en · 01",
       platform: "apple",
       device: "iphone",
       locale: "en",

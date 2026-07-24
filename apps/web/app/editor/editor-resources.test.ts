@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ProjectFontRegistrationError } from "@screenshot-studio/core/fonts";
 import type { FontAsset, Project } from "@screenshot-studio/core/model";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import {
   applyEditorResourceResult,
   cacheDecodedProjectImage,
@@ -54,17 +55,15 @@ const project = {
   }],
 } as Project;
 
-const specs = {
-  apple: {
-    iphone: [{
-      id: "lead",
-      label: "Lead",
-      width: 100,
-      height: 200,
-      orientation: "portrait" as const,
-    }],
-  },
-};
+const specs = structuredClone(DEFAULT_STORE_SPECS);
+specs.platforms.apple.families.iphone.leadStoreSizeId = "lead";
+specs.platforms.apple.families.iphone.targets = [{
+  id: "lead",
+  label: "Lead",
+  width: 100,
+  height: 200,
+  orientation: "portrait",
+}];
 
 const brokenFont: FontAsset = {
   family: "Broken",

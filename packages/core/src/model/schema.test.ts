@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_FONT_WEIGHT,
+  DEVICE_FRAME_IDS,
   Element,
   FONT_WEIGHT_MAX,
   FONT_WEIGHT_MIN,
@@ -56,6 +57,26 @@ function validProject() {
 function setRawFonts(project: ReturnType<typeof validProject>, fonts: unknown[]) {
   (project as { fonts: unknown[] }).fonts = fonts;
 }
+
+const LEGACY_SCREEN_FAMILIES = [
+  ["apple", "iphone"],
+  ["apple", "ipad"],
+  ["apple", "macos"],
+  ["apple", "tvos"],
+  ["apple", "watchos"],
+  ["android", "phone"],
+  ["android", "tablet-7"],
+  ["android", "tablet-10"],
+  ["windows", "desktop"],
+  ["web", "desktop"],
+  ["web", "laptop"],
+  ["web", "tablet"],
+  ["web", "mobile"],
+] as const;
+
+const LEGACY_DEVICE_FRAME_IDS = [
+  "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+] as const;
 
 describe("project resource paths", () => {
   const transform = { x: 0, y: 0, width: 100, height: 200 };
@@ -326,6 +347,63 @@ describe("parseProject", () => {
     expect(project.meta.schemaVersion).toBe(1);
     expect(project.layouts[0]!.screens[0]!.direction).toBe("ltr");
     expect(raw).toEqual(before);
+  });
+
+  it.each(LEGACY_SCREEN_FAMILIES)(
+    "keeps strict-v1 %s/%s project literals valid without migration",
+    (platform, device) => {
+      const raw = validProject();
+      Object.assign(raw.layouts[0]!.screens[0]!, { platform, device });
+
+      const parsed = parseProject(raw);
+
+      expect(parsed.meta.schemaVersion).toBe(1);
+      expect(parsed.layouts[0]!.screens[0]).toMatchObject({ platform, device });
+    },
+  );
+
+  it("keeps every legacy device-frame literal valid in a strict-v1 project", () => {
+    const raw = validProject();
+    (raw.layouts[0]!.screens[0]! as unknown as { elements: unknown[] }).elements =
+      LEGACY_DEVICE_FRAME_IDS.map((deviceType, index) => ({
+        id: `legacy-frame-${index}`,
+        type: "device-frame",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 200,
+        deviceType,
+      }));
+
+    const parsed = parseProject(raw);
+
+    expect(parsed.meta.schemaVersion).toBe(1);
+    expect(parsed.layouts[0]!.screens[0]!.elements.map((element) =>
+      element.type === "device-frame" ? element.deviceType : undefined))
+      .toEqual(LEGACY_DEVICE_FRAME_IDS);
+  });
+
+  it.each([
+    ["apple", "visionos"],
+    ["android", "chromebook"],
+    ["android", "tv"],
+    ["android", "wear"],
+    ["android", "automotive"],
+    ["android", "xr"],
+    ["windows", "xbox"],
+    ["windows", "holographic"],
+  ] as const)("accepts the widened %s/%s output family", (platform, device) => {
+    const raw = validProject();
+    Object.assign(raw.layouts[0]!.screens[0]!, { platform, device });
+
+    expect(parseProject(raw).layouts[0]!.screens[0]).toMatchObject({ platform, device });
+  });
+
+  it("rejects square orientation as an unknown persisted Screen field", () => {
+    const raw = validProject();
+    Object.assign(raw.layouts[0]!.screens[0]!, { orientation: "square" });
+
+    expect(() => parseProject(raw)).toThrow(ProjectValidationError);
   });
 
   it.each([2, 10])("rejects unsupported numeric schema version %s with a dedicated error", (version) => {
@@ -792,8 +870,24 @@ describe("DeviceFrameElement", () => {
   });
 
   it("accepts every trusted built-in frame preset", () => {
-    for (const deviceType of ["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"] as const) {
+    const expectedDeviceFrameIds = [
+      "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+      "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
+      "frameless-phone", "tablet-rounded-dark", "tablet-rounded-light", "tablet-outline",
+      "frameless-tablet", "browser-light", "browser-dark", "browser-minimal", "frameless-browser",
+      "laptop-silver", "laptop-dark", "display-stand", "display-minimal", "tv-flat",
+      "watch-rounded", "watch-square", "frameless-watch", "foldable", "automotive-display",
+      "xr-viewport",
+    ] as const;
+    expect(DEVICE_FRAME_IDS).toEqual(expectedDeviceFrameIds);
+    for (const deviceType of expectedDeviceFrameIds) {
       expect(Element.parse({ ...base, deviceType })).toMatchObject({ deviceType });
+    }
+  });
+
+  it("does not persist catalog presentation or renderer recipe metadata", () => {
+    for (const extra of ["label", "group", "tags", "finish", "recommendedFor", "legacy", "recipe"]) {
+      expect(() => Element.parse({ ...base, [extra]: "catalog-only" })).toThrow();
     }
   });
 

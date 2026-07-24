@@ -75,7 +75,7 @@ export async function dispatchCommand(
       await runDevCommand(flags, defaults.storeSpecsPath);
       break;
     case "import":
-      await runImportCommand(args, flags);
+      await runImportCommand(args, flags, defaults.storeSpecsPath);
       break;
     case "font":
       await runFontManagementCommand(args, flags);

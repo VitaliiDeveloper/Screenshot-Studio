@@ -16,6 +16,7 @@ import { isSelected } from "@web/lib/editor-selection";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
 import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
+import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
 import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
 import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
 import { transformerAppearance } from "./editor-stage/transformer-appearance";
@@ -27,7 +28,7 @@ import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-tr
  * screen-local element coordinates without changing persisted ownership or geometry. Connected
  * Focus uses the same projection with the active artboard as a non-interactive exact crop preview.
  */
-function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
+export function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
   switch (child.konva) {
     case "Image":
       return <FilteredKonvaImage key={key} nodeConfig={child} name={name} listening={listening} />;
@@ -111,6 +112,7 @@ export function EditorStage({
     interactive,
     connectedOverview,
   });
+  const selectedKeepsAspectRatio = elementKeepsAspectRatio(selectedElement);
 
   const commit = (ownerScreenId: string, element: Element, patch: CommonElementPatch) => {
     mutateAndSave(() => editorStore.getState().patchElement({
@@ -372,9 +374,9 @@ export function EditorStage({
               {...transformerAppearance}
               resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
-              keepRatio={selectedElement?.type === "group"}
+              keepRatio={selectedKeepsAspectRatio}
               flipEnabled={false}
-              enabledAnchors={selectedElement?.type === "group"
+              enabledAnchors={selectedKeepsAspectRatio
                 ? ["top-left", "top-right", "bottom-left", "bottom-right"]
                 : undefined}
             />
