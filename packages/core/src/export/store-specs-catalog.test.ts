@@ -52,6 +52,14 @@ describe("unified store catalog", () => {
     ]);
   });
 
+  it("rejects promotional targets as family leads", () => {
+    const promotionalLead = structuredClone(DEFAULT_STORE_SPECS);
+    promotionalLead.platforms.android.families.phone.leadStoreSizeId = "play-feature-graphic";
+
+    expect(() => parseStoreSpecs(promotionalLead))
+      .toThrow(/Primary target play-feature-graphic cannot be promotional/);
+  });
+
   it("strictly rejects unknown fields, missing families, and unsafe policy", () => {
     expect(() => parseStoreSpecs({ ...structuredClone(DEFAULT_STORE_SPECS), extra: true }))
       .toThrow(/Unrecognized key/);

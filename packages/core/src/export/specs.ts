@@ -124,11 +124,18 @@ const StoreSpecsSchema = z
             message: `Target ids must be unique within ${platform}/${device}`,
           });
         }
-        if (!targetIds.includes(family.leadStoreSizeId)) {
+        const leadTarget = family.targets.find(({ id }) => id === family.leadStoreSizeId);
+        if (!leadTarget) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
             path: [...familyPath, "leadStoreSizeId"],
             message: `Primary target ${family.leadStoreSizeId} is not declared by ${platform}/${device}`,
+          });
+        } else if (leadTarget.kind === "promotion") {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [...familyPath, "leadStoreSizeId"],
+            message: `Primary target ${family.leadStoreSizeId} cannot be promotional`,
           });
         }
         if (family.recommended && !family.creatable) {
