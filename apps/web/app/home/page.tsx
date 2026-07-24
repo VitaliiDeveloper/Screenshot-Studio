@@ -4,7 +4,8 @@ import { ProjectHome } from "@web/components/project-launcher/ProjectHome";
 export default async function ProjectHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; entry?: string }>;
 }) {
-  return <ProjectHome expectedProjectId={(await searchParams).project} />;
+  const { project, entry } = await searchParams;
+  return <ProjectHome expectedProjectId={project} expectedEntryId={entry} />;
 }

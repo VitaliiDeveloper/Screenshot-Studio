@@ -47,6 +47,7 @@ export interface EditorResourceResult {
 }
 
 export interface EditorResourceDependencies {
+  expectedProjectId?: string;
   fetchProject?: () => Promise<Response>;
   loadImages?: (project: Project, resolveAsset: ProjectAssetResolver) => Promise<ImageCache>;
   registerFonts?: (
@@ -129,6 +130,9 @@ export async function loadEditorResources(
   const revision = requireProjectRevision(projectResponse.headers.get("etag"));
   const projectId = projectResponse.headers.get("x-project-id")?.trim();
   if (!projectId) throw new Error("Project response is missing its project identifier");
+  if (dependencies.expectedProjectId && projectId !== dependencies.expectedProjectId) {
+    throw new Error("The active project changed before Workspace resources could load.");
+  }
   const project = parseProject(await projectResponse.json());
   const resolveAsset = createProjectAssetResolver({ projectId, revision });
   const images = await loadImages(project, resolveAsset);
@@ -145,7 +149,7 @@ export async function loadEditorResources(
   return { project, projectId, revision, images, specs, fontWarnings };
 }
 
-export function useEditorResources() {
+export function useEditorResources(expectedProjectId: string) {
   const [error, setError] = useState<string | null>(null);
   const [specs, setSpecs] = useState<StoreSpecs | null>(null);
   const [reloading, setReloading] = useState(false);
@@ -177,7 +181,7 @@ export function useEditorResources() {
     try {
       return await runEditorResourceReload({
         serialize,
-        load: loadEditorResources,
+        load: () => loadEditorResources({ expectedProjectId }),
         isCurrent: () => resourceGeneration.current === generation,
         apply: (resources) => {
           // A revision becomes globally usable only after every required resource validated and this
@@ -196,7 +200,7 @@ export function useEditorResources() {
     } finally {
       if (resourceGeneration.current === generation) setReloading(false);
     }
-  }, [replaceFontWarnings, replaceImages, resetFontWarnings, resetImages]);
+  }, [expectedProjectId, replaceFontWarnings, replaceImages, resetFontWarnings, resetImages]);
 
   useEffect(() => editorStore.subscribe((state, previous) => {
     const currentProjectId = projectId.current;
