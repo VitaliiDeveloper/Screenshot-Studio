@@ -120,6 +120,8 @@ function selection(overrides: Partial<ActiveProjectSelection> = {}): ActiveProje
   };
 }
 
+const managedEntryId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
 describe("buildProjectHomeSummary", () => {
   it("derives stable project, layout, locale, platform, output, target, and preview summaries", () => {
     const summary = buildProjectHomeSummary({
@@ -282,5 +284,19 @@ describe("buildProjectHomeSummary", () => {
       enabled: true,
       description: expect.stringContaining("new managed project"),
     });
+  });
+
+  it("addresses Workspace actions to the Project Library entry when it is known", () => {
+    const summary = buildProjectHomeSummary({
+      project,
+      selection: selection({ projectId: managedEntryId }),
+      specs,
+      entryId: managedEntryId,
+    });
+
+    expect(summary.actions.find((action) => action.id === "continue-editing")?.href)
+      .toBe(`/editor/${managedEntryId}`);
+    expect(summary.actions.find((action) => action.id === "manage-locales")?.href)
+      .toBe(`/editor/${managedEntryId}?intent=locales`);
   });
 });

@@ -127,8 +127,12 @@ but its card exposes a directly labelled destructive history icon beside the lef
 message and states that project files stay untouched.
 
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
-exact receiver before navigating directly to `/editor`. Capture folder is a choice inside `Import`,
-not a third top-level first-run action. The editor tool rail exists only in Workspace. Its bottom
+exact receiver before navigating to its canonical `/editor/[entryId]` Workspace URL. Opening that
+URL in another browser activates the same Project Library entry before Workspace loads; invalid or
+unavailable identities show a visible error and never fall back to another active project. `/editor`
+remains a compatibility route for sessions whose Project Library entry identity is not available.
+Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
+rail exists only in Workspace. Its bottom
 `Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`

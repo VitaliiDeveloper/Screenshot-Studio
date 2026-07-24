@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const source = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
+const source = readFileSync(new URL("./editor-workspace.tsx", import.meta.url), "utf8");
 const projectNavigation = readFileSync(
   new URL("./use-editor-project-navigation.ts", import.meta.url),
   "utf8",

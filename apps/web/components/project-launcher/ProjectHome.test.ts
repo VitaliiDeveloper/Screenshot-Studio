@@ -68,7 +68,10 @@ describe("Project Info overview", () => {
   it("fences a stale Project Info request to its expected project id", () => {
     expect(pageSource).toContain("searchParams");
     expect(pageSource).toContain("expectedProjectId");
+    expect(pageSource).toContain("expectedEntryId");
     expect(source).toContain("expectedProjectId?: string");
+    expect(source).toContain("expectedEntryId?: string");
+    expect(source).toContain("projectInfoEntryBindingError(expectedProjectId, expectedEntryId)");
     expect(source).toContain("loaded.selection.projectId !== expectedProjectId");
   });
 });
