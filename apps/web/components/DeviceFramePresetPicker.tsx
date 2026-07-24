@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import {
+  DEVICE_FRAME_PRESETS,
   deviceFramePreset,
   type DeviceFrameId,
   type DeviceFramePreset,
@@ -15,37 +16,50 @@ import { DeviceFramePresetThumbnail } from "./DeviceFramePresetThumbnail";
 
 type DeviceFrameScreenContext = Pick<Screen, "platform" | "device" | "artboard">;
 
-export const deviceFramePickerGroups: readonly {
-  label: "Phone" | "Tablet" | "Browser" | "Computer" | "TV" | "Watch" | "Special" | "Legacy";
-  presetIds: readonly DeviceFrameId[];
-}[] = [
-  {
-    label: "Phone",
-    presetIds: [
-      "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
-      "frameless-phone",
-    ],
-  },
-  {
-    label: "Tablet",
-    presetIds: ["tablet-rounded-dark", "tablet-rounded-light", "tablet-outline", "frameless-tablet"],
-  },
-  {
-    label: "Browser",
-    presetIds: ["browser-light", "browser-dark", "browser-minimal", "frameless-browser"],
-  },
+type DeviceFramePickerGroupLabel =
+  | "Phone" | "Tablet" | "Browser" | "Computer" | "TV" | "Watch" | "Special" | "Legacy";
+
+interface DeviceFramePickerGroupRule {
+  readonly label: DeviceFramePickerGroupLabel;
+  readonly includes: (preset: DeviceFramePreset) => boolean;
+  readonly compare?: (left: DeviceFramePreset, right: DeviceFramePreset) => number;
+}
+
+const deviceFramePickerGroupRules: readonly DeviceFramePickerGroupRule[] = [
+  { label: "Phone", includes: ({ group, legacy }) => group === "phone" && !legacy },
+  { label: "Tablet", includes: ({ group, legacy }) => group === "tablet" && !legacy },
+  { label: "Browser", includes: ({ group, legacy }) => group === "browser" && !legacy },
   {
     label: "Computer",
-    presetIds: ["laptop-silver", "laptop-dark", "display-stand", "display-minimal"],
+    includes: ({ group, tags, legacy }) => !legacy && (
+      group === "desktop" || (group === "display" && tags.includes("desktop"))
+    ),
   },
-  { label: "TV", presetIds: ["tv-flat", "display-minimal"] },
-  { label: "Watch", presetIds: ["watch-rounded", "watch-square", "frameless-watch"] },
-  { label: "Special", presetIds: ["foldable", "automotive-display", "xr-viewport"] },
   {
-    label: "Legacy",
-    presetIds: ["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"],
+    label: "TV",
+    includes: ({ group, tags, legacy }) => !legacy && group === "display" && tags.includes("television"),
+    compare: (left, right) => Number(left.tags.includes("minimal")) - Number(right.tags.includes("minimal")),
   },
+  { label: "Watch", includes: ({ group, legacy }) => group === "wearable" && !legacy },
+  {
+    label: "Special",
+    includes: ({ group, legacy }) => !legacy && (
+      group === "foldable" || group === "automotive" || group === "spatial"
+    ),
+  },
+  { label: "Legacy", includes: ({ legacy }) => legacy },
 ];
+
+export const deviceFramePickerGroups: readonly {
+  label: DeviceFramePickerGroupLabel;
+  presetIds: readonly DeviceFrameId[];
+}[] = deviceFramePickerGroupRules.map(({ label, includes, compare }) => ({
+  label,
+  presetIds: DEVICE_FRAME_PRESETS
+    .filter(includes)
+    .sort(compare)
+    .map(({ id }) => id),
+}));
 
 export interface DeviceFramePresetOccurrence {
   readonly occurrenceKey: string;

@@ -9,7 +9,7 @@ import {
   recommendedDeviceForPlatform,
   type ProjectTemplateSummary,
 } from "@screenshot-studio/core/scaffold";
-import { OUTPUT_DEVICE_FAMILIES } from "@screenshot-studio/core/model";
+import { OUTPUT_DESTINATIONS, OUTPUT_DEVICE_FAMILIES } from "@screenshot-studio/core/model";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
@@ -30,17 +30,15 @@ export interface ProjectCreationDialogProps {
   onSubmit(): void;
 }
 
-const PLATFORM_OPTIONS: readonly MenuSelectOption<ProjectCreationForm["platform"]>[] = [
-  { value: "apple", label: "Apple App Store" },
-  { value: "android", label: "Google Play" },
-  { value: "windows", label: "Microsoft Store" },
-  { value: "web", label: "Web" },
-];
+export const projectCreationPlatformOptions: readonly MenuSelectOption<ProjectCreationForm["platform"]>[] =
+  OUTPUT_DESTINATIONS.map(({ id, label }) => ({ value: id, label }));
 
 function platformList(template: ProjectTemplateSummary): string {
-  return template.supportedPlatforms.map((platform) => (
-    platform === "apple" ? "Apple" : platform === "android" ? "Android" : platform === "windows" ? "Windows" : "Web"
-  )).join(", ");
+  return template.supportedPlatforms.map((platform) => {
+    const destination = OUTPUT_DESTINATIONS.find(({ id }) => id === platform);
+    if (!destination) throw new Error(`No output destination configured for ${platform}`);
+    return destination.shortLabel;
+  }).join(", ");
 }
 
 export function ProjectCreationDialog({
@@ -129,7 +127,7 @@ export function ProjectCreationDialog({
                   menuLabel="Target platform options"
                   className="mt-2"
                   value={state.form.platform}
-                  options={PLATFORM_OPTIONS}
+                  options={projectCreationPlatformOptions}
                   onChange={changePlatform}
                 />
               </div>

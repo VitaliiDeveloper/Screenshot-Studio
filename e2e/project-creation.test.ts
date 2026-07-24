@@ -90,7 +90,7 @@ describe("managed project creation", () => {
 
       const platformTrigger = dialog.getByRole("button", { name: "Target platform" });
       await platformTrigger.click();
-      await dialog.getByRole("menuitemradio", { name: "Apple App Store" }).press("Escape");
+      await dialog.getByRole("menuitemradio", { name: "App Store" }).press("Escape");
       expect(await dialog.isVisible()).toBe(true);
       await expect.poll(() => platformTrigger.evaluate(
         (element) => element === document.activeElement,
@@ -142,7 +142,7 @@ describe("managed project creation", () => {
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       const nameInput = dialog.getByLabel("Project name");
       await nameInput.fill("Launch sequence");
-      await selectTargetPlatform(dialog, "Apple App Store");
+      await selectTargetPlatform(dialog, "App Store");
       await dialog.getByRole("radio", { name: /Product launch/ }).check();
 
       let attempt = 0;
@@ -262,7 +262,7 @@ describe("managed project creation", () => {
       await page.getByRole("button", { name: "New project" }).click();
       dialog = page.getByRole("dialog", { name: "Create a managed project" });
       await dialog.getByLabel("Project name").fill("Built-in iPhone story");
-      await selectTargetPlatform(dialog, "Apple App Store");
+      await selectTargetPlatform(dialog, "App Store");
       await dialog.getByRole("radio", { name: /^iPhone\b/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor`);

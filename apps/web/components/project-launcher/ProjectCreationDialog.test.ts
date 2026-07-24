@@ -2,14 +2,16 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { OUTPUT_DESTINATIONS } from "@screenshot-studio/core/model";
 import { listStarterProjectTemplates, ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
-import { ProjectCreationDialog } from "./ProjectCreationDialog.js";
+import { ProjectCreationDialog, projectCreationPlatformOptions } from "./ProjectCreationDialog.js";
 
 Object.assign(globalThis, { React });
 
 function render(
   platform: "apple" | "android" | "web",
   device: "iphone" | "phone" | "wear" | "desktop" = platform === "apple" ? "iphone" : platform === "android" ? "phone" : "desktop",
+  templates = listStarterProjectTemplates(),
 ) {
   const form = ProjectScaffoldInput.parse({
     name: "Starter", platform, device, layoutMode: "isolated", templateId: null,
@@ -19,7 +21,7 @@ function render(
       status: "editing",
       form,
     },
-    templates: listStarterProjectTemplates(),
+    templates,
     onClose: vi.fn(),
     onChange: vi.fn(),
     onSubmit: vi.fn(),
@@ -27,6 +29,24 @@ function render(
 }
 
 describe("ProjectCreationDialog starters", () => {
+  it("derives destination labels and template short labels from the core catalog", () => {
+    const base = listStarterProjectTemplates()[0]!;
+    const template = {
+      ...base,
+      id: "all-platforms",
+      name: "All platforms",
+      supportedPlatforms: OUTPUT_DESTINATIONS.map(({ id }) => id),
+      device: undefined,
+    };
+    const markup = render("apple", "iphone", [template]);
+
+    expect(projectCreationPlatformOptions).toEqual(
+      OUTPUT_DESTINATIONS.map(({ id, label }) => ({ value: id, label })),
+    );
+    expect(markup).toContain(`Supports ${OUTPUT_DESTINATIONS.map(({ shortLabel }) => shortLabel).join(", ")}`);
+    expect(markup).not.toContain("Apple App Store");
+  });
+
   it("shows only the selected device family's built-in starters plus Blank and generic starters", () => {
     const apple = render("apple");
     expect(apple).toContain("Blank");

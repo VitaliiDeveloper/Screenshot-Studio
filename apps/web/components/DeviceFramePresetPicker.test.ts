@@ -85,11 +85,15 @@ describe("DeviceFramePresetPicker catalog", () => {
     expect(markup).toContain("Classic Phone");
   });
 
-  it("resolves exactly 25 semantic row appearances with occurrence-safe duplicate keys", () => {
+  it("makes every non-legacy core preset available with occurrence-safe duplicate keys", () => {
     const occurrences = groupedVisibleDeviceFramePresetOccurrences("");
     const semanticOccurrences = occurrences.filter(({ preset }) => !preset.legacy);
+    const catalogPresetIds = DEVICE_FRAME_PRESETS.filter(({ legacy }) => !legacy).map(({ id }) => id);
+    const pickerPresetIds = new Set(semanticOccurrences.map(({ preset }) => preset.id));
 
-    expect(semanticOccurrences).toHaveLength(25);
+    expect([...pickerPresetIds]).toEqual(expect.arrayContaining(catalogPresetIds));
+    expect(pickerPresetIds.size).toBe(catalogPresetIds.length);
+    expect(semanticOccurrences).toHaveLength(catalogPresetIds.length + 1);
     expect(semanticOccurrences.map(({ groupLabel, preset }) => [groupLabel, preset.id])).toEqual(
       deviceFramePickerGroups.slice(0, -1).flatMap(({ label, presetIds }) =>
         presetIds.map((id) => [label, id])),
