@@ -40,6 +40,7 @@ describe("TransformInspectorFields", () => {
     expect(markup).toContain('aria-label="Rotation dial"');
     expect(markup).not.toContain('data-rotation-dial-arc="active"');
     expect(markup).toContain('data-rotation-dial-thumb=""');
+    expect(markup).toMatch(/aria-label="Rotation"[^>]*min="0"[^>]*max="360"/);
     expect(markup).toContain('aria-label="Opacity"');
     expect(markup).toContain('data-transform-secondary-controls="stacked"');
     expect(markup).toContain("Exported images are always flattened");
@@ -52,6 +53,18 @@ describe("TransformInspectorFields", () => {
     expect(markup).not.toContain("grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]");
     expect(markup).toContain("px");
     expect(markup).toContain("%");
+  });
+
+  it("presents an existing negative rotation as its equivalent positive angle", () => {
+    const markup = renderToStaticMarkup(React.createElement(TransformInspectorFields, {
+      element: { ...screenshot, rotation: -6 },
+      artboard: { width: 1290, height: 2796 },
+      onChange: vi.fn(),
+      onInteractionEnd: vi.fn(),
+    }));
+
+    expect(markup).toContain("354°");
+    expect(markup).toMatch(/aria-label="Rotation"[^>]*value="354"/);
   });
 
   it("forces ratio lock for device frames", () => {
