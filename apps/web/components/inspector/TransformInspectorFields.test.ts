@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: Apache-2.0
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import type { ScreenshotElement } from "@screenshot-studio/core/model";
+import { TransformInspectorFields } from "./TransformInspectorFields.js";
+
+Object.assign(globalThis, { React });
+
+const screenshot: ScreenshotElement = {
+  id: "hero-shot",
+  type: "screenshot",
+  x: 176,
+  y: 780,
+  width: 968,
+  height: 1640,
+  rotation: 4,
+  opacity: 1,
+  locked: false,
+  visible: true,
+  assetUrl: "assets/demo-logistics-app.png",
+  fit: "cover",
+  cornerRadius: 108,
+};
+
+describe("TransformInspectorFields", () => {
+  it("exposes direct and exact controls for every persisted transform value", () => {
+    const markup = renderToStaticMarkup(React.createElement(TransformInspectorFields, {
+      element: screenshot,
+      artboard: { width: 1290, height: 2796 },
+      onChange: vi.fn(),
+      onInteractionEnd: vi.fn(),
+    }));
+
+    expect(markup).toContain('aria-label="Element position preview"');
+    expect(markup).toContain('aria-label="X"');
+    expect(markup).toContain('aria-label="Y"');
+    expect(markup).toContain('aria-label="Lock aspect ratio"');
+    expect(markup).toContain('aria-pressed="true"');
+    expect(markup).toContain('aria-label="Rotation dial"');
+    expect(markup).toContain('aria-label="Opacity"');
+    expect(markup).toContain("Exported images are always flattened");
+    expect(markup).toContain("px");
+    expect(markup).toContain("%");
+  });
+
+  it("forces ratio lock for device frames", () => {
+    const markup = renderToStaticMarkup(React.createElement(TransformInspectorFields, {
+      element: {
+        ...screenshot,
+        id: "frame",
+        type: "device-frame",
+        deviceType: "android-phone",
+        assetUrl: undefined,
+      },
+      artboard: { width: 1290, height: 2796 },
+      onChange: vi.fn(),
+      onInteractionEnd: vi.fn(),
+    }));
+
+    expect(markup).toMatch(/aria-label="Lock aspect ratio"[^>]*disabled/);
+    expect(markup).toContain('aria-pressed="true"');
+  });
+});
