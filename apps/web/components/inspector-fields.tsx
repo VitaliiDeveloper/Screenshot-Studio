@@ -114,7 +114,7 @@ export function NumberField({
             editorUi.field,
             editorUi.fieldInvalid,
             suffix ? "pr-7" : undefined,
-            "text-right tabular-nums",
+            "editor-number-input text-right tabular-nums",
           )}
         />
         {suffix ? (
@@ -209,7 +209,7 @@ export function TextField({
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={editorUi.textarea}
+          className={`${editorUi.textarea} min-h-[4.5rem] max-h-48 resize-y overflow-y-auto`}
           rows={3}
         />
       ) : (

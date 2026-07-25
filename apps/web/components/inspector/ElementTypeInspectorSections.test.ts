@@ -32,7 +32,7 @@ const text: TextElement = {
 };
 
 describe("ElementTypeInspectorSections text semantics", () => {
-  it("separates horizontal and vertical alignment and explains deferred theme roles", () => {
+  it("prioritizes core text styling and keeps advanced typography discoverable", () => {
     const previousReact = Reflect.get(globalThis, "React");
     Reflect.set(globalThis, "React", React);
     let markup: string;
@@ -49,11 +49,24 @@ describe("ElementTypeInspectorSections text semantics", () => {
       else Reflect.set(globalThis, "React", previousReact);
     }
 
-    expect(markup).toContain('aria-label="Horizontal align"');
-    expect(markup).toContain('aria-label="Vertical align"');
-    expect(markup).toContain("middle");
-    expect(markup).toContain("Used the next time you apply a theme");
-    expect(markup).toContain("The current style stays unchanged");
+    expect(markup).toContain('role="group" aria-label="Horizontal align"');
+    expect(markup).toContain('aria-label="Align text center" aria-pressed="true"');
+    expect(markup).toContain('aria-controls="advanced-typography"');
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain("Advanced typography");
+    expect(markup).toContain("bg-[var(--editor-color-accent-subtle)]");
+    expect(markup).toContain("font-size:12px");
+    expect(markup).toContain('data-state="closed"');
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).toContain("grid-rows-[0fr]");
+    expect(markup).toContain("motion-reduce:transition-none");
+    expect(markup).toContain('role="group" aria-label="Vertical align"');
+    expect(markup).toContain("Theme integration");
+    expect(markup).toContain("Applied on the next theme change");
+    expect(markup).toContain("Current styling stays unchanged");
+    expect(markup).toContain("font-size:13px");
+    expect(markup.indexOf("Content")).toBeLessThan(markup.indexOf("Font"));
+    expect(markup.indexOf("Font")).toBeLessThan(markup.indexOf("Theme integration"));
   });
 });
 
@@ -217,7 +230,8 @@ describe("ElementTypeInspectorSections media content mode", () => {
     expect(markup).toContain('aria-label="Increase crop zoom"');
     expect(markup).toContain("Reset crop");
     expect(markup).toContain("Advanced");
-    expect(markup).not.toContain("<details open");
+    expect(markup).toContain('aria-controls="advanced-crop-position"');
+    expect(markup).not.toContain("<details");
     expect(markup).toContain("aspect-[3/2]");
     expect(markup).toContain('aria-label="Focal X %"');
     expect(markup).toContain('aria-label="Focal Y %"');

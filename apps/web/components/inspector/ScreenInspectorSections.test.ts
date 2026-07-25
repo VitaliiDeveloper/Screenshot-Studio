@@ -244,11 +244,13 @@ describe("ScreenInspectorSections background controls", () => {
   it("uses the selected preview-first Solid composition", () => {
     const markup = renderBackground({ type: "solid", color: "#091226" });
 
-    expect(markup).toContain('aria-label="Background preview"');
+    expect(markup).toContain('role="img" aria-label="Background preview"');
     expect(markup).toContain('data-background-type="solid"');
     expect(markup).toContain('aria-label="Background type"');
     expect(markup).toContain('aria-label="Use Solid background" aria-pressed="true"');
-    expect(markup).toContain('aria-label="Quick background color"');
+    expect(markup).not.toContain('aria-label="Quick background color"');
+    expect(markup).toContain('aria-label="Color"');
+    expect(markup.indexOf('aria-label="Background type"')).toBeLessThan(markup.indexOf('aria-label="Color"'));
     expect(markup).toContain("#091226");
   });
 

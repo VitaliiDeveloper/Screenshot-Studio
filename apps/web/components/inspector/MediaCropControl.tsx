@@ -14,6 +14,7 @@ import {
   directCropPatch,
   nudgeCrop,
 } from "./media-inspector-model";
+import { InspectorDisclosure } from "./InspectorDisclosure";
 
 function thumbnailUrl(assetUrl: string): string {
   try {
@@ -181,29 +182,26 @@ export function MediaCropControl({
         Reset crop
       </button>
 
-      <details className="group">
-        <summary className="cursor-pointer text-xs font-medium text-[color:var(--editor-color-text-default)]">Advanced</summary>
-        <div className="mt-2 flex flex-col gap-2">
-          <NumberField
-            label="Focal X %"
-            value={crop.x * 100}
-            min={0}
-            max={100}
-            integer
-            suffix="%"
-            onChange={(x) => onChange({ ...crop, x: x / 100 })}
-          />
-          <NumberField
-            label="Focal Y %"
-            value={crop.y * 100}
-            min={0}
-            max={100}
-            integer
-            suffix="%"
-            onChange={(y) => onChange({ ...crop, y: y / 100 })}
-          />
-        </div>
-      </details>
+      <InspectorDisclosure label="Advanced" contentId="advanced-crop-position">
+        <NumberField
+          label="Focal X %"
+          value={crop.x * 100}
+          min={0}
+          max={100}
+          integer
+          suffix="%"
+          onChange={(x) => onChange({ ...crop, x: x / 100 })}
+        />
+        <NumberField
+          label="Focal Y %"
+          value={crop.y * 100}
+          min={0}
+          max={100}
+          integer
+          suffix="%"
+          onChange={(y) => onChange({ ...crop, y: y / 100 })}
+        />
+      </InspectorDisclosure>
     </InsetPanel>
   );
 }

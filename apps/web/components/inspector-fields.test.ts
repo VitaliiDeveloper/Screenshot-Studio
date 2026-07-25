@@ -10,6 +10,7 @@ import {
   percentToUnit,
   SelectField,
   SliderNumberField,
+  TextField,
   unitToPercent,
 } from "./inspector-fields.js";
 
@@ -54,6 +55,8 @@ describe("number field formatting", () => {
 
     expect(markup).toContain("px");
     expect(markup).toContain('aria-label="X"');
+    expect(markup).toContain("editor-number-input");
+    expect(markup).toContain("text-right");
   });
 
   it("links a native slider to an exact number and alpha-free export help", () => {
@@ -87,6 +90,20 @@ describe("number field formatting", () => {
     expect(markup).toMatch(/^<div /);
     expect(markup).not.toContain("<label");
     expect(markup).toContain('aria-label="Content mode"');
+  });
+
+  it("keeps multiline text content vertically resizable within readable bounds", () => {
+    const markup = renderToStaticMarkup(React.createElement(TextField, {
+      label: "Content",
+      value: "Save fast",
+      multiline: true,
+      onChange: vi.fn(),
+    }));
+
+    expect(markup).toContain("min-h-[4.5rem]");
+    expect(markup).toContain("max-h-48");
+    expect(markup).toContain("resize-y");
+    expect(markup).toContain("overflow-y-auto");
   });
 });
 

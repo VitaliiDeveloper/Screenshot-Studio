@@ -9,7 +9,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Pipette, RotateCcw } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, Image as ImageIcon, RotateCcw } from "lucide-react";
 import type { Background } from "@screenshot-studio/core/model";
 import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
 import { editorUi, SegmentedControl } from "@web/components/editor-ui";
@@ -171,16 +171,6 @@ export function BackgroundInspectorFields({
     : background.type === "linear-gradient"
       ? gradientStyle(background)
       : { backgroundColor: background.color };
-  const summary = background.type === "solid"
-    ? background.color
-    : background.type === "linear-gradient"
-      ? `${background.from} → ${background.to}`
-      : background.assetUrl.split("/").at(-1) ?? "Project image";
-  const quickColor = background.type === "solid"
-    ? background.color
-    : background.type === "linear-gradient"
-      ? background.from
-      : null;
   const normalizedGradientAngle = background.type === "linear-gradient"
     ? normalizeGradientAngle(background.angle)
     : 0;
@@ -200,6 +190,7 @@ export function BackgroundInspectorFields({
   return (
     <div className="flex flex-col gap-2.5">
       <div
+        role="img"
         aria-label="Background preview"
         data-background-type={background.type}
         className="relative h-20 overflow-hidden rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] shadow-inner"
@@ -223,35 +214,6 @@ export function BackgroundInspectorFields({
             </span>
           )
         ) : null}
-      </div>
-
-      <div className={`relative flex min-w-0 items-center gap-2 border-b border-[var(--editor-color-border)] pb-2.5 text-xs ${quickColor ? "cursor-pointer focus-within:ring-2 focus-within:ring-[var(--editor-color-focus)]" : ""}`}>
-        {quickColor ? (
-          <input
-            type="color"
-            aria-label="Quick background color"
-            value={quickColor}
-            onChange={(event) => {
-              const color = event.currentTarget.value;
-              if (background.type === "solid") onChange({ ...background, color });
-              else if (background.type === "linear-gradient") onChange({ ...background, from: color });
-            }}
-            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-          />
-        ) : null}
-        <span
-          aria-hidden="true"
-          className="size-7 shrink-0 rounded-[var(--editor-radius-control)] ring-1 ring-inset ring-black/10"
-          style={previewStyle}
-        />
-        <span className="min-w-0 flex-1 truncate font-medium uppercase tabular-nums text-[color:var(--editor-color-text)]" title={summary}>
-          {summary}
-        </span>
-        {background.type === "image" ? (
-          <ImageIcon size={16} strokeWidth={1.8} aria-hidden="true" className="shrink-0 text-[color:var(--editor-color-text-subtle)]" />
-        ) : (
-          <Pipette size={16} strokeWidth={1.8} aria-hidden="true" className="shrink-0 text-[color:var(--editor-color-text-subtle)]" />
-        )}
       </div>
 
       <SegmentedControl

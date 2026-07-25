@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx } from "./styles.js";
@@ -23,6 +23,7 @@ export function MenuSelect<T extends string>({
   className,
   triggerClassName,
   menuClassName,
+  fontSize,
   showSelectedIcon = false,
   density = "default",
   appearance = "field",
@@ -35,6 +36,7 @@ export function MenuSelect<T extends string>({
   className?: string;
   triggerClassName?: string;
   menuClassName?: string;
+  fontSize?: CSSProperties["fontSize"];
   showSelectedIcon?: boolean;
   density?: "default" | "compact";
   appearance?: "field" | "breadcrumb";
@@ -121,6 +123,7 @@ export function MenuSelect<T extends string>({
             : "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10"),
           triggerClassName,
         )}
+        style={fontSize === undefined ? undefined : { fontSize }}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -196,6 +199,7 @@ export function MenuSelect<T extends string>({
                       ? "text-slate-500 hover:bg-slate-50/90 hover:text-slate-700"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
+                style={fontSize === undefined ? undefined : { fontSize }}
                 onClick={() => {
                   onChange(option.value);
                   setOpen(false);

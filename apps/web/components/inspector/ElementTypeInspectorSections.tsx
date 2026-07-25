@@ -18,16 +18,15 @@ import type { ElementPatchFor } from "@web/lib/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import {
   ColorField,
-  FontIdentityField,
   NumberField,
   SelectField,
-  TextField,
   ThemeRoleField,
 } from "@web/components/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
 import { ContentModeControl } from "./MediaPresentationFields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
+import { TextInspectorFields } from "./TextInspectorFields";
 
 const DeviceFramePresetPicker = dynamic(
   () => import("../DeviceFramePresetPicker").then((module) => module.DeviceFramePresetPicker),
@@ -104,39 +103,11 @@ export function ElementTypeInspectorSections({
 
       {element.type === "text" && (
         <Section title="Text">
-          <ThemeRoleField value={element.role} onChange={(role) => patchText({ role })} />
-          <TextField label="Content" value={element.content} multiline onChange={(content) => patchText({ content })} />
-          <FontIdentityField
+          <TextInspectorFields
+            element={element}
             fonts={fonts}
-            family={element.fontFamily}
-            weight={element.weight}
-            onChange={({ family, weight }) => patchText({ fontFamily: family, weight })}
+            onChange={patchText}
           />
-          <NumberField label="Size" value={element.size} min={1} onChange={(size) => patchText({ size })} />
-          <NumberField label="Line height" value={element.lineHeight} min={0.1} step={0.1} onChange={(lineHeight) => patchText({ lineHeight })} />
-          <NumberField label="Letter spacing" value={element.letterSpacing} onChange={(letterSpacing) => patchText({ letterSpacing })} />
-          <SelectField label="Horizontal align" value={element.align} options={["left", "center", "right"] as const} onChange={(align) => patchText({ align })} />
-          <SelectField label="Vertical align" value={element.verticalAlign ?? "top"} options={["top", "middle", "bottom"] as const} onChange={(verticalAlign) => patchText({ verticalAlign })} />
-          <ColorField label="Color" value={element.color} onChange={(color) => patchText({ color })} />
-          <OptionalInspectorEffect
-            title="Shadow"
-            description="Add depth behind the text"
-            enabled={Boolean(element.shadow)}
-            onAdd={() => patchText({
-              shadow: { color: "#000000", blur: 12, offsetX: 0, offsetY: 6, opacity: 0.35 },
-            })}
-            onRemove={() => patchText({ shadow: null })}
-          >
-            {element.shadow ? (
-              <>
-              <ColorField label="Shadow color" value={element.shadow.color} onChange={(color) => patchText({ shadow: { ...element.shadow!, color } })} />
-              <NumberField label="Shadow blur" value={element.shadow.blur} min={0} max={100} onChange={(blur) => patchText({ shadow: { ...element.shadow!, blur } })} />
-              <NumberField label="Shadow X" value={element.shadow.offsetX} onChange={(offsetX) => patchText({ shadow: { ...element.shadow!, offsetX } })} />
-              <NumberField label="Shadow Y" value={element.shadow.offsetY} onChange={(offsetY) => patchText({ shadow: { ...element.shadow!, offsetY } })} />
-              <NumberField label="Shadow opacity" value={element.shadow.opacity} min={0} max={1} step={0.05} onChange={(opacity) => patchText({ shadow: { ...element.shadow!, opacity } })} />
-              </>
-            ) : null}
-          </OptionalInspectorEffect>
         </Section>
       )}
 

@@ -146,7 +146,7 @@ describe("Project asset picker", () => {
     const insertedImageId = insertedImage.id;
     await page.getByRole("button", { name: "Fill", exact: true }).click();
     await page.getByRole("button", { name: "Soft", exact: true }).click();
-    const cornerRadius = page.getByRole("spinbutton", { name: "Corner radius", exact: true });
+    const cornerRadius = page.getByRole("spinbutton", { name: "Exact value", exact: true });
     await cornerRadius.fill("108");
     await cornerRadius.blur();
     await page.getByRole("button", { name: "Focal point", exact: true }).press("ArrowRight");
@@ -234,8 +234,10 @@ describe("Project asset picker", () => {
       .toBe("assets/demo-logistics-app.png");
     expect(project().layouts[0].screens[0].elements).toHaveLength(4);
 
-    await page.getByLabel("Content mode", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "Fit", exact: true }).click();
+    await page
+      .getByLabel("Content mode", { exact: true })
+      .getByRole("button", { name: "Fit", exact: true })
+      .click();
     await page.getByRole("button", { name: "Add content blur" }).click();
     await page.getByLabel("X", { exact: true }).fill("140");
     await page.getByLabel("X", { exact: true }).blur();

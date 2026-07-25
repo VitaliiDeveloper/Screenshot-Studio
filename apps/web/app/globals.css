@@ -28,6 +28,16 @@ button:disabled {
   cursor: default;
 }
 
+.editor-number-input {
+  appearance: textfield;
+}
+
+.editor-number-input::-webkit-inner-spin-button,
+.editor-number-input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
 .editor-range {
   --editor-range-progress: 0%;
   appearance: none;

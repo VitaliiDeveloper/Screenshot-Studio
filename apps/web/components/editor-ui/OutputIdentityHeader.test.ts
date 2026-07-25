@@ -46,4 +46,16 @@ describe("OutputIdentityHeader", () => {
     expect(markup).toContain("var(--editor-color-surface-muted)");
     expect(markup).not.toMatch(/text-slate-|bg-slate-|text-blue-|bg-blue-/);
   });
+
+  it("reserves one title-row height whether the editing badge is visible or not", () => {
+    const editingMarkup = render("master");
+    const idleMarkup = render("variant");
+
+    expect(classNameFor(editingMarkup, "output-identity-title-row")).toContain(
+      "min-h-[1.125rem]",
+    );
+    expect(classNameFor(idleMarkup, "output-identity-title-row")).toContain(
+      "min-h-[1.125rem]",
+    );
+  });
 });

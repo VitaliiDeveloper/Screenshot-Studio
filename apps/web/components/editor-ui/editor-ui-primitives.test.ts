@@ -48,9 +48,10 @@ describe("editor UI primitives", () => {
     expect(editorUi.segmentedControl).toContain("rounded-lg");
     expect(editorUi.segmentedControl).toContain("var(--editor-color-surface-muted)");
     expect(editorUi.segmentedButton).toContain("h-6");
-    expect(editorUi.segmentedButton).toContain("px-2.5");
     expect(editorUi.segmentedButton).toContain("font-medium");
     expect(editorUi.segmentedButton).toContain("whitespace-nowrap");
+    expect(editorUi.segmentedButtonDefault).toContain("px-2.5");
+    expect(editorUi.segmentedButtonCompact).toContain("min-w-0");
     expect(editorUi.segmentedButtonLabel).toContain("inline-flex");
     expect(editorUi.segmentedButtonLabel).toContain("items-center");
     expect(editorUi.segmentedButtonLabel).toContain("gap-1.5");
@@ -82,6 +83,21 @@ describe("editor UI primitives", () => {
     expect(html).toContain(editorUi.segmentedControlFill);
     expect(html).toContain(editorUi.segmentedButtonActive);
     expect(html).toContain(`<span class="${editorUi.segmentedButtonLabel}">Overview</span>`);
+
+    const compactHtml = renderToStaticMarkup(createElement(SegmentedControl, {
+      label: "Text alignment",
+      value: "center",
+      compact: true,
+      options: [
+        { value: "left", label: "Left" },
+        { value: "center", label: "Center" },
+        { value: "right", label: "Right" },
+      ],
+      onChange: () => undefined,
+    }));
+
+    expect(compactHtml).toContain(editorUi.segmentedButtonCompact);
+    expect(compactHtml).not.toContain(editorUi.segmentedButtonDefault);
   });
 
   it("renders tool and panel buttons with an accessible pressed state", () => {
