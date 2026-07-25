@@ -233,3 +233,54 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     expect(markup).toContain("This screen references a Store Target that is unavailable.");
   });
 });
+
+describe("ScreenInspectorSections background controls", () => {
+  function renderBackground(background: Project["layouts"][number]["screens"][number]["background"]): string {
+    const project = sourceProject();
+    const screen = { ...project.layouts[0]!.screens[0]!, background };
+    return renderInspector(replaceScreen(project, screen), screen, DEFAULT_STORE_SPECS);
+  }
+
+  it("uses the selected preview-first Solid composition", () => {
+    const markup = renderBackground({ type: "solid", color: "#091226" });
+
+    expect(markup).toContain('aria-label="Background preview"');
+    expect(markup).toContain('data-background-type="solid"');
+    expect(markup).toContain('aria-label="Background type"');
+    expect(markup).toContain('aria-label="Use Solid background" aria-pressed="true"');
+    expect(markup).toContain('aria-label="Quick background color"');
+    expect(markup).toContain("#091226");
+  });
+
+  it("keeps Gradient controls contextual under the shared type switch", () => {
+    const markup = renderBackground({
+      type: "linear-gradient",
+      from: "#112233",
+      to: "#445566",
+      angle: 45,
+    });
+
+    expect(markup).toContain('data-background-type="linear-gradient"');
+    expect(markup).toContain('aria-label="Use Gradient background" aria-pressed="true"');
+    expect(markup).toContain('aria-label="From"');
+    expect(markup).toContain('aria-label="To"');
+    expect(markup).toContain('aria-label="Gradient direction"');
+    expect(markup).toContain('aria-label="Angle"');
+  });
+
+  it("shows an imported Image as a product asset instead of a raw URL field", () => {
+    const markup = renderBackground({
+      type: "image",
+      assetUrl: "assets/background.png",
+      fit: "cover",
+      color: "#123456",
+    });
+
+    expect(markup).toContain('data-background-type="image"');
+    expect(markup).toContain('aria-label="Use Image background" aria-pressed="true"');
+    expect(markup).toContain("background.png");
+    expect(markup).toContain("Replace background");
+    expect(markup).toContain('aria-label="Background content mode"');
+    expect(markup).not.toContain("Asset URL");
+  });
+});
