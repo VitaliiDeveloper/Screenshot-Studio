@@ -181,7 +181,7 @@ export function ArtboardTargets({
           <span data-testid="store-target-name" className="truncate font-semibold text-slate-700">
             {displayLabel}
           </span>
-          <span className="text-[10px] text-slate-400">{dimensionsLabel(target)}</span>
+          <span className="text-[10px] text-slate-600">{dimensionsLabel(target)}</span>
         </span>
         <span className="pointer-events-none relative z-[2] flex shrink-0 items-center gap-1">
           {isLead ? (
