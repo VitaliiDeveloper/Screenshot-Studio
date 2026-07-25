@@ -8,6 +8,7 @@ import {
   normalizeNumberFieldValue,
   NumberField,
   percentToUnit,
+  SelectField,
   SliderNumberField,
   unitToPercent,
 } from "./inspector-fields.js";
@@ -69,8 +70,23 @@ describe("number field formatting", () => {
 
     expect(markup).toContain('type="range"');
     expect(markup).toContain('aria-label="Opacity"');
+    expect(markup).toContain("editor-range");
     expect(markup).toContain("contain no alpha channel");
     expect(markup).toContain('class="sr-only">Opacity value</span>');
+  });
+
+  it("keeps menu field titles inert instead of activating their button", () => {
+    const markup = renderToStaticMarkup(React.createElement(SelectField, {
+      label: "Content mode",
+      value: "cover",
+      options: ["cover", "contain"],
+      optionLabels: { cover: "Fill", contain: "Fit" },
+      onChange: vi.fn(),
+    }));
+
+    expect(markup).toMatch(/^<div /);
+    expect(markup).not.toContain("<label");
+    expect(markup).toContain('aria-label="Content mode"');
   });
 });
 

@@ -33,6 +33,36 @@ export function cornerRadiusPresetValue(
   return Math.round(shortestSide / 2);
 }
 
+export function ContentModeControl({
+  value,
+  onChange,
+}: {
+  value: ScreenshotElement["fit"];
+  onChange: (fit: ScreenshotElement["fit"]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 text-xs">
+      <span className="text-slate-500">Content mode</span>
+      <SegmentedControl
+        label="Content mode"
+        value={value}
+        fill
+        options={[
+          {
+            value: "cover",
+            label: <><Maximize2 size={13} aria-hidden="true" /> Fill</>,
+          },
+          {
+            value: "contain",
+            label: <><Minimize2 size={13} aria-hidden="true" /> Fit</>,
+          },
+        ] as const}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 export function MediaPresentationFields({
   element,
   onChange,
@@ -44,52 +74,32 @@ export function MediaPresentationFields({
 
   return (
     <>
-      <div className="flex flex-col gap-1.5 text-xs">
-        <span className="text-slate-500">Content mode</span>
+      <ContentModeControl value={element.fit} onChange={(fit) => onChange({ fit })} />
+
+      <div className="flex flex-col gap-2 text-xs">
+        <span className="text-slate-500">Corner radius</span>
         <SegmentedControl
-          label="Content mode"
-          value={element.fit}
+          label="Corner radius preset"
+          value={radiusMode}
           fill
           options={[
-            {
-              value: "cover",
-              label: <><Maximize2 size={13} aria-hidden="true" /> Fill</>,
-            },
-            {
-              value: "contain",
-              label: <><Minimize2 size={13} aria-hidden="true" /> Fit</>,
-            },
+            { value: "square", label: "Square" },
+            { value: "soft", label: "Soft" },
+            { value: "round", label: "Round" },
           ] as const}
-          onChange={(fit) => onChange({ fit })}
+          onChange={(mode) => onChange({
+            cornerRadius: cornerRadiusPresetValue(mode, element),
+          })}
         />
-      </div>
-
-      <div className="flex flex-col gap-1.5 text-xs">
-        <span className="text-slate-500">Corner radius</span>
-        <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2">
-          <SegmentedControl
-            label="Corner radius preset"
-            value={radiusMode}
-            fill
-            options={[
-              { value: "square", label: "Square" },
-              { value: "soft", label: "Soft" },
-              { value: "round", label: "Round" },
-            ] as const}
-            onChange={(mode) => onChange({
-              cornerRadius: cornerRadiusPresetValue(mode, element),
-            })}
-          />
-          <NumberField
-            label="Corner radius"
-            labelHidden
-            value={element.cornerRadius}
-            min={0}
-            suffix="px"
-            controlClassName="!w-full"
-            onChange={(cornerRadius) => onChange({ cornerRadius })}
-          />
-        </div>
+        <NumberField
+          label="Exact value"
+          value={element.cornerRadius}
+          min={0}
+          step={0.01}
+          precision={2}
+          suffix="px"
+          onChange={(cornerRadius) => onChange({ cornerRadius })}
+        />
       </div>
 
       <OptionalInspectorEffect

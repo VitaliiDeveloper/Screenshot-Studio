@@ -28,6 +28,53 @@ button:disabled {
   cursor: default;
 }
 
+.editor-range {
+  --editor-range-progress: 0%;
+  appearance: none;
+  border-radius: 9999px;
+  background:
+    linear-gradient(var(--editor-color-accent), var(--editor-color-accent)) left center / var(--editor-range-progress) 0.25rem no-repeat,
+    linear-gradient(var(--editor-color-border-strong), var(--editor-color-border-strong)) left center / 100% 0.25rem no-repeat;
+}
+
+.editor-range::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.editor-range::-webkit-slider-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: -0.3125rem;
+  appearance: none;
+  border: 2px solid var(--editor-color-surface);
+  border-radius: 9999px;
+  background: var(--editor-color-accent);
+  box-shadow: 0 0 0 1px var(--editor-color-accent);
+}
+
+.editor-range::-moz-range-track {
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: var(--editor-color-border-strong);
+}
+
+.editor-range::-moz-range-progress {
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: var(--editor-color-accent);
+}
+
+.editor-range::-moz-range-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid var(--editor-color-surface);
+  border-radius: 9999px;
+  background: var(--editor-color-accent);
+  box-shadow: 0 0 0 1px var(--editor-color-accent);
+}
+
 .workspace-canvas {
   background-color: #f8fafc;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import {
   BUILT_IN_FONT_IDENTITIES,
   fontIdentityKey,
@@ -27,6 +27,11 @@ export function unitToPercent(value: number): number {
 
 export function percentToUnit(value: number): number {
   return normalizeNumberFieldValue(Math.min(100, Math.max(0, value)) / 100, 4);
+}
+
+export function rangeProgressStyle(value: number, min: number, max: number): CSSProperties {
+  const progress = max === min ? 0 : ((Math.min(max, Math.max(min, value)) - min) / (max - min)) * 100;
+  return { "--editor-range-progress": `${progress}%` } as CSSProperties;
 }
 
 export function NumberField({
@@ -159,7 +164,8 @@ export function SliderNumberField({
           max={max}
           step={step}
           onChange={(event) => onChange(Number(event.currentTarget.value))}
-          className="h-6 w-full cursor-pointer accent-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2"
+          className={editorUi.rangeInput}
+          style={rangeProgressStyle(value, min, max)}
         />
         <NumberField
           label={`${label} value`}
@@ -228,7 +234,7 @@ export function SelectField<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 text-xs">
+    <div className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
       <MenuSelect
         ariaLabel={label}
@@ -237,7 +243,7 @@ export function SelectField<T extends string>({
         onChange={onChange}
         className="w-28"
       />
-    </label>
+    </div>
   );
 }
 

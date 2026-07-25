@@ -153,6 +153,15 @@ describe("ElementTypeInspectorSections device mockup assets", () => {
     expect(screenshotCard).toBeGreaterThan(contentBlur);
     expect(frameCard).toBeGreaterThan(screenshotCard);
   });
+
+  it("uses the same product-oriented Content mode control as screenshot media", () => {
+    const markup = renderDeviceFrame(deviceFrame);
+
+    expect(markup).toContain('role="group" aria-label="Content mode"');
+    expect(markup).toContain("Fill");
+    expect(markup).toContain("Fit");
+    expect(markup.indexOf("Content mode")).toBeLessThan(markup.indexOf("Fill"));
+  });
 });
 
 describe("ElementTypeInspectorSections media content mode", () => {
@@ -197,6 +206,7 @@ describe("ElementTypeInspectorSections media content mode", () => {
     expect(markup.indexOf("Corner radius")).toBeLessThan(markup.indexOf("Square"));
     expect(markup).toContain("Soft");
     expect(markup).toContain("Round");
+    expect(markup).toContain("Exact value");
     expect(markup).toContain("108");
     expect(markup).toContain("Add blur");
     expect(markup).toContain("Cover crop");
@@ -207,6 +217,8 @@ describe("ElementTypeInspectorSections media content mode", () => {
     expect(markup).toContain('aria-label="Increase crop zoom"');
     expect(markup).toContain("Reset crop");
     expect(markup).toContain("Advanced");
+    expect(markup).not.toContain("<details open");
+    expect(markup).toContain("aspect-[3/2]");
     expect(markup).toContain('aria-label="Focal X %"');
     expect(markup).toContain('aria-label="Focal Y %"');
   });
@@ -250,6 +262,8 @@ describe("ElementTypeInspectorSections screenshot resources", () => {
 
     expect(markup).toContain("checkout.png");
     expect(markup).toContain("Replace");
+    expect(markup).toContain('data-inspector-asset-thumbnail="screenshots/checkout.png"');
+    expect(markup).toMatch(/data-inspector-asset-thumbnail="screenshots\/checkout\.png"[^>]*>.*<img/s);
     expect(markup).toContain('aria-label="Remove screenshot element"');
     expect(markup).not.toContain("Asset URL");
     expect(markup).not.toContain("screenshots/checkout.png</input>");

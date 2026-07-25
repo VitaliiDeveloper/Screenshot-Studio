@@ -51,9 +51,17 @@ describe("editor UI primitives", () => {
     expect(editorUi.segmentedButton).toContain("px-2.5");
     expect(editorUi.segmentedButton).toContain("font-medium");
     expect(editorUi.segmentedButton).toContain("whitespace-nowrap");
-    expect(editorUi.segmentedButtonLabel).toBe("text-xs leading-none");
+    expect(editorUi.segmentedButtonLabel).toContain("inline-flex");
+    expect(editorUi.segmentedButtonLabel).toContain("items-center");
+    expect(editorUi.segmentedButtonLabel).toContain("gap-1.5");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-color-surface)");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-shadow-control)");
+  });
+
+  it("uses one thin range contract across inspector sliders", () => {
+    expect(editorUi.rangeInput).toContain("editor-range");
+    expect(editorUi.rangeInput).toContain("h-6");
+    expect(editorUi.rangeInput).toContain("var(--editor-color-focus)");
   });
 
   it("renders a reusable accessible segmented control", () => {

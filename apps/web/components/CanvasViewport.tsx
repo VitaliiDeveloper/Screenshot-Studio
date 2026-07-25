@@ -28,6 +28,7 @@ import {
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
+import { activeArtboardScrollBehavior } from "./canvas-viewport/canvas-viewport-model";
 import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
 import { canvasTransitionKind, type CanvasTransitionState } from "./canvas-viewport/layout-transition";
 import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
@@ -325,7 +326,11 @@ export function CanvasViewport({
       viewport.scrollTo({
         left: targetCenterX - leftInset - visibleWidth / 2,
         top: targetCenterY - viewport.clientHeight / 2,
-        behavior: "smooth",
+        behavior: activeArtboardScrollBehavior({
+          leftInset,
+          rightInset,
+          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        }),
       });
     });
     return () => cancelAnimationFrame(id);

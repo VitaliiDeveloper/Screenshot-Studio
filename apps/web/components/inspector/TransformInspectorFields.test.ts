@@ -38,8 +38,18 @@ describe("TransformInspectorFields", () => {
     expect(markup).toContain('aria-label="Lock aspect ratio"');
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain('aria-label="Rotation dial"');
+    expect(markup).toContain('data-rotation-dial-arc="active"');
+    expect(markup).toContain('data-rotation-dial-thumb=""');
     expect(markup).toContain('aria-label="Opacity"');
+    expect(markup).toContain('data-transform-secondary-controls="stacked"');
     expect(markup).toContain("Exported images are always flattened");
+    expect(markup).toMatch(/aria-label="Element position preview"[^>]*class="[^"]*h-32 w-32/);
+    expect(markup).not.toContain("h-40");
+    expect(markup).toContain("grid-cols-[8rem_minmax(0,1fr)]");
+    expect(markup).toContain("gap-5");
+    expect(markup).not.toContain("grid-cols-[8rem_5.5rem] items-center justify-between gap-3");
+    expect(markup).not.toContain("grid-cols-[7rem_minmax(0,1fr)]");
+    expect(markup).not.toContain("grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]");
     expect(markup).toContain("px");
     expect(markup).toContain("%");
   });

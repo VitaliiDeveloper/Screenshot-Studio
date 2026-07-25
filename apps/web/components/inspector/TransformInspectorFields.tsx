@@ -101,14 +101,13 @@ export function TransformInspectorFields({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
+      <div className="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-5">
         <button
           type="button"
           aria-label="Element position preview"
           disabled={effectiveLocked}
           title={effectiveLocked ? "Unlock the element and its group to reposition it directly" : "Drag to reposition the element"}
-          className="relative min-h-24 overflow-hidden rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ aspectRatio: `${artboard.width} / ${artboard.height}` }}
+          className="grid h-32 w-32 place-items-center overflow-hidden rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
             updatePosition(event);
@@ -126,14 +125,19 @@ export function TransformInspectorFields({
           onKeyDown={handlePositionKey}
           onBlur={onInteractionEnd}
         >
-          <span className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-dashed border-[var(--editor-color-border-strong)]" />
-          <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[var(--editor-color-border-strong)]" />
           <span
-            aria-hidden="true"
-            className="pointer-events-none absolute min-h-2 min-w-2 border-2 border-[var(--editor-color-accent)] bg-[var(--editor-color-accent-subtle)]"
-            style={miniRect}
+            className="pointer-events-none relative h-full w-auto max-w-full overflow-hidden rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]"
+            style={{ aspectRatio: `${artboard.width} / ${artboard.height}` }}
           >
-            <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-white" />
+            <span className="absolute inset-x-0 top-1/2 border-t border-dashed border-[var(--editor-color-border-strong)]" />
+            <span className="absolute inset-y-0 left-1/2 border-l border-dashed border-[var(--editor-color-border-strong)]" />
+            <span
+              aria-hidden="true"
+              className="absolute min-h-2 min-w-2 border-2 border-[var(--editor-color-accent)] bg-[var(--editor-color-accent-subtle)]"
+              style={miniRect}
+            >
+              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-white" />
+            </span>
           </span>
         </button>
         <div className="flex flex-col justify-center gap-2">
@@ -174,50 +178,64 @@ export function TransformInspectorFields({
         />
       </div>
 
-      <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-end gap-3 border-t border-[var(--editor-color-border)] pt-3">
-        <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-end gap-2">
-          <button
-            type="button"
-            aria-label="Rotation dial"
-            disabled={effectiveLocked}
-            title={effectiveLocked ? "Unlock the element and its group to rotate it directly" : "Drag to rotate the element"}
-            className="relative size-14 rounded-full border-2 border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              updateRotation(event);
-            }}
-            onPointerMove={(event) => {
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) updateRotation(event);
-            }}
-            onPointerUp={(event) => {
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                event.currentTarget.releasePointerCapture(event.pointerId);
-              }
-              onInteractionEnd();
-            }}
-            onPointerCancel={onInteractionEnd}
-            onKeyDown={handleRotationKey}
-            onBlur={onInteractionEnd}
-          >
-            <span
-              className="absolute left-1/2 top-1/2 h-[42%] w-0.5 origin-bottom -translate-x-1/2 -translate-y-full rounded-full bg-[var(--editor-color-accent)]"
-              style={{ transform: `translate(-50%, -100%) rotate(${element.rotation}deg)` }}
+      <div
+        data-transform-secondary-controls="stacked"
+        className="flex flex-col gap-3 border-t border-[var(--editor-color-border)] pt-3"
+      >
+        <div className="flex min-w-0 flex-col gap-1.5 text-xs">
+          <span className="text-slate-500">Rotation</span>
+          <div className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3">
+            <button
+              type="button"
+              aria-label="Rotation dial"
+              disabled={effectiveLocked}
+              title={effectiveLocked ? "Unlock the element and its group to rotate it directly" : "Drag to rotate the element"}
+              className="relative size-16 rounded-full bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                updateRotation(event);
+              }}
+              onPointerMove={(event) => {
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) updateRotation(event);
+              }}
+              onPointerUp={(event) => {
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                }
+                onInteractionEnd();
+              }}
+              onPointerCancel={onInteractionEnd}
+              onKeyDown={handleRotationKey}
+              onBlur={onInteractionEnd}
+            >
+              <span className="pointer-events-none absolute inset-1 rotate-45 rounded-full border-[3px] border-[var(--editor-color-border)] border-b-transparent" />
+              <span
+                data-rotation-dial-arc="active"
+                className="pointer-events-none absolute inset-1 -rotate-[28deg] rounded-full border-[3px] border-transparent border-l-[var(--editor-color-accent)] border-t-[var(--editor-color-accent)]"
+              />
+              <span
+                data-rotation-dial-thumb=""
+                className="pointer-events-none absolute inset-1"
+                style={{ transform: `rotate(${element.rotation}deg)` }}
+              >
+                <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 -translate-y-0.5 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-white" />
+              </span>
+              <span className="pointer-events-none absolute inset-0 grid place-items-center text-xs tabular-nums text-[color:var(--editor-color-text-default)]">
+                {Math.round(element.rotation)}°
+              </span>
+            </button>
+            <NumberField
+              label="Rotation"
+              labelHidden
+              value={element.rotation}
+              precision={2}
+              suffix="°"
+              controlClassName="!w-full"
+              onChange={(rotation) => onChange({ rotation })}
             />
-            <span className="absolute inset-0 grid place-items-center text-[10px] tabular-nums text-[color:var(--editor-color-text-default)]">
-              {Math.round(element.rotation)}°
-            </span>
-          </button>
-          <NumberField
-            label="Rotation"
-            labelHidden
-            value={element.rotation}
-            precision={2}
-            suffix="°"
-            controlClassName="!w-full"
-            onChange={(rotation) => onChange({ rotation })}
-          />
+          </div>
         </div>
-        <div onPointerUp={onInteractionEnd} onBlur={onInteractionEnd}>
+        <div className="min-w-0" onPointerUp={onInteractionEnd} onBlur={onInteractionEnd}>
           <SliderNumberField
             label="Opacity"
             value={unitToPercent(element.opacity)}

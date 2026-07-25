@@ -26,6 +26,7 @@ import {
 } from "@web/components/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
+import { ContentModeControl } from "./MediaPresentationFields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 
 const DeviceFramePresetPicker = dynamic(
@@ -215,13 +216,7 @@ export function ElementTypeInspectorSections({
 
       {element.type === "device-frame" && (
         <Section title="Device frame">
-          <SelectField
-            label="Content mode"
-            value={element.fit}
-            options={["cover", "contain"] as const}
-            optionLabels={{ cover: "Fill", contain: "Fit" }}
-            onChange={(fit) => patchDeviceFrame({ fit })}
-          />
+          <ContentModeControl value={element.fit} onChange={(fit) => patchDeviceFrame({ fit })} />
           <OptionalInspectorEffect
             title="Content blur"
             description="Soften the screenshot inside the frame"

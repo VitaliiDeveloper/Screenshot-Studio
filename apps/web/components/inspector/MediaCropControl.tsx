@@ -6,7 +6,7 @@ import type { KeyboardEvent, PointerEvent } from "react";
 import { Minus, Plus } from "lucide-react";
 import type { MediaCrop } from "@screenshot-studio/core/model";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
-import { NumberField } from "@web/components/inspector-fields";
+import { NumberField, rangeProgressStyle } from "@web/components/inspector-fields";
 import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
 import {
   adjustCropZoom,
@@ -79,7 +79,7 @@ export function MediaCropControl({
         </p>
       </div>
 
-      <div className="relative aspect-[4/3] overflow-hidden rounded-[var(--editor-radius-control)] bg-[var(--editor-color-surface-muted)] ring-1 ring-[var(--editor-color-border)]">
+      <div className="relative aspect-[3/2] overflow-hidden rounded-[var(--editor-radius-control)] bg-[var(--editor-color-surface-muted)] ring-1 ring-[var(--editor-color-border)]">
         <NextImage
           fill
           unoptimized
@@ -149,7 +149,8 @@ export function MediaCropControl({
           step={0.1}
           value={crop.zoom}
           disabled={locked}
-          className="h-6 w-full cursor-pointer accent-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2"
+          className={editorUi.rangeInput}
+          style={rangeProgressStyle(crop.zoom, 1, 4)}
           onChange={(event) => updateZoom(Number(event.currentTarget.value))}
           onPointerUp={onInteractionEnd}
           onKeyUp={onInteractionEnd}
@@ -180,7 +181,7 @@ export function MediaCropControl({
         Reset crop
       </button>
 
-      <details open className="group">
+      <details className="group">
         <summary className="cursor-pointer text-xs font-medium text-[color:var(--editor-color-text-default)]">Advanced</summary>
         <div className="mt-2 flex flex-col gap-2">
           <NumberField

@@ -24,7 +24,9 @@ describe("EditorSidePanel", () => {
     expect(markup).not.toContain("inert");
     expect(markup).toContain("translate-x-0");
     expect(markup).toContain("opacity-100");
+    expect(markup).toContain("w-[min(18rem,calc(100vw-3.5rem))]");
     expect(markup).toContain("xl:w-72");
+    expect(markup).not.toContain("xl:w-[25rem]");
   });
 
   it("keeps a closed panel mounted but hidden and non-interactive", () => {
@@ -48,6 +50,14 @@ describe("EditorSidePanel", () => {
     expect(markup).toContain("translate-x-full");
     expect(markup).toContain("xl:translate-x-3");
     expect(markup).not.toContain("-translate-x-full");
+  });
+
+  it("keeps the right inspector at the standard compact panel width", () => {
+    const markup = renderPanel("right", true);
+
+    expect(markup).toContain("w-[min(18rem,calc(100vw-3.5rem))]");
+    expect(markup).toContain("xl:w-72");
+    expect(markup).not.toContain("25rem");
   });
 
   it("uses one reduced-motion-safe 200ms transition contract", () => {
