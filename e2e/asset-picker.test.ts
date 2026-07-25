@@ -143,20 +143,65 @@ describe("Project asset picker", () => {
       y: 100,
     });
     expectInitialMediaSize(insertedImage, sourceDimensions);
-    await page.getByLabel("Content mode", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "Fill", exact: true }).click();
-    await page.getByLabel("Corner radius", { exact: true }).fill("24");
-    await page.getByLabel("Corner radius", { exact: true }).blur();
-    await page.getByLabel("Focal X %", { exact: true }).fill("25");
-    await page.getByLabel("Focal X %", { exact: true }).blur();
-    await page.getByLabel("Focal Y %", { exact: true }).fill("75");
-    await page.getByLabel("Focal Y %", { exact: true }).blur();
-    await page.getByLabel("Crop zoom", { exact: true }).fill("2");
-    await page.getByLabel("Crop zoom", { exact: true }).blur();
-    await expect.poll(() => project().layouts[0].screens[0].elements.at(-1)).toMatchObject({
-      cornerRadius: 24,
-      fit: "cover", crop: { x: 0.25, y: 0.75, zoom: 2 },
+    const insertedImageId = insertedImage.id;
+    await page.getByRole("button", { name: "Fill", exact: true }).click();
+    await page.getByRole("button", { name: "Soft", exact: true }).click();
+    const cornerRadius = page.getByRole("spinbutton", { name: "Corner radius", exact: true });
+    await cornerRadius.fill("108");
+    await cornerRadius.blur();
+    await page.getByRole("button", { name: "Focal point", exact: true }).press("ArrowRight");
+    await page.getByRole("button", { name: "Increase crop zoom", exact: true }).click();
+    await page.getByRole("button", { name: "Add blur", exact: true }).click();
+    await expect.poll(() => project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId)?.blur).toBe(8);
+    await page.getByRole("button", { name: "Remove blur", exact: true }).click();
+    await expect.poll(() => project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId)).not.toHaveProperty("blur");
+    await page.getByRole("button", { name: "Add blur", exact: true }).click();
+
+    await page.getByRole("spinbutton", { name: "X", exact: true }).fill("140");
+    await page.getByRole("spinbutton", { name: "X", exact: true }).blur();
+    await page.getByRole("spinbutton", { name: "Y", exact: true }).fill("120");
+    await page.getByRole("spinbutton", { name: "Y", exact: true }).blur();
+    await page.getByRole("spinbutton", { name: "Width", exact: true }).fill("320");
+    await page.getByRole("spinbutton", { name: "Width", exact: true }).blur();
+    await page.getByRole("spinbutton", { name: "Rotation", exact: true }).fill("5");
+    await page.getByRole("spinbutton", { name: "Rotation", exact: true }).blur();
+    const opacity = page.getByRole("slider", { name: "Opacity", exact: true });
+    await opacity.fill("65");
+    await opacity.blur();
+
+    await expect.poll(() => project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId)).toMatchObject({
+      x: 140,
+      y: 120,
+      width: 320,
+      rotation: 5,
+      opacity: 0.65,
+      cornerRadius: 108,
+      fit: "cover",
+      crop: { x: 0.51, y: 0.5, zoom: 1.1 },
+      blur: 8,
     });
+
+    const beforeReplacement = project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId);
+    const elementCountBeforeReplacement = project().layouts[0].screens[0].elements.length;
+    await page.getByRole("button", { name: "Replace", exact: true }).click();
+    const replacementDialog = page.getByRole("dialog", { name: "Image asset picker" });
+    await replacementDialog.getByLabel("Choose image from device").setInputFiles({
+      name: "finder-media-replacement.png",
+      mimeType: "image/png",
+      buffer: readFileSync(imagePath),
+    });
+    await replacementDialog.waitFor({ state: "hidden" });
+    await expect.poll(() => project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId)?.assetUrl)
+      .toBe("assets/imported/finder-media-replacement.png");
+    const afterReplacement = project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId);
+    expect(project().layouts[0].screens[0].elements).toHaveLength(elementCountBeforeReplacement);
+    expect({ ...afterReplacement, assetUrl: beforeReplacement.assetUrl }).toEqual(beforeReplacement);
 
     await page.getByRole("button", { name: "Place screenshot in mockup", exact: true }).click();
     const frameDialog = page.getByRole("dialog", { name: "Mockup screenshot picker" });
@@ -270,12 +315,39 @@ describe("Project asset picker", () => {
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
     expect(await page.getByText("Loading workspace…").count()).toBe(0);
+    const reloadedImage = project().layouts[0].screens[0].elements
+      .find((element: { id: string }) => element.id === insertedImageId);
+    expect(reloadedImage).toMatchObject({
+      assetUrl: "assets/imported/finder-media-replacement.png",
+      fit: "cover",
+      cornerRadius: 108,
+      crop: { x: 0.51, y: 0.5, zoom: 1.1 },
+      blur: 8,
+      opacity: 0.65,
+      x: 140,
+      y: 120,
+      width: 320,
+      rotation: 5,
+    });
+
+    const siblingsBeforeRemoval = project().layouts[0].screens[0].elements
+      .filter((element: { id: string }) => element.id !== insertedImageId)
+      .map((element: { id: string }) => element.id);
+    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    await page.getByRole("list", { name: "Layers for Connected First" })
+      .getByRole("button", { name: "Image", exact: true }).click();
+    await page.getByRole("button", { name: "Remove image element", exact: true }).click();
+    await expect.poll(() => project().layouts[0].screens[0].elements
+      .some((element: { id: string }) => element.id === insertedImageId)).toBe(false);
+    expect(project().layouts[0].screens[0].elements
+      .map((element: { id: string }) => element.id)).toEqual(siblingsBeforeRemoval);
 
     await page.getByRole("button", { name: "Overview", exact: true }).click();
     await page.getByRole("button", {
       name: "Edit Google Play · Wear OS connected row",
       exact: true,
     }).click();
+    await page.getByRole("button", { name: "Add element", exact: true }).click();
     await page.getByRole("button", { name: "Place screenshot in mockup", exact: true }).click();
     const wearAssetDialog = page.getByRole("dialog", { name: "Mockup screenshot picker" });
     await wearAssetDialog.getByRole("button", { name: "Use assets/demo-logistics-app.png" }).click();
