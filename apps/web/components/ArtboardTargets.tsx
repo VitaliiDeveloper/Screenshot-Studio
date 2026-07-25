@@ -184,14 +184,14 @@ export function ArtboardTargets({
           <span className="text-[10px] text-slate-600">{dimensionsLabel(target)}</span>
         </span>
         <span className="pointer-events-none relative z-[2] flex shrink-0 items-center gap-1">
-          {isLead ? (
-            <span
-              data-testid="store-target-roles"
-              className="rounded-full bg-slate-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white"
-            >
-              Primary
-            </span>
-          ) : null}
+          <span
+            data-testid="store-target-role"
+            className={isLead
+              ? "rounded-full bg-slate-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white"
+              : "rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-600"}
+          >
+            {isLead ? "Master" : "Variant"}
+          </span>
           {canRemove && targetScreen ? (
             <button
               type="button"

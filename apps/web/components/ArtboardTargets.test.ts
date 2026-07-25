@@ -97,9 +97,16 @@ describe("ArtboardTargets", () => {
     expect(withLegacy).toContain("1440×900");
   });
 
-  it("uses one Primary term for the lead size and keeps technical roles out of the UI", () => {
+  it("uses the same Master and Variant roles as the overview board", () => {
+    const variant = {
+      ...screen,
+      id: "web-desktop-1440",
+      variantOf: screen.id,
+      storeTargetId: "desktop-1440",
+      artboard: { width: 1440, height: 900 },
+    } as Screen;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {
-      layout,
+      layout: { ...layout, screens: [screen, variant] },
       screen,
       specs,
       onOpen: vi.fn(),
@@ -111,12 +118,11 @@ describe("ArtboardTargets", () => {
     }));
 
     const name = markup.match(/data-testid="store-target-name"[^>]*>(.*?)<\/span>/)?.[1];
-    const roles = markup.match(/data-testid="store-target-roles"[^>]*>(.*?)<\/span><\/span>/)?.[1] ?? "";
+    const roles = [...markup.matchAll(/data-testid="store-target-role"[^>]*>(.*?)<\/span>/g)]
+      .map((match) => match[1]);
     expect(name).toBe("1920×1080 · Landscape");
-    expect(roles).toContain("Primary");
-    expect(roles).not.toContain("lead");
-    expect(roles).not.toContain("master");
-    expect(roles).not.toContain("variant");
+    expect(roles).toEqual(["Master", "Variant"]);
+    expect(markup).not.toContain(">Primary<");
   });
 
   it("uses the whole card for accessible navigation without redundant indicators", () => {
