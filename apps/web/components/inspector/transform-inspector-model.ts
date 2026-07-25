@@ -48,7 +48,12 @@ export function rotationFromPointer(
   center: { x: number; y: number },
 ): number {
   const raw = Math.round(Math.atan2(pointer.y - center.y, pointer.x - center.x) * (180 / Math.PI) + 90);
-  return ((raw % 360) + 360) % 360;
+  return normalizeRotation(raw);
+}
+
+export function normalizeRotation(value: number): number {
+  const normalized = ((value % 360) + 360) % 360;
+  return normalized === 0 && value > 0 ? 360 : normalized;
 }
 
 export function defaultAspectRatioLocked(type: ElementType): boolean {

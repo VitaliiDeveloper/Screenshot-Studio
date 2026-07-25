@@ -5,6 +5,7 @@ import {
   defaultAspectRatioLocked,
   directTransformPatch,
   linkedSizePatch,
+  normalizeRotation,
   positionFromMiniPointer,
   rotationFromPointer,
 } from "./transform-inspector-model.js";
@@ -41,7 +42,16 @@ describe("transform inspector model", () => {
   it("returns a top-origin clockwise rotation", () => {
     expect(rotationFromPointer({ x: 50, y: 0 }, { x: 50, y: 50 })).toBe(0);
     expect(rotationFromPointer({ x: 100, y: 50 }, { x: 50, y: 50 })).toBe(90);
+    expect(rotationFromPointer({ x: 50, y: 100 }, { x: 50, y: 50 })).toBe(180);
     expect(rotationFromPointer({ x: 0, y: 50 }, { x: 50, y: 50 })).toBe(270);
+  });
+
+  it("normalizes rotation into the inclusive 0 to 360 editor range", () => {
+    expect(normalizeRotation(-6)).toBe(354);
+    expect(normalizeRotation(0)).toBe(0);
+    expect(normalizeRotation(360)).toBe(360);
+    expect(normalizeRotation(361)).toBe(1);
+    expect(normalizeRotation(720)).toBe(360);
   });
 
   it("defaults ratio lock by element semantics without persisting it", () => {

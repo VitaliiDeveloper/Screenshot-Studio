@@ -17,6 +17,7 @@ import {
   defaultAspectRatioLocked,
   directTransformPatch,
   linkedSizePatch,
+  normalizeRotation,
   positionFromMiniPointer,
   rotationFromPointer,
 } from "./transform-inspector-model";
@@ -51,6 +52,7 @@ export function TransformInspectorFields({
 }) {
   const forcedLock = aspectRatioLockForced(element.type);
   const effectiveLocked = effectiveLockedProp ?? element.locked;
+  const rotation = normalizeRotation(element.rotation);
   const [ratioLocked, setRatioLocked] = useState(() => defaultAspectRatioLocked(element.type));
 
   const updatePosition = (event: PointerEvent<HTMLButtonElement>) => {
@@ -84,11 +86,11 @@ export function TransformInspectorFields({
     const delta = event.shiftKey ? 10 : 1;
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
       event.preventDefault();
-      const patch = directTransformPatch(effectiveLocked, { rotation: element.rotation - delta });
+      const patch = directTransformPatch(effectiveLocked, { rotation: normalizeRotation(rotation - delta) });
       if (patch) onChange(patch);
     } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
       event.preventDefault();
-      const patch = directTransformPatch(effectiveLocked, { rotation: element.rotation + delta });
+      const patch = directTransformPatch(effectiveLocked, { rotation: normalizeRotation(rotation + delta) });
       if (patch) onChange(patch);
     }
   };
@@ -208,30 +210,28 @@ export function TransformInspectorFields({
               onKeyDown={handleRotationKey}
               onBlur={onInteractionEnd}
             >
-              <span className="pointer-events-none absolute inset-1 rotate-45 rounded-full border-[3px] border-[var(--editor-color-border)] border-b-transparent" />
-              <span
-                data-rotation-dial-arc="active"
-                className="pointer-events-none absolute inset-1 -rotate-[28deg] rounded-full border-[3px] border-transparent border-l-[var(--editor-color-accent)] border-t-[var(--editor-color-accent)]"
-              />
+              <span className="pointer-events-none absolute inset-1 rounded-full border-[3px] border-[var(--editor-color-border)]" />
               <span
                 data-rotation-dial-thumb=""
                 className="pointer-events-none absolute inset-1"
-                style={{ transform: `rotate(${element.rotation}deg)` }}
+                style={{ transform: `rotate(${rotation}deg)` }}
               >
                 <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 -translate-y-0.5 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-on-media)]" />
               </span>
               <span className="pointer-events-none absolute inset-0 grid place-items-center text-xs tabular-nums text-[color:var(--editor-color-text-default)]">
-                {Math.round(element.rotation)}°
+                {Math.round(rotation)}°
               </span>
             </button>
             <NumberField
               label="Rotation"
               labelHidden
-              value={element.rotation}
+              value={rotation}
+              min={0}
+              max={360}
               precision={2}
               suffix="°"
               controlClassName="!w-full"
-              onChange={(rotation) => onChange({ rotation })}
+              onChange={(nextRotation) => onChange({ rotation: normalizeRotation(nextRotation) })}
             />
           </div>
         </div>
