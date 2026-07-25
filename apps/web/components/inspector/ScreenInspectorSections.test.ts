@@ -267,7 +267,9 @@ describe("ScreenInspectorSections background controls", () => {
     expect(markup).toContain('aria-label="From"');
     expect(markup).toContain('aria-label="To"');
     expect(markup).toContain('aria-label="Swap gradient colors"');
-    expect(markup).toContain('aria-label="Gradient direction"');
+    expect(markup).toContain('aria-label="Gradient direction presets"');
+    expect(markup).toContain('aria-label="Set gradient direction to Top-left to bottom-right" title="Top-left to bottom-right" aria-pressed="true"');
+    expect(markup).toContain('aria-label="Reverse gradient direction" title="Reverse direction" aria-pressed="false"');
     expect(markup).toContain('aria-label="Angle"');
     expect(markup).toContain('transition-[height]');
   });

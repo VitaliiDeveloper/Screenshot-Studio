@@ -9,34 +9,37 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Pipette } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Pipette, RotateCcw } from "lucide-react";
 import type { Background } from "@screenshot-studio/core/model";
 import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
-import { editorUi, MenuSelect, SegmentedControl } from "@web/components/editor-ui";
+import { editorUi, SegmentedControl } from "@web/components/editor-ui";
 import { NumberField } from "@web/components/inspector-fields";
 
-const GRADIENT_DIRECTIONS = [
-  { value: "left-to-right", label: "Left → right", angle: 0 },
-  { value: "top-left-to-bottom-right", label: "Top-left → bottom-right", angle: 45 },
-  { value: "top-to-bottom", label: "Top → bottom", angle: 90 },
-  { value: "top-right-to-bottom-left", label: "Top-right → bottom-left", angle: 135 },
-  { value: "right-to-left", label: "Right → left", angle: 180 },
-  { value: "bottom-right-to-top-left", label: "Bottom-right → top-left", angle: 225 },
-  { value: "bottom-to-top", label: "Bottom → top", angle: 270 },
-  { value: "bottom-left-to-top-right", label: "Bottom-left → top-right", angle: 315 },
+const GRADIENT_DIRECTION_AXES = [
+  {
+    angle: 0,
+    forward: { symbol: "→", label: "Left to right" },
+    reverse: { symbol: "←", label: "Right to left" },
+  },
+  {
+    angle: 45,
+    forward: { symbol: "↘", label: "Top-left to bottom-right" },
+    reverse: { symbol: "↖", label: "Bottom-right to top-left" },
+  },
+  {
+    angle: 90,
+    forward: { symbol: "↓", label: "Top to bottom" },
+    reverse: { symbol: "↑", label: "Bottom to top" },
+  },
+  {
+    angle: 135,
+    forward: { symbol: "↙", label: "Top-right to bottom-left" },
+    reverse: { symbol: "↗", label: "Bottom-left to top-right" },
+  },
 ] as const;
 
-type GradientDirection = (typeof GRADIENT_DIRECTIONS)[number]["value"] | "custom";
-
-const GRADIENT_DIRECTION_OPTIONS = [
-  ...GRADIENT_DIRECTIONS.map(({ value, label }) => ({ value, label })),
-  { value: "custom" as const, label: "Custom angle" },
-];
-
-function gradientDirection(angle: number): GradientDirection {
-  const normalizedAngle = angle === 360 ? 0 : angle;
-  return GRADIENT_DIRECTIONS.find((direction) => direction.angle === normalizedAngle)?.value
-    ?? "custom";
+function normalizeGradientAngle(angle: number): number {
+  return ((angle % 360) + 360) % 360;
 }
 
 function previewImageUrl(assetUrl: string): string {
@@ -178,6 +181,10 @@ export function BackgroundInspectorFields({
     : background.type === "linear-gradient"
       ? background.from
       : null;
+  const normalizedGradientAngle = background.type === "linear-gradient"
+    ? normalizeGradientAngle(background.angle)
+    : 0;
+  const gradientDirectionReversed = normalizedGradientAngle >= 180;
 
   const changeType = (type: Background["type"]) => {
     const baseColor = background.type === "solid"
@@ -291,19 +298,55 @@ export function BackgroundInspectorFields({
               />
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_4.75rem] items-end gap-2">
-              <label className="flex min-w-0 flex-col gap-1.5 text-xs">
+              <div className="flex min-w-0 flex-col gap-1.5 text-xs">
                 <span className="text-[color:var(--editor-color-text-secondary)]">Direction</span>
-                <MenuSelect
-                  ariaLabel="Gradient direction"
-                  value={gradientDirection(background.angle)}
-                  options={GRADIENT_DIRECTION_OPTIONS}
-                  onChange={(direction) => {
-                    const preset = GRADIENT_DIRECTIONS.find(({ value }) => value === direction);
-                    if (preset) onChange({ ...background, angle: preset.angle });
-                  }}
-                  className="w-full"
-                />
-              </label>
+                <div
+                  role="group"
+                  aria-label="Gradient direction presets"
+                  className="flex h-8 min-w-0 items-center gap-0.5 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] p-1"
+                >
+                  {GRADIENT_DIRECTION_AXES.map((axis) => {
+                    const direction = gradientDirectionReversed ? axis.reverse : axis.forward;
+                    const selected = normalizedGradientAngle % 180 === axis.angle;
+                    return (
+                      <button
+                        key={axis.angle}
+                        type="button"
+                        aria-label={`Set gradient direction to ${direction.label}`}
+                        title={direction.label}
+                        aria-pressed={selected}
+                        className={`flex h-6 min-w-0 flex-1 items-center justify-center rounded-[var(--editor-radius-compact)] text-sm leading-none transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] ${selected
+                          ? "bg-[var(--editor-color-surface)] font-semibold text-[color:var(--editor-color-accent-hover)] shadow-[var(--editor-shadow-control)]"
+                          : "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]"
+                        }`}
+                        onClick={() => onChange({
+                          ...background,
+                          angle: axis.angle + (gradientDirectionReversed ? 180 : 0),
+                        })}
+                      >
+                        <span aria-hidden="true">{direction.symbol}</span>
+                      </button>
+                    );
+                  })}
+                  <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-[var(--editor-color-border)]" />
+                  <button
+                    type="button"
+                    aria-label="Reverse gradient direction"
+                    title="Reverse direction"
+                    aria-pressed={gradientDirectionReversed}
+                    className={`flex size-6 shrink-0 items-center justify-center rounded-[var(--editor-radius-compact)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] ${gradientDirectionReversed
+                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)]"
+                      : "text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]"
+                    }`}
+                    onClick={() => onChange({
+                      ...background,
+                      angle: (normalizedGradientAngle + 180) % 360,
+                    })}
+                  >
+                    <RotateCcw size={13} strokeWidth={1.9} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
               <NumberField
                 label="Angle"
                 layout="column"
