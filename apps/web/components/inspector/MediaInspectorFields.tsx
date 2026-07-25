@@ -3,10 +3,10 @@
 
 import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
 import { Image as ImageIcon, Trash2 } from "lucide-react";
-import type { ElementPatchFor } from "@web/lib/editor-store";
+import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
-import { NumberField } from "@web/components/inspector-fields";
 import { mediaInspectorModel } from "./media-inspector-model";
+import { MediaCropControl } from "./MediaCropControl";
 import { MediaPresentationFields } from "./MediaPresentationFields";
 
 export function MediaInspectorFields({
@@ -58,17 +58,14 @@ export function MediaInspectorFields({
       </InsetPanel>
       <MediaPresentationFields element={element} onChange={onChange} />
       {showCrop ? (
-        <InsetPanel>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>
-          <NumberField label="Focal X %" value={crop.x * 100} min={0} max={100} integer onChange={(x) => onChange({ crop: { ...crop, x: x / 100 } })} />
-          <NumberField label="Focal Y %" value={crop.y * 100} min={0} max={100} integer onChange={(y) => onChange({ crop: { ...crop, y: y / 100 } })} />
-          <NumberField label="Crop zoom" value={crop.zoom} min={1} max={4} step={0.1} onChange={(zoom) => onChange({ crop: { ...crop, zoom } })} />
-          {canResetCrop ? (
-            <button type="button" className={editorUi.buttonSecondary} onClick={() => onChange({ crop: null })}>
-              Reset crop
-            </button>
-          ) : null}
-        </InsetPanel>
+        <MediaCropControl
+          assetUrl={element.assetUrl}
+          crop={crop}
+          canReset={canResetCrop}
+          onChange={(nextCrop) => onChange({ crop: nextCrop })}
+          onReset={() => onChange({ crop: null })}
+          onInteractionEnd={() => editorStore.getState().endHistoryGroup()}
+        />
       ) : null}
     </>
   );

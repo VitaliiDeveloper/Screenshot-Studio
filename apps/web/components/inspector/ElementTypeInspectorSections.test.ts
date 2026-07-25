@@ -171,6 +171,7 @@ describe("ElementTypeInspectorSections media content mode", () => {
       assetUrl: "screenshots/checkout.png",
       fit: "cover",
       cornerRadius: 108,
+      crop: { x: 0.5, y: 0.5, zoom: 1 },
     };
     const previousReact = Reflect.get(globalThis, "React");
     Reflect.set(globalThis, "React", React);
@@ -198,6 +199,16 @@ describe("ElementTypeInspectorSections media content mode", () => {
     expect(markup).toContain("Round");
     expect(markup).toContain("108");
     expect(markup).toContain("Add blur");
+    expect(markup).toContain("Cover crop");
+    expect(markup).toContain("Drag the focal point to reposition. Zoom to adjust the crop.");
+    expect(markup).toContain('aria-label="Focal point"');
+    expect(markup).toContain('aria-label="Crop zoom"');
+    expect(markup).toContain('aria-label="Decrease crop zoom"');
+    expect(markup).toContain('aria-label="Increase crop zoom"');
+    expect(markup).toContain("Reset crop");
+    expect(markup).toContain("Advanced");
+    expect(markup).toContain('aria-label="Focal X %"');
+    expect(markup).toContain('aria-label="Focal Y %"');
   });
 });
 
