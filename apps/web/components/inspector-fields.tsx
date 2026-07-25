@@ -85,7 +85,7 @@ export function NumberField({
       ? "flex min-w-0 flex-col gap-1.5 text-xs"
       : "flex items-center justify-between gap-3 text-xs"}
     >
-      <span className={labelHidden ? "sr-only" : "shrink-0 whitespace-nowrap text-slate-500"}>{label}</span>
+      <span className={labelHidden ? "sr-only" : "shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]"}>{label}</span>
       <span className={cx(
         "relative block min-w-0",
         layout === "column" ? "w-full" : "w-28",
@@ -152,7 +152,7 @@ export function SliderNumberField({
   const helpId = useId();
   return (
     <div className="flex flex-col gap-1.5 text-xs">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-[color:var(--editor-color-text-secondary)]">{label}</span>
       {helpText ? <span id={helpId} className="sr-only">{helpText}</span> : null}
       <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2">
         <input
@@ -188,7 +188,7 @@ export function ColorField({
 }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
-      <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
+      <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">{label}</span>
       <input
         type="color"
         value={value}
@@ -204,7 +204,7 @@ export function TextField({
 }: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean }) {
   return (
     <label className="flex flex-col gap-1.5 text-xs">
-      <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
+      <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">{label}</span>
       {multiline ? (
         <textarea
           value={value}
@@ -235,7 +235,7 @@ export function SelectField<T extends string>({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 text-xs">
-      <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
+      <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">{label}</span>
       <MenuSelect
         ariaLabel={label}
         value={value}
@@ -259,7 +259,7 @@ export function FontIdentityField({
   const options = fontIdentityOptions(fonts, { family, weight });
   return (
     <label className="flex flex-col gap-1.5 text-xs">
-      <span className="text-slate-500">Font</span>
+      <span className="text-[color:var(--editor-color-text-secondary)]">Font</span>
       <MenuSelect
         ariaLabel="Font"
         value={current}
@@ -308,7 +308,7 @@ export function ThemeRoleField({
   return (
     <div className="flex flex-col gap-1.5 text-xs">
       <label className="flex items-center justify-between gap-3">
-        <span className="shrink-0 whitespace-nowrap text-slate-500">Theme role</span>
+        <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">Theme role</span>
         <MenuSelect
           ariaLabel="Theme role"
           value={value ?? ""}
@@ -320,7 +320,7 @@ export function ThemeRoleField({
           className="w-28"
         />
       </label>
-      <p className="text-[11px] leading-4 text-slate-600">
+      <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-muted)]">
         Used the next time you apply a theme. The current style stays unchanged.
       </p>
     </div>

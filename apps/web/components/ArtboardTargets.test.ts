@@ -154,7 +154,7 @@ describe("ArtboardTargets", () => {
     expect(markup).toContain('aria-label="Remove 1440×900 · Landscape output"');
     expect(markup).toContain('aria-label="Open 1440×900 · Landscape"');
     expect(markup).toMatch(/aria-label="Open [^"]+ output"/);
-    expect(markup).toContain("absolute inset-0 rounded-lg");
+    expect(markup).toContain("absolute inset-0 rounded-[var(--editor-radius-control)]");
     expect(markup).toContain('aria-current="true"');
     expect(markup).not.toContain("output-target-card");
     expect(markup).not.toContain("Current");

@@ -1,16 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   editorUi,
+  DialogShell,
   InsetPanel,
+  MenuSelect,
   SegmentedControl,
   StatusMessage,
   ToolButton,
 } from "@web/components/editor-ui.js";
 
+const menuSelectSource = readFileSync(new URL("./MenuSelect.tsx", import.meta.url), "utf8");
+const addMenuSource = readFileSync(new URL("./AddMenu.tsx", import.meta.url), "utf8");
+const emptyResourceStateSource = readFileSync(new URL("./EmptyResourceState.tsx", import.meta.url), "utf8");
+
 describe("editor UI primitives", () => {
+  it("associates visible dialog descriptions with the modal semantics", () => {
+    const html = renderToStaticMarkup(createElement(
+      DialogShell,
+      {
+        title: "Import project",
+        description: "The selected source stays unchanged.",
+        onClose: () => undefined,
+        children: "Dialog body",
+      },
+    ));
+    const descriptionId = html.match(/aria-describedby="([^"]+)"/)?.[1];
+
+    expect(descriptionId).toBeTruthy();
+    expect(html).toContain(`id="${descriptionId}"`);
+    expect(html).toContain("The selected source stays unchanged.");
+  });
+
   it("uses semantic tokens for every shared visual category", () => {
     const contracts = Object.values(editorUi).join(" ");
 
@@ -57,6 +81,26 @@ describe("editor UI primitives", () => {
     expect(editorUi.segmentedButtonLabel).toContain("gap-1.5");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-color-surface)");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-shadow-control)");
+  });
+
+  it("keeps shared menus on semantic colors and named typography variants", () => {
+    const html = renderToStaticMarkup(createElement(MenuSelect, {
+      ariaLabel: "Theme role",
+      value: "heading",
+      textSize: "emphasis",
+      options: [
+        { value: "heading", label: "Heading" },
+        { value: "body", label: "Body" },
+      ],
+      onChange: () => undefined,
+    }));
+
+    expect(html).toContain("var(--editor-font-control-emphasis-size)");
+    expect(html).toContain("var(--editor-color-border)");
+    for (const source of [menuSelectSource, addMenuSource, emptyResourceStateSource]) {
+      expect(source).not.toMatch(/(?:slate|blue|red|amber)-\d/);
+    }
+    expect(menuSelectSource).not.toContain("fontSize");
   });
 
   it("uses one thin range contract across inspector sliders", () => {

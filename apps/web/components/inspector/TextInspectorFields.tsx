@@ -224,7 +224,7 @@ export function TextInspectorFields({
           <span className="block text-[length:var(--editor-font-control-size)] font-medium text-[color:var(--editor-color-text-default)]">
             Theme integration
           </span>
-          <span className="mt-0.5 block text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
+          <span className="mt-0.5 block text-[length:var(--editor-font-label-size)] leading-4 text-[color:var(--editor-color-text-secondary)]">
             Applied on the next theme change. Current styling stays unchanged.
           </span>
         </span>
@@ -242,7 +242,7 @@ export function TextInspectorFields({
             role: (nextValue || null) as ThemeRole | null,
           })}
           className="w-28 shrink-0"
-          fontSize={13}
+          textSize="emphasis"
         />
       </div>
     </>

@@ -71,16 +71,16 @@ function ArtboardSizeEditor({
     return (
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
-          <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Explicit override</span>
+          <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Artboard</h3>
+          <span className="rounded-md bg-[var(--editor-color-warning-surface)] px-1.5 py-0.5 text-[length:var(--editor-font-label-size)] font-medium text-[color:var(--editor-color-warning-text)]">Explicit override</span>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
           <NumberField label="W" value={width} min={1} integer layout="column" onChange={setWidth} />
-          <span className="pb-2 text-xs text-slate-400" aria-hidden="true">×</span>
+          <span className="pb-2 text-xs text-[color:var(--editor-color-text-subtle)]" aria-hidden="true">×</span>
           <NumberField label="H" value={height} min={1} integer layout="column" onChange={setHeight} />
-          <span className="pb-2 text-[10px] text-slate-400">px</span>
+          <span className="pb-2 text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-subtle)]">px</span>
         </div>
-        <p className={`text-[10px] leading-4 ${draftStatus?.kind === "invalid" ? "text-red-600" : "text-slate-500"}`}>
+        <p className={`text-[length:var(--editor-font-label-size)] leading-4 ${draftStatus?.kind === "invalid" ? "text-[color:var(--editor-color-danger)]" : "text-[color:var(--editor-color-text-secondary)]"}`}>
           {draftStatus?.kind === "invalid"
             ? "Custom dimensions must keep the Store Target aspect ratio."
             : "Apply resizes every screen in this Store Target output and fits each composition."}
@@ -102,7 +102,7 @@ function ArtboardSizeEditor({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
+        <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Artboard</h3>
         <SegmentedControl
           label="Artboard size mode"
           value={!target ? undefined : authoringScale ? "store" : "custom"}
@@ -149,17 +149,17 @@ function ArtboardSizeEditor({
           <div
             key={`${screen.artboard.width}:${screen.artboard.height}`}
             aria-label="Authoring canvas size"
-            className="artboard-size-value grid min-w-0 place-items-center whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium tabular-nums text-slate-700 motion-reduce:animate-none"
+            className="artboard-size-value grid min-w-0 place-items-center whitespace-nowrap rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-2 text-xs font-medium tabular-nums text-[color:var(--editor-color-text-default)] motion-reduce:animate-none"
           >
             {screen.artboard.width} × {screen.artboard.height} px
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
+        <div className="rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-3 py-2 text-right text-xs font-medium tabular-nums text-[color:var(--editor-color-text-default)]">
           {screen.artboard.width} × {screen.artboard.height} px
         </div>
       )}
-      <p className="text-[10px] leading-4 text-slate-500">
+      <p className="text-[length:var(--editor-font-label-size)] leading-4 text-[color:var(--editor-color-text-secondary)]">
         {!target
           ? "This screen references a Store Target that is unavailable."
           : status?.kind === "invalid"

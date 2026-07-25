@@ -136,7 +136,7 @@ export function TransformInspectorFields({
               className="absolute min-h-2 min-w-2 border-2 border-[var(--editor-color-accent)] bg-[var(--editor-color-accent-subtle)]"
               style={miniRect}
             >
-              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-white" />
+              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-on-media)]" />
             </span>
           </span>
         </button>
@@ -183,7 +183,7 @@ export function TransformInspectorFields({
         className="flex flex-col gap-3 border-t border-[var(--editor-color-border)] pt-3"
       >
         <div className="flex min-w-0 flex-col gap-1.5 text-xs">
-          <span className="text-slate-500">Rotation</span>
+          <span className="text-[color:var(--editor-color-text-secondary)]">Rotation</span>
           <div className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3">
             <button
               type="button"
@@ -218,7 +218,7 @@ export function TransformInspectorFields({
                 className="pointer-events-none absolute inset-1"
                 style={{ transform: `rotate(${element.rotation}deg)` }}
               >
-                <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 -translate-y-0.5 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-white" />
+                <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 -translate-y-0.5 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-on-media)]" />
               </span>
               <span className="pointer-events-none absolute inset-0 grid place-items-center text-xs tabular-nums text-[color:var(--editor-color-text-default)]">
                 {Math.round(element.rotation)}°

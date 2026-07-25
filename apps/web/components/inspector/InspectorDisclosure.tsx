@@ -30,11 +30,10 @@ export function InspectorDisclosure({
         aria-controls={panelId}
         aria-expanded={open}
         className={cx(
-          "inline-flex min-h-6 items-center gap-1 text-left font-semibold text-[color:var(--editor-color-text-default)]",
+          "inline-flex min-h-6 items-center gap-1 text-left text-[length:var(--editor-font-control-size)] font-semibold text-[color:var(--editor-color-text-default)]",
           "rounded-sm transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)]",
           "hover:text-[color:var(--editor-color-accent)] focus-visible:bg-[var(--editor-color-surface-muted)] focus-visible:outline-none",
         )}
-        style={{ fontSize: 12 }}
         onClick={() => setOpen((current) => !current)}
       >
         <ChevronDown

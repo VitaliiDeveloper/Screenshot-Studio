@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx } from "./styles.js";
@@ -23,7 +23,7 @@ export function MenuSelect<T extends string>({
   className,
   triggerClassName,
   menuClassName,
-  fontSize,
+  textSize = "default",
   showSelectedIcon = false,
   density = "default",
   appearance = "field",
@@ -36,7 +36,7 @@ export function MenuSelect<T extends string>({
   className?: string;
   triggerClassName?: string;
   menuClassName?: string;
-  fontSize?: CSSProperties["fontSize"];
+  textSize?: "default" | "emphasis";
   showSelectedIcon?: boolean;
   density?: "default" | "compact";
   appearance?: "field" | "breadcrumb";
@@ -51,6 +51,7 @@ export function MenuSelect<T extends string>({
   const ActiveIcon = activeOption?.icon;
   const compact = density === "compact";
   const breadcrumb = appearance === "breadcrumb";
+  const emphasis = textSize === "emphasis";
 
   useEffect(() => {
     if (!open) return;
@@ -108,22 +109,24 @@ export function MenuSelect<T extends string>({
         className={cx(
           "group flex w-full items-center gap-2 transition-all",
           breadcrumb
-            ? "rounded-md border-0 bg-transparent text-slate-500 shadow-none hover:text-slate-600"
-            : "rounded-lg border border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:text-slate-900 hover:shadow-md",
+            ? "rounded-md border-0 bg-transparent text-[color:var(--editor-color-text-secondary)] shadow-none hover:text-[color:var(--editor-color-text-muted)]"
+            : "rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-control)] hover:border-[var(--editor-color-border-strong)] hover:text-[color:var(--editor-color-text-strong)]",
           compact
             ? breadcrumb
               ? "min-h-7 px-1 py-1 font-normal"
-              : "h-7 px-2 text-[10px] font-normal text-slate-500"
-            : "h-8 px-2.5 text-xs text-slate-800",
+              : "h-7 px-2 font-normal text-[color:var(--editor-color-text-secondary)]"
+            : "h-8 px-2.5 text-[color:var(--editor-color-text)]",
+          emphasis
+            ? "text-[length:var(--editor-font-control-emphasis-size)]"
+            : compact ? "text-[10px]" : "text-[length:var(--editor-font-control-size)]",
           breadcrumb
-            ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
-            : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 focus-visible:ring-offset-2",
+            ? "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
+            : "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-[length:var(--editor-focus-offset)]",
           open && (breadcrumb
-            ? "bg-transparent text-slate-600 shadow-none"
-            : "border-blue-200 text-slate-900 shadow-md ring-2 ring-blue-500/10"),
+            ? "bg-transparent text-[color:var(--editor-color-text-muted)] shadow-none"
+            : "border-[var(--editor-color-focus-border)] text-[color:var(--editor-color-text-strong)] ring-[length:var(--editor-focus-width)] ring-[var(--editor-color-focus-subtle)]"),
           triggerClassName,
         )}
-        style={fontSize === undefined ? undefined : { fontSize }}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -132,17 +135,17 @@ export function MenuSelect<T extends string>({
         }}
       >
         {showSelectedIcon && ActiveIcon ? (
-          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-slate-200/70 group-hover:text-slate-700">
+          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--editor-radius-control)] bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)] transition-colors group-hover:bg-[var(--editor-color-border)] group-hover:text-[color:var(--editor-color-text-default)]">
             <ActiveIcon size={14} strokeWidth={1.8} />
           </span>
         ) : null}
         <span className={cx(
           "min-w-0 flex-1 truncate text-left",
-          breadcrumb && "text-[11px] font-normal leading-4 text-slate-500",
+          breadcrumb && "text-[11px] font-normal leading-4 text-[color:var(--editor-color-text-secondary)]",
         )}>
           {activeOption.triggerLabel ?? activeOption.label}
         </span>
-        <ChevronDown size={14} strokeWidth={1.9} className={cx("shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
+        <ChevronDown size={14} strokeWidth={1.9} className={cx("shrink-0 text-[color:var(--editor-color-text-subtle)] transition-transform", open && "rotate-180")} />
       </button>
 
       {open ? (
@@ -153,10 +156,10 @@ export function MenuSelect<T extends string>({
           aria-label={menuLabel}
           data-placement={openUpward ? "top" : "bottom"}
           className={cx(
-            "menu-select-surface absolute right-0 z-40 min-w-full rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/12",
+            "menu-select-surface absolute right-0 z-40 min-w-full rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-menu)]",
             compact
               ? breadcrumb
-                ? "flex flex-col border-slate-200/80 bg-white/95 p-1.5 shadow-slate-950/10"
+                ? "flex flex-col border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1.5"
                 : "p-1"
               : "p-1.5",
             openUpward ? "bottom-full mb-2" : "top-full mt-2",
@@ -187,19 +190,21 @@ export function MenuSelect<T extends string>({
                   "flex w-full items-center gap-2 text-left transition-colors",
                   compact
                     ? breadcrumb
-                      ? "min-h-11 border-b border-slate-100 px-2.5 py-1.5 text-[11px] font-normal leading-4 last:border-b-0"
-                      : "h-8 rounded-none border-b border-slate-100 px-2 text-[11px] font-normal last:border-b-0"
-                    : "h-9 rounded-lg px-2 text-xs font-medium",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60",
+                      ? "min-h-11 border-b border-[var(--editor-color-surface-muted)] px-2.5 py-1.5 font-normal leading-4 last:border-b-0"
+                      : "h-8 rounded-none border-b border-[var(--editor-color-surface-muted)] px-2 font-normal last:border-b-0"
+                    : "h-9 rounded-[var(--editor-radius-control)] px-2 font-medium",
+                  emphasis
+                    ? "text-[length:var(--editor-font-control-emphasis-size)]"
+                    : compact ? "text-[11px]" : "text-[length:var(--editor-font-control-size)]",
+                  "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]",
                   selected
                     ? breadcrumb
-                      ? "bg-blue-50/70 text-blue-600"
-                      : "bg-blue-50 text-blue-700"
+                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent)]"
+                      : "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)]"
                     : breadcrumb
-                      ? "text-slate-500 hover:bg-slate-50/90 hover:text-slate-700"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                      ? "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-default)]"
+                      : "text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)]",
                 )}
-                style={fontSize === undefined ? undefined : { fontSize }}
                 onClick={() => {
                   onChange(option.value);
                   setOpen(false);
@@ -209,7 +214,9 @@ export function MenuSelect<T extends string>({
                 {OptionIcon ? (
                   <span className={cx(
                     "inline-flex size-6 shrink-0 items-center justify-center rounded-md",
-                    selected ? "bg-white text-blue-600 shadow-sm ring-1 ring-blue-100" : "text-slate-400",
+                    selected
+                      ? "bg-[var(--editor-color-surface)] text-[color:var(--editor-color-accent)] shadow-[var(--editor-shadow-control)] ring-1 ring-[var(--editor-color-accent-muted)]"
+                      : "text-[color:var(--editor-color-text-subtle)]",
                   )}>
                     <OptionIcon size={14} strokeWidth={1.8} />
                   </span>
@@ -220,7 +227,7 @@ export function MenuSelect<T extends string>({
                 )}>
                   {option.label}
                 </span>
-                <Check size={14} strokeWidth={2.2} className={cx("text-blue-600", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
+                <Check size={14} strokeWidth={2.2} className={cx("text-[color:var(--editor-color-accent)]", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
               </button>
             );
           })}

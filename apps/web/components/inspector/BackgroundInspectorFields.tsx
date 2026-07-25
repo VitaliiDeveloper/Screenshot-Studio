@@ -79,7 +79,7 @@ function BackgroundColorField({
         />
         <span
           aria-hidden="true"
-          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-black/10"
+          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-[var(--editor-color-swatch-outline)]"
           style={{ backgroundColor: value }}
         />
         <span className="min-w-0 flex-1 truncate text-right font-medium uppercase tabular-nums text-[color:var(--editor-color-text)]">
@@ -113,7 +113,7 @@ function CompactBackgroundColorField({
         />
         <span
           aria-hidden="true"
-          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-black/10"
+          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-[var(--editor-color-swatch-outline)]"
           style={{ backgroundColor: value }}
         />
         <span className="min-w-0 flex-1 truncate text-right text-[10px] font-medium uppercase tabular-nums text-[color:var(--editor-color-text)]">
@@ -209,7 +209,7 @@ export function BackgroundInspectorFields({
               onError={() => setFailedPreviewUrl(background.assetUrl)}
             />
           ) : (
-            <span className="absolute inset-0 grid place-items-center text-white/75">
+            <span className="absolute inset-0 grid place-items-center text-[color:var(--editor-color-on-media-muted)]">
               <ImageIcon size={22} strokeWidth={1.7} aria-hidden="true" />
             </span>
           )

@@ -74,7 +74,7 @@ export function MediaCropControl({
   return (
     <InsetPanel>
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>
+        <p className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Cover crop</p>
         <p className="mt-1 text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
           Drag the focal point to reposition. Zoom to adjust the crop.
         </p>
@@ -95,7 +95,7 @@ export function MediaCropControl({
             transformOrigin: `${crop.x * 100}% ${crop.y * 100}%`,
           }}
         />
-        <span className="pointer-events-none absolute inset-2 rounded-[var(--editor-radius-compact)] border border-white/80 shadow-[0_0_0_1px_rgba(15,23,42,0.35)]" />
+        <span className="pointer-events-none absolute inset-2 rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-on-media-muted)] shadow-[var(--editor-shadow-media-outline)]" />
         <button
           type="button"
           aria-label="Focal point"
@@ -126,7 +126,7 @@ export function MediaCropControl({
         >
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[var(--editor-color-accent)] shadow-md"
+            className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--editor-color-on-media)] bg-[var(--editor-color-accent)] shadow-[var(--editor-shadow-control)]"
             style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%` }}
           />
         </button>

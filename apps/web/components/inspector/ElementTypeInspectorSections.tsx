@@ -77,7 +77,7 @@ export function ElementTypeInspectorSections({
     <>
       {element.type === "group" ? (
         <Section title="Group">
-          <p className="text-[11px] leading-4 text-slate-400">
+          <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-subtle)]">
             {element.children.length} {element.children.length === 1 ? "child" : "children"}. Resize stays uniform to preserve child transforms.
           </p>
           <div className="grid grid-cols-2 gap-2">

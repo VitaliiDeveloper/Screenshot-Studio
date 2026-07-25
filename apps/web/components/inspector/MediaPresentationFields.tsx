@@ -42,7 +42,7 @@ export function ContentModeControl({
 }) {
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <span className="text-slate-500">Content mode</span>
+      <span className="text-[color:var(--editor-color-text-secondary)]">Content mode</span>
       <SegmentedControl
         label="Content mode"
         value={value}
@@ -77,7 +77,7 @@ export function MediaPresentationFields({
       <ContentModeControl value={element.fit} onChange={(fit) => onChange({ fit })} />
 
       <div className="flex flex-col gap-2 text-xs">
-        <span className="text-slate-500">Corner radius</span>
+        <span className="text-[color:var(--editor-color-text-secondary)]">Corner radius</span>
         <SegmentedControl
           label="Corner radius preset"
           value={radiusMode}

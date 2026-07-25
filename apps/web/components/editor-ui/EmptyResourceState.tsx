@@ -13,13 +13,13 @@ export function EmptyResourceState({
   icon?: LucideIcon;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-6 py-8 text-center">
-      <span className="mb-3 inline-flex size-10 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200">
+    <div className="flex flex-col items-center rounded-[var(--editor-radius-surface)] border border-dashed border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-6 py-8 text-center">
+      <span className="mb-3 inline-flex size-10 items-center justify-center rounded-[var(--editor-radius-surface)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] shadow-[var(--editor-shadow-control)] ring-1 ring-[var(--editor-color-border)]">
         <Icon size={18} strokeWidth={1.7} />
       </span>
-      <p className="text-sm font-medium text-slate-800">{title}</p>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">{description}</p>
-      <code className="mt-3 rounded-md bg-slate-200/70 px-2 py-1 text-[11px] text-slate-600">{path}</code>
+      <p className="text-sm font-medium text-[color:var(--editor-color-text-strong)]">{title}</p>
+      <p className="mt-1 max-w-sm text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{description}</p>
+      <code className="mt-3 rounded-[var(--editor-radius-compact)] bg-[var(--editor-color-surface-muted)] px-2 py-1 text-[11px] text-[color:var(--editor-color-text-muted)]">{path}</code>
     </div>
   );
 }

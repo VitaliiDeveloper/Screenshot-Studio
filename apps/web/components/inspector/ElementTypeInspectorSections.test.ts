@@ -55,7 +55,8 @@ describe("ElementTypeInspectorSections text semantics", () => {
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain("Advanced typography");
     expect(markup).toContain("bg-[var(--editor-color-accent-subtle)]");
-    expect(markup).toContain("font-size:12px");
+    expect(markup).toContain("var(--editor-font-control-size)");
+    expect(markup).toContain("var(--editor-font-control-emphasis-size)");
     expect(markup).toContain('data-state="closed"');
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain("grid-rows-[0fr]");
@@ -64,7 +65,6 @@ describe("ElementTypeInspectorSections text semantics", () => {
     expect(markup).toContain("Theme integration");
     expect(markup).toContain("Applied on the next theme change");
     expect(markup).toContain("Current styling stays unchanged");
-    expect(markup).toContain("font-size:13px");
     expect(markup.indexOf("Content")).toBeLessThan(markup.indexOf("Font"));
     expect(markup.indexOf("Font")).toBeLessThan(markup.indexOf("Theme integration"));
   });
