@@ -42,6 +42,7 @@ describe("transform inspector model", () => {
   it("returns a top-origin clockwise rotation", () => {
     expect(rotationFromPointer({ x: 50, y: 0 }, { x: 50, y: 50 })).toBe(0);
     expect(rotationFromPointer({ x: 100, y: 50 }, { x: 50, y: 50 })).toBe(90);
+    expect(rotationFromPointer({ x: 50, y: 100 }, { x: 50, y: 50 })).toBe(180);
     expect(rotationFromPointer({ x: 0, y: 50 }, { x: 50, y: 50 })).toBe(270);
   });
 

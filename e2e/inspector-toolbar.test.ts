@@ -217,12 +217,44 @@ describe("inspector + toolbar", () => {
     }).toBe(true);
 
     const rotation = page.getByRole("button", { name: "Rotation dial", exact: true });
+    const rotationInput = page.getByRole("spinbutton", { name: "Rotation", exact: true });
     const beforeRotation = elements().find((item) => item.id === selectedId)!.rotation;
     await rotation.focus();
     await rotation.press("ArrowRight");
     await rotation.blur();
     await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation)
       .toBe(beforeRotation + 1);
+
+    await rotationInput.fill("360");
+    await rotationInput.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(360);
+    await rotation.focus();
+    await rotation.press("ArrowRight");
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(1);
+
+    await rotationInput.fill("0");
+    await rotationInput.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(0);
+    await rotation.focus();
+    await rotation.press("ArrowLeft");
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(359);
+    await rotation.press("Shift+ArrowRight");
+    await rotation.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(9);
+
+    await rotationInput.fill("-6");
+    expect(await rotationInput.getAttribute("aria-invalid")).toBe("true");
+    await rotationInput.blur();
+    expect(await rotationInput.inputValue()).toBe("9");
+    expect(elements().find((item) => item.id === selectedId)!.rotation).toBe(9);
+
+    const rotationBox = await rotation.boundingBox();
+    expect(rotationBox).not.toBeNull();
+    await page.mouse.move(rotationBox!.x + rotationBox!.width / 2, rotationBox!.y + 1);
+    await page.mouse.down();
+    await page.mouse.move(rotationBox!.x + rotationBox!.width - 1, rotationBox!.y + rotationBox!.height / 2);
+    await page.mouse.up();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(90);
 
     const persisted = elements().find((item) => item.id === selectedId)!;
     await page.reload({ waitUntil: "load" });
