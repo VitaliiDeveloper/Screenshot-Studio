@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { ResourceDialog } from "@web/lib/editor-workspace";
+import type { MediaAssetTarget, ResourceDialog } from "@web/lib/editor-workspace";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { AssetPickerDialog } from "@web/components/AssetPickerDialog";
 import { FontManagerDialog } from "@web/components/FontManagerDialog";
@@ -15,10 +15,12 @@ interface EditorResourceDialogsProps {
   localeDialogOpen: boolean;
   specs: StoreSpecs;
   deviceFrameAssetTarget: { elementId: string; screenId: string } | null;
+  mediaAssetTarget: MediaAssetTarget | null;
   cacheImage(assetUrl: string): Promise<CachedAssetDimensions | null>;
   closeDialog(): void;
   closeLocaleDialog(): void;
   clearDeviceFrameAssetTarget(): void;
+  clearMediaAssetTarget(): void;
 }
 
 export function EditorResourceDialogs({
@@ -26,10 +28,12 @@ export function EditorResourceDialogs({
   localeDialogOpen,
   specs,
   deviceFrameAssetTarget,
+  mediaAssetTarget,
   cacheImage,
   closeDialog,
   closeLocaleDialog,
   clearDeviceFrameAssetTarget,
+  clearMediaAssetTarget,
 }: EditorResourceDialogsProps) {
   return (
     <>
@@ -56,6 +60,17 @@ export function EditorResourceDialogs({
           onClose={() => {
             closeDialog();
             clearDeviceFrameAssetTarget();
+          }}
+        />
+      ) : null}
+      {dialog === "replace-media-asset" && mediaAssetTarget ? (
+        <AssetPickerDialog
+          elementType={mediaAssetTarget.elementType}
+          targetMedia={mediaAssetTarget}
+          cacheAsset={cacheImage}
+          onClose={() => {
+            closeDialog();
+            clearMediaAssetTarget();
           }}
         />
       ) : null}

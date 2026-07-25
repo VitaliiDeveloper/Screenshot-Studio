@@ -3,6 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { DeviceFrameElement, ScreenshotElement, TextElement } from "@screenshot-studio/core/model";
+import { editorUi } from "@web/components/editor-ui";
 import {
   deviceFrameSelectionPatch,
   ElementTypeInspectorSections,
@@ -190,5 +191,49 @@ describe("ElementTypeInspectorSections media content mode", () => {
     expect(markup).toContain('aria-label="Content mode"');
     expect(markup).toContain("Fill");
     expect(markup).not.toContain(">cover<");
+  });
+});
+
+describe("ElementTypeInspectorSections screenshot resources", () => {
+  it("presents an assigned screenshot as a replaceable resource instead of a raw path field", () => {
+    const screenshot: ScreenshotElement = {
+      id: "screenshot",
+      type: "screenshot",
+      x: 0,
+      y: 0,
+      width: 300,
+      height: 650,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      assetUrl: "screenshots/checkout.png",
+      fit: "cover",
+      cornerRadius: 0,
+    };
+    const previousReact = Reflect.get(globalThis, "React");
+    Reflect.set(globalThis, "React", React);
+    let markup: string;
+    try {
+      markup = renderToStaticMarkup(React.createElement(ElementTypeInspectorSections, {
+        element: screenshot,
+        fonts: [],
+        onPatch: vi.fn(),
+        onDuplicate: vi.fn(),
+        onUngroup: vi.fn(),
+        onChooseMediaAsset: vi.fn(),
+        onRemoveElement: vi.fn(),
+      }));
+    } finally {
+      if (previousReact === undefined) Reflect.deleteProperty(globalThis, "React");
+      else Reflect.set(globalThis, "React", previousReact);
+    }
+
+    expect(markup).toContain("checkout.png");
+    expect(markup).toContain("Replace");
+    expect(markup).toContain('aria-label="Remove screenshot element"');
+    expect(markup).not.toContain("Asset URL");
+    expect(markup).not.toContain("screenshots/checkout.png</input>");
+    expect(markup).toContain(editorUi.insetPanel);
   });
 });

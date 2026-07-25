@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "zustand";
 import type {
   CanvasPattern,
+  MediaAssetTarget,
   ResourceDialog,
   WorkspacePanel,
   WorkspaceTool,
@@ -68,6 +69,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     elementId: string;
     screenId: string;
   } | null>(null);
+  const [mediaAssetTarget, setMediaAssetTarget] = useState<MediaAssetTarget | null>(null);
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
@@ -258,6 +260,10 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
               setDeviceFrameAssetTarget(target);
               setDialog("mockup-screenshot-assets");
             }}
+            onOpenMediaAsset={(target) => {
+              setMediaAssetTarget(target);
+              setDialog("replace-media-asset");
+            }}
             onClose={() => setInspectorOpen(false)}
             className="!w-full"
           />
@@ -307,10 +313,12 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         specs={specs}
         localeDialogOpen={localeDialogOpen}
         deviceFrameAssetTarget={deviceFrameAssetTarget}
+        mediaAssetTarget={mediaAssetTarget}
         cacheImage={cacheImage}
         closeDialog={() => setDialog(null)}
         closeLocaleDialog={() => setLocaleDialogOpen(false)}
         clearDeviceFrameAssetTarget={() => setDeviceFrameAssetTarget(null)}
+        clearMediaAssetTarget={() => setMediaAssetTarget(null)}
       />
       {captureImport.state.status === "closed" ? null : (
         <CaptureImportDialog

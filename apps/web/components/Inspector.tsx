@@ -8,6 +8,7 @@ import type { Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
+import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
 import { ElementTypeInspectorSections } from "./inspector/ElementTypeInspectorSections";
 import { InspectorSection as Section } from "./inspector/InspectorSection";
@@ -28,12 +29,14 @@ export function Inspector({
   specs,
   onOpenBackgroundAsset,
   onOpenDeviceFrameAsset,
+  onOpenMediaAsset,
   onClose,
   className,
 }: {
   specs: StoreSpecs | null;
   onOpenBackgroundAsset?: () => void;
   onOpenDeviceFrameAsset?: (target: { elementId: string; screenId: string }) => void;
+  onOpenMediaAsset?: (target: MediaAssetTarget) => void;
   onClose?: () => void;
   className?: string;
 }) {
@@ -173,6 +176,17 @@ export function Inspector({
                 screenId: selectedItems[0]!.screenId,
               })
               : undefined}
+            onChooseMediaAsset={element.type === "screenshot" || element.type === "image"
+              ? () => onOpenMediaAsset?.({
+                elementId: element.id,
+                screenId: selectedItems[0]!.screenId,
+                elementType: element.type,
+              })
+              : undefined}
+            onRemoveElement={() => mutateAndSave(() => editorStore.getState().removeElement(
+              element.id,
+              selectedItems[0]!.screenId,
+            ))}
           />
         </>
       ) : (

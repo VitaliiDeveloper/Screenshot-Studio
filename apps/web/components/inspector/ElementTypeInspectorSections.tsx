@@ -50,6 +50,8 @@ export function ElementTypeInspectorSections({
   onDuplicate,
   onUngroup,
   onChooseDeviceFrameAsset,
+  onChooseMediaAsset,
+  onRemoveElement,
   screen,
 }: {
   element: Element;
@@ -58,6 +60,8 @@ export function ElementTypeInspectorSections({
   onDuplicate: () => void;
   onUngroup: () => void;
   onChooseDeviceFrameAsset?: () => void;
+  onChooseMediaAsset?: () => void;
+  onRemoveElement?: () => void;
   screen?: Pick<Screen, "platform" | "device" | "artboard">;
 }) {
   const [framePickerOpen, setFramePickerOpen] = useState(false);
@@ -177,13 +181,23 @@ export function ElementTypeInspectorSections({
 
       {element.type === "screenshot" && (
         <Section title="Screenshot">
-          <MediaInspectorFields element={element} onChange={patchScreenshot} />
+          <MediaInspectorFields
+            element={element}
+            onChange={patchScreenshot}
+            onChooseAsset={onChooseMediaAsset}
+            onRemoveElement={onRemoveElement}
+          />
         </Section>
       )}
 
       {element.type === "image" && (
         <Section title="Image">
-          <MediaInspectorFields element={element} onChange={patchImage} />
+          <MediaInspectorFields
+            element={element}
+            onChange={patchImage}
+            onChooseAsset={onChooseMediaAsset}
+            onRemoveElement={onRemoveElement}
+          />
         </Section>
       )}
 
