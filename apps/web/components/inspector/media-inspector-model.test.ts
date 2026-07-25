@@ -4,6 +4,7 @@ import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/mo
 import {
   adjustCropZoom,
   cropFromPointer,
+  directCropPatch,
   mediaInspectorModel,
   nudgeCrop,
 } from "./media-inspector-model";
@@ -74,5 +75,11 @@ describe("shared media inspector model", () => {
   it("keeps zoom inside the persisted 1x to 4x contract", () => {
     expect(adjustCropZoom({ x: 0.5, y: 0.5, zoom: 1 }, -0.1).zoom).toBe(1);
     expect(adjustCropZoom({ x: 0.5, y: 0.5, zoom: 3.95 }, 0.1).zoom).toBe(4);
+  });
+
+  it("refuses direct crop patches across an effective lock boundary", () => {
+    const crop = { x: 0.25, y: 0.75, zoom: 2 };
+    expect(directCropPatch(true, crop)).toBeNull();
+    expect(directCropPatch(false, crop)).toEqual(crop);
   });
 });

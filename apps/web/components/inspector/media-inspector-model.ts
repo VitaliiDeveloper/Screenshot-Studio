@@ -7,6 +7,10 @@ const clampZoom = (value: number) => Math.min(4, Math.max(1, value));
 const roundUnit = (value: number) => Number(clampUnit(value).toFixed(4));
 const roundZoom = (value: number) => Number(clampZoom(value).toFixed(1));
 
+export function directCropPatch(locked: boolean, crop: MediaCrop): MediaCrop | null {
+  return locked ? null : crop;
+}
+
 export function cropFromPointer(
   pointer: { x: number; y: number },
   preview: { width: number; height: number },

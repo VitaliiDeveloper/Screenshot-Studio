@@ -51,6 +51,7 @@ export function Inspector({
   const {
     screen,
     element,
+    effectiveLocked,
     aggregate,
     everyLocked,
     everyHidden,
@@ -159,6 +160,7 @@ export function Inspector({
               key={`${selectedItems[0]?.screenId ?? screen.id}:${element.id}`}
               element={element}
               artboard={screen.artboard}
+              effectiveLocked={effectiveLocked}
               onChange={(change) => patch(element.id, element.type, change)}
               onInteractionEnd={() => editorStore.getState().endHistoryGroup()}
             />
@@ -170,6 +172,7 @@ export function Inspector({
             onDuplicate={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
             onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
             screen={screen}
+            effectiveLocked={effectiveLocked}
             onChooseDeviceFrameAsset={element.type === "device-frame" && selectedItems[0]
               ? () => onOpenDeviceFrameAsset?.({
                 elementId: element.id,

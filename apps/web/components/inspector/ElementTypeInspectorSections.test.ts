@@ -241,6 +241,7 @@ describe("ElementTypeInspectorSections screenshot resources", () => {
         onUngroup: vi.fn(),
         onChooseMediaAsset: vi.fn(),
         onRemoveElement: vi.fn(),
+        effectiveLocked: true,
       }));
     } finally {
       if (previousReact === undefined) Reflect.deleteProperty(globalThis, "React");
@@ -253,5 +254,9 @@ describe("ElementTypeInspectorSections screenshot resources", () => {
     expect(markup).not.toContain("Asset URL");
     expect(markup).not.toContain("screenshots/checkout.png</input>");
     expect(markup).toContain(editorUi.insetPanel);
+    expect(markup).toMatch(/aria-label="Focal point"[^>]*disabled=""/);
+    expect(markup).toMatch(/aria-label="Crop zoom"[^>]*disabled=""/);
+    expect(markup).toMatch(/aria-label="Decrease crop zoom"[^>]*disabled=""/);
+    expect(markup).toMatch(/aria-label="Increase crop zoom"[^>]*disabled=""/);
   });
 });

@@ -70,7 +70,20 @@ describe("TransformInspectorFields", () => {
       onInteractionEnd: vi.fn(),
     }));
 
-    expect(markup).toMatch(/aria-label="Element position preview"[^>]*disabled/);
-    expect(markup).toMatch(/aria-label="Rotation dial"[^>]*disabled/);
+    expect(markup).toMatch(/aria-label="Element position preview"[^>]*disabled=""/);
+    expect(markup).toMatch(/aria-label="Rotation dial"[^>]*disabled=""/);
+  });
+
+  it("disables direct manipulation for an unlocked child of a locked group", () => {
+    const markup = renderToStaticMarkup(React.createElement(TransformInspectorFields, {
+      element: screenshot,
+      artboard: { width: 1290, height: 2796 },
+      effectiveLocked: true,
+      onChange: vi.fn(),
+      onInteractionEnd: vi.fn(),
+    }));
+
+    expect(markup).toMatch(/aria-label="Element position preview"[^>]*disabled=""/);
+    expect(markup).toMatch(/aria-label="Rotation dial"[^>]*disabled=""/);
   });
 });

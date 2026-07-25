@@ -52,6 +52,7 @@ export function ElementTypeInspectorSections({
   onChooseDeviceFrameAsset,
   onChooseMediaAsset,
   onRemoveElement,
+  effectiveLocked,
   screen,
 }: {
   element: Element;
@@ -62,6 +63,7 @@ export function ElementTypeInspectorSections({
   onChooseDeviceFrameAsset?: () => void;
   onChooseMediaAsset?: () => void;
   onRemoveElement?: () => void;
+  effectiveLocked?: boolean;
   screen?: Pick<Screen, "platform" | "device" | "artboard">;
 }) {
   const [framePickerOpen, setFramePickerOpen] = useState(false);
@@ -186,6 +188,7 @@ export function ElementTypeInspectorSections({
             onChange={patchScreenshot}
             onChooseAsset={onChooseMediaAsset}
             onRemoveElement={onRemoveElement}
+            effectiveLocked={effectiveLocked}
           />
         </Section>
       )}
@@ -197,6 +200,7 @@ export function ElementTypeInspectorSections({
             onChange={patchImage}
             onChooseAsset={onChooseMediaAsset}
             onRemoveElement={onRemoveElement}
+            effectiveLocked={effectiveLocked}
           />
         </Section>
       )}

@@ -11,6 +11,7 @@ import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
 import {
   adjustCropZoom,
   cropFromPointer,
+  directCropPatch,
   nudgeCrop,
 } from "./media-inspector-model";
 
@@ -26,6 +27,7 @@ export function MediaCropControl({
   assetUrl,
   crop,
   canReset,
+  locked,
   onChange,
   onReset,
   onInteractionEnd,
@@ -33,30 +35,39 @@ export function MediaCropControl({
   assetUrl: string;
   crop: MediaCrop;
   canReset: boolean;
+  locked: boolean;
   onChange: (crop: MediaCrop) => void;
   onReset: () => void;
   onInteractionEnd: () => void;
 }) {
   const updateFromPointer = (event: PointerEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    onChange(cropFromPointer(
+    const patch = directCropPatch(locked, cropFromPointer(
       { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
       { width: bounds.width, height: bounds.height },
       crop.zoom,
     ));
+    if (patch) onChange(patch);
   };
   const handleFocalKey = (event: KeyboardEvent<HTMLButtonElement>) => {
     const next = event.key === "Home"
       ? { ...crop, x: 0.5, y: 0.5 }
       : nudgeCrop(crop, event.key, event.shiftKey);
-    if (next === crop) return;
+    const patch = next === crop ? null : directCropPatch(locked, next);
+    if (!patch) return;
     event.preventDefault();
-    onChange(next);
+    onChange(patch);
     onInteractionEnd();
   };
   const changeZoom = (delta: number) => {
-    onChange(adjustCropZoom(crop, delta));
+    const patch = directCropPatch(locked, adjustCropZoom(crop, delta));
+    if (!patch) return;
+    onChange(patch);
     onInteractionEnd();
+  };
+  const updateZoom = (zoom: number) => {
+    const patch = directCropPatch(locked, { ...crop, zoom });
+    if (patch) onChange(patch);
   };
 
   return (
@@ -87,8 +98,10 @@ export function MediaCropControl({
         <button
           type="button"
           aria-label="Focal point"
-          className="absolute inset-0 cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
+          disabled={locked}
+          className="absolute inset-0 cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)] disabled:cursor-not-allowed"
           onPointerDown={(event) => {
+            if (locked) return;
             event.currentTarget.setPointerCapture(event.pointerId);
             updateFromPointer(event);
           }}
@@ -123,7 +136,7 @@ export function MediaCropControl({
           type="button"
           aria-label="Decrease crop zoom"
           className={editorUi.compactIconButton}
-          disabled={crop.zoom <= 1}
+          disabled={locked || crop.zoom <= 1}
           onClick={() => changeZoom(-0.1)}
         >
           <Minus size={13} aria-hidden="true" />
@@ -135,8 +148,9 @@ export function MediaCropControl({
           max={4}
           step={0.1}
           value={crop.zoom}
+          disabled={locked}
           className="h-6 w-full cursor-pointer accent-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2"
-          onChange={(event) => onChange({ ...crop, zoom: Number(event.currentTarget.value) })}
+          onChange={(event) => updateZoom(Number(event.currentTarget.value))}
           onPointerUp={onInteractionEnd}
           onKeyUp={onInteractionEnd}
           onBlur={onInteractionEnd}
@@ -145,7 +159,7 @@ export function MediaCropControl({
           type="button"
           aria-label="Increase crop zoom"
           className={editorUi.compactIconButton}
-          disabled={crop.zoom >= 4}
+          disabled={locked || crop.zoom >= 4}
           onClick={() => changeZoom(0.1)}
         >
           <Plus size={13} aria-hidden="true" />
@@ -158,8 +172,10 @@ export function MediaCropControl({
       <button
         type="button"
         className={editorUi.buttonSecondary}
-        disabled={!canReset}
-        onClick={onReset}
+        disabled={locked || !canReset}
+        onClick={() => {
+          if (!locked) onReset();
+        }}
       >
         Reset crop
       </button>

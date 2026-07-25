@@ -14,13 +14,16 @@ export function MediaInspectorFields({
   onChange,
   onChooseAsset,
   onRemoveElement,
+  effectiveLocked: effectiveLockedProp,
 }: {
   element: ScreenshotElement | ImageElement;
   onChange: (patch: ElementPatchFor<"screenshot"> | ElementPatchFor<"image">) => void;
   onChooseAsset?: () => void;
   onRemoveElement?: () => void;
+  effectiveLocked?: boolean;
 }) {
   const { crop, showCrop, canResetCrop } = mediaInspectorModel(element);
+  const effectiveLocked = effectiveLockedProp ?? element.locked;
   return (
     <>
       <InsetPanel>
@@ -62,6 +65,7 @@ export function MediaInspectorFields({
           assetUrl={element.assetUrl}
           crop={crop}
           canReset={canResetCrop}
+          locked={effectiveLocked}
           onChange={(nextCrop) => onChange({ crop: nextCrop })}
           onReset={() => onChange({ crop: null })}
           onInteractionEnd={() => editorStore.getState().endHistoryGroup()}
