@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   BUILT_IN_FONT_IDENTITIES,
   fontIdentityKey,
@@ -21,8 +21,27 @@ export function formatNumberFieldValue(value: number, precision?: number): strin
   return String(normalizeNumberFieldValue(value, precision));
 }
 
+export function unitToPercent(value: number): number {
+  return normalizeNumberFieldValue(Math.min(1, Math.max(0, value)) * 100, 2);
+}
+
+export function percentToUnit(value: number): number {
+  return normalizeNumberFieldValue(Math.min(100, Math.max(0, value)) / 100, 4);
+}
+
 export function NumberField({
-  label, value, onChange, step = 1, min, max, integer = false, precision, layout = "row",
+  label,
+  value,
+  onChange,
+  step = 1,
+  min,
+  max,
+  integer = false,
+  precision,
+  layout = "row",
+  suffix,
+  controlClassName,
+  labelHidden = false,
 }: {
   label: string;
   value: number;
@@ -33,6 +52,9 @@ export function NumberField({
   integer?: boolean;
   precision?: number;
   layout?: "row" | "column";
+  suffix?: string;
+  controlClassName?: string;
+  labelHidden?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(formatNumberFieldValue(value, precision));
@@ -58,33 +80,100 @@ export function NumberField({
       ? "flex min-w-0 flex-col gap-1.5 text-xs"
       : "flex items-center justify-between gap-3 text-xs"}
     >
-      <span className="shrink-0 whitespace-nowrap text-slate-500">{label}</span>
-      <input
-        ref={inputRef}
-        type="number"
-        value={draft}
-        step={step}
-        min={min}
-        max={max}
-        aria-invalid={!valid}
-        onChange={(event) => {
-          const raw = event.target.value;
-          setDraft(raw);
-          const next = parse(raw);
-          if (next !== null) onChange(normalizeNumberFieldValue(next, precision));
-        }}
-        onBlur={() => {
-          const next = parse(draft);
-          setDraft(formatNumberFieldValue(next ?? value, precision));
-        }}
-        className={cx(
-          editorUi.field,
-          editorUi.fieldInvalid,
-          layout === "column" ? "min-w-0" : "w-28",
-          "text-right tabular-nums",
-        )}
-      />
+      <span className={labelHidden ? "sr-only" : "shrink-0 whitespace-nowrap text-slate-500"}>{label}</span>
+      <span className={cx(
+        "relative block min-w-0",
+        layout === "column" ? "w-full" : "w-28",
+        controlClassName,
+      )}>
+        <input
+          ref={inputRef}
+          type="number"
+          aria-label={label}
+          value={draft}
+          step={step}
+          min={min}
+          max={max}
+          aria-invalid={!valid}
+          onChange={(event) => {
+            const raw = event.target.value;
+            setDraft(raw);
+            const next = parse(raw);
+            if (next !== null) onChange(normalizeNumberFieldValue(next, precision));
+          }}
+          onBlur={() => {
+            const next = parse(draft);
+            setDraft(formatNumberFieldValue(next ?? value, precision));
+          }}
+          className={cx(
+            editorUi.field,
+            editorUi.fieldInvalid,
+            suffix ? "pr-7" : undefined,
+            "text-right tabular-nums",
+          )}
+        />
+        {suffix ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-[color:var(--editor-color-text-secondary)]"
+          >
+            {suffix}
+          </span>
+        ) : null}
+      </span>
     </label>
+  );
+}
+
+export function SliderNumberField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  helpText,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  helpText?: string;
+  onChange: (value: number) => void;
+}) {
+  const helpId = useId();
+  return (
+    <div className="flex flex-col gap-1.5 text-xs">
+      <span className="text-slate-500">{label}</span>
+      {helpText ? <span id={helpId} className="sr-only">{helpText}</span> : null}
+      <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2">
+        <input
+          type="range"
+          aria-label={label}
+          aria-describedby={helpText ? helpId : undefined}
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(event) => onChange(Number(event.currentTarget.value))}
+          className="h-6 w-full cursor-pointer accent-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2"
+        />
+        <NumberField
+          label={`${label} value`}
+          labelHidden
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          suffix={suffix}
+          controlClassName="!w-full"
+          onChange={onChange}
+        />
+      </div>
+    </div>
   );
 }
 
