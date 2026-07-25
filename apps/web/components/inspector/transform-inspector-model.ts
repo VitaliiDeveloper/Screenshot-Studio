@@ -4,6 +4,13 @@ import type { CommonElementPatch } from "@web/lib/editor-element-patch";
 
 type ElementType = Element["type"];
 
+export function directTransformPatch(
+  locked: boolean,
+  patch: CommonElementPatch,
+): CommonElementPatch | null {
+  return locked ? null : patch;
+}
+
 export function linkedSizePatch(
   current: { width: number; height: number },
   axis: "width" | "height",

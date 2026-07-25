@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   aspectRatioLockForced,
   defaultAspectRatioLocked,
+  directTransformPatch,
   linkedSizePatch,
   positionFromMiniPointer,
   rotationFromPointer,
@@ -56,5 +57,10 @@ describe("transform inspector model", () => {
     expect(aspectRatioLockForced("group")).toBe(true);
     expect(aspectRatioLockForced("device-frame")).toBe(true);
     expect(aspectRatioLockForced("screenshot")).toBe(false);
+  });
+
+  it("refuses direct transform patches for locked elements", () => {
+    expect(directTransformPatch(true, { x: 10, y: 20 })).toBeNull();
+    expect(directTransformPatch(false, { rotation: 15 })).toEqual({ rotation: 15 });
   });
 });

@@ -61,4 +61,16 @@ describe("TransformInspectorFields", () => {
     expect(markup).toMatch(/aria-label="Lock aspect ratio"[^>]*disabled/);
     expect(markup).toContain('aria-pressed="true"');
   });
+
+  it("disables direct manipulation for a locked element", () => {
+    const markup = renderToStaticMarkup(React.createElement(TransformInspectorFields, {
+      element: { ...screenshot, locked: true },
+      artboard: { width: 1290, height: 2796 },
+      onChange: vi.fn(),
+      onInteractionEnd: vi.fn(),
+    }));
+
+    expect(markup).toMatch(/aria-label="Element position preview"[^>]*disabled/);
+    expect(markup).toMatch(/aria-label="Rotation dial"[^>]*disabled/);
+  });
 });

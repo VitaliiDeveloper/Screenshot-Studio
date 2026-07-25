@@ -15,6 +15,7 @@ import {
 import {
   aspectRatioLockForced,
   defaultAspectRatioLocked,
+  directTransformPatch,
   linkedSizePatch,
   positionFromMiniPointer,
   rotationFromPointer,
@@ -51,36 +52,41 @@ export function TransformInspectorFields({
 
   const updatePosition = (event: PointerEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    onChange(positionFromMiniPointer({
+    const patch = directTransformPatch(element.locked, positionFromMiniPointer({
       pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
       preview: { width: bounds.width, height: bounds.height },
       artboard,
       element,
     }));
+    if (patch) onChange(patch);
   };
   const handlePositionKey = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const patch = positionKeyPatch(element, event.key, event.shiftKey);
+    const keyPatch = positionKeyPatch(element, event.key, event.shiftKey);
+    const patch = keyPatch ? directTransformPatch(element.locked, keyPatch) : null;
     if (!patch) return;
     event.preventDefault();
     onChange(patch);
   };
   const updateRotation = (event: PointerEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    onChange({
+    const patch = directTransformPatch(element.locked, {
       rotation: rotationFromPointer(
         { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
         { x: bounds.width / 2, y: bounds.height / 2 },
       ),
     });
+    if (patch) onChange(patch);
   };
   const handleRotationKey = (event: KeyboardEvent<HTMLButtonElement>) => {
     const delta = event.shiftKey ? 10 : 1;
     if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
       event.preventDefault();
-      onChange({ rotation: element.rotation - delta });
+      const patch = directTransformPatch(element.locked, { rotation: element.rotation - delta });
+      if (patch) onChange(patch);
     } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
       event.preventDefault();
-      onChange({ rotation: element.rotation + delta });
+      const patch = directTransformPatch(element.locked, { rotation: element.rotation + delta });
+      if (patch) onChange(patch);
     }
   };
   const miniRect = {
@@ -96,7 +102,9 @@ export function TransformInspectorFields({
         <button
           type="button"
           aria-label="Element position preview"
-          className="relative min-h-24 overflow-hidden rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2"
+          disabled={element.locked}
+          title={element.locked ? "Unlock the element to reposition it directly" : "Drag to reposition the element"}
+          className="relative min-h-24 overflow-hidden rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           style={{ aspectRatio: `${artboard.width} / ${artboard.height}` }}
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -168,7 +176,9 @@ export function TransformInspectorFields({
           <button
             type="button"
             aria-label="Rotation dial"
-            className="relative size-14 rounded-full border-2 border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2"
+            disabled={element.locked}
+            title={element.locked ? "Unlock the element to rotate it directly" : "Drag to rotate the element"}
+            className="relative size-14 rounded-full border-2 border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture(event.pointerId);
               updateRotation(event);
