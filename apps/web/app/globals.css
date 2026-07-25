@@ -223,6 +223,21 @@ button:disabled {
   }
 }
 
+@keyframes artboard-size-value-in {
+  from {
+    opacity: 0.55;
+    transform: translateY(2px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.artboard-size-value {
+  animation: artboard-size-value-in 180ms var(--editor-motion-ease);
+}
+
 .menu-select-surface {
   animation: menu-select-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top right;

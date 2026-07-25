@@ -13,7 +13,11 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { ScreenInspectorSections } from "./ScreenInspectorSections.js";
+import {
+  ScreenInspectorSections,
+  storeAuthoringScale,
+  storeAuthoringSize,
+} from "./ScreenInspectorSections.js";
 
 // Vitest compiles the Next.js-preserved JSX with the classic runtime for this Node-only render.
 Object.assign(globalThis, { React });
@@ -117,6 +121,25 @@ function renderInspector(
 }
 
 describe("ScreenInspectorSections Store Target artboard size", () => {
+  it("derives supported Store authoring scales and their exact dimensions", () => {
+    expect(storeAuthoringScale(
+      { width: 1206, height: 2622 },
+      { width: 1206, height: 2622 },
+    )).toBe("1");
+    expect(storeAuthoringScale(
+      { width: 2412, height: 5244 },
+      { width: 1206, height: 2622 },
+    )).toBe("2");
+    expect(storeAuthoringScale(
+      { width: 422 * 3.5, height: 514 * 3.5 },
+      { width: 422, height: 514 },
+    )).toBeUndefined();
+    expect(storeAuthoringSize(
+      { width: 1206, height: 2622 },
+      "3",
+    )).toEqual({ width: 3618, height: 7866 });
+  });
+
   it("shows a newly created 3.5x watchOS lead as a custom artboard", () => {
     const result = createWatchFamily();
     const screen = result.firstScreen;
@@ -168,6 +191,28 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
       'aria-label="Use Store size" aria-pressed="true"',
     );
     expect(markup).toContain("416 × 496 px");
+    expect(markup).toContain(
+      "Exports at 416 × 496 px for Apple Watch Series 11.",
+    );
+    expect(markup).toContain('aria-label="Store authoring scale"');
+    expect(markup).toContain('aria-label="Use 1× authoring scale" aria-pressed="true"');
+  });
+
+  it("keeps a persisted 2× Store-derived artboard in Store size mode", () => {
+    const created = createWatchVariant();
+    const screen = {
+      ...created.variant,
+      artboard: { width: series11Target.width * 2, height: series11Target.height * 2 },
+    };
+    const markup = renderInspector(replaceScreen(created.project, screen), screen, watchSpecs);
+
+    expect(markup).toContain(
+      'aria-label="Use Store size" aria-pressed="true"',
+    );
+    expect(markup).toContain(
+      'aria-label="Use 2× authoring scale" aria-pressed="true"',
+    );
+    expect(markup).toContain("832 × 992 px");
     expect(markup).toContain(
       "Exports at 416 × 496 px for Apple Watch Series 11.",
     );

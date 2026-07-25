@@ -37,6 +37,30 @@ const GRADIENT_DIRECTION_OPTIONS = [
   { value: "custom" as const, label: "Custom angle" },
 ];
 
+const STORE_AUTHORING_SCALES = ["1", "2", "3"] as const;
+export type StoreAuthoringScale = (typeof STORE_AUTHORING_SCALES)[number];
+
+export function storeAuthoringSize(
+  target: Pick<StoreSize, "width" | "height">,
+  scale: StoreAuthoringScale,
+): { width: number; height: number } {
+  const multiplier = Number(scale);
+  return {
+    width: target.width * multiplier,
+    height: target.height * multiplier,
+  };
+}
+
+export function storeAuthoringScale(
+  artboard: { width: number; height: number },
+  target: Pick<StoreSize, "width" | "height">,
+): StoreAuthoringScale | undefined {
+  return STORE_AUTHORING_SCALES.find((scale) => {
+    const size = storeAuthoringSize(target, scale);
+    return artboard.width === size.width && artboard.height === size.height;
+  });
+}
+
 function gradientDirection(angle: number): GradientDirection {
   const normalizedAngle = angle === 360 ? 0 : angle;
   return GRADIENT_DIRECTIONS.find((direction) => direction.angle === normalizedAngle)?.value
@@ -60,7 +84,7 @@ function ArtboardSizeEditor({
   const [height, setHeight] = useState(screen.artboard.height);
   const status = target ? artboardTargetStatus(screen.artboard, target) : undefined;
   const draftStatus = target ? artboardTargetStatus({ width, height }, target) : undefined;
-  const isExactTarget = status?.kind === "exact";
+  const authoringScale = target ? storeAuthoringScale(screen.artboard, target) : undefined;
   const resize = (size: { width: number; height: number }) => {
     mutateAndSave(() => editorStore.getState().resizeArtboard(size));
     setEditing(false);
@@ -104,7 +128,7 @@ function ArtboardSizeEditor({
         <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Artboard</h3>
         <SegmentedControl
           label="Artboard size mode"
-          value={!target ? undefined : isExactTarget ? "store" : "custom"}
+          value={!target ? undefined : authoringScale ? "store" : "custom"}
           options={[
             {
               value: "store",
@@ -122,7 +146,7 @@ function ArtboardSizeEditor({
           onChange={(mode) => {
             if (!target) return;
             if (mode === "store") {
-              if (!isExactTarget) resize({ width: target.width, height: target.height });
+              if (!authoringScale) resize(storeAuthoringSize(target, "1"));
               return;
             }
             setWidth(screen.artboard.width);
@@ -131,9 +155,33 @@ function ArtboardSizeEditor({
           }}
         />
       </div>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
-        {screen.artboard.width} × {screen.artboard.height} px
-      </div>
+      {target && authoringScale ? (
+        <div className="grid grid-cols-[7.75rem_minmax(0,1fr)] items-stretch gap-2">
+          <SegmentedControl
+            label="Store authoring scale"
+            value={authoringScale}
+            options={STORE_AUTHORING_SCALES.map((scale) => ({
+              value: scale,
+              label: `${scale}×`,
+              ariaLabel: `Use ${scale}× authoring scale`,
+            }))}
+            fill
+            className="min-w-0 [&_button]:min-w-0 [&_button]:px-2"
+            onChange={(scale) => resize(storeAuthoringSize(target, scale))}
+          />
+          <div
+            key={`${screen.artboard.width}:${screen.artboard.height}`}
+            aria-label="Authoring canvas size"
+            className="artboard-size-value grid min-w-0 place-items-center whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-medium tabular-nums text-slate-700 motion-reduce:animate-none"
+          >
+            {screen.artboard.width} × {screen.artboard.height} px
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-xs font-medium tabular-nums text-slate-700">
+          {screen.artboard.width} × {screen.artboard.height} px
+        </div>
+      )}
       <p className="text-[10px] leading-4 text-slate-500">
         {!target
           ? "This screen references a Store Target that is unavailable."
