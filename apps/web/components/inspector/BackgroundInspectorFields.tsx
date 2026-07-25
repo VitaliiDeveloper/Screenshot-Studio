@@ -263,7 +263,6 @@ export function BackgroundInspectorFields({
           { value: "image", label: "Image", ariaLabel: "Use Image background" },
         ]}
         fill
-        className="min-w-0 [&_button]:min-w-0 [&_button]:px-2 [&_button[aria-pressed=true]]:text-[color:var(--editor-color-accent-hover)] [&_button[aria-pressed=true]]:ring-1 [&_button[aria-pressed=true]]:ring-inset [&_button[aria-pressed=true]]:ring-[var(--editor-color-accent)]"
         onChange={changeType}
       />
 

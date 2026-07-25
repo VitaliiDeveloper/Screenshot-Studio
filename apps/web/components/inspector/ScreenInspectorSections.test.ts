@@ -262,6 +262,7 @@ describe("ScreenInspectorSections background controls", () => {
 
     expect(markup).toContain('data-background-type="linear-gradient"');
     expect(markup).toContain('aria-label="Use Gradient background" aria-pressed="true"');
+    expect(markup).not.toContain('ring-[var(--editor-color-accent)]');
     expect(markup).toContain('data-testid="background-context-controls"');
     expect(markup).toContain('aria-label="Gradient colors"');
     expect(markup).toContain('aria-label="From"');
