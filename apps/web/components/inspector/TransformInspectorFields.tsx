@@ -208,11 +208,7 @@ export function TransformInspectorFields({
               onKeyDown={handleRotationKey}
               onBlur={onInteractionEnd}
             >
-              <span className="pointer-events-none absolute inset-1 rotate-45 rounded-full border-[3px] border-[var(--editor-color-border)] border-b-transparent" />
-              <span
-                data-rotation-dial-arc="active"
-                className="pointer-events-none absolute inset-1 -rotate-[28deg] rounded-full border-[3px] border-transparent border-l-[var(--editor-color-accent)] border-t-[var(--editor-color-accent)]"
-              />
+              <span className="pointer-events-none absolute inset-1 rounded-full border-[3px] border-[var(--editor-color-border)]" />
               <span
                 data-rotation-dial-thumb=""
                 className="pointer-events-none absolute inset-1"
