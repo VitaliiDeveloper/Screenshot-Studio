@@ -262,10 +262,14 @@ describe("ScreenInspectorSections background controls", () => {
 
     expect(markup).toContain('data-background-type="linear-gradient"');
     expect(markup).toContain('aria-label="Use Gradient background" aria-pressed="true"');
+    expect(markup).toContain('data-testid="background-context-controls"');
+    expect(markup).toContain('aria-label="Gradient colors"');
     expect(markup).toContain('aria-label="From"');
     expect(markup).toContain('aria-label="To"');
+    expect(markup).toContain('aria-label="Swap gradient colors"');
     expect(markup).toContain('aria-label="Gradient direction"');
     expect(markup).toContain('aria-label="Angle"');
+    expect(markup).toContain('transition-[height]');
   });
 
   it("shows an imported Image as a product asset instead of a raw URL field", () => {

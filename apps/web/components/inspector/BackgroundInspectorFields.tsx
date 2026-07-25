@@ -2,8 +2,14 @@
 "use client";
 
 import NextImage from "next/image";
-import { useState, type CSSProperties } from "react";
-import { ChevronDown, Image as ImageIcon, Pipette } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Pipette } from "lucide-react";
 import type { Background } from "@screenshot-studio/core/model";
 import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
 import { editorUi, MenuSelect, SegmentedControl } from "@web/components/editor-ui";
@@ -79,6 +85,69 @@ function BackgroundColorField({
         <ChevronDown size={13} strokeWidth={1.9} aria-hidden="true" className="shrink-0 text-[color:var(--editor-color-text-subtle)]" />
       </span>
     </label>
+  );
+}
+
+function CompactBackgroundColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1.5 text-xs">
+      <span className="text-[color:var(--editor-color-text-secondary)]">{label}</span>
+      <span className="relative inline-flex h-8 min-w-0 items-center gap-1.5 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-2 shadow-[var(--editor-shadow-control)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] hover:border-[var(--editor-color-border-strong)] focus-within:border-[var(--editor-color-focus-border)] focus-within:ring-[length:var(--editor-focus-width)] focus-within:ring-[var(--editor-color-focus-subtle)]">
+        <input
+          type="color"
+          aria-label={label}
+          value={value}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+        />
+        <span
+          aria-hidden="true"
+          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-black/10"
+          style={{ backgroundColor: value }}
+        />
+        <span className="min-w-0 flex-1 truncate text-right text-[10px] font-medium uppercase tabular-nums text-[color:var(--editor-color-text)]">
+          {value}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function AnimatedInspectorContent({ children }: { children: ReactNode }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const measure = () => setHeight(content.getBoundingClientRect().height);
+    measure();
+
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      data-testid="background-context-controls"
+      className="overflow-hidden transition-[height] duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none"
+      style={height === undefined ? undefined : { height }}
+    >
+      <div ref={contentRef} className="flex flex-col gap-2.5">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -191,93 +260,110 @@ export function BackgroundInspectorFields({
         onChange={changeType}
       />
 
-      {background.type === "solid" ? (
-        <BackgroundColorField
-          label="Color"
-          value={background.color}
-          onChange={(color) => onChange({ ...background, color })}
-        />
-      ) : background.type === "linear-gradient" ? (
-        <>
+      <AnimatedInspectorContent>
+        {background.type === "solid" ? (
           <BackgroundColorField
-            label="From"
-            value={background.from}
-            onChange={(from) => onChange({ ...background, from })}
-          />
-          <BackgroundColorField
-            label="To"
-            value={background.to}
-            onChange={(to) => onChange({ ...background, to })}
-          />
-          <label className="flex items-center justify-between gap-3 text-xs">
-            <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">Direction</span>
-            <MenuSelect
-              ariaLabel="Gradient direction"
-              value={gradientDirection(background.angle)}
-              options={GRADIENT_DIRECTION_OPTIONS}
-              onChange={(direction) => {
-                const preset = GRADIENT_DIRECTIONS.find(({ value }) => value === direction);
-                if (preset) onChange({ ...background, angle: preset.angle });
-              }}
-              className="w-40"
-            />
-          </label>
-          <NumberField
-            label="Angle"
-            value={background.angle}
-            min={0}
-            max={360}
-            integer
-            suffix="°"
-            onChange={(angle) => onChange({ ...background, angle })}
-          />
-        </>
-      ) : (
-        <>
-          <div className="flex min-w-0 items-center gap-2 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-2">
-            <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-[var(--editor-radius-compact)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
-              {showImage && imageUrl ? (
-                <NextImage
-                  width={32}
-                  height={32}
-                  unoptimized
-                  src={imageUrl}
-                  alt=""
-                  aria-hidden="true"
-                  className="size-8 object-cover"
-                  onError={() => setFailedPreviewUrl(background.assetUrl)}
-                />
-              ) : (
-                <ImageIcon size={16} strokeWidth={1.8} aria-hidden="true" />
-              )}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-[color:var(--editor-color-text)]" title={background.assetUrl}>
-              {background.assetUrl.split("/").at(-1)}
-            </span>
-            <button type="button" className={`${editorUi.buttonSecondary} shrink-0 !h-7 !min-h-7 !px-2 !text-[11px]`} onClick={onChooseImage}>
-              Replace background
-            </button>
-          </div>
-          <div className="flex flex-col gap-1.5 text-xs">
-            <span className="text-[color:var(--editor-color-text-secondary)]">Content mode</span>
-            <SegmentedControl
-              label="Background content mode"
-              value={background.fit}
-              options={[
-                { value: "cover", label: "Fill", ariaLabel: "Fill background image" },
-                { value: "contain", label: "Fit", ariaLabel: "Fit background image" },
-              ]}
-              fill
-              onChange={(fit) => onChange({ ...background, fit })}
-            />
-          </div>
-          <BackgroundColorField
-            label="Fallback"
+            label="Color"
             value={background.color}
             onChange={(color) => onChange({ ...background, color })}
           />
-        </>
-      )}
+        ) : background.type === "linear-gradient" ? (
+          <>
+            <div role="group" aria-label="Gradient colors" className="grid grid-cols-[minmax(0,1fr)_1.75rem_minmax(0,1fr)] items-end gap-1.5">
+              <CompactBackgroundColorField
+                label="From"
+                value={background.from}
+                onChange={(from) => onChange({ ...background, from })}
+              />
+              <button
+                type="button"
+                aria-label="Swap gradient colors"
+                title="Swap gradient colors"
+                className={`${editorUi.compactIconButton} mb-1`}
+                onClick={() => onChange({ ...background, from: background.to, to: background.from })}
+              >
+                <ArrowLeftRight size={14} strokeWidth={1.9} aria-hidden="true" />
+              </button>
+              <CompactBackgroundColorField
+                label="To"
+                value={background.to}
+                onChange={(to) => onChange({ ...background, to })}
+              />
+            </div>
+            <div className="grid grid-cols-[minmax(0,1fr)_4.75rem] items-end gap-2">
+              <label className="flex min-w-0 flex-col gap-1.5 text-xs">
+                <span className="text-[color:var(--editor-color-text-secondary)]">Direction</span>
+                <MenuSelect
+                  ariaLabel="Gradient direction"
+                  value={gradientDirection(background.angle)}
+                  options={GRADIENT_DIRECTION_OPTIONS}
+                  onChange={(direction) => {
+                    const preset = GRADIENT_DIRECTIONS.find(({ value }) => value === direction);
+                    if (preset) onChange({ ...background, angle: preset.angle });
+                  }}
+                  className="w-full"
+                />
+              </label>
+              <NumberField
+                label="Angle"
+                layout="column"
+                controlClassName="!w-full"
+                value={background.angle}
+                min={0}
+                max={360}
+                integer
+                suffix="°"
+                onChange={(angle) => onChange({ ...background, angle })}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex min-w-0 items-center gap-2 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-2">
+              <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-[var(--editor-radius-compact)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
+                {showImage && imageUrl ? (
+                  <NextImage
+                    width={32}
+                    height={32}
+                    unoptimized
+                    src={imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="size-8 object-cover"
+                    onError={() => setFailedPreviewUrl(background.assetUrl)}
+                  />
+                ) : (
+                  <ImageIcon size={16} strokeWidth={1.8} aria-hidden="true" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-[color:var(--editor-color-text)]" title={background.assetUrl}>
+                {background.assetUrl.split("/").at(-1)}
+              </span>
+              <button type="button" className={`${editorUi.buttonSecondary} shrink-0 !h-7 !min-h-7 !px-2 !text-[11px]`} onClick={onChooseImage}>
+                Replace background
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5 text-xs">
+              <span className="text-[color:var(--editor-color-text-secondary)]">Content mode</span>
+              <SegmentedControl
+                label="Background content mode"
+                value={background.fit}
+                options={[
+                  { value: "cover", label: "Fill", ariaLabel: "Fill background image" },
+                  { value: "contain", label: "Fit", ariaLabel: "Fit background image" },
+                ]}
+                fill
+                onChange={(fit) => onChange({ ...background, fit })}
+              />
+            </div>
+            <BackgroundColorField
+              label="Fallback"
+              value={background.color}
+              onChange={(color) => onChange({ ...background, color })}
+            />
+          </>
+        )}
+      </AnimatedInspectorContent>
     </div>
   );
 }
