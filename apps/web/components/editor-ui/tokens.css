@@ -19,6 +19,10 @@
   --editor-color-accent-strong: #1e40af;
   --editor-color-accent-subtle: #eff6ff;
   --editor-color-accent-muted: #dbeafe;
+  --editor-color-on-accent: #ffffff;
+  --editor-color-on-media: #ffffff;
+  --editor-color-on-media-muted: rgb(255 255 255 / 80%);
+  --editor-color-swatch-outline: rgb(0 0 0 / 10%);
   --editor-color-danger: #dc2626;
   --editor-color-danger-text: #b91c1c;
   --editor-color-danger-surface: #fef2f2;
@@ -41,11 +45,14 @@
   --editor-radius-control: 0.5rem;
   --editor-radius-surface: 0.75rem;
   --editor-font-control-size: 0.75rem;
+  --editor-font-control-emphasis-size: 0.8125rem;
   --editor-font-label-size: 0.625rem;
   --editor-font-label-tracking: 0.16em;
   --editor-shadow-control: var(--shadow-sm);
   --editor-shadow-accent: 0 1px 3px 0 rgb(37 99 235 / 20%), 0 1px 2px -1px rgb(37 99 235 / 20%);
   --editor-shadow-dialog: 0 25px 50px -12px rgb(2 6 23 / 25%);
+  --editor-shadow-menu: 0 14px 30px -10px rgb(2 6 23 / 24%);
+  --editor-shadow-media-outline: 0 0 0 1px rgb(15 23 42 / 35%);
   --editor-focus-width: 2px;
   --editor-focus-offset: 2px;
   --editor-motion-fast: 150ms;

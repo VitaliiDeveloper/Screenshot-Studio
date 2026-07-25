@@ -111,7 +111,7 @@ export function AddMenu<T extends string>({
           aria-label={menuLabel}
           data-placement={openUpward ? "top" : "bottom"}
           className={cx(
-            "absolute right-0 z-40 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/10",
+            "absolute right-0 z-40 w-56 overflow-hidden rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-menu)]",
             openUpward ? "bottom-full mb-1" : "top-full mt-1",
             menuClassName,
           )}
@@ -125,7 +125,7 @@ export function AddMenu<T extends string>({
               type="button"
               role="menuitem"
               aria-label={option.label}
-              className="flex min-h-11 w-full flex-col justify-center border-b border-slate-100 px-2.5 py-1.5 text-left font-normal leading-4 text-slate-600 transition-colors last:border-b-0 hover:bg-slate-50/80 hover:text-slate-800 focus-visible:relative focus-visible:z-10 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
+              className="flex min-h-11 w-full flex-col justify-center border-b border-[var(--editor-color-surface-muted)] px-2.5 py-1.5 text-left font-normal leading-4 text-[color:var(--editor-color-text-muted)] transition-colors last:border-b-0 hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:relative focus-visible:z-10 focus-visible:rounded-[var(--editor-radius-compact)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
               onClick={() => {
                 onSelect(option.value);
                 setOpen(false);
@@ -133,7 +133,7 @@ export function AddMenu<T extends string>({
               }}
             >
               <span className="truncate text-[11px] font-normal leading-4">{option.label}</span>
-              {option.description ? <span className="truncate text-[10px] font-normal leading-4 text-slate-400">{option.description}</span> : null}
+              {option.description ? <span className="truncate text-[10px] font-normal leading-4 text-[color:var(--editor-color-text-subtle)]">{option.description}</span> : null}
             </button>
           ))}
         </div>

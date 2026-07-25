@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
-import { mediaInspectorModel } from "./media-inspector-model";
+import {
+  adjustCropZoom,
+  cropFromPointer,
+  directCropPatch,
+  mediaInspectorModel,
+  nudgeCrop,
+} from "./media-inspector-model";
 
 const base = {
   x: 0,
@@ -50,5 +56,30 @@ describe("shared media inspector model", () => {
       showCrop: false,
       canResetCrop: false,
     });
+  });
+
+  it("maps and clamps pointer coordinates to normalized focal values", () => {
+    expect(cropFromPointer({ x: 25, y: 75 }, { width: 100, height: 100 }, 2))
+      .toEqual({ x: 0.25, y: 0.75, zoom: 2 });
+    expect(cropFromPointer({ x: -10, y: 140 }, { width: 100, height: 100 }, 1))
+      .toEqual({ x: 0, y: 1, zoom: 1 });
+  });
+
+  it("nudges the focal point with clamped keyboard steps", () => {
+    expect(nudgeCrop({ x: 0.5, y: 0.5, zoom: 1 }, "ArrowRight", false))
+      .toEqual({ x: 0.51, y: 0.5, zoom: 1 });
+    expect(nudgeCrop({ x: 0.5, y: 0.5, zoom: 1 }, "ArrowUp", true))
+      .toEqual({ x: 0.5, y: 0.4, zoom: 1 });
+  });
+
+  it("keeps zoom inside the persisted 1x to 4x contract", () => {
+    expect(adjustCropZoom({ x: 0.5, y: 0.5, zoom: 1 }, -0.1).zoom).toBe(1);
+    expect(adjustCropZoom({ x: 0.5, y: 0.5, zoom: 3.95 }, 0.1).zoom).toBe(4);
+  });
+
+  it("refuses direct crop patches across an effective lock boundary", () => {
+    const crop = { x: 0.25, y: 0.75, zoom: 2 };
+    expect(directCropPatch(true, crop)).toBeNull();
+    expect(directCropPatch(false, crop)).toEqual(crop);
   });
 });

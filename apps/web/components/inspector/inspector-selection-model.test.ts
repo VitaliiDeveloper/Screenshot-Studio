@@ -69,4 +69,45 @@ describe("inspector selection model", () => {
     ]);
     expect(model.canGroup).toBe(false);
   });
+
+  it("treats an unlocked child of a locked group as effectively locked", () => {
+    const project = fixture();
+    project.layouts[0]!.screens[0]!.elements.push({
+      id: "locked-group",
+      type: "group",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      rotation: 0,
+      opacity: 1,
+      locked: true,
+      visible: true,
+      children: [{
+        id: "unlocked-child",
+        type: "shape",
+        x: 0,
+        y: 0,
+        width: 50,
+        height: 50,
+        rotation: 0,
+        opacity: 1,
+        locked: false,
+        visible: true,
+        kind: "rect",
+        fill: "#ffffff",
+        radius: 0,
+      }],
+    });
+
+    const model = deriveInspectorSelection(
+      project,
+      "primary",
+      "first",
+      [{ screenId: "first", elementId: "unlocked-child" }],
+    );
+
+    expect(model.element?.locked).toBe(false);
+    expect(model.effectiveLocked).toBe(true);
+  });
 });

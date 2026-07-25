@@ -13,7 +13,11 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { ScreenInspectorSections } from "./ScreenInspectorSections.js";
+import {
+  ScreenInspectorSections,
+  storeAuthoringScale,
+  storeAuthoringSize,
+} from "./ScreenInspectorSections.js";
 
 // Vitest compiles the Next.js-preserved JSX with the classic runtime for this Node-only render.
 Object.assign(globalThis, { React });
@@ -117,6 +121,25 @@ function renderInspector(
 }
 
 describe("ScreenInspectorSections Store Target artboard size", () => {
+  it("derives supported Store authoring scales and their exact dimensions", () => {
+    expect(storeAuthoringScale(
+      { width: 1206, height: 2622 },
+      { width: 1206, height: 2622 },
+    )).toBe("1");
+    expect(storeAuthoringScale(
+      { width: 2412, height: 5244 },
+      { width: 1206, height: 2622 },
+    )).toBe("2");
+    expect(storeAuthoringScale(
+      { width: 422 * 3.5, height: 514 * 3.5 },
+      { width: 422, height: 514 },
+    )).toBeUndefined();
+    expect(storeAuthoringSize(
+      { width: 1206, height: 2622 },
+      "3",
+    )).toEqual({ width: 3618, height: 7866 });
+  });
+
   it("shows a newly created 3.5x watchOS lead as a custom artboard", () => {
     const result = createWatchFamily();
     const screen = result.firstScreen;
@@ -171,6 +194,28 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     expect(markup).toContain(
       "Exports at 416 × 496 px for Apple Watch Series 11.",
     );
+    expect(markup).toContain('aria-label="Store authoring scale"');
+    expect(markup).toContain('aria-label="Use 1× authoring scale" aria-pressed="true"');
+  });
+
+  it("keeps a persisted 2× Store-derived artboard in Store size mode", () => {
+    const created = createWatchVariant();
+    const screen = {
+      ...created.variant,
+      artboard: { width: series11Target.width * 2, height: series11Target.height * 2 },
+    };
+    const markup = renderInspector(replaceScreen(created.project, screen), screen, watchSpecs);
+
+    expect(markup).toContain(
+      'aria-label="Use Store size" aria-pressed="true"',
+    );
+    expect(markup).toContain(
+      'aria-label="Use 2× authoring scale" aria-pressed="true"',
+    );
+    expect(markup).toContain("832 × 992 px");
+    expect(markup).toContain(
+      "Exports at 416 × 496 px for Apple Watch Series 11.",
+    );
   });
 
   it("disables artboard size controls when the Store Target is unavailable", () => {
@@ -186,5 +231,65 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
       'aria-label="Use custom artboard size" aria-pressed="false" disabled=""',
     );
     expect(markup).toContain("This screen references a Store Target that is unavailable.");
+  });
+});
+
+describe("ScreenInspectorSections background controls", () => {
+  function renderBackground(background: Project["layouts"][number]["screens"][number]["background"]): string {
+    const project = sourceProject();
+    const screen = { ...project.layouts[0]!.screens[0]!, background };
+    return renderInspector(replaceScreen(project, screen), screen, DEFAULT_STORE_SPECS);
+  }
+
+  it("uses the selected preview-first Solid composition", () => {
+    const markup = renderBackground({ type: "solid", color: "#091226" });
+
+    expect(markup).toContain('role="img" aria-label="Background preview"');
+    expect(markup).toContain('data-background-type="solid"');
+    expect(markup).toContain('aria-label="Background type"');
+    expect(markup).toContain('aria-label="Use Solid background" aria-pressed="true"');
+    expect(markup).not.toContain('aria-label="Quick background color"');
+    expect(markup).toContain('aria-label="Color"');
+    expect(markup.indexOf('aria-label="Background type"')).toBeLessThan(markup.indexOf('aria-label="Color"'));
+    expect(markup).toContain("#091226");
+  });
+
+  it("keeps Gradient controls contextual under the shared type switch", () => {
+    const markup = renderBackground({
+      type: "linear-gradient",
+      from: "#112233",
+      to: "#445566",
+      angle: 45,
+    });
+
+    expect(markup).toContain('data-background-type="linear-gradient"');
+    expect(markup).toContain('aria-label="Use Gradient background" aria-pressed="true"');
+    expect(markup).not.toContain('ring-[var(--editor-color-accent)]');
+    expect(markup).toContain('data-testid="background-context-controls"');
+    expect(markup).toContain('aria-label="Gradient colors"');
+    expect(markup).toContain('aria-label="From"');
+    expect(markup).toContain('aria-label="To"');
+    expect(markup).toContain('aria-label="Swap gradient colors"');
+    expect(markup).toContain('aria-label="Gradient direction presets"');
+    expect(markup).toContain('aria-label="Set gradient direction to Top-left to bottom-right" title="Top-left to bottom-right" aria-pressed="true"');
+    expect(markup).toContain('aria-label="Reverse gradient direction" title="Reverse direction" aria-pressed="false"');
+    expect(markup).toContain('aria-label="Angle"');
+    expect(markup).toContain('transition-[height]');
+  });
+
+  it("shows an imported Image as a product asset instead of a raw URL field", () => {
+    const markup = renderBackground({
+      type: "image",
+      assetUrl: "assets/background.png",
+      fit: "cover",
+      color: "#123456",
+    });
+
+    expect(markup).toContain('data-background-type="image"');
+    expect(markup).toContain('aria-label="Use Image background" aria-pressed="true"');
+    expect(markup).toContain("background.png");
+    expect(markup).toContain("Replace background");
+    expect(markup).toContain('aria-label="Background content mode"');
+    expect(markup).not.toContain("Asset URL");
   });
 });

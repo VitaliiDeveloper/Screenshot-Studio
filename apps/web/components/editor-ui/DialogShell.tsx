@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cx, editorUi } from "./styles.js";
@@ -24,6 +24,7 @@ export function DialogShell({
   closeLabel,
   closeDisabled = false,
   initialFocus = "first-control",
+  focusResetKey,
   density = "default",
   motion,
 }: {
@@ -37,11 +38,13 @@ export function DialogShell({
   closeLabel?: string;
   closeDisabled?: boolean;
   initialFocus?: "first-control" | "heading";
+  focusResetKey?: string | number;
   density?: "default" | "compact";
   motion?: "open" | "closing";
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const descriptionId = useId();
   const onCloseRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
   const closeTimerRef = useRef<number | null>(null);
@@ -74,7 +77,7 @@ export function DialogShell({
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(
-        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
+        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
       );
       (initialFocus === "heading" ? headingRef.current : first ?? dialogRef.current)?.focus();
     });
@@ -92,7 +95,7 @@ export function DialogShell({
       }
       if (event.key !== "Tab") return;
       const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
+        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
       )).filter((element) => element.tabIndex >= 0 && !element.hasAttribute("hidden"));
       if (focusable.length === 0) {
         event.preventDefault();
@@ -117,7 +120,7 @@ export function DialogShell({
       document.removeEventListener("keydown", onKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [initialFocus, requestClose]);
+  }, [focusResetKey, initialFocus, requestClose]);
 
   const effectiveMotion = motion ?? internalMotion;
 
@@ -135,6 +138,7 @@ export function DialogShell({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel ?? title}
+        aria-describedby={description ? descriptionId : undefined}
         aria-busy={closeDisabled || undefined}
         tabIndex={-1}
         className={cx(
@@ -160,7 +164,7 @@ export function DialogShell({
               {title}
             </h2>
             {description ? (
-              <p className={cx(
+              <p id={descriptionId} className={cx(
                 "mt-1 text-xs text-[color:var(--editor-color-text-secondary)]",
                 density === "compact" ? "leading-4" : "leading-5",
               )}>

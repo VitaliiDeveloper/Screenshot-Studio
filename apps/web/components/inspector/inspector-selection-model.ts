@@ -18,9 +18,13 @@ export function deriveInspectorSelection(
     layoutId,
     selectedItems.length === 1 && primary ? primary.screenId : activeScreenId,
   );
-  const element = selectedItems.length === 1 && primary
-    ? findElementLocation(screen, primary.elementId)?.element
-    : undefined;
+  const primaryLocation = selectedItems.length === 1 && primary
+    ? findElementLocation(screen, primary.elementId)
+    : null;
+  const element = primaryLocation?.element;
+  const effectiveLocked = Boolean(
+    primaryLocation && (primaryLocation.element.locked || primaryLocation.parent?.locked),
+  );
   const aggregate = selectedItems.length > 1
     ? selectionBounds(getLayout(project, layoutId), activeScreenId, selectedItems)
     : null;
@@ -46,5 +50,14 @@ export function deriveInspectorSelection(
       location && !location.parent && location.element.type === "group"
     ));
 
-  return { screen, element, aggregate, everyLocked, everyHidden, canGroup, canUngroup };
+  return {
+    screen,
+    element,
+    effectiveLocked,
+    aggregate,
+    everyLocked,
+    everyHidden,
+    canGroup,
+    canUngroup,
+  };
 }

@@ -94,7 +94,7 @@ export function ArtboardTargets({
   }
 
   if (targets.length === 0) {
-    return <p className="text-xs text-slate-400">No store listing sizes for {storeOutputLabel(screen.platform, screen.device, specs)}.</p>;
+    return <p className="text-xs text-[color:var(--editor-color-text-subtle)]">No store listing sizes for {storeOutputLabel(screen.platform, screen.device, specs)}.</p>;
   }
 
   const familyRows = families.map(({ platform, device, creatable, sizes }) => {
@@ -166,32 +166,32 @@ export function ArtboardTargets({
         role="group"
         aria-label={`${displayLabel} output target`}
         aria-current={isCurrent ? "true" : undefined}
-        className={`relative mb-1.5 flex items-center justify-between gap-2 rounded-lg border p-2.5 text-xs transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrent ? "border-blue-200 bg-blue-50/70" : `border-slate-200 bg-white ${targetScreen ? "cursor-pointer hover:border-blue-200 hover:bg-blue-50/40" : ""}`}`}
+        className={`relative mb-1.5 flex items-center justify-between gap-2 rounded-[var(--editor-radius-control)] border p-2.5 text-xs transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrent ? "border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)]" : `border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] ${targetScreen ? "cursor-pointer hover:border-[var(--editor-color-accent-muted)] hover:bg-[var(--editor-color-accent-subtle)]" : ""}`}`}
       >
         {!isCurrent && targetScreen ? (
           <button
             type="button"
             aria-label={`Open ${displayLabel}`}
             title={`Open ${displayLabel}`}
-            className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60"
+            className="absolute inset-0 rounded-[var(--editor-radius-control)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
             onClick={() => onOpen(targetScreen.id)}
           />
         ) : null}
         <span className="pointer-events-none relative z-[1] flex min-w-0 flex-col gap-1">
-          <span data-testid="store-target-name" className="truncate font-semibold text-slate-700">
+          <span data-testid="store-target-name" className="truncate font-semibold text-[color:var(--editor-color-text-default)]">
             {displayLabel}
           </span>
-          <span className="text-[10px] text-slate-400">{dimensionsLabel(target)}</span>
+          <span className="text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-muted)]">{dimensionsLabel(target)}</span>
         </span>
         <span className="pointer-events-none relative z-[2] flex shrink-0 items-center gap-1">
-          {isLead ? (
-            <span
-              data-testid="store-target-roles"
-              className="rounded-full bg-slate-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white"
-            >
-              Primary
-            </span>
-          ) : null}
+          <span
+            data-testid="store-target-role"
+            className={isLead
+              ? "rounded-full bg-[var(--editor-color-text-strong)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-on-accent)]"
+              : "rounded-full bg-[var(--editor-color-surface-muted)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]"}
+          >
+            {isLead ? "Master" : "Variant"}
+          </span>
           {canRemove && targetScreen ? (
             <button
               type="button"
@@ -223,9 +223,9 @@ export function ArtboardTargets({
     created: StoreSize[];
     available: StoreSize[];
   }) => (
-    <div className="border-t border-slate-100 pt-3">
+    <div className="border-t border-[var(--editor-color-surface-muted)] pt-3">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <p className="min-w-0 truncate text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-secondary)]">
           {title}
         </p>
         <AddMenu
@@ -250,11 +250,11 @@ export function ArtboardTargets({
   return (
     <section
       data-testid="store-outputs-section"
-      className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4"
+      className="flex flex-col gap-3 border-b border-[var(--editor-color-border)] px-4 py-4"
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Destinations</h3>
+          <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Destinations</h3>
           <AddMenu
             ariaLabel="Add destination"
             menuLabel="Available destinations"
@@ -280,23 +280,23 @@ export function ArtboardTargets({
               role="group"
               aria-label={`${destination} · ${familyLabel} output`}
               aria-current={isCurrentFamily ? "true" : undefined}
-              className={`relative flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrentFamily ? "border-blue-200 bg-blue-50/70" : `border-slate-200 bg-white ${existingRoot ? "cursor-pointer hover:border-blue-200 hover:bg-blue-50/40" : ""}`}`}
+              className={`relative flex items-center justify-between gap-2 rounded-[var(--editor-radius-control)] border px-2.5 py-2 text-xs transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrentFamily ? "border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)]" : `border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] ${existingRoot ? "cursor-pointer hover:border-[var(--editor-color-accent-muted)] hover:bg-[var(--editor-color-accent-subtle)]" : ""}`}`}
             >
               {!isCurrentFamily && existingRoot ? (
                 <button
                   type="button"
                   aria-label={`Open ${destination} · ${familyLabel} output`}
                   title={`Open ${destination} · ${familyLabel} output`}
-                  className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60"
+                  className="absolute inset-0 rounded-[var(--editor-radius-control)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
                   onClick={() => onOpen(existingRoot.id)}
                 />
               ) : null}
               <span className="pointer-events-none relative z-[1] min-w-0 space-y-0.5">
-                <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                  <span className={`h-1.5 w-1.5 rounded-full transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrentFamily ? "bg-blue-500" : "bg-slate-300"}`} aria-hidden="true" />
+                <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]">
+                  <span className={`h-1.5 w-1.5 rounded-full transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrentFamily ? "bg-[var(--editor-color-accent)]" : "bg-[var(--editor-color-border-strong)]"}`} aria-hidden="true" />
                   {destination}
                 </span>
-                <span className="block truncate font-semibold text-slate-700">{familyLabel}</span>
+                <span className="block truncate font-semibold text-[color:var(--editor-color-text-default)]">{familyLabel}</span>
               </span>
               {canRemove && existingRoot ? (
                 <button

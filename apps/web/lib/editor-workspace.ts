@@ -38,7 +38,14 @@ export type ResourceDialog =
   | "image-assets"
   | "background-assets"
   | "store-badge-assets"
-  | "mockup-screenshot-assets";
+  | "mockup-screenshot-assets"
+  | "replace-media-asset";
+
+export type MediaAssetTarget = {
+  elementId: string;
+  screenId: string;
+  elementType: "screenshot" | "image";
+};
 
 type DeviceFrameScreenContext = Pick<Screen, "platform" | "device" | "artboard">;
 

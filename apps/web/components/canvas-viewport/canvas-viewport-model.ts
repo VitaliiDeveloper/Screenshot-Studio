@@ -25,3 +25,13 @@ export function nextAnchoredScroll(input: {
     scrollTop: (input.scrollTop + input.anchor.y) * ratio - input.anchor.y,
   };
 }
+
+export function activeArtboardScrollBehavior(input: {
+  leftInset: number;
+  rightInset: number;
+  reducedMotion: boolean;
+}): ScrollBehavior {
+  return input.reducedMotion || input.leftInset > 0 || input.rightInset > 0
+    ? "auto"
+    : "smooth";
+}
