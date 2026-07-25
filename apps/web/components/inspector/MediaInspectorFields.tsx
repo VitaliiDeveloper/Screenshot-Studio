@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { MEDIA_BLUR_MAX, type ImageElement, type ScreenshotElement } from "@screenshot-studio/core/model";
+import type { ImageElement, ScreenshotElement } from "@screenshot-studio/core/model";
 import { Image as ImageIcon, Trash2 } from "lucide-react";
 import type { ElementPatchFor } from "@web/lib/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
-import { NumberField, SelectField } from "@web/components/inspector-fields";
+import { NumberField } from "@web/components/inspector-fields";
 import { mediaInspectorModel } from "./media-inspector-model";
-import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
+import { MediaPresentationFields } from "./MediaPresentationFields";
 
 export function MediaInspectorFields({
   element,
@@ -56,25 +56,7 @@ export function MediaInspectorFields({
           </button>
         </div>
       </InsetPanel>
-      <SelectField
-        label="Content mode"
-        value={element.fit}
-        options={["cover", "contain"] as const}
-        optionLabels={{ cover: "Fill", contain: "Fit" }}
-        onChange={(fit) => onChange({ fit })}
-      />
-      <NumberField label="Corner radius" value={element.cornerRadius} min={0} onChange={(cornerRadius) => onChange({ cornerRadius })} />
-      <OptionalInspectorEffect
-        title="Blur"
-        description="Soften the media content"
-        enabled={Boolean(element.blur)}
-        onAdd={() => onChange({ blur: 8 })}
-        onRemove={() => onChange({ blur: null })}
-      >
-        {element.blur ? (
-          <NumberField label="Blur radius" value={element.blur} min={0} max={MEDIA_BLUR_MAX} step={1} onChange={(blur) => onChange({ blur: blur === 0 ? null : blur })} />
-        ) : null}
-      </OptionalInspectorEffect>
+      <MediaPresentationFields element={element} onChange={onChange} />
       {showCrop ? (
         <InsetPanel>
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Cover crop</p>

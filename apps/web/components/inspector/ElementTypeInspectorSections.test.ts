@@ -170,7 +170,7 @@ describe("ElementTypeInspectorSections media content mode", () => {
       visible: true,
       assetUrl: "screenshots/checkout.png",
       fit: "cover",
-      cornerRadius: 0,
+      cornerRadius: 108,
     };
     const previousReact = Reflect.get(globalThis, "React");
     Reflect.set(globalThis, "React", React);
@@ -191,6 +191,13 @@ describe("ElementTypeInspectorSections media content mode", () => {
     expect(markup).toContain('aria-label="Content mode"');
     expect(markup).toContain("Fill");
     expect(markup).not.toContain(">cover<");
+    expect(markup.indexOf("Content mode")).toBeLessThan(markup.indexOf("Fill"));
+    expect(markup).toContain('aria-pressed="true"');
+    expect(markup.indexOf("Corner radius")).toBeLessThan(markup.indexOf("Square"));
+    expect(markup).toContain("Soft");
+    expect(markup).toContain("Round");
+    expect(markup).toContain("108");
+    expect(markup).toContain("Add blur");
   });
 });
 
