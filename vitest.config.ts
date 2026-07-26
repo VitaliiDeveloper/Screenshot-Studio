@@ -3,6 +3,13 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Next keeps JSX for its compiler, while Vitest 4 uses Vite 8/Rolldown and
+  // needs JSX lowered before import analysis.
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
+  },
   resolve: {
     alias: {
       "@web": fileURLToPath(new URL("./apps/web", import.meta.url)),

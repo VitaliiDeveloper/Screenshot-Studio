@@ -324,7 +324,7 @@ describe("Expanded renderer styling parity", () => {
       expect({ width: actual.width, height: actual.height }).toEqual(artboard);
       const diff = new PNG({ width: expected.width, height: expected.height });
       const mismatch = pixelmatch(
-        expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1 },
+        expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1, checkerboard: false },
       );
       expect(mismatch / (expected.width * expected.height)).toBeLessThan(0.005);
       staticRasters.set(screenId, expected);

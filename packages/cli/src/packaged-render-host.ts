@@ -188,7 +188,7 @@ export async function prepareRenderHost(port: number): Promise<PreparedRenderHos
   }
   return {
     command: "pnpm",
-    args: ["exec", "next", "dev", "--port", String(port)],
+    args: ["exec", "next", "dev", "--webpack", "--port", String(port)],
     cwd: sourceWebDir,
     env: { NODE_ENV: "development" },
     cleanup: async () => undefined,

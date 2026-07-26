@@ -46,7 +46,7 @@
     "@screenshot-studio/core": "workspace:*",
     "fontkit": "2.0.4",
     "jszip": "^3.10.1",
-    "playwright": "1.61.1",
+    "playwright": "1.62.0",
     "sharp": "0.35.3"
   }
 }

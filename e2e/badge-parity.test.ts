@@ -90,7 +90,7 @@ describe("badge composition parity", () => {
       diff.data,
       second.width,
       second.height,
-      { threshold: 0.1 },
+      { threshold: 0.1, checkerboard: false },
     );
     expect(mismatch / (second.width * second.height)).toBeLessThan(MAX_MISMATCH_FRACTION);
 

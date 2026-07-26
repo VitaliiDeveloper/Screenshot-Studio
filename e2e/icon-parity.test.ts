@@ -102,7 +102,7 @@ describe("trusted icon parity", () => {
     expect(rgb(first, 192, 160)).toEqual([255, 0, 255]);
     expect(rgb(second, 10, 140)).toEqual([255, 0, 255]);
     const diff = new PNG({ width: second.width, height: second.height });
-    expect(pixelmatch(second.data, headed.data, diff.data, second.width, second.height, { threshold: 0.1 }))
+    expect(pixelmatch(second.data, headed.data, diff.data, second.width, second.height, { threshold: 0.1, checkerboard: false }))
       .toBe(0);
 
     const page = await harness.interactive!.newPage({ viewport: { width: 1200, height: 700 } });

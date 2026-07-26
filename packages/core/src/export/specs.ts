@@ -45,7 +45,7 @@ const StorePlatformSchema = z
     label: z.string().trim().min(1),
     shortLabel: z.string().trim().min(1),
     kind: z.enum(["store", "web"]),
-    families: z.record(StoreFamilySchema),
+    families: z.record(z.string(), StoreFamilySchema),
   })
   .strict();
 export type StorePlatform = z.infer<typeof StorePlatformSchema>;
@@ -54,7 +54,7 @@ const StoreSpecsSchema = z
   .object({
     $comment: z.string().optional(),
     schemaVersion: z.literal(1),
-    platforms: z.record(StorePlatformSchema),
+    platforms: z.record(z.string(), StorePlatformSchema),
   })
   .strict()
   .superRefine((catalog, context) => {
