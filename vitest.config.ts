@@ -24,6 +24,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "json-summary", "lcov", "html"],
+      // Vitest 4 reports only loaded files unless source coverage is scoped explicitly.
+      include: ["packages/**/src/**/*.ts", "apps/**/*.ts", "apps/**/*.tsx", "scripts/**/*.ts"],
     },
   },
 });
