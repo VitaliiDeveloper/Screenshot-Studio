@@ -1,6 +1,11 @@
 packages:
   - "packages/*"
   - "apps/*"
+# Next 15.5.21 pins vulnerable production transitive dependencies. Keep these scoped to Next
+# instead of changing resolution for unrelated workspace dependencies.
+overrides:
+  "next>postcss": "8.5.23"
+  "next>sharp": "0.35.3"
 # pnpm 10.26+/11 blocks package build scripts by default (ERR_PNPM_IGNORED_BUILDS). The headless
 # renderer the e2e/parity suite drives needs these two native builds, so allow them explicitly.
 # (This replaces the old package.json `pnpm.onlyBuiltDependencies`, which pnpm 11 no longer reads.)
