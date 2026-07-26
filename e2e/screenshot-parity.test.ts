@@ -45,7 +45,7 @@ function mismatch(a: Buffer, b: Buffer): number {
   expect(pa.width).toBe(pb.width);
   expect(pa.height).toBe(pb.height);
   const diff = new PNG({ width: pa.width, height: pa.height });
-  return pixelmatch(pa.data, pb.data, diff.data, pa.width, pa.height, { threshold: PER_PIXEL_THRESHOLD });
+  return pixelmatch(pa.data, pb.data, diff.data, pa.width, pa.height, { threshold: PER_PIXEL_THRESHOLD, checkerboard: false });
 }
 
 describe("screenshot parity", () => {

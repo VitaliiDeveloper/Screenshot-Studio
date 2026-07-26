@@ -119,7 +119,7 @@ describe("decorative image parity", () => {
 
     const headed = PNG.sync.read(headedSecond);
     const diff = new PNG({ width: second.width, height: second.height });
-    expect(pixelmatch(second.data, headed.data, diff.data, second.width, second.height, { threshold: 0.1 }))
+    expect(pixelmatch(second.data, headed.data, diff.data, second.width, second.height, { threshold: 0.1, checkerboard: false }))
       .toBe(0);
 
     const page = await harness.interactive!.newPage({ viewport: { width: 1200, height: 700 } });

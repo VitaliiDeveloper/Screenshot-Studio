@@ -38,7 +38,7 @@ function mismatch(first: Buffer, second: Buffer): number {
   const b = PNG.sync.read(second);
   expect({ width: a.width, height: a.height }).toEqual({ width: b.width, height: b.height });
   const diff = new PNG({ width: a.width, height: a.height });
-  return pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1 });
+  return pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: 0.1, checkerboard: false });
 }
 
 describe("connected crop parity", () => {

@@ -36,6 +36,7 @@ function countMismatch(a: Buffer, b: Buffer): number {
   const diff = new PNG({ width: first.width, height: first.height });
   return pixelmatch(first.data, second.data, diff.data, first.width, first.height, {
     threshold: 0.1,
+    checkerboard: false,
   });
 }
 
