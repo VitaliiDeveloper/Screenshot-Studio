@@ -16,7 +16,7 @@
   "engines": {
     "node": ">=22.13"
   },
-  "packageManager": "pnpm@11.10.0",
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "pnpm --filter @screenshot-studio/web dev",
     "build:cli-package": "pnpm --filter @screenshot-studio/web build && node scripts/build-cli-package.mjs",
