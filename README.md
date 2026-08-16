@@ -51,6 +51,37 @@ Screenshot Studio combines both workflows:
   managed copies. Project archives, rendered exports, Close, Remove from recents, and permanent
   deletion remain separate, explicit operations.
 
+## Example project
+
+The Store Launch Demo shows one campaign authored across iPhone and iPad, with synchronized screen
+structure, exact-size output variants, and element-level visual controls.
+
+Start with a guided project or import an existing Folder, project ZIP, or complete JSON document.
+
+![Screenshot Studio project launcher](docs/images/readme/project-launcher.png)
+
+Return to recent projects without moving or rewriting their source files.
+
+![Screenshot Studio recent projects](docs/images/readme/recent-projects.png)
+
+Use Overview to edit a connected campaign across destinations, screens, and store sizes, then export
+the same composition through the shared renderer.
+
+![Screenshot Studio connected multi-artboard editor](docs/images/readme/editor-overview.png)
+
+<details>
+<summary><strong>See element and screen controls</strong></summary>
+
+Select a device frame to adjust its transform, screenshot content, and frame preset.
+
+![Screenshot Studio device frame inspector](docs/images/readme/device-frame-inspector.png)
+
+Select a screen to manage synchronized structure, destinations, exact output sizes, and background.
+
+![Screenshot Studio screen and output variants](docs/images/readme/screen-variants.png)
+
+</details>
+
 ## How Codex and GPT-5.6 were used
 
 Screenshot Studio was built through an AI-assisted product and engineering workflow using OpenAI
