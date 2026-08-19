@@ -244,6 +244,19 @@ accelerate authoring without locking the project to one model, provider, or hidd
 
 Requirements: Node.js 22.13+, Corepack, and the pinned pnpm 11 toolchain.
 
+For the one-command local workflow, run:
+
+```bash
+./run.sh
+```
+
+It safely clears generated build/test caches, installs or refreshes the pinned dependencies and
+Playwright Chromium builds as needed, then starts Screenshot Studio. To prepare the repository
+without starting the app, run `./install.sh` instead. Run `./clean.sh` to clean without installing
+or starting anything. None of these scripts removes projects or exports.
+
+The equivalent manual setup is:
+
 ```bash
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
 corepack enable
