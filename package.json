@@ -18,6 +18,8 @@
   },
   "packageManager": "pnpm@11.22.0",
   "scripts": {
+    "check:clean": "node --test scripts/clean.check.mjs",
+    "clean": "node scripts/clean.mjs",
     "dev": "pnpm --filter @screenshot-studio/web dev",
     "build:cli-package": "pnpm --filter @screenshot-studio/web build && node scripts/build-cli-package.mjs",
     "audit:release": "pnpm build:cli-package && node scripts/release-audit.mjs",
