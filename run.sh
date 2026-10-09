@@ -10,4 +10,6 @@ echo "Cleaning generated caches..."
 "$repo_root/install.sh"
 
 echo "Starting Screenshot Studio at http://localhost:3000 ..."
-exec corepack pnpm dev
+# Call the web package directly: the root "dev" script shells out to a bare `pnpm`,
+# which is not on PATH unless the contributor ran `corepack enable`.
+exec corepack pnpm --filter @screenshot-studio/web dev
