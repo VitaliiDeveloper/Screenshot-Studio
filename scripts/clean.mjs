@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import console from "node:console";
 import { rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 export const CLEAN_PATHS = [

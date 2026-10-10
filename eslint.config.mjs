@@ -17,6 +17,8 @@ export default tseslint.config(
       "**/coverage/**",
       "**/.worktrees/**",
       "export/**",
+      // Local design prototypes are reference material, not product source.
+      "design/**",
       "**/next-env.d.ts",
     ],
   },
