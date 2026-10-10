@@ -5,7 +5,7 @@ or announcement is implied by a successful local build or CI run.
 
 ## Build and inspect the candidate
 
-Start from a clean checkout with Node.js 22.13+ and pnpm 11.22.0:
+Start from a clean checkout with Node.js 22.13+ and pnpm 12.10.1:
 
 ```bash
 corepack enable
