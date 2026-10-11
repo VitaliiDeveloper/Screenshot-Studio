@@ -46,7 +46,7 @@ Screenshot Studio combines both workflows:
   fonts, themes, templates, assets, auto-crop, and flat-background removal.
 - **CLI and agent workflows.** The `screenshots` CLI manages layouts, screens, imports, fonts,
   themes, locales, local assets, and exports. Generated project-local guidance and the optional
-  agent skill operate on the same strict JSON and CLI contract.
+  [agent skill](skills/screenshot-studio/SKILL.md) operate on the same strict JSON and CLI contract.
 - **Safe project lifecycle.** Local projects can be edited in place; browser imports create validated
   managed copies. Project archives, rendered exports, Close, Remove from recents, and permanent
   deletion remain separate, explicit operations.
@@ -81,22 +81,6 @@ Select a screen to manage synchronized structure, destinations, exact output siz
 ![Screenshot Studio screen and output variants](docs/images/readme/screen-variants.png)
 
 </details>
-
-## AI agents (optional)
-
-Screenshot Studio never requires a model, provider SDK, API key, or persisted AI state. The editor and
-CLI work the same with or without an agent, and projects stay readable, editable, exportable, and
-portable without one.
-
-For an agent-assisted workflow, `screenshots init` generates a project-local
-[`AGENTS.md`](examples/connected-launch/AGENTS.md) that documents the enforced schema, authoring
-boundaries, supported CLI operations, and verification recipes. Any agent that reads `AGENTS.md` can
-author against that contract. The optional [`skills/screenshot-studio`](skills/screenshot-studio/SKILL.md)
-agent skill only discovers or initializes a project and then defers to that local guide.
-
-Contributors using agents should start with the repository [`AGENTS.md`](AGENTS.md) and
-[`RULES.md`](RULES.md): they route work to the relevant source of truth, protect the strict schema and
-shared renderer, and keep release publication separate from implementation.
 
 ## Quick start
 
