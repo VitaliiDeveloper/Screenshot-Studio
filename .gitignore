@@ -52,7 +52,6 @@ docs/superpowers/
 docs/archive/superpowers/
 .superpowers/
 .worktrees/
-/.codex/config.toml
 /.screenshot-studio/
 /apps/web/.screenshot-studio/
 
