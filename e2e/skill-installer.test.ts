@@ -39,7 +39,7 @@ async function run(command: string, args: string[], cwd: string, timeout = 180_0
 beforeAll(async () => {
   await run("pnpm", ["build:cli-package"], repoRoot, 300_000);
   directory = await mkdtemp(join(tmpdir(), "screenshot-studio-skill-"));
-  installedSkill = join(directory, "codex-home", "skills", "screenshot-studio");
+  installedSkill = join(directory, "skills-home", "skills", "screenshot-studio");
   projectDirectory = join(directory, "clean-project");
   await cp(sourceSkill, installedSkill, { recursive: true });
 }, 300_000);
