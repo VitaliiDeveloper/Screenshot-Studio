@@ -27,6 +27,7 @@ export const COMMAND_FLAG_SPECS = {
   locale: { value: ["project", "from", "direction", "to", "layout"], boolean: [] },
   asset: { value: ["project", "threshold", "background", "tolerance"], boolean: [] },
   layout: { value: ["project", "name", "mode"], boolean: [] },
+  setup: { value: [], boolean: [] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;
