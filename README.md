@@ -120,10 +120,11 @@ The sample appears in **Recent projects** and opens directly in Workspace. Edito
 fixture in place, so copy it to a separate directory before experimenting with changes you do not
 want to keep.
 
-Exact PNG export additionally requires the matching Playwright browser builds once per machine:
+Exact PNG export additionally requires the matching Playwright browser builds once per machine.
+`pnpm screenshots export` offers to download them on first use; to install them explicitly:
 
 ```bash
-pnpm exec playwright install chromium chromium-headless-shell
+pnpm screenshots setup
 pnpm screenshots export --project "$PWD/fixtures/sample/app-store-screenshots.json"
 ```
 
@@ -235,8 +236,21 @@ To build the local installable artifact without publishing it:
 pnpm build:cli-package
 pnpm --dir packages/cli/package pack
 pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+screenshots setup
 screenshots init --dir ./my-app-screenshots
 ```
+
+`screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
+cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,
+`screenshots export` asks before downloading on first use and, in CI or other non-interactive
+runs, exits with the install command instead of downloading. On Linux, Chromium may also need
+Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
+
+Interactive runs also make one optional request per day to the public npm registry
+(`registry.npmjs.org/@screenshot-studio/cli/latest`) and print a one-line notice when a newer
+version exists. Nothing is sent but the request itself, and failures are ignored. Disable it with
+`SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is also skipped when `CI` is set or
+output is not a terminal.
 
 The package contains the built `screenshots` binary, shared store specifications, and prebuilt Next
 render host. Version `0.1.0` is an unpublished dry-run candidate; it is not a registry release.
