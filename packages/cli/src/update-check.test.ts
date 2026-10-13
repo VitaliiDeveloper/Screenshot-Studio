@@ -165,6 +165,7 @@ describe("updateCacheFile", () => {
     expect(updateCacheFile({}, "darwin", "/Users/a")).toBe("/Users/a/Library/Caches/screenshot-studio/update-check.json");
     expect(updateCacheFile({}, "linux", "/home/a")).toBe("/home/a/.cache/screenshot-studio/update-check.json");
     expect(updateCacheFile({ XDG_CACHE_HOME: "/xdg" }, "linux", "/home/a")).toBe("/xdg/screenshot-studio/update-check.json");
-    expect(updateCacheFile({ LOCALAPPDATA: "C:\\L" }, "win32", "C:\\u")).toContain("screenshot-studio");
+    expect(updateCacheFile({ LOCALAPPDATA: "C:\\L" }, "win32", "C:\\u")).toBe("C:\\L\\screenshot-studio\\update-check.json");
+    expect(updateCacheFile({}, "win32", "C:\\u")).toBe("C:\\u\\AppData\\Local\\screenshot-studio\\update-check.json");
   });
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dispatchCommand } from "./command-dispatch.js";
 import {
@@ -58,7 +58,8 @@ describe("install location detection", () => {
         PLAYWRIGHT_BROWSERS_PATH: cache,
       });
       expect(locations).toHaveLength(2);
-      for (const location of locations) expect(location.startsWith(cache)).toBe(true);
+      // Compare the leaf only: Windows runners may expand 8.3 short names in the parent path.
+      for (const location of locations) expect(basename(dirname(location))).toBe(basename(cache));
     } finally {
       rmSync(cache, { recursive: true, force: true });
     }

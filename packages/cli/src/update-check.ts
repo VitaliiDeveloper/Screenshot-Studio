@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, posix, win32 } from "node:path";
 
 /**
  * Optional "newer version available" notice. The only network call the CLI makes on its own:
@@ -55,12 +55,13 @@ export function updateCheckDisabled(env: NodeJS.ProcessEnv, interactive: boolean
 }
 
 export function updateCacheFile(env: NodeJS.ProcessEnv, platform: NodeJS.Platform, home: string): string {
+  const path = platform === "win32" ? win32 : posix;
   const base = platform === "win32"
-    ? env.LOCALAPPDATA ?? join(home, "AppData", "Local")
+    ? env.LOCALAPPDATA ?? path.join(home, "AppData", "Local")
     : platform === "darwin"
-      ? join(home, "Library", "Caches")
-      : env.XDG_CACHE_HOME ?? join(home, ".cache");
-  return join(base, "screenshot-studio", "update-check.json");
+      ? path.join(home, "Library", "Caches")
+      : env.XDG_CACHE_HOME ?? path.join(home, ".cache");
+  return path.join(base, "screenshot-studio", "update-check.json");
 }
 
 export function formatUpdateNotice(current: string, latest: string): string {
