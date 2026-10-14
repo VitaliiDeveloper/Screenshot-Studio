@@ -31,14 +31,13 @@ describe("pnpmCommand", () => {
     expect(() => pnpmCommand(["pack"], {}, "win32")).toThrow("pnpm entrypoint is unavailable");
   });
 
-  it.skipIf(process.platform === "win32")("starts a shebang-less placeholder that execFile rejects", async () => {
+  // Direct execFile of such a file fails with ENOEXEC on macOS; glibc's execvp falls back to sh on Linux.
+  it.skipIf(process.platform === "win32")("starts a shebang-less placeholder", async () => {
     const directory = await mkdtemp(join(tmpdir(), "pnpm-command-"));
     try {
       const placeholder = join(directory, "pnpm");
       await writeFile(placeholder, 'echo "placeholder $*"\n');
       await chmod(placeholder, 0o755);
-      // execFile throws ENOEXEC synchronously, so start it inside a promise chain.
-      await expect(Promise.resolve().then(() => execFile(placeholder, ["pack"]))).rejects.toMatchObject({ code: "ENOEXEC" });
       const [executable, args] = pnpmCommand(["pack", "a b"], { npm_execpath: placeholder });
       expect((await execFile(executable, args)).stdout).toBe("placeholder pack a b\n");
     } finally {

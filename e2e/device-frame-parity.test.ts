@@ -87,6 +87,19 @@ describe("device-frame parity", () => {
       reducedMotion: "reduce",
     });
     try {
+      // Next dev compiles routes on demand: the first CLI render after the editor compiles full-reloads
+      // open editor tabs, which would reset the zoom set below. Warm that cycle in a throwaway tab.
+      const warm = await harness.interactive.newPage();
+      await warm.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
+      await expect.poll(
+        () => warm.getByTestId("canvas-viewport").getAttribute("data-initial-reveal"),
+        { timeout: 20_000 },
+      ).toBe("idle");
+      await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath: fixturePath, layoutId: "default", screenId: recipeScreenIds[0], pixelRatio,
+      });
+      await warm.close();
+
       await page.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
       const viewport = page.getByTestId("canvas-viewport");
       await expect.poll(
