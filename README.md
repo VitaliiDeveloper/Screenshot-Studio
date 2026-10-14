@@ -84,27 +84,26 @@ Select a screen to manage synchronized structure, destinations, exact output siz
 
 ## Quick start
 
-Requirements: Node.js 22.13+, Corepack, and the pnpm version pinned in `package.json` (activated by Corepack).
-
-For the one-command local workflow, run:
-
-```bash
-./run.sh
-```
-
-It safely clears generated build/test caches, installs or refreshes the pinned dependencies and
-Playwright Chromium builds as needed, then starts Screenshot Studio. To prepare the repository
-without starting the app, run `./install.sh` instead. Run `./clean.sh` to clean without installing
-or starting anything. None of these scripts removes projects or exports.
-
-The equivalent manual setup is:
+Requirements: Node.js 22.13+ and pnpm 12.10.1, the version pinned in `package.json`. Install pnpm
+once with `npm install -g pnpm@12.10.1`; an existing Corepack setup also works.
 
 ```bash
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
-corepack enable
-pnpm install
-pnpm dev
+./run.sh
 ```
+
+`./run.sh` is the only command you need. It installs or refreshes the pinned dependencies and the
+Playwright Chromium builds used for export when they are missing or outdated (a quick no-op
+otherwise), then starts Screenshot Studio.
+
+| Task | Command |
+|---|---|
+| Start | `./run.sh` |
+| Update | `git pull && ./run.sh` |
+| Prepare without starting | `./install.sh` |
+| Recover from a stale build cache | `./clean.sh && ./run.sh` |
+
+None of these scripts removes projects or exports.
 
 Open [http://localhost:3000](http://localhost:3000), then choose **New project** and a built-in
 starter, or use **Import** to create a managed copy of an existing Folder, project ZIP, or complete
@@ -120,11 +119,9 @@ The sample appears in **Recent projects** and opens directly in Workspace. Edito
 fixture in place, so copy it to a separate directory before experimenting with changes you do not
 want to keep.
 
-Exact PNG export additionally requires the matching Playwright browser builds once per machine.
-`pnpm screenshots export` offers to download them on first use; to install them explicitly:
+Exact PNG export uses the Chromium builds that `./run.sh` installs. From the CLI:
 
 ```bash
-pnpm screenshots setup
 pnpm screenshots export --project "$PWD/fixtures/sample/app-store-screenshots.json"
 ```
 
@@ -246,7 +243,8 @@ cache) using the Playwright version the CLI depends on; it is safe to re-run. Wi
 runs, exits with the install command instead of downloading. On Linux, Chromium may also need
 Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
 
-Interactive runs also make one optional request per day to the public npm registry
+Interactive runs of the installed package (not a source checkout, which updates with `git pull`)
+also make one optional request per day to the public npm registry
 (`registry.npmjs.org/@screenshot-studio/cli/latest`) and print a one-line notice when a newer
 version exists. Nothing is sent but the request itself, and failures are ignored. Disable it with
 `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is also skipped when `CI` is set or

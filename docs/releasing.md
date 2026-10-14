@@ -8,7 +8,6 @@ or announcement is implied by a successful local build or CI run.
 Start from a clean checkout with Node.js 22.13+ and pnpm 12.10.1:
 
 ```bash
-corepack enable
 pnpm install --frozen-lockfile
 pnpm check:release-candidate
 mkdir -p artifacts
