@@ -8,12 +8,21 @@ After installing the `0.1.0` dry-run package artifact and its matching Chromium 
 
 ```bash
 pnpm add --global ./screenshot-studio-cli-0.1.0.tgz
-pnpm dlx playwright@1.61.1 install chromium chromium-headless-shell
+screenshots setup
 screenshots init --dir ./my-app-screenshots
 cd ./my-app-screenshots
 screenshots dev
 screenshots export
 ```
+
+`screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
+cache) with the Playwright version this CLI depends on, and is safe to re-run. `export` offers the
+same download on first use when run in a terminal; in CI or piped runs it exits with the install
+command instead. On Linux, Chromium may also need Playwright's system packages.
+
+Interactive runs check the npm registry at most once a day for a newer version and print a
+one-line notice. Disable it with `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is
+skipped when `CI` is set or output is not a terminal.
 
 `dev`, `screen`, and `export` accept `--store-specs <path>` to override the packaged
 `store-specs.json`. Bundle export writes every locale root at its device lead target plus its

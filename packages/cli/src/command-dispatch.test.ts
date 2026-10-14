@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { dispatchCommand } from "./command-dispatch.js";
 
 const UNKNOWN_COMMAND_MESSAGE =
-  "Unknown command: wat\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout> [flags]";
+  "Unknown command: wat\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout|setup> [flags]";
 
 describe("command dispatch", () => {
   afterEach(() => {

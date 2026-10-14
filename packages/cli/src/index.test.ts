@@ -55,6 +55,7 @@ describe("parseCommandFlags", () => {
     ["locale", ["project", "from", "direction", "to", "layout"]],
     ["asset", ["project", "threshold", "background", "tolerance"]],
     ["layout", ["project", "name", "mode"]],
+    ["setup", []],
   ] as const)("retains every supported %s option", (command, options) => {
     const argv = options.flatMap((option) => [`--${option}`, `${option}-value`]);
     expect(parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]).flags).toEqual(
