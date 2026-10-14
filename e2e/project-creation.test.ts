@@ -110,14 +110,14 @@ describe("managed project creation", () => {
       await selectDeviceFamily(dialog, "Xbox");
       await dialog.getByRole("radio", { name: /Connected/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       let onboarding = page.getByTestId("first-screen-onboarding");
       await onboarding.getByRole("heading", { name: "Your blank screen is ready" }).waitFor();
       expect(await onboarding.getByText(/create a new editable screen from a built-in template/).count()).toBe(1);
       await onboarding.getByRole("button", { name: "Import capture folder", exact: true }).click();
       const captureDialog = page.getByRole("dialog", { name: "Capture import" });
       await captureDialog.waitFor();
-      expect(page.url()).toBe(`${server.url}/editor`);
+      expect(new URL(page.url()).pathname).toMatch(/^\/editor\/[^/]+$/u);
       await captureDialog.getByRole("button", { name: "Close capture import", exact: true }).click();
       onboarding = page.getByTestId("first-screen-onboarding");
       await onboarding.getByRole("button", { name: "Keep blank screen", exact: true }).click();
@@ -211,7 +211,7 @@ describe("managed project creation", () => {
       releasePublication();
       releasePublication = undefined;
 
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       const active = await page.evaluate(async () => {
         const response = await fetch("/api/project-session", { cache: "no-store" });
         return {
@@ -265,7 +265,7 @@ describe("managed project creation", () => {
       await selectTargetPlatform(dialog, "App Store");
       await dialog.getByRole("radio", { name: /^iPhone\b/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.getByRole("button", { name: "Editable headline", exact: true }).waitFor();
       expect(await page.getByTestId("first-screen-onboarding").count()).toBe(0);
 

@@ -104,7 +104,11 @@ describe("template library UI", () => {
       platform: "apple",
       device: "macos",
     });
-    await page.getByRole("tab", { name: "Project templates", exact: true }).click();
+    // A successful create closes the library; reopen it for the project-template source.
+    await templateDialog.waitFor({ state: "hidden" });
+    await templatesButton.click();
+    await page.getByRole("group", { name: "Template source", exact: true })
+      .getByRole("button", { name: "Project templates", exact: true }).click();
     const row = page.getByTestId("template-row-promo-card");
     await row.waitFor({ state: "visible" });
     expect(await page.getByTestId("template-row-windows-desktop").count()).toBe(0);
@@ -138,7 +142,7 @@ describe("template library UI", () => {
     expect(created.elements.map((element: { id: string }) => element.id))
       .not.toContain("template-title");
 
-    await page.getByRole("button", { name: "Close screen template library", exact: true }).click();
+    await templateDialog.waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     const screenButton = page.getByRole("button", { name: /Promo card · macos/ });
     await screenButton.waitFor({ state: "visible" });

@@ -79,8 +79,7 @@ describe("background authoring", () => {
     await inspector.getByLabel("From", { exact: true }).blur();
     await inspector.getByLabel("To", { exact: true }).fill("#aabbcc");
     await inspector.getByLabel("To", { exact: true }).blur();
-    await inspector.getByLabel("Gradient direction", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "Top → bottom", exact: true }).click();
+    await inspector.getByRole("button", { name: "Set gradient direction to Top to bottom", exact: true }).click();
     await expect.poll(() => background()).toMatchObject({ angle: 90 });
     await inspector.getByLabel("Angle", { exact: true }).fill("45");
     await inspector.getByLabel("Angle", { exact: true }).blur();

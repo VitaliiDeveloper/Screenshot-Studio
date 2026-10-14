@@ -295,8 +295,8 @@ describe("connected workspace", () => {
     await page.getByRole("button", { name: "Export", exact: true }).click();
     let dialog = page.getByRole("dialog", { name: "Export" });
     await dialog.getByRole("button", { name: "Device" }).click();
-    await dialog.getByRole("menuitemradio", { name: "ipad", exact: true }).click();
-    expect(await dialog.getByRole("button", { name: "Device" }).textContent()).toContain("ipad");
+    await dialog.getByRole("menuitemradio", { name: "iPad", exact: true }).click();
+    expect(await dialog.getByRole("button", { name: "Device" }).textContent()).toContain("iPad");
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
     await page.getByRole("button", { name: "Active layout: Default" }).click();
