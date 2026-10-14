@@ -128,7 +128,7 @@ describe("Packaged CLI", () => {
         directory: "packages/cli",
       },
       publishConfig: { access: "public" },
-      dependencies: { playwright: "1.61.1", sharp: "0.34.5" },
+      dependencies: { playwright: "1.62.0", sharp: "0.35.3" },
     });
     expect(manifest.private).toBeUndefined();
     expect(packedFiles).toEqual([
