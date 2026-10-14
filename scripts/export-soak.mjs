@@ -12,6 +12,7 @@ import { promisify } from "node:util";
 import JSZip from "jszip";
 import { PNG } from "pngjs";
 import { workspaceSharpRuntimePackages } from "./packed-sharp-runtime.mjs";
+import { pnpmCommand } from "./pnpm-command.mjs";
 
 const execFile = promisify(execFileCallback);
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -66,8 +67,8 @@ function parseOptions(argv) {
 }
 
 async function runPnpm(args, cwd) {
-  if (!process.env.npm_execpath) throw new Error("pnpm entrypoint is unavailable");
-  return execFile(process.execPath, [process.env.npm_execpath, ...args], {
+  const [command, commandArgs] = pnpmCommand(args);
+  return execFile(command, commandArgs, {
     cwd,
     timeout: 600_000,
     maxBuffer: 20 * 1024 * 1024,
