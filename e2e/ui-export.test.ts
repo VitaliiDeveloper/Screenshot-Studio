@@ -63,7 +63,9 @@ describe("multi-locale UI export", () => {
         body: JSON.stringify({ operationId }),
       });
       const observedProgress: Array<{ phase: string; completed: number; total: number }> = [];
-      for (let attempt = 0; attempt < 200; attempt += 1) {
+      // Poll until a deadline, not an attempt count: CI runners render the bundle much slower.
+      const progressDeadline = Date.now() + 120_000;
+      while (Date.now() < progressDeadline) {
         const progressResponse = await fetch(
           `${server.url}/api/export/progress?operationId=${operationId}`,
           { cache: "no-store" },
