@@ -99,7 +99,7 @@ describe("theme management UI", () => {
     const structurePanel = page.getByRole("button", { name: "Structure panel", exact: true });
     if (await structurePanel.getAttribute("aria-pressed") !== "true") await structurePanel.click();
     await page.getByRole("button", { name: "Theme headline", exact: true }).click();
-    expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("heading");
+    expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("Heading");
 
     await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: /Design packs/ }).click();
@@ -130,7 +130,7 @@ describe("theme management UI", () => {
     const reloadedStructurePanel = page.getByRole("button", { name: "Structure panel", exact: true });
     if (await reloadedStructurePanel.getAttribute("aria-pressed") !== "true") await reloadedStructurePanel.click();
     await page.getByRole("button", { name: "Theme headline", exact: true }).click();
-    expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("heading");
+    expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("Heading");
     await page.close();
   });
 });

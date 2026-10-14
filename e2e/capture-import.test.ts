@@ -75,8 +75,8 @@ describe("Launcher 6 capture import", () => {
       expect(await page.getByText("New managed project · Layout: Default", { exact: true }).count())
         .toBe(1);
       expect(await page.getByText("1 screen", { exact: true }).count()).toBe(1);
-      expect(await page.getByText("apple (1)", { exact: true }).count()).toBe(1);
-      expect(await page.getByText("apple/iphone (1)", { exact: true }).count()).toBe(1);
+      expect(await page.getByText("App Store (1)", { exact: true }).count()).toBe(1);
+      expect(await page.getByText("App Store · iPhone (1)", { exact: true }).count()).toBe(1);
       expect(await page.getByText("en (1)", { exact: true }).count()).toBe(1);
       expect(await page.locator('section[aria-labelledby="planned-screens"]')
         .getByText("screenshots/apple/iphone/en/01.png", { exact: true }).count()).toBe(1);
@@ -93,7 +93,7 @@ describe("Launcher 6 capture import", () => {
       const applyResponse = await applyResponsePending;
       expect(applyResponse.status(), await applyResponse.text()).toBe(201);
       const appliedProjectId = await applyResponse.headerValue("x-project-id");
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
 
       const catalog = JSON.parse(readFileSync(join(managedDataRoot, "catalog.json"), "utf8")) as {

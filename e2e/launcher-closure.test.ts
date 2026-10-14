@@ -79,7 +79,7 @@ describe("Projects and Workspace closure journey", () => {
         `Creation response: ${await creationResponse.text()}`,
       ).toBe(201);
 
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
 
       await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -147,10 +147,10 @@ describe("Projects and Workspace closure journey", () => {
 
       await card.getByLabel("More actions for Product launch story").click();
       await card.getByRole("button", { name: "Project details", exact: true }).click();
-      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
+      await page.waitForURL(/\/home\?project=(project_[a-f0-9]{32})&entry=\1$/u);
       await page.getByRole("heading", { name: "Product launch story", exact: true }).waitFor();
       await page.getByRole("link", { name: "Open in Editor", exact: true }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
 
       await page.setViewportSize({ width: 640, height: 900 });
       const projectsButton = page.getByRole("button", { name: "Projects", exact: true });
@@ -164,7 +164,7 @@ describe("Projects and Workspace closure journey", () => {
         name: "Open Product launch story in Workspace",
         exact: true,
       }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
     } finally {
       await context.close();
