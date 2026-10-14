@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { pnpmCommand } from "../scripts/pnpm-command.mjs";
 
 const execFile = promisify(execFileCallback);
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -17,8 +18,9 @@ let installedSkill: string;
 let projectDirectory: string;
 
 async function run(command: string, args: string[], cwd: string, timeout = 180_000) {
+  const [executable, executableArgs] = command === "pnpm" ? pnpmCommand(args) : [command, args];
   try {
-    return await execFile(command, args, {
+    return await execFile(executable, executableArgs, {
       cwd,
       timeout,
       maxBuffer: 10 * 1024 * 1024,

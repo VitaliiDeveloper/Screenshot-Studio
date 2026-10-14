@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import JSZip from "jszip";
 import { isPortableRenderHostPath, PACKAGE_LINKS_MANIFEST } from "./package-archive.mjs";
+import { pnpmCommand } from "./pnpm-command.mjs";
 
 const execFile = promisify(execFileCallback);
 const modulePath = fileURLToPath(import.meta.url);
@@ -300,8 +301,7 @@ async function externalRuntimeRecords(manifest) {
 
 async function runPack(destination) {
   const args = ["--dir", stagedPackage, "pack", "--json", "--pack-destination", destination];
-  const command = process.env.npm_execpath ? process.execPath : "pnpm";
-  const commandArgs = process.env.npm_execpath ? [process.env.npm_execpath, ...args] : args;
+  const [command, commandArgs] = pnpmCommand(args);
   const result = await execFile(command, commandArgs, { cwd: repoRoot, maxBuffer: 10 * 1024 * 1024 });
   return JSON.parse(result.stdout);
 }
