@@ -258,6 +258,7 @@ describe("ManagedProjectCatalogStore", () => {
     });
   });
 
+  // Lock waiters poll every 50 ms, so 40 serialized reservations need seconds on slow CI disks.
   it("preserves every ordinal across concurrent reservations from independent stores", async () => {
     const config = await storageConfig();
     const first = new ManagedProjectCatalogStore(config, { createIdNamespace: () => ID_NAMESPACE });
@@ -270,7 +271,7 @@ describe("ManagedProjectCatalogStore", () => {
     expect([...ids].sort()).toEqual(Array.from({ length: 40 }, (_, index) =>
       `project_${ID_NAMESPACE}${(index + 1).toString(16).padStart(16, "0")}`));
     await expect(first.read()).resolves.toMatchObject({ nextProjectOrdinal: 41 });
-  });
+  }, 20_000);
 
   it("rejects a symlinked configured root before creating catalog state in its target", async () => {
     const container = await mkdtemp(join(tmpdir(), "managed-project-catalog-root-"));

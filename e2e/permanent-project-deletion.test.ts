@@ -79,7 +79,7 @@ describe("Permanent managed-project deletion", () => {
       await page.getByRole("button", { name: /^Import/ }).click();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("button", { name: "Import managed copy" }).click();
-      await page.waitForURL(`${server.url}/editor`, { waitUntil: "domcontentloaded" });
+      await page.waitForURL(`${server.url}/editor/**`, { waitUntil: "domcontentloaded" });
 
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       const projectInfoActions = page.locator("details").filter({
@@ -93,7 +93,7 @@ describe("Permanent managed-project deletion", () => {
       await page.getByRole("button", { name: /^Import/ }).click();
       await page.getByLabel("Choose project folder").setInputFiles(remainingProjectRoot);
       await page.getByRole("button", { name: "Import managed copy" }).click();
-      await page.waitForURL(`${server.url}/editor`, { waitUntil: "domcontentloaded" });
+      await page.waitForURL(`${server.url}/editor/**`, { waitUntil: "domcontentloaded" });
 
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await projectInfoActions.getByLabel("Project info actions", { exact: true }).click();
