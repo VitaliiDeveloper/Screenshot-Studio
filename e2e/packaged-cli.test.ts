@@ -91,7 +91,7 @@ beforeAll(async () => {
     store,
     "add",
     details.filename,
-    "--offline",
+    "--prefer-offline",
     "--ignore-scripts",
   ], consumer);
   const sharpRuntimePackages = await workspaceSharpRuntimePackages(repoRoot);
@@ -101,7 +101,7 @@ beforeAll(async () => {
     store,
     "add",
     ...sharpRuntimePackages,
-    "--offline",
+    "--prefer-offline",
     "--ignore-scripts",
   ], consumer);
 

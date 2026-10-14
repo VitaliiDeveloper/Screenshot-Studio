@@ -98,7 +98,7 @@ async function installPackedCli(workspace) {
     store,
     "add",
     tarball,
-    "--offline",
+    "--prefer-offline",
     "--ignore-scripts",
   ], consumer);
   await runPnpm([
@@ -106,7 +106,7 @@ async function installPackedCli(workspace) {
     store,
     "add",
     ...await workspaceSharpRuntimePackages(repoRoot),
-    "--offline",
+    "--prefer-offline",
     "--ignore-scripts",
   ], consumer);
   const bin = join(consumer, "node_modules", ".bin", "screenshots");
