@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { CanvasMode, Platform } from "@screenshot-studio/core/model";
+import type { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
+import { recommendedDeviceForPlatform } from "@screenshot-studio/core/scaffold";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type {
   CaptureImportDestination,
   CaptureImportPreview,
@@ -19,12 +21,7 @@ export interface CaptureImportDraft {
   destinationKind: CaptureImportDestination["kind"] | null;
   currentTarget: CaptureImportCurrentTarget | null;
   currentLayoutId: string;
-  newProject: {
-    name: string;
-    platform: Platform;
-    layoutMode: CanvasMode;
-    templateId: null;
-  };
+  newProject: ProjectScaffoldInput & { templateId: null };
 }
 
 type EditingState = { status: "editing"; draft: CaptureImportDraft; notice?: string };
@@ -56,12 +53,18 @@ export type CaptureImportState =
   | ApplyingState
   | ErrorState;
 
+export type CaptureImportNewProjectPatch = Partial<{
+  name: ProjectScaffoldInput["name"];
+  platform: ProjectScaffoldInput["platform"];
+  layoutMode: ProjectScaffoldInput["layoutMode"];
+}>;
+
 export type CaptureImportAction =
   | { type: "open"; currentTarget: CaptureImportCurrentTarget | null }
   | { type: "choose-files"; files: readonly File[] }
   | { type: "choose-destination"; kind: CaptureImportDestination["kind"] }
   | { type: "choose-current-layout"; layoutId: string }
-  | { type: "change-new-project"; patch: Partial<CaptureImportDraft["newProject"]> }
+  | { type: "change-new-project"; patch: CaptureImportNewProjectPatch }
   | { type: "request-preview" }
   | { type: "preview-succeeded"; preview: CaptureImportPreview }
   | { type: "apply" }
@@ -74,7 +77,7 @@ export type CaptureImportAction =
   | { type: "complete" }
   | { type: "close" };
 
-function draft(currentTarget: CaptureImportCurrentTarget | null): CaptureImportDraft {
+function draft(currentTarget: CaptureImportCurrentTarget | null, specs: StoreSpecs): CaptureImportDraft {
   return {
     files: [],
     destinationKind: null,
@@ -83,6 +86,7 @@ function draft(currentTarget: CaptureImportCurrentTarget | null): CaptureImportD
     newProject: {
       name: "Imported captures",
       platform: "apple",
+      device: recommendedDeviceForPlatform("apple", specs),
       layoutMode: "isolated",
       templateId: null,
     },
@@ -91,8 +95,9 @@ function draft(currentTarget: CaptureImportCurrentTarget | null): CaptureImportD
 
 export function createCaptureImportState(
   currentTarget: CaptureImportCurrentTarget | null,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
 ): EditingState {
-  return { status: "editing", draft: draft(currentTarget) };
+  return { status: "editing", draft: draft(currentTarget, specs) };
 }
 
 function editable(state: CaptureImportState): EditingState | null {
@@ -135,9 +140,10 @@ export function canApplyCaptureImport(state: CaptureImportState): state is Revie
 export function reduceCaptureImportState(
   state: CaptureImportState,
   action: CaptureImportAction,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
 ): CaptureImportState {
   if (action.type === "open") {
-    return state.status === "closed" ? createCaptureImportState(action.currentTarget) : state;
+    return state.status === "closed" ? createCaptureImportState(action.currentTarget, specs) : state;
   }
   if (action.type === "complete") return { status: "closed" };
   if (action.type === "close") {
@@ -176,9 +182,19 @@ export function reduceCaptureImportState(
   if (action.type === "change-new-project") {
     const next = editable(state);
     if (!next) return state;
+    const merged = { ...next.draft.newProject, ...action.patch };
     return {
       status: "editing",
-      draft: { ...next.draft, newProject: { ...next.draft.newProject, ...action.patch } },
+      draft: {
+        ...next.draft,
+        newProject: {
+          name: merged.name,
+          platform: merged.platform,
+          device: recommendedDeviceForPlatform(merged.platform, specs),
+          layoutMode: merged.layoutMode,
+          templateId: null,
+        } as CaptureImportDraft["newProject"],
+      },
     };
   }
   if (action.type === "request-preview") {

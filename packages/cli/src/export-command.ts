@@ -12,6 +12,7 @@ import {
   validateBundleArtboards,
   type BundleFilters,
   type StoreSize,
+  type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import {
   assertProjectFontsResolved,
@@ -104,8 +105,11 @@ export function singleExportFilename(
 export function singleExportTargetId(
   screen: Pick<Screen, "platform" | "device" | "storeTargetId">,
   explicitSizeId?: string,
+  specs?: StoreSpecs,
 ): string {
-  return explicitSizeId ?? screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+  return explicitSizeId ?? screen.storeTargetId ?? (specs
+    ? leadStoreSizeId(specs, screen.platform, screen.device)
+    : leadStoreSizeId(screen.platform, screen.device));
 }
 
 export async function runExportCommand(
@@ -124,6 +128,7 @@ export async function runExportCommand(
   const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
   const mode = resolveExportMode(flags);
   const profile = parseExportProfile(flags.profile);
+  const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   if (profile === "web-share" && mode.kind === "single") {
     throw new Error("--profile web-share requires a bundle export, not --screen");
   }
@@ -140,7 +145,7 @@ export async function runExportCommand(
           storeSpecsPath,
           screen.platform,
           screen.device,
-          singleExportTargetId(screen, mode.sizeId),
+          singleExportTargetId(screen, mode.sizeId, specs),
         );
         const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
         const relativePath = singleExportFilename(screen, target);
@@ -164,7 +169,6 @@ export async function runExportCommand(
     return;
   }
 
-  const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   const server = await startServer(undefined, { storeSpecsPath });
   let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
   await runWithCleanup(async () => {
@@ -174,7 +178,7 @@ export async function runExportCommand(
       assertProjectFontsResolved(context.project, layoutId);
       const entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
       validateBundleArtboards(entries);
-      for (const warning of bundlePreflightWarnings(entries)) log(`Warning: ${warning.message}`);
+      for (const warning of bundlePreflightWarnings(entries, specs)) log(`Warning: ${warning.message}`);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
       const zipPath = await failWhenServerExits(server, exportBundleOutputs({
         baseUrl: server.url,

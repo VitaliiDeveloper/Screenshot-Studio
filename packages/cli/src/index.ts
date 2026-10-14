@@ -4,6 +4,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dispatchCommand } from "./command-dispatch.js";
+import { startUpdateCheck } from "./update-check.js";
 
 /**
  * `screenshots` CLI — project setup, export, deterministic asset processing, and the shipped
@@ -38,8 +39,14 @@ const invokedDirectly = invokedPath
 
 if (invokedDirectly) {
   const [command, ...argv] = process.argv.slice(2);
-  dispatchCommand(command, argv, { storeSpecsPath: DEFAULT_STORE_SPECS }).catch((err) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exit(1);
-  });
+  const updateNotice = startUpdateCheck();
+  dispatchCommand(command, argv, { storeSpecsPath: DEFAULT_STORE_SPECS })
+    .then(async () => {
+      const notice = await updateNotice;
+      if (notice) console.error(notice);
+    })
+    .catch((err) => {
+      console.error(err instanceof Error ? err.message : err);
+      process.exit(1);
+    });
 }

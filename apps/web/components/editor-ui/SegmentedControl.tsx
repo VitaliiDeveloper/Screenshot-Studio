@@ -15,6 +15,7 @@ export function SegmentedControl<Value extends string>({
   value,
   options,
   fill = false,
+  compact = false,
   className,
   onChange,
 }: {
@@ -22,6 +23,7 @@ export function SegmentedControl<Value extends string>({
   value: Value | undefined;
   options: readonly SegmentedControlOption<Value>[];
   fill?: boolean;
+  compact?: boolean;
   className?: string;
   onChange: (value: Value) => void;
 }) {
@@ -42,6 +44,7 @@ export function SegmentedControl<Value extends string>({
             disabled={option.disabled}
             className={cx(
               editorUi.segmentedButton,
+              compact ? editorUi.segmentedButtonCompact : editorUi.segmentedButtonDefault,
               fill && editorUi.segmentedButtonFill,
               active ? editorUi.segmentedButtonActive : editorUi.segmentedButtonInactive,
             )}

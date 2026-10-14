@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
-import type { Project, Screen } from "@screenshot-studio/core/model";
+import {
+  destinationLabel,
+  findStoreTarget,
+  leadStoreSizeId,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
+import { type Project, type Screen } from "@screenshot-studio/core/model";
 import type { ActiveProjectSelection } from "./project-session.js";
 import { storeOutputLabel } from "./editor-workspace.js";
-
-const PLATFORM_LABELS: Record<string, string> = {
-  apple: "App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-  web: "Web",
-};
+import {
+  canonicalEditorUrlForSelection,
+  editorProjectUrl,
+} from "./editor-route.js";
 
 const SOURCE_LABELS: Record<string, string> = {
   "local-file": "Local project file",
@@ -77,7 +79,7 @@ export interface ProjectHomeSummary {
 }
 
 function targetLabel(specs: StoreSpecs, screen: Screen): string {
-  const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+  const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
   try {
     return findStoreTarget(specs, screen.platform, screen.device, targetId).label
       .replace(/\s+\(lead\)$/i, "");
@@ -86,22 +88,31 @@ function targetLabel(specs: StoreSpecs, screen: Screen): string {
   }
 }
 
-function buildActions(selection: ActiveProjectSelection): ProjectHomeAction[] {
+function buildActions(selection: ActiveProjectSelection, entryId?: string): ProjectHomeAction[] {
   const canEdit = selection.capabilities.writeInPlace;
+  const editorUrl = entryId
+    ? editorProjectUrl(entryId)
+    : canonicalEditorUrlForSelection(selection) ?? "/editor";
+  const editorIntentUrl = (intent: string) => entryId
+    ? editorProjectUrl(entryId, intent)
+    : `${editorUrl}?${new URLSearchParams({ intent }).toString()}`;
   return [
-    { id: "continue-editing", label: "Continue in Workspace", description: "Return to the full editor with this project selected.", enabled: canEdit, href: canEdit ? "/editor" : undefined },
-    { id: "manage-layouts", label: "Manage layouts and screens", description: "Open the existing Workspace structure tools.", enabled: canEdit, href: canEdit ? "/editor?intent=layouts" : undefined },
-    { id: "add-screen", label: "Add a screen", description: "Open the existing screen actions in Workspace.", enabled: canEdit, href: canEdit ? "/editor?intent=add-screen" : undefined },
-    { id: "manage-locales", label: "Manage locales", description: "Open the existing locale manager in Workspace.", enabled: canEdit, href: canEdit ? "/editor?intent=locales" : undefined },
+    { id: "continue-editing", label: "Continue in Workspace", description: "Return to the full editor with this project selected.", enabled: canEdit, href: canEdit ? editorUrl : undefined },
+    { id: "manage-layouts", label: "Manage layouts and screens", description: "Open the existing Workspace structure tools.", enabled: canEdit, href: canEdit ? editorIntentUrl("layouts") : undefined },
+    { id: "add-screen", label: "Add a screen", description: "Open the existing screen actions in Workspace.", enabled: canEdit, href: canEdit ? editorIntentUrl("add-screen") : undefined },
+    { id: "manage-locales", label: "Manage locales", description: "Open the existing locale manager in Workspace.", enabled: canEdit, href: canEdit ? editorIntentUrl("locales") : undefined },
     { id: "capture-import", label: "Capture import", description: "Preview a PNG capture folder, then add it to this project or a new managed project.", enabled: true },
     { id: "import-project", label: "Import another project", description: "Validate a Folder, project ZIP, or JSON into a separate managed copy.", enabled: true, href: "/?switch=1" },
-    { id: "store-image-export", label: "Export store images", description: "Render exact store-ready PNG bundles from the shared Workspace renderer.", enabled: true, href: "/editor?intent=export" },
+    { id: "store-image-export", label: "Export store images", description: "Render exact store-ready PNG bundles from the shared Workspace renderer.", enabled: true, href: editorIntentUrl("export") },
     { id: "project-archive-export", label: "Export project archive", description: "Download a portable project backup for later project import.", enabled: selection.capabilities.exportProjectArchive },
     { id: "permanently-delete-project", label: "Permanently delete project", description: "Irreversibly delete this managed project and its project-local resources.", enabled: selection.capabilities.deleteProjectPermanently },
   ];
 }
 
-function buildRepresentativeScreens(project: Project): ProjectHomeSummary["representativeScreens"] {
+function buildRepresentativeScreens(
+  project: Project,
+  specs: StoreSpecs,
+): ProjectHomeSummary["representativeScreens"] {
   const candidates = project.layouts.flatMap((layout) => {
     const primaryScreens = layout.screens.filter((screen) => screen.storeTargetId === undefined);
     return (primaryScreens.length > 0 ? primaryScreens : layout.screens).map((screen) => ({
@@ -136,7 +147,7 @@ function buildRepresentativeScreens(project: Project): ProjectHomeSummary["repre
     screenId: screen.id,
     name: screen.name,
     layoutName,
-    outputLabel: storeOutputLabel(screen.platform, screen.device),
+    outputLabel: storeOutputLabel(screen.platform, screen.device, specs),
     width: screen.artboard.width,
     height: screen.artboard.height,
   }));
@@ -149,6 +160,7 @@ export function buildProjectHomeSummary({
   missingAssets = [],
   fontWarnings = [],
   saveError,
+  entryId,
 }: {
   project: Project;
   selection: ActiveProjectSelection;
@@ -156,9 +168,10 @@ export function buildProjectHomeSummary({
   missingAssets?: string[];
   fontWarnings?: string[];
   saveError?: string | null;
+  entryId?: string;
 }): ProjectHomeSummary {
   const allScreens = project.layouts.flatMap((layout) => layout.screens);
-  const platforms = [...new Set(allScreens.map((screen) => PLATFORM_LABELS[screen.platform] ?? screen.platform))];
+  const platforms = [...new Set(allScreens.map((screen) => destinationLabel(screen.platform, specs)))];
   const locales = [...new Set(allScreens.map((screen) => screen.locale))];
   const emptyScreenCount = allScreens.filter((screen) => screen.elements.length === 0).length;
   const preferred = project.layouts.find((layout) => layout.id === project.preferredExportLayoutId)!;
@@ -166,7 +179,7 @@ export function buildProjectHomeSummary({
   for (const screen of allScreens) {
     const key = `${screen.platform}/${screen.device}`;
     const family = outputFamilies.get(key) ?? {
-      label: storeOutputLabel(screen.platform, screen.device),
+      label: storeOutputLabel(screen.platform, screen.device, specs),
       screens: [],
       targets: new Set<string>(),
     };
@@ -229,8 +242,8 @@ export function buildProjectHomeSummary({
       screenCount: family.screens.length,
       storeTargets: [...family.targets],
     })),
-    representativeScreens: buildRepresentativeScreens(project),
+    representativeScreens: buildRepresentativeScreens(project, specs),
     readiness,
-    actions: buildActions(selection),
+    actions: buildActions(selection, entryId),
   };
 }

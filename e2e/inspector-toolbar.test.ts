@@ -38,7 +38,16 @@ afterAll(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function elements(): Array<{ id: string; type: string; width: number; opacity: number }> {
+function elements(): Array<{
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+}> {
   const p = JSON.parse(readFileSync(projectFile, "utf8"));
   return p.layouts[0].screens[0].elements;
 }
@@ -157,13 +166,107 @@ describe("inspector + toolbar", () => {
     expect(added.type).toBe("shape");
 
     // Edit Width in the inspector; the debounced save (300 ms) must land the new value.
-    const width = page.getByText("Width", { exact: true }).locator("xpath=following-sibling::input");
+    const width = page.getByRole("spinbutton", { name: "Width", exact: true });
     await width.fill("321");
     await width.blur();
     await expect
       .poll(() => elements().find((e) => e.id === added.id)!.width, { timeout: 10_000 })
       .toBe(321);
 
+    await page.close();
+  });
+
+  it("persists product-oriented transform controls", async () => {
+    const page = await browser.newPage({ viewport: { width: 1400, height: 1400 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await page.getByRole("button", { name: "Hero headline", exact: true }).click();
+    const selectedId = "headline";
+
+    const opacity = page.getByRole("slider", { name: "Opacity", exact: true });
+    await opacity.fill("65");
+    await opacity.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.opacity).toBe(0.65);
+
+    const lock = page.getByRole("button", { name: "Lock aspect ratio", exact: true });
+    if ((await lock.getAttribute("aria-pressed")) !== "true") await lock.click();
+    const beforeResize = elements().find((item) => item.id === selectedId)!;
+    const width = page.getByRole("spinbutton", { name: "Width", exact: true });
+    await width.fill(String(beforeResize.width / 2));
+    await width.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.height)
+      .toBeCloseTo(beforeResize.height / 2, 2);
+
+    const beforePosition = elements().find((item) => item.id === selectedId)!;
+    const position = page.getByRole("button", { name: "Element position preview", exact: true });
+    const positionBox = await position.boundingBox();
+    expect(positionBox).not.toBeNull();
+    await page.mouse.move(
+      positionBox!.x + positionBox!.width * 0.7,
+      positionBox!.y + positionBox!.height * 0.6,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      positionBox!.x + positionBox!.width * 0.72,
+      positionBox!.y + positionBox!.height * 0.62,
+    );
+    await page.mouse.up();
+    await expect.poll(() => {
+      const current = elements().find((item) => item.id === selectedId)!;
+      return current.x !== beforePosition.x && current.y !== beforePosition.y;
+    }).toBe(true);
+
+    const rotation = page.getByRole("button", { name: "Rotation dial", exact: true });
+    const rotationInput = page.getByRole("spinbutton", { name: "Rotation", exact: true });
+    const beforeRotation = elements().find((item) => item.id === selectedId)!.rotation;
+    await rotation.focus();
+    await rotation.press("ArrowRight");
+    await rotation.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation)
+      .toBe(beforeRotation + 1);
+
+    await rotationInput.fill("360");
+    await rotationInput.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(360);
+    await rotation.focus();
+    await rotation.press("ArrowRight");
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(1);
+
+    await rotationInput.fill("0");
+    await rotationInput.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(0);
+    await rotation.focus();
+    await rotation.press("ArrowLeft");
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(359);
+    await rotation.press("Shift+ArrowRight");
+    await rotation.blur();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(9);
+
+    await rotationInput.fill("-6");
+    expect(await rotationInput.getAttribute("aria-invalid")).toBe("true");
+    await rotationInput.blur();
+    expect(await rotationInput.inputValue()).toBe("9");
+    expect(elements().find((item) => item.id === selectedId)!.rotation).toBe(9);
+
+    const rotationBox = await rotation.boundingBox();
+    expect(rotationBox).not.toBeNull();
+    await page.mouse.move(rotationBox!.x + rotationBox!.width / 2, rotationBox!.y + 1);
+    await page.mouse.down();
+    await page.mouse.move(rotationBox!.x + rotationBox!.width - 1, rotationBox!.y + rotationBox!.height / 2);
+    await page.mouse.up();
+    await expect.poll(() => elements().find((item) => item.id === selectedId)!.rotation).toBe(90);
+
+    const persisted = elements().find((item) => item.id === selectedId)!;
+    await page.reload({ waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await expect.poll(() => elements().find((item) => item.id === selectedId)).toMatchObject({
+      x: persisted.x,
+      y: persisted.y,
+      width: persisted.width,
+      height: persisted.height,
+      rotation: persisted.rotation,
+      opacity: 0.65,
+    });
     await page.close();
   });
 
@@ -174,16 +277,16 @@ describe("inspector + toolbar", () => {
     await page.getByRole("button", { name: "Hero headline", exact: true }).click();
     const headline = elements().find((element) => element.id === "headline")!;
     const width = page.getByRole("spinbutton", { name: "Width", exact: true });
-    const opacity = page.getByRole("spinbutton", { name: "Opacity", exact: true });
+    const opacity = page.getByRole("spinbutton", { name: "Opacity value", exact: true });
 
     await width.fill("0");
     await width.blur();
     expect(await width.inputValue()).toBe(String(headline.width));
     expect(elements().find((element) => element.id === "headline")!.width).toBe(headline.width);
 
-    await opacity.fill("2");
+    await opacity.fill("200");
     await opacity.blur();
-    expect(await opacity.inputValue()).toBe(String(headline.opacity));
+    expect(await opacity.inputValue()).toBe(String(headline.opacity * 100));
     expect(elements().find((element) => element.id === "headline")!.opacity).toBe(headline.opacity);
 
     await width.fill("333");

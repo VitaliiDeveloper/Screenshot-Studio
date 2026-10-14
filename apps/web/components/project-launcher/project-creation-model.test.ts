@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import {
   initialProjectCreationState,
@@ -24,6 +25,7 @@ describe("project creation model", () => {
       form: {
         name: "My App Screenshots",
         platform: "apple",
+        device: "iphone",
         layoutMode: "isolated",
         templateId: null,
       },
@@ -35,7 +37,7 @@ describe("project creation model", () => {
     });
     expect(edited).toMatchObject({
       status: "editing",
-      form: { name: "Launch", platform: "android", templateId: "mobile-only" },
+      form: { name: "Launch", platform: "android", device: "phone", templateId: "mobile-only" },
     });
   });
 
@@ -45,6 +47,7 @@ describe("project creation model", () => {
       form: {
         name: "Connected launch deck",
         platform: "apple",
+        device: "ipad",
         layoutMode: "connected",
         templateId: "product-launch",
       },
@@ -53,10 +56,40 @@ describe("project creation model", () => {
       form: {
         name: "Connected launch deck",
         platform: "apple",
+        device: "ipad",
         layoutMode: "connected",
         templateId: "product-launch",
       },
     });
+  });
+
+  it("opens with the recommended family from the runtime catalog", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple.families.iphone, { recommended: false });
+    Object.assign(specs.platforms.apple.families.ipad, { recommended: true });
+
+    expect(reduceProjectCreationState(initialProjectCreationState, { type: "open" }, specs))
+      .toMatchObject({ form: { platform: "apple", device: "ipad" } });
+  });
+
+  it("preserves a valid device across layout and destination changes and resets only invalid pairs", () => {
+    const opened = reduceProjectCreationState(initialProjectCreationState, {
+      type: "open",
+      form: {
+        name: "Desktop", platform: "windows", device: "desktop",
+        layoutMode: "isolated", templateId: null,
+      },
+    });
+    const connected = reduceProjectCreationState(opened, {
+      type: "change", patch: { layoutMode: "connected" },
+    });
+    expect(connected).toMatchObject({ form: { platform: "windows", device: "desktop", layoutMode: "connected" } });
+
+    const web = reduceProjectCreationState(connected, { type: "change", patch: { platform: "web" } });
+    expect(web).toMatchObject({ form: { platform: "web", device: "desktop" } });
+
+    const android = reduceProjectCreationState(web, { type: "change", patch: { platform: "android" } });
+    expect(android).toMatchObject({ form: { platform: "android", device: "phone" } });
   });
 
   it("keeps the form for creating, error, edit, and retry transitions", () => {
@@ -97,7 +130,7 @@ describe("project creation model", () => {
   it("closes only before publication and evaluates template compatibility from metadata", () => {
     const editing = reduceProjectCreationState(initialProjectCreationState, { type: "open" });
     expect(reduceProjectCreationState(editing, { type: "close" })).toEqual({ status: "closed" });
-    expect(isProjectTemplateSupported(template, "apple")).toBe(true);
-    expect(isProjectTemplateSupported(template, "windows")).toBe(false);
+    expect(isProjectTemplateSupported(template, "apple", "iphone")).toBe(true);
+    expect(isProjectTemplateSupported(template, "windows", "desktop")).toBe(false);
   });
 });

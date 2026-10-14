@@ -9,6 +9,7 @@ import {
   type CaptureImportInputFile,
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { ProjectScaffoldInput, type ProjectScaffoldInput as ScaffoldInput } from "@screenshot-studio/core/scaffold";
 import {
   ProjectRevisionConflictError,
@@ -71,6 +72,7 @@ const NEW_FIELDS = new Set([
   ...COMMON_FIELDS,
   "name",
   "platform",
+  "device",
   "layoutMode",
   "templateId",
   "confirmationFingerprint",
@@ -126,6 +128,7 @@ function parseDestination(form: FormData): CaptureDestination {
   const scaffold = ProjectScaffoldInput.safeParse({
     name: oneString(form, "name"),
     platform: oneString(form, "platform"),
+    device: oneString(form, "device"),
     layoutMode: oneString(form, "layoutMode"),
     templateId: templateId || null,
   });
@@ -170,6 +173,7 @@ async function parseCaptureRequest(
   request: Request,
   repository: ManagedProjectRepository,
   requireConfirmation: boolean,
+  specs: StoreSpecs,
 ): Promise<ParsedCaptureRequest> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("multipart/form-data;")) {
@@ -223,6 +227,7 @@ async function parseCaptureRequest(
   if (request.signal.aborted) throw new DOMException("Capture import was cancelled", "AbortError");
   const discovery = discoverCaptureImport({
     files: inputFiles,
+    specs,
     limits: {
       maxFiles,
       maxBytes: Math.min(
@@ -321,8 +326,10 @@ export async function handleCaptureImportPreviewPost(
 ): Promise<Response> {
   const resolved = resolveDependencies(dependencies);
   let parsed: ParsedCaptureRequest;
+  let specs: StoreSpecs;
   try {
-    parsed = await parseCaptureRequest(request, resolved.repository, false);
+    specs = await resolved.creationService.loadStoreSpecs();
+    parsed = await parseCaptureRequest(request, resolved.repository, false, specs);
   } catch (error) {
     return routeError(error);
   }
@@ -332,6 +339,7 @@ export async function handleCaptureImportPreviewPost(
         scaffoldInput: parsed.destination.scaffoldInput,
         discovery: parsed.discovery,
         creationService: resolved.creationService,
+        specs,
         signal: request.signal,
       });
       return Response.json({ preview: publicPlan(plan) }, {
@@ -353,6 +361,7 @@ export async function handleCaptureImportPreviewPost(
         layoutId: destination.layoutId,
         destinationKind: "current-project",
         discovery: parsed.discovery,
+        specs,
       }));
       return Response.json({
         preview: publicPlan(plan),
@@ -378,8 +387,10 @@ export async function handleCaptureImportApplyPost(
 ): Promise<Response> {
   const resolved = resolveDependencies(dependencies);
   let parsed: ParsedCaptureRequest;
+  let specs: StoreSpecs;
   try {
-    parsed = await parseCaptureRequest(request, resolved.repository, true);
+    specs = await resolved.creationService.loadStoreSpecs();
+    parsed = await parseCaptureRequest(request, resolved.repository, true, specs);
   } catch (error) {
     return routeError(error);
   }
@@ -396,6 +407,7 @@ export async function handleCaptureImportApplyPost(
         discovery: parsed.discovery,
         confirmationFingerprint: parsed.confirmationFingerprint,
         creationService: resolved.creationService,
+        specs,
         signal: request.signal,
       });
       const session = resolved.registry.openManagedRecord(record, reservedSessionId);
@@ -421,6 +433,7 @@ export async function handleCaptureImportApplyPost(
         discovery: parsed.discovery,
         confirmationFingerprint: parsed.confirmationFingerprint,
         signal: request.signal,
+        specs,
       });
       return Response.json({
         project: session.descriptor,

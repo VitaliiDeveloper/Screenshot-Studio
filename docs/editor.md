@@ -42,6 +42,13 @@ Shared dialogs animate their backdrop and panel on entry and retain the panel th
 motion removes both transitions. Async resource pickers reserve their body geometry while loading so
 replacing progress with results does not move or resize the dialog.
 
+UI copy calls App Store, Google Play, Microsoft Store, and Web **destinations**. A destination plus a
+device family is an **output family**. UI surfaces take both labels from the shared core output
+catalog; they do not expose persisted `platform` or `device` IDs as user-facing copy or maintain
+parallel label maps. An **export size** is one exact pixel target inside that family. A **frame
+preset** is only an artboard element's visual style: selecting one must not relabel the destination,
+move the screen to another family, or change its export size.
+
 ## 3. Interaction semantics
 
 The editor has five durable interaction roles even if their placement changes:
@@ -107,7 +114,7 @@ preserves paired exact-size composition by detaching it into an ordinary standal
 created exact size while each screen's layers and copy stay independently editable. Enabling it
 reconciles unequal rows to the longest row and makes the resulting slot mapping visible before later
 mutations follow it.
-The Inspector lists exact-size targets at the active platform/device/locale family scope, so a target
+The Inspector lists exact-size targets at the active destination/device/locale family scope, so a target
 does not disappear when another compatible primary screen is selected. Selection styling identifies
 the current family and exact size without a redundant `Current` action. Removing a size or slot uses
 the same labelled app-owned confirmation pattern and follows the visible Independent/Keep 1:1 scope.
@@ -127,8 +134,12 @@ but its card exposes a directly labelled destructive history icon beside the lef
 message and states that project files stay untouched.
 
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
-exact receiver before navigating directly to `/editor`. Capture folder is a choice inside `Import`,
-not a third top-level first-run action. The editor tool rail exists only in Workspace. Its bottom
+exact receiver before navigating to its canonical `/editor/[entryId]` Workspace URL. Opening that
+URL in another browser activates the same Project Library entry before Workspace loads; invalid or
+unavailable identities show a visible error and never fall back to another active project. `/editor`
+remains a compatibility route for sessions whose Project Library entry identity is not available.
+Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
+rail exists only in Workspace. Its bottom
 `Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
@@ -180,7 +191,7 @@ an arbitrary local filesystem path.
   ordinary strict Project literals.
 - Templates expose a global read-only **Built-in templates** tab beside project-local templates.
   Choosing either source creates an ordinary editable screen in the current project.
-- **Create a managed project** filters its starting points to the selected platform: iPhone and iPad
+- **Create a managed project** filters its starting points to the selected destination: iPhone and iPad
   portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and Web
   mobile. **Blank** remains explicit, and the existing generic project starters remain available
   where supported. Targeted starters open on their exact persisted variant.
@@ -193,7 +204,8 @@ an arbitrary local filesystem path.
   screenshot in mockup** is a separate action; an assigned local screenshot can be replaced or
   removed later. The inspector exposes project-image Choose, Replace, and Remove actions rather
   than making users edit the persisted project-relative `assetUrl`. Frames do not change the screen
-  platform, family, or output target.
+  destination, family, or output target. Preset names and thumbnails describe brand-neutral bundled
+  geometry, not official device artwork; official Apple frame artwork is not bundled.
 - Project-image pickers combine reusable images already owned by the project with an explicit system
   file-picker import. A successful import copies the validated image into project-local `assets/`
   storage and immediately applies that resource to the current action; users never enter an asset URL

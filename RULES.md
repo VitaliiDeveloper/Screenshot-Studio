@@ -16,6 +16,22 @@ of truth.
 - Comments should state durable intent, invariants, or non-obvious constraints. Keep temporary
   measurements and one-off verification evidence out of source comments.
 
+## Context and token economy
+
+- Use the smallest sufficient investigation and verification unless the task explicitly requires an
+  exhaustive analysis.
+- Limit command output to 1,500 tokens by default. Expand only the exact missing fragment; never dump
+  full passing logs, traces, lockfiles, broad diffs, repository-wide listings, or unchanged status.
+- Prefer native wait or monitoring mechanisms over repeated CI and long-running-job polling. Report
+  only state changes or actionable failures.
+- Start with exact files and exact tests. Expand the scope only when concrete evidence requires it.
+- After two unproductive diagnostic attempts, reassess the evidence and hypothesis before running
+  more tools.
+- Once a failure is confirmed to be local-environment-only and authoritative CI covers the behavior,
+  do not repair unrelated local tooling unless the task requires it.
+- Stop when the requested acceptance criteria are satisfied. Avoid opportunistic cleanup and keep
+  progress updates and final responses concise.
+
 ## Agent planning artifacts
 
 - Superpowers specs and implementation plans are local execution artifacts. Keep them under the tool

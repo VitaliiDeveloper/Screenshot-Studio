@@ -186,9 +186,12 @@ export async function prepareRenderHost(port: number): Promise<PreparedRenderHos
   if (existsSync(packagedWebArchive)) {
     return preparePackagedRenderHost(port);
   }
+  // Run Next directly: a pnpm wrapper can exit on SIGTERM without forwarding it, orphaning the dev
+  // server (which holds Next's per-app dev lock) and the stderr pipe that stop() waits to drain.
+  const nextCli = createRequire(join(sourceWebDir, "package.json")).resolve("next/dist/bin/next");
   return {
-    command: "pnpm",
-    args: ["exec", "next", "dev", "--port", String(port)],
+    command: process.execPath,
+    args: [nextCli, "dev", "--webpack", "--port", String(port)],
     cwd: sourceWebDir,
     env: { NODE_ENV: "development" },
     cleanup: async () => undefined,

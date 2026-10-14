@@ -5,16 +5,16 @@ render/export parity contract takes priority over convenience in any one shell.
 
 ## Set up the repository
 
-Requirements are Node.js 22.13+, Corepack, and the Playwright Chromium builds used by export tests.
+Requirements are Node.js 22.13+ and pnpm 12.10.1 (`npm install -g pnpm@12.10.1`).
 
 ```bash
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git
 cd Screenshot-Studio
-corepack enable
-pnpm install
-pnpm exec playwright install chromium chromium-headless-shell
-pnpm dev
+./run.sh
 ```
+
+`./run.sh` installs the pinned dependencies and the Playwright Chromium builds used by export tests,
+then starts the editor. Use `./install.sh` to prepare without starting.
 
 Before changing the project, read `AGENTS.md`, `RULES.md`, and only the architecture or tracked
 contract section relevant to your change. Keep project JSON inside the enforced schema and keep UI

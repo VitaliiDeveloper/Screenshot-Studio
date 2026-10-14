@@ -74,8 +74,7 @@ describe("background authoring", () => {
       throw new Error(`Background authoring editor did not load. Alerts: ${alerts.join(" | ")}`, { cause: error });
     }
 
-    await inspector.getByLabel("Type", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "linear-gradient", exact: true }).click();
+    await inspector.getByRole("button", { name: "Use Gradient background", exact: true }).click();
     await inspector.getByLabel("From", { exact: true }).fill("#112233");
     await inspector.getByLabel("From", { exact: true }).blur();
     await inspector.getByLabel("To", { exact: true }).fill("#aabbcc");
@@ -89,14 +88,12 @@ describe("background authoring", () => {
       type: "linear-gradient", from: "#112233", to: "#aabbcc", angle: 45,
     });
 
-    await inspector.getByLabel("Type", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "image", exact: true }).click();
+    await inspector.getByRole("button", { name: "Use Image background", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Background asset picker" });
     await dialog.waitFor({ state: "visible" });
     await dialog.getByRole("button", { name: "Use assets/background.png" }).click();
     await dialog.waitFor({ state: "hidden" });
-    await inspector.getByLabel("Content mode", { exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "Fit", exact: true }).click();
+    await inspector.getByRole("button", { name: "Fit background image", exact: true }).click();
     await inspector.getByLabel("Fallback", { exact: true }).fill("#123456");
     await inspector.getByLabel("Fallback", { exact: true }).blur();
     await expect.poll(() => background()).toMatchObject({
@@ -122,7 +119,10 @@ describe("background authoring", () => {
     });
 
     await page.reload({ waitUntil: "load" });
-    await expect.poll(() => inspector.getByLabel("Type", { exact: true }).textContent()).toContain("image");
+    await expect.poll(() => inspector
+      .getByRole("button", { name: "Use Image background", exact: true })
+      .getAttribute("aria-pressed"))
+      .toBe("true");
     expect(background()).toMatchObject({
       type: "image", assetUrl: "assets/background.png", fit: "contain", color: "#123456",
     });

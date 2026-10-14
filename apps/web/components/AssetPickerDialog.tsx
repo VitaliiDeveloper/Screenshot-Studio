@@ -14,6 +14,10 @@ import {
   type ProjectImageAsset,
 } from "@web/lib/project-assets";
 import { editorStore } from "@web/lib/editor-store";
+import {
+  defaultDeviceFrameInputForScreen,
+  type MediaAssetTarget,
+} from "@web/lib/editor-workspace";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
 import { projectJsonRequest } from "@web/lib/project-api-client";
 import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
@@ -40,11 +44,13 @@ function actionableAssetError(message: string): string {
 export function AssetPickerDialog({
   elementType,
   targetDeviceFrame,
+  targetMedia,
   cacheAsset,
   onClose,
 }: {
   elementType: AssetElementType;
   targetDeviceFrame?: { elementId: string; screenId: string };
+  targetMedia?: MediaAssetTarget;
   cacheAsset: (path: string) => Promise<CachedAssetDimensions | null>;
   onClose: () => void;
 }) {
@@ -108,6 +114,16 @@ export function AssetPickerDialog({
   };
   const insert = (path: string, dimensions: CachedAssetDimensions) => {
     if (!isCurrent()) return;
+    if (targetMedia) {
+      mutateAndSave(() => editorStore.getState().patchElement({
+        id: targetMedia.elementId,
+        screenId: targetMedia.screenId,
+        type: targetMedia.elementType,
+        patch: { assetUrl: path },
+      }));
+      requestClose();
+      return;
+    }
     if (isBackground) {
       mutateAndSave(() => editorStore.getState().setBackground({
         type: "image",
@@ -128,8 +144,14 @@ export function AssetPickerDialog({
       requestClose();
       return;
     }
+    const { project, activeLayoutId, activeScreenId } = editorStore.getState();
+    const activeScreen = project?.layouts.find((layout) => layout.id === activeLayoutId)?.screens
+      .find((screen) => screen.id === activeScreenId);
     const element = isFrame
-      ? createDeviceFrameElement({ assetUrl: path })
+      ? createDeviceFrameElement({
+        ...defaultDeviceFrameInputForScreen(activeScreen),
+        assetUrl: path,
+      })
       : isStoreBadge
         ? { ...createImageElement({ assetUrl: path, width: 420, height: 140 }), name: "Store badge" }
         : isImage
@@ -205,7 +227,7 @@ export function AssetPickerDialog({
           : isImage
           ? "Choose a project asset, or import one and use it as a decorative image immediately."
           : "Choose a project image, or import one and use it as a screenshot immediately."}
-      ariaLabel={isFrame ? "Device frame asset picker" : isBackground ? "Background asset picker" : isStoreBadge ? "Store badge asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
+      ariaLabel={isFrame ? "Mockup screenshot picker" : isBackground ? "Background asset picker" : isStoreBadge ? "Store badge asset picker" : isImage ? "Image asset picker" : "Screenshot asset picker"}
       closeLabel="Close asset picker"
       onClose={requestClose}
       widthClass="max-w-4xl"

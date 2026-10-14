@@ -1,5 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
-import { sameScreenGroup, type DesignLayout, type Screen } from "@screenshot-studio/core/model";
+import {
+  DEVICE_FRAME_PRESETS,
+  deviceFramePreset,
+  sameScreenGroup,
+  type DeviceFrameId,
+  type DeviceFrameRecommendation,
+  type DesignLayout,
+  type Screen,
+} from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  destinationLabel,
+  listOutputFamilies,
+  outputFamilyLabel,
+  type StoreSize,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
@@ -22,37 +38,111 @@ export type ResourceDialog =
   | "image-assets"
   | "background-assets"
   | "store-badge-assets"
-  | "device-frame-assets";
+  | "mockup-screenshot-assets"
+  | "replace-media-asset";
 
-const PLATFORM_LABELS: Record<string, string> = {
-  apple: "App Store",
-  android: "Google Play",
-  windows: "Microsoft Store",
-  web: "Web",
+export type MediaAssetTarget = {
+  elementId: string;
+  screenId: string;
+  elementType: "screenshot" | "image";
 };
 
-const DEVICE_LABELS: Record<string, string> = {
-  iphone: "iPhone",
-  ipad: "iPad",
-  macos: "macOS",
-  tvos: "tvOS",
-  watchos: "watchOS",
-  phone: "Android phone",
-  desktop: "Windows desktop",
-  laptop: "Web laptop",
-  tablet: "Web tablet",
-  mobile: "Web mobile",
-  "tablet-7": "7-inch Android tablet",
-  "tablet-10": "10-inch Android tablet",
-};
+type DeviceFrameScreenContext = Pick<Screen, "platform" | "device" | "artboard">;
 
-const PLATFORM_DEVICE_LABELS: Record<string, string> = {
-  "windows/desktop": "Windows desktop",
-  "web/desktop": "Desktop",
-  "web/laptop": "Laptop",
-  "web/tablet": "Tablet",
-  "web/mobile": "Mobile",
-};
+export interface DeviceFrameContext {
+  readonly insertionPresetId: DeviceFrameId;
+  readonly recommendedPresetId?: DeviceFrameId;
+  readonly recommendation: DeviceFrameRecommendation;
+  readonly unsuitablePresetIds: readonly DeviceFrameId[];
+}
+
+const decoratedWatchPresetIds = DEVICE_FRAME_PRESETS
+  .filter((preset) => preset.group === "wearable" && preset.finish !== "frameless")
+  .map(({ id }) => id);
+
+/** Transient authoring guidance; no recommendation or suitability data is persisted. */
+export function deviceFrameContextForScreen(
+  screen?: DeviceFrameScreenContext | null,
+): DeviceFrameContext {
+  if (!screen) {
+    return {
+      insertionPresetId: "iphone",
+      recommendedPresetId: "iphone",
+      recommendation: "mobile",
+      unsuitablePresetIds: [],
+    };
+  }
+
+  const key = `${screen.platform}/${screen.device}`;
+  if (key === "android/wear") {
+    return {
+      insertionPresetId: "frameless-watch",
+      recommendedPresetId: undefined,
+      recommendation: "wearable",
+      unsuitablePresetIds: decoratedWatchPresetIds,
+    };
+  }
+
+  const recommendation = (() => {
+    switch (key) {
+      case "apple/iphone":
+      case "android/phone":
+      case "web/mobile":
+        return ["phone-modern-dark", "mobile"] as const;
+      case "apple/ipad":
+      case "android/tablet-7":
+      case "android/tablet-10":
+      case "web/tablet":
+        return ["tablet-rounded-light", "tablet"] as const;
+      case "web/desktop":
+        return ["browser-dark", "web"] as const;
+      case "apple/macos":
+      case "android/chromebook":
+      case "windows/desktop":
+      case "web/laptop":
+        return ["laptop-silver", "desktop"] as const;
+      case "apple/tvos":
+      case "android/tv":
+      case "windows/xbox":
+        return ["display-stand", "television"] as const;
+      case "apple/watchos":
+        return ["watch-square", "wearable"] as const;
+      case "android/automotive":
+        return ["automotive-display", "automotive"] as const;
+      case "apple/visionos":
+      case "android/xr":
+      case "windows/holographic":
+        return ["xr-viewport", "spatial"] as const;
+      default:
+        // The strict Screen schema currently makes this unreachable. Keep an active but future
+        // family on the semantic catalog instead of silently falling back to the legacy preset.
+        return ["phone-modern-dark", "mobile"] as const;
+    }
+  })();
+
+  return {
+    insertionPresetId: recommendation[0],
+    recommendedPresetId: recommendation[0],
+    recommendation: recommendation[1],
+    unsuitablePresetIds: [],
+  };
+}
+
+export function defaultDeviceFrameInputForScreen(
+  screen?: DeviceFrameScreenContext | null,
+): { deviceType: DeviceFrameId; width?: number; height?: number } {
+  const context = deviceFrameContextForScreen(screen);
+  if (context.insertionPresetId !== "frameless-watch") {
+    return { deviceType: context.insertionPresetId };
+  }
+  const width = 300;
+  const aspectRatio = deviceFramePreset(context.insertionPresetId).recipe.spec.aspectRatio;
+  return {
+    deviceType: context.insertionPresetId,
+    width,
+    height: width / aspectRatio,
+  };
+}
 
 const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   iphone: "iPhone",
@@ -69,23 +159,104 @@ const STORE_SIZE_DEVICE_LABELS: Record<string, string> = {
   "tablet-10": "10-inch Android tablet",
 };
 
-export function storeOutputLabel(platform: string, device: string): string {
-  const deviceLabel = PLATFORM_DEVICE_LABELS[`${platform}/${device}`] ?? DEVICE_LABELS[device] ?? device;
-  return `${PLATFORM_LABELS[platform] ?? platform} · ${deviceLabel}`;
+export function storeOutputLabel(
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string {
+  return outputFamilyLabel(platform, device, specs);
+}
+
+function capitalizeDisplayLabel(value: string): string {
+  if (/^(?:iPhone|iPad|macOS|tvOS|watchOS)\b/.test(value)) return value;
+  return value.length === 0 ? value : `${value[0]!.toUpperCase()}${value.slice(1)}`;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Short family copy for UI that already supplies the destination and output context. */
+export function outputFamilyEditorLabel(
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string {
+  const family = listOutputFamilies(specs).find(({ key }) => key === `${platform}/${device}`);
+  if (!family) return storeOutputLabel(platform, device, specs);
+  const legacySuffix = /\s+\(legacy\)$/i.test(family.label) ? " (legacy)" : "";
+  const base = family.label
+    .replace(/\s+\(legacy\)$/i, "")
+    .replace(/\bAndroid\s+/i, "")
+    .replace(/\bWindows\s+/i, "");
+  return `${capitalizeDisplayLabel(base)}${legacySuffix}`;
 }
 
 /** Remove output-level device copy from a size label while preserving its useful discriminator. */
 export function compactStoreSizeLabel(label: string, device: string): string {
   const withoutLead = label.replace(/\s+\(lead\)$/i, "");
+  if (device === "tablet-7") {
+    const canonicalTabletSize = /^(\d+-inch) Android tablet(?: (.+))?$/.exec(withoutLead);
+    if (canonicalTabletSize) {
+      return [canonicalTabletSize[1], canonicalTabletSize[2]].filter(Boolean).join(" ");
+    }
+  }
   const deviceLabel = STORE_SIZE_DEVICE_LABELS[device];
   if (!deviceLabel) return withoutLead;
-  if (withoutLead.startsWith(`${deviceLabel} `)) {
-    return withoutLead.slice(deviceLabel.length + 1);
+  return withoutLead
+    .replace(new RegExp(`(?:^|\\s)${escapeRegExp(deviceLabel)}(?=\\s|$)`, "i"), " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Format every target as `discriminator · orientation · qualifier`.
+ * The family card supplies destination/device context, so this copy never repeats it.
+ */
+export function conciseStoreTargetLabel(
+  target: StoreSize,
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string {
+  if (target.kind === "promotion") {
+    const withoutDestination = target.label.replace(
+      new RegExp(`^${escapeRegExp(destinationLabel(platform, specs))}\\s+`, "i"),
+      "",
+    );
+    return target.id === "play-feature-graphic"
+      ? "Feature graphic"
+      : capitalizeDisplayLabel(withoutDestination);
   }
-  if (withoutLead.endsWith(` ${deviceLabel}`)) {
-    return withoutLead.slice(0, -(deviceLabel.length + 1));
+
+  let compact = compactStoreSizeLabel(target.label, device);
+  const family = listOutputFamilies(specs).find(({ key }) => key === `${platform}/${device}`);
+  if (family) {
+    const familyLabel = family.label.replace(/\s+\(legacy\)$/i, "");
+    compact = compact.replace(
+      new RegExp(
+        `^(?:${platform === "web" ? "Web\\s+" : ""}${escapeRegExp(familyLabel)})(?:\\s+|$)`,
+        "i",
+      ),
+      "",
+    );
   }
-  return withoutLead;
+
+  const qualifiers: string[] = [];
+  if (/\bhigh resolution\b/i.test(compact)) qualifiers.push("High-res");
+  if (/\(frameless\)/i.test(compact)) qualifiers.push("Frameless");
+  const base = compact
+    .replace(/\bhigh resolution\b/gi, "")
+    .replace(/\s*\(frameless\)\s*/gi, " ")
+    .replace(/\b(?:portrait|landscape|square)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    base ? capitalizeDisplayLabel(base) : "",
+    capitalizeDisplayLabel(target.orientation),
+    ...qualifiers,
+  ].filter(Boolean).join(" · ");
 }
 
 export interface OutputFamily {
@@ -103,14 +274,17 @@ function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
 }
 
 /** Preserve project order while separating independent output families into canvas rows. */
-export function groupScreensByOutput(screens: readonly Screen[]): OutputFamily[] {
+export function groupScreensByOutput(
+  screens: readonly Screen[],
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): OutputFamily[] {
   const rows: OutputFamily[] = [];
   const byKey = new Map<string, OutputFamily>();
   for (const screen of screens) {
     const key = `${screen.platform}/${screen.device}`;
     let row = byKey.get(key);
     if (!row) {
-      row = { key, label: storeOutputLabel(screen.platform, screen.device), screens: [] };
+      row = { key, label: storeOutputLabel(screen.platform, screen.device, specs), screens: [] };
       byKey.set(key, row);
       rows.push(row);
     }
@@ -139,6 +313,7 @@ export function workspaceEditingScope(layout: DesignLayout, activeScreen: Screen
 export function workspaceOverviewRows(
   layout: DesignLayout,
   activeScreen: Screen,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
 ): WorkspaceOutputFamily[] {
   const families = new Map<string, Screen[]>();
   for (const screen of layout.screens) {
@@ -164,7 +339,7 @@ export function workspaceOverviewRows(
         ? [{ targetId: undefined, screens: roots }]
         : [];
       rows.push(...Array.from(variantsByTarget, ([targetId, screens]) => ({ targetId, screens })));
-      const familyLabel = storeOutputLabel(familyScreens[0]!.platform, familyScreens[0]!.device);
+      const familyLabel = storeOutputLabel(familyScreens[0]!.platform, familyScreens[0]!.device, specs);
 
       return rows.map(({ targetId, screens }) => ({
         key: targetId === undefined ? key : `${key}/${targetId}`,
@@ -184,7 +359,7 @@ export function workspaceOverviewRows(
       ? layout.screens.filter((screen) => sameScreenGroup(screen, anchor))
       : roots;
     const targetId = screens[0]?.storeTargetId;
-    const familyLabel = storeOutputLabel(anchor.platform, anchor.device);
+    const familyLabel = storeOutputLabel(anchor.platform, anchor.device, specs);
 
     return {
       key,

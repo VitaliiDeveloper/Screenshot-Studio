@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runAssetCommand } from "./asset-commands.js";
+import { ensureRenderBrowsers, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
 import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
 import { runExportCommand } from "./export-command.js";
@@ -54,10 +55,10 @@ async function runFontManagementCommand(args: string[], flags: Record<string, st
 export async function dispatchCommand(
   command: string | undefined,
   argv: string[],
-  defaults: { storeSpecsPath: string },
+  defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout|setup> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -66,16 +67,18 @@ export async function dispatchCommand(
       await runInitCommand(flags, defaults.storeSpecsPath);
       break;
     case "export":
+      await ensureRenderBrowsers("required", defaults.browserSetup);
       await runExportCommand(flags, defaults.storeSpecsPath);
       break;
     case "screen":
       await runScreenManagementCommand(args, flags, defaults.storeSpecsPath);
       break;
     case "dev":
+      await ensureRenderBrowsers("optional", defaults.browserSetup);
       await runDevCommand(flags, defaults.storeSpecsPath);
       break;
     case "import":
-      await runImportCommand(args, flags);
+      await runImportCommand(args, flags, defaults.storeSpecsPath);
       break;
     case "font":
       await runFontManagementCommand(args, flags);
@@ -91,6 +94,9 @@ export async function dispatchCommand(
       break;
     case "layout":
       console.log(await runLayoutCommand(resolveProjectPath(flags), args, flags));
+      break;
+    case "setup":
+      await runSetupCommand(defaults.browserSetup);
       break;
   }
 }

@@ -8,12 +8,13 @@ import type { Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
-import { NumberField } from "./inspector-fields";
+import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
 import { ElementTypeInspectorSections } from "./inspector/ElementTypeInspectorSections";
 import { InspectorSection as Section } from "./inspector/InspectorSection";
 import { ScreenInspectorSections } from "./inspector/ScreenInspectorSections";
 import { deriveInspectorSelection } from "./inspector/inspector-selection-model";
+import { TransformInspectorFields } from "./inspector/TransformInspectorFields";
 
 function patch<T extends Element["type"]>(
   id: string,
@@ -28,12 +29,14 @@ export function Inspector({
   specs,
   onOpenBackgroundAsset,
   onOpenDeviceFrameAsset,
+  onOpenMediaAsset,
   onClose,
   className,
 }: {
   specs: StoreSpecs | null;
   onOpenBackgroundAsset?: () => void;
   onOpenDeviceFrameAsset?: (target: { elementId: string; screenId: string }) => void;
+  onOpenMediaAsset?: (target: MediaAssetTarget) => void;
   onClose?: () => void;
   className?: string;
 }) {
@@ -48,6 +51,7 @@ export function Inspector({
   const {
     screen,
     element,
+    effectiveLocked,
     aggregate,
     everyLocked,
     everyHidden,
@@ -58,7 +62,7 @@ export function Inspector({
   const target = specs
     ? (() => {
         try {
-          const targetId = screen.storeTargetId ?? leadStoreSizeId(screen.platform, screen.device);
+          const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
           return findStoreTarget(specs, screen.platform, screen.device, targetId);
         } catch {
           return undefined;
@@ -152,37 +156,14 @@ export function Inspector({
       ) : element ? (
         <>
           <Section title="Transform">
-            <NumberField label="X" value={element.x} onChange={(x) => patch(element.id, element.type, { x })} />
-            <NumberField label="Y" value={element.y} onChange={(y) => patch(element.id, element.type, { y })} />
-            {element.type === "group" ? (
-              <>
-                <NumberField
-                  label="Width"
-                  value={element.width}
-                  min={1}
-                  onChange={(width) => patch(element.id, element.type, {
-                    width,
-                    height: element.height * width / element.width,
-                  })}
-                />
-                <NumberField
-                  label="Height"
-                  value={element.height}
-                  min={1}
-                  onChange={(height) => patch(element.id, element.type, {
-                    width: element.width * height / element.height,
-                    height,
-                  })}
-                />
-              </>
-            ) : (
-              <>
-                <NumberField label="Width" value={element.width} min={1} onChange={(width) => patch(element.id, element.type, { width })} />
-                <NumberField label="Height" value={element.height} min={1} onChange={(height) => patch(element.id, element.type, { height })} />
-              </>
-            )}
-            <NumberField label="Rotation" value={element.rotation} onChange={(rotation) => patch(element.id, element.type, { rotation })} />
-            <NumberField label="Opacity" value={element.opacity} min={0} max={1} step={0.1} onChange={(opacity) => patch(element.id, element.type, { opacity })} />
+            <TransformInspectorFields
+              key={`${selectedItems[0]?.screenId ?? screen.id}:${element.id}`}
+              element={element}
+              artboard={screen.artboard}
+              effectiveLocked={effectiveLocked}
+              onChange={(change) => patch(element.id, element.type, change)}
+              onInteractionEnd={() => editorStore.getState().endHistoryGroup()}
+            />
           </Section>
           <ElementTypeInspectorSections
             element={element}
@@ -190,12 +171,25 @@ export function Inspector({
             onPatch={patch}
             onDuplicate={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
             onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
+            screen={screen}
+            effectiveLocked={effectiveLocked}
             onChooseDeviceFrameAsset={element.type === "device-frame" && selectedItems[0]
               ? () => onOpenDeviceFrameAsset?.({
                 elementId: element.id,
                 screenId: selectedItems[0]!.screenId,
               })
               : undefined}
+            onChooseMediaAsset={element.type === "screenshot" || element.type === "image"
+              ? () => onOpenMediaAsset?.({
+                elementId: element.id,
+                screenId: selectedItems[0]!.screenId,
+                elementType: element.type,
+              })
+              : undefined}
+            onRemoveElement={() => mutateAndSave(() => editorStore.getState().removeElement(
+              element.id,
+              selectedItems[0]!.screenId,
+            ))}
           />
         </>
       ) : (

@@ -95,6 +95,7 @@ describe("POST /api/project-import", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "screenshot_studio_managed_project=project_",
     );
+    expect(response.headers.get("x-project-id")).toMatch(/^project_[0-9a-f]{32}$/);
     expect(await response.json()).toMatchObject({
       project: {
         sessionId: "imported-session",

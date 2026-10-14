@@ -1,16 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   editorUi,
+  DialogShell,
   InsetPanel,
+  MenuSelect,
   SegmentedControl,
   StatusMessage,
   ToolButton,
 } from "@web/components/editor-ui.js";
 
+const menuSelectSource = readFileSync(new URL("./MenuSelect.tsx", import.meta.url), "utf8");
+const addMenuSource = readFileSync(new URL("./AddMenu.tsx", import.meta.url), "utf8");
+const emptyResourceStateSource = readFileSync(new URL("./EmptyResourceState.tsx", import.meta.url), "utf8");
+
 describe("editor UI primitives", () => {
+  it("associates visible dialog descriptions with the modal semantics", () => {
+    const html = renderToStaticMarkup(createElement(
+      DialogShell,
+      {
+        title: "Import project",
+        description: "The selected source stays unchanged.",
+        onClose: () => undefined,
+        children: "Dialog body",
+      },
+    ));
+    const descriptionId = html.match(/aria-describedby="([^"]+)"/)?.[1];
+
+    expect(descriptionId).toBeTruthy();
+    expect(html).toContain(`id="${descriptionId}"`);
+    expect(html).toContain("The selected source stays unchanged.");
+  });
+
   it("uses semantic tokens for every shared visual category", () => {
     const contracts = Object.values(editorUi).join(" ");
 
@@ -48,12 +72,41 @@ describe("editor UI primitives", () => {
     expect(editorUi.segmentedControl).toContain("rounded-lg");
     expect(editorUi.segmentedControl).toContain("var(--editor-color-surface-muted)");
     expect(editorUi.segmentedButton).toContain("h-6");
-    expect(editorUi.segmentedButton).toContain("px-2.5");
     expect(editorUi.segmentedButton).toContain("font-medium");
     expect(editorUi.segmentedButton).toContain("whitespace-nowrap");
-    expect(editorUi.segmentedButtonLabel).toBe("text-xs leading-none");
+    expect(editorUi.segmentedButtonDefault).toContain("px-2.5");
+    expect(editorUi.segmentedButtonCompact).toContain("min-w-0");
+    expect(editorUi.segmentedButtonLabel).toContain("inline-flex");
+    expect(editorUi.segmentedButtonLabel).toContain("items-center");
+    expect(editorUi.segmentedButtonLabel).toContain("gap-1.5");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-color-surface)");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-shadow-control)");
+  });
+
+  it("keeps shared menus on semantic colors and named typography variants", () => {
+    const html = renderToStaticMarkup(createElement(MenuSelect, {
+      ariaLabel: "Theme role",
+      value: "heading",
+      textSize: "emphasis",
+      options: [
+        { value: "heading", label: "Heading" },
+        { value: "body", label: "Body" },
+      ],
+      onChange: () => undefined,
+    }));
+
+    expect(html).toContain("var(--editor-font-control-emphasis-size)");
+    expect(html).toContain("var(--editor-color-border)");
+    for (const source of [menuSelectSource, addMenuSource, emptyResourceStateSource]) {
+      expect(source).not.toMatch(/(?:slate|blue|red|amber)-\d/);
+    }
+    expect(menuSelectSource).not.toContain("fontSize");
+  });
+
+  it("uses one thin range contract across inspector sliders", () => {
+    expect(editorUi.rangeInput).toContain("editor-range");
+    expect(editorUi.rangeInput).toContain("h-6");
+    expect(editorUi.rangeInput).toContain("var(--editor-color-focus)");
   });
 
   it("renders a reusable accessible segmented control", () => {
@@ -74,6 +127,21 @@ describe("editor UI primitives", () => {
     expect(html).toContain(editorUi.segmentedControlFill);
     expect(html).toContain(editorUi.segmentedButtonActive);
     expect(html).toContain(`<span class="${editorUi.segmentedButtonLabel}">Overview</span>`);
+
+    const compactHtml = renderToStaticMarkup(createElement(SegmentedControl, {
+      label: "Text alignment",
+      value: "center",
+      compact: true,
+      options: [
+        { value: "left", label: "Left" },
+        { value: "center", label: "Center" },
+        { value: "right", label: "Right" },
+      ],
+      onChange: () => undefined,
+    }));
+
+    expect(compactHtml).toContain(editorUi.segmentedButtonCompact);
+    expect(compactHtml).not.toContain(editorUi.segmentedButtonDefault);
   });
 
   it("renders tool and panel buttons with an accessible pressed state", () => {

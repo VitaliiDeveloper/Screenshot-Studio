@@ -19,6 +19,7 @@ import {
   isScreenPlacement,
   parseScreenPlacement,
   removeScreenFromProject,
+  removeStoreOutputFamily,
   removeStoreTargetVariant,
   removeLocaleSet,
   reorderScreenInProject,
@@ -510,6 +511,59 @@ describe("project-ops", () => {
     expect(again.created).toBe(false);
     expect(again.firstScreen.id).toBe(ipadRoots[0]!.id);
     expect(again.project).toBe(result.project);
+  });
+
+  it("removes a complete output family but preserves the last family for a locale", () => {
+    const created = ensureStoreOutputFamily(sampleProject(), "default", "hero", "apple", "ipad", {
+      id: "13", width: 2064, height: 2752,
+    });
+    const withVariant = ensureStoreTargetVariant(
+      created.project,
+      "default",
+      created.firstScreen.id,
+      { id: "11", width: 1668, height: 2420 },
+    ).project;
+
+    const removed = removeStoreOutputFamily(
+      withVariant,
+      "default",
+      created.firstScreen.id,
+    );
+    expect(removed.layouts[0]!.screens.every((screen) => screen.device === "iphone")).toBe(true);
+    expect(removed.layouts[0]!.screenSetPolicies ?? []).not.toContainEqual(expect.objectContaining({
+      platform: "apple", device: "ipad", locale: "en",
+    }));
+    expect(() => removeStoreOutputFamily(removed, "default", "hero"))
+      .toThrow(/last output family/);
+  });
+
+  it("removes an output family only from the source locale", () => {
+    const created = ensureStoreOutputFamily(sampleProject(), "default", "hero", "apple", "ipad", {
+      id: "13", width: 2064, height: 2752,
+    });
+    const frenchIpad = {
+      ...structuredClone(created.firstScreen),
+      id: "ipad-fr",
+      locale: "fr",
+    };
+    const withFrench = {
+      ...created.project,
+      layouts: [{
+        ...created.project.layouts[0]!,
+        screens: [...created.project.layouts[0]!.screens, frenchIpad],
+      }],
+    };
+
+    const removed = removeStoreOutputFamily(
+      withFrench,
+      "default",
+      created.firstScreen.id,
+    );
+
+    expect(removed.layouts[0]!.screens).toContainEqual(frenchIpad);
+    expect(removed.layouts[0]!.screens.some((screen) => (
+      screen.device === "ipad" && screen.locale === "en"
+    ))).toBe(false);
   });
 
   it("creates new watchOS output families with 3.5x custom masters", () => {

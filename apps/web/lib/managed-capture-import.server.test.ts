@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { discoverCaptureImport } from "@screenshot-studio/core/capture-import";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { ManagedProjectCreationService } from "./managed-project-creation.server.js";
 import { ManagedProjectRepository } from "./managed-project-repository.server.js";
@@ -14,11 +14,7 @@ import {
 } from "./managed-capture-import.server.js";
 
 const roots: string[] = [];
-const specs = parseStoreSpecs({
-  apple: { iphone: [{ id: "lead", label: "Apple lead", width: 1320, height: 2868, orientation: "portrait" }] },
-  android: { phone: [{ id: "lead", label: "Android lead", width: 1080, height: 1920, orientation: "portrait" }] },
-  windows: { desktop: [{ id: "lead", label: "Windows lead", width: 1920, height: 1080, orientation: "landscape" }] },
-});
+const specs = DEFAULT_STORE_SPECS;
 
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -48,12 +44,12 @@ describe("createManagedProjectFromCaptureImport", () => {
       files: [{ relativePath: "apple/iphone/en/01.png", bytes: png }],
     });
     const scaffoldInput = {
-      name: "Preview only", platform: "apple", layoutMode: "isolated", templateId: null,
+      name: "Preview only", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
     } as const;
     const createStage = vi.spyOn(repository, "createStage");
 
     const preview = await previewManagedProjectCaptureImport({
-      scaffoldInput, discovery, creationService: service,
+      scaffoldInput, discovery, creationService: service, specs,
     });
 
     expect(preview.receiving).toMatchObject({
@@ -67,6 +63,7 @@ describe("createManagedProjectFromCaptureImport", () => {
       discovery,
       confirmationFingerprint: "0".repeat(64),
       creationService: service,
+      specs,
     })).rejects.toThrow(/preview changed/i);
     expect(createStage).not.toHaveBeenCalled();
     await expect(repository.list()).resolves.toEqual([]);
@@ -88,10 +85,11 @@ describe("createManagedProjectFromCaptureImport", () => {
 
     const record = await createManagedProjectFromCaptureImport({
       scaffoldInput: {
-        name: "Captured", platform: "apple", layoutMode: "connected", templateId: null,
+        name: "Captured", platform: "apple", device: "iphone", layoutMode: "connected", templateId: null,
       },
       discovery,
       creationService: service,
+      specs,
     });
 
     expect(publish).toHaveBeenCalledOnce();
@@ -126,17 +124,19 @@ describe("createManagedProjectFromCaptureImport", () => {
 
     await expect(createManagedProjectFromCaptureImport({
       scaffoldInput: {
-        name: "Invalid", platform: "apple", layoutMode: "isolated", templateId: null,
+        name: "Invalid", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
       },
       discovery: invalid,
       creationService: service,
+      specs,
     })).rejects.toThrow(/invalid/i);
     await expect(createManagedProjectFromCaptureImport({
       scaffoldInput: {
-        name: "Cancelled", platform: "apple", layoutMode: "isolated", templateId: null,
+        name: "Cancelled", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null,
       },
       discovery: invalid,
       creationService: service,
+      specs,
       signal: controller.signal,
     })).rejects.toThrow(/cancelled/i);
     expect(createStage).not.toHaveBeenCalled();

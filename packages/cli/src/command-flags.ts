@@ -21,12 +21,13 @@ export const COMMAND_FLAG_SPECS = {
     boolean: ["cascade"],
   },
   dev: { value: ["project", "store-specs", "port"], boolean: [] },
-  import: { value: ["project", "layout"], boolean: [] },
+  import: { value: ["project", "store-specs", "layout"], boolean: [] },
   font: { value: ["project", "weight", "google", "family"], boolean: [] },
   theme: { value: ["project", "layout"], boolean: [] },
   locale: { value: ["project", "from", "direction", "to", "layout"], boolean: [] },
   asset: { value: ["project", "threshold", "background", "tolerance"], boolean: [] },
   layout: { value: ["project", "name", "mode"], boolean: [] },
+  setup: { value: [], boolean: [] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { CanvasMode, Platform } from "@screenshot-studio/core/model";
+import type { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
 import type { ActiveProjectDescriptor } from "./project-session.js";
 import { isStrongQuotedETag } from "./http-etag.js";
 
@@ -11,13 +11,10 @@ export interface CaptureImportCurrentDestination {
   layoutId: string;
 }
 
-export interface CaptureImportNewDestination {
+export type CaptureImportNewDestination = ProjectScaffoldInput & {
   kind: "new-project";
-  name: string;
-  platform: Platform;
-  layoutMode: CanvasMode;
   templateId: null;
-}
+};
 
 export type CaptureImportDestination =
   | CaptureImportCurrentDestination
@@ -120,6 +117,7 @@ export function buildCaptureImportForm(
   } else {
     form.set("name", request.destination.name);
     form.set("platform", request.destination.platform);
+    form.set("device", request.destination.device);
     form.set("layoutMode", request.destination.layoutMode);
     form.set("templateId", "");
   }
@@ -260,8 +258,11 @@ export async function applyCaptureImport(
   const body = await responseBody(response);
   if (!response.ok) return throwResponseError(response, body);
   const projectId = response.headers.get("x-project-id")?.trim();
+  const validProjectId = request.destination.kind === "new-project"
+    ? /^project_[0-9a-f]{32}$/u.test(projectId ?? "")
+    : /^(?:project_[0-9a-f]{32}|[0-9a-f]{64})$/u.test(projectId ?? "");
   if (!validProjectDescriptor(body.project)
-    || !projectId
+    || !projectId || !validProjectId
     || !Number.isSafeInteger(body.imported) || Number(body.imported) < 0) {
     throw new CaptureImportClientError(
       "Capture import apply returned an invalid response",

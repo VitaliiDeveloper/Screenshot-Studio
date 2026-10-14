@@ -4,6 +4,7 @@
 import React, { type ReactNode, type Ref } from "react";
 import { FolderInput, Layers3, LoaderCircle, Plus, RotateCcw, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
@@ -24,6 +25,7 @@ export interface AppHomeShellProps {
   state: LauncherImportState;
   creationState: ProjectCreationState;
   projectTemplates: readonly ProjectTemplateSummary[];
+  storeSpecs?: StoreSpecs;
   dialogClosing: boolean;
   projects: ProjectLibraryState;
   projectAction: ProjectLibraryAction | null;
@@ -57,6 +59,7 @@ export function AppHomeShell({
   state,
   creationState,
   projectTemplates,
+  storeSpecs = DEFAULT_STORE_SPECS,
   dialogClosing,
   projects,
   projectAction,
@@ -88,7 +91,7 @@ export function AppHomeShell({
   const dialogState = state.status === "idle" || state.status === "cancelled" ? null : state;
   const firstRun = projects.status === "ready" && projects.entries.length === 0;
   const dialogs = <>
-    {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
+    {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} specs={storeSpecs} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
     {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} onChooseCapture={onChooseCapture} /> : null}
     {captureDialog}
     {deletionDialog}
@@ -162,7 +165,7 @@ export function AppHomeShell({
 
         {projects.status === "loading" ? <div role="status" className="flex min-h-[28rem] items-center justify-center gap-2 text-sm text-slate-500"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> Loading projects…</div> : null}
         {projects.status === "error" ? <div role="alert" className="mx-auto mt-20 max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center"><p className="font-semibold text-slate-950">Projects could not be loaded.</p><p className="mt-2 text-sm text-red-700">{projects.message}</p><button type="button" className={`mt-5 ${editorUi.buttonSecondary}`} onClick={onRetryProjects}><RotateCcw aria-hidden="true" className="size-4" /> Retry</button></div> : null}
-        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} action={projectAction} actionError={projectActionError} actionNotice={projectActionNotice} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
+        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} specs={storeSpecs} action={projectAction} actionError={projectActionError} actionNotice={projectActionNotice} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
       </div>
 
       {dialogs}

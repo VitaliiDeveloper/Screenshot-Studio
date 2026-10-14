@@ -30,13 +30,145 @@
               "id": "hero-frame",
               "type": "device-frame",
               "x": 80,
-              "y": 200,
+              "y": 175,
               "width": 500,
-              "height": 1000,
-              "deviceType": "iphone",
+              "height": 1084,
+              "deviceType": "phone-modern-dark",
               "assetUrl": "assets/shot.png",
               "fit": "cover",
               "blur": 12
+            }
+          ]
+        },
+        {
+          "id": "phone-outline",
+          "name": "Phone Outline",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "outline-frame",
+              "type": "device-frame",
+              "x": 80,
+              "y": 175,
+              "width": 500,
+              "height": 1084,
+              "deviceType": "phone-outline",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "id": "tablet-rounded-light",
+          "name": "Rounded Tablet Light",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "tablet-frame",
+              "type": "device-frame",
+              "x": 60,
+              "y": 357,
+              "width": 540,
+              "height": 720,
+              "deviceType": "tablet-rounded-light",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "id": "browser-dark",
+          "name": "Dark Browser",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "browser-frame",
+              "type": "device-frame",
+              "x": 40,
+              "y": 536,
+              "width": 580,
+              "height": 363,
+              "deviceType": "browser-dark",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "id": "laptop-silver",
+          "name": "Silver Laptop",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "laptop-frame",
+              "type": "device-frame",
+              "x": 40,
+              "y": 536,
+              "width": 580,
+              "height": 363,
+              "deviceType": "laptop-silver",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "id": "watch-square",
+          "name": "Square Watch",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "watch-frame",
+              "type": "device-frame",
+              "x": 125,
+              "y": 467,
+              "width": 410,
+              "height": 500,
+              "deviceType": "watch-square",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "id": "frameless-phone",
+          "name": "Frameless Phone",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "frameless-frame",
+              "type": "device-frame",
+              "x": 80,
+              "y": 175,
+              "width": 500,
+              "height": 1084,
+              "deviceType": "frameless-phone",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
             }
           ]
         }

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { updateProjectFile } from "./project-io.js";
 import {
   addScreenToProject,
@@ -27,18 +27,17 @@ async function temporaryDirectory(prefix: string): Promise<string> {
   return directory;
 }
 
-const specs = parseStoreSpecs({
-  apple: {
-    iphone: [
-      { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
-      { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
-    ],
-    ipad: [{ id: "13", label: "13", width: 2048, height: 2732, orientation: "portrait" }],
-  },
-  android: {
-    phone: [{ id: "phone-portrait", label: "Phone", width: 1080, height: 1920, orientation: "portrait" }],
-  },
-});
+const specs = structuredClone(DEFAULT_STORE_SPECS);
+specs.platforms.apple.families.iphone.targets = [
+  { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
+  { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
+];
+specs.platforms.apple.families.ipad.targets = [
+  { id: "13", label: "13", width: 2048, height: 2732, orientation: "portrait" },
+];
+specs.platforms.android.families.phone.targets = [
+  { id: "phone-portrait", label: "Phone", width: 1080, height: 1920, orientation: "portrait" },
+];
 
 function sampleProject(): Project {
   return {

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { clientToViewportPoint, nextAnchoredScroll } from "./canvas-viewport-model.js";
+import {
+  activeArtboardScrollBehavior,
+  clientToViewportPoint,
+  nextAnchoredScroll,
+} from "./canvas-viewport-model.js";
 
 describe("canvas viewport model", () => {
   it("converts a client point into viewport-local coordinates", () => {
@@ -20,5 +24,31 @@ describe("canvas viewport model", () => {
 
     expect(result.scrollLeft).toBe(480);
     expect(result.scrollTop).toBe(340);
+  });
+
+  it("does not animate active-artboard scrolling beneath overlay panels", () => {
+    expect(activeArtboardScrollBehavior({
+      leftInset: 0,
+      rightInset: 288,
+      reducedMotion: false,
+    })).toBe("auto");
+    expect(activeArtboardScrollBehavior({
+      leftInset: 288,
+      rightInset: 0,
+      reducedMotion: false,
+    })).toBe("auto");
+  });
+
+  it("keeps smooth active-artboard scrolling on unobstructed canvases", () => {
+    expect(activeArtboardScrollBehavior({
+      leftInset: 0,
+      rightInset: 0,
+      reducedMotion: false,
+    })).toBe("smooth");
+    expect(activeArtboardScrollBehavior({
+      leftInset: 0,
+      rightInset: 0,
+      reducedMotion: true,
+    })).toBe("auto");
   });
 });

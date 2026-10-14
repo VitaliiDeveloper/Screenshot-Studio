@@ -182,6 +182,12 @@ export type IconElement = z.infer<typeof IconElement>;
 
 export const DEVICE_FRAME_IDS = [
   "iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch",
+  "phone-modern-dark", "phone-modern-light", "phone-punch-hole-dark", "phone-outline",
+  "frameless-phone", "tablet-rounded-dark", "tablet-rounded-light", "tablet-outline",
+  "frameless-tablet", "browser-light", "browser-dark", "browser-minimal", "frameless-browser",
+  "laptop-silver", "laptop-dark", "display-stand", "display-minimal", "tv-flat",
+  "watch-rounded", "watch-square", "frameless-watch", "foldable", "automotive-display",
+  "xr-viewport",
 ] as const;
 export const DeviceFrameId = z.enum(DEVICE_FRAME_IDS);
 export type DeviceFrameId = z.infer<typeof DeviceFrameId>;
@@ -283,13 +289,15 @@ export type FontAsset = z.infer<typeof FontAsset>;
 
 /**
  * Source of truth for which devices each platform allows. The schema enums below are built
- * from this, and the store-specs lockstep test compares it against store-specs.json — so the
- * pair is declared in exactly one place. Widen HERE and in store-specs.json in the same change.
+ * from this. The store-specs decoder and lockstep test compare the unified runtime catalog against
+ * it. Widen HERE and the catalog in the same coordinated change.
  */
 export const SCREEN_DEVICES_BY_PLATFORM = {
-  apple: ["iphone", "ipad", "macos", "tvos", "watchos"],
-  android: ["phone", "tablet-7", "tablet-10"],
-  windows: ["desktop"],
+  apple: ["iphone", "ipad", "macos", "tvos", "watchos", "visionos"],
+  android: [
+    "phone", "tablet-7", "tablet-10", "chromebook", "tv", "wear", "automotive", "xr",
+  ],
+  windows: ["desktop", "xbox", "holographic"],
   web: ["desktop", "laptop", "tablet", "mobile"],
 } as const;
 export type Platform = keyof typeof SCREEN_DEVICES_BY_PLATFORM;

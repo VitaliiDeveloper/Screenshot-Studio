@@ -72,8 +72,46 @@ Screenshot and decorative-image leaves may store normalized `crop: { x, y, zoom 
 are in `0…1`, zoom is `1…4`, and the literal affects `cover` only. `contain` keeps but ignores it.
 Text may store one literal shadow. Shapes may be rect or ellipse and may add a two-stop linear
 gradient and stroke; do not invent generic effects, paths, or extra stops.
-Device frames use only `iphone | android-phone | tablet | desktop | laptop | browser | tv | watch`;
-the shared core owns their vector bezel/slot geometry and render never downloads vendor artwork.
+Device frames use one of the current strict preset ids below. The first eight ids are retained for
+backward compatibility; all presets use shared-core, brand-neutral vector geometry, and rendering
+never downloads vendor artwork.
+
+<!-- DEVICE_FRAME_IDS:START -->
+```text
+iphone
+android-phone
+tablet
+desktop
+laptop
+browser
+tv
+watch
+phone-modern-dark
+phone-modern-light
+phone-punch-hole-dark
+phone-outline
+frameless-phone
+tablet-rounded-dark
+tablet-rounded-light
+tablet-outline
+frameless-tablet
+browser-light
+browser-dark
+browser-minimal
+frameless-browser
+laptop-silver
+laptop-dark
+display-stand
+display-minimal
+tv-flat
+watch-rounded
+watch-square
+frameless-watch
+foldable
+automotive-display
+xr-viewport
+```
+<!-- DEVICE_FRAME_IDS:END -->
 
 Background literals are strict. `solid` stores `color`; `linear-gradient` stores `from`, `to`, and
 an `angle` from 0 to 360; `image` stores a project-relative `assetUrl`, `cover | contain` fit, and
@@ -174,13 +212,37 @@ pairing fields to the project.
 ## Recipe: import PNG captures
 
 Use the capture import command for raw screenshots, not for a complete Project transfer. The input is
-either the project root or its `screenshots/` directory:
+either the project root or its `screenshots/` directory. Organize captures under the exact current
+destination/device paths below; Apple, Android, Windows, and Web families all use the same
+`{locale}/NN.png` convention:
 
+<!-- SCREEN_CAPTURE_DESTINATIONS:START -->
 ```text
-screenshots/apple/{iphone,ipad}/{locale}/NN.png
+screenshots/apple/iphone/{locale}/NN.png
+screenshots/apple/ipad/{locale}/NN.png
+screenshots/apple/macos/{locale}/NN.png
+screenshots/apple/tvos/{locale}/NN.png
+screenshots/apple/watchos/{locale}/NN.png
+screenshots/apple/visionos/{locale}/NN.png
 screenshots/android/phone/{locale}/NN.png
-assets/...                                      # supported when importing the project root
+screenshots/android/tablet-7/{locale}/NN.png
+screenshots/android/tablet-10/{locale}/NN.png
+screenshots/android/chromebook/{locale}/NN.png
+screenshots/android/tv/{locale}/NN.png
+screenshots/android/wear/{locale}/NN.png
+screenshots/android/automotive/{locale}/NN.png
+screenshots/android/xr/{locale}/NN.png
+screenshots/windows/desktop/{locale}/NN.png
+screenshots/windows/xbox/{locale}/NN.png
+screenshots/windows/holographic/{locale}/NN.png
+screenshots/web/desktop/{locale}/NN.png
+screenshots/web/laptop/{locale}/NN.png
+screenshots/web/tablet/{locale}/NN.png
+screenshots/web/mobile/{locale}/NN.png
 ```
+<!-- SCREEN_CAPTURE_DESTINATIONS:END -->
+
+When importing from the project root, project-relative files under `assets/` are also supported.
 
 Choose the receiving layout explicitly in a multi-layout project, then run:
 

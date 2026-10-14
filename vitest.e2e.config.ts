@@ -12,6 +12,12 @@ const cliSource = fileURLToPath(new URL("./packages/cli/src", import.meta.url));
  * browser, and Next.js runtime state cannot leak across unrelated areas.
  */
 export default defineConfig({
+  // Keep the test runner's TSX transform independent from Next's `jsx: preserve`.
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
+  },
   resolve: {
     alias: [
       {

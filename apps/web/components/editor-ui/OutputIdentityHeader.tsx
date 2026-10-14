@@ -24,7 +24,10 @@ export function OutputIdentityHeader({
       data-output-role={role}
       className="mb-3 flex min-w-0 flex-col gap-1.5 text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-secondary)]"
     >
-      <div data-testid="output-identity-title-row" className="flex min-w-0 items-center gap-2 overflow-hidden">
+      <div
+        data-testid="output-identity-title-row"
+        className="flex min-h-[1.125rem] min-w-0 items-center gap-2 overflow-hidden"
+      >
         <span className={constrained ? "min-w-0 truncate" : undefined}>{label}</span>
         {editing ? (
           <span className="shrink-0 rounded-full bg-[var(--editor-color-accent-subtle)] px-2 py-0.5 text-[9px] tracking-normal text-[color:var(--editor-color-accent-hover)]">

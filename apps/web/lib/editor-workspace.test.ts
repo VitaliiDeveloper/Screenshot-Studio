@@ -1,14 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CanvasMode, DesignLayout } from "@screenshot-studio/core/model";
+import type { CanvasMode, DesignLayout, Platform } from "@screenshot-studio/core/model";
+import {
+  DEFAULT_STORE_SPECS,
+  listStoreTargets,
+  parseStoreSpecs,
+  type StoreSize,
+} from "@screenshot-studio/core/export";
 import {
   clampZoom,
   compactStoreSizeLabel,
+  conciseStoreTargetLabel,
+  defaultDeviceFrameInputForScreen,
+  deviceFrameContextForScreen,
   filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
   groupScreensByOutput,
   OVERVIEW_GAP,
+  outputFamilyEditorLabel,
   storeOutputLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
@@ -43,6 +55,34 @@ function scopeProject(mode: CanvasMode): DesignLayout {
 }
 
 describe("editor workspace helpers", () => {
+  it("uses destination and family labels from the runtime catalog", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    Object.assign(specs.platforms.apple, { label: "Custom Store" });
+    Object.assign(specs.platforms.apple.families.iphone, { label: "Custom Phone" });
+
+    expect(storeOutputLabel("apple", "iphone", specs)).toBe("Custom Store · Custom Phone");
+    expect(outputFamilyEditorLabel("apple", "iphone", specs)).toBe("Custom Phone");
+  });
+
+  it("separates Wear OS insertion from Store recommendation semantics", () => {
+    const wearScreen = {
+      platform: "android",
+      device: "wear",
+      artboard: { width: 384, height: 400 },
+    } as const;
+
+    expect(deviceFrameContextForScreen(wearScreen)).toMatchObject({
+      insertionPresetId: "frameless-watch",
+      recommendedPresetId: undefined,
+      recommendation: "wearable",
+    });
+    expect(defaultDeviceFrameInputForScreen(wearScreen)).toEqual({
+      deviceType: "frameless-watch",
+      width: 300,
+      height: 300,
+    });
+  });
+
   it("clamps zoom to the supported viewport range", () => {
     expect(clampZoom(0.01)).toBe(0.05);
     expect(clampZoom(1.23456)).toBe(1.235);
@@ -76,9 +116,108 @@ describe("editor workspace helpers", () => {
   it("uses human-readable labels for store output families", () => {
     expect(storeOutputLabel("apple", "iphone")).toBe("App Store · iPhone");
     expect(storeOutputLabel("apple", "ipad")).toBe("App Store · iPad");
+    expect(storeOutputLabel("apple", "watchos")).toBe("App Store · watchOS");
     expect(storeOutputLabel("android", "phone")).toBe("Google Play · Android phone");
+    expect(storeOutputLabel("android", "tablet-7")).toBe("Google Play · Android tablet");
+    expect(storeOutputLabel("android", "wear")).toBe("Google Play · Wear OS");
     expect(storeOutputLabel("web", "desktop")).toBe("Web · Desktop");
+    expect(storeOutputLabel("web", "laptop")).toBe("Web · Laptop");
     expect(storeOutputLabel("windows", "desktop")).toBe("Microsoft Store · Windows desktop");
+    expect(storeOutputLabel("windows", "xbox")).toBe("Microsoft Store · Xbox");
+  });
+
+  it.each([
+    ["apple", "iphone", "iPhone"],
+    ["apple", "ipad", "iPad"],
+    ["apple", "macos", "macOS"],
+    ["apple", "tvos", "tvOS"],
+    ["apple", "watchos", "watchOS"],
+    ["apple", "visionos", "Apple Vision Pro"],
+    ["android", "phone", "Phone"],
+    ["android", "tablet-7", "Tablet"],
+    ["android", "tablet-10", "10-inch tablet (legacy)"],
+    ["android", "chromebook", "Chromebook"],
+    ["android", "tv", "TV"],
+    ["android", "wear", "Wear OS"],
+    ["android", "automotive", "Automotive OS"],
+    ["android", "xr", "XR"],
+    ["windows", "desktop", "Desktop"],
+    ["windows", "xbox", "Xbox"],
+    ["windows", "holographic", "Holographic"],
+    ["web", "desktop", "Desktop"],
+    ["web", "laptop", "Laptop"],
+    ["web", "tablet", "Tablet"],
+    ["web", "mobile", "Mobile"],
+  ])("uses a concise %s/%s family label", (platform, device, expected) => {
+    expect(outputFamilyEditorLabel(platform, device)).toBe(expected);
+  });
+
+  it.each([
+    ["apple", "iphone", "6.9", '6.9" iPhone (lead)', "portrait", '6.9" · Portrait'],
+    ["apple", "iphone", "6.9-landscape", '6.9" iPhone landscape', "landscape", '6.9" · Landscape'],
+    ["apple", "ipad", "13", '13" iPad (lead)', "portrait", '13" · Portrait'],
+    ["apple", "macos", "2880x1800", "Mac 2880×1800 (lead)", "landscape", "2880×1800 · Landscape"],
+    ["apple", "tvos", "4k", "Apple TV 4K (lead)", "landscape", "4K · Landscape"],
+    ["apple", "watchos", "ultra-3", "Apple Watch Ultra 3 (lead)", "portrait", "Ultra 3 · Portrait"],
+    ["apple", "visionos", "vision-pro", "Apple Vision Pro (lead)", "landscape", "Landscape"],
+    ["android", "phone", "phone-portrait", "Android phone portrait (lead)", "portrait", "Portrait"],
+    ["android", "phone", "phone-portrait-high-res", "Android phone portrait high resolution", "portrait", "Portrait · High-res"],
+    ["android", "tablet-7", "tablet-7-portrait", "7-inch Android tablet portrait (lead)", "portrait", "7-inch · Portrait"],
+    ["android", "wear", "wear-square", "Wear OS square (frameless)", "square", "Square · Frameless"],
+    ["windows", "desktop", "4k", "Windows desktop 4K (lead)", "landscape", "4K · Landscape"],
+    ["web", "tablet", "tablet-portrait", "Web tablet portrait (lead)", "portrait", "Portrait"],
+  ])("formats %s/%s/%s targets linearly", (
+    platform,
+    device,
+    id,
+    label,
+    orientation,
+    expected,
+  ) => {
+    expect(conciseStoreTargetLabel({
+      id,
+      label,
+      width: 100,
+      height: 100,
+      orientation,
+    } as StoreSize, platform, device)).toBe(expected);
+  });
+
+  it("keeps promotional asset names separate from screenshot orientation", () => {
+    expect(conciseStoreTargetLabel({
+      id: "play-feature-graphic",
+      label: "Google Play Feature Graphic",
+      width: 1024,
+      height: 500,
+      orientation: "landscape",
+      kind: "promotion",
+    }, "android", "phone")).toBe("Feature graphic");
+  });
+
+  it("formats every persisted store target with orientation in one consistent position", () => {
+    const fullSpecs = parseStoreSpecs(JSON.parse(readFileSync(
+      fileURLToPath(new URL("../../../store-specs.json", import.meta.url)),
+      "utf8",
+    )));
+
+    for (const platform of Object.keys(fullSpecs.platforms) as Platform[]) {
+      for (const device of Object.keys(fullSpecs.platforms[platform].families)) {
+        for (const target of listStoreTargets(fullSpecs, platform, device)) {
+          const label = conciseStoreTargetLabel(target, platform, device);
+          const orientation = target.orientation[0]!.toUpperCase() + target.orientation.slice(1);
+          const segments = label.split(" · ");
+          if (target.kind === "promotion") {
+            expect(segments, `${platform}/${device}/${target.id}`).not.toContain(orientation);
+            continue;
+          }
+          expect(
+            segments.filter((segment) => segment === orientation),
+            `${platform}/${device}/${target.id}: ${label}`,
+          ).toHaveLength(1);
+          expect(label, `${platform}/${device}/${target.id}`).not.toMatch(/\b(?:lead|portrait|landscape|square)\b.*\b(?:portrait|landscape|square)\b/i);
+        }
+      }
+    }
   });
 
   it("keeps only the size discriminator when the output already names the device", () => {
@@ -89,6 +228,17 @@ describe("editor workspace helpers", () => {
     expect(compactStoreSizeLabel("Apple Watch Ultra 3 (lead)", "watchos")).toBe("Ultra 3");
     expect(compactStoreSizeLabel("Android phone portrait (lead)", "phone")).toBe("portrait");
     expect(compactStoreSizeLabel("Windows desktop Full HD", "desktop")).toBe("Full HD");
+  });
+
+  it("keeps the physical size visible for every canonical Android tablet row", () => {
+    expect(compactStoreSizeLabel("7-inch Android tablet portrait (lead)", "tablet-7"))
+      .toBe("7-inch portrait");
+    expect(compactStoreSizeLabel("7-inch Android tablet landscape", "tablet-7"))
+      .toBe("7-inch landscape");
+    expect(compactStoreSizeLabel("10-inch Android tablet portrait", "tablet-7"))
+      .toBe("10-inch portrait");
+    expect(compactStoreSizeLabel("10-inch Android tablet landscape", "tablet-7"))
+      .toBe("10-inch landscape");
   });
 
   it("groups screens into ordered output-family rows", () => {

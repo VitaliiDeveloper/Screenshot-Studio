@@ -5,10 +5,9 @@ or announcement is implied by a successful local build or CI run.
 
 ## Build and inspect the candidate
 
-Start from a clean checkout with Node.js 22.13+ and pnpm 11.10.0:
+Start from a clean checkout with Node.js 22.13+ and pnpm 12.10.1:
 
 ```bash
-corepack enable
 pnpm install --frozen-lockfile
 pnpm check:release-candidate
 mkdir -p artifacts
@@ -26,14 +25,26 @@ the exact retained tarball’s npm SHA-512 SRI and packed size without publishin
 
 ```bash
 pnpm add --global ./artifacts/screenshot-studio-cli-0.1.0.tgz
-pnpm dlx playwright@1.61.1 install chromium chromium-headless-shell
+screenshots setup
 screenshots init --dir ./my-app-screenshots
 screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 screenshots export --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+`screenshots setup` installs Chromium and the headless shell with the exact Playwright version in the
+package manifest; it is idempotent. The package has no `postinstall` script. In a clean consumer also
+confirm the first-run behaviour with an empty browser cache (`PLAYWRIGHT_BROWSERS_PATH=$(mktemp -d)`):
+`screenshots export` without a TTY must exit non-zero printing the install command and download
+nothing, and in a terminal it must ask before downloading.
+
 Linux machines may require Playwright's documented system packages before Chromium can launch. The
 browser download uses the machine or user cache and is not embedded in the package.
+
+Interactive runs make one optional request per 24 hours to
+`https://registry.npmjs.org/@screenshot-studio/cli/latest` and print a one-line notice when a newer
+version exists (the result is cached in the user cache directory). Any failure, including a 404 for
+an unpublished package, is ignored. Verify the opt-outs `SCREENSHOTS_NO_UPDATE_CHECK=1` and
+`NO_UPDATE_NOTIFIER=1`; the check is also skipped when `CI` is set or output is not a terminal.
 
 ## Release gate
 
@@ -105,4 +116,5 @@ Uninstalling the CLI does not remove projects, exports, or Playwright's shared b
 - Background removal handles edge-connected flat or near-uniform colours, not complex photographic
   segmentation.
 - The editor and CLI are local-first. There is no hosted collaboration, cloud storage, telemetry,
-  or bundled AI provider.
+  or bundled AI provider. The only automatic network calls are the one-time Chromium download
+  you approve and the optional daily update check described above.

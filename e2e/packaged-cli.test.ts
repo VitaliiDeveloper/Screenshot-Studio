@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import JSZip from "jszip";
 import { PNG } from "pngjs";
 import { workspaceSharpRuntimePackages } from "../scripts/packed-sharp-runtime.mjs";
+import { pnpmCommand } from "../scripts/pnpm-command.mjs";
 
 const execFile = promisify(execFileCallback);
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -26,10 +27,8 @@ let sharpRuntimePackageNames: string[];
 async function run(command: string, args: string[], cwd: string, timeout = 180_000) {
   let executable = command;
   let executableArgs = args;
-  if (process.platform === "win32" && command === "pnpm") {
-    if (!process.env.npm_execpath) throw new Error("pnpm entrypoint is unavailable");
-    executable = process.execPath;
-    executableArgs = [process.env.npm_execpath, ...args];
+  if (command === "pnpm") {
+    [executable, executableArgs] = pnpmCommand(args);
   } else if (process.platform === "win32" && command.endsWith(".cmd")) {
     executable = process.env.ComSpec ?? "cmd.exe";
     executableArgs = ["/d", "/s", "/c", command, ...args];
@@ -92,7 +91,7 @@ beforeAll(async () => {
     store,
     "add",
     details.filename,
-    "--offline",
+    "--prefer-offline",
     "--ignore-scripts",
   ], consumer);
   const sharpRuntimePackages = await workspaceSharpRuntimePackages(repoRoot);
@@ -102,7 +101,7 @@ beforeAll(async () => {
     store,
     "add",
     ...sharpRuntimePackages,
-    "--offline",
+    "--prefer-offline",
     "--ignore-scripts",
   ], consumer);
 
@@ -128,7 +127,7 @@ describe("Packaged CLI", () => {
         directory: "packages/cli",
       },
       publishConfig: { access: "public" },
-      dependencies: { playwright: "1.61.1", sharp: "0.34.5" },
+      dependencies: { playwright: "1.62.0", sharp: "0.35.3" },
     });
     expect(manifest.private).toBeUndefined();
     expect(packedFiles).toEqual([

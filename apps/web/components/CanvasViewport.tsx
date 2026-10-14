@@ -28,6 +28,7 @@ import {
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { EditorStage } from "./EditorStage";
 import { CanvasSurface } from "./canvas-viewport/CanvasSurface";
+import { activeArtboardScrollBehavior } from "./canvas-viewport/canvas-viewport-model";
 import { ConnectedOutputRow } from "./canvas-viewport/ConnectedOutputRow";
 import { canvasTransitionKind, type CanvasTransitionState } from "./canvas-viewport/layout-transition";
 import { OutputFamilySection } from "./canvas-viewport/OutputFamilySection";
@@ -50,7 +51,10 @@ interface IsolatedOverviewFamily {
   editing: boolean;
 }
 
-function groupIsolatedOverviewRows(rows: readonly WorkspaceOutputFamily[]): IsolatedOverviewFamily[] {
+function groupIsolatedOverviewRows(
+  rows: readonly WorkspaceOutputFamily[],
+  specs: StoreSpecs | null,
+): IsolatedOverviewFamily[] {
   const families = new Map<string, IsolatedOverviewFamily>();
   for (const row of rows) {
     const screen = row.screens[0];
@@ -58,7 +62,9 @@ function groupIsolatedOverviewRows(rows: readonly WorkspaceOutputFamily[]): Isol
     const key = `${screen.platform}/${screen.device}`;
     const family = families.get(key) ?? {
       key,
-      label: storeOutputLabel(screen.platform, screen.device),
+      label: specs
+        ? storeOutputLabel(screen.platform, screen.device, specs)
+        : storeOutputLabel(screen.platform, screen.device),
       rows: [],
       editing: false,
     };
@@ -75,7 +81,9 @@ function outputSizeLabel(row: WorkspaceOutputFamily, specs: StoreSpecs | null): 
   let targetId = screen.storeTargetId;
   if (targetId === undefined) {
     try {
-      targetId = leadStoreSizeId(screen.platform, screen.device);
+      targetId = specs
+        ? leadStoreSizeId(specs, screen.platform, screen.device)
+        : leadStoreSizeId(screen.platform, screen.device);
     } catch {
       return "Master";
     }
@@ -144,11 +152,13 @@ export function CanvasViewport({
   }, [activeScreen, layout]);
   const outputRows = useMemo(() => {
     if (!layout || !activeScreen || view !== "overview") return [];
-    return workspaceOverviewRows(layout, activeScreen);
-  }, [activeScreen, layout, view]);
+    return specs
+      ? workspaceOverviewRows(layout, activeScreen, specs)
+      : workspaceOverviewRows(layout, activeScreen);
+  }, [activeScreen, layout, specs, view]);
   const isolatedOutputFamilies = useMemo(
-    () => groupIsolatedOverviewRows(outputRows),
-    [outputRows],
+    () => groupIsolatedOverviewRows(outputRows, specs),
+    [outputRows, specs],
   );
   const screens = view === "focus" && activeScreen ? [activeScreen] : editingScreens;
   const { fitLayoutKey, fit } = useCanvasViewportMetrics({
@@ -280,11 +290,14 @@ export function CanvasViewport({
     if (transitionFrameRef.current !== null) cancelAnimationFrame(transitionFrameRef.current);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (lastFitLayoutRef.current === fitLayoutKey) return;
     lastFitLayoutRef.current = fitLayoutKey;
-    const id = requestAnimationFrame(fit);
-    return () => cancelAnimationFrame(id);
+
+    // Structural canvas changes (for example adding an output family) must install their new fit
+    // before paint. Deferring this to an effect/frame briefly renders the new geometry at the old
+    // zoom and makes the canvas visibly jump.
+    fit();
   }, [fit, fitLayoutKey]);
 
   useEffect(() => {
@@ -313,7 +326,11 @@ export function CanvasViewport({
       viewport.scrollTo({
         left: targetCenterX - leftInset - visibleWidth / 2,
         top: targetCenterY - viewport.clientHeight / 2,
-        behavior: "smooth",
+        behavior: activeArtboardScrollBehavior({
+          leftInset,
+          rightInset,
+          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        }),
       });
     });
     return () => cancelAnimationFrame(id);
@@ -420,6 +437,7 @@ export function CanvasViewport({
                       key={family.key}
                       label={family.label}
                       editing={family.editing}
+                      headerEditing={masterRow?.editing ?? false}
                       artworkWidth={artworkWidth}
                       sizeLabel={masterRow ? outputSizeLabel(masterRow, specs) : undefined}
                       role={masterRow ? "master" : undefined}

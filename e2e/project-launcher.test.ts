@@ -129,7 +129,7 @@ describe("project launcher", () => {
         name: `Open ${projectName} in Workspace`,
         exact: true,
       }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
     } finally {
       await context.close();
@@ -151,7 +151,14 @@ describe("project launcher", () => {
       });
       await dialog.waitFor();
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
-      await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
+      const confirmingHeading = page.getByRole("heading", { name: "Import a managed copy?" });
+      await confirmingHeading.waitFor();
+      await page.waitForFunction(() => (
+        document.activeElement?.textContent?.trim() === "Import a managed copy?"
+      ));
+      expect(await confirmingHeading.evaluate(
+        (element) => element === document.activeElement,
+      )).toBe(true);
       expect(new URL(page.url()).pathname).toBe("/");
       const chooseAnotherSource = page.getByRole("button", { name: "Choose another source" });
       await chooseAnotherSource.focus();
@@ -167,7 +174,7 @@ describe("project launcher", () => {
       await page.getByLabel("Choose project folder").setInputFiles(projectRoot);
       await page.getByRole("button", { name: "Import managed copy" }).click();
 
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
       expect(await page.getByText("Managed project", { exact: true }).count()).toBe(1);
@@ -185,11 +192,11 @@ describe("project launcher", () => {
       await page.getByRole("heading", { name: "Import a managed copy?" }).waitFor();
       await page.getByRole("button", { name: "Import managed copy" }).click();
 
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.goto(`${server.url}/home`, { waitUntil: "load" });
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
       await page.getByRole("link", { name: "Open in Editor", exact: true }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
     } finally {
       await context.close();

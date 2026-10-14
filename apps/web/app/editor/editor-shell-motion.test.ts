@@ -2,9 +2,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const pageSource = readFileSync(new URL("./page.tsx", import.meta.url), "utf8");
+const pageSource = readFileSync(new URL("./editor-workspace.tsx", import.meta.url), "utf8");
 const leftPanelSource = readFileSync(
   new URL("../../components/LeftPanel.tsx", import.meta.url),
+  "utf8",
+);
+const canvasViewportSource = readFileSync(
+  new URL("../../components/CanvasViewport.tsx", import.meta.url),
   "utf8",
 );
 
@@ -42,6 +46,15 @@ describe("editor side-panel motion integration", () => {
     expect(pageSource).toContain("leftInset={layout.overlay && panel ? SIDE_PANEL_WIDTH : 0}");
     expect(pageSource).toContain(
       "rightInset={layout.overlay && inspectorOpen ? SIDE_PANEL_WIDTH : 0}",
+    );
+  });
+
+  it("installs structural canvas fits before paint", () => {
+    expect(canvasViewportSource).toMatch(
+      /useLayoutEffect\(\(\) => \{\n {4}if \(lastFitLayoutRef\.current === fitLayoutKey\) return;[\s\S]*? {4}fit\(\);\n {2}\}, \[fit, fitLayoutKey\]\);/,
+    );
+    expect(canvasViewportSource).not.toMatch(
+      /lastFitLayoutRef\.current === fitLayoutKey[\s\S]*?requestAnimationFrame\(fit\)/,
     );
   });
 });

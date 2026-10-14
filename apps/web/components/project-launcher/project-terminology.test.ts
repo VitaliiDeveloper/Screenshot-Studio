@@ -12,7 +12,7 @@ const workspaceModel = readFileSync(
 );
 const screensSection = readFileSync(new URL("../ScreensSection.tsx", import.meta.url), "utf8");
 const leftPanel = readFileSync(new URL("../LeftPanel.tsx", import.meta.url), "utf8");
-const editorPage = readFileSync(new URL("../../app/editor/page.tsx", import.meta.url), "utf8");
+const editorPage = readFileSync(new URL("../../app/editor/editor-workspace.tsx", import.meta.url), "utf8");
 const captureImportHook = readFileSync(
   new URL("../../app/editor/use-editor-capture-import.ts", import.meta.url),
   "utf8",
@@ -28,6 +28,18 @@ describe("project creation terminology", () => {
       'title="No screen templates yet"',
     ]) expect(screenTemplateDialog).toContain(copy);
     expect(screenTemplateDialog).not.toContain("from a project template");
+  });
+
+  it("presents template sources as a selector without an action-style tab separator", () => {
+    expect(screenTemplateDialog).toContain("<SegmentedControl");
+    expect(screenTemplateDialog).toContain('label="Template source"');
+    expect(screenTemplateDialog).toContain('className="mb-4 flex justify-center"');
+    expect(screenTemplateDialog).not.toContain('role="tablist"');
+    expect(screenTemplateDialog).not.toContain("border-b border-slate-200 pb-2");
+  });
+
+  it("closes the screen-template dialog after a screen is created successfully", () => {
+    expect(screenTemplateDialog).toMatch(/await withFlushedProject[\s\S]*?\n {6}close\(\);/);
   });
 
   it("does not label the screen-template action as project templates or component presets", () => {

@@ -25,6 +25,7 @@ const newDestination = {
   kind: "new-project" as const,
   name: "Captured launch",
   platform: "apple" as const,
+  device: "iphone" as const,
   layoutMode: "connected" as const,
   templateId: null,
 };
@@ -104,6 +105,7 @@ describe("capture import client", () => {
       expect(init.headers).toBeUndefined();
       expect(form.get("name")).toBe("Captured launch");
       expect(form.get("platform")).toBe("apple");
+      expect(form.get("device")).toBe("iphone");
       expect(form.get("layoutMode")).toBe("connected");
       expect(form.get("templateId")).toBe("");
       expect(form.get("confirmationFingerprint")).toBe(preview.confirmationFingerprint);
@@ -151,6 +153,15 @@ describe("capture import client", () => {
         project: { sessionId: "session", name: "Receiver", sourceKind: "managed-project", capabilities: {} },
         imported: 1,
       }),
+    })).rejects.toBeInstanceOf(CaptureImportClientError);
+    await expect(applyCaptureImport({
+      files: [captureFile("screenshots/apple/iphone/en/01.png")],
+      destination: newDestination,
+    }, preview.confirmationFingerprint, {
+      transport: async () => Response.json({
+        project: { sessionId: "session", name: "Receiver", sourceKind: "managed-project", capabilities: {} },
+        imported: 1,
+      }, { headers: { "x-project-id": "a".repeat(64) } }),
     })).rejects.toBeInstanceOf(CaptureImportClientError);
   });
 });

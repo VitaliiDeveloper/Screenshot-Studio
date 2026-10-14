@@ -1,28 +1,47 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { Copy, ImagePlus, Smartphone, Trash2, Ungroup } from "lucide-react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
+import { Copy, ImagePlus, PanelsTopLeft, Smartphone, Trash2, Ungroup } from "lucide-react";
 import {
-  DEVICE_FRAME_IDS,
-  DEVICE_FRAME_SPECS,
+  deviceFramePreset,
   ICON_IDS,
   MEDIA_BLUR_MAX,
+  type DeviceFrameElement,
+  type DeviceFrameId,
   type Element,
   type FontAsset,
+  type Screen,
 } from "@screenshot-studio/core/model";
 import type { ElementPatchFor } from "@web/lib/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import {
   ColorField,
-  FontIdentityField,
   NumberField,
   SelectField,
-  TextField,
   ThemeRoleField,
 } from "@web/components/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
+import { ContentModeControl } from "./MediaPresentationFields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
+import { TextInspectorFields } from "./TextInspectorFields";
+
+const DeviceFramePresetPicker = dynamic(
+  () => import("../DeviceFramePresetPicker").then((module) => module.DeviceFramePresetPicker),
+  { ssr: false },
+);
+
+export function deviceFrameSelectionPatch(
+  element: Pick<DeviceFrameElement, "width">,
+  deviceType: DeviceFrameId,
+): ElementPatchFor<"device-frame"> {
+  return {
+    deviceType,
+    height: element.width / deviceFramePreset(deviceType).recipe.spec.aspectRatio,
+  };
+}
 
 export function ElementTypeInspectorSections({
   element,
@@ -31,6 +50,10 @@ export function ElementTypeInspectorSections({
   onDuplicate,
   onUngroup,
   onChooseDeviceFrameAsset,
+  onChooseMediaAsset,
+  onRemoveElement,
+  effectiveLocked,
+  screen,
 }: {
   element: Element;
   fonts: FontAsset[];
@@ -38,7 +61,12 @@ export function ElementTypeInspectorSections({
   onDuplicate: () => void;
   onUngroup: () => void;
   onChooseDeviceFrameAsset?: () => void;
+  onChooseMediaAsset?: () => void;
+  onRemoveElement?: () => void;
+  effectiveLocked?: boolean;
+  screen?: Pick<Screen, "platform" | "device" | "artboard">;
 }) {
+  const [framePickerOpen, setFramePickerOpen] = useState(false);
   const patchText = (change: ElementPatchFor<"text">) => onPatch(element.id, "text", change);
   const patchShape = (change: ElementPatchFor<"shape">) => onPatch(element.id, "shape", change);
   const patchScreenshot = (change: ElementPatchFor<"screenshot">) => onPatch(element.id, "screenshot", change);
@@ -49,7 +77,7 @@ export function ElementTypeInspectorSections({
     <>
       {element.type === "group" ? (
         <Section title="Group">
-          <p className="text-[11px] leading-4 text-slate-400">
+          <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-subtle)]">
             {element.children.length} {element.children.length === 1 ? "child" : "children"}. Resize stays uniform to preserve child transforms.
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -75,39 +103,11 @@ export function ElementTypeInspectorSections({
 
       {element.type === "text" && (
         <Section title="Text">
-          <ThemeRoleField value={element.role} onChange={(role) => patchText({ role })} />
-          <TextField label="Content" value={element.content} multiline onChange={(content) => patchText({ content })} />
-          <FontIdentityField
+          <TextInspectorFields
+            element={element}
             fonts={fonts}
-            family={element.fontFamily}
-            weight={element.weight}
-            onChange={({ family, weight }) => patchText({ fontFamily: family, weight })}
+            onChange={patchText}
           />
-          <NumberField label="Size" value={element.size} min={1} onChange={(size) => patchText({ size })} />
-          <NumberField label="Line height" value={element.lineHeight} min={0.1} step={0.1} onChange={(lineHeight) => patchText({ lineHeight })} />
-          <NumberField label="Letter spacing" value={element.letterSpacing} onChange={(letterSpacing) => patchText({ letterSpacing })} />
-          <SelectField label="Horizontal align" value={element.align} options={["left", "center", "right"] as const} onChange={(align) => patchText({ align })} />
-          <SelectField label="Vertical align" value={element.verticalAlign ?? "top"} options={["top", "middle", "bottom"] as const} onChange={(verticalAlign) => patchText({ verticalAlign })} />
-          <ColorField label="Color" value={element.color} onChange={(color) => patchText({ color })} />
-          <OptionalInspectorEffect
-            title="Shadow"
-            description="Add depth behind the text"
-            enabled={Boolean(element.shadow)}
-            onAdd={() => patchText({
-              shadow: { color: "#000000", blur: 12, offsetX: 0, offsetY: 6, opacity: 0.35 },
-            })}
-            onRemove={() => patchText({ shadow: null })}
-          >
-            {element.shadow ? (
-              <>
-              <ColorField label="Shadow color" value={element.shadow.color} onChange={(color) => patchText({ shadow: { ...element.shadow!, color } })} />
-              <NumberField label="Shadow blur" value={element.shadow.blur} min={0} max={100} onChange={(blur) => patchText({ shadow: { ...element.shadow!, blur } })} />
-              <NumberField label="Shadow X" value={element.shadow.offsetX} onChange={(offsetX) => patchText({ shadow: { ...element.shadow!, offsetX } })} />
-              <NumberField label="Shadow Y" value={element.shadow.offsetY} onChange={(offsetY) => patchText({ shadow: { ...element.shadow!, offsetY } })} />
-              <NumberField label="Shadow opacity" value={element.shadow.opacity} min={0} max={1} step={0.05} onChange={(opacity) => patchText({ shadow: { ...element.shadow!, opacity } })} />
-              </>
-            ) : null}
-          </OptionalInspectorEffect>
         </Section>
       )}
 
@@ -155,13 +155,25 @@ export function ElementTypeInspectorSections({
 
       {element.type === "screenshot" && (
         <Section title="Screenshot">
-          <MediaInspectorFields element={element} onChange={patchScreenshot} />
+          <MediaInspectorFields
+            element={element}
+            onChange={patchScreenshot}
+            onChooseAsset={onChooseMediaAsset}
+            onRemoveElement={onRemoveElement}
+            effectiveLocked={effectiveLocked}
+          />
         </Section>
       )}
 
       {element.type === "image" && (
         <Section title="Image">
-          <MediaInspectorFields element={element} onChange={patchImage} />
+          <MediaInspectorFields
+            element={element}
+            onChange={patchImage}
+            onChooseAsset={onChooseMediaAsset}
+            onRemoveElement={onRemoveElement}
+            effectiveLocked={effectiveLocked}
+          />
         </Section>
       )}
 
@@ -175,6 +187,18 @@ export function ElementTypeInspectorSections({
 
       {element.type === "device-frame" && (
         <Section title="Device frame">
+          <ContentModeControl value={element.fit} onChange={(fit) => patchDeviceFrame({ fit })} />
+          <OptionalInspectorEffect
+            title="Content blur"
+            description="Soften the screenshot inside the frame"
+            enabled={Boolean(element.blur)}
+            onAdd={() => patchDeviceFrame({ blur: 8 })}
+            onRemove={() => patchDeviceFrame({ blur: null })}
+          >
+            {element.blur ? (
+              <NumberField label="Blur radius" value={element.blur} min={0} max={MEDIA_BLUR_MAX} step={1} onChange={(blur) => patchDeviceFrame({ blur: blur === 0 ? null : blur })} />
+            ) : null}
+          </OptionalInspectorEffect>
           <InsetPanel>
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
@@ -193,7 +217,7 @@ export function ElementTypeInspectorSections({
               {onChooseDeviceFrameAsset ? (
                 <button
                   type="button"
-                  className={`${editorUi.buttonSecondary} min-w-0 flex-1`}
+                  className={`${editorUi.buttonSecondary} min-w-0 flex-1 !text-[13px]`}
                   onClick={onChooseDeviceFrameAsset}
                 >
                   <ImagePlus size={14} strokeWidth={1.9} />
@@ -213,28 +237,37 @@ export function ElementTypeInspectorSections({
               ) : null}
             </div>
           </InsetPanel>
-          <SelectField
-            label="Content mode"
-            value={element.fit}
-            options={["cover", "contain"] as const}
-            optionLabels={{ cover: "Fill", contain: "Fit" }}
-            onChange={(fit) => patchDeviceFrame({ fit })}
-          />
-          <OptionalInspectorEffect
-            title="Content blur"
-            description="Soften the screenshot inside the frame"
-            enabled={Boolean(element.blur)}
-            onAdd={() => patchDeviceFrame({ blur: 8 })}
-            onRemove={() => patchDeviceFrame({ blur: null })}
-          >
-            {element.blur ? (
-              <NumberField label="Blur radius" value={element.blur} min={0} max={MEDIA_BLUR_MAX} step={1} onChange={(blur) => patchDeviceFrame({ blur: blur === 0 ? null : blur })} />
-            ) : null}
-          </OptionalInspectorEffect>
-          <SelectField label="Frame preset" value={element.deviceType} options={DEVICE_FRAME_IDS} onChange={(deviceType) => patchDeviceFrame({
-            deviceType,
-            height: element.width / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
-          })} />
+          <InsetPanel>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-secondary)] ring-1 ring-[var(--editor-color-border)]">
+                <PanelsTopLeft size={17} strokeWidth={1.8} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text-strong)]">
+                  {deviceFramePreset(element.deviceType).label}
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-4 text-[color:var(--editor-color-text-muted)]">
+                  Built-in device frame preset
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              className={`${editorUi.buttonSecondary} w-full !text-[13px]`}
+              onClick={() => setFramePickerOpen(true)}
+            >
+              <PanelsTopLeft size={14} strokeWidth={1.9} />
+              Choose frame
+            </button>
+          </InsetPanel>
+          {framePickerOpen ? (
+            <DeviceFramePresetPicker
+              selectedId={element.deviceType}
+              screen={screen}
+              onSelect={(deviceType) => patchDeviceFrame(deviceFrameSelectionPatch(element, deviceType))}
+              onClose={() => setFramePickerOpen(false)}
+            />
+          ) : null}
         </Section>
       )}
     </>

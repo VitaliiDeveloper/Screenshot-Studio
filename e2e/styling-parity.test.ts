@@ -11,6 +11,8 @@ import { stripAlpha } from "@screenshot-studio/core/export";
 import {
   DEVICE_FRAME_IDS,
   DEVICE_FRAME_SPECS,
+  deviceFramePreset,
+  type DeviceFrameId,
   type Project,
 } from "@screenshot-studio/core/model";
 import { startWebServer } from "@screenshot-studio/cli/server";
@@ -25,21 +27,33 @@ const fixtureRoot = resolve(repoRoot, "fixtures/sample");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const artboard = { width: 1320, height: 2868 };
 const magentaAssetUrl = "assets/semantic-magenta.png";
+// The whole frame catalog sits below the ellipse and shadow probes (which end near y=1212).
 const frameGrid = {
-  columns: 4,
+  columns: 7,
   originX: 30,
-  originY: 1800,
-  columnPitch: 210,
-  rowPitch: 500,
+  originY: 1260,
+  columnPitch: 180,
+  rowGap: 20,
   frameWidth: 170,
 } as const;
-const frameRegions = DEVICE_FRAME_IDS.map((deviceType, index) => ({
-  deviceType,
-  x: frameGrid.originX + (index % frameGrid.columns) * frameGrid.columnPitch,
-  y: frameGrid.originY + Math.floor(index / frameGrid.columns) * frameGrid.rowPitch,
-  width: frameGrid.frameWidth,
-  height: frameGrid.frameWidth / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
-}));
+// Each row is as tall as its tallest frame, so the growing catalog still fits the artboard.
+let nextRowY: number = frameGrid.originY;
+const frameRegions = Array.from(
+  { length: Math.ceil(DEVICE_FRAME_IDS.length / frameGrid.columns) },
+  (_, row) => {
+    const regions = DEVICE_FRAME_IDS
+      .slice(row * frameGrid.columns, (row + 1) * frameGrid.columns)
+      .map((deviceType, column) => ({
+        deviceType,
+        x: frameGrid.originX + column * frameGrid.columnPitch,
+        y: nextRowY,
+        width: frameGrid.frameWidth,
+        height: frameGrid.frameWidth / DEVICE_FRAME_SPECS[deviceType].aspectRatio,
+      }));
+    nextRowY += Math.max(...regions.map((region) => region.height)) + frameGrid.rowGap;
+    return regions;
+  },
+).flat();
 
 interface Rgb {
   r: number;
@@ -71,6 +85,15 @@ function assertFrameRegionsInsideArtboard(): void {
       );
     }
   }
+}
+
+// Camera, outline, browser-chrome and base layers paint over parts of the bezel and frameless
+// recipes have none, so only plain opaque bezels get a solid-color probe; the headed/headless pixel
+// diff still covers every recipe.
+function hasPlainBezel(deviceType: DeviceFrameId): boolean {
+  const recipe = deviceFramePreset(deviceType).recipe;
+  return /^#[\da-f]{6}$/iu.test(recipe.spec.bezelColor)
+    && !recipe.camera && !recipe.outline && !recipe.browserChrome && !recipe.base;
 }
 
 function bezelProbe(frame: (typeof frameRegions)[number]): LogicalPoint {
@@ -205,6 +228,7 @@ function expectHeroSemantics(raster: Raster, surface: string): void {
       20,
       `${surface} ${frame.deviceType} frame content`,
     );
+    if (!hasPlainBezel(frame.deviceType)) continue;
     const spec = DEVICE_FRAME_SPECS[frame.deviceType];
     expectRgbNear(
       raster,
@@ -305,7 +329,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await closeParityRenderHarness(harness);
-  rmSync(directory, { recursive: true, force: true });
+  if (directory) rmSync(directory, { recursive: true, force: true });
 });
 
 describe("Expanded renderer styling parity", () => {
@@ -324,7 +348,7 @@ describe("Expanded renderer styling parity", () => {
       expect({ width: actual.width, height: actual.height }).toEqual(artboard);
       const diff = new PNG({ width: expected.width, height: expected.height });
       const mismatch = pixelmatch(
-        expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1 },
+        expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1, checkerboard: false },
       );
       expect(mismatch / (expected.width * expected.height)).toBeLessThan(0.005);
       staticRasters.set(screenId, expected);

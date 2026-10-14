@@ -46,179 +46,64 @@ Screenshot Studio combines both workflows:
   fonts, themes, templates, assets, auto-crop, and flat-background removal.
 - **CLI and agent workflows.** The `screenshots` CLI manages layouts, screens, imports, fonts,
   themes, locales, local assets, and exports. Generated project-local guidance and the optional
-  Codex skill operate on the same strict JSON and CLI contract.
+  [agent skill](skills/screenshot-studio/SKILL.md) operate on the same strict JSON and CLI contract.
 - **Safe project lifecycle.** Local projects can be edited in place; browser imports create validated
   managed copies. Project archives, rendered exports, Close, Remove from recents, and permanent
   deletion remain separate, explicit operations.
 
-## How Codex and GPT-5.6 were used
+## Example project
 
-Screenshot Studio was built through an AI-assisted product and engineering workflow using OpenAI
-Codex and GPT-5.6.
+The Store Launch Demo shows one campaign authored across iPhone and iPad, with synchronized screen
+structure, exact-size output variants, and element-level visual controls.
 
-These tools were involved in approximately 99% of the project's development activities: from the
-initial product idea and planning through repeated product and UI redesigns, architecture,
-implementation, testing, refactoring, documentation, and release-readiness work. The percentage
-describes the breadth of AI involvement across the development process; it does not mean the product
-was generated in one prompt or completed without human direction, review, and acceptance.
+Start with a guided project or import an existing Folder, project ZIP, or complete JSON document.
 
-The product vision, priorities, constraints, final decisions, reviews, and acceptance remained the
-responsibility of the human author.
+![Screenshot Studio project launcher](docs/images/readme/project-launcher.png)
 
-### Collaboration model
+Return to recent projects without moving or rewriting their source files.
 
-The project used a repeated human–AI development loop rather than a one-shot generation workflow:
+![Screenshot Studio recent projects](docs/images/readme/recent-projects.png)
 
-1. The human author defined the desired product outcome, constraints, and acceptance criteria.
-2. Codex inspected the existing repository and the smallest relevant architecture, product, schema,
-   and testing contracts.
-3. Codex and GPT-5.6 helped explore alternatives, surface edge cases, and explain trade-offs.
-4. The human author selected the direction and authorized the implementation scope.
-5. Codex implemented the scoped change and ran verification proportionate to its risk.
-6. The human author reviewed behavior, product quality, visual results, and proposed follow-up work.
-7. Review findings were fed back into the next focused iteration.
+Use Overview to edit a connected campaign across destinations, screens, and store sizes, then export
+the same composition through the shared renderer.
 
-Repository-level [`AGENTS.md`](AGENTS.md) and [`RULES.md`](RULES.md) files made this collaboration
-explicit. They route work to the relevant source of truth, protect the strict schema and shared
-renderer, constrain broad or destructive actions, define test ownership, and keep release
-publication separate from implementation.
+![Screenshot Studio connected multi-artboard editor](docs/images/readme/editor-overview.png)
 
-### Product discovery, strategy, and scope
+<details>
+<summary><strong>See element and screen controls</strong></summary>
 
-Codex and GPT-5.6 helped turn the original idea into a concrete product:
+Select a device frame to adjust its transform, screenshot content, and frame preset.
 
-- break the concept into implementation stages and reviewable milestones;
-- identify developers, indie teams, localization workflows, and AI-assisted authoring as target use
-  cases;
-- compare a visual-only editor with code-first and hybrid approaches;
-- define local-first operation and a portable project format as product constraints;
-- distinguish editable project archives from rendered store-image export;
-- prioritize render/export parity over shortcuts that would create a second rendering path;
-- refine Screenshot Studio's positioning as both a visual tool and an automation-friendly project
-  format.
+![Screenshot Studio device frame inspector](docs/images/readme/device-frame-inspector.png)
 
-The human author determined the product vision, which trade-offs to accept, which features to ship,
-and when an iteration met the intended outcome.
+Select a screen to manage synchronized structure, destinations, exact output sizes, and background.
 
-### UI/UX design and repeated redesigns
+![Screenshot Studio screen and output variants](docs/images/readme/screen-variants.png)
 
-AI supported many iterations of the application experience, including:
-
-- project creation, complete project import, screenshot capture import, and first-run onboarding;
-- the Projects gallery, recent-project behavior, project details, archive export, and deletion;
-- Workspace navigation, responsive toolbars, panels, empty states, and compact layouts;
-- Focus and Overview editing modes;
-- isolated and connected canvas models;
-- layout, output-family, exact-size, locale, screen, layer, and selection interactions;
-- accessible dialogs, focus behavior, keyboard controls, destructive confirmations, and status
-  feedback;
-- alternative interface concepts, mockups, visual hierarchy, and product copy.
-
-Design tools and plugins were used during exploration and implementation to create and inspect
-mockups, compare visual directions, and translate selected concepts into implementable UI. Codex
-helped turn accepted directions into production React components and focused interaction tests. The
-human author compared the alternatives, judged the visual result, and approved the final product
-decisions.
-
-### Architecture and implementation
-
-Codex assisted with TypeScript, React, and Next.js development across the repository. Important
-areas included:
-
-- the strict Zod schema and the single `app-store-screenshots.json` document;
-- independent layouts, connected compositions, exact-size variants, output-family screen-slot
-  policies, locale cloning, and baked RTL geometry;
-- the shared core used by the visual editor and CLI;
-- the browser rendering pipeline and render/export parity;
-- project-local fonts, themes, templates, Design Packs, icons, frames, and image assets;
-- local-file and managed project sources, active-session identity, recent-project history, and
-  request fencing;
-- bounded Folder, ZIP, JSON, and raw screenshot import workflows;
-- project mutation locking and recovery across CLI and editor processes;
-- safe, collision-resistant asset and output publication;
-- the installable CLI package and its standalone shared render host;
-- Web Share packaging without introducing a second pixel renderer;
-- the optional Screenshot Studio Codex skill and generated project-local agent guide.
-
-One architectural invariant guided the work throughout: the editor and CLI must use the same shared
-core and browser renderer. A feature was not considered complete if preview and export could disagree
-about pixels, fonts, crops, geometry, or output size. The durable technical contract is documented in
-[`docs/architecture.md`](docs/architecture.md).
-
-### Testing, investigation, and review
-
-Codex and GPT-5.6 were used not only to write implementation code but also to challenge it:
-
-- identify failure modes and edge cases before and after implementation;
-- select the smallest meaningful test layer for each change;
-- write and maintain unit, integration, render-parity, package, accessibility, and browser tests;
-- validate exact output dimensions and opaque store PNGs;
-- compare headed editor rendering with headless CLI rendering;
-- review local path, symlink, archive, upload, mutation, and publication boundaries;
-- diagnose regressions from test output and concrete repository evidence;
-- review documentation against the current schema, source code, tests, workflows, and packaged
-  artifact;
-- audit the local release candidate's contents, licenses, runtime dependencies, and portability.
-
-Tests were chosen according to risk rather than by running every browser scenario for every change.
-Exact unit or integration tests own deterministic behavior; focused browser files own workflows that
-require a real Next.js host, browser interaction, persistence, or rendering. The complete ownership
-matrix is in [`docs/testing.md`](docs/testing.md).
-
-### Documentation and developer experience
-
-Codex helped create, review, and maintain:
-
-- this README and the public project positioning;
-- architecture and editor interaction contracts;
-- testing, contribution, and release guidance;
-- project mutation-locking and safe file-publication documentation;
-- repository and project-local agent workflow rules;
-- CLI and example-project documentation;
-- the generated `AGENTS.md` included in every initialized screenshot project.
-
-Documentation was treated as part of the product rather than a final summary. It was repeatedly
-checked against the live schema, command dispatcher, UI routes, CI workflows, tests, and locally
-packed CLI. Detailed contracts live in `docs/` so the main README can explain the product and the
-AI-assisted development story without becoming the only source of technical truth.
-
-### Human responsibility and control
-
-The human author remained responsible for:
-
-- the original idea, product goals, priorities, and scope;
-- choosing between proposed product, design, and architecture alternatives;
-- reviewing visual quality and interaction behavior;
-- accepting or rejecting implementation changes;
-- deciding when additional verification was required;
-- approving all final product and technical decisions;
-- authorizing any release or publication action.
-
-Codex did not independently publish packages, create Git tags or GitHub releases, or broaden a task
-beyond its authorized scope. Builds and passing checks never served as publication approval.
-
-### AI-assisted, not AI-dependent
-
-AI was central to building Screenshot Studio, but it is not a runtime dependency of the product.
-The editor and CLI require no model, provider SDK, API key, or persisted AI state. Projects remain
-readable, editable, exportable, and portable without an agent.
-
-For users who want an AI-assisted workflow, `screenshots init` generates a project-local `AGENTS.md`
-that documents the enforced schema, authoring boundaries, supported CLI operations, and verification
-recipes. The optional [`skills/screenshot-studio`](skills/screenshot-studio/SKILL.md) Codex skill only
-discovers or initializes a project and then delegates to that local contract. This separation lets AI
-accelerate authoring without locking the project to one model, provider, or hidden project format.
+</details>
 
 ## Quick start
 
-Requirements: Node.js 22.13+, Corepack, and the pinned pnpm 11 toolchain.
+Requirements: Node.js 22.13+ and pnpm 12.10.1, the version pinned in `package.json`. Install pnpm
+once with `npm install -g pnpm@12.10.1`; an existing Corepack setup also works.
 
 ```bash
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
-corepack enable
-pnpm install
-pnpm dev
+./run.sh
 ```
+
+`./run.sh` is the only command you need. It installs or refreshes the pinned dependencies and the
+Playwright Chromium builds used for export when they are missing or outdated (a quick no-op
+otherwise), then starts Screenshot Studio.
+
+| Task | Command |
+|---|---|
+| Start | `./run.sh` |
+| Update | `git pull && ./run.sh` |
+| Prepare without starting | `./install.sh` |
+| Recover from a stale build cache | `./clean.sh && ./run.sh` |
+
+None of these scripts removes projects or exports.
 
 Open [http://localhost:3000](http://localhost:3000), then choose **New project** and a built-in
 starter, or use **Import** to create a managed copy of an existing Folder, project ZIP, or complete
@@ -234,10 +119,9 @@ The sample appears in **Recent projects** and opens directly in Workspace. Edito
 fixture in place, so copy it to a separate directory before experimenting with changes you do not
 want to keep.
 
-Exact PNG export additionally requires the matching Playwright browser builds once per machine:
+Exact PNG export uses the Chromium builds that `./run.sh` installs. From the CLI:
 
 ```bash
-pnpm exec playwright install chromium chromium-headless-shell
 pnpm screenshots export --project "$PWD/fixtures/sample/app-store-screenshots.json"
 ```
 
@@ -257,6 +141,30 @@ flowchart LR
 [`store-specs.json`](store-specs.json). The visual editor and CLI both use the framework-agnostic
 core and the same browser render stage; Web Share packages those rendered PNGs and never substitutes
 another pixel path.
+
+### Destinations, output families, sizes, and frames
+
+These concepts are independent:
+
+| Concept | Example | What it controls |
+|---|---|---|
+| Destination | App Store or Google Play | The publishing surface and its configured output families |
+| Device family | iPhone or Android phone | A destination-scoped group of compatible export targets |
+| Export size | 1320×2868 or 1080×1920 | The exact pixel dimensions of one rendered PNG |
+| Visual frame preset | Modern Phone — Dark or Browser — Dark | Only the decorative device-frame element drawn inside an artboard |
+
+Choosing a frame never changes a screen's destination, device family, or export size. Screenshot
+Studio bundles brand-neutral vector frame styles rather than vendor product artwork; official Apple
+device artwork is not bundled.
+
+The sizes in [`store-specs.json`](store-specs.json) are a curated working set: accepted Apple sizes
+and recommended presets within Google Play and Microsoft Store requirements. They are not a claim
+that every historically accepted resolution is bundled. Store requirements change, so
+`store-specs.json` remains the runtime authority for what this version exports, while the official
+[App Store screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/),
+[Google Play preview-asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151?hl=en),
+and [Microsoft Store screenshot guidance](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images)
+remain the submission authority. Check the relevant store guidance before publishing.
 
 Projects can be opened explicitly as local files or imported into app-managed storage. A browser
 Folder, ZIP, or JSON selection is always treated as import input, validated, and copied before the
@@ -325,8 +233,22 @@ To build the local installable artifact without publishing it:
 pnpm build:cli-package
 pnpm --dir packages/cli/package pack
 pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+screenshots setup
 screenshots init --dir ./my-app-screenshots
 ```
+
+`screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
+cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,
+`screenshots export` asks before downloading on first use and, in CI or other non-interactive
+runs, exits with the install command instead of downloading. On Linux, Chromium may also need
+Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
+
+Interactive runs of the installed package (not a source checkout, which updates with `git pull`)
+also make one optional request per day to the public npm registry
+(`registry.npmjs.org/@screenshot-studio/cli/latest`) and print a one-line notice when a newer
+version exists. Nothing is sent but the request itself, and failures are ignored. Disable it with
+`SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is also skipped when `CI` is set or
+output is not a terminal.
 
 The package contains the built `screenshots` binary, shared store specifications, and prebuilt Next
 render host. Version `0.1.0` is an unpublished dry-run candidate; it is not a registry release.

@@ -26,6 +26,7 @@ beforeAll(async () => {
   const project = createProjectScaffold({
     name: "Built-in starter theme",
     platform: "apple",
+    device: "iphone",
     layoutMode: "isolated",
     templateId: "iphone-starter",
   }, specs).project;

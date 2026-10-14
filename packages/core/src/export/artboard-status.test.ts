@@ -1,24 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import type { Screen } from "@screenshot-studio/core/model";
-import { parseStoreSpecs } from "./specs.js";
+import { DEFAULT_STORE_SPECS } from "./specs.js";
 import { artboardTargetStatus, artboardTargetStatuses } from "./artboard-status.js";
 
-const specs = parseStoreSpecs({
-  apple: {
-    iphone: [
-      { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
-      { id: "6.1", label: "6.1", width: 1100, height: 2390, orientation: "portrait" },
-    ],
-  },
-  android: {
-    phone: [{ id: "phone-portrait", label: "P", width: 1080, height: 1920, orientation: "portrait" }],
-    "$outputs": [{
-      id: "play-feature-graphic", label: "Feature graphic", width: 1024, height: 500,
-      orientation: "landscape", kind: "promotion", family: "phone",
-    }],
-  },
-});
+const specs = structuredClone(DEFAULT_STORE_SPECS);
+specs.platforms.apple.families.iphone.targets = [
+  { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
+  { id: "6.1", label: "6.1", width: 1100, height: 2390, orientation: "portrait" },
+];
+specs.platforms.apple.families.ipad.targets = [];
+specs.platforms.android.families.phone.targets = specs.platforms.android.families.phone.targets
+  .filter(({ id }) => id === "phone-portrait" || id === "play-feature-graphic");
 
 describe("artboardTargetStatus", () => {
   it("reports exact when dimensions equal the target", () => {

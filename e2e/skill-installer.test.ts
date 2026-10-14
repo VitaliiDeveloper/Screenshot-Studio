@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { pnpmCommand } from "../scripts/pnpm-command.mjs";
 
 const execFile = promisify(execFileCallback);
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -17,8 +18,9 @@ let installedSkill: string;
 let projectDirectory: string;
 
 async function run(command: string, args: string[], cwd: string, timeout = 180_000) {
+  const [executable, executableArgs] = command === "pnpm" ? pnpmCommand(args) : [command, args];
   try {
-    return await execFile(command, args, {
+    return await execFile(executable, executableArgs, {
       cwd,
       timeout,
       maxBuffer: 10 * 1024 * 1024,
@@ -39,7 +41,7 @@ async function run(command: string, args: string[], cwd: string, timeout = 180_0
 beforeAll(async () => {
   await run("pnpm", ["build:cli-package"], repoRoot, 300_000);
   directory = await mkdtemp(join(tmpdir(), "screenshot-studio-skill-"));
-  installedSkill = join(directory, "codex-home", "skills", "screenshot-studio");
+  installedSkill = join(directory, "skills-home", "skills", "screenshot-studio");
   projectDirectory = join(directory, "clean-project");
   await cp(sourceSkill, installedSkill, { recursive: true });
 }, 300_000);

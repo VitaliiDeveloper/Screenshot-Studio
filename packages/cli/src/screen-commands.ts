@@ -113,7 +113,7 @@ export function addScreenToProject(
   if (!placement) {
     throw new Error(`Unsupported platform/device pair: ${options.platform}/${options.device}`);
   }
-  const leadSizeId = leadStoreSizeId(placement.platform, placement.device);
+  const leadSizeId = leadStoreSizeId(specs, placement.platform, placement.device);
   const target = findStoreSize(
     specs,
     placement.platform,

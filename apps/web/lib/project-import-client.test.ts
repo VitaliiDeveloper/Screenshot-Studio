@@ -61,7 +61,10 @@ describe("project import client", () => {
           sourceKind: "managed-project",
           capabilities: {},
         },
-      }, { status: 201 });
+      }, {
+        status: 201,
+        headers: { "x-project-id": "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+      });
     });
     const source: BrowserProjectImportSource = {
       kind: "json",
@@ -72,8 +75,27 @@ describe("project import client", () => {
       signal: controller.signal,
       onUploadComplete,
       transport,
-    })).resolves.toMatchObject({ name: "Imported" });
+    })).resolves.toMatchObject({
+      name: "Imported",
+      projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
     expect(onUploadComplete).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an imported project without its managed identity", async () => {
+    await expect(importProject({
+      kind: "json",
+      file: browserFile("project.json", "{}"),
+    }, {
+      transport: async () => Response.json({
+        project: {
+          sessionId: "session",
+          name: "Imported",
+          sourceKind: "managed-project",
+          capabilities: {},
+        },
+      }, { status: 201 }),
+    })).rejects.toThrow("missing its project identity");
   });
 
   it("returns typed missing-resource errors for retry guidance", async () => {

@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ProjectFontRegistrationError } from "@screenshot-studio/core/fonts";
 import type { FontAsset, Project } from "@screenshot-studio/core/model";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import {
   applyEditorResourceResult,
   cacheDecodedProjectImage,
@@ -54,17 +55,15 @@ const project = {
   }],
 } as Project;
 
-const specs = {
-  apple: {
-    iphone: [{
-      id: "lead",
-      label: "Lead",
-      width: 100,
-      height: 200,
-      orientation: "portrait" as const,
-    }],
-  },
-};
+const specs = structuredClone(DEFAULT_STORE_SPECS);
+specs.platforms.apple.families.iphone.leadStoreSizeId = "lead";
+specs.platforms.apple.families.iphone.targets = [{
+  id: "lead",
+  label: "Lead",
+  width: 100,
+  height: 200,
+  orientation: "portrait",
+}];
 
 const brokenFont: FontAsset = {
   family: "Broken",
@@ -281,6 +280,28 @@ describe("editor resources", () => {
 
     await expect(loadEditorResources(dependencies)).rejects.toThrow(/project identifier/i);
     expect(dependencies.loadImages).not.toHaveBeenCalled();
+  });
+
+  it("rejects a route identity mismatch before applying any resource state", async () => {
+    editorStore.getState().resetProjectState();
+    const dependencies = {
+      ...successfulDependencies(),
+      expectedProjectId: "project-route",
+    };
+    const apply = vi.fn(applyEditorResourceResult);
+
+    await expect(runEditorResourceReload({
+      serialize: (operation) => operation(),
+      load: () => loadEditorResources(dependencies),
+      apply,
+      isCurrent: () => true,
+    })).rejects.toThrow(/active project changed/i);
+
+    expect(dependencies.loadImages).not.toHaveBeenCalled();
+    expect(dependencies.registerFonts).not.toHaveBeenCalled();
+    expect(dependencies.fetchStoreSpecs).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(editorStore.getState().project).toBeNull();
   });
 
   it("keeps ordered font registration failures as recoverable warnings", async () => {

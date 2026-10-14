@@ -11,6 +11,7 @@ import {
   type CaptureImportLimits,
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import { resolveExistingProjectPath, type ProjectFileDependencies } from "@screenshot-studio/core/storage";
 import {
   applyCaptureImportToProject,
@@ -32,6 +33,7 @@ export interface ImportCapturesResult {
 
 interface ImportCapturesDependencies {
   projectFileDependencies?: ProjectFileDependencies;
+  storeSpecs?: StoreSpecs;
 }
 
 function hasSameIdentity(left: BigIntStats, right: BigIntStats): boolean {
@@ -201,19 +203,21 @@ export async function collectCaptureImportDirectory(
   return files;
 }
 
-async function captureDiscovery(inputDir: string): Promise<CaptureImportDiscovery> {
-  return discoverCaptureImport({ files: await collectCaptureImportDirectory(inputDir) });
+async function captureDiscovery(inputDir: string, specs: StoreSpecs): Promise<CaptureImportDiscovery> {
+  return discoverCaptureImport({ files: await collectCaptureImportDirectory(inputDir), specs });
 }
 
 export async function previewCaptures({
   projectPath,
   inputDir,
   layout: layoutReference,
-}: ImportCapturesOptions): Promise<CaptureImportPlan> {
+}: ImportCapturesOptions, {
+  storeSpecs = DEFAULT_STORE_SPECS,
+}: Pick<ImportCapturesDependencies, "storeSpecs"> = {}): Promise<CaptureImportPlan> {
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
   const [{ project }, discovery] = await Promise.all([
     loadProjectSnapshot(canonicalProjectPath),
-    captureDiscovery(inputDir),
+    captureDiscovery(inputDir, storeSpecs),
   ]);
   const layoutId = resolveMutationLayout(project, layoutReference).id;
   return preflightCaptureImportPlanResources(canonicalProjectPath, planCaptureImport({
@@ -221,6 +225,7 @@ export async function previewCaptures({
     layoutId,
     destinationKind: "current-project",
     discovery,
+    specs: storeSpecs,
   }));
 }
 
@@ -230,9 +235,10 @@ export async function importCaptures({
   layout: layoutReference,
 }: ImportCapturesOptions, {
   projectFileDependencies = {},
+  storeSpecs = DEFAULT_STORE_SPECS,
 }: ImportCapturesDependencies = {}): Promise<ImportCapturesResult> {
   const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
-  const discovery = await captureDiscovery(inputDir);
+  const discovery = await captureDiscovery(inputDir, storeSpecs);
   const warnings = discovery.warnings.map(({ message }) => message);
   if (discovery.captures.length === 0 && discovery.invalidEntries.length === 0) {
     return { imported: 0, warnings };
@@ -243,6 +249,7 @@ export async function importCaptures({
     projectPath: canonicalProjectPath,
     discovery,
     layoutId,
+    specs: storeSpecs,
   }, { fileDependencies: projectFileDependencies });
   return { imported: applied.imported, warnings };
 }

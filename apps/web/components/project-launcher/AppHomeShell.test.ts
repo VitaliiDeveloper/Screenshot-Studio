@@ -11,6 +11,7 @@ vi.mock("../ScreenThumbnail.js", () => ({
 }));
 
 const dialogSource = readFileSync(new URL("./ProjectImportDialog.tsx", import.meta.url), "utf8");
+const dialogShellSource = readFileSync(new URL("../editor-ui/DialogShell.tsx", import.meta.url), "utf8");
 const appHomeSource = readFileSync(new URL("./AppHomeShell.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
@@ -74,6 +75,7 @@ describe("AppHomeShell", () => {
         form: {
           name: "Desktop launch",
           platform: "windows",
+          device: "desktop",
           layoutMode: "connected",
           templateId: null,
         },
@@ -144,8 +146,9 @@ describe("AppHomeShell", () => {
   });
 
   it("keeps the folder confirmation disclosure inside the dialog focus trap", () => {
-    const focusableSelector = dialogSource.match(/querySelectorAll<HTMLElement>\(\s*'([^']+)'/)?.[1];
+    const focusableSelector = dialogShellSource.match(/querySelectorAll<HTMLElement>\(\s*\n?\s*"([^"]+)"/)?.[1];
 
+    expect(dialogSource).toContain("<DialogShell");
     expect(focusableSelector).toContain("summary");
   });
 
@@ -206,11 +209,14 @@ describe("AppHomeShell", () => {
     expect(publishing).not.toContain("Cancel import");
   });
 
-  it("moves focus into the modal, traps Tab, and reserves Escape during publication", () => {
-    expect(dialogSource).toContain("headingRef.current?.focus()");
-    expect(dialogSource).toContain('event.key !== "Tab"');
-    expect(dialogSource).toContain('event.key === "Escape" && state.status !== "publishing"');
-    expect(dialogSource).toContain("tabIndex={-1}");
+  it("uses the shared modal focus trap and reserves closing during publication", () => {
+    expect(dialogSource).toContain("<DialogShell");
+    expect(dialogSource).toContain('initialFocus="heading"');
+    expect(dialogSource).toContain('closeDisabled={closing || state.status === "publishing"}');
+    expect(dialogShellSource).toContain('event.key !== "Tab"');
+    expect(dialogShellSource).toContain('event.key === "Escape"');
+    expect(dialogShellSource).toContain("headingRef.current");
+    expect(dialogShellSource).toContain("summary, [tabindex]");
   });
 
 });
