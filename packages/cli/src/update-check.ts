@@ -143,6 +143,8 @@ async function readOwnVersion(): Promise<string | undefined> {
 
 /** Start the check alongside the command; the returned promise resolves to the notice (or nothing). */
 export async function startUpdateCheck(deps?: UpdateCheckDependencies): Promise<string | undefined> {
+  // A source checkout (run through tsx) updates with `git pull`, so a registry notice would mislead.
+  if (!deps && import.meta.url.endsWith(".ts")) return undefined;
   try {
     const current = await readOwnVersion();
     return current ? await checkForUpdate(current, deps ?? realDependencies()) : undefined;
