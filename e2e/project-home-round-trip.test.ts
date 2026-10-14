@@ -114,13 +114,13 @@ describe("Project Info and Workspace round trip", () => {
       const initialImportResponse = await initialImportResponsePending;
       expect(initialImportResponse.status(), await initialImportResponse.text()).toBe(201);
 
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.getByRole("button", { name: "Projects", exact: true }).click();
       await page.waitForURL(`${server.url}/`);
       const importedCard = page.getByRole("listitem").filter({ hasText: projectName });
       await importedCard.getByLabel(`More actions for ${projectName}`).click();
       await importedCard.getByRole("button", { name: "Project details", exact: true }).click();
-      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
+      await page.waitForURL(/\/home\?project=(project_[a-f0-9]{32})&entry=\1$/u);
       await page.getByRole("heading", { name: projectName, exact: true }).waitFor();
       expect(await page.getByText("Managed project", { exact: true }).count()).toBe(1);
       expect(await page.getByText(join(projectRoot, "app-store-screenshots.json"), { exact: true }).count()).toBe(0);
@@ -148,7 +148,7 @@ describe("Project Info and Workspace round trip", () => {
       await expectNoSeriousOrCriticalViolations(page, "Project Info");
 
       await page.getByRole("link", { name: "Open in Editor", exact: true }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
       await page.getByRole("button", { name: "Active layout: Default" }).click();
       await page.getByRole("menuitemradio", { name: /Secondary/ }).click();
@@ -176,7 +176,7 @@ describe("Project Info and Workspace round trip", () => {
       const saveFailureDialog = page.getByRole("dialog", { name: "Project could not be saved" });
       await saveFailureDialog.getByRole("heading", { name: "Project could not be saved", exact: true }).waitFor();
       await saveFailureDialog.getByRole("button").filter({ hasText: "Stay in editor" }).click();
-      expect(new URL(page.url()).pathname).toBe("/editor");
+      expect(new URL(page.url()).pathname).toMatch(/^\/editor\/[^/]+$/u);
 
       await page.unroute("**/api/project");
       await page.getByRole("button", { name: "Projects", exact: true }).click();
@@ -185,7 +185,7 @@ describe("Project Info and Workspace round trip", () => {
         name: `Open ${projectName} in Workspace`,
         exact: true,
       }).click();
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
 
       expect(await page.getByRole("button", { name: "Active layout: Secondary" }).count()).toBe(1);
@@ -205,7 +205,7 @@ describe("Project Info and Workspace round trip", () => {
       const detailsCard = page.getByRole("listitem").filter({ hasText: projectName });
       await detailsCard.getByLabel(`More actions for ${projectName}`).click();
       await detailsCard.getByRole("button", { name: "Project details", exact: true }).click();
-      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
+      await page.waitForURL(/\/home\?project=(project_[a-f0-9]{32})&entry=\1$/u);
       const catalogPath = join(managedDataRoot, "catalog.json");
       const catalogBeforeClose = readFileSync(catalogPath, "utf8");
       const [{ id: managedProjectId }] = (JSON.parse(catalogBeforeClose) as {
@@ -265,7 +265,7 @@ describe("Project Info and Workspace round trip", () => {
       await page.getByRole("button", { name: "Import managed copy" }).click();
       const firstImportResponse = await firstImportResponsePending;
       expect(firstImportResponse.status(), await firstImportResponse.text()).toBe(201);
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
       await page.getByRole("button", { name: "Projects", exact: true }).click();
       await page.waitForURL(`${server.url}/`);
@@ -277,7 +277,7 @@ describe("Project Info and Workspace round trip", () => {
       await page.getByRole("button", { name: "Import managed copy" }).click();
       const replacementImportResponse = await replacementImportResponsePending;
       expect(replacementImportResponse.status(), await replacementImportResponse.text()).toBe(201);
-      await page.waitForURL(`${server.url}/editor`);
+      await page.waitForURL(`${server.url}/editor/**`);
       await page.getByRole("button", { name: "Projects", exact: true }).click();
       await page.waitForURL(`${server.url}/`);
       const replacementCard = page.getByRole("listitem").filter({ hasText: replacement.meta.name });
@@ -287,7 +287,7 @@ describe("Project Info and Workspace round trip", () => {
       const projectHomeProjectPending = page.waitForResponse((response) =>
         new URL(response.url()).pathname === "/api/project");
       await replacementCard.getByRole("button", { name: "Project details", exact: true }).click();
-      await page.waitForURL(/\/home\?project=project_[a-f0-9]{32}$/u);
+      await page.waitForURL(/\/home\?project=(project_[a-f0-9]{32})&entry=\1$/u);
       const [projectHomeSessionResponse, projectHomeProjectResponse] = await Promise.all([
         projectHomeSessionPending,
         projectHomeProjectPending,

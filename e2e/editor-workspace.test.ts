@@ -162,10 +162,10 @@ describe("editor workspace", () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 
     const masterBefore = structuredClone(project().screens[0]!);
-    const addSize = page.getByRole("button", { name: "Add size", exact: true });
+    const addSize = page.getByRole("button", { name: "Add output size", exact: true });
     await expect.poll(() => addSize.count(), { timeout: 5_000 }).toBe(1);
     await addSize.click();
-    await page.getByRole("menuitem", { name: '6.5" iPhone', exact: true }).click();
+    await page.getByRole("menuitem", { name: '6.5" · Portrait', exact: true }).click();
 
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(1);
     const persisted = project();
@@ -183,11 +183,11 @@ describe("editor workspace", () => {
     const artboardMode = page.getByRole("group", { name: "Artboard size mode" });
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
-    expect(await page.getByText("1320 × 2868 px", { exact: true }).count()).toBe(1);
-    const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
-    const leadTargetRow = page.getByRole("group", { name: '6.9" iPhone (lead) store target', exact: true });
-    await expect.poll(() => targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.9" iPhone', { exact: true }).count()).toBe(1);
+    expect(await page.getByText('Exports at 1320 × 2868 px for 6.9" iPhone.', { exact: true }).count()).toBe(1);
+    const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
+    const leadTargetRow = page.getByRole("group", { name: '6.9" · Portrait output target', exact: true });
+    await expect.poll(() => targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('6.9" · Portrait', { exact: true }).count()).toBe(1);
     expect(await leadTargetRow.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
 
     const outputFamilies = page.getByTestId("overview-output-family");
@@ -206,8 +206,8 @@ describe("editor workspace", () => {
     expect(await variantSizeRow.getByTestId("output-identity-role").textContent()).toBe("variant");
     expect(await iphoneOutput.getByTestId("output-identity-role").first().textContent()).toBe("master");
 
-    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
-    await expect.poll(() => page.getByText("1284 × 2778 px", { exact: true }).count()).toBe(1);
+    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
+    await expect.poll(() => page.getByText('Exports at 1284 × 2778 px for 6.5" iPhone.', { exact: true }).count()).toBe(1);
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
     await artboardMode.getByRole("button", { name: "Use custom artboard size" }).click();
@@ -225,7 +225,7 @@ describe("editor workspace", () => {
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.getByText("Editing", { exact: true }).count()).toBe(1);
 
-    await leadTargetRow.getByRole("button", { name: 'Open 6.9" iPhone (lead)', exact: true }).click();
+    await leadTargetRow.getByRole("button", { name: 'Open 6.9" · Portrait', exact: true }).click();
     const siblingMaster = project().screens.find((candidate) => (
       candidate.variantOf === undefined
       && candidate.platform === masterBefore.platform
@@ -238,19 +238,19 @@ describe("editor workspace", () => {
       exact: true,
     }).click();
     await expect.poll(() => targetRow.count()).toBe(1);
-    expect(await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).count()).toBe(1);
+    expect(await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).count()).toBe(1);
     expect(await targetRow.getByRole("button", {
-      name: 'Remove 6.5" iPhone variant',
+      name: 'Remove 6.5" · Portrait output',
       exact: true,
     }).count()).toBe(1);
-    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
+    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
 
-    await targetRow.getByRole("button", { name: 'Remove 6.5" iPhone variant', exact: true }).click();
-    const confirmation = page.getByRole("dialog", { name: "Remove size variant?", exact: true });
+    await targetRow.getByRole("button", { name: 'Remove 6.5" · Portrait output', exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Remove output size?", exact: true });
     const confirmationBox = await confirmation.boundingBox();
     expect(confirmationBox).not.toBeNull();
     expect(Math.abs(confirmationBox!.x + confirmationBox!.width / 2 - 720)).toBeLessThan(2);
-    const confirmButton = confirmation.getByRole("button", { name: "Remove size", exact: true });
+    const confirmButton = confirmation.getByRole("button", { name: "Remove output", exact: true });
     expect((await confirmButton.boundingBox())!.height).toBeLessThanOrEqual(32);
     await confirmButton.click();
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(0);
@@ -260,10 +260,10 @@ describe("editor workspace", () => {
   it("adds a new screen to the exact store-target variant being edited", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 
-    await page.getByRole("button", { name: "Add size", exact: true }).click();
-    await page.getByRole("menuitem", { name: '6.5" iPhone', exact: true }).click();
-    const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
-    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
+    await page.getByRole("button", { name: "Add output size", exact: true }).click();
+    await page.getByRole("menuitem", { name: '6.5" · Portrait', exact: true }).click();
+    const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
+    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
       .getByRole("listitem").count()).toBe(1);
 
@@ -299,16 +299,16 @@ describe("editor workspace", () => {
   it("keeps screen slots one-to-one only when synchronization is enabled", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 
-    await page.getByRole("button", { name: "Add size", exact: true }).click();
-    await page.getByRole("menuitem", { name: '6.5" iPhone', exact: true }).click();
-    const targetRow = page.getByRole("group", { name: '6.5" iPhone store target', exact: true });
-    await targetRow.getByRole("button", { name: 'Open 6.5" iPhone', exact: true }).click();
+    await page.getByRole("button", { name: "Add output size", exact: true }).click();
+    await page.getByRole("menuitem", { name: '6.5" · Portrait', exact: true }).click();
+    const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
+    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
       timeout: 10_000,
     }).toBe(1);
 
-    const slotBehavior = page.getByRole("group", { name: "Screen slot behavior", exact: true });
-    await slotBehavior.getByRole("button", { name: "Keep 1:1", exact: true }).click();
+    const slotBehavior = page.getByRole("group", { name: "Screen structure behavior", exact: true });
+    await slotBehavior.getByRole("button", { name: "Sync structure", exact: true }).click();
     await expect.poll(() => project().screenSetPolicies?.[0]?.mode, { timeout: 10_000 })
       .toBe("synchronized");
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
@@ -337,7 +337,7 @@ describe("editor workspace", () => {
     const iphoneBefore = structuredClone(project().screens.filter((screen) =>
       screen.platform === "apple" && screen.device === "iphone" && screen.variantOf === undefined,
     ));
-    const addOutput = page.getByRole("button", { name: "Add output", exact: true });
+    const addOutput = page.getByRole("button", { name: "Add destination", exact: true });
     await expect.poll(() => addOutput.count(), { timeout: 5_000 }).toBe(1);
     await addOutput.click();
     await page.getByRole("menuitem", { name: "App Store · iPad", exact: true }).click();
@@ -374,7 +374,7 @@ describe("editor workspace", () => {
     await page.getByRole("button", { name: "Inspect", exact: true }).click();
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
-    await expect.poll(() => storeOutputs.getByText("Store outputs", { exact: true }).count()).toBe(1);
+    await expect.poll(() => storeOutputs.getByRole("heading", { name: "Destinations", exact: true }).count()).toBe(1);
 
     const ipadScreens = page.getByRole("list", { name: "Screens for en · ipad", exact: true });
     await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
@@ -411,11 +411,11 @@ describe("editor workspace", () => {
       "App Store · macOS",
       "App Store · tvOS",
       "App Store · watchOS",
-      "Google Play · Android phone",
-      "Microsoft Store · Windows desktop",
+      "Google Play · Phone",
+      "Microsoft Store · Desktop",
     ];
     for (const label of additionalFamilies) {
-      await page.getByRole("button", { name: "Add output", exact: true }).click();
+      await page.getByRole("button", { name: "Add destination", exact: true }).click();
       await page.getByRole("menuitem", { name: label, exact: true }).click();
       const family = page.getByRole("group", { name: `${label} output`, exact: true });
       await expect.poll(() => family.getAttribute("aria-current"), {
