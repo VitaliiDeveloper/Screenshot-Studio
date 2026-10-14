@@ -11,7 +11,7 @@ import {
   ensureStoreTargetVariant,
   parseProjectJson,
 } from "@screenshot-studio/core/model";
-import { buildBundleEntries, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
+import { buildBundleEntries, findStoreTarget, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
 import { projectMutationLockPath } from "@screenshot-studio/core/storage";
 import { startWebServer } from "@screenshot-studio/cli/server";
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
@@ -92,7 +92,7 @@ describe("multi-locale bundle export", () => {
   it("exports an explicit store-target variant at its own exact dimensions", async () => {
     const source = parseProjectJson(await readFile(storeVariantFixturePath, "utf8"));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-    const target = specs.apple?.iphone?.find((candidate) => candidate.id === "6.5");
+    const target = findStoreTarget(specs, "apple", "iphone", "6.5");
     expect(target).toBeDefined();
 
     const masterBefore = structuredClone(source.layouts[0].screens[0]!);
@@ -178,8 +178,8 @@ describe("multi-locale bundle export", () => {
       }],
     }));
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-    const target = specs.apple?.watchos?.find((candidate) => candidate.id === "ultra-3");
-    const series11Target = specs.apple?.watchos?.find((candidate) => candidate.id === "series-11");
+    const target = findStoreTarget(specs, "apple", "watchos", "ultra-3");
+    const series11Target = findStoreTarget(specs, "apple", "watchos", "series-11");
     expect(target).toBeDefined();
     expect(series11Target).toBeDefined();
     const result = ensureStoreOutputFamily(
