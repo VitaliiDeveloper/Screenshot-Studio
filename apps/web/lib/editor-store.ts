@@ -25,9 +25,12 @@ import {
 } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
 import {
+  arrangeSelectionDeltas,
   primarySelection,
   reconcileSelection,
+  selectionKey,
   toggleSelection,
+  type ArrangeAction,
   type SelectionRef,
 } from "./editor-selection.js";
 import {
@@ -107,6 +110,8 @@ export interface EditorState {
   groupSelected: () => void;
   ungroupSelected: () => void;
   duplicateSelected: () => void;
+  arrangeSelected: (action: ArrangeAction) => void;
+  setSelectedOpacity: (opacity: number) => void;
   selectLayout: (id: string) => void;
   addLayout: (name: string, mode: CanvasMode) => void;
   duplicateLayout: (id: string, name?: string) => void;
@@ -408,6 +413,42 @@ export const editorStore = createStore<EditorState>((set) => ({
         screens,
       });
       return recordProjectChange(state, project, null, { selectedItems: nextSelection });
+    }),
+  arrangeSelected: (action) =>
+    set((state) => {
+      const layout = currentLayout(state);
+      if (!state.project || !state.activeLayoutId || !state.activeScreenId || !layout || state.selectedItems.length < 2) return state;
+      // selectionBounds measures top-level layers only, so group children cannot be arranged against it.
+      const nested = state.selectedItems.some((selection) => {
+        const screen = layout.screens.find((candidate) => candidate.id === selection.screenId);
+        const location = screen ? findElementLocation(screen, selection.elementId) : null;
+        return !location || location.parent;
+      });
+      if (nested) return state;
+      const deltas = arrangeSelectionDeltas(layout, state.activeScreenId, state.selectedItems, action);
+      const project = produce(state.project, (draft) => {
+        const draftLayout = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!;
+        forEachSelectedElement(draftLayout, state.selectedItems, ({ screen, element }) => {
+          const delta = deltas.get(selectionKey({ screenId: screen.id, elementId: element.id }));
+          // Skipping float-noise deltas keeps an already-arranged click out of history.
+          if (!delta || element.locked || (Math.abs(delta.x) < 1e-9 && Math.abs(delta.y) < 1e-9)) return;
+          element.x += delta.x;
+          element.y += delta.y;
+        });
+      });
+      return recordProjectChange(state, project);
+    }),
+  setSelectedOpacity: (opacity) =>
+    set((state) => {
+      if (!state.project || !state.activeLayoutId || state.selectedItems.length === 0) return state;
+      const project = produce(state.project, (draft) => {
+        const layout = draft.layouts.find((candidate) => candidate.id === state.activeLayoutId)!;
+        forEachSelectedElement(layout, state.selectedItems, ({ element, parent }) => {
+          if (element.locked || parent?.locked) return;
+          element.opacity = opacity;
+        });
+      });
+      return recordProjectChange(state, project, "selection-opacity");
     }),
   selectLayout: (id) => set((state) => {
     if (!state.project || id === state.activeLayoutId) return state;

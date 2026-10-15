@@ -3,7 +3,24 @@
 
 import { useId, useState } from "react";
 import { useStore } from "zustand";
-import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
+  Combine,
+  Copy,
+  EyeOff,
+  Lock,
+  LockOpen,
+  PanelRightClose,
+  Trash2,
+  Ungroup,
+} from "lucide-react";
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
@@ -11,6 +28,7 @@ import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
 import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
+import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./inspector/ElementTypeInspectorSections";
 import { InspectorSection as Section } from "./inspector/InspectorSection";
 import { InspectorTabs, inspectorPanelId, inspectorTabId } from "./inspector/InspectorTabs";
@@ -31,6 +49,16 @@ function patch<T extends Element["type"]>(
 ) {
   mutateAndScheduleSave(() => editorStore.getState().patchElement({ id, type, patch: change }));
 }
+
+// Lucide names the guide axis: "Vertical" icons align x edges, "Horizontal" icons align y edges.
+const ALIGN_ACTIONS = [
+  { action: "left", label: "Align left", Icon: AlignStartVertical },
+  { action: "center", label: "Align horizontal centers", Icon: AlignCenterVertical },
+  { action: "right", label: "Align right", Icon: AlignEndVertical },
+  { action: "top", label: "Align top", Icon: AlignStartHorizontal },
+  { action: "middle", label: "Align vertical centers", Icon: AlignCenterHorizontal },
+  { action: "bottom", label: "Align bottom", Icon: AlignEndHorizontal },
+] as const;
 
 /** Composition entry point for selection, element, and active-screen inspector sections. */
 export function Inspector({
@@ -69,6 +97,9 @@ export function Inspector({
     canGroup,
     canUngroup,
     canDuplicate,
+    canAlign,
+    canDistribute,
+    sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
   const tab = resolveInspectorTab(selectionKey, tabChoice);
@@ -158,6 +189,60 @@ export function Inspector({
               <p className="text-[11px] leading-4 text-slate-500">Drag on the canvas to move unlocked layers.</p>
             </Section>
             <Section title="Shared actions">
+              <div role="group" aria-label="Align" className="flex justify-between">
+                {ALIGN_ACTIONS.map(({ action, label, Icon }) => (
+                  <button
+                    key={action}
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    className={editorUi.iconButton}
+                    disabled={!canAlign}
+                    onClick={() => mutateAndSave(() => editorStore.getState().arrangeSelected(action))}
+                  >
+                    <Icon size={16} />
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  aria-label="Distribute horizontally"
+                  title="Distribute horizontally"
+                  className={editorUi.buttonSecondary}
+                  disabled={!canDistribute}
+                  onClick={() => mutateAndSave(() => editorStore.getState().arrangeSelected("distribute-horizontal"))}
+                >
+                  <AlignHorizontalDistributeCenter size={14} /> Distribute
+                </button>
+                <button
+                  type="button"
+                  aria-label="Distribute vertically"
+                  title="Distribute vertically"
+                  className={editorUi.buttonSecondary}
+                  disabled={!canDistribute}
+                  onClick={() => mutateAndSave(() => editorStore.getState().arrangeSelected("distribute-vertical"))}
+                >
+                  <AlignVerticalDistributeCenter size={14} /> Distribute
+                </button>
+              </div>
+              <div
+                onPointerUp={() => editorStore.getState().endHistoryGroup()}
+                onBlur={() => editorStore.getState().endHistoryGroup()}
+              >
+                <SliderNumberField
+                  label="Opacity"
+                  value={unitToPercent(sharedOpacity)}
+                  min={0}
+                  max={100}
+                  step={1}
+                  suffix="%"
+                  helpText="Applies to every unlocked selected layer. Exported images are always flattened and contain no alpha channel."
+                  onChange={(opacity) => mutateAndScheduleSave(
+                    () => editorStore.getState().setSelectedOpacity(percentToUnit(opacity)),
+                  )}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"

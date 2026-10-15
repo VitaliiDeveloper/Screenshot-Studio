@@ -51,6 +51,14 @@ export function deriveInspectorSelection(
     ));
   const canDuplicate = selectedItems.length > 0
     && selectedLocations.every(({ location }) => location && !location.parent);
+  // Arrange measures top-level bounds and never moves locked layers.
+  const canAlign = selectedItems.length >= 2 && canDuplicate && !everyLocked;
+  const canDistribute = canAlign && selectedItems.length >= 3;
+  // Batch opacity skips locked layers, so the slider mirrors the last layer it can change.
+  const opacitySource = [...selectedLocations].reverse().find(({ location }) => (
+    location && !location.element.locked && !location.parent?.locked
+  )) ?? selectedLocations.at(-1);
+  const sharedOpacity = opacitySource?.location?.element.opacity ?? 1;
 
   return {
     screen,
@@ -63,5 +71,8 @@ export function deriveInspectorSelection(
     canGroup,
     canUngroup,
     canDuplicate,
+    canAlign,
+    canDistribute,
+    sharedOpacity,
   };
 }
