@@ -16,6 +16,7 @@ import {
 const menuSelectSource = readFileSync(new URL("./MenuSelect.tsx", import.meta.url), "utf8");
 const addMenuSource = readFileSync(new URL("./AddMenu.tsx", import.meta.url), "utf8");
 const emptyResourceStateSource = readFileSync(new URL("./EmptyResourceState.tsx", import.meta.url), "utf8");
+const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 describe("editor UI primitives", () => {
   it("associates visible dialog descriptions with the modal semantics", () => {
@@ -101,6 +102,11 @@ describe("editor UI primitives", () => {
       expect(source).not.toMatch(/(?:slate|blue|red|amber)-\d/);
     }
     expect(menuSelectSource).not.toContain("fontSize");
+  });
+
+  it("leaves the control font reset to layered preflight so text utilities apply", () => {
+    // Unlayered CSS outranks every Tailwind utility; preflight already resets control fonts in @layer base.
+    expect(globalStyles).not.toMatch(/font:\s*inherit/);
   });
 
   it("uses one thin range contract across inspector sliders", () => {
