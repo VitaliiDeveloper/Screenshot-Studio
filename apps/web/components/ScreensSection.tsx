@@ -140,7 +140,7 @@ export function ScreensSection({
         </div>
       ) : null}
       <header className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-white px-3 py-3">
-        <div className="flex min-w-0 items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+        <div className="flex min-w-0 items-baseline gap-1.5 text-[10px] font-normal uppercase tracking-[0.09em] text-slate-500">
           <h2 className="shrink-0">Screens</h2>
           <span className="truncate font-medium normal-case tracking-normal text-slate-500">· {scopeLabel}</span>
         </div>
@@ -216,7 +216,7 @@ export function ScreensSection({
                       active ? "text-blue-700" : "text-slate-700"
                     }`}
                   >
-                    <span className="block truncate text-xs font-semibold">{s.name}</span>
+                    <span className="block truncate text-xs">{s.name}</span>
                     <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-600">
                       {screenTreeSummary(s.elements.length, selectedCount)}
                     </span>

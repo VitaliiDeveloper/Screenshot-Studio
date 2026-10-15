@@ -48,7 +48,7 @@ export function LayersHeading({
   showScreenContext: boolean;
 }) {
   return (
-    <h3 className="flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+    <h3 className="flex min-w-0 items-center gap-1.5 text-[10px] font-normal uppercase tracking-[0.09em] text-slate-500">
       <span>Layers</span>
       {showScreenContext ? <span className="truncate normal-case tracking-normal text-slate-500">· {screenName}</span> : null}
       <span className="shrink-0 font-medium tabular-nums tracking-normal text-slate-400">{count}</span>
@@ -219,7 +219,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
                     className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
                       selected
-                        ? "font-semibold text-blue-700"
+                        ? "text-blue-700"
                         : "text-slate-700"
                     } ${el.visible ? "" : "text-slate-400 line-through"}`}
                   >
@@ -377,7 +377,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       onClick={() => editorStore.getState().select(child.id, activeScreenId)}
                       className={cx(
                         "min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
-                        childSelected ? "font-semibold text-blue-700" : "text-slate-600",
+                        childSelected ? "text-blue-700" : "text-slate-600",
                         !child.visible && "line-through text-slate-400",
                       )}
                     >

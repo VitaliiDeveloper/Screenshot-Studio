@@ -107,7 +107,7 @@ export function Inspector({
         <div className="flex min-h-14 items-center justify-between gap-2 px-4">
           <div className="min-w-0">
             <h2 className="sr-only">Inspector</h2>
-            <p className="truncate text-sm font-semibold tracking-tight text-slate-950">{title}</p>
+            <p className="truncate text-sm font-medium tracking-tight text-slate-950">{title}</p>
             <p className="truncate text-[10px] text-slate-600">{subtitle}</p>
           </div>
           {onClose ? (
@@ -133,18 +133,29 @@ export function Inspector({
           />
         ) : selectedItems.length > 1 ? (
           <>
-            <Section title="Selection">
+            <Section title="Selection bounds">
               {aggregate ? (
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                  <span>X <strong className="text-slate-700">{Math.round(aggregate.minX)}</strong></span>
-                  <span>Y <strong className="text-slate-700">{Math.round(aggregate.minY)}</strong></span>
-                  <span>Width <strong className="text-slate-700">{Math.round(aggregate.maxX - aggregate.minX)}</strong></span>
-                  <span>Height <strong className="text-slate-700">{Math.round(aggregate.maxY - aggregate.minY)}</strong></span>
-                </div>
+                <dl className="flex flex-col gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-2 text-xs">
+                  {([
+                    ["Position", [["X", aggregate.minX], ["Y", aggregate.minY]]],
+                    ["Size", [["W", aggregate.maxX - aggregate.minX], ["H", aggregate.maxY - aggregate.minY]]],
+                  ] as const).map(([label, axes]) => (
+                    <div key={label} className="flex gap-2">
+                      <dt className="w-16 shrink-0 text-slate-500">{label}</dt>
+                      <dd className="grid flex-1 grid-cols-2 gap-3 tabular-nums text-slate-900">
+                        {axes.map(([axis, value]) => (
+                          <span key={axis}>
+                            <span className="mr-1 text-slate-400">{axis}</span>
+                            {Math.round(value)}
+                            <span className="ml-0.5 text-slate-400">px</span>
+                          </span>
+                        ))}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               ) : null}
-              <p className="text-[11px] leading-4 text-slate-400">
-                Drag to move the unlocked selection. Resize and rotation remain single-element actions.
-              </p>
+              <p className="text-[11px] leading-4 text-slate-500">Drag on the canvas to move unlocked layers.</p>
             </Section>
             <Section title="Shared actions">
               <div className="grid grid-cols-2 gap-2">

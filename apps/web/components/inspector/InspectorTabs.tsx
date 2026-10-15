@@ -61,7 +61,7 @@ export function InspectorTabs({
             className={cx(
               "-mb-px border-b-2 px-2 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
               selected
-                ? "border-blue-600 font-semibold text-slate-950"
+                ? "border-blue-600 text-slate-950"
                 : "border-transparent text-slate-500 hover:text-slate-800",
             )}
             onClick={() => onSelect(value)}
