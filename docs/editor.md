@@ -124,7 +124,8 @@ slot scope described above.
 ### Projects and Workspace navigation
 
 `/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows
-one compact first-run message with exactly `New project` and `Import`. Once projects exist, the same
+the App Home first-run hero: a product headline with local-first and strict-validation assurances
+beside exactly two action cards, `New project` and `Import`. Once projects exist, the same
 route shows a preview-led gallery. A project card opens its source-safe active session directly in
 Workspace. Its overflow menu keeps managed archive and permanent deletion behind the existing
 archive-first confirmation flow; local cards can only remove recent-history entries. Slow opens show
