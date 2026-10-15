@@ -74,7 +74,7 @@ export function MediaCropControl({
   return (
     <InsetPanel>
       <div>
-        <p className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Cover crop</p>
+        <p className={editorUi.sectionLabel}>Cover crop</p>
         <p className="mt-1 text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
           Drag the focal point to reposition. Zoom to adjust the crop.
         </p>

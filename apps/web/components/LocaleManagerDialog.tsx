@@ -173,7 +173,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
         {error ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
 
         <section aria-label="Project locales">
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">Current locales</h3>
+          <h3 className={`mb-2 ${editorUi.sectionLabel}`}>Current locales</h3>
           <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
             {locales.map((locale) => {
               const screens = layout.screens.filter((screen) => screen.locale === locale);
