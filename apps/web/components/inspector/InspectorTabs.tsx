@@ -31,7 +31,8 @@ export function InspectorTabs({
     <div
       role="tablist"
       aria-label="Inspector sections"
-      className="flex gap-1 border-b border-slate-200 px-3"
+      // Text size sits here: the global `button { font: inherit }` reset outranks utilities on buttons.
+      className="flex gap-1 border-b border-slate-200 px-3 text-xs"
       onKeyDown={(event) => {
         const index = TABS.findIndex(({ value }) => value === tab);
         const nextIndex = event.key === "ArrowRight" ? (index + 1) % TABS.length
@@ -58,7 +59,7 @@ export function InspectorTabs({
             aria-controls={inspectorPanelId(idPrefix)}
             tabIndex={selected ? 0 : -1}
             className={cx(
-              "-mb-px border-b-2 px-2 py-2.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
+              "-mb-px border-b-2 px-2 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
               selected
                 ? "border-blue-600 font-semibold text-slate-950"
                 : "border-transparent text-slate-500 hover:text-slate-800",

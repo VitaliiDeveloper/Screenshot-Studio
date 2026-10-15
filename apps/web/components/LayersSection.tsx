@@ -188,7 +188,8 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 id={el.id}
                 role="listitem"
                 className={cx(
-                  "relative pr-1",
+                  // The global `button { font: inherit }` reset outranks text utilities on buttons.
+                  "relative pr-1 text-xs",
                   selected ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
                 )}
               >
@@ -366,7 +367,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     key={child.id}
                     role="listitem"
                     className={cx(
-                      "mx-2 ml-10 flex min-h-9 items-center gap-1 rounded-lg border-l border-slate-200 px-2",
+                      "mx-2 ml-10 flex min-h-9 items-center gap-1 rounded-lg border-l border-slate-200 px-2 text-[11px]",
                       childSelected ? "bg-blue-50 ring-1 ring-blue-100" : "bg-slate-50/60",
                     )}
                   >
