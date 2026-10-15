@@ -32,7 +32,6 @@ import {
 } from "@web/lib/editor-workspace";
 import { editorStore } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { LayersSection } from "./LayersSection";
 import { ScreensSection } from "./ScreensSection";
 import { cx, editorUi } from "./editor-ui";
 
@@ -245,8 +244,8 @@ export function LeftPanel({
             images={images}
             onOpenDialog={onOpenDialog}
             onImportCaptures={onImportCaptures}
+            onOpenAdd={onOpenAdd}
           />
-          <LayersSection onOpenAdd={onOpenAdd} />
         </div>
       ) : null}
       {panel === "resources" ? (

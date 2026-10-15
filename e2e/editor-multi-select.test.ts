@@ -88,7 +88,7 @@ describe("multi-select foundation", () => {
     await page.mouse.click(green.x, green.y);
     await page.keyboard.up("Shift");
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("2");
-    await page.getByText("2 elements", { exact: true }).waitFor({ state: "visible" });
+    await page.getByText("2 layers selected", { exact: true }).waitFor({ state: "visible" });
 
     // A plain click in the workspace outside every artboard clears the same shared selection.
     const workspace = page.getByRole("region", { name: "Canvas workspace" });

@@ -57,6 +57,8 @@ describe("inspector selection model", () => {
     ]);
     expect(model.canGroup).toBe(true);
     expect(model.canUngroup).toBe(false);
+    expect(model.canDuplicate).toBe(true);
+    expect(model.selectedElements.map((element) => element.id)).toEqual(["same", "second"]);
     expect(model.everyLocked).toBe(true);
     expect(model.everyHidden).toBe(true);
     expect(model.aggregate).not.toBeNull();
@@ -109,5 +111,7 @@ describe("inspector selection model", () => {
 
     expect(model.element?.locked).toBe(false);
     expect(model.effectiveLocked).toBe(true);
+    // duplicateSelected copies top-level layers only.
+    expect(model.canDuplicate).toBe(false);
   });
 });

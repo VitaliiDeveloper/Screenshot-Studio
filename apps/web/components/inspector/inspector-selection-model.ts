@@ -49,15 +49,19 @@ export function deriveInspectorSelection(
     && selectedLocations.every(({ location }) => (
       location && !location.parent && location.element.type === "group"
     ));
+  const canDuplicate = selectedItems.length > 0
+    && selectedLocations.every(({ location }) => location && !location.parent);
 
   return {
     screen,
     element,
     effectiveLocked,
     aggregate,
+    selectedElements,
     everyLocked,
     everyHidden,
     canGroup,
     canUngroup,
+    canDuplicate,
   };
 }

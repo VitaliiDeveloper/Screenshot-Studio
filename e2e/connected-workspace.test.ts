@@ -173,7 +173,7 @@ describe("connected workspace", () => {
 
     const screens = page.getByRole("list", { name: "Screens for en · iphone" });
     await screens.waitFor({ state: "visible" });
-    expect(await screens.getByRole("listitem").count()).toBe(2);
+    expect(await screens.locator(":scope > [role='listitem']").count()).toBe(2);
     expect(await page.getByRole("button", { name: "Unrelated · phone", exact: true }).count()).toBe(0);
 
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);

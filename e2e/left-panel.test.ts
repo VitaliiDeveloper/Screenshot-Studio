@@ -59,11 +59,9 @@ describe("left panel", () => {
     const before = elementIds(); // ["accent", "headline"]
     const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    // Scope to the Layers section (the single screen is not reorderable), then focus the top
-    // layer row's drag handle and move it down one slot with the keyboard.
-    const layers = page.locator("section").filter({
-      has: page.getByRole("heading", { name: "Layers" }),
-    });
+    // Scope to the active screen's nested layers list, then focus the top layer row's drag handle
+    // and move it down one slot with the keyboard.
+    const layers = page.getByRole("list", { name: "Layers for Hero" });
     const handle = layers.getByLabel("Drag to reorder").first();
     await handle.waitFor();
     await handle.focus();

@@ -4,7 +4,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -19,11 +19,13 @@ import {
   screenSetModeFor,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { workspaceEditingScope } from "@web/lib/editor-workspace";
+import { outputFamilyEditorLabel, workspaceEditingScope } from "@web/lib/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
+import { screenTreeSummary } from "@web/lib/panel-helpers";
+import { LayersSection } from "./LayersSection";
 import { SortableRow } from "./SortableRow";
-import { AddMenu, ConfirmationDialog, editorUi } from "./editor-ui";
+import { AddMenu, ConfirmationDialog, cx, editorUi } from "./editor-ui";
 import type { ResourceDialog } from "@web/lib/editor-workspace";
 
 const DynamicScreenThumbnail = dynamic(
@@ -31,21 +33,29 @@ const DynamicScreenThumbnail = dynamic(
   { ssr: false },
 );
 
-/** Active exact output group: select, scoped reorder, duplicate-add, and delete. */
+/**
+ * Screens → Layers tree for the active exact output group: select, scoped reorder, add, and delete
+ * screens; the active screen expands to its layers.
+ */
 export function ScreensSection({
   images,
   onOpenDialog,
   onImportCaptures,
+  onOpenAdd,
 }: {
   images: ImageCache;
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
+  onOpenAdd: () => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
+  const selectedItems = useStore(editorStore, (s) => s.selectedItems);
   const [dismissedOnboardingScreenId, setDismissedOnboardingScreenId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; description: string } | null>(null);
+  const [layersCollapsed, setLayersCollapsed] = useState(false);
+  const [draggingScreen, setDraggingScreen] = useState(false);
   const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -54,23 +64,10 @@ export function ScreensSection({
   useEffect(() => {
     if (!activeScreenId) return;
     const id = requestAnimationFrame(() => {
-      const list = screenListRef.current;
-      if (!list) return;
       const activeButton = Array.from(
-        list.querySelectorAll<HTMLButtonElement>("button[data-screen-id]"),
+        screenListRef.current?.querySelectorAll<HTMLButtonElement>("button[data-screen-id]") ?? [],
       ).find((button) => button.dataset.screenId === activeScreenId);
-      const row = activeButton?.closest<HTMLElement>("[role='listitem']");
-      if (!row) return;
-
-      const listRect = list.getBoundingClientRect();
-      const rowRect = row.getBoundingClientRect();
-      const fullyVisible = rowRect.top >= listRect.top && rowRect.bottom <= listRect.bottom;
-      if (fullyVisible) return;
-
-      list.scrollTo({
-        top: list.scrollTop + rowRect.top - listRect.top - (list.clientHeight - rowRect.height) / 2,
-        behavior: "smooth",
-      });
+      activeButton?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
     return () => cancelAnimationFrame(id);
   }, [activeScreenId]);
@@ -87,6 +84,12 @@ export function ScreensSection({
   const listLabel = activeScreen
     ? `Screens for ${activeLocale} · ${activeScreen.device}`
     : `Screens for ${activeLocale}`;
+  const scopeScreen = activeScreen ?? screens[0];
+  const scopeLabel = [
+    String(screens.length),
+    activeLocale.toUpperCase(),
+    ...(scopeScreen ? [outputFamilyEditorLabel(scopeScreen.platform, scopeScreen.device)] : []),
+  ].join(" · ");
   const firstRunScreen = layout.screens.length === 1 && layout.screens[0]!.elements.length === 0
     ? layout.screens[0]!
     : null;
@@ -98,8 +101,14 @@ export function ScreensSection({
   );
 
   const onDragEnd = (e: DragEndEvent) => {
+    setDraggingScreen(false);
     if (!e.over || e.active.id === e.over.id) return;
     mutateAndSave(() => editorStore.getState().reorderScreens(String(e.active.id), String(e.over!.id)));
+  };
+
+  const selectScreen = (id: string) => {
+    setLayersCollapsed(false);
+    editorStore.getState().selectScreen(id);
   };
 
   const onDelete = (id: string, name: string) => {
@@ -130,8 +139,11 @@ export function ScreensSection({
           </div>
         </div>
       ) : null}
-      <header className="flex items-center justify-between px-3 py-3">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Screens</h2>
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-white px-3 py-3">
+        <div className="flex min-w-0 items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+          <h2 className="shrink-0">Screens</h2>
+          <span className="truncate font-medium normal-case tracking-normal text-slate-500">· {scopeLabel}</span>
+        </div>
         <AddMenu
           ariaLabel="Add screen"
           menuLabel="Add screen options"
@@ -152,58 +164,74 @@ export function ScreensSection({
           }}
         />
       </header>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={() => setDraggingScreen(true)}
+        onDragCancel={() => setDraggingScreen(false)}
+        onDragEnd={onDragEnd}
+      >
         <SortableContext items={screens.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div
-            ref={screenListRef}
-            role="list"
-            aria-label={listLabel}
-            className="max-h-64 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
-          >
-            {screens.map((s, index) => (
-              <SortableRow
-                key={s.id}
-                id={s.id}
-                role="listitem"
-                className={`min-h-[3.25rem] py-1 ${s.id === activeScreenId ? "bg-blue-50 ring-1 ring-blue-100" : ""}`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`relative inline-flex h-12 w-7 shrink-0 items-center justify-center overflow-visible rounded-md border bg-slate-900 text-white shadow-sm ${
-                    s.id === activeScreenId
-                      ? "border-blue-300 ring-2 ring-blue-200/70"
-                      : "border-slate-300"
-                  }`}
+          <div ref={screenListRef} role="list" aria-label={listLabel}>
+            {screens.map((s, index) => {
+              const active = s.id === activeScreenId;
+              const expanded = active && !layersCollapsed;
+              const selectedCount = selectedItems.filter((item) => item.screenId === s.id).length;
+              return (
+                <SortableRow
+                  key={s.id}
+                  id={s.id}
+                  role="listitem"
+                  className={cx("min-h-[3.25rem] py-1", active && "bg-blue-50 ring-1 ring-blue-100")}
+                  nested={expanded && !draggingScreen ? <LayersSection onOpenAdd={onOpenAdd} /> : undefined}
                 >
-                  <DynamicScreenThumbnail project={project} layoutId={layout.id} screenId={s.id} images={images} />
-                  <span className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border border-white bg-slate-700 text-[8px] font-semibold leading-none text-white">
-                    {index + 1}
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-label={expanded ? `Hide layers of ${s.name}` : `Show layers of ${s.name}`}
+                    className={cx(editorUi.rowIconButton, "shrink-0")}
+                    onClick={() => (active ? setLayersCollapsed(!layersCollapsed) : selectScreen(s.id))}
+                  >
+                    {expanded ? <ChevronDown size={12} strokeWidth={2} /> : <ChevronRight size={12} strokeWidth={2} />}
+                  </button>
+                  <span
+                    aria-hidden="true"
+                    className={`relative inline-flex h-12 w-7 shrink-0 items-center justify-center overflow-visible rounded-md border bg-slate-900 text-white shadow-sm ${
+                      s.id === activeScreenId
+                        ? "border-blue-300 ring-2 ring-blue-200/70"
+                        : "border-slate-300"
+                    }`}
+                  >
+                    <DynamicScreenThumbnail project={project} layoutId={layout.id} screenId={s.id} images={images} />
+                    <span className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border border-white bg-slate-700 text-[8px] font-semibold leading-none text-white">
+                      {index + 1}
+                    </span>
                   </span>
-                </span>
-                <button
-                  onClick={() => editorStore.getState().selectScreen(s.id)}
-                  data-screen-id={s.id}
-                  aria-label={`${s.name} · ${s.device}`}
-                  aria-current={s.id === activeScreenId ? "true" : undefined}
-                  className={`min-w-0 flex-1 rounded-md px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
-                    s.id === activeScreenId ? "text-blue-700" : "text-slate-700"
-                  }`}
-                >
-                  <span className="block truncate text-xs font-semibold">{s.name}</span>
-                  <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-600">
-                    {s.device} · {s.locale}{s.storeTargetId ? ` · ${s.storeTargetId}` : ""} · {s.artboard.width}×{s.artboard.height}
-                  </span>
-                </button>
-                <button
-                  onClick={() => onDelete(s.id, s.name)}
-                  disabled={isPrimaryScreen(deletionRootFor(s)) && localeRootScreenCount <= 1}
-                  aria-label={`Delete ${s.name}`}
-                  className={`${editorUi.iconButtonDanger} opacity-0 group-hover:opacity-100 focus-visible:opacity-100`}
-                >
-                  <Trash2 size={14} strokeWidth={1.8} />
-                </button>
-              </SortableRow>
-            ))}
+                  <button
+                    onClick={() => selectScreen(s.id)}
+                    data-screen-id={s.id}
+                    aria-label={`${s.name} · ${s.device}`}
+                    aria-current={active ? "true" : undefined}
+                    className={`min-w-0 flex-1 rounded-md px-1.5 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
+                      active ? "text-blue-700" : "text-slate-700"
+                    }`}
+                  >
+                    <span className="block truncate text-xs font-semibold">{s.name}</span>
+                    <span className="mt-0.5 block truncate text-[10px] font-medium text-slate-600">
+                      {screenTreeSummary(s.elements.length, selectedCount)}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => onDelete(s.id, s.name)}
+                    disabled={isPrimaryScreen(deletionRootFor(s)) && localeRootScreenCount <= 1}
+                    aria-label={`Delete ${s.name}`}
+                    className={`${editorUi.iconButtonDanger} opacity-0 group-hover:opacity-100 focus-visible:opacity-100`}
+                  >
+                    <Trash2 size={14} strokeWidth={1.8} />
+                  </button>
+                </SortableRow>
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>

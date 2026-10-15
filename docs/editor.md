@@ -58,8 +58,11 @@ The editor has five durable interaction roles even if their placement changes:
   and canvas patterns affect only the workspace view, never the export.
 - **Structure and resources** expose ordered screens/layers and reusable local fonts, themes,
   templates, and assets. Their controls act on the explicit current scope.
-- **Authoring and inspection** add or edit strict project literals. The inspector exposes only fields
-  valid for the selected object; no selection exposes the current artboard context.
+- **Authoring and inspection** add or edit strict project literals. The Inspector has **Layer** and
+  **Screen** tabs: Layer exposes only fields valid for the selected object, and Screen exposes the
+  artboard, output, structure, and background context of the screen the Inspector header names.
+  Selecting a layer opens Layer and clearing the selection opens Screen; a tab the user picks holds
+  until the selection changes.
 - **Feedback and recovery** show save, validation, import, export, missing-resource, and destructive
   outcomes in place, with a clear next action.
 
@@ -70,8 +73,13 @@ The Workspace Export dialog keeps rendered store images separate from the portab
 archive. Project archive export flushes pending saves first and is available only when the active
 managed project advertises archive-export capability.
 
+Structure presents one **Screens → Layers** tree for the current exact-size scope. The active screen
+expands to its layers, front-most first; layer reorder applies only to the active screen, and every
+layer row has a direct lock toggle.
+
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
-controls; multi-selection supports only operations that remain meaningful for every selected object.
+controls; multi-selection supports only operations that remain meaningful for every selected object
+and states which single-layer fields it hides.
 Locked content stays inspectable but cannot be changed through direct manipulation. Text editing has a
 clear commit/cancel path, and keyboard interaction must match visible controls.
 A plain click on blank canvas clears the element selection; a modified blank click preserves the
