@@ -23,9 +23,9 @@ export function resolveInspectorTab(selectionKey: string, choice: InspectorTabCh
 }
 
 /**
- * Inspector context line: a title and an optional detail; the selected tab already names the scope.
- * The Screen tab always names the active screen: its background, artboard, and output edits target
- * that screen even when a connected-layout selection belongs to a neighbouring screen.
+ * Inspector header title and subtitle. The Screen tab always names the active screen: its
+ * background, artboard, and output edits target that screen even when a connected-layout selection
+ * belongs to a neighbouring screen.
  */
 export function inspectorHeading({
   tab,
@@ -39,12 +39,12 @@ export function inspectorHeading({
   selectionScreenName: string;
 }): [title: string, subtitle: string] {
   if (tab === "screen") {
-    return [activeScreenName, selectedElements.length === 0 ? "nothing selected" : ""];
+    return [activeScreenName, selectedElements.length === 0 ? "Screen · nothing selected" : "Screen"];
   }
   if (selectedElements.length > 1) {
     return [`${selectedElements.length} layers selected`, selectionTypeSummary(selectedElements)];
   }
   const [element] = selectedElements;
-  if (element) return [elementLabel(element), `${elementTypeLabel(element.type).toLowerCase()} layer · ${selectionScreenName}`];
-  return [activeScreenName, "nothing selected"];
+  if (element) return [elementLabel(element), `${elementTypeLabel(element.type)} layer · ${selectionScreenName}`];
+  return [activeScreenName, "Nothing selected"];
 }

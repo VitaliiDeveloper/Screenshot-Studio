@@ -32,10 +32,10 @@ describe("inspector tab", () => {
       selectedElements: [{ type: "text" as const, name: "Headline" }],
       selectionScreenName: "Second",
     };
-    expect(inspectorHeading({ tab: "screen", ...selection })).toEqual(["First", ""]);
-    expect(inspectorHeading({ tab: "layer", ...selection })).toEqual(["Headline", "text layer · Second"]);
+    expect(inspectorHeading({ tab: "screen", ...selection })).toEqual(["First", "Screen"]);
+    expect(inspectorHeading({ tab: "layer", ...selection })).toEqual(["Headline", "Text layer · Second"]);
     expect(inspectorHeading({ tab: "screen", ...selection, selectedElements: [] }))
-      .toEqual(["First", "nothing selected"]);
+      .toEqual(["First", "Screen · nothing selected"]);
     expect(inspectorHeading({
       tab: "layer",
       ...selection,
