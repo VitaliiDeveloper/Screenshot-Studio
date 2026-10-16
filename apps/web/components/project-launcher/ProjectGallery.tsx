@@ -12,7 +12,13 @@ import {
 import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
-import { neighbourEntryId, type ProjectLibraryNotice } from "./project-action-notice";
+import {
+  neighbourEntryId,
+  projectCardExitMs,
+  projectCardSlideEasing,
+  projectCardSlideMs,
+  type ProjectLibraryNotice,
+} from "./project-action-notice";
 
 export interface ProjectLibraryAction {
   entryId: string;
@@ -75,8 +81,8 @@ export function ProjectGallery({
   const galleryRef = useRef<HTMLElement>(null);
   const cardPositionsRef = useRef(new Map<string, { left: number; top: number }>());
 
-  // FLIP: cards that moved into a freed slot start at their old position and slide home through
-  // their own transform transition, which the global reduced-motion rule already shortens.
+  // FLIP: cards that moved into a freed slot start at their old position and slide home. The global
+  // reduced-motion rule shortens this transition to an instant jump.
   useLayoutEffect(() => {
     const positions = new Map<string, { left: number; top: number }>();
     for (const card of galleryRef.current?.querySelectorAll<HTMLElement>("li[data-entry-id]") ?? []) {
@@ -88,8 +94,9 @@ export function ProjectGallery({
       card.style.transition = "none";
       card.style.transform = `translate(${previous.left - position.left}px, ${previous.top - position.top}px)`;
       void card.offsetWidth;
-      card.style.transition = "";
+      card.style.transition = `transform ${projectCardSlideMs}ms ${projectCardSlideEasing}`;
       card.style.transform = "";
+      card.addEventListener("transitionend", () => { card.style.transition = ""; }, { once: true });
     }
     cardPositionsRef.current = positions;
   }, [entries, leavingEntryId]);
@@ -196,7 +203,7 @@ export function ProjectGallery({
           </>;
           const leaving = leavingEntryId === entry.entryId;
           return (
-            <li key={entry.entryId} data-entry-id={entry.entryId} data-motion={leaving ? "leaving" : undefined} inert={leaving || undefined} aria-busy={pending || undefined} className={cx(
+            <li key={entry.entryId} data-entry-id={entry.entryId} data-motion={leaving ? "leaving" : undefined} inert={leaving || undefined} style={leaving ? { animationDuration: `${projectCardExitMs}ms` } : undefined} aria-busy={pending || undefined} className={cx(
               "project-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow,transform] duration-150",
               !unavailable && "hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg motion-reduce:transform-none",
             )}>

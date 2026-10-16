@@ -166,7 +166,7 @@ button:disabled {
 @keyframes project-card-leave {
   to {
     opacity: 0;
-    transform: scale(0.96);
+    transform: translateY(8px) scale(0.94);
   }
 }
 
@@ -192,9 +192,11 @@ button:disabled {
   animation: project-card-action-status-out 180ms ease-in forwards;
 }
 
-/* Duration mirrors projectCardExitMs, which removes the card once this finishes. */
+/* The gallery sets animation-duration inline from projectCardExitMs. */
 .project-card[data-motion="leaving"] {
-  animation: project-card-leave var(--editor-motion-fast) var(--editor-motion-ease) forwards;
+  animation-name: project-card-leave;
+  animation-timing-function: var(--editor-motion-ease);
+  animation-fill-mode: forwards;
 }
 
 .launcher-dialog-backdrop[data-motion="closing"] {

@@ -10,8 +10,11 @@ export const projectActionNoticeVisibleMs = 2_400;
 export const projectActionNoticeExitMs = 180;
 // Launcher toasts carry a full sentence, so they stay readable longer than card notices.
 export const projectToastVisibleMs = 5_000;
-// Matches --editor-motion-fast, which drives the leaving card's CSS animation.
-export const projectCardExitMs = 150;
+// Single source for card removal timing: the gallery applies these to the leaving card's animation
+// and the neighbours' slide, and the launcher drops the entry once the exit finishes.
+export const projectCardExitMs = 280;
+export const projectCardSlideMs = 320;
+export const projectCardSlideEasing = "cubic-bezier(0.2, 0, 0, 1)";
 
 /** The card that should take focus when `removedId` leaves: the next one, else the previous. */
 export function neighbourEntryId(
