@@ -26,7 +26,7 @@ import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
-import { elementTypeLabel } from "@web/lib/panel-helpers";
+import { typeCountLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
@@ -108,7 +108,6 @@ export function Inspector({
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
   const tab = resolveInspectorTab(selectionKey, tabChoice);
-  // Screen-tab store actions edit the active screen, so the tab shows that screen.
   const activeScreen = getScreen(project, activeLayoutId, activeScreenId);
   const [title, subtitle] = inspectorHeading({
     tab,
@@ -147,7 +146,7 @@ export function Inspector({
             {tab === "layer" && selectionTypeGroups.length > 1 ? (
               <p className="truncate text-[10px] text-slate-600">
                 {selectionTypeGroups.map(({ type, items }, index) => {
-                  const label = `${items.length} ${elementTypeLabel(type).toLowerCase()}`;
+                  const label = typeCountLabel(type, items.length);
                   return (
                     <Fragment key={type}>
                       {index > 0 ? " · " : null}

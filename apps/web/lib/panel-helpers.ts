@@ -29,11 +29,16 @@ export function screenTreeSummary(layerCount: number, selectedCount: number): st
   return selectedCount > 0 ? `${layers} · ${selectedCount} selected` : layers;
 }
 
+/** One entry of a selection type breakdown, e.g. "2 text". */
+export function typeCountLabel(type: Element["type"], count: number): string {
+  return `${count} ${TYPE_LABELS[type].toLowerCase()}`;
+}
+
 /** Type breakdown of a multi-layer selection in first-seen order, e.g. "2 text · 1 shape". */
 export function selectionTypeSummary(elements: readonly Pick<Element, "type">[]): string {
   const counts = new Map<Element["type"], number>();
   for (const { type } of elements) counts.set(type, (counts.get(type) ?? 0) + 1);
-  return [...counts].map(([type, count]) => `${count} ${TYPE_LABELS[type].toLowerCase()}`).join(" · ");
+  return [...counts].map(([type, count]) => typeCountLabel(type, count)).join(" · ");
 }
 
 /**

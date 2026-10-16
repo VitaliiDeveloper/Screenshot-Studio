@@ -197,7 +197,7 @@ export function ScreensSection({
                   <span
                     aria-hidden="true"
                     className={`relative inline-flex h-12 w-7 shrink-0 items-center justify-center overflow-visible rounded-md border bg-slate-900 text-white shadow-sm ${
-                      s.id === activeScreenId
+                      active
                         ? "border-blue-300 ring-2 ring-blue-200/70"
                         : "border-slate-300"
                     }`}

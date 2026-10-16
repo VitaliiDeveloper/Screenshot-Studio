@@ -85,7 +85,7 @@ export function InspectorTabs({
       {/* Equal halves let the indicator slide by its own width, with no measuring. */}
       <span
         aria-hidden="true"
-        className="absolute -bottom-px left-0 h-0.5 w-1/2 rounded-full bg-blue-600 transition-transform duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none"
+        className="absolute -bottom-px left-0 h-0.5 w-1/2 rounded-full bg-blue-600 transition-transform duration-200 ease-[var(--editor-motion-ease)]"
         style={{ transform: `translateX(${index * 100}%)` }}
       />
     </div>
