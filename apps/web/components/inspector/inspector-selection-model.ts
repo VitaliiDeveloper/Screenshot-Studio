@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { findElementLocation, getLayout, getScreen, type Project } from "@screenshot-studio/core/model";
+import {
+  findElementLocation,
+  getLayout,
+  getScreen,
+  type Element,
+  type Project,
+} from "@screenshot-studio/core/model";
 import {
   primarySelection,
   selectionBounds,
@@ -36,6 +42,14 @@ export function deriveInspectorSelection(
   const selectedElements = selectedLocations.flatMap(({ location }) => (
     location ? [location.element] : []
   ));
+  // Type groups in first-seen order, matching the header's "2 text · 1 shape" summary.
+  const selectionTypeGroups = new Map<Element["type"], SelectionRef[]>();
+  for (const { selection, location } of selectedLocations) {
+    if (!location) continue;
+    const group = selectionTypeGroups.get(location.element.type) ?? [];
+    group.push(selection);
+    selectionTypeGroups.set(location.element.type, group);
+  }
   const everyLocked = selectedElements.length > 0
     && selectedElements.every((candidate) => candidate.locked);
   const everyHidden = selectedElements.length > 0
@@ -66,6 +80,7 @@ export function deriveInspectorSelection(
     effectiveLocked,
     aggregate,
     selectedElements,
+    selectionTypeGroups: [...selectionTypeGroups].map(([type, items]) => ({ type, items })),
     everyLocked,
     everyHidden,
     canGroup,

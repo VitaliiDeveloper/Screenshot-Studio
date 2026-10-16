@@ -47,9 +47,11 @@ describe("inspector tab", () => {
     const markup = renderToStaticMarkup(React.createElement(InspectorTabs, {
       tab: "screen",
       idPrefix: "insp",
+      layerEmpty: true,
       onSelect: () => undefined,
     }));
     expect(markup).toContain('role="tablist"');
+    expect(markup).toMatch(/id="insp-tab-layer"[^>]*title="Select a layer to edit it"/);
     expect(markup).toMatch(/id="insp-tab-layer"[^>]*aria-selected="false"[^>]*tabindex="-1"/);
     expect(markup).toMatch(/id="insp-tab-screen"[^>]*aria-selected="true"[^>]*tabindex="0"/);
     expect(markup).toContain('aria-controls="insp-panel"');
