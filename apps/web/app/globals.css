@@ -241,6 +241,22 @@ button:disabled {
   animation: artboard-size-value-in 180ms var(--editor-motion-ease);
 }
 
+/*
+ * Side panels keep their width when content starts to scroll, so switching tabs never shifts it.
+ * The thin bar stays hidden until the pointer or keyboard focus is inside the panel; a mouse click
+ * leaves focus on a button, so plain :focus-within would keep it visible.
+ */
+.editor-scroll-area {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.editor-scroll-area:hover,
+.editor-scroll-area:has(:focus-visible) {
+  scrollbar-color: var(--editor-color-border-strong) transparent;
+}
+
 @keyframes inspector-panel-in {
   from {
     opacity: 0;
