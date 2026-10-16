@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
 import {
   DEFAULT_STORE_SPECS,
@@ -12,7 +12,7 @@ import {
 import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
-import type { ProjectLibraryNotice } from "./project-action-notice";
+import { neighbourEntryId, type ProjectLibraryNotice } from "./project-action-notice";
 
 export interface ProjectLibraryAction {
   entryId: string;
@@ -51,6 +51,7 @@ export function ProjectGallery({
   action,
   actionError,
   actionNotice,
+  leavingEntryId = null,
   visibleOpeningEntryId,
   onOpen,
   onOpenDetails,
@@ -63,6 +64,7 @@ export function ProjectGallery({
   action: ProjectLibraryAction | null;
   actionError: string | null;
   actionNotice: ProjectLibraryNotice | null;
+  leavingEntryId?: string | null;
   visibleOpeningEntryId: string | null;
   onOpen(entryId: string): void;
   onOpenDetails(entryId: string): void;
@@ -71,6 +73,42 @@ export function ProjectGallery({
   onRemoveRecent(entryId: string): void;
 }) {
   const galleryRef = useRef<HTMLElement>(null);
+  const cardPositionsRef = useRef(new Map<string, { left: number; top: number }>());
+
+  // FLIP: cards that moved into a freed slot start at their old position and slide home through
+  // their own transform transition, which the global reduced-motion rule already shortens.
+  useLayoutEffect(() => {
+    const positions = new Map<string, { left: number; top: number }>();
+    for (const card of galleryRef.current?.querySelectorAll<HTMLElement>("li[data-entry-id]") ?? []) {
+      const entryId = card.dataset.entryId!;
+      const position = { left: card.offsetLeft, top: card.offsetTop };
+      positions.set(entryId, position);
+      const previous = cardPositionsRef.current.get(entryId);
+      if (!previous || (previous.left === position.left && previous.top === position.top)) continue;
+      card.style.transition = "none";
+      card.style.transform = `translate(${previous.left - position.left}px, ${previous.top - position.top}px)`;
+      void card.offsetWidth;
+      card.style.transition = "";
+      card.style.transform = "";
+    }
+    cardPositionsRef.current = positions;
+  }, [entries, leavingEntryId]);
+
+  // Passive, so it runs after a closing dialog has restored focus into the leaving card.
+  useEffect(() => {
+    if (!leavingEntryId) return;
+    const gallery = galleryRef.current;
+    const active = document.activeElement;
+    const leavingCard = gallery?.querySelector(`li[data-entry-id="${CSS.escape(leavingEntryId)}"]`);
+    if (active && active !== document.body && !leavingCard?.contains(active)) return;
+    const targetId = neighbourEntryId(entries, leavingEntryId);
+    if (!targetId) return;
+    gallery?.querySelector(`li[data-entry-id="${CSS.escape(targetId)}"]`)
+      ?.querySelector<HTMLElement>("button:not(:disabled), summary")
+      ?.focus({ preventScroll: true });
+    // Only the start of a leave moves focus; later entry refreshes must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leavingEntryId]);
 
   useEffect(() => {
     const dismissOutside = (event: PointerEvent) => {
@@ -156,9 +194,10 @@ export function ProjectGallery({
               ) : null}
             </span>
           </>;
+          const leaving = leavingEntryId === entry.entryId;
           return (
-            <li key={entry.entryId} aria-busy={pending || undefined} className={cx(
-              "group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow,transform] duration-150",
+            <li key={entry.entryId} data-entry-id={entry.entryId} data-motion={leaving ? "leaving" : undefined} inert={leaving || undefined} aria-busy={pending || undefined} className={cx(
+              "project-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow,transform] duration-150",
               !unavailable && "hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg motion-reduce:transform-none",
             )}>
               {unavailable ? (
