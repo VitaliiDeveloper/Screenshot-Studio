@@ -207,6 +207,16 @@ export class ManagedProjectRepository {
     const snapshot = await this.#validateDirectory(stagePath);
     const name = input.name?.trim() || snapshot.project.meta.name;
     const id = await this.#catalog.reserveProjectId();
+    // Recovery takes the same lock, so it never finishes or undoes a publication that is still running.
+    return withManagedProjectLifecycleLock(this.config, id, () => this.#publishReserved(input, id, name, stagePath));
+  }
+
+  async #publishReserved(
+    input: { token: string },
+    id: string,
+    name: string,
+    stagePath: string,
+  ): Promise<ManagedProjectRecord> {
     const projectDirectory = join(this.config.projectsRoot, id);
     const intent: ManagedProjectPublicationIntent = {
       version: 1,
@@ -286,46 +296,58 @@ export class ManagedProjectRepository {
     await this.#ensureDirectories();
     for (const name of await readdir(this.config.recoveryRoot)) {
       if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
-      const intentPath = join(this.config.recoveryRoot, name);
-      const value = JSON.parse(await readFile(intentPath, "utf8")) as unknown;
-      if (isRecord(value) && value.operation === "delete") continue;
-      const intent = parseIntent(value);
-      const stagePath = join(this.config.stagingRoot, intent.token);
-      const projectDirectory = join(this.config.projectsRoot, intent.id);
-      const entry = await this.#catalog.get(intent.id);
-      const stageExists = await exists(stagePath);
-      const projectDirectoryExists = await exists(projectDirectory);
-      if (intent.phase === "prepared" && stageExists && !projectDirectoryExists) {
-        await this.#removeIntent(intent.id);
-        continue;
+      const projectId = name.slice(0, -".json".length);
+      await withManagedProjectLifecycleLock(this.config, projectId, () => this.#reconcileIntent(name));
+    }
+  }
+
+  async #reconcileIntent(name: string): Promise<void> {
+    const intentPath = join(this.config.recoveryRoot, name);
+    let value: unknown;
+    try {
+      value = JSON.parse(await readFile(intentPath, "utf8")) as unknown;
+    } catch (error) {
+      // The publication this call waited on finished and removed its intent.
+      if (errorCode(error) === "ENOENT") return;
+      throw error;
+    }
+    if (isRecord(value) && value.operation === "delete") return;
+    const intent = parseIntent(value);
+    const stagePath = join(this.config.stagingRoot, intent.token);
+    const projectDirectory = join(this.config.projectsRoot, intent.id);
+    const entry = await this.#catalog.get(intent.id);
+    const stageExists = await exists(stagePath);
+    const projectDirectoryExists = await exists(projectDirectory);
+    if (intent.phase === "prepared" && stageExists && !projectDirectoryExists) {
+      await this.#removeIntent(intent.id);
+      return;
+    }
+    if (intent.phase === "directory-published" && !entry && !projectDirectoryExists) {
+      if (stageExists) {
+        const ownedStagePath = await this.#ownedStagePath(intent.token);
+        await rm(ownedStagePath, { recursive: true, force: true });
+        await syncDirectoryBestEffort(this.config.stagingRoot);
       }
-      if (intent.phase === "directory-published" && !entry && !projectDirectoryExists) {
-        if (stageExists) {
-          const ownedStagePath = await this.#ownedStagePath(intent.token);
-          await rm(ownedStagePath, { recursive: true, force: true });
-          await syncDirectoryBestEffort(this.config.stagingRoot);
-        }
-        await this.#removeIntent(intent.id);
-        continue;
-      }
-      if (projectDirectoryExists) {
-        let snapshot: Awaited<ReturnType<typeof readProjectSnapshot>>;
-        try {
-          snapshot = await this.#validateDirectory(projectDirectory);
-        } catch (error) {
-          if (!entry) {
-            await this.#rename(projectDirectory, stagePath);
-            await this.#removeIntent(intent.id);
-            continue;
-          }
-          throw error;
-        }
+      await this.#removeIntent(intent.id);
+      return;
+    }
+    if (projectDirectoryExists) {
+      let snapshot: Awaited<ReturnType<typeof readProjectSnapshot>>;
+      try {
+        snapshot = await this.#validateDirectory(projectDirectory);
+      } catch (error) {
         if (!entry) {
-          const timestamp = this.#now().toISOString();
-          await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", lifecycleRevision: 1, createdAt: intent.createdAt, updatedAt: timestamp });
+          await this.#rename(projectDirectory, stagePath);
+          await this.#removeIntent(intent.id);
+          return;
         }
-        await this.#removeIntent(intent.id);
+        throw error;
       }
+      if (!entry) {
+        const timestamp = this.#now().toISOString();
+        await this.#catalog.insert({ id: intent.id, directoryName: intent.id, name: intent.name || snapshot.project.meta.name, lifecycle: "active", lifecycleRevision: 1, createdAt: intent.createdAt, updatedAt: timestamp });
+      }
+      await this.#removeIntent(intent.id);
     }
   }
 

@@ -192,6 +192,35 @@ describe("ManagedProjectRepository", () => {
     );
   });
 
+  it("keeps recovery from completing a publication that is still in flight", async () => {
+    const observer = await createRepository();
+    const catalog = new ManagedProjectCatalogStore(observer.config);
+    let recovery: Promise<void> | undefined;
+    const repository = new ManagedProjectRepository(observer.config, {
+      catalog: {
+        read: () => catalog.read(),
+        get: (id) => catalog.get(id),
+        list: () => catalog.list(),
+        reserveProjectId: () => catalog.reserveProjectId(),
+        // A concurrent request (the launcher listing projects) reconciles between directory and catalog publication.
+        insert: async (entry) => {
+          recovery ??= observer.reconcile();
+          await Promise.race([recovery, new Promise((resolve) => setTimeout(resolve, 200))]);
+          return catalog.insert(entry);
+        },
+        removeActive: (id, revision) => catalog.removeActive(id, revision),
+      },
+    });
+    const stage = await validStage(repository, "In flight");
+
+    const published = await repository.publishStage({ token: stage.token });
+    await recovery;
+
+    await expect(observer.list()).resolves.toMatchObject([{ id: published.id, name: "In flight" }]);
+    await expect(lstat(published.projectDirectory)).resolves.toMatchObject({ isDirectory: expect.any(Function) });
+    await expect(readdir(observer.config.recoveryRoot)).resolves.toEqual([]);
+  });
+
   it("reports a missing catalog entry with the dedicated recovery error", async () => {
     const repository = await createRepository();
 
