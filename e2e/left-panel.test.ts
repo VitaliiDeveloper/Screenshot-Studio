@@ -102,6 +102,18 @@ describe("left panel", () => {
     await page.close();
   });
 
+  it("expands the layers of a screen activated from the canvas", async () => {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "networkidle" });
+    await page.getByRole("list", { name: "Layers for Hero", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Hide layers of Hero", exact: true }).click();
+    await expect.poll(() => page.getByRole("list", { name: "Layers for Hero", exact: true }).count()).toBe(0);
+
+    await page.getByRole("button", { name: "Edit Save Fast", exact: true }).first().click();
+    await page.getByRole("list", { name: "Layers for Save Fast", exact: true }).waitFor({ timeout: 5_000 });
+    await page.close();
+  });
+
   it("reorders and deletes screens through the Structure panel", async () => {
     const before = screenIds();
     const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });

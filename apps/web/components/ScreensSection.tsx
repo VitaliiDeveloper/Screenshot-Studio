@@ -54,7 +54,8 @@ export function ScreensSection({
   const selectedItems = useStore(editorStore, (s) => s.selectedItems);
   const [dismissedOnboardingScreenId, setDismissedOnboardingScreenId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; description: string } | null>(null);
-  const [layersCollapsed, setLayersCollapsed] = useState(false);
+  // Keyed by screen: collapsing one never hides the layers of a screen activated from the canvas.
+  const [collapsedScreenId, setCollapsedScreenId] = useState<string | null>(null);
   const [draggingScreen, setDraggingScreen] = useState(false);
   const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
@@ -107,7 +108,7 @@ export function ScreensSection({
   };
 
   const selectScreen = (id: string) => {
-    setLayersCollapsed(false);
+    setCollapsedScreenId(null);
     editorStore.getState().selectScreen(id);
   };
 
@@ -175,7 +176,7 @@ export function ScreensSection({
           <div ref={screenListRef} role="list" aria-label={listLabel}>
             {screens.map((s, index) => {
               const active = s.id === activeScreenId;
-              const expanded = active && !layersCollapsed;
+              const expanded = active && collapsedScreenId !== s.id;
               const selectedCount = selectedItems.filter((item) => item.screenId === s.id).length;
               return (
                 <SortableRow
@@ -190,7 +191,7 @@ export function ScreensSection({
                     aria-expanded={expanded}
                     aria-label={expanded ? `Hide layers of ${s.name}` : `Show layers of ${s.name}`}
                     className={cx(editorUi.rowIconButton, "shrink-0")}
-                    onClick={() => (active ? setLayersCollapsed(!layersCollapsed) : selectScreen(s.id))}
+                    onClick={() => (active ? setCollapsedScreenId(expanded ? s.id : null) : selectScreen(s.id))}
                   >
                     {expanded ? <ChevronDown size={12} strokeWidth={2} /> : <ChevronRight size={12} strokeWidth={2} />}
                   </button>
