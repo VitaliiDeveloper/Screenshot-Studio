@@ -138,6 +138,7 @@ export function SliderNumberField({
   step,
   suffix,
   helpText,
+  layout = "stacked",
   onChange,
 }: {
   label: string;
@@ -147,14 +148,20 @@ export function SliderNumberField({
   step: number;
   suffix?: string;
   helpText?: string;
+  /** `inline` keeps label, slider, and value on one row. */
+  layout?: "stacked" | "inline";
   onChange: (value: number) => void;
 }) {
   const helpId = useId();
+  const inline = layout === "inline";
   return (
-    <div className="flex flex-col gap-1.5 text-xs">
+    <div className={inline
+      ? "grid grid-cols-[auto_minmax(0,1fr)_4.5rem] items-center gap-2 text-xs"
+      : "flex flex-col gap-1.5 text-xs"}
+    >
       <span className="text-[color:var(--editor-color-text-secondary)]">{label}</span>
       {helpText ? <span id={helpId} className="sr-only">{helpText}</span> : null}
-      <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2">
+      <div className={inline ? "contents" : "grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2"}>
         <input
           type="range"
           aria-label={label}

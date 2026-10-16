@@ -58,6 +58,7 @@ describe("inspector selection model", () => {
     expect(model.canGroup).toBe(true);
     expect(model.canUngroup).toBe(false);
     expect(model.canDuplicate).toBe(true);
+    expect(model.canAlign).toBe(false);
     expect(model.selectedElements.map((element) => element.id)).toEqual(["same", "second"]);
     expect(model.everyLocked).toBe(true);
     expect(model.everyHidden).toBe(true);
@@ -70,6 +71,15 @@ describe("inspector selection model", () => {
       { screenId: "other", elementId: "same" },
     ]);
     expect(model.canGroup).toBe(false);
+    expect(model.canAlign).toBe(true);
+    expect(model.canDistribute).toBe(false);
+
+    const lockedPrimary = fixture();
+    lockedPrimary.layouts[0]!.screens[1]!.elements[0]!.opacity = 0.4;
+    expect(deriveInspectorSelection(lockedPrimary, "primary", "first", [
+      { screenId: "other", elementId: "same" },
+      { screenId: "first", elementId: "same" },
+    ]).sharedOpacity).toBe(0.4);
   });
 
   it("treats an unlocked child of a locked group as effectively locked", () => {

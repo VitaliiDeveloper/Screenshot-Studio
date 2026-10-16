@@ -3,7 +3,24 @@
 
 import { useId, useState } from "react";
 import { useStore } from "zustand";
-import { Combine, Copy, EyeOff, Lock, LockOpen, PanelRightClose, Trash2, Ungroup } from "lucide-react";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
+  Combine,
+  Copy,
+  EyeOff,
+  Lock,
+  LockOpen,
+  PanelRightClose,
+  Trash2,
+  Ungroup,
+} from "lucide-react";
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
@@ -11,6 +28,7 @@ import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
 import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
+import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./inspector/ElementTypeInspectorSections";
 import { InspectorSection as Section } from "./inspector/InspectorSection";
 import { InspectorTabs, inspectorPanelId, inspectorTabId } from "./inspector/InspectorTabs";
@@ -31,6 +49,19 @@ function patch<T extends Element["type"]>(
 ) {
   mutateAndScheduleSave(() => editorStore.getState().patchElement({ id, type, patch: change }));
 }
+
+// Lucide names the guide axis: "Vertical" icons align x edges, "Horizontal" icons align y edges.
+const ALIGN_ACTIONS = [
+  { action: "left", label: "Align left", Icon: AlignStartVertical },
+  { action: "center", label: "Align horizontal centers", Icon: AlignCenterVertical },
+  { action: "right", label: "Align right", Icon: AlignEndVertical },
+  { action: "top", label: "Align top", Icon: AlignStartHorizontal },
+  { action: "middle", label: "Align vertical centers", Icon: AlignCenterHorizontal },
+  { action: "bottom", label: "Align bottom", Icon: AlignEndHorizontal },
+] as const;
+
+const SUBLABEL = "text-xs text-[color:var(--editor-color-text-secondary)]";
+const SHORTCUT_HINT = "ml-auto text-[color:var(--editor-color-text-subtle)]";
 
 /** Composition entry point for selection, element, and active-screen inspector sections. */
 export function Inspector({
@@ -69,6 +100,9 @@ export function Inspector({
     canGroup,
     canUngroup,
     canDuplicate,
+    canAlign,
+    canDistribute,
+    sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
   const tab = resolveInspectorTab(selectionKey, tabChoice);
@@ -158,19 +192,79 @@ export function Inspector({
               <p className="text-[11px] leading-4 text-slate-500">Drag on the canvas to move unlocked layers.</p>
             </Section>
             <Section title="Shared actions">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <span id={`${idPrefix}-align`} className={SUBLABEL}>Align</span>
+                <div role="group" aria-labelledby={`${idPrefix}-align`} className="grid grid-cols-6 gap-1">
+                  {ALIGN_ACTIONS.map(({ action, label, Icon }) => (
+                    <button
+                      key={action}
+                      type="button"
+                      aria-label={label}
+                      title={label}
+                      className={cx(editorUi.buttonSecondary, "!px-0")}
+                      disabled={!canAlign}
+                      onClick={() => mutateAndSave(() => editorStore.getState().arrangeSelected(action))}
+                    >
+                      <Icon size={14} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span id={`${idPrefix}-distribute`} className={SUBLABEL}>Distribute</span>
+                <div role="group" aria-labelledby={`${idPrefix}-distribute`} className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="Distribute horizontally"
+                    className={editorUi.buttonSecondary}
+                    disabled={!canDistribute}
+                    onClick={() => mutateAndSave(() => editorStore.getState().arrangeSelected("distribute-horizontal"))}
+                  >
+                    <AlignHorizontalDistributeCenter size={14} /> Horizontal
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Distribute vertically"
+                    className={editorUi.buttonSecondary}
+                    disabled={!canDistribute}
+                    onClick={() => mutateAndSave(() => editorStore.getState().arrangeSelected("distribute-vertical"))}
+                  >
+                    <AlignVerticalDistributeCenter size={14} /> Vertical
+                  </button>
+                </div>
+              </div>
+              <div
+                onPointerUp={() => editorStore.getState().endHistoryGroup()}
+                onBlur={() => editorStore.getState().endHistoryGroup()}
+              >
+                <SliderNumberField
+                  label="Opacity"
+                  layout="inline"
+                  value={unitToPercent(sharedOpacity)}
+                  min={0}
+                  max={100}
+                  step={1}
+                  suffix="%"
+                  helpText="Applies to every unlocked selected layer. Exported images are always flattened and contain no alpha channel."
+                  onChange={(opacity) => mutateAndScheduleSave(
+                    () => editorStore.getState().setSelectedOpacity(percentToUnit(opacity)),
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
-                  className={editorUi.buttonSecondary}
+                  className={cx(editorUi.buttonSecondary, "!justify-start")}
                   aria-keyshortcuts="Control+G Meta+G"
                   disabled={!canGroup}
                   onClick={() => mutateAndSave(() => editorStore.getState().groupSelected())}
                 >
                   <Combine size={14} /> Group
+                  <span aria-hidden="true" className={SHORTCUT_HINT}>⌘G</span>
                 </button>
                 <button
                   type="button"
-                  className={editorUi.buttonSecondary}
+                  className={cx(editorUi.buttonSecondary, "!justify-start")}
                   aria-keyshortcuts="Control+Shift+G Meta+Shift+G"
                   disabled={!canUngroup}
                   onClick={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
@@ -179,16 +273,17 @@ export function Inspector({
                 </button>
                 <button
                   type="button"
-                  className={editorUi.buttonSecondary}
+                  className={cx(editorUi.buttonSecondary, "!justify-start")}
                   aria-keyshortcuts="Control+D Meta+D"
                   disabled={!canDuplicate}
                   onClick={() => mutateAndSave(() => editorStore.getState().duplicateSelected())}
                 >
                   <Copy size={14} /> Duplicate
+                  <span aria-hidden="true" className={SHORTCUT_HINT}>⌘D</span>
                 </button>
                 <button
                   type="button"
-                  className={editorUi.buttonSecondary}
+                  className={cx(editorUi.buttonSecondary, "!justify-start")}
                   onClick={() => mutateAndSave(() => editorStore.getState().setSelectedLocked(!everyLocked))}
                 >
                   {everyLocked ? <LockOpen size={14} /> : <Lock size={14} />}
@@ -196,17 +291,18 @@ export function Inspector({
                 </button>
                 <button
                   type="button"
-                  className={editorUi.buttonSecondary}
+                  className={cx(editorUi.buttonSecondary, "!justify-start")}
                   onClick={() => mutateAndSave(() => editorStore.getState().setSelectedVisible(everyHidden))}
                 >
                   <EyeOff size={14} /> {everyHidden ? "Show" : "Hide"}
                 </button>
                 <button
                   type="button"
-                  className={`${editorUi.buttonDanger} col-span-2`}
+                  aria-label="Delete selected"
+                  className={cx(editorUi.buttonDanger, "!justify-start")}
                   onClick={() => mutateAndSave(() => editorStore.getState().removeSelected())}
                 >
-                  <Trash2 size={14} /> Delete selected
+                  <Trash2 size={14} /> Delete
                 </button>
               </div>
             </Section>

@@ -79,7 +79,9 @@ layer row has a direct lock toggle.
 
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object
-and states which single-layer fields it hides.
+and states which single-layer fields it hides. Its shared actions align and distribute top-level
+layers against the rotation-aware selection bounds and set one opacity for the selection; each is a
+single undo step, and locked layers keep their position and opacity.
 Locked content stays inspectable but cannot be changed through direct manipulation. Text editing has a
 clear commit/cancel path, and keyboard interaction must match visible controls.
 A plain click on blank canvas clears the element selection; a modified blank click preserves the
