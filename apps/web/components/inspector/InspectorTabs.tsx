@@ -35,7 +35,7 @@ export function InspectorTabs({
       role="tablist"
       aria-label="Inspector sections"
       // Text size sits here: the global `button { font: inherit }` reset outranks utilities on buttons.
-      className="relative flex px-3 text-xs"
+      className="relative flex self-stretch pl-1 text-sm"
       onKeyDown={(event) => {
         const index = TABS.findIndex(({ value }) => value === tab);
         const nextIndex = event.key === "ArrowRight" ? (index + 1) % TABS.length
@@ -64,9 +64,10 @@ export function InspectorTabs({
             tabIndex={selected ? 0 : -1}
             title={empty ? "Select a layer to edit it" : undefined}
             className={cx(
-              "w-16 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/70",
-              empty ? "text-slate-400 hover:text-slate-600"
-                : selected ? "text-slate-950" : "text-slate-500 hover:text-slate-800",
+              "w-14 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/70",
+              // Dimmed, but still AA on white: the tab stays usable and only shows a hint.
+              empty ? "text-slate-500 hover:text-slate-700"
+                : selected ? "text-slate-950" : "text-slate-600 hover:text-slate-900",
             )}
             onClick={() => onSelect(value)}
           >
@@ -77,7 +78,7 @@ export function InspectorTabs({
       {/* Equal-width tabs let the indicator slide by its own width, with no measuring. */}
       <span
         aria-hidden="true"
-        className="absolute -bottom-px left-3 h-0.5 w-16 rounded-full bg-blue-600 transition-transform duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none"
+        className="absolute -bottom-px left-1 h-0.5 w-14 rounded-full bg-blue-600 transition-transform duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none"
         style={{ transform: `translateX(${TABS.findIndex(({ value }) => value === tab) * 100}%)` }}
       />
     </div>

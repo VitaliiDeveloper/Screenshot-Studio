@@ -140,46 +140,42 @@ export function Inspector({
       }}
     >
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
-        <div className="flex min-h-14 items-center justify-between gap-2 px-4">
-          <div className="min-w-0">
-            <h2 className="sr-only">Inspector</h2>
-            <p className="truncate text-sm font-medium tracking-tight text-slate-950">{title}</p>
-            {tab === "layer" && selectionTypeGroups.length > 1 ? (
-              <p className="truncate text-[10px] text-slate-600">
-                {selectionTypeGroups.map(({ type, items }, index) => {
-                  const label = `${items.length} ${elementTypeLabel(type).toLowerCase()}`;
-                  return (
-                    <Fragment key={type}>
-                      {index > 0 ? " · " : null}
-                      <button
-                        type="button"
-                        aria-label={`Select only ${label}`}
-                        title={`Select only ${label}`}
-                        className="rounded-sm underline decoration-slate-300 decoration-dotted underline-offset-2 hover:text-blue-700 hover:decoration-solid hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-                        onClick={() => editorStore.getState().setSelection(items)}
-                      >
-                        {label}
-                      </button>
-                    </Fragment>
-                  );
-                })}
-              </p>
-            ) : (
-              <p className="truncate text-[10px] text-slate-600">{subtitle}</p>
-            )}
-          </div>
+        <h2 className="sr-only">Inspector</h2>
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pr-2">
+          <InspectorTabs
+            tab={tab}
+            idPrefix={idPrefix}
+            layerEmpty={selectedItems.length === 0}
+            onSelect={(next) => setTabChoice({ tab: next, selectionKey })}
+          />
           {onClose ? (
             <button type="button" aria-label="Close inspector" className={editorUi.iconButton} onClick={onClose}>
               <PanelRightClose size={16} strokeWidth={1.9} />
             </button>
           ) : null}
         </div>
-        <InspectorTabs
-          tab={tab}
-          idPrefix={idPrefix}
-          layerEmpty={selectedItems.length === 0}
-          onSelect={(next) => setTabChoice({ tab: next, selectionKey })}
-        />
+        <p className="truncate px-4 py-2 text-[11px] text-slate-500">
+          <span className="font-medium text-slate-900">{title}</span>
+          {tab === "layer" && selectionTypeGroups.length > 1
+            ? selectionTypeGroups.map(({ type, items }) => {
+              const label = `${items.length} ${elementTypeLabel(type).toLowerCase()}`;
+              return (
+                <Fragment key={type}>
+                  {" · "}
+                  <button
+                    type="button"
+                    aria-label={`Select only ${label}`}
+                    title={`Select only ${label}`}
+                    className="rounded-sm underline decoration-slate-300 decoration-dotted underline-offset-2 hover:text-blue-700 hover:decoration-solid hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+                    onClick={() => editorStore.getState().setSelection(items)}
+                  >
+                    {label}
+                  </button>
+                </Fragment>
+              );
+            })
+            : subtitle ? ` · ${subtitle}` : null}
+        </p>
       </header>
       <div
         key={tab}
