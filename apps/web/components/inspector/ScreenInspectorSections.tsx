@@ -71,7 +71,7 @@ function ArtboardSizeEditor({
     return (
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Artboard</h3>
+          <h3 className={editorUi.sectionLabel}>Artboard</h3>
           <span className="rounded-md bg-[var(--editor-color-warning-surface)] px-1.5 py-0.5 text-[length:var(--editor-font-label-size)] font-medium text-[color:var(--editor-color-warning-text)]">Explicit override</span>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
@@ -102,7 +102,7 @@ function ArtboardSizeEditor({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Artboard</h3>
+        <h3 className={editorUi.sectionLabel}>Artboard</h3>
         <SegmentedControl
           label="Artboard size mode"
           value={!target ? undefined : authoringScale ? "store" : "custom"}

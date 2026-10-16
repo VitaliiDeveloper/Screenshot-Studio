@@ -8,19 +8,19 @@ const motion = "transition-colors duration-[var(--editor-motion-fast)] ease-[var
 const focusRing = "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-[length:var(--editor-focus-offset)]";
 const containedFocusRing = "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)]";
 const disabled = "disabled:pointer-events-none disabled:opacity-45";
-const buttonBase = `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--editor-radius-control)] px-[var(--editor-space-control-x)] text-[length:var(--editor-font-control-size)] font-medium ${motion} ${disabled} ${focusRing}`;
+const buttonBase = `inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--editor-radius-control)] px-[var(--editor-space-control-x)] text-[length:var(--editor-font-control-size)] font-normal ${motion} ${disabled} ${focusRing}`;
 const iconButtonBase = `inline-flex shrink-0 items-center justify-center ${motion} disabled:pointer-events-none disabled:opacity-35 ${focusRing}`;
 const rowIconButtonBase = `inline-flex size-7 shrink-0 items-center justify-center rounded-[var(--editor-radius-compact)] ${motion} ${containedFocusRing}`;
 
 export const editorUi = {
   buttonBase,
   buttonSecondary: `${buttonBase} border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-default)] shadow-[var(--editor-shadow-control)] hover:border-[var(--editor-color-border-strong)] hover:bg-[var(--editor-color-surface-subtle)]`,
-  buttonPrimary: `${buttonBase} bg-[var(--editor-color-accent)] font-semibold text-[color:var(--editor-color-on-accent)] shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-accent-hover)]`,
+  buttonPrimary: `${buttonBase} bg-[var(--editor-color-accent)] font-medium text-[color:var(--editor-color-on-accent)] shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-accent-hover)]`,
   buttonGhost: `${buttonBase} px-[var(--editor-space-control-compact-x)] text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`,
   buttonGhostAccent: `${buttonBase} px-[var(--editor-space-control-compact-x)] text-[color:var(--editor-color-accent)] hover:bg-[var(--editor-color-accent-subtle)] hover:text-[color:var(--editor-color-accent-hover)]`,
   buttonGhostActive: `${buttonBase} bg-[var(--editor-color-surface-muted)] px-[var(--editor-space-control-compact-x)] text-[color:var(--editor-color-text-strong)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`,
   buttonDanger: `${buttonBase} border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-danger)] shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-danger-surface)]`,
-  buttonDangerFilled: `${buttonBase} bg-[var(--editor-color-danger)] font-semibold text-[color:var(--editor-color-on-accent)] shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-danger-text)]`,
+  buttonDangerFilled: `${buttonBase} bg-[var(--editor-color-danger)] font-medium text-[color:var(--editor-color-on-accent)] shadow-[var(--editor-shadow-control)] hover:bg-[var(--editor-color-danger-text)]`,
   iconButton: `${iconButtonBase} size-8 rounded-[var(--editor-radius-control)] text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-default)]`,
   iconButtonActive: `${iconButtonBase} size-8 rounded-[var(--editor-radius-control)] bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-default)]`,
   iconButtonDanger: `${iconButtonBase} size-8 rounded-[var(--editor-radius-control)] text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger)]`,
@@ -42,7 +42,7 @@ export const editorUi = {
   insetPanel: "flex flex-col gap-[var(--editor-space-section-gap)] rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-[var(--editor-space-inset)]",
   resourceCard: "rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-[var(--editor-space-card)] shadow-[var(--editor-shadow-control)]",
   formPanel: "flex flex-col gap-3 rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle-translucent)] p-[var(--editor-space-card)]",
-  sectionLabel: "text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]",
+  sectionLabel: "text-[length:var(--editor-font-label-size)] font-normal uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-secondary)]",
   segmentedControl: "inline-flex shrink-0 gap-0.5 rounded-lg border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] p-1",
   segmentedControlFill: "flex w-full",
   segmentedButton: `inline-flex h-6 items-center justify-center whitespace-nowrap rounded-md font-medium ${motion} disabled:pointer-events-none disabled:opacity-50 ${containedFocusRing}`,

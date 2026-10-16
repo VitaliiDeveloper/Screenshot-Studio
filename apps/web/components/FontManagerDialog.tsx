@@ -197,7 +197,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
           <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
               <Upload size={15} className="text-slate-500" strokeWidth={1.8} />
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Upload file</h3>
+              <h3 className={editorUi.sectionLabel}>Upload file</h3>
             </div>
             <label className="block">
               <input
@@ -223,7 +223,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
           <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
               <CloudDownload size={15} className="text-slate-500" strokeWidth={1.8} />
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Google Fonts</h3>
+              <h3 className={editorUi.sectionLabel}>Google Fonts</h3>
             </div>
             <p className="text-xs leading-5 text-slate-500">Downloaded once and stored in the project. Rendering stays offline.</p>
             <input aria-label="Google font family" placeholder="Family, e.g. Inter" value={googleFamily} onChange={(event) => setGoogleFamily(event.target.value)} className={editorUi.field} />
@@ -239,7 +239,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
 
         <section className="mt-5 flex flex-col gap-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Registered</h3>
+            <h3 className={editorUi.sectionLabel}>Registered</h3>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{project.fonts.length} identities</span>
           </div>
           {project.fonts.length === 0 ? (

@@ -205,7 +205,7 @@ function AddPanel({
           if (rows.length === 0) return null;
           return (
             <section key={category} className="border-b border-slate-100 py-3 last:border-b-0">
-              <h3 className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{category}</h3>
+              <h3 className={`mb-1 px-2.5 ${editorUi.sectionLabel}`}>{category}</h3>
               {rows.map((item) => <AddCatalogRow key={item.id} item={item} onAction={onAction} />)}
             </section>
           );

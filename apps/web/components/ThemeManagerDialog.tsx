@@ -81,7 +81,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
     >
       {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
       {loading ? <p className="text-xs text-slate-500">Loading design packs…</p> : null}
-      {!loading ? <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Built-in packs</h3> : null}
+      {!loading ? <h3 className={`mb-2 ${editorUi.sectionLabel}`}>Built-in packs</h3> : null}
       <div className="flex flex-col gap-3">
         {builtIns.map((pack) => {
           const operationId = `built-in:${pack.id}`;
@@ -115,7 +115,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
         })}
       </div>
 
-      {!loading ? <h3 className="mb-2 mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Project themes</h3> : null}
+      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Project themes</h3> : null}
       {!loading && themes.length === 0 ? (
         <EmptyResourceState
           icon={Palette}
