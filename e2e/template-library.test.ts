@@ -146,7 +146,7 @@ describe("template library UI", () => {
     await page.getByRole("button", { name: "Structure panel", exact: true }).click();
     const screenButton = page.getByRole("button", { name: /Promo card · macos/ });
     await screenButton.waitFor({ state: "visible" });
-    expect(await screenButton.getAttribute("class")).toContain("text-blue-700");
+    expect(await screenButton.getAttribute("aria-current")).toBe("true");
 
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");

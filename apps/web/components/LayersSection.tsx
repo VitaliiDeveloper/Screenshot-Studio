@@ -216,6 +216,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       );
                     }}
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
+                    aria-pressed={selected}
                     className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
                       selected
                         ? "text-blue-700"
@@ -374,6 +375,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     <button
                       type="button"
                       onClick={() => editorStore.getState().select(child.id, activeScreenId)}
+                      aria-pressed={childSelected}
                       className={cx(
                         "min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
                         childSelected ? "text-blue-700" : "text-slate-600",
