@@ -36,7 +36,6 @@ export function InspectorTabs({
     <div
       role="tablist"
       aria-label="Inspector sections"
-      // Text size sits here: the global `button { font: inherit }` reset outranks utilities on buttons.
       className="relative grid grid-cols-2 text-xs"
       onKeyDown={(event) => {
         const nextIndex = event.key === "ArrowRight" ? (index + 1) % TABS.length
