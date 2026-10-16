@@ -385,7 +385,7 @@ export function Inspector({
             />
           </>
         ) : (
-          <p className="px-4 py-6 text-xs leading-5 text-slate-500">
+          <p className="px-4 py-4 text-xs leading-5 text-slate-500">
             Select a layer on the canvas or in the Layers list to edit it.
           </p>
         )}
