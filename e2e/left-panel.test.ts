@@ -59,11 +59,9 @@ describe("left panel", () => {
     const before = elementIds(); // ["accent", "headline"]
     const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
-    // Scope to the Layers section (the single screen is not reorderable), then focus the top
-    // layer row's drag handle and move it down one slot with the keyboard.
-    const layers = page.locator("section").filter({
-      has: page.getByRole("heading", { name: "Layers" }),
-    });
+    // Scope to the active screen's nested layers list, then focus the top layer row's drag handle
+    // and move it down one slot with the keyboard.
+    const layers = page.getByRole("list", { name: "Layers for Hero" });
     const handle = layers.getByLabel("Drag to reorder").first();
     await handle.waitFor();
     await handle.focus();
@@ -101,6 +99,18 @@ describe("left panel", () => {
     await rename.fill("Hero title");
     await rename.press("Enter");
     await expect.poll(() => elementName("headline"), { timeout: 10_000 }).toBe("Hero title");
+    await page.close();
+  });
+
+  it("expands the layers of a screen activated from the canvas", async () => {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "networkidle" });
+    await page.getByRole("list", { name: "Layers for Hero", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Hide layers of Hero", exact: true }).click();
+    await expect.poll(() => page.getByRole("list", { name: "Layers for Hero", exact: true }).count()).toBe(0);
+
+    await page.getByRole("button", { name: "Edit Save Fast", exact: true }).first().click();
+    await page.getByRole("list", { name: "Layers for Save Fast", exact: true }).waitFor({ timeout: 5_000 });
     await page.close();
   });
 

@@ -58,7 +58,7 @@ function project() {
   return JSON.parse(readFileSync(projectPath, "utf8")) as {
     layouts: Array<{ screens: Array<{
         id: string;
-        elements: Array<{ id: string; x: number; y: number; locked: boolean; visible: boolean }>;
+        elements: Array<{ id: string; x: number; y: number; opacity: number; locked: boolean; visible: boolean }>;
       }> }>;
   };
 }
@@ -88,7 +88,7 @@ describe("multi-select foundation", () => {
     await page.mouse.click(green.x, green.y);
     await page.keyboard.up("Shift");
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("2");
-    await page.getByText("2 elements", { exact: true }).waitFor({ state: "visible" });
+    await page.getByText("2 layers selected", { exact: true }).waitFor({ state: "visible" });
 
     // A plain click in the workspace outside every artboard clears the same shared selection.
     const workspace = page.getByRole("region", { name: "Canvas workspace" });
@@ -140,6 +140,32 @@ describe("multi-select foundation", () => {
     await page.mouse.click(blue.x, blue.y);
     await page.keyboard.up("Shift");
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("3");
+
+    // Shared arrange actions persist, keep the locked duplicate in place, and undo in one step.
+    const undo = page.getByRole("button", { name: "Undo", exact: true });
+    await page.getByRole("button", { name: "Align right", exact: true }).click();
+    await expect.poll(() => element("first", "same").x).toBe(340);
+    expect(element("first", "green").x).toBe(340);
+    expect(element("second", "same").x).toBe(40);
+    await undo.click();
+    await expect.poll(() => element("first", "same").x).toBe(redStart.x);
+    expect(element("first", "green").x).toBe(greenStart.x);
+
+    // Stage span 40..380 holding three 40px layers leaves two 110px gaps.
+    await page.getByRole("button", { name: "Distribute horizontally", exact: true }).click();
+    await expect.poll(() => element("first", "green").x).toBe(190);
+    await undo.click();
+    await expect.poll(() => element("first", "green").x).toBe(greenStart.x);
+
+    // The locked duplicate is primary; the slider follows the last layer it can change.
+    const opacity = page.getByRole("slider", { name: "Opacity" });
+    await opacity.fill("40");
+    await expect.poll(() => element("first", "same").opacity).toBe(0.4);
+    await expect.poll(() => opacity.inputValue()).toBe("40");
+    expect(element("first", "green").opacity).toBe(0.4);
+    expect(element("second", "same").opacity).toBe(1);
+    await undo.click();
+    await expect.poll(() => element("first", "same").opacity).toBe(1);
 
     await page.getByRole("button", { name: "Lock", exact: true }).click();
     await expect.poll(() => project().layouts[0].screens.every(

@@ -32,7 +32,6 @@ import {
 } from "@web/lib/editor-workspace";
 import { editorStore } from "@web/lib/editor-store";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { LayersSection } from "./LayersSection";
 import { ScreensSection } from "./ScreensSection";
 import { cx, editorUi } from "./editor-ui";
 
@@ -240,13 +239,13 @@ export function LeftPanel({
     <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
       <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
       {panel === "structure" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="editor-scroll-area min-h-0 flex-1 overflow-y-auto">
           <ScreensSection
             images={images}
             onOpenDialog={onOpenDialog}
             onImportCaptures={onImportCaptures}
+            onOpenAdd={onOpenAdd}
           />
-          <LayersSection onOpenAdd={onOpenAdd} />
         </div>
       ) : null}
       {panel === "resources" ? (

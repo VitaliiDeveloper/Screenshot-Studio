@@ -1132,6 +1132,64 @@ describe("editorStore multi-selection (phase 7 slice 1)", () => {
     expect(editorStore.getState().selectedItems).toEqual([]);
   });
 
+  it("aligns across connected owners in one undo step without moving locked layers", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+    // The locked second headline spans stage x 700..1280 and anchors the right edge.
+    editorStore.getState().arrangeSelected("right");
+
+    const [hero, second] = editorStore.getState().project!.layouts[0]!.screens;
+    expect(hero!.elements[0]).toMatchObject({ x: 700, y: 100 });
+    expect(second!.elements[0]).toMatchObject({ x: 40, y: 100, locked: true });
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+    expect(() => parseProject(editorStore.getState().project)).not.toThrow();
+
+    editorStore.getState().arrangeSelected("right");
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ x: 40 });
+  });
+
+  it("refuses to arrange group children against top-level selection bounds", () => {
+    const fixture = structuredClone(editorStore.getState().project!);
+    const child = structuredClone(fixture.layouts[0]!.screens[0]!.elements[0]!) as TextElement;
+    child.id = "nested";
+    fixture.layouts[0]!.screens[0]!.elements.push({
+      id: "hero-group", type: "group", x: 0, y: 0, width: 580, height: 200,
+      rotation: 0, opacity: 1, locked: false, visible: true, children: [child],
+    });
+    editorStore.getState().load(fixture);
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "hero", elementId: "nested" },
+    ]);
+    const before = editorStore.getState().project;
+
+    editorStore.getState().arrangeSelected("right");
+    expect(editorStore.getState().project).toBe(before);
+  });
+
+  it("sets unlocked selection opacity as one grouped undo step", () => {
+    editorStore.getState().setSelection([
+      { screenId: "hero", elementId: "headline" },
+      { screenId: "second", elementId: "headline" },
+    ]);
+    editorStore.getState().setSelectedOpacity(0.4);
+    editorStore.getState().setSelectedOpacity(0.25);
+    editorStore.getState().endHistoryGroup();
+
+    const [hero, second] = editorStore.getState().project!.layouts[0]!.screens;
+    expect(hero!.elements[0]!.opacity).toBe(0.25);
+    expect(second!.elements[0]!.opacity).toBe(1);
+    expect(editorStore.getState().historyPast).toHaveLength(1);
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.layouts[0]!.screens[0]!.elements[0]!.opacity).toBe(1);
+  });
+
 });
 
 describe("editorStore group authoring (phase 7 slice 3)", () => {

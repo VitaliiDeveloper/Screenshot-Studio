@@ -48,11 +48,11 @@ export function LayersHeading({
   showScreenContext: boolean;
 }) {
   return (
-    <h2 className="flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+    <h3 className="flex min-w-0 items-center gap-1.5 text-[10px] font-normal uppercase tracking-[0.09em] text-slate-500">
       <span>Layers</span>
       {showScreenContext ? <span className="truncate normal-case tracking-normal text-slate-500">· {screenName}</span> : null}
       <span className="shrink-0 font-medium tabular-nums tracking-normal text-slate-400">{count}</span>
-    </h2>
+    </h3>
   );
 }
 
@@ -80,7 +80,10 @@ function ElementTypeIcon({ element }: { element: Element }) {
   );
 }
 
-/** Layers list for the active screen. Rendered reversed: top row = front-most = last in array. */
+/**
+ * Layers of the active screen, nested under its row in the Screens → Layers tree. Rendered
+ * reversed: top row = front-most = last in array.
+ */
 export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
   const project = useStore(editorStore, (s) => s.project);
   const layout = useStore(editorStore, selectEditorLayout);
@@ -155,8 +158,8 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
     }));
 
   return (
-    <section className="pb-3">
-      <header className="px-3 py-3">
+    <div className="pb-2 pl-6">
+      <header className="px-3 py-1.5">
         <div className="flex items-center justify-between">
           <LayersHeading
             count={rows.length}
@@ -185,7 +188,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 id={el.id}
                 role="listitem"
                 className={cx(
-                  "relative pr-1",
+                  "relative pr-1 text-xs",
                   selected ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
                 )}
               >
@@ -215,13 +218,25 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
                     className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
                       selected
-                        ? "font-semibold text-blue-700"
+                        ? "text-blue-700"
                         : "text-slate-700"
                     } ${el.visible ? "" : "text-slate-400 line-through"}`}
                   >
                     {elementLabel(el)}
                   </button>
                 )}
+                <button
+                  type="button"
+                  aria-label={el.locked ? `Unlock ${elementLabel(el)}` : `Lock ${elementLabel(el)}`}
+                  title={el.locked ? "Unlock layer" : "Lock layer"}
+                  className={cx(
+                    editorUi.rowIconButton,
+                    el.locked ? "text-slate-700" : "opacity-60",
+                  )}
+                  onClick={() => patch(el, { locked: !el.locked })}
+                >
+                  {el.locked ? <Lock size={12} strokeWidth={2} /> : <LockOpen size={12} strokeWidth={1.8} />}
+                </button>
                 <button
                   ref={(node) => {
                     if (node) actionButtonRefs.current.set(el.id, node);
@@ -351,7 +366,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     key={child.id}
                     role="listitem"
                     className={cx(
-                      "mx-2 ml-10 flex min-h-9 items-center gap-1 rounded-lg border-l border-slate-200 px-2",
+                      "mx-2 ml-10 flex min-h-9 items-center gap-1 rounded-lg border-l border-slate-200 px-2 text-[11px]",
                       childSelected ? "bg-blue-50 ring-1 ring-blue-100" : "bg-slate-50/60",
                     )}
                   >
@@ -361,7 +376,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       onClick={() => editorStore.getState().select(child.id, activeScreenId)}
                       className={cx(
                         "min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
-                        childSelected ? "font-semibold text-blue-700" : "text-slate-600",
+                        childSelected ? "text-blue-700" : "text-slate-600",
                         !child.visible && "line-through text-slate-400",
                       )}
                     >
@@ -403,6 +418,6 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
       {rows.length === 0 ? (
         <p className="px-4 py-3 text-[11px] text-slate-400">No layers in this screen.</p>
       ) : null}
-    </section>
+    </div>
   );
 }

@@ -265,7 +265,7 @@ describe("editor workspace", () => {
     const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
     await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
-      .getByRole("listitem").count()).toBe(1);
+      .locator(":scope > [role='listitem']").count()).toBe(1);
 
     await page.getByRole("button", { name: "Add screen", exact: true }).click();
     await page.getByRole("menuitem", { name: "Blank screen", exact: true }).click();
@@ -290,7 +290,7 @@ describe("editor workspace", () => {
       artboard: { width: 1320, height: 2868 },
     });
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
-      .getByRole("listitem").count()).toBe(2);
+      .locator(":scope > [role='listitem']").count()).toBe(2);
     expect(await page.getByRole("button", { name: "Untitled · iphone", exact: true })
       .getAttribute("aria-current")).toBe("true");
     expect(await targetRow.getAttribute("aria-current")).toBe("true");
@@ -377,15 +377,16 @@ describe("editor workspace", () => {
     await expect.poll(() => storeOutputs.getByRole("heading", { name: "Destinations", exact: true }).count()).toBe(1);
 
     const ipadScreens = page.getByRole("list", { name: "Screens for en · ipad", exact: true });
-    await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
-    expect(await ipadScreens.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
-    expect(await ipadScreens.evaluate((element) => getComputedStyle(element).maxHeight)).toBe("256px");
+    await expect.poll(() => ipadScreens.locator(":scope > [role='listitem']").count()).toBe(3);
+    // The Screens → Layers tree scrolls with the panel while its header and Add screen stay pinned.
+    expect(await page.getByRole("heading", { name: "Screens", exact: true }).locator("xpath=ancestor::header[1]")
+      .evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
     const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
     await iphoneOutput.getByRole("button", { name: "Open App Store · iPhone output", exact: true }).click();
     const iphoneScreens = page.getByRole("list", { name: "Screens for en · iphone", exact: true });
-    await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
+    await expect.poll(() => iphoneScreens.locator(":scope > [role='listitem']").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
     expect(await page.getByRole("button", { name: "Hero · ipad", exact: true }).count()).toBe(0);

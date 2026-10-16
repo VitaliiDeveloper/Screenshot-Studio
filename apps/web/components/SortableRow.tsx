@@ -18,12 +18,15 @@ export function SortableRow({
   className,
   role,
   ariaLevel,
+  nested,
 }: {
   id: string;
   children: ReactNode;
   className?: string;
   role?: AriaRole;
   ariaLevel?: number;
+  /** Content shown below the row that moves with it while the row is dragged. */
+  nested?: ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -32,17 +35,12 @@ export function SortableRow({
     transition,
     opacity: isDragging ? 0.6 : 1,
   };
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      role={role}
-      aria-level={ariaLevel}
-      className={cx(
-        "group mx-3 my-0.5 flex min-h-9 items-center gap-1 rounded-lg px-1.5 transition-colors hover:bg-slate-50",
-        className,
-      )}
-    >
+  const rowClassName = cx(
+    "group mx-3 my-0.5 flex min-h-9 items-center gap-1 rounded-lg px-1.5 transition-colors hover:bg-slate-50",
+    className,
+  );
+  const row = (
+    <>
       <span
         {...attributes}
         {...listeners}
@@ -52,6 +50,19 @@ export function SortableRow({
         <GripVertical size={14} strokeWidth={1.8} />
       </span>
       {children}
+    </>
+  );
+  if (nested !== undefined) {
+    return (
+      <div ref={setNodeRef} style={style} role={role} aria-level={ariaLevel}>
+        <div className={rowClassName}>{row}</div>
+        {nested}
+      </div>
+    );
+  }
+  return (
+    <div ref={setNodeRef} style={style} role={role} aria-level={ariaLevel} className={rowClassName}>
+      {row}
     </div>
   );
 }

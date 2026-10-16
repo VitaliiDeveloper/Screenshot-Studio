@@ -1,6 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from "vitest";
-import { elementLabel, viewToArrayIndex } from "./panel-helpers.js";
+import {
+  elementLabel,
+  screenTreeSummary,
+  selectionTypeSummary,
+  viewToArrayIndex,
+} from "./panel-helpers.js";
+
+describe("screen tree labels", () => {
+  it("counts layers and the screen's selected layers", () => {
+    expect(screenTreeSummary(1, 0)).toBe("1 layer");
+    expect(screenTreeSummary(5, 3)).toBe("5 layers · 3 selected");
+  });
+  it("summarizes a mixed selection by type in first-seen order", () => {
+    expect(selectionTypeSummary([{ type: "text" }, { type: "shape" }, { type: "text" }]))
+      .toBe("2 text · 1 shape");
+    expect(selectionTypeSummary([{ type: "device-frame" }])).toBe("1 device frame");
+  });
+});
 
 describe("elementLabel", () => {
   it("uses the name when present", () => {

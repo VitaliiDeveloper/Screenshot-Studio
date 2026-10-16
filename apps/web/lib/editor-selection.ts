@@ -66,6 +66,72 @@ export function selectionBounds(
   activeScreenId: string,
   selections: readonly SelectionRef[],
 ): ElementBounds | null {
+  return unionBounds(selectedStageBounds(layout, activeScreenId, selections).map((item) => item.bounds));
+}
+
+export type ArrangeAction =
+  | "left" | "center" | "right"
+  | "top" | "middle" | "bottom"
+  | "distribute-horizontal" | "distribute-vertical";
+
+/**
+ * Per-selection translation that aligns or evenly spaces rotation-aware bounds inside
+ * `selectionBounds`. Distribution keeps the outermost layers fixed and needs three or more layers.
+ */
+export function arrangeSelectionDeltas(
+  layout: DesignLayout,
+  activeScreenId: string,
+  selections: readonly SelectionRef[],
+  action: ArrangeAction,
+): Map<string, { x: number; y: number }> {
+  const items = selectedStageBounds(layout, activeScreenId, selections);
+  const union = unionBounds(items.map((item) => item.bounds));
+  const deltas = new Map<string, { x: number; y: number }>();
+  if (!union || items.length < 2) return deltas;
+  if (action === "distribute-horizontal" || action === "distribute-vertical") {
+    if (items.length < 3) return deltas;
+    const [min, max] = action === "distribute-horizontal" ? ["minX", "maxX"] as const : ["minY", "maxY"] as const;
+    const sorted = [...items].sort((first, second) => first.bounds[min] - second.bounds[min]);
+    const occupied = sorted.reduce((sum, { bounds }) => sum + bounds[max] - bounds[min], 0);
+    const gap = (union[max] - union[min] - occupied) / (sorted.length - 1);
+    let cursor = union[min];
+    for (const { selection, bounds } of sorted) {
+      const shift = cursor - bounds[min];
+      deltas.set(selectionKey(selection), action === "distribute-horizontal" ? { x: shift, y: 0 } : { x: 0, y: shift });
+      cursor += bounds[max] - bounds[min] + gap;
+    }
+    return deltas;
+  }
+  for (const { selection, bounds } of items) {
+    const x = action === "left" ? union.minX - bounds.minX
+      : action === "right" ? union.maxX - bounds.maxX
+      : action === "center" ? (union.minX + union.maxX - bounds.minX - bounds.maxX) / 2
+      : 0;
+    const y = action === "top" ? union.minY - bounds.minY
+      : action === "bottom" ? union.maxY - bounds.maxY
+      : action === "middle" ? (union.minY + union.maxY - bounds.minY - bounds.maxY) / 2
+      : 0;
+    deltas.set(selectionKey(selection), { x, y });
+  }
+  return deltas;
+}
+
+function unionBounds(bounds: readonly ElementBounds[]): ElementBounds | null {
+  if (bounds.length === 0) return null;
+  return {
+    minX: Math.min(...bounds.map((bound) => bound.minX)),
+    minY: Math.min(...bounds.map((bound) => bound.minY)),
+    maxX: Math.max(...bounds.map((bound) => bound.maxX)),
+    maxY: Math.max(...bounds.map((bound) => bound.maxY)),
+  };
+}
+
+/** Top-level selected elements with rotation-aware bounds in connected stage coordinates. */
+function selectedStageBounds(
+  layout: DesignLayout,
+  activeScreenId: string,
+  selections: readonly SelectionRef[],
+): { selection: SelectionRef; bounds: ElementBounds }[] {
   const active = layout.screens.find((screen) => screen.id === activeScreenId);
   let x = 0;
   const connectedOrigins = active
@@ -78,7 +144,7 @@ export function selectionBounds(
   const origins = new Map(layout.mode === "connected"
     ? connectedOrigins
     : [[activeScreenId, 0] as const]);
-  const bounds: ElementBounds[] = [];
+  const items: { selection: SelectionRef; bounds: ElementBounds }[] = [];
   for (const selection of selections) {
     const origin = origins.get(selection.screenId);
     if (origin === undefined) continue;
@@ -87,20 +153,17 @@ export function selectionBounds(
     if (!location || location.parent) continue;
     const element = location.element;
     const local = rotatedElementBounds(element);
-    bounds.push({
-      minX: local.minX + origin,
-      minY: local.minY,
-      maxX: local.maxX + origin,
-      maxY: local.maxY,
+    items.push({
+      selection,
+      bounds: {
+        minX: local.minX + origin,
+        minY: local.minY,
+        maxX: local.maxX + origin,
+        maxY: local.maxY,
+      },
     });
   }
-  if (bounds.length === 0) return null;
-  return {
-    minX: Math.min(...bounds.map((bound) => bound.minX)),
-    minY: Math.min(...bounds.map((bound) => bound.minY)),
-    maxX: Math.max(...bounds.map((bound) => bound.maxX)),
-    maxY: Math.max(...bounds.map((bound) => bound.maxY)),
-  };
+  return items;
 }
 
 export function boundsIntersect(first: ElementBounds, second: ElementBounds): boolean {
