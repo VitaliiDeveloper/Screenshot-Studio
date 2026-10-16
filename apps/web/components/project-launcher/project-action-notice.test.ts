@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  neighbourEntryId,
   ProjectActionNoticeState,
   projectActionNoticeExitMs,
   projectActionNoticeVisibleMs,
+  projectToastVisibleMs,
   type ProjectLibraryNotice,
 } from "./project-action-notice.js";
 
@@ -42,5 +44,33 @@ describe("ProjectActionNoticeState", () => {
 
     expect(publish).toHaveBeenLastCalledWith(null);
     expect(publish).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a notice visible for a custom duration", () => {
+    vi.useFakeTimers();
+    const published: Array<ProjectLibraryNotice | null> = [];
+    const state = new ProjectActionNoticeState((notice) => published.push(notice), projectToastVisibleMs);
+
+    state.show("project-1", "Removed from recents.");
+    vi.advanceTimersByTime(projectActionNoticeVisibleMs);
+    expect(published.at(-1)).toMatchObject({ motion: "visible" });
+
+    vi.advanceTimersByTime(projectToastVisibleMs - projectActionNoticeVisibleMs);
+    expect(published.at(-1)).toMatchObject({ motion: "closing" });
+  });
+});
+
+describe("neighbourEntryId", () => {
+  const entries = [{ entryId: "a" }, { entryId: "b" }, { entryId: "c" }];
+
+  it("prefers the next card, then the previous one", () => {
+    expect(neighbourEntryId(entries, "a")).toBe("b");
+    expect(neighbourEntryId(entries, "b")).toBe("c");
+    expect(neighbourEntryId(entries, "c")).toBe("b");
+  });
+
+  it("returns null for the last remaining or an unknown card", () => {
+    expect(neighbourEntryId([{ entryId: "a" }], "a")).toBeNull();
+    expect(neighbourEntryId(entries, "missing")).toBeNull();
   });
 });

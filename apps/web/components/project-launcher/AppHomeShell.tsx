@@ -2,7 +2,7 @@
 "use client";
 
 import React, { type ReactNode, type Ref } from "react";
-import { FolderInput, Layers3, LoaderCircle, Plus, RotateCcw, ShieldCheck } from "lucide-react";
+import { CircleCheck, FolderInput, Layers3, LoaderCircle, Plus, RotateCcw, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
@@ -31,6 +31,8 @@ export interface AppHomeShellProps {
   projectAction: ProjectLibraryAction | null;
   projectActionError: string | null;
   projectActionNotice: ProjectLibraryNotice | null;
+  projectToast?: ProjectLibraryNotice | null;
+  leavingEntryId?: string | null;
   visibleOpeningEntryId: string | null;
   deletionDialog?: ReactNode;
   importButtonRef?: Ref<HTMLButtonElement>;
@@ -65,6 +67,8 @@ export function AppHomeShell({
   projectAction,
   projectActionError,
   projectActionNotice,
+  projectToast = null,
+  leavingEntryId = null,
   visibleOpeningEntryId,
   deletionDialog,
   importButtonRef,
@@ -96,9 +100,14 @@ export function AppHomeShell({
     {captureDialog}
     {deletionDialog}
   </>;
+  // Stays mounted across the gallery/first-run swap so screen readers announce each new message.
+  const toastRegion = <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+    {projectToast ? <p key={projectToast.entryId} data-motion={projectToast.motion} className="launcher-toast inline-flex max-w-lg items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg"><CircleCheck aria-hidden="true" className="size-4 shrink-0 text-emerald-600" />{projectToast.message}</p> : null}
+  </div>;
 
   if (firstRun) {
-    return (
+    return (<>
+      {toastRegion}
       <main className="relative min-h-dvh overflow-hidden bg-[var(--editor-color-surface-subtle)] text-[color:var(--editor-color-text-default)]">
         <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_48%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_42%)]" />
         <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
@@ -141,10 +150,11 @@ export function AppHomeShell({
         </div>
         {dialogs}
       </main>
-    );
+    </>);
   }
 
-  return (
+  return (<>
+    {toastRegion}
     <main className="min-h-dvh bg-[var(--editor-color-surface-subtle)] text-[color:var(--editor-color-text-default)]">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-12">
@@ -165,10 +175,10 @@ export function AppHomeShell({
 
         {projects.status === "loading" ? <div role="status" className="flex min-h-[28rem] items-center justify-center gap-2 text-sm text-slate-500"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> Loading projects…</div> : null}
         {projects.status === "error" ? <div role="alert" className="mx-auto mt-20 max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center"><p className="font-semibold text-slate-950">Projects could not be loaded.</p><p className="mt-2 text-sm text-red-700">{projects.message}</p><button type="button" className={`mt-5 ${editorUi.buttonSecondary}`} onClick={onRetryProjects}><RotateCcw aria-hidden="true" className="size-4" /> Retry</button></div> : null}
-        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} specs={storeSpecs} action={projectAction} actionError={projectActionError} actionNotice={projectActionNotice} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
+        {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} specs={storeSpecs} action={projectAction} actionError={projectActionError} actionNotice={projectActionNotice} leavingEntryId={leavingEntryId} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
       </div>
 
       {dialogs}
     </main>
-  );
+  </>);
 }

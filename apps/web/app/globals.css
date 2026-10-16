@@ -163,6 +163,13 @@ button:disabled {
   to { opacity: 0; }
 }
 
+@keyframes project-card-leave {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
 .launcher-dialog-backdrop {
   animation: launcher-backdrop-in 220ms ease-out;
 }
@@ -175,12 +182,21 @@ button:disabled {
   animation: launcher-dialog-state-in 150ms ease-out;
 }
 
-.project-card-action-status {
+.project-card-action-status,
+.launcher-toast {
   animation: project-card-action-status-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.project-card-action-status[data-motion="closing"] {
+.project-card-action-status[data-motion="closing"],
+.launcher-toast[data-motion="closing"] {
   animation: project-card-action-status-out 180ms ease-in forwards;
+}
+
+/* The gallery sets animation-duration inline from projectCardExitMs. */
+.project-card[data-motion="leaving"] {
+  animation-name: project-card-leave;
+  animation-timing-function: var(--editor-motion-ease);
+  animation-fill-mode: forwards;
 }
 
 .launcher-dialog-backdrop[data-motion="closing"] {
@@ -208,11 +224,15 @@ button:disabled {
     animation: none !important;
   }
 
-  .project-card-action-status {
+  .project-card-action-status,
+  .launcher-toast,
+  .project-card[data-motion="leaving"] {
     animation: none !important;
   }
 
-  .project-card-action-status[data-motion="closing"] {
+  .project-card-action-status[data-motion="closing"],
+  .launcher-toast[data-motion="closing"],
+  .project-card[data-motion="leaving"] {
     opacity: 0;
   }
 }
