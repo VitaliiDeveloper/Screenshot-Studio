@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import { useStore } from "zustand";
 import {
   AlignCenterHorizontal,
@@ -26,6 +26,7 @@ import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
+import { elementTypeLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
@@ -95,6 +96,7 @@ export function Inspector({
     effectiveLocked,
     aggregate,
     selectedElements,
+    selectionTypeGroups,
     everyLocked,
     everyHidden,
     canGroup,
@@ -129,7 +131,7 @@ export function Inspector({
   return (
     <aside
       className={cx(
-        "flex h-full w-[min(18rem,calc(100vw-3.5rem))] shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
+        "flex h-full w-[min(18rem,calc(100vw-3.5rem))] shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
         className,
       )}
       onBlurCapture={() => {
@@ -142,7 +144,29 @@ export function Inspector({
           <div className="min-w-0">
             <h2 className="sr-only">Inspector</h2>
             <p className="truncate text-sm font-medium tracking-tight text-slate-950">{title}</p>
-            <p className="truncate text-[10px] text-slate-600">{subtitle}</p>
+            {tab === "layer" && selectionTypeGroups.length > 1 ? (
+              <p className="truncate text-[10px] text-slate-600">
+                {selectionTypeGroups.map(({ type, items }, index) => {
+                  const label = `${items.length} ${elementTypeLabel(type).toLowerCase()}`;
+                  return (
+                    <Fragment key={type}>
+                      {index > 0 ? " · " : null}
+                      <button
+                        type="button"
+                        aria-label={`Select only ${label}`}
+                        title={`Select only ${label}`}
+                        className="rounded-sm underline decoration-slate-300 decoration-dotted underline-offset-2 hover:text-blue-700 hover:decoration-solid hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+                        onClick={() => editorStore.getState().setSelection(items)}
+                      >
+                        {label}
+                      </button>
+                    </Fragment>
+                  );
+                })}
+              </p>
+            ) : (
+              <p className="truncate text-[10px] text-slate-600">{subtitle}</p>
+            )}
           </div>
           {onClose ? (
             <button type="button" aria-label="Close inspector" className={editorUi.iconButton} onClick={onClose}>
@@ -153,10 +177,18 @@ export function Inspector({
         <InspectorTabs
           tab={tab}
           idPrefix={idPrefix}
+          layerEmpty={selectedItems.length === 0}
           onSelect={(next) => setTabChoice({ tab: next, selectionKey })}
         />
       </header>
-      <div role="tabpanel" id={inspectorPanelId(idPrefix)} aria-labelledby={inspectorTabId(idPrefix, tab)}>
+      <div
+        key={tab}
+        role="tabpanel"
+        id={inspectorPanelId(idPrefix)}
+        aria-labelledby={inspectorTabId(idPrefix, tab)}
+        data-tab={tab}
+        className="inspector-panel"
+      >
         {tab === "screen" ? (
           <ScreenInspectorSections
             layout={layout}

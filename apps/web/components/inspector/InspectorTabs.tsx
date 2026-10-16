@@ -21,10 +21,13 @@ export function inspectorPanelId(idPrefix: string): string {
 export function InspectorTabs({
   tab,
   idPrefix,
+  layerEmpty,
   onSelect,
 }: {
   tab: InspectorTab;
   idPrefix: string;
+  /** Nothing is selected, so the Layer tab can only show a hint. */
+  layerEmpty: boolean;
   onSelect: (tab: InspectorTab) => void;
 }) {
   return (
@@ -32,7 +35,7 @@ export function InspectorTabs({
       role="tablist"
       aria-label="Inspector sections"
       // Text size sits here: the global `button { font: inherit }` reset outranks utilities on buttons.
-      className="flex gap-1 border-b border-slate-200 px-3 text-xs"
+      className="relative flex px-3 text-xs"
       onKeyDown={(event) => {
         const index = TABS.findIndex(({ value }) => value === tab);
         const nextIndex = event.key === "ArrowRight" ? (index + 1) % TABS.length
@@ -49,6 +52,7 @@ export function InspectorTabs({
     >
       {TABS.map(({ value, label }) => {
         const selected = value === tab;
+        const empty = value === "layer" && layerEmpty;
         return (
           <button
             key={value}
@@ -58,11 +62,11 @@ export function InspectorTabs({
             aria-selected={selected}
             aria-controls={inspectorPanelId(idPrefix)}
             tabIndex={selected ? 0 : -1}
+            title={empty ? "Select a layer to edit it" : undefined}
             className={cx(
-              "-mb-px border-b-2 px-2 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
-              selected
-                ? "border-blue-600 text-slate-950"
-                : "border-transparent text-slate-500 hover:text-slate-800",
+              "w-16 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/70",
+              empty ? "text-slate-400 hover:text-slate-600"
+                : selected ? "text-slate-950" : "text-slate-500 hover:text-slate-800",
             )}
             onClick={() => onSelect(value)}
           >
@@ -70,6 +74,12 @@ export function InspectorTabs({
           </button>
         );
       })}
+      {/* Equal-width tabs let the indicator slide by its own width, with no measuring. */}
+      <span
+        aria-hidden="true"
+        className="absolute -bottom-px left-3 h-0.5 w-16 rounded-full bg-blue-600 transition-transform duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none"
+        style={{ transform: `translateX(${TABS.findIndex(({ value }) => value === tab) * 100}%)` }}
+      />
     </div>
   );
 }

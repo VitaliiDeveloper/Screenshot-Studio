@@ -65,6 +65,35 @@ describe("inspector selection model", () => {
     expect(model.aggregate).not.toBeNull();
   });
 
+  it("groups selection refs by element type in first-seen order", () => {
+    const project = fixture();
+    project.layouts[0]!.screens[0]!.elements.push({
+      id: "group",
+      type: "group",
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      children: [],
+    });
+    const model = deriveInspectorSelection(project, "primary", "first", [
+      { screenId: "first", elementId: "same" },
+      { screenId: "first", elementId: "group" },
+      { screenId: "first", elementId: "second" },
+    ]);
+    expect(model.selectionTypeGroups).toEqual([
+      { type: "shape", items: [
+        { screenId: "first", elementId: "same" },
+        { screenId: "first", elementId: "second" },
+      ] },
+      { type: "group", items: [{ screenId: "first", elementId: "group" }] },
+    ]);
+  });
+
   it("refuses grouping across owner screens even when element ids match", () => {
     const model = deriveInspectorSelection(fixture(), "primary", "first", [
       { screenId: "first", elementId: "same" },

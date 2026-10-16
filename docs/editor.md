@@ -62,7 +62,9 @@ The editor has five durable interaction roles even if their placement changes:
   **Screen** tabs: Layer exposes only fields valid for the selected object, and Screen exposes the
   artboard, output, structure, and background context of the screen the Inspector header names.
   Selecting a layer opens Layer and clearing the selection opens Screen; a tab the user picks holds
-  until the selection changes.
+  until the selection changes. With nothing selected the Layer tab is dimmed but still reachable. A
+  mixed multi-selection lists its layer types in the header; picking a type narrows the selection
+  to those layers.
 - **Feedback and recovery** show save, validation, import, export, missing-resource, and destructive
   outcomes in place, with a clear next action.
 
