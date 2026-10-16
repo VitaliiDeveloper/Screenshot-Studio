@@ -166,7 +166,7 @@ button:disabled {
 @keyframes project-card-leave {
   to {
     opacity: 0;
-    transform: translateY(8px) scale(0.94);
+    transform: scale(0.97);
   }
 }
 

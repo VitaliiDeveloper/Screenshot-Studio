@@ -12,8 +12,8 @@ export const projectActionNoticeExitMs = 180;
 export const projectToastVisibleMs = 5_000;
 // Single source for card removal timing: the gallery applies these to the leaving card's animation
 // and the neighbours' slide, and the launcher drops the entry once the exit finishes.
-export const projectCardExitMs = 280;
-export const projectCardSlideMs = 320;
+export const projectCardExitMs = 180;
+export const projectCardSlideMs = 220;
 export const projectCardSlideEasing = "cubic-bezier(0.2, 0, 0, 1)";
 
 /** The card that should take focus when `removedId` leaves: the next one, else the previous. */

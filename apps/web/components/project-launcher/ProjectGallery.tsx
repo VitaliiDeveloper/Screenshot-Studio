@@ -81,8 +81,9 @@ export function ProjectGallery({
   const galleryRef = useRef<HTMLElement>(null);
   const cardPositionsRef = useRef(new Map<string, { left: number; top: number }>());
 
-  // FLIP: cards that moved into a freed slot start at their old position and slide home. The global
-  // reduced-motion rule shortens this transition to an instant jump.
+  // FLIP: a card that moved within its row slides home from its old position; a card that changed
+  // rows fades in at its new slot instead of flying diagonally across the grid. The global
+  // reduced-motion rule shortens both transitions to an instant change.
   useLayoutEffect(() => {
     const positions = new Map<string, { left: number; top: number }>();
     for (const card of galleryRef.current?.querySelectorAll<HTMLElement>("li[data-entry-id]") ?? []) {
@@ -91,11 +92,14 @@ export function ProjectGallery({
       positions.set(entryId, position);
       const previous = cardPositionsRef.current.get(entryId);
       if (!previous || (previous.left === position.left && previous.top === position.top)) continue;
+      const property = previous.top === position.top ? "transform" : "opacity";
       card.style.transition = "none";
-      card.style.transform = `translate(${previous.left - position.left}px, ${previous.top - position.top}px)`;
+      if (property === "transform") card.style.transform = `translateX(${previous.left - position.left}px)`;
+      else card.style.opacity = "0";
       void card.offsetWidth;
-      card.style.transition = `transform ${projectCardSlideMs}ms ${projectCardSlideEasing}`;
+      card.style.transition = `${property} ${projectCardSlideMs}ms ${projectCardSlideEasing}`;
       card.style.transform = "";
+      card.style.opacity = "";
       card.addEventListener("transitionend", () => { card.style.transition = ""; }, { once: true });
     }
     cardPositionsRef.current = positions;
@@ -168,7 +172,24 @@ export function ProjectGallery({
                 : null;
           const unavailable = entry.availability === "unavailable";
           const cardContent = <>
-            <ProjectPreviewStrip entry={entry} />
+            {unavailable ? (
+              // Same height as the preview strip, so every card body below it lines up.
+              <span className="flex h-56 flex-col items-center justify-center gap-3 rounded-t-2xl bg-amber-50 px-6 text-center text-sm text-amber-950">
+                <span className="max-w-xs leading-6"><strong>Source unavailable.</strong> Reopen or import the source to continue.</span>
+                <button
+                  type="button"
+                  disabled={Boolean(action)}
+                  className={editorUi.rowIconButtonDanger}
+                  aria-label={`Remove ${entry.name} from recents`}
+                  title="Removes this recent item only; project files stay untouched."
+                  onClick={() => onRemoveRecent(entry.entryId)}
+                >
+                  {pending && action?.kind === "removing"
+                    ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+                    : <Trash2 aria-hidden="true" className="size-4" />}
+                </button>
+              </span>
+            ) : <ProjectPreviewStrip entry={entry} />}
             <span className={cx("block p-5", !unavailable && "pr-14")}>
               <span className="flex items-center gap-2">
                 <span className="truncate text-base font-semibold text-slate-950">{entry.name}</span>
@@ -182,23 +203,6 @@ export function ProjectGallery({
                 <span>{plural(entry.layoutCount, "layout")}</span>
               </span>
               <time className="mt-3 block text-xs text-slate-500" dateTime={entry.lastOpenedAt}>Updated {entry.lastOpenedAt.slice(0, 10)}</time>
-              {unavailable ? (
-                <span className="mt-3 flex min-h-10 items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                  <span className="min-w-0 text-left leading-5"><strong>Source unavailable.</strong> Reopen or import the source to continue.</span>
-                  <button
-                    type="button"
-                    disabled={Boolean(action)}
-                    className={editorUi.rowIconButtonDanger}
-                    aria-label={`Remove ${entry.name} from recents`}
-                    title="Removes this recent item only; project files stay untouched."
-                    onClick={() => onRemoveRecent(entry.entryId)}
-                  >
-                    {pending && action?.kind === "removing"
-                      ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
-                      : <Trash2 aria-hidden="true" className="size-4" />}
-                  </button>
-                </span>
-              ) : null}
             </span>
           </>;
           const leaving = leavingEntryId === entry.entryId;
