@@ -119,6 +119,7 @@ describe("editor accessibility states", () => {
     await openPanel(page, "Structure panel");
     await page.getByRole("button", { name: "Hero headline", exact: true }).click();
     await page.getByRole("spinbutton", { name: "Width", exact: true }).waitFor();
+    await waitForElementAnimations(page.getByRole("tabpanel"));
     await expectNoSeriousOrCriticalViolations(page, "desktop inspector form");
 
     await page.route("**/api/project", async (route) => {

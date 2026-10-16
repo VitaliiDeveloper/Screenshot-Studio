@@ -196,8 +196,7 @@ describe("Project Info and Workspace round trip", () => {
       await reopenedScreen.click();
       const reopenedLayer = page.getByRole("button", { name: "Save fast headline", exact: true });
       await reopenedLayer.click();
-      expect(await reopenedLayer.getAttribute("class"))
-        .toContain("font-semibold");
+      expect(await reopenedLayer.getAttribute("aria-pressed")).toBe("true");
       expect(await page.getByRole("spinbutton", { name: "Width", exact: true }).inputValue()).toBe("333");
 
       await page.getByRole("button", { name: "Projects", exact: true }).click();
