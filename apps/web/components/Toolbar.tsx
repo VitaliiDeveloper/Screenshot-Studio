@@ -485,7 +485,10 @@ export function Toolbar({
         >
           <Download size={15} strokeWidth={2} /> <span data-toolbar-label className={toolbarLabelClassName}>Export</span>
           {exportCount !== null && !minimalControls ? (
-            <span aria-hidden="true" className="rounded-md bg-white/20 px-1.5 text-[11px] font-semibold tabular-nums">{exportCount}</span>
+            <span
+              aria-hidden="true"
+              className={cx("rounded-md bg-white/20 px-1.5 text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
+            >{exportCount}</span>
           ) : null}
         </button>
         {secondaryOverflowed ? (
