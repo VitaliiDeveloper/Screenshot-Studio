@@ -472,20 +472,22 @@ export function Toolbar({
                 type="button"
                 aria-label={issuesLabel}
                 title={issuesLabel}
-                className={cx(editorUi.buttonGhost, compactSharedButtonClassName)}
+                className={cx(
+                  editorUi.buttonGhost,
+                  compactSharedButtonClassName,
+                  issueCounts.blockers > 0
+                    ? "!bg-[var(--editor-color-danger-surface)] !text-[color:var(--editor-color-danger-text)] hover:brightness-95"
+                    : issueCounts.warnings > 0
+                      ? "!bg-[var(--editor-color-warning-surface)] !text-[color:var(--editor-color-warning-text)] hover:brightness-95"
+                      : undefined,
+                )}
                 onClick={onOpenIssues}
               >
                 <CircleAlert size={15} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Issues</span>
                 {issueTotal > 0 ? (
                   <span
                     aria-hidden="true"
-                    className={cx(
-                      "rounded-md px-1.5 text-[11px] font-semibold tabular-nums",
-                      issueCounts.blockers > 0
-                        ? "bg-[var(--editor-color-danger-surface)] text-[color:var(--editor-color-danger-text)]"
-                        : "bg-[var(--editor-color-warning-surface)] text-[color:var(--editor-color-warning-text)]",
-                      compactControls && "ml-1.5",
-                    )}
+                    className={cx("text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
                   >{issueTotal}</span>
                 ) : null}
               </button>
