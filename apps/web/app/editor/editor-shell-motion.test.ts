@@ -7,8 +7,8 @@ const leftPanelSource = readFileSync(
   new URL("../../components/LeftPanel.tsx", import.meta.url),
   "utf8",
 );
-const canvasViewportSource = readFileSync(
-  new URL("../../components/CanvasViewport.tsx", import.meta.url),
+const canvasTransitionsSource = readFileSync(
+  new URL("../../components/canvas-viewport/use-canvas-transitions.ts", import.meta.url),
   "utf8",
 );
 
@@ -50,10 +50,10 @@ describe("editor side-panel motion integration", () => {
   });
 
   it("installs structural canvas fits before paint", () => {
-    expect(canvasViewportSource).toMatch(
+    expect(canvasTransitionsSource).toMatch(
       /useLayoutEffect\(\(\) => \{\n {4}if \(lastFitLayoutRef\.current === fitLayoutKey\) return;[\s\S]*? {4}fit\(\);\n {2}\}, \[fit, fitLayoutKey\]\);/,
     );
-    expect(canvasViewportSource).not.toMatch(
+    expect(canvasTransitionsSource).not.toMatch(
       /lastFitLayoutRef\.current === fitLayoutKey[\s\S]*?requestAnimationFrame\(fit\)/,
     );
   });
