@@ -38,7 +38,7 @@ describe("editor side-panel motion integration", () => {
     expect(leftPanelSource).toContain(
       '"flex h-full w-full shrink-0 flex-col overflow-hidden border-r',
     );
-    expect(leftPanelSource).not.toContain("absolute inset-y-0 left-14");
+    expect(leftPanelSource).not.toContain("absolute inset-y-0 left-15");
     expect(pageSource).toContain('className="!w-full"');
   });
 

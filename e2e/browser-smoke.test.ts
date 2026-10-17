@@ -81,7 +81,7 @@ describe("representative cross-browser editor smoke", () => {
         await page.waitForSelector("canvas");
         await page.getByRole("heading", { name: "Add", exact: true }).waitFor({ state: "visible" });
         const structurePanel = page.getByRole("button", {
-          name: "Structure panel",
+          name: "Layers panel",
           exact: true,
         });
         if ((await structurePanel.getAttribute("aria-pressed")) !== "true") {

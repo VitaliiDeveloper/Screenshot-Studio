@@ -130,7 +130,7 @@ export function Inspector({
   return (
     <aside
       className={cx(
-        "flex h-full w-[min(18rem,calc(100vw-3.5rem))] editor-scroll-area shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
+        "flex h-full w-[min(18rem,calc(100vw-3.75rem))] editor-scroll-area shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
         className,
       )}
       onBlurCapture={() => {

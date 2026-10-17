@@ -2,14 +2,17 @@
 "use client";
 
 import {
-  Boxes,
   Hand,
   House,
+  Languages,
   Layers3,
+  LayoutTemplate,
   LoaderCircle,
   MousePointer2,
+  Palette,
+  Type,
 } from "lucide-react";
-import type { WorkspacePanel, WorkspaceTool } from "@web/lib/editor-workspace";
+import type { ResourceDialog, WorkspacePanel, WorkspaceTool } from "@web/lib/editor-workspace";
 import { ToolButton } from "./editor-ui";
 
 export function ToolRail({
@@ -17,6 +20,8 @@ export function ToolRail({
   panel,
   onToolChange,
   onPanelToggle,
+  onOpenDialog,
+  onOpenLocales,
   onOpenProjects,
   projectsBusy,
 }: {
@@ -24,13 +29,15 @@ export function ToolRail({
   panel: WorkspacePanel | null;
   onToolChange: (tool: WorkspaceTool) => void;
   onPanelToggle: (panel: WorkspacePanel) => void;
+  onOpenDialog: (dialog: ResourceDialog) => void;
+  onOpenLocales: () => void;
   onOpenProjects: () => void;
   projectsBusy: boolean;
 }) {
   return (
     <nav
       aria-label="Editor tools"
-      className="z-40 flex h-full w-14 shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white px-1.5 py-3"
+      className="z-40 flex h-full w-15 shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white px-1.5 py-3"
     >
       <ToolButton
         label="Select tool"
@@ -52,20 +59,24 @@ export function ToolRail({
       <span className="my-2 h-px w-7 bg-slate-200" aria-hidden="true" />
 
       <ToolButton
-        label="Structure panel"
+        label="Layers panel"
         active={panel === "structure"}
         variant="panel"
         onClick={() => onPanelToggle("structure")}
       >
         <Layers3 size={18} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton
-        label="Resources panel"
-        active={panel === "resources"}
-        variant="panel"
-        onClick={() => onPanelToggle("resources")}
-      >
-        <Boxes size={18} strokeWidth={1.9} />
+      <ToolButton label="Screen templates" variant="panel" aria-haspopup="dialog" onClick={() => onOpenDialog("templates")}>
+        <LayoutTemplate size={18} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton label="Design packs" variant="panel" aria-haspopup="dialog" onClick={() => onOpenDialog("themes")}>
+        <Palette size={18} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton label="Fonts" variant="panel" aria-haspopup="dialog" onClick={() => onOpenDialog("fonts")}>
+        <Type size={18} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton label="Locales" variant="panel" aria-haspopup="dialog" onClick={onOpenLocales}>
+        <Languages size={18} strokeWidth={1.9} />
       </ToolButton>
 
       <button

@@ -335,7 +335,7 @@ describe("Project asset picker", () => {
     const siblingsBeforeRemoval = project().layouts[0].screens[0].elements
       .filter((element: { id: string }) => element.id !== insertedImageId)
       .map((element: { id: string }) => element.id);
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    await page.getByRole("button", { name: "Layers panel", exact: true }).click();
     await page.getByRole("list", { name: "Layers for Connected First" })
       .getByRole("button", { name: "Image", exact: true }).click();
     await page.getByRole("button", { name: "Remove image element", exact: true }).click();

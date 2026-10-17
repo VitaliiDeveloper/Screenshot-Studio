@@ -74,7 +74,6 @@ describe("theme management UI", () => {
     expect(accent()).toMatchObject({ role: "accent", fill: "#38BDF8" });
     const beforePack = await page.getByTestId("editor-stage").screenshot();
 
-    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: /Design packs/ }).click();
     const builtInRow = page.getByTestId("design-pack-row-neutral-default");
     await builtInRow.waitFor({ state: "visible" });
@@ -96,12 +95,11 @@ describe("theme management UI", () => {
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
     expect(headline()).toMatchObject({ color: "#0F172A", size: 64 });
-    const structurePanel = page.getByRole("button", { name: "Structure panel", exact: true });
+    const structurePanel = page.getByRole("button", { name: "Layers panel", exact: true });
     if (await structurePanel.getAttribute("aria-pressed") !== "true") await structurePanel.click();
     await page.getByRole("button", { name: "Theme headline", exact: true }).click();
     expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("Heading");
 
-    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: /Design packs/ }).click();
     const row = page.getByTestId("theme-row-midnight");
     await row.waitFor({ state: "visible" });
@@ -127,7 +125,7 @@ describe("theme management UI", () => {
     await page.getByRole("button", { name: "Close design pack picker", exact: true }).click();
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
-    const reloadedStructurePanel = page.getByRole("button", { name: "Structure panel", exact: true });
+    const reloadedStructurePanel = page.getByRole("button", { name: "Layers panel", exact: true });
     if (await reloadedStructurePanel.getAttribute("aria-pressed") !== "true") await reloadedStructurePanel.click();
     await page.getByRole("button", { name: "Theme headline", exact: true }).click();
     expect(await page.getByRole("button", { name: "Theme role", exact: true }).textContent()).toContain("Heading");

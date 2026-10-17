@@ -12,4 +12,19 @@ describe("ToolRail project navigation", () => {
     expect(source).toContain("projectsBusy");
     expect(source).toContain("mt-auto");
   });
+
+  it("gives each resource its own rail entry instead of a Resources panel", () => {
+    const labels = [...source.matchAll(/(?<![-\w])label="([^"]+)"/g)].map((match) => match[1]);
+    expect(labels).toEqual([
+      "Select tool",
+      "Hand tool",
+      "Layers panel",
+      "Screen templates",
+      "Design packs",
+      "Fonts",
+      "Locales",
+    ]);
+    expect(source).not.toContain('"resources"');
+    expect(source.match(/aria-haspopup="dialog"/g)).toHaveLength(4);
+  });
 });

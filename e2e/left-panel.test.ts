@@ -90,7 +90,7 @@ describe("left panel", () => {
     await expect.poll(() => page.evaluate(() => document.activeElement?.textContent?.trim())).toBe("Hide");
     await page.keyboard.press("Escape");
     expect(await menu.count()).toBe(0);
-    expect(await page.getByRole("heading", { name: "Structure", exact: true }).count()).toBe(1);
+    expect(await page.getByRole("heading", { name: "Layers", exact: true }).count()).toBe(1);
     expect(await trigger.evaluate((node) => document.activeElement === node)).toBe(true);
 
     await trigger.click();
