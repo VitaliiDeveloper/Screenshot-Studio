@@ -164,7 +164,7 @@ describe("export dialog layout filters", () => {
   });
 
   it("remounts filter and result state whenever the active layout changes", () => {
-    const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./toolbar/Toolbar.tsx", import.meta.url), "utf8");
 
     expect(source).toContain('key={activeLayout?.id ?? "no-layout"}');
   });
