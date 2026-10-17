@@ -30,6 +30,7 @@ import {
   normalizeExportFilters,
 } from "./export-dialog-model";
 import { ExportProgressStatus } from "./ExportProgressStatus";
+import { readJsonResponse } from "@web/lib/json-response";
 
 type ProjectArchiveAvailability =
   | { status: "checking" }
@@ -180,10 +181,7 @@ export function ExportDialog({
           stopped = true;
           window.clearInterval(pollTimer);
         }
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(body.error ?? `Export failed (${res.status})`);
-        }
+        const body = await readJsonResponse(res, `Export failed (${res.status})`);
         latestProgress = {
           operationId,
           phase: "ready",

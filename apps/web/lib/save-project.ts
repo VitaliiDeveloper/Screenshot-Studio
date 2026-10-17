@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Project } from "@screenshot-studio/core/model";
 import { isStrongQuotedETag } from "./http-etag.js";
+import { responseError } from "./json-response.js";
 
 let projectRevision: string | undefined;
 let projectId: string | undefined;
@@ -110,9 +111,6 @@ export async function saveProject(project: Project): Promise<void> {
     },
     body: JSON.stringify(project),
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Save failed (${res.status})`);
-  }
+  if (!res.ok) throw await responseError(res, `Save failed (${res.status})`);
   advanceProjectRevisionFromResponse(res);
 }

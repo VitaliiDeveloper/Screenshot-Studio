@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { responseError } from "./json-response.js";
 export type RecentProjectSummary = {
   recentId: string;
   sourceKind: "managed-project" | "local-file";
@@ -46,11 +47,6 @@ function parseSummary(value: unknown): RecentProjectSummary {
     lastOpenedAt: value.lastOpenedAt,
     availability: value.availability,
   };
-}
-
-async function responseError(response: Response, fallback: string): Promise<Error> {
-  const value = await response.json().catch(() => null) as unknown;
-  return new Error(isRecord(value) && typeof value.error === "string" ? value.error : fallback);
 }
 
 const defaultTransport: RecentProjectsTransport = (url, init) => fetch(url, init);
