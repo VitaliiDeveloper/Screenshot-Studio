@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
+import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
 
 export interface SafeFilePublication {
   root: string;
@@ -154,10 +155,6 @@ interface CapturedError {
 interface QuarantineOutcome {
   captured: boolean;
   error: CapturedError | null;
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function errorWithCleanup(primary: unknown, cleanup: unknown): AggregateError {
@@ -348,10 +345,6 @@ async function inspectRegularLeaf(
   if (!stats) return null;
   if (!stats.isFile()) throw errorFor(path, stats);
   return stats;
-}
-
-function noFollowFlags(base: number): number {
-  return base | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
 }
 
 function verificationFlags(): number {

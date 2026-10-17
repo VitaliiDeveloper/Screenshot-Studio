@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from "node:crypto";
-import { constants, type BigIntStats } from "node:fs";
-import { lstat, open, type FileHandle } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
-import { isProjectRelativePath } from "@screenshot-studio/core/model";
-import { readIdentifiedProjectSnapshot, resolveExistingProjectPath } from "@screenshot-studio/core/storage";
+import {
+  createHash } from "node:crypto"; import { constants,
+  type BigIntStats } from "node:fs"; import { lstat,
+  open,
+  type FileHandle } from "node:fs/promises"; import { basename,
+  dirname,
+  join } from "node:path"; import { isProjectRelativePath } from "@screenshot-studio/core/model"; import { readIdentifiedProjectSnapshot,
+  resolveExistingProjectPath,
+  errorCode,
+  noFollowFlags,
+} from "@screenshot-studio/core/storage";
 import {
   preparedFileStagePaths,
   publishFileSafelyWithOwnership,
@@ -45,17 +50,8 @@ interface ReadIntent {
   ownership: SafeFileOwnership;
 }
 
-function noFollowReadFlags(): number {
-  return constants.O_RDONLY
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
-}
-
 function sameIdentity(left: BigIntStats, right: BigIntStats): boolean {
   return left.dev === right.dev && left.ino === right.ino;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -226,7 +222,7 @@ async function readIntentFile(path: string): Promise<ReadIntent> {
   if (!named.isFile() || named.isSymbolicLink() || named.nlink !== 1n) {
     throw new Error("Capture import recovery required: intent is not an exclusive regular file");
   }
-  const handle = await open(path, noFollowReadFlags());
+  const handle = await open(path, noFollowFlags(constants.O_RDONLY));
   try {
     const opened = await handle.stat({ bigint: true });
     if (!sameIdentity(named, opened) || opened.nlink !== 1n) {

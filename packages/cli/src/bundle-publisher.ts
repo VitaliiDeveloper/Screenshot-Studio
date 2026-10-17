@@ -15,6 +15,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import JSZip from "jszip";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
+import { noFollowFlags } from "@screenshot-studio/core/storage";
 
 export interface RenderedBundleEntry {
   entry: BundleEntry;
@@ -224,8 +225,7 @@ function noFollowStageFlags(): number {
 }
 
 function noFollowReadFlags(): number {
-  return constants.O_RDONLY
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0)
+  return noFollowFlags(constants.O_RDONLY)
     | (typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0);
 }
 

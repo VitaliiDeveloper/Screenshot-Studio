@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { lstat } from "node:fs/promises";
-import { resolve } from "node:path";
-import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import {
-  createProjectAtomic,
+  lstat } from "node:fs/promises"; import { resolve } from "node:path"; import { Project,
+  type Project as ProjectModel } from "@screenshot-studio/core/model"; import {   createProjectAtomic,
   ProjectPathError,
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
@@ -14,6 +12,8 @@ import {
   type ProjectFileDependencies,
   type ProjectLockOptions,
   type ProjectSnapshot,
+  errorCode,
+  errorText,
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "./capture-import-recovery.js";
 
@@ -38,14 +38,6 @@ export async function loadProjectSnapshot(projectPath: string): Promise<ProjectS
 
 export async function loadProjectFile(projectPath: string): Promise<ProjectModel> {
   return (await loadProjectSnapshot(projectPath)).project;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 type ProjectWriteTarget =
