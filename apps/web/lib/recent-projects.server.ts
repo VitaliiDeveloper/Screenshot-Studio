@@ -17,6 +17,8 @@ import {
   type ProjectSession,
   type ProjectSessionRegistry,
 } from "./project-session.server.js";
+import { errorCode, noFollowFlags, syncDirectoryBestEffort } from "@screenshot-studio/core/storage";
+import { hasExactKeys, isRecord } from "./json-guards.js";
 
 export const MAX_RECENT_PROJECTS = 20;
 
@@ -70,13 +72,8 @@ interface RecentProjectsStoreDependencies {
   rename?: (from: string, to: string) => Promise<void>;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function exactKeys(value: Record<string, unknown>, expected: readonly string[], context: string): void {
-  const actual = Object.keys(value);
-  if (actual.length !== expected.length || actual.some((key) => !expected.includes(key))) {
+  if (!hasExactKeys(value, expected)) {
     throw new TypeError(`${context} contains unknown or missing properties`);
   }
 }
@@ -195,27 +192,6 @@ export function parseRecentProjectsDocument(value: unknown): RecentProjectsDocum
 function serialize(document: RecentProjectsDocument): string {
   const parsed = parseRecentProjectsDocument(document);
   return `${JSON.stringify({ ...parsed, entries: ordered(parsed.entries) }, null, 2)}\n`;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    && typeof error.code === "string" ? error.code : undefined;
-}
-
-function noFollow(flags: number): number {
-  return flags | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
-}
-
-async function syncDirectoryBestEffort(directory: string): Promise<void> {
-  let handle: FileHandle | undefined;
-  try {
-    handle = await open(directory, constants.O_RDONLY);
-    await handle.sync();
-  } catch {
-    // Some supported local filesystems do not permit directory fsync.
-  } finally {
-    await handle?.close().catch(() => undefined);
-  }
 }
 
 export class RecentProjectsStore {
@@ -382,7 +358,7 @@ export class RecentProjectsStore {
   }
 
   async #readPersisted(): Promise<RecentProjectsDocument> {
-    const handle = await this.#openFile(this.#historyPath, noFollow(constants.O_RDONLY));
+    const handle = await this.#openFile(this.#historyPath, noFollowFlags(constants.O_RDONLY));
     try {
       return parseRecentProjectsDocument(JSON.parse(await handle.readFile("utf8")) as unknown);
     } finally {
@@ -464,7 +440,7 @@ export class RecentProjectsStore {
     try {
       handle = await this.#openFile(
         stagePath,
-        noFollow(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY),
+        noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY),
         0o600,
       );
       ownsStage = true;

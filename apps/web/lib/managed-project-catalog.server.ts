@@ -11,6 +11,8 @@ import {
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
 import { acquireStorageLock } from "./storage-lock.server.js";
+import { errorCode, noFollowFlags, syncDirectoryBestEffort } from "@screenshot-studio/core/storage";
+import { hasExactKeys, isRecord } from "./json-guards.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -87,13 +89,8 @@ export interface ManagedProjectCatalogStoreDependencies {
   createIdNamespace?: () => string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function requireExactKeys(value: Record<string, unknown>, keys: readonly string[], context: string): void {
-  const actual = Object.keys(value);
-  if (actual.length !== keys.length || actual.some((key) => !keys.includes(key))) {
+  if (!hasExactKeys(value, keys)) {
     throw new TypeError(`${context} contains unknown or missing properties`);
   }
 }
@@ -362,27 +359,6 @@ export function serializeManagedProjectCatalog(catalog: ManagedProjectCatalogDoc
     entries,
     deletions,
   }, null, 2)}\n`;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    && typeof error.code === "string" ? error.code : undefined;
-}
-
-function noFollowFlags(flags: number): number {
-  return flags | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
-}
-
-async function syncDirectoryBestEffort(directory: string): Promise<void> {
-  let handle: FileHandle | undefined;
-  try {
-    handle = await open(directory, constants.O_RDONLY);
-    await handle.sync();
-  } catch {
-    // Some supported local filesystems do not permit directory fsync.
-  } finally {
-    await handle?.close().catch(() => undefined);
-  }
 }
 
 export class ManagedProjectCatalogStore {
