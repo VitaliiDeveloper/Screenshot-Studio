@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   cloneLocaleSet,
+  copyScreenToLocale,
   ensureStoreOutputFamily,
   ensureStoreTargetVariant,
   getLayout,
@@ -128,6 +129,16 @@ export function cloneProjectLocale(
       .find((screen) => screen.locale === targetLocale)!.id,
     selectedItems: [],
   };
+}
+
+export function createScreenFromLocale(
+  project: Project,
+  layoutId: string,
+  sourceScreenId: string,
+  targetLocale: string,
+): ProjectMutationResult {
+  const result = copyScreenToLocale(project, layoutId, sourceScreenId, targetLocale);
+  return { project: result.project, activeScreenId: result.createdScreenId, selectedItems: [] };
 }
 
 export function changeProjectLocaleDirection(

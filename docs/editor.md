@@ -133,6 +133,24 @@ the same labelled app-owned confirmation pattern and follows the visible Indepen
 Removing a size removes that complete exact-size row; deleting an individual screen changes only the
 slot scope described above.
 
+**Issues** lists pre-export problems in the active layout. It reads the core validation engine
+(`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues
+are derived on demand and never persisted. Blockers come first, and every row names its screen and
+size and offers **Go to** and a fix:
+
+- *Text overflows its layer box* (warning) is measured with the shared renderer's text layout: lines
+  the fixed-height box drops, or a single line taller than the box. It is reported only once every
+  project font has loaded, so fallback metrics never raise it. **Fit text** sets the largest whole
+  font size that fits, on that screen only, as one undo step.
+- *Screen missing in a locale* (blocker) compares each locale with the layout's first locale. Locale
+  screens have no persisted link and may be named per locale, so a locale lacks screens only where
+  one of its size rows is shorter than the first locale's row. Names then pick which screens are
+  missing, because locale copies keep them; when names differ, the trailing screens are reported. A
+  Keep 1:1 family is compared by slot, and **Create from {first locale}** copies the slot into every
+  size that family has; an Independent family copies only that screen. The copy keeps the source
+  name and takes the target locale's text direction. A size row that exists in one locale's Keep
+  1:1 family but not another's is a sizes difference, not a missing screen.
+
 ### Projects and Workspace navigation
 
 `/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows
@@ -161,7 +179,8 @@ source was moved or deleted, an app-owned confirmation may offer an explicit `Cl
 recovery action; Workspace must never discard the active client state automatically.
 The Workspace top bar starts with a `Screenshot Studio / project / layout` breadcrumb whose product-name
 button is the same Projects home action; Focus / Overview stay centered; undo, redo, the locale menu,
-Inspect, and Export sit on the right. Export shows how many files a store-bundle export with the
+Issues with its count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
+menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
 Project folder and archive import discard Finder's `.DS_Store` metadata while continuing to reject

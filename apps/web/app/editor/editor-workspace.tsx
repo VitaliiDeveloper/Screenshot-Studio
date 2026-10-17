@@ -15,12 +15,15 @@ import type {
   WorkspaceView,
 } from "@web/lib/editor-workspace";
 import { editorStore } from "@web/lib/editor-store";
+import { countIssues } from "@web/lib/editor-issues";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
 import { Inspector } from "@web/components/Inspector";
 import { Toolbar } from "@web/components/Toolbar";
 import { ToolRail } from "@web/components/ToolRail";
 import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
 import { ConfirmationDialog } from "@web/components/editor-ui";
+import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
 import {
   readWorkspaceNavigationState,
@@ -32,6 +35,7 @@ import { useEditorCaptureImport } from "./use-editor-capture-import";
 import { useEditorProjectNavigation } from "./use-editor-project-navigation";
 import { useEditorResources } from "./editor-resources";
 import { useEditorSaveGuards } from "./use-editor-save-guards";
+import { useEditorIssues } from "./use-editor-issues";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
@@ -74,6 +78,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
   const [exportRequestKey, setExportRequestKey] = useState(0);
+  const [issuesOpen, setIssuesOpen] = useState(false);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
@@ -93,6 +98,20 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   }, []);
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   useEditorSaveGuards(saveStatus);
+  // Fallback-font metrics would report false overflow, so measure only with every project font loaded.
+  const issues = useEditorIssues(Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying);
+  const issueCounts = useMemo(() => countIssues(issues), [issues]);
+  const goToIssue = useCallback((issue: ProjectIssue) => {
+    const store = editorStore.getState();
+    if (issue.kind === "missing-locale-screen") {
+      store.selectScreen(issue.sourceScreenId);
+    } else {
+      store.selectScreen(issue.screenId);
+      store.select(issue.elementId, issue.screenId);
+    }
+    setView("focus");
+    setIssuesOpen(false);
+  }, []);
 
   useEffect(() => {
     const overlayQuery = window.matchMedia("(max-width: 1279px)");
@@ -214,6 +233,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         }}
         onOpenProjects={projectNavigation.openProjects}
         projectsBusy={projectNavigation.busy}
+        issueCounts={issueCounts}
+        onOpenIssues={() => setIssuesOpen(true)}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
@@ -310,6 +331,14 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             {fontRetrying ? "Retrying project fonts…" : "Retry project fonts"}
           </button>
         </div>
+      ) : null}
+      {issuesOpen ? (
+        <IssuesDialog
+          issues={issues}
+          specs={specs}
+          onGoTo={goToIssue}
+          onClose={() => setIssuesOpen(false)}
+        />
       ) : null}
       <EditorResourceDialogs
         dialog={dialog}

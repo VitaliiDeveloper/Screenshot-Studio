@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
+  CircleAlert,
   Download,
   LayoutGrid,
   PanelsTopLeft,
@@ -15,6 +16,7 @@ import {
 import { layoutLocales } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { WorkspaceView } from "@web/lib/editor-workspace";
+import { issueSummary, type IssueCounts } from "@web/lib/editor-issues";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
 import { exportButtonLabel, exportFileCount } from "./export-dialog-model";
@@ -32,6 +34,7 @@ import {
 import { ToolbarOverflowMenu } from "./toolbar/ToolbarOverflowMenu";
 
 const EMPTY_LOCALES: string[] = [];
+const NO_ISSUES: IssueCounts = { blockers: 0, warnings: 0 };
 const toolbarMotion = "transition-opacity duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] [&_button]:duration-[var(--editor-motion-fast)] [&_button]:ease-[var(--editor-motion-ease)]";
 const MAX_CACHED_CONTEXTS = 12;
 
@@ -110,6 +113,8 @@ export function Toolbar({
   projectsBusy = false,
   exportRequestKey = 0,
   specs = DEFAULT_STORE_SPECS,
+  issueCounts = NO_ISSUES,
+  onOpenIssues,
 }: {
   view: WorkspaceView;
   inspectorOpen: boolean;
@@ -119,6 +124,8 @@ export function Toolbar({
   projectsBusy?: boolean;
   exportRequestKey?: number;
   specs?: StoreSpecs;
+  issueCounts?: IssueCounts;
+  onOpenIssues?: () => void;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -157,6 +164,8 @@ export function Toolbar({
   const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0);
   const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
   const exportLabel = exportButtonLabel(exportCount);
+  const issueTotal = issueCounts.blockers + issueCounts.warnings;
+  const issuesLabel = issueTotal > 0 ? `Issues: ${issueSummary(issueCounts)}` : "Issues: none";
   const localeOptions = useMemo(
     () => locales.map((locale) => ({ value: locale, label: locale })),
     [locales],
@@ -168,6 +177,7 @@ export function Toolbar({
     activeLayout?.mode ?? "",
     activeLocale,
     exportCount,
+    issueTotal,
     ...localeOptions.flatMap((option) => [option.value, option.label]),
   ]);
 
@@ -457,6 +467,31 @@ export function Toolbar({
         ) : null}
         {!secondaryOverflowed ? (
           <div ref={secondaryRef} className={cx("contents", toolbarMotion)}>
+            {onOpenIssues ? (
+              <button
+                type="button"
+                aria-label={issuesLabel}
+                title={issuesLabel}
+                className={cx(
+                  editorUi.buttonGhost,
+                  compactSharedButtonClassName,
+                  issueCounts.blockers > 0
+                    ? "!bg-[var(--editor-color-danger-surface)] !text-[color:var(--editor-color-danger-text)] hover:brightness-95"
+                    : issueCounts.warnings > 0
+                      ? "!bg-[var(--editor-color-warning-surface)] !text-[color:var(--editor-color-warning-text)] hover:brightness-95"
+                      : undefined,
+                )}
+                onClick={onOpenIssues}
+              >
+                <CircleAlert size={15} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Issues</span>
+                {issueTotal > 0 ? (
+                  <span
+                    aria-hidden="true"
+                    className={cx("text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
+                  >{issueTotal}</span>
+                ) : null}
+              </button>
+            ) : null}
             <button
               type="button"
               aria-label="Inspect"
@@ -499,6 +534,9 @@ export function Toolbar({
               onOpenChange={setOverflowOpen}
               triggerRef={overflowTriggerRef}
               inspectorOpen={inspectorOpen}
+              issuesLabel={onOpenIssues ? issuesLabel : undefined}
+              issueCount={issueTotal}
+              onOpenIssues={onOpenIssues}
               activeLocale={activeLocale}
               localeOptions={localeOptions}
               onToggleInspector={onToggleInspector}
