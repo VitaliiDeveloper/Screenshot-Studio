@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import {
   toolbarDensityProbeFocusRestoration,
   toolbarDensityTransitionFocusPolicy,
-} from "./Toolbar";
+} from "./use-toolbar-density";
+
+const densityHookSource = () =>
+  readFileSync(new URL("./use-toolbar-density.ts", import.meta.url), "utf8");
 
 describe("toolbar responsive labels", () => {
   it("opens Projects from the product-name crumb and names Export with its file count", () => {
@@ -20,51 +23,56 @@ describe("toolbar responsive labels", () => {
 
   it("integrates the measured five-state density model", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    const density = densityHookSource();
+    const integrated = source + density;
 
-    expect(source).toContain("nextToolbarDensity,");
-    expect(source).toContain("toolbarGap,");
-    expect(source).toContain('from "./toolbar/toolbar-density";');
-    expect(source).toContain('import { ToolbarOverflowMenu } from "./toolbar/ToolbarOverflowMenu";');
-    expect(source).toContain("nextToolbarDensity({");
-    expect(source).toContain("toolbarGap({");
+    expect(source).toContain("useToolbarDensity(measurementContentKey)");
+    expect(density).toContain("nextToolbarDensity,");
+    expect(density).toContain("toolbarGap,");
+    expect(density).toContain('from "./toolbar-density";');
+    expect(source).toContain('import { ToolbarOverflowMenu } from "./ToolbarOverflowMenu";');
+    expect(density).toContain("nextToolbarDensity({");
+    expect(density).toContain("toolbarGap({");
     expect(source).toContain("<ToolbarOverflowMenu");
-    expect(source).toContain('"full"');
-    expect(source).toContain('"compact"');
-    expect(source).toContain('"overflow-secondary"');
-    expect(source).toContain('"overflow-locale"');
-    expect(source).toContain('"minimal"');
+    expect(integrated).toContain('"full"');
+    expect(integrated).toContain('"compact"');
+    expect(integrated).toContain('"overflow-secondary"');
+    expect(integrated).toContain('"overflow-locale"');
+    expect(integrated).toContain('"minimal"');
     expect(source).toContain("data-density={density}");
-    expect(source).toContain("widthsByContext: Map<ToolbarDensity, Map<string, ToolbarWidths>>;");
-    expect(source).toContain("window.innerWidth");
-    expect(source).toContain("toolbarDensityProbeTarget(density)");
-    expect(source).toContain("resolveToolbarDensityProbe({");
-    expect(source).not.toContain("resetToFull");
-    expect(source).not.toContain("latestWidths");
-    expect(source).not.toContain("forceOneLevelRestore");
-    expect(source).toContain("overflowRef.current?.contains(document.activeElement)");
+    expect(density).toContain("widthsByContext: Map<ToolbarDensity, Map<string, ToolbarWidths>>;");
+    expect(density).toContain("window.innerWidth");
+    expect(density).toContain("toolbarDensityProbeTarget(density)");
+    expect(density).toContain("resolveToolbarDensityProbe({");
+    expect(integrated).not.toContain("resetToFull");
+    expect(integrated).not.toContain("latestWidths");
+    expect(integrated).not.toContain("forceOneLevelRestore");
+    expect(density).toContain("overflowRef.current?.contains(document.activeElement)");
   });
 
   it("keeps the first toolbar paint hidden until measured density stabilizes", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    const density = densityHookSource();
 
-    expect(source).toContain("const [densityReady, setDensityReady] = useState(false);");
+    expect(density).toContain("const [densityReady, setDensityReady] = useState(false);");
     expect(source).toContain("data-density-ready={densityReady}");
     expect(source).toContain('!densityReady && "invisible"');
-    expect(source).toContain("setDensityReady(true);");
+    expect(density).toContain("setDensityReady(true);");
   });
 
   it("owns the controlled overflow state and trigger focus ref", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    const density = densityHookSource();
 
-    expect(source).toContain("const [overflowOpen, setOverflowOpen] = useState(false);");
-    expect(source).toContain("const overflowTriggerRef = useRef<HTMLButtonElement>(null);");
+    expect(density).toContain("const [overflowOpen, setOverflowOpen] = useState(false);");
+    expect(density).toContain("const overflowTriggerRef = useRef<HTMLButtonElement>(null);");
     expect(source).toContain("open={overflowOpen}");
     expect(source).toContain("onOpenChange={setOverflowOpen}");
     expect(source).toContain("triggerRef={overflowTriggerRef}");
   });
 
   it("does not restart density measurement when the controlled menu opens", () => {
-    const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    const source = densityHookSource();
 
     expect(source).toContain("const overflowOpenRef = useRef(false);");
     expect(source).toContain("overflowOpenRef.current = overflowOpen;");
@@ -122,7 +130,7 @@ describe("toolbar responsive labels", () => {
   });
 
   it("applies rejected-probe focus only after the fallback subtree remounts", () => {
-    const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
+    const source = densityHookSource();
 
     expect(source).toContain("fallbackFocusTarget: ToolbarDensityTransitionFocusTarget;");
     expect(source).toContain(
