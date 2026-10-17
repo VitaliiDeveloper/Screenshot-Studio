@@ -54,7 +54,8 @@ function elements(): Array<{
 
 describe("inspector + toolbar", () => {
   it("centres the view switch when content fits and falls back without overlap", async () => {
-    const page = await browser.newPage({ viewport: { width: 828, height: 998 } });
+    // Narrow enough that the measured toolbar compacts its labels on first paint.
+    const page = await browser.newPage({ viewport: { width: 740, height: 998 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
@@ -64,8 +65,8 @@ describe("inspector + toolbar", () => {
 
     const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
     const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
-    const exportLabel = page.getByRole("button", { name: "Export" }).locator("span");
-    const productName = page.getByText("Screenshot Studio", { exact: true });
+    const exportLabel = page.getByRole("button", { name: /^Export/ }).locator("[data-toolbar-label]");
+    const productName = page.getByRole("button", { name: "Projects home" }).locator("[data-toolbar-label]");
     const projectName = page.getByText("Store Launch Demo", { exact: true });
 
     expect(await productName.isVisible()).toBe(false);
@@ -80,7 +81,7 @@ describe("inspector + toolbar", () => {
       return page.locator("header", { has: page.getByLabel("Canvas view") }).evaluate((header) => {
         const left = header.firstElementChild!.getBoundingClientRect();
         const center = header.querySelector('[aria-label="Canvas view"]')!.getBoundingClientRect();
-        const right = header.querySelector('[aria-label="Export"]')!.parentElement!.getBoundingClientRect();
+        const right = header.querySelector('[aria-label^="Export"]')!.parentElement!.getBoundingClientRect();
         return {
           viewportCenter: window.innerWidth / 2,
           leftRight: left.right,

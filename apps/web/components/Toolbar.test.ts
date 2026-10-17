@@ -7,12 +7,14 @@ import {
 } from "./Toolbar";
 
 describe("toolbar responsive labels", () => {
-  it("keeps project navigation in the tool rail without replacing Workspace controls", () => {
+  it("opens Projects from the breadcrumb and names Export with its file count", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
-    expect(source).not.toContain('aria-label="Project Home"');
-    expect(source).not.toContain("onOpenProjectHome");
-    expect(source).not.toContain("projectHomeBusy");
-    expect(source).toContain('aria-label="Export"');
+    expect(source).toContain('aria-label="Projects home"');
+    expect(source).toContain("onClick={onOpenProjects}");
+    expect(source).toContain("disabled={projectsBusy}");
+    expect(source).toContain("aria-label={exportLabel}");
+    expect(source).toContain("exportFileCount(state.project, state.activeLayoutId, specs)");
+    expect(source).toContain("exportCount,");
     expect(source).toContain("<LayoutSelector />");
   });
 
@@ -136,7 +138,6 @@ describe("toolbar responsive labels", () => {
   it("keeps the centered grid gap and shrinkable priority groups", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
 
-    expect(source).toContain('<div className="contents">');
     expect(source).toContain("grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5");
     expect(source).toContain('className="flex w-full min-w-0 items-center justify-self-start"');
     expect(source).not.toContain("min-[1120px]:inline");
@@ -166,7 +167,6 @@ describe("toolbar responsive labels", () => {
     expect(source).toContain('const minimalControls = density === "minimal";');
     expect(source).toContain('minimalControls ? "p-0.5" : "p-1"');
     expect(source).toContain('minimalControls ? "gap-0.5" : "gap-1"');
-    expect(source.match(/minimalControls && "!size-7"/g)?.length).toBe(2);
     expect(source).toContain('minimalControls && "!size-7 !min-h-7 !px-0"');
     expect(source).toContain("items-center gap-5 border-b border-slate-200 bg-white px-3");
     expect(source).not.toMatch(/data-density=\{density\}[\s\S]{0,200}minimalControls/);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { DesignLayout } from "@screenshot-studio/core/model";
+import type { DesignLayout, Project } from "@screenshot-studio/core/model";
+import { buildBundleEntries, type StoreSpecs } from "@screenshot-studio/core/export";
 
 const ARTIFACT_PATH = /^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/;
 const DOWNLOAD_FILENAMES = new Set([
@@ -41,6 +42,27 @@ export function normalizeExportFilters(
     ? filters.locale
     : "all";
   return { platform, device, locale };
+}
+
+/**
+ * Files a store-bundle export writes with the dialog's default filters, built by the same
+ * function `/api/export` uses. Null when there is no layout or the bundle cannot be built.
+ */
+export function exportFileCount(
+  project: Project | null,
+  layoutId: string | null,
+  specs: StoreSpecs,
+): number | null {
+  if (!project || !layoutId) return null;
+  try {
+    return buildBundleEntries(project, layoutId, specs).length;
+  } catch {
+    return null;
+  }
+}
+
+export function exportButtonLabel(fileCount: number | null): string {
+  return fileCount === null ? "Export" : `Export, ${fileCount} ${fileCount === 1 ? "file" : "files"}`;
 }
 
 export interface ExportArtifactTicket {

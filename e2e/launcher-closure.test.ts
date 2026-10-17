@@ -82,7 +82,7 @@ describe("Projects and Workspace closure journey", () => {
       await page.waitForURL(`${server.url}/editor/**`);
       await page.waitForSelector("canvas");
 
-      await page.getByRole("button", { name: "Export", exact: true }).click();
+      await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
       const exportDialog = page.getByRole("dialog", { name: "Export" });
       expect(await exportDialog.getByRole("heading", { name: "Store images" }).count()).toBe(1);
       expect(await exportDialog.getByRole("heading", { name: "Editable project" }).count()).toBe(1);

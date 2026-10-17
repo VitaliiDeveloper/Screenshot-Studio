@@ -212,6 +212,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           if (opening && layout.compact) setPanel(null);
           setInspectorOpen(opening);
         }}
+        onOpenProjects={projectNavigation.openProjects}
+        projectsBusy={projectNavigation.busy}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
