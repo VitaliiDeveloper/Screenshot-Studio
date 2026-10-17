@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import {
-  CircleAlert,
   Download,
   LayoutGrid,
   PanelsTopLeft,
@@ -16,93 +15,22 @@ import {
 import { layoutLocales } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { WorkspaceView } from "@web/lib/editor-workspace";
-import { issueSummary, type IssueCounts } from "@web/lib/editor-issues";
+import type { IssueCounts } from "@web/lib/editor-issues";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
-import { ExportDialog } from "./ExportDialog";
-import { exportButtonLabel, exportFileCount } from "./export-dialog-model";
-import { cx, editorUi, MenuSelect } from "./editor-ui";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { LayoutSelector } from "./LayoutSelector";
-import {
-  nextToolbarDensity,
-  toolbarGap,
-  resolveToolbarDensityProbe,
-  toolbarDensityProbeTarget,
-  toolbarMeasurementKey,
-  type ToolbarDensity,
-} from "./toolbar/toolbar-density";
-import { ToolbarOverflowMenu } from "./toolbar/ToolbarOverflowMenu";
+import { ExportDialog } from "@web/components/ExportDialog";
+import { exportButtonLabel, exportFileCount } from "@web/components/export-dialog-model";
+import { cx, editorUi } from "@web/components/editor-ui";
+import { LayoutSelector } from "@web/components/LayoutSelector";
+import { toolbarMeasurementKey } from "./toolbar-density";
+import { useToolbarDensity } from "./use-toolbar-density";
+import { ToolbarIssuesButton, toolbarIssuesLabel } from "./ToolbarIssuesButton";
+import { ToolbarLocaleSelect } from "./ToolbarLocaleSelect";
+import { ToolbarOverflowMenu } from "./ToolbarOverflowMenu";
 
 const EMPTY_LOCALES: string[] = [];
 const NO_ISSUES: IssueCounts = { blockers: 0, warnings: 0 };
 const toolbarMotion = "transition-opacity duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] [&_button]:duration-[var(--editor-motion-fast)] [&_button]:ease-[var(--editor-motion-ease)]";
-const MAX_CACHED_CONTEXTS = 12;
-
-interface ToolbarWidths {
-  headerWidth: number;
-  leftWidth: number;
-  centerWidth: number;
-  rightWidth: number;
-}
-
-type ToolbarDensityTransitionFocusTarget = "overflow-trigger" | "export" | null;
-
-export function toolbarDensityProbeFocusRestoration({
-  fallbackDensity,
-  candidateDensity,
-  resolvedDensity,
-  fallbackFocusTarget,
-}: {
-  fallbackDensity: ToolbarDensity;
-  candidateDensity: ToolbarDensity;
-  resolvedDensity: ToolbarDensity;
-  fallbackFocusTarget: ToolbarDensityTransitionFocusTarget;
-}): ToolbarDensityTransitionFocusTarget {
-  return resolvedDensity === fallbackDensity && resolvedDensity !== candidateDensity
-    ? fallbackFocusTarget
-    : null;
-}
-
-export function toolbarDensityTransitionFocusPolicy({
-  nextDensity,
-  overflowOpen,
-  focusWithinOverflow,
-  focusedItemRole,
-}: {
-  nextDensity: ToolbarDensity;
-  overflowOpen: boolean;
-  focusWithinOverflow: boolean;
-  focusedItemRole: string | null;
-}): {
-  closeOverflow: boolean;
-  focusTarget: ToolbarDensityTransitionFocusTarget;
-} {
-  const overflowRemoved = nextDensity === "full" || nextDensity === "compact";
-  const focusedLocaleRadioRemoved =
-    nextDensity === "overflow-secondary"
-    && focusWithinOverflow
-    && focusedItemRole === "menuitemradio";
-
-  return {
-    closeOverflow: overflowOpen && (overflowRemoved || focusedLocaleRadioRemoved),
-    focusTarget: overflowRemoved && focusWithinOverflow
-      ? "export"
-      : focusedLocaleRadioRemoved
-        ? "overflow-trigger"
-        : null,
-  };
-}
-
-function targetWidth(root: HTMLElement, labelsExpanded: boolean): number {
-  return Array.from(root.querySelectorAll<HTMLElement>("[data-toolbar-label]"))
-    .filter((label) => getComputedStyle(label).display !== "none")
-    .reduce(
-      (width, label) => labelsExpanded
-        ? width + Math.max(0, label.scrollWidth - label.clientWidth)
-        : width - label.clientWidth,
-      root.scrollWidth,
-    );
-}
 
 export function Toolbar({
   view,
@@ -128,29 +56,6 @@ export function Toolbar({
   onOpenIssues?: () => void;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const [density, setDensity] = useState<ToolbarDensity>("full");
-  const [densityReady, setDensityReady] = useState(false);
-  const headerRef = useRef<HTMLElement>(null);
-  const leftRef = useRef<HTMLDivElement>(null);
-  const viewSwitchRef = useRef<HTMLDivElement>(null);
-  const rightRef = useRef<HTMLDivElement>(null);
-  const localeRef = useRef<HTMLDivElement>(null);
-  const secondaryRef = useRef<HTMLDivElement>(null);
-  const exportRef = useRef<HTMLButtonElement>(null);
-  const overflowRef = useRef<HTMLDivElement>(null);
-  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
-  const overflowOpenRef = useRef(false);
-  const densityProbeRef = useRef<{
-    fallbackDensity: ToolbarDensity;
-    candidateDensity: ToolbarDensity;
-    fallbackFocusTarget: ToolbarDensityTransitionFocusTarget;
-  } | null>(null);
-  const pendingDensityFocusRef = useRef<ToolbarDensityTransitionFocusTarget>(null);
-  const measurementCacheRef = useRef<{
-    contentKey: string;
-    widthsByContext: Map<ToolbarDensity, Map<string, ToolbarWidths>>;
-  }>({ contentKey: "", widthsByContext: new Map() });
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
   const activeLayout = useStore(editorStore, selectEditorLayout);
   const locales = activeLayout ? layoutLocales(activeLayout) : EMPTY_LOCALES;
@@ -165,7 +70,6 @@ export function Toolbar({
   const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
   const exportLabel = exportButtonLabel(exportCount);
   const issueTotal = issueCounts.blockers + issueCounts.warnings;
-  const issuesLabel = issueTotal > 0 ? `Issues: ${issueSummary(issueCounts)}` : "Issues: none";
   const localeOptions = useMemo(
     () => locales.map((locale) => ({ value: locale, label: locale })),
     [locales],
@@ -180,161 +84,25 @@ export function Toolbar({
     issueTotal,
     ...localeOptions.flatMap((option) => [option.value, option.label]),
   ]);
+  const {
+    density,
+    densityReady,
+    overflowOpen,
+    setOverflowOpen,
+    headerRef,
+    leftRef,
+    viewSwitchRef,
+    rightRef,
+    exportRef,
+    overflowRef,
+    overflowTriggerRef,
+  } = useToolbarDensity(measurementContentKey);
 
   useEffect(() => {
     if (exportRequestKey <= 0) return;
     const frame = requestAnimationFrame(() => setExportOpen(true));
     return () => cancelAnimationFrame(frame);
   }, [exportRequestKey]);
-
-  useLayoutEffect(() => {
-    overflowOpenRef.current = overflowOpen;
-  }, [overflowOpen]);
-
-  useLayoutEffect(() => {
-    const pendingFocusTarget = pendingDensityFocusRef.current;
-    pendingDensityFocusRef.current = null;
-    if (pendingFocusTarget === "overflow-trigger") {
-      overflowTriggerRef.current?.focus();
-    } else if (pendingFocusTarget === "export") {
-      exportRef.current?.focus();
-    }
-  }, [density]);
-
-  useLayoutEffect(() => {
-    const header = headerRef.current;
-    const left = leftRef.current;
-    const viewSwitch = viewSwitchRef.current;
-    const right = rightRef.current;
-    if (!header || !left || !viewSwitch || !right) return;
-
-    const cache = measurementCacheRef.current;
-    if (cache.contentKey !== measurementContentKey) {
-      cache.contentKey = measurementContentKey;
-      cache.widthsByContext.clear();
-      densityProbeRef.current = null;
-      pendingDensityFocusRef.current = null;
-    }
-
-    let frame = 0;
-    const sync = () => {
-      const style = getComputedStyle(header);
-      const horizontalPadding = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
-      const columnGap = Number.parseFloat(style.columnGap) || 0;
-      const labelsExpanded = density === "full";
-      const currentWidths: ToolbarWidths = {
-        headerWidth: header.clientWidth,
-        leftWidth: targetWidth(left, labelsExpanded),
-        centerWidth: targetWidth(viewSwitch, labelsExpanded),
-        rightWidth: targetWidth(right, labelsExpanded),
-      };
-      const measurementContextKey = `${currentWidths.headerWidth}:${window.innerWidth}`;
-      const widthsAtContexts = cache.widthsByContext.get(density) ?? new Map<string, ToolbarWidths>();
-      widthsAtContexts.delete(measurementContextKey);
-      widthsAtContexts.set(measurementContextKey, currentWidths);
-      while (widthsAtContexts.size > MAX_CACHED_CONTEXTS) {
-        const oldestContext = widthsAtContexts.keys().next().value;
-        if (oldestContext === undefined) break;
-        widthsAtContexts.delete(oldestContext);
-      }
-      cache.widthsByContext.set(density, widthsAtContexts);
-
-      const gapFor = (widths: ToolbarWidths) => toolbarGap({
-        headerWidth: currentWidths.headerWidth,
-        horizontalPadding,
-        columnGap,
-        leftWidth: widths.leftWidth,
-        centerWidth: widths.centerWidth,
-        rightWidth: widths.rightWidth,
-      });
-      const currentGap = gapFor(currentWidths);
-      const transitionTo = (nextDensity: ToolbarDensity) => {
-        const focusWithinOverflow = overflowRef.current?.contains(document.activeElement) ?? false;
-        const { closeOverflow, focusTarget } = toolbarDensityTransitionFocusPolicy({
-          nextDensity,
-          overflowOpen: overflowOpenRef.current,
-          focusWithinOverflow,
-          focusedItemRole: focusWithinOverflow
-            ? document.activeElement?.getAttribute("role") ?? null
-            : null,
-        });
-        if (closeOverflow) setOverflowOpen(false);
-        if (focusTarget === "overflow-trigger") {
-          overflowTriggerRef.current?.focus();
-        } else if (focusTarget === "export") {
-          exportRef.current?.focus();
-        }
-        setDensity(nextDensity);
-        return focusTarget;
-      };
-
-      const activeProbe = densityProbeRef.current;
-      if (activeProbe?.candidateDensity === density) {
-        densityProbeRef.current = null;
-        const resolvedDensity = resolveToolbarDensityProbe({
-          ...activeProbe,
-          candidateGap: currentGap,
-        });
-        pendingDensityFocusRef.current = toolbarDensityProbeFocusRestoration({
-          ...activeProbe,
-          resolvedDensity,
-        });
-        if (resolvedDensity !== density) {
-          transitionTo(resolvedDensity);
-          return;
-        }
-      } else if (activeProbe) {
-        densityProbeRef.current = null;
-      }
-
-      const previousDensity = toolbarDensityProbeTarget(density);
-      const previousWidths = previousDensity
-        ? cache.widthsByContext.get(previousDensity)?.get(measurementContextKey)
-        : null;
-      const nextDensity = nextToolbarDensity({
-        density,
-        currentGap,
-        previousGap: previousWidths ? gapFor(previousWidths) : null,
-      });
-
-      if (nextDensity !== density) {
-        transitionTo(nextDensity);
-        return;
-      }
-
-      if (previousDensity && !previousWidths) {
-        const probe = {
-          fallbackDensity: density,
-          candidateDensity: previousDensity,
-          fallbackFocusTarget: null as ToolbarDensityTransitionFocusTarget,
-        };
-        const transitionFocusTarget = transitionTo(previousDensity);
-        probe.fallbackFocusTarget = transitionFocusTarget === "export"
-          ? "overflow-trigger"
-          : null;
-        densityProbeRef.current = probe;
-        return;
-      }
-
-      setDensityReady(true);
-    };
-
-    const scheduleSync = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(sync);
-    };
-
-    sync();
-    const observer = new ResizeObserver(scheduleSync);
-    observer.observe(header);
-    observer.observe(left);
-    observer.observe(viewSwitch);
-    observer.observe(right);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [density, measurementContentKey]);
 
   const compactControls = density !== "full";
   const minimalControls = density === "minimal";
@@ -452,45 +220,19 @@ export function Toolbar({
           </button>
         </div> : null}
         {!localeOverflowed && activeLocale && localeOptions.length > 0 ? (
-          <div ref={localeRef} className={toolbarMotion}>
-            <MenuSelect
-              ariaLabel={`Active locale: ${activeLocale}`}
-              menuLabel="Project locales"
-              value={activeLocale}
-              options={localeOptions}
-              onChange={(locale) => editorStore.getState().selectLocale(locale)}
-              className="w-fit min-w-16 max-w-24"
-              triggerClassName="h-8 px-2 font-semibold"
-              menuClassName="w-32"
-            />
+          <div className={toolbarMotion}>
+            <ToolbarLocaleSelect activeLocale={activeLocale} localeOptions={localeOptions} />
           </div>
         ) : null}
         {!secondaryOverflowed ? (
-          <div ref={secondaryRef} className={cx("contents", toolbarMotion)}>
+          <div className={cx("contents", toolbarMotion)}>
             {onOpenIssues ? (
-              <button
-                type="button"
-                aria-label={issuesLabel}
-                title={issuesLabel}
-                className={cx(
-                  editorUi.buttonGhost,
-                  compactSharedButtonClassName,
-                  issueCounts.blockers > 0
-                    ? "!bg-[var(--editor-color-danger-surface)] !text-[color:var(--editor-color-danger-text)] hover:brightness-95"
-                    : issueCounts.warnings > 0
-                      ? "!bg-[var(--editor-color-warning-surface)] !text-[color:var(--editor-color-warning-text)] hover:brightness-95"
-                      : undefined,
-                )}
-                onClick={onOpenIssues}
-              >
-                <CircleAlert size={15} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Issues</span>
-                {issueTotal > 0 ? (
-                  <span
-                    aria-hidden="true"
-                    className={cx("text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
-                  >{issueTotal}</span>
-                ) : null}
-              </button>
+              <ToolbarIssuesButton
+                issueCounts={issueCounts}
+                compact={compactControls}
+                labelClassName={toolbarLabelClassName}
+                onOpen={onOpenIssues}
+              />
             ) : null}
             <button
               type="button"
@@ -534,7 +276,7 @@ export function Toolbar({
               onOpenChange={setOverflowOpen}
               triggerRef={overflowTriggerRef}
               inspectorOpen={inspectorOpen}
-              issuesLabel={onOpenIssues ? issuesLabel : undefined}
+              issuesLabel={onOpenIssues ? toolbarIssuesLabel(issueCounts) : undefined}
               issueCount={issueTotal}
               onOpenIssues={onOpenIssues}
               activeLocale={activeLocale}
