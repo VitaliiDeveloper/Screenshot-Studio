@@ -5,6 +5,7 @@ import {
   resolveToolbarDensityProbe,
   toolbarDensityProbeTarget,
   toolbarGap,
+  toolbarMeasurementKey,
 } from "./toolbar-density";
 
 describe("nextToolbarDensity", () => {
@@ -104,5 +105,13 @@ describe("toolbarGap", () => {
         rightWidth: 342,
       }),
     ).toBe(25);
+  });
+});
+
+describe("toolbarMeasurementKey", () => {
+  it("changes when only the Export file count changes", () => {
+    const key = (count: number | null) => toolbarMeasurementKey(["Demo", "default", "en", count]);
+    expect(key(6)).not.toBe(key(12));
+    expect(key(null)).not.toBe(key(6));
   });
 });

@@ -7,12 +7,14 @@ import {
 } from "./Toolbar";
 
 describe("toolbar responsive labels", () => {
-  it("keeps project navigation in the tool rail without replacing Workspace controls", () => {
+  it("opens Projects from the product-name crumb and names Export with its file count", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
-    expect(source).not.toContain('aria-label="Project Home"');
-    expect(source).not.toContain("onOpenProjectHome");
-    expect(source).not.toContain("projectHomeBusy");
-    expect(source).toContain('aria-label="Export"');
+    expect(source).toContain('aria-label="Screenshot Studio, back to Projects"');
+    expect(source).toContain("onClick={onOpenProjects}");
+    expect(source).toContain("disabled={projectsBusy}");
+    expect(source).toContain("aria-label={exportLabel}");
+    expect(source).toContain("exportFileCount(state.project, state.activeLayoutId, specs)");
+    expect(source).toContain("exportCount,");
     expect(source).toContain("<LayoutSelector />");
   });
 

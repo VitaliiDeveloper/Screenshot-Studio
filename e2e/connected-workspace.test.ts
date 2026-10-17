@@ -292,7 +292,7 @@ describe("connected workspace", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await waitForConnectedWorkspace(page);
 
-    await page.getByRole("button", { name: "Export", exact: true }).click();
+    await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
     let dialog = page.getByRole("dialog", { name: "Export" });
     await dialog.getByRole("button", { name: "Device" }).click();
     await dialog.getByRole("menuitemradio", { name: "iPad", exact: true }).click();
@@ -302,7 +302,7 @@ describe("connected workspace", () => {
     await page.getByRole("button", { name: "Active layout: Default" }).click();
     await page.getByRole("menuitemradio", { name: /Isolated campaign/ }).click();
     await page.getByRole("button", { name: "Active layout: Isolated campaign" }).waitFor();
-    await page.getByRole("button", { name: "Export", exact: true }).click();
+    await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
     dialog = page.getByRole("dialog", { name: "Export" });
 
     expect((await dialog.getByRole("button", { name: "Platform" }).textContent())?.trim()).toBe("all");

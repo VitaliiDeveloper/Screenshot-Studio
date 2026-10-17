@@ -64,8 +64,8 @@ describe("inspector + toolbar", () => {
 
     const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
     const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
-    const exportLabel = page.getByRole("button", { name: "Export" }).locator("span");
-    const productName = page.getByText("Screenshot Studio", { exact: true });
+    const exportLabel = page.getByRole("button", { name: /^Export/ }).locator("[data-toolbar-label]");
+    const productName = page.getByRole("button", { name: /^Screenshot Studio/ }).locator("[data-toolbar-label]");
     const projectName = page.getByText("Store Launch Demo", { exact: true });
 
     expect(await productName.isVisible()).toBe(false);
@@ -80,7 +80,7 @@ describe("inspector + toolbar", () => {
       return page.locator("header", { has: page.getByLabel("Canvas view") }).evaluate((header) => {
         const left = header.firstElementChild!.getBoundingClientRect();
         const center = header.querySelector('[aria-label="Canvas view"]')!.getBoundingClientRect();
-        const right = header.querySelector('[aria-label="Export"]')!.parentElement!.getBoundingClientRect();
+        const right = header.querySelector('[aria-label^="Export"]')!.parentElement!.getBoundingClientRect();
         return {
           viewportCenter: window.innerWidth / 2,
           leftRight: left.right,

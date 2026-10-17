@@ -17,6 +17,7 @@ import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/ex
 import type { WorkspaceView } from "@web/lib/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
 import { ExportDialog } from "./ExportDialog";
+import { exportButtonLabel, exportFileCount } from "./export-dialog-model";
 import { cx, editorUi, MenuSelect } from "./editor-ui";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
 import { LayoutSelector } from "./LayoutSelector";
@@ -25,6 +26,7 @@ import {
   toolbarGap,
   resolveToolbarDensityProbe,
   toolbarDensityProbeTarget,
+  toolbarMeasurementKey,
   type ToolbarDensity,
 } from "./toolbar/toolbar-density";
 import { ToolbarOverflowMenu } from "./toolbar/ToolbarOverflowMenu";
@@ -104,6 +106,8 @@ export function Toolbar({
   inspectorOpen,
   onViewChange,
   onToggleInspector,
+  onOpenProjects,
+  projectsBusy = false,
   exportRequestKey = 0,
   specs = DEFAULT_STORE_SPECS,
 }: {
@@ -111,6 +115,8 @@ export function Toolbar({
   inspectorOpen: boolean;
   onViewChange: (view: WorkspaceView) => void;
   onToggleInspector: () => void;
+  onOpenProjects: () => void;
+  projectsBusy?: boolean;
   exportRequestKey?: number;
   specs?: StoreSpecs;
 }) {
@@ -149,18 +155,21 @@ export function Toolbar({
   );
   const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0);
   const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0);
+  const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
+  const exportLabel = exportButtonLabel(exportCount);
   const localeOptions = useMemo(
     () => locales.map((locale) => ({ value: locale, label: locale })),
     [locales],
   );
-  const measurementContentKey = [
+  const measurementContentKey = toolbarMeasurementKey([
     projectName,
     activeLayout?.id ?? "",
     activeLayout?.name ?? "",
     activeLayout?.mode ?? "",
     activeLocale,
+    exportCount,
     ...localeOptions.flatMap((option) => [option.value, option.label]),
-  ].join("\u0000");
+  ]);
 
   useEffect(() => {
     if (exportRequestKey <= 0) return;
@@ -333,24 +342,34 @@ export function Toolbar({
       data-density={density}
       data-density-ready={densityReady}
       className={cx(
-        "relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4",
+        "relative grid min-h-13 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4",
         !densityReady && "invisible",
       )}
     >
       <div className="flex w-full min-w-0 items-center justify-self-start">
         <div ref={leftRef} data-toolbar-left-content className="flex min-w-0 items-center gap-2.5">
-          <span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20 sm:inline-flex">
-            <PanelsTopLeft size={16} strokeWidth={1.9} />
-          </span>
-          <span
-            data-toolbar-label
-            className={cx(
-              "hidden overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight text-slate-950 transition-[max-width,opacity] duration-200 ease-out md:inline-block",
-              compactControls ? "md:max-w-0 md:opacity-0" : "md:max-w-40 md:opacity-100",
-            )}
-          >Screenshot Studio</span>
-          <span className="hidden h-5 w-px bg-slate-200 xl:block" aria-hidden="true" />
+          <button
+            type="button"
+            aria-label="Screenshot Studio, back to Projects"
+            title="Back to Projects"
+            disabled={projectsBusy}
+            className="hidden shrink-0 items-center gap-2.5 rounded-lg text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
+            onClick={onOpenProjects}
+          >
+            <span className="inline-flex size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+              <PanelsTopLeft size={16} strokeWidth={1.9} />
+            </span>
+            <span
+              data-toolbar-label
+              className={cx(
+                "hidden overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight transition-[max-width,opacity] duration-200 ease-out md:inline-block",
+                compactControls ? "md:max-w-0 md:opacity-0" : "md:max-w-40 md:opacity-100",
+              )}
+            >Screenshot Studio</span>
+          </button>
+          <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
           <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-slate-600 xl:inline">{projectName}</span>
+          <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
           <LayoutSelector />
         </div>
       </div>
@@ -455,8 +474,8 @@ export function Toolbar({
         <button
           ref={exportRef}
           type="button"
-          aria-label="Export"
-          title="Export"
+          aria-label={exportLabel}
+          title={exportLabel}
           className={cx(
             editorUi.buttonPrimary,
             compactSharedButtonClassName,
@@ -465,6 +484,12 @@ export function Toolbar({
           onClick={() => setExportOpen(true)}
         >
           <Download size={15} strokeWidth={2} /> <span data-toolbar-label className={toolbarLabelClassName}>Export</span>
+          {exportCount !== null && !minimalControls ? (
+            <span
+              aria-hidden="true"
+              className={cx("rounded-md bg-white/20 px-1.5 text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
+            >{exportCount}</span>
+          ) : null}
         </button>
         {secondaryOverflowed ? (
           <div ref={overflowRef} className={toolbarMotion}>

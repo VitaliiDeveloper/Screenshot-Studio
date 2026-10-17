@@ -2,8 +2,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { parseProject } from "@screenshot-studio/core/model";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import {
   DEFAULT_EXPORT_FILTERS,
+  exportButtonLabel,
+  exportFileCount,
   launchExportArtifactDownload,
   normalizeExportFilters,
 } from "./export-dialog-model.js";
@@ -164,5 +167,25 @@ describe("export dialog layout filters", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
 
     expect(source).toContain('key={activeLayout?.id ?? "no-layout"}');
+  });
+});
+
+describe("export file count", () => {
+  const sample = parseProject(JSON.parse(readFileSync("fixtures/sample/app-store-screenshots.json", "utf8")));
+
+  it("counts one file per screen in the store bundle with default filters", () => {
+    expect(exportFileCount(sample, "default", DEFAULT_STORE_SPECS)).toBe(6);
+  });
+
+  it("returns null without a project or layout, or when the bundle cannot be built", () => {
+    expect(exportFileCount(null, "default", DEFAULT_STORE_SPECS)).toBeNull();
+    expect(exportFileCount(sample, null, DEFAULT_STORE_SPECS)).toBeNull();
+    expect(exportFileCount(sample, "missing-layout", DEFAULT_STORE_SPECS)).toBeNull();
+  });
+
+  it("names the button with the count", () => {
+    expect(exportButtonLabel(null)).toBe("Export");
+    expect(exportButtonLabel(1)).toBe("Export, 1 file");
+    expect(exportButtonLabel(12)).toBe("Export, 12 files");
   });
 });
