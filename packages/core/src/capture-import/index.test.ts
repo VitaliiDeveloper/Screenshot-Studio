@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
+import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
@@ -78,7 +79,11 @@ describe("discoverCaptureImport", () => {
       ],
       locales: [{ id: "en", count: 2 }],
     });
-    expect(discovery.warnings).toEqual([]);
+    // The square fixture fits no phone export size, so each capture carries a size warning.
+    expect(discovery.warnings.map(({ code, path }) => ({ code, path }))).toEqual([
+      { code: "unexportable-capture-size", path: "screenshots/android/phone/en/02.png" },
+      { code: "unexportable-capture-size", path: "screenshots/apple/iphone/en/01.png" },
+    ]);
     expect(discovery.invalidEntries).toEqual([]);
     expect(discovery.fingerprint).toMatch(/^[0-9a-f]{64}$/);
   });
@@ -106,7 +111,9 @@ describe("discoverCaptureImport", () => {
       locale: "fr",
       filename: "02.PNG",
     });
-    expect(discovery.warnings).toEqual([
+    expect(discovery.warnings).toMatchObject([
+      { code: "unexportable-capture-size", path: "android/tablet-7/en/01.png" },
+      { code: "unexportable-capture-size", path: "apple/ipad/fr/02.PNG" },
       {
         code: "unsupported-input",
         path: "notes.txt",
@@ -114,6 +121,36 @@ describe("discoverCaptureImport", () => {
       },
     ]);
     expect(discovery.invalidEntries).toEqual([]);
+  });
+
+  it("warns, without blocking apply, when a capture aspect matches no export size of its family", () => {
+    const capture = (width: number, height: number) => PNG.sync.write(new PNG({ width, height }));
+    const discovery = discoverCaptureImport({
+      files: [
+        // 920×2000 downscaled capture: no iPhone size shares its aspect ratio.
+        file("apple/iphone/en/01.png", capture(23, 50)),
+        // Proportional to the 6.9" lead size (1320×2868).
+        file("apple/iphone/en/02.png", capture(110, 239)),
+        // Proportional to the non-lead 6.5" size (1284×2778).
+        file("apple/iphone/en/03.png", capture(214, 463)),
+      ],
+    });
+
+    expect(discovery.captures).toHaveLength(3);
+    expect(discovery.warnings).toEqual([{
+      code: "unexportable-capture-size",
+      path: "apple/iphone/en/01.png",
+      message: "Capture is 23×50, which matches no App Store · iPhone export size aspect ratio "
+        + "(lead size 1320×2868); it imports, but export will fail",
+    }]);
+    const plan = planCaptureImport({
+      project: sampleProject(),
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery,
+    });
+    expect(plan.warnings).toEqual(discovery.warnings);
+    expect(plan.canApply).toBe(true);
   });
 
   it("uses catalog labels for every destination and representative device summary", () => {
