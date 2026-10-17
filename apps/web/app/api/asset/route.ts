@@ -7,6 +7,7 @@ import {
   withPrivateAssetPolicy,
 } from "@web/lib/project-asset.server.js";
 import { withActiveProjectSession } from "@web/lib/project-session.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 /**
  * Serves the project's asset files over HTTP so /editor and the headless /render resolve the SAME
@@ -23,10 +24,10 @@ export async function GET(req: Request): Promise<Response> {
   const explicitProjectPath = url.searchParams.get("project");
   const interactive = !explicitProjectPath;
   const finish = (response: Response) => withPrivateAssetPolicy(response, interactive);
-  if (!rel) return finish(Response.json({ error: "missing path" }, { status: 400 }));
+  if (!rel) return finish(jsonError(400, "missing path"));
 
   if (isAbsolute(rel)) {
-    return finish(Response.json({ error: "path outside project" }, { status: 400 }));
+    return finish(jsonError(400, "path outside project"));
   }
 
   if (explicitProjectPath) return finish(await serveProjectAssetPath(explicitProjectPath, rel));
@@ -35,22 +36,13 @@ export async function GET(req: Request): Promise<Response> {
   const response = await withActiveProjectSession(req, (session) => {
     const { projectId, projectPath } = session;
     if (!requestedProjectId || !resourceRevision) {
-      return Promise.resolve(Response.json(
-        { error: "projectId and revision are required for interactive assets" },
-        { status: 400 },
-      ));
+      return Promise.resolve(jsonError(400, "projectId and revision are required for interactive assets"));
     }
     if (!isStrongQuotedETag(resourceRevision)) {
-      return Promise.resolve(Response.json(
-        { error: "revision must be one strong quoted ETag" },
-        { status: 400 },
-      ));
+      return Promise.resolve(jsonError(400, "revision must be one strong quoted ETag"));
     }
     if (requestedProjectId !== projectId) {
-      return Promise.resolve(Response.json(
-        { error: "Asset URL belongs to a different active project" },
-        { status: 409 },
-      ));
+      return Promise.resolve(jsonError(409, "Asset URL belongs to a different active project"));
     }
     return withManagedProjectReadGuard(session, () => serveProjectAssetPath(projectPath, rel));
   });

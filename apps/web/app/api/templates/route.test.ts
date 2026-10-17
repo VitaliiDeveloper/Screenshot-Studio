@@ -64,6 +64,8 @@ describe("/api/templates", () => {
       method: "POST", body: JSON.stringify({ id: "../bad", locale: "en" }),
     }));
     expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await response.json())).toEqual(["error"]);
   });
 
   it("routes reads and mutations through the cookie-selected project session", async () => {

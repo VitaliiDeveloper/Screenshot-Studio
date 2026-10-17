@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
+import { jsonError } from "./api-error-response.server.js";
 import { isStrongQuotedETag } from "./http-etag.js";
 import {
   withManagedProjectMutationGuard,
@@ -43,16 +44,10 @@ function projectIdentityResponse(
 ): Response | undefined {
   const expectedProjectId = req.headers.get("x-project-id")?.trim();
   if (!expectedProjectId) {
-    return Response.json(
-      { error: "X-Project-Id is required for this project operation" },
-      { status: 428 },
-    );
+    return jsonError(428, "X-Project-Id is required for this project operation");
   }
   if (expectedProjectId !== session.projectId) {
-    return Response.json(
-      { error: "Active project changed; reload it before continuing" },
-      { status: 409 },
-    );
+    return jsonError(409, "Active project changed; reload it before continuing");
   }
 }
 
@@ -75,16 +70,10 @@ export function withProjectReadRequest(
 function expectedRevisionResponse(req: Request): string | Response {
   const expectedRevision = req.headers.get("if-match");
   if (expectedRevision === null) {
-    return Response.json(
-      { error: "If-Match is required for this project operation" },
-      { status: 428 },
-    );
+    return jsonError(428, "If-Match is required for this project operation");
   }
   if (!isStrongQuotedETag(expectedRevision)) {
-    return Response.json(
-      { error: "If-Match must be one strong quoted ETag" },
-      { status: 400 },
-    );
+    return jsonError(400, "If-Match must be one strong quoted ETag");
   }
   return expectedRevision.slice(1, -1);
 }
@@ -139,4 +128,17 @@ export function projectRevisionConflictResponse(error: unknown): Response | unde
     status: 412,
     headers: { etag: quotedRevision(error.actual) },
   });
+}
+
+type ErrorClass = abstract new (...args: never[]) => Error;
+
+/** An ordered error-class → HTTP status table; the first class the error is an instance of wins. */
+export type ErrorStatusTable = ReadonlyArray<readonly [ErrorClass, number]>;
+
+/** Maps a thrown error to its response: a project revision conflict first, then `statuses`, else 500. */
+export function errorResponseByClass(error: unknown, statuses: ErrorStatusTable): Response {
+  const revisionConflict = projectRevisionConflictResponse(error);
+  if (revisionConflict) return revisionConflict;
+  const status = statuses.find(([ErrorType]) => error instanceof ErrorType)?.[1] ?? 500;
+  return jsonError(status, error instanceof Error ? error.message : String(error));
 }

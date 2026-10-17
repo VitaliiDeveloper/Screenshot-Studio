@@ -17,6 +17,7 @@ import {
 } from "@web/lib/recent-projects.server.js";
 import { ProjectZipError, readProjectZipFiles } from "@web/lib/project-zip.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 export interface ProjectImportRouteDependencies {
   repository?: ManagedProjectRepository;
@@ -32,11 +33,7 @@ function errorResponse(
   code: string,
   missingResources: readonly string[] = [],
 ): Response {
-  return Response.json({
-    error,
-    code,
-    ...(missingResources.length === 0 ? {} : { missingResources }),
-  }, { status, headers: { "cache-control": "no-store" } });
+  return jsonError(status, error, code, missingResources.length === 0 ? {} : { missingResources });
 }
 
 function isUpload(value: FormDataEntryValue): value is File {

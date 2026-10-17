@@ -5,7 +5,7 @@ import {
   ProjectImageValidationError,
   type ProjectImageServiceDependencies,
 } from "@screenshot-studio/cli/project-image-service";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
 
 type UploadFile = {
   name: string;
@@ -21,14 +21,9 @@ function isUploadFile(value: FormDataEntryValue | null): value is File & UploadF
     && "arrayBuffer" in value;
 }
 
-function errorResponse(error: unknown): Response {
-  const revisionConflict = projectRevisionConflictResponse(error);
-  if (revisionConflict) return revisionConflict;
-  const message = error instanceof Error ? error.message : String(error);
-  return Response.json({ error: message }, {
-    status: error instanceof ProjectImageValidationError ? 400 : 500,
-  });
-}
+const ERROR_STATUSES: ErrorStatusTable = [
+  [ProjectImageValidationError, 400],
+];
 
 export async function handleAssetPost(
   projectPath: string,
@@ -55,6 +50,6 @@ export async function handleAssetPost(
       headers: { etag: `"${result.revision}"` },
     });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }
