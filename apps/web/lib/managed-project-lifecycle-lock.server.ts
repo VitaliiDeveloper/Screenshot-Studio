@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import type { LockOptions } from "proper-lockfile";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { acquireStorageLock } from "./storage-lock.server.js";
+import { errorCode } from "@screenshot-studio/core/storage";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -62,11 +63,6 @@ function retries(timeoutMs: number, retryDelayMs: number): LockOptions["retries"
     maxTimeout: retryDelayMs,
     randomize: false,
   };
-}
-
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    && typeof error.code === "string" ? error.code : undefined;
 }
 
 export async function ensureManagedStorageRoot(config: ManagedProjectStorageConfig): Promise<string> {

@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-import { constants } from "node:fs";
-import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
-import sharp from "sharp";
-import { resolveExistingProjectPath, withProjectMutation } from "@screenshot-studio/core/storage";
+import {
+  constants } from "node:fs"; import { lstat,
+  open,
+  realpath,
+  type FileHandle } from "node:fs/promises"; import { basename,
+  dirname,
+  extname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep } from "node:path"; import sharp from "sharp"; import { resolveExistingProjectPath,
+  withProjectMutation,
+  errorCode,
+} from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "./capture-import-recovery.js";
 import { loadProjectFile } from "./project-io.js";
 import {
@@ -97,12 +106,6 @@ function sourceReadFlags(): number {
   return constants.O_RDONLY
     | constants.O_NONBLOCK
     | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
-}
-
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    ? String(error.code)
-    : undefined;
 }
 
 function identityOf(stat: AssetStat): AssetIdentity {
