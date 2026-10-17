@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/debounced-save";
@@ -31,6 +32,7 @@ import type { MediaAssetTarget } from "@web/lib/editor-workspace";
 import { cx, editorUi } from "./editor-ui";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./inspector/ElementTypeInspectorSections";
+import { TextSizeStatusSection } from "./inspector/TextSizeStatusSection";
 import { InspectorSection as Section } from "./inspector/InspectorSection";
 import { InspectorTabs, inspectorPanelId, inspectorTabId } from "./inspector/InspectorTabs";
 import { ScreenInspectorSections } from "./inspector/ScreenInspectorSections";
@@ -67,6 +69,8 @@ const SHORTCUT_HINT = "ml-auto text-[color:var(--editor-color-text-subtle)]";
 /** Composition entry point for selection, element, and active-screen inspector sections. */
 export function Inspector({
   specs,
+  issues = [],
+  textMeasured = false,
   onOpenBackgroundAsset,
   onOpenDeviceFrameAsset,
   onOpenMediaAsset,
@@ -74,6 +78,10 @@ export function Inspector({
   className,
 }: {
   specs: StoreSpecs | null;
+  /** The editor's live Issues; Status by size reads text fit from them. */
+  issues?: readonly ProjectIssue[];
+  /** Whether text overflow has been measured (project fonts settled). */
+  textMeasured?: boolean;
   onOpenBackgroundAsset?: () => void;
   onOpenDeviceFrameAsset?: (target: { elementId: string; screenId: string }) => void;
   onOpenMediaAsset?: (target: MediaAssetTarget) => void;
@@ -382,6 +390,17 @@ export function Inspector({
                 selectedItems[0]!.screenId,
               ))}
             />
+            {element.type === "text" ? (
+              <TextSizeStatusSection
+                project={project}
+                layoutId={activeLayoutId}
+                screenId={screen.id}
+                elementId={element.id}
+                issues={issues}
+                measured={textMeasured}
+                specs={specs ?? undefined}
+              />
+            ) : null}
           </>
         ) : (
           <p className="px-4 py-4 text-xs leading-5 text-slate-500">

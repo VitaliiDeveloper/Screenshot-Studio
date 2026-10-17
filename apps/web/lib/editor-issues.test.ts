@@ -1,8 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { createTextElement, parseProject, type Element } from "@screenshot-studio/core/model";
+import {
+  createImageElement,
+  createScreenshotElement,
+  createShapeElement,
+  createTextElement,
+  parseProject,
+  type Element,
+} from "@screenshot-studio/core/model";
 import { collectLayoutIssues, type ProjectIssue } from "@screenshot-studio/core/validation";
-import { countIssues, issueRowCopy, issueSummary } from "./editor-issues";
+import {
+  countIssues,
+  issueRowCopy,
+  issueSummary,
+  missingProjectImages,
+  textSizeStatus,
+} from "./editor-issues";
 
 function screen(id: string, name: string, locale: string, elements: Element[] = []) {
   return {
@@ -63,5 +76,109 @@ describe("editor issues copy", () => {
       issue.kind === "text-overflow"
     )!;
     expect(issueRowCopy(project, { ...overflow, elementId: "gone" })).toBeNull();
+  });
+});
+
+describe("missing-image issues", () => {
+  const media = parseProject({
+    meta: { name: "M", schemaVersion: 1 },
+    fonts: [],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default",
+      name: "Default",
+      mode: "isolated",
+      screens: [
+        {
+          ...screen("hero", "Hero", "en", [
+            { ...createScreenshotElement({ assetUrl: "assets/gone.png" }), id: "shot", name: "App screen" },
+            { ...createImageElement({ assetUrl: "assets/hidden.png" }), id: "hidden", visible: false },
+          ]),
+          background: { type: "image", assetUrl: "assets/gone-bg.png", fit: "cover", color: "#000000" },
+        },
+      ],
+    }, {
+      id: "second",
+      name: "Second",
+      mode: "isolated",
+      screens: [screen("other", "Other", "en", [
+        { ...createImageElement({ assetUrl: "assets/gone.png" }), id: "again" },
+      ])],
+    }],
+  });
+  const images = new Map([["assets/kept.png", {} as HTMLImageElement]]);
+  const issues = collectLayoutIssues(media, "default", { imageMissing: (assetUrl) => !images.has(assetUrl) });
+
+  it("names the file, the layer or background, and Replace", () => {
+    expect(issues.map((issue) => issueRowCopy(media, issue))).toEqual([
+      {
+        title: "Image missing from the project folder",
+        detail: expect.stringMatching(/^assets\/gone-bg\.png · Background · Hero · iPhone/),
+        fixLabel: "Replace",
+      },
+      {
+        title: "Image missing from the project folder",
+        detail: expect.stringMatching(/^assets\/gone\.png · App screen · Hero · iPhone/),
+        fixLabel: "Replace",
+      },
+    ]);
+  });
+
+  it("lists each missing project image once across layouts for project readiness", () => {
+    expect(missingProjectImages(media, images)).toEqual(["assets/gone-bg.png", "assets/gone.png"]);
+  });
+});
+
+describe("textSizeStatus", () => {
+  function variant(id: string, storeTargetId: string, elements: Element[]) {
+    return {
+      ...screen(id, "Hero", "en", elements),
+      artboard: { width: 1206, height: 2622 },
+      variantOf: "hero",
+      storeTargetId,
+    };
+  }
+  const title = (id: string, visible = true) => ({ ...createTextElement({}), id, visible });
+  const slot = parseProject({
+    meta: { name: "S", schemaVersion: 1 },
+    fonts: [],
+    preferredExportLayoutId: "default",
+    layouts: [{
+      id: "default",
+      name: "Default",
+      mode: "isolated",
+      screens: [
+        screen("hero", "Hero", "en", [title("title"), title("subtitle")]),
+        variant("hero-63", "6.3", [title("title-63"), title("subtitle-63")]),
+        variant("hero-61", "6.1", [title("title-61"), title("subtitle-61", false)]),
+        variant("hero-65", "6.5", [title("subtitle-65"), { ...createShapeElement({}), id: "added" }]),
+      ],
+    }],
+  });
+  const overflowing = new Set(["title-63"]);
+  const issues = collectLayoutIssues(slot, "default", {
+    textOverflows: (element) => overflowing.has(element.id),
+  });
+  const rows = (elementId: string, measured = true) => textSizeStatus(slot, "default", "hero", elementId, issues, measured)
+    .map(({ label, current, element, state }) => ({ label, current, element: element?.id ?? null, state }));
+
+  it("reads each exact size of the slot from the Issues list", () => {
+    expect(rows("title")).toEqual([
+      { label: "6.9\" · Portrait", current: true, element: "title", state: "fits" },
+      { label: "6.3\" · Portrait", current: false, element: "title-63", state: "overflows" },
+      { label: "6.1\" · Portrait", current: false, element: "title-61", state: "fits" },
+      { label: "6.5\" · Portrait", current: false, element: null, state: "unmatched" },
+    ]);
+    expect(rows("subtitle")[2]).toEqual({ label: "6.1\" · Portrait", current: false, element: "subtitle-61", state: "hidden" });
+  });
+
+  it("never reports fits before text has been measured", () => {
+    expect(rows("title", false).map(({ state }) => state)).toEqual(["checking", "checking", "checking", "unmatched"]);
+  });
+
+  // Regression: the diverged 6.5" screen holds a text layer at the selected layer's index, but a
+  // guessed match would let Fit resize the wrong layer.
+  it("never matches a layer once a size's structure diverged", () => {
+    expect(rows("title")[3]?.element).toBeNull();
   });
 });

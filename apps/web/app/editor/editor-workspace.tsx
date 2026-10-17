@@ -15,7 +15,7 @@ import type {
   WorkspaceView,
 } from "@web/lib/editor-workspace";
 import { editorStore } from "@web/lib/editor-store";
-import { countIssues } from "@web/lib/editor-issues";
+import { countIssues, missingImageTarget } from "@web/lib/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
 import { Inspector } from "@web/components/Inspector";
@@ -99,7 +99,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   useEditorSaveGuards(saveStatus);
   // Fallback-font metrics would report false overflow, so measure only with every project font loaded.
-  const issues = useEditorIssues(Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying);
+  const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
+  const issues = useEditorIssues(textMeasured, images);
   const issueCounts = useMemo(() => countIssues(issues), [issues]);
   const goToIssue = useCallback((issue: ProjectIssue) => {
     const store = editorStore.getState();
@@ -107,11 +108,27 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       store.selectScreen(issue.sourceScreenId);
     } else {
       store.selectScreen(issue.screenId);
-      store.select(issue.elementId, issue.screenId);
+      if (issue.elementId) store.select(issue.elementId, issue.screenId);
     }
     setView("focus");
     setIssuesOpen(false);
   }, []);
+  const replaceMissingImage = useCallback((issue: Extract<ProjectIssue, { kind: "missing-image" }>) => {
+    const current = editorStore.getState().project;
+    const element = current ? missingImageTarget(current, issue)?.element : undefined;
+    // Go to first: the background picker writes to the active screen.
+    goToIssue(issue);
+    if (element === undefined) return;
+    if (element === null) {
+      setDialog("background-assets");
+    } else if (element.type === "device-frame") {
+      setDeviceFrameAssetTarget({ elementId: element.id, screenId: issue.screenId });
+      setDialog("mockup-screenshot-assets");
+    } else {
+      setMediaAssetTarget({ elementId: element.id, screenId: issue.screenId, elementType: element.type });
+      setDialog("replace-media-asset");
+    }
+  }, [goToIssue]);
 
   useEffect(() => {
     const overlayQuery = window.matchMedia("(max-width: 1279px)");
@@ -279,6 +296,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         <EditorSidePanel side="right" open={inspectorOpen}>
           <Inspector
             specs={specs}
+            issues={issues}
+            textMeasured={textMeasured}
             onOpenBackgroundAsset={() => setDialog("background-assets")}
             onOpenDeviceFrameAsset={(target) => {
               setDeviceFrameAssetTarget(target);
@@ -337,6 +356,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           issues={issues}
           specs={specs}
           onGoTo={goToIssue}
+          onReplaceImage={replaceMissingImage}
           onClose={() => setIssuesOpen(false)}
         />
       ) : null}

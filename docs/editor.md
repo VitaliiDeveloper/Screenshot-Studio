@@ -150,6 +150,23 @@ size and offers **Go to** and a fix:
   size that family has; an Independent family copies only that screen. The copy keeps the source
   name and takes the target locale's text direction. A size row that exists in one locale's Keep
   1:1 family but not another's is a sizes difference, not a missing screen.
+- *Image missing from the project folder* (blocker) is the editor's missing-asset placeholder: a
+  background, or a visible screenshot, image, or device-frame layer, whose project image did not
+  load. It is reported per screen and layer once the image cache has loaded, and the row names the
+  project path. **Replace** goes to the screen and opens the existing picker for that background or
+  layer. Project Home's missing-asset readiness reads the same check across every layout.
+
+Export folders apply only to the CLI (`--out`, or `export/` next to the project); UI export renders
+into a private staging folder and hands the bundle to the browser as a download, so Issues has no
+export-folder row.
+
+**Status by size** in the Layer tab lists, for the selected text layer, every exact size of its
+screen slot (the primary screen and its variants) with whether the layer fits there. It reads the
+same Issues, so fit is never measured twice, and shows *checking* until project fonts have loaded.
+Layers keep no persisted link across sizes, so a size whose layer structure differs from the
+selected screen's shows *no matching layer* rather than guessing; a hidden counterpart shows
+*hidden*. **Fit** on a size sets the largest whole font size that fits that size's layer only, as
+one undo step.
 
 ### Projects and Workspace navigation
 
