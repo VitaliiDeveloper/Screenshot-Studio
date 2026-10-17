@@ -3,6 +3,7 @@ import type {
   ActiveProjectDescriptor,
   ActiveProjectSelection,
 } from "./project-session.js";
+import { readJsonBody, responseErrorMessage } from "./json-response.js";
 
 const MANAGED_PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 
@@ -103,7 +104,7 @@ export async function importProject(
     buildProjectImportForm(source),
     options,
   );
-  const body = await response.json().catch(() => ({})) as {
+  const body = await readJsonBody(response) as {
     project?: ActiveProjectDescriptor;
     error?: unknown;
     code?: unknown;
@@ -111,7 +112,7 @@ export async function importProject(
   };
   if (!response.ok) {
     throw new ProjectImportClientError(
-      typeof body.error === "string" ? body.error : `Project import failed (${response.status})`,
+      responseErrorMessage(body, `Project import failed (${response.status})`),
       typeof body.code === "string" ? body.code : "request-failed",
       Array.isArray(body.missingResources)
         ? body.missingResources.filter((value): value is string => typeof value === "string")

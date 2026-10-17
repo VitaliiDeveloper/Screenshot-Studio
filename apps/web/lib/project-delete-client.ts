@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readJsonBody, readJsonResponse, responseErrorMessage } from "./json-response.js";
 
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
 const SECRET_PATTERN = /^[0-9a-f]{64}$/;
@@ -101,10 +102,6 @@ function parseResult(
   return { operationId, status: body.status as ProjectDeletionStatus };
 }
 
-async function responseBody(response: Response): Promise<Record<string, unknown>> {
-  return response.json().catch(() => ({})) as Promise<Record<string, unknown>>;
-}
-
 export async function requestProjectDeletion(
   input: ProjectDeletionRequest,
   fetcher: ProjectDeletionFetcher = fetch,
@@ -130,12 +127,7 @@ export async function requestProjectDeletion(
       backup: input.backup,
     }),
   });
-  const body = await responseBody(response);
-  if (!response.ok) {
-    throw new Error(typeof body.error === "string"
-      ? body.error
-      : `Permanent deletion failed (${response.status})`);
-  }
+  const body = await readJsonResponse(response, `Permanent deletion failed (${response.status})`);
   return parseResult(body, input.operationId, false) as Exclude<
     ProjectDeletionResult,
     { status: "expired-or-unknown" }
@@ -153,12 +145,10 @@ export async function requestProjectDeletionStatus(
     headers: { "content-type": "application/json" },
     body: JSON.stringify(credentials),
   });
-  const body = await responseBody(response);
+  const body = await readJsonBody(response);
   if (response.status === 404) return parseResult(body, credentials.operationId, true);
   if (!response.ok) {
-    throw new Error(typeof body.error === "string"
-      ? body.error
-      : `Deletion status failed (${response.status})`);
+    throw new Error(responseErrorMessage(body, `Deletion status failed (${response.status})`));
   }
   return parseResult(body, credentials.operationId, false);
 }
