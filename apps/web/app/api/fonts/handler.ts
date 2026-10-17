@@ -13,7 +13,7 @@ import {
   removeFontMutation,
   type FontServiceDependencies,
 } from "@screenshot-studio/cli/font-service";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -31,18 +31,13 @@ function isUploadFile(value: FormDataEntryValue | null): value is File & UploadF
     && "arrayBuffer" in value;
 }
 
-function errorResponse(error: unknown): Response {
-  const revisionConflict = projectRevisionConflictResponse(error);
-  if (revisionConflict) return revisionConflict;
-  const message = error instanceof Error ? error.message : String(error);
-  const status = error instanceof FontValidationError ? 400
-    : error instanceof FontConflictError ? 409
-      : error instanceof FontInUseError ? 409
-      : error instanceof FontNotFoundError ? 404
-        : error instanceof GoogleFontError ? 422
-          : 500;
-  return Response.json({ error: message }, { status });
-}
+const ERROR_STATUSES: ErrorStatusTable = [
+  [FontValidationError, 400],
+  [FontConflictError, 409],
+  [FontInUseError, 409],
+  [FontNotFoundError, 404],
+  [GoogleFontError, 422],
+];
 
 function mutationResponse(
   result: { project: unknown; revision: string },
@@ -71,7 +66,7 @@ export async function handleFontGet(projectPath: string): Promise<Response> {
     const project = await loadFontProject(projectPath);
     return Response.json({ fonts: project.fonts });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }
 
@@ -106,7 +101,7 @@ export async function handleFontPost(
     }, dependencies, { expectedRevision });
     return mutationResponse(result, 201);
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }
 
@@ -124,6 +119,6 @@ export async function handleFontDelete(
     }, dependencies, { expectedRevision });
     return mutationResponse(result);
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }

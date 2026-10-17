@@ -97,6 +97,8 @@ describe("/api/assets", () => {
       uploadRequest("invalid.png", new TextEncoder().encode("not an image")),
     );
     expect(invalid.status).toBe(400);
+    expect(invalid.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await invalid.json())).toEqual(["error"]);
 
     const stale = await handleAssetPost(
       projectPath,

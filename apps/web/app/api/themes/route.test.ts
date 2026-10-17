@@ -83,6 +83,8 @@ describe("/api/themes", () => {
       method: "POST", body: JSON.stringify({ id: "missing" }),
     }));
     expect(missing.status).toBe(404);
+    expect(missing.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await missing.json())).toEqual(["error"]);
     const invalid = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "../bad" }),
     }));
