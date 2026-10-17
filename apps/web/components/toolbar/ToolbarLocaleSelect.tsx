@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui";
 
 /** Switches the active locale of the current layout. */

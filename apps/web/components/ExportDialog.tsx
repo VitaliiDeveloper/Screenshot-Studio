@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Archive, Download, Images } from "lucide-react";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import {
   type DesignLayout,
 } from "@screenshot-studio/core/model";
@@ -14,10 +14,10 @@ import {
   listOutputFamilies,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { withFlushedProject } from "@web/lib/debounced-save";
-import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
-import { fetchActiveProject } from "@web/lib/project-session";
-import { getProjectPersistenceIdentity, projectRequestHeaders } from "@web/lib/save-project";
+import { withFlushedProject } from "@web/lib/editor/debounced-save";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
+import { fetchActiveProject } from "@web/lib/clients/project-session";
+import { getProjectPersistenceIdentity, projectRequestHeaders } from "@web/lib/clients/save-project";
 import {
   createExportOperationId,
   parseExportProgress,

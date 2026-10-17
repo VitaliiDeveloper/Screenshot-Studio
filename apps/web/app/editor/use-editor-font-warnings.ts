@@ -8,8 +8,8 @@ import {
   registerProjectFonts,
   type FontRegistrationFailure,
 } from "@screenshot-studio/core/fonts";
-import { editorStore } from "@web/lib/editor-store";
-import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
 
 export async function loadProjectFontWarnings(
   fonts: Project["fonts"],

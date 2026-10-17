@@ -3,7 +3,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { CanvasMode } from "@screenshot-studio/core/model";
-import type { WorkspaceView } from "@web/lib/editor-workspace";
+import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
 import { canvasTransitionKind, type CanvasTransitionState } from "./layout-transition";
 
 export interface CanvasTransitionsInput {

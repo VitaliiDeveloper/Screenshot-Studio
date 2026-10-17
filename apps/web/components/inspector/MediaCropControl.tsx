@@ -6,8 +6,8 @@ import type { KeyboardEvent, PointerEvent } from "react";
 import { Minus, Plus } from "lucide-react";
 import type { MediaCrop } from "@screenshot-studio/core/model";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
-import { NumberField, rangeProgressStyle } from "@web/components/inspector-fields";
-import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
+import { NumberField, rangeProgressStyle } from "@web/components/inspector/inspector-fields";
+import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
 import {
   adjustCropZoom,
   cropFromPointer,

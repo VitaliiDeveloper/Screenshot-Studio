@@ -7,10 +7,10 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { cx, DialogShell, editorUi } from "@web/components/editor-ui";
-import { editorStore } from "@web/lib/editor-store";
-import { countIssues, issueRowCopy, issueSummary, overflowTarget } from "@web/lib/editor-issues";
-import { applyTextFit } from "@web/lib/editor-text-fit";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { countIssues, issueRowCopy, issueSummary, overflowTarget } from "@web/lib/editor/editor-issues";
+import { applyTextFit } from "@web/lib/editor/editor-text-fit";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 
 function overflowFitSize(project: Project, issue: ProjectIssue): number | null | undefined {
   if (issue.kind !== "text-overflow") return undefined;

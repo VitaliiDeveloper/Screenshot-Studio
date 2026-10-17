@@ -2,7 +2,7 @@
 "use client";
 
 import { Grid3X3, Grip, SquareDashed } from "lucide-react";
-import type { CanvasPattern } from "@web/lib/editor-workspace";
+import type { CanvasPattern } from "@web/lib/editor/editor-workspace";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui";
 
 const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [

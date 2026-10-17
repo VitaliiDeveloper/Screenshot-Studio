@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { layoutLocales } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
-import type { WorkspaceView } from "@web/lib/editor-workspace";
-import type { IssueCounts } from "@web/lib/editor-issues";
-import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
+import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
+import type { IssueCounts } from "@web/lib/editor/editor-issues";
+import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ExportDialog } from "@web/components/ExportDialog";
 import { exportButtonLabel, exportFileCount } from "@web/components/export-dialog-model";
 import { cx, editorUi } from "@web/components/editor-ui";

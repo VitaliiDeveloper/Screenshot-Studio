@@ -2,7 +2,7 @@
 "use client";
 
 import { CircleAlert } from "lucide-react";
-import { issueSummary, type IssueCounts } from "@web/lib/editor-issues";
+import { issueSummary, type IssueCounts } from "@web/lib/editor/editor-issues";
 import { cx, editorUi } from "@web/components/editor-ui";
 
 /** Accessible Issues summary shared by the toolbar button and its overflow-menu item. */

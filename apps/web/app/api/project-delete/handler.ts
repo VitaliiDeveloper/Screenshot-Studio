@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import type { ManagedProjectDeletionEvidence } from "@web/lib/managed-project-catalog.server.js";
+import type { ManagedProjectDeletionEvidence } from "@web/lib/managed-projects/managed-project-catalog.server.js";
 import {
   resolveManagedProjectStorageConfig,
   type ManagedProjectStorageConfig,
-} from "@web/lib/managed-project-config.server.js";
+} from "@web/lib/managed-projects/managed-project-config.server.js";
 import {
   ManagedProjectLifecycleService,
   type PermanentlyDeleteManagedProjectInput,
   type ReconcileManagedProjectDeletionInput,
-} from "@web/lib/managed-project-lifecycle.server.js";
-import type { ManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "@web/lib/managed-projects/managed-project-lifecycle.server.js";
+import type { ManagedProjectLifecycleLock } from "@web/lib/managed-projects/managed-project-lifecycle-lock.server.js";
 import {
   withProjectVersionedReadRequest,
   type ProjectReadRequestDependencies,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { expiredProjectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 

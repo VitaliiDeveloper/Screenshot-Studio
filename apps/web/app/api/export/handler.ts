@@ -22,7 +22,7 @@ import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
 import { EXPORT_OPERATION_ID_PATTERN } from "@web/lib/export-progress.js";
 import { exportProgressRegistry, type ExportProgressRegistry } from "@web/lib/export-progress.server.js";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { projectRevisionConflictResponse } from "@web/lib/session/project-request-fence.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 
 interface ExportRequest {

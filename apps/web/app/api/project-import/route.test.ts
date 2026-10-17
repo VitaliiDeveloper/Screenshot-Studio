@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
+import { ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 import { handleProjectImportPost } from "./handler.js";
 import { POST } from "./route.js";
 

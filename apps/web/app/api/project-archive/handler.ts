@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ManagedProjectArchiveService } from "@web/lib/managed-project-archive.server.js";
+import { ManagedProjectArchiveService } from "@web/lib/managed-projects/managed-project-archive.server.js";
 import {
   resolveManagedProjectStorageConfig,
   type ManagedProjectStorageConfig,
-} from "@web/lib/managed-project-config.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
+} from "@web/lib/managed-projects/managed-project-config.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
   stageProjectArchiveArtifact,
   type ProjectArchiveArtifactTicket,
@@ -12,11 +12,11 @@ import {
 import {
   withProjectVersionedReadRequest,
   type ProjectReadRequestDependencies,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 import {
   type ActiveProjectResolverDependencies,
-} from "@web/lib/project-session.server.js";
-import type { ManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "@web/lib/session/project-session.server.js";
+import type { ManagedProjectLifecycleLock } from "@web/lib/managed-projects/managed-project-lifecycle-lock.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 
 type CreatedArchive = Awaited<ReturnType<ManagedProjectArchiveService["create"]>>;

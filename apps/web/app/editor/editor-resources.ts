@@ -9,19 +9,19 @@ import {
 } from "@screenshot-studio/core/fonts";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { parseStoreSpecs, type StoreSpecs } from "@screenshot-studio/core/export";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import {
   readActiveLayoutPreference,
   writeActiveLayoutPreference,
-} from "@web/lib/editor-layout-preference";
+} from "@web/lib/editor/editor-layout-preference";
 import {
   createProjectAssetResolver,
   getProjectPersistenceIdentity,
   requireProjectRevision,
   setProjectPersistenceIdentity,
   type ProjectAssetResolver,
-} from "@web/lib/save-project";
-import { withFlushedProject } from "@web/lib/debounced-save";
+} from "@web/lib/clients/save-project";
+import { withFlushedProject } from "@web/lib/editor/debounced-save";
 import {
   loadAllProjectImages,
   useEditorImageCache,

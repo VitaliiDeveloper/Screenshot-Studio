@@ -5,7 +5,7 @@ import type { HTMLAttributes, ReactNode, RefObject } from "react";
 import type {
   CanvasPattern,
   WorkspaceView,
-} from "@web/lib/editor-workspace";
+} from "@web/lib/editor/editor-workspace";
 import { cx } from "@web/components/editor-ui";
 
 type PointerHandlers = Pick<

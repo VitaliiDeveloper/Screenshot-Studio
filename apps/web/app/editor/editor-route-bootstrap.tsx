@@ -4,12 +4,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { switchActiveProject } from "@web/lib/debounced-save";
+import { switchActiveProject } from "@web/lib/editor/debounced-save";
 import {
   activateEditorRouteEntry,
   canonicalEditorUrlForSelection,
-} from "@web/lib/editor-route";
-import { fetchActiveProject } from "@web/lib/project-session";
+} from "@web/lib/editor/editor-route";
+import { fetchActiveProject } from "@web/lib/clients/project-session";
 import { EditorWorkspace } from "./editor-workspace";
 
 export function EditorRouteBootstrap({ entryId }: { entryId?: string }) {

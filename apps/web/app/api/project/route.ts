@@ -13,8 +13,8 @@ import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import {
   withManagedProjectMutationGuard,
   withManagedProjectReadGuard,
-} from "@web/lib/managed-project-mutation-guard.server.js";
-import { withActiveProjectSession } from "@web/lib/project-session.server.js";
+} from "@web/lib/managed-projects/managed-project-mutation-guard.server.js";
+import { withActiveProjectSession } from "@web/lib/session/project-session.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 
 /**

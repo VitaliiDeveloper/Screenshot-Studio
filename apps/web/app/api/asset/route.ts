@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { isAbsolute } from "node:path";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
-import { withManagedProjectReadGuard } from "@web/lib/managed-project-mutation-guard.server.js";
+import { withManagedProjectReadGuard } from "@web/lib/managed-projects/managed-project-mutation-guard.server.js";
 import {
   serveProjectAssetPath,
   withPrivateAssetPolicy,
 } from "@web/lib/project-asset.server.js";
-import { withActiveProjectSession } from "@web/lib/project-session.server.js";
+import { withActiveProjectSession } from "@web/lib/session/project-session.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 
 /**

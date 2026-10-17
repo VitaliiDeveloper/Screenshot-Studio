@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
 import { jsonError } from "./api-error-response.server.js";
-import { errorResponseByClass } from "./project-request-fence.server.js";
+import { errorResponseByClass } from "@web/lib/session/project-request-fence.server.js";
 
 class BaseFailure extends Error {}
 class SpecificFailure extends BaseFailure {}

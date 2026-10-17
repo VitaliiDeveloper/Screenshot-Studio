@@ -13,8 +13,8 @@ import {
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
-} from "@web/lib/editor-workspace";
-import { editorStore, selectEditorLayout } from "@web/lib/editor-store";
+} from "@web/lib/editor/editor-workspace";
+import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { cx } from "@web/components/editor-ui";
 import { CanvasPatternSelect } from "./CanvasPatternSelect";
 import { CanvasSurface } from "./CanvasSurface";

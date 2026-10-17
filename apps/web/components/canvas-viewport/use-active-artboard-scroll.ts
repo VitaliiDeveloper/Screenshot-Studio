@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
-import type { WorkspaceView } from "@web/lib/editor-workspace";
+import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
 import { activeArtboardScrollBehavior } from "./canvas-viewport-model";
 
 export interface ActiveArtboardScrollInput {

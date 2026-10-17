@@ -2,11 +2,11 @@
 import {
   recentProjectsStore,
   type RecentProjectsStore,
-} from "@web/lib/recent-projects.server.js";
+} from "@web/lib/session/recent-projects.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 

@@ -8,11 +8,11 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { editorStore } from "@web/lib/editor-store";
-import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { ArtboardTargets } from "@web/components/ArtboardTargets";
 import { editorUi, SegmentedControl } from "@web/components/editor-ui";
-import { NumberField } from "@web/components/inspector-fields";
+import { NumberField } from "@web/components/inspector/inspector-fields";
 import { BackgroundInspectorFields } from "./BackgroundInspectorFields";
 import { InspectorSection as Section } from "./InspectorSection";
 

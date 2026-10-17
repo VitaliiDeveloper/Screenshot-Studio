@@ -10,7 +10,7 @@ import {
   TemplateNotFoundError,
   TemplateValidationError,
 } from "@screenshot-studio/cli/template-service";
-import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 
 async function loadStoreSpecs() {

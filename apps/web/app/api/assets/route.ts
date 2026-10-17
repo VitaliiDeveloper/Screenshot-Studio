@@ -3,7 +3,7 @@ import { listProjectImageAssets } from "@web/lib/project-assets.server.js";
 import {
   withProjectMutationRequest,
   withProjectReadRequest,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 import { handleAssetPost } from "./handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 

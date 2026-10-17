@@ -9,7 +9,7 @@ import {
   OVERVIEW_GAP,
   storeOutputLabel,
   type WorkspaceOutputFamily,
-} from "@web/lib/editor-workspace";
+} from "@web/lib/editor/editor-workspace";
 import { OutputFamilySection } from "./OutputFamilySection";
 import { SizeRowHeader } from "./SizeRowHeader";
 

@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleFontDelete, handleFontGet, handleFontPost } from "./handler.js";
 import { DELETE, GET, POST } from "./route.js";
 

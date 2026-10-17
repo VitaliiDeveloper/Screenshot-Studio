@@ -6,12 +6,12 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { type Project, type Screen } from "@screenshot-studio/core/model";
-import type { ActiveProjectSelection } from "./project-session.js";
-import { storeOutputLabel } from "./editor-workspace.js";
+import type { ActiveProjectSelection } from "@web/lib/clients/project-session.js";
+import { storeOutputLabel } from "@web/lib/editor/editor-workspace.js";
 import {
   canonicalEditorUrlForSelection,
   editorProjectUrl,
-} from "./editor-route.js";
+} from "@web/lib/editor/editor-route.js";
 
 const SOURCE_LABELS: Record<string, string> = {
   "local-file": "Local project file",

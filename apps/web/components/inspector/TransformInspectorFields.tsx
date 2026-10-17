@@ -4,14 +4,14 @@
 import { useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Lock, LockOpen } from "lucide-react";
 import type { Element, Screen } from "@screenshot-studio/core/model";
-import type { CommonElementPatch } from "@web/lib/editor-element-patch";
+import type { CommonElementPatch } from "@web/lib/editor/editor-element-patch";
 import { editorUi } from "@web/components/editor-ui";
 import {
   NumberField,
   percentToUnit,
   SliderNumberField,
   unitToPercent,
-} from "@web/components/inspector-fields";
+} from "@web/components/inspector/inspector-fields";
 import {
   aspectRatioLockForced,
   defaultAspectRatioLocked,
