@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { open, rename, rm, type FileHandle } from "node:fs/promises";
+import { open, rename, type FileHandle } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
 import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
@@ -17,8 +17,9 @@ import {
   type ProjectSession,
   type ProjectSessionRegistry,
 } from "./project-session.server.js";
-import { errorCode, noFollowFlags, syncDirectoryBestEffort } from "@screenshot-studio/core/storage";
+import { errorCode, noFollowFlags } from "@screenshot-studio/core/storage";
 import { hasExactKeys, isRecord } from "./json-guards.js";
+import { writePrivateJsonDocument } from "./private-json-document.server.js";
 
 export const MAX_RECENT_PROJECTS = 20;
 
@@ -433,42 +434,15 @@ export class RecentProjectsStore {
   }
 
   async #write(document: RecentProjectsDocument): Promise<void> {
-    const bytes = serialize(document);
-    const stagePath = join(this.config.root, `.recent-projects.${randomUUID()}.stage`);
-    let handle: FileHandle | undefined;
-    let ownsStage = false;
-    try {
-      handle = await this.#openFile(
-        stagePath,
-        noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY),
-        0o600,
-      );
-      ownsStage = true;
-      await handle.writeFile(bytes, "utf8");
-      await handle.sync();
-      await handle.close();
-      handle = undefined;
-      await this.#rename(stagePath, this.#historyPath);
-      ownsStage = false;
-      await syncDirectoryBestEffort(this.config.root);
-    } catch (error) {
-      let primary = error;
-      if (handle) {
-        try { await handle.close(); } catch (closeError) {
-          primary = new AggregateError([primary, closeError], "Recent history stage close failed", {
-            cause: closeError,
-          });
-        }
-      }
-      if (ownsStage) {
-        try { await rm(stagePath, { force: true }); } catch (cleanupError) {
-          throw new AggregateError([primary, cleanupError], "Recent history stage cleanup failed", {
-            cause: cleanupError,
-          });
-        }
-      }
-      throw primary;
-    }
+    await writePrivateJsonDocument({
+      root: this.config.root,
+      targetPath: this.#historyPath,
+      stagePrefix: ".recent-projects",
+      label: "Recent history",
+      contents: serialize(document),
+      openFile: this.#openFile,
+      rename: this.#rename,
+    });
   }
 }
 

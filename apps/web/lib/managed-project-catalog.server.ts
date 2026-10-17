@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
+import { lstat, open, readFile, rename, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
@@ -11,8 +10,9 @@ import {
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
 import { acquireStorageLock } from "./storage-lock.server.js";
-import { errorCode, noFollowFlags, syncDirectoryBestEffort } from "@screenshot-studio/core/storage";
+import { errorCode } from "@screenshot-studio/core/storage";
 import { hasExactKeys, isRecord } from "./json-guards.js";
+import { writePrivateJsonDocument } from "./private-json-document.server.js";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -643,36 +643,15 @@ export class ManagedProjectCatalogStore {
 
   async #write(catalog: ManagedProjectCatalogDocument): Promise<void> {
     validateCatalog(catalog);
-    const stagePath = join(this.config.root, `.catalog.${randomUUID()}.stage`);
-    let handle: FileHandle | undefined;
-    let ownsStage = false;
-    try {
-      handle = await this.#openFile(
-        stagePath,
-        noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY),
-        0o600,
-      );
-      ownsStage = true;
-      await this.#writeStageFile(handle, serializeManagedProjectCatalog(catalog));
-      await handle.sync();
-      await handle.close();
-      handle = undefined;
-      await this.#rename(stagePath, this.config.catalogPath);
-      ownsStage = false;
-      await syncDirectoryBestEffort(this.config.root);
-    } catch (error) {
-      let primaryError = error;
-      if (handle) {
-        try { await handle.close(); } catch (closeError) {
-          primaryError = new AggregateError([primaryError, closeError], "Catalog stage close failed", { cause: closeError });
-        }
-      }
-      if (ownsStage) {
-        try { await rm(stagePath, { force: true }); } catch (cleanupError) {
-          throw new AggregateError([primaryError, cleanupError], "Catalog stage cleanup failed", { cause: cleanupError });
-        }
-      }
-      throw primaryError;
-    }
+    await writePrivateJsonDocument({
+      root: this.config.root,
+      targetPath: this.config.catalogPath,
+      stagePrefix: ".catalog",
+      label: "Catalog",
+      contents: serializeManagedProjectCatalog(catalog),
+      openFile: this.#openFile,
+      rename: this.#rename,
+      writeStage: this.#writeStageFile,
+    });
   }
 }
