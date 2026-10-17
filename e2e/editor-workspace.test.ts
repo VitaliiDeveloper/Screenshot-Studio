@@ -83,6 +83,13 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
   return page;
 }
 
+async function showInspectorFromOverflow(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "More toolbar actions" }).click();
+  await page.getByRole("menu", { name: "More toolbar actions" })
+    .getByRole("menuitemcheckbox", { name: "Show Inspector", exact: true })
+    .click();
+}
+
 beforeEach(() => {
   writeWorkspaceBaseline();
   expect(project().screens).toHaveLength(3);
@@ -676,16 +683,18 @@ describe("editor workspace", () => {
     const page = await openEditor({ width: 720, height: 900 });
 
     const structure = page.getByRole("button", { name: "Layers panel", exact: true });
-    const inspect = page.getByRole("button", { name: "Inspect", exact: true });
+    const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
+    // At this width the top bar moves Inspect into its overflow menu (docs/editor.md §3).
+    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     await structure.click();
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
-    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
 
     expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
-    await inspect.click();
+    await showInspectorFromOverflow(page);
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
-    await expect.poll(() => inspect.getAttribute("aria-pressed")).toBe("true");
+    await expect.poll(() => inspectorPanel.getAttribute("data-state")).toBe("open");
 
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
@@ -710,7 +719,9 @@ describe("editor workspace", () => {
     expect(await page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("true");
     expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
     await page.setViewportSize({ width: 720, height: 900 });
-    await expect.poll(() => page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("false");
+    const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
+    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
+    await expect.poll(() => inspectorPanel.getAttribute("data-state")).toBe("closed");
     await expect.poll(() => page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
 
     const viewportBox = await page.getByTestId("canvas-viewport").boundingBox();
@@ -721,7 +732,7 @@ describe("editor workspace", () => {
     expect(controlsBox!.x + controlsBox!.width).toBeLessThanOrEqual(viewportBox!.x + viewportBox!.width);
 
     await page.getByRole("button", { name: "Layers panel", exact: true }).click();
-    expect(await page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
     const layers = page.getByRole("list", { name: /^Layers for / });
     await layers.waitFor({ state: "visible" });
     const layersBox = await layers.boundingBox();
@@ -729,7 +740,7 @@ describe("editor workspace", () => {
     expect(layersBox!.x).toBeGreaterThanOrEqual(0);
     expect(layersBox!.x + layersBox!.width).toBeLessThanOrEqual(720);
 
-    await page.getByRole("button", { name: "Inspect", exact: true }).click();
+    await showInspectorFromOverflow(page);
     expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
     const shiftedControls = await page.getByLabel("Zoom controls").boundingBox();
     expect(shiftedControls).not.toBeNull();
