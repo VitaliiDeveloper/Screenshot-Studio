@@ -13,7 +13,7 @@ import {
   Ellipsis,
   LoaderCircle,
 } from "lucide-react";
-import { missingImageUrls } from "@web/app/editor/editor-resources";
+import { missingProjectImages } from "@web/lib/editor-issues";
 import { closeProjectSession } from "@web/lib/project-close";
 import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
 import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/project-home-client";
@@ -70,7 +70,7 @@ export function ProjectHome({ expectedProjectId, expectedEntryId }: {
     project: data.resources.project,
     selection: data.selection,
     specs: data.resources.specs,
-    missingAssets: missingImageUrls(data.resources.project, data.resources.images),
+    missingAssets: missingProjectImages(data.resources.project, data.resources.images),
     fontWarnings: data.resources.fontWarnings.map(({ font, error: warning }) =>
       `${font.family} ${font.weight}: ${warning.message}`),
     saveError: getProjectPersistenceIdentity()?.projectId === data.selection.projectId

@@ -3,6 +3,9 @@ import {
   elementLeaves,
   getLayout,
   layoutLocales,
+  slotCounterpart,
+  slotScreens,
+  type LeafElement,
   type Project,
   type Screen,
   type TextElement,
@@ -13,7 +16,8 @@ import {
   leadStoreSizeId,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import type { ProjectIssue } from "@screenshot-studio/core/validation";
+import type { ImageCache } from "@screenshot-studio/core/assets";
+import { collectLayoutIssues, visibleLeaves, type ProjectIssue } from "@screenshot-studio/core/validation";
 import { conciseStoreTargetLabel, outputFamilyEditorLabel } from "./editor-workspace.js";
 import { elementLabel } from "./panel-helpers.js";
 
@@ -40,15 +44,33 @@ export function issueSummary({ blockers, warnings }: IssueCounts): string {
   return parts.length > 0 ? parts.join(" · ") : "No issues";
 }
 
-function screenSizeLabel(screen: Screen, specs: StoreSpecs): string {
-  const family = outputFamilyEditorLabel(screen.platform, screen.device, specs);
+/** A screen's exact size, e.g. `6.9"`; null when the store specs no longer list it. */
+export function screenTargetLabel(screen: Screen, specs: StoreSpecs): string | null {
   try {
     const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
     const target = findStoreTarget(specs, screen.platform, screen.device, targetId);
-    return `${family} ${conciseStoreTargetLabel(target, screen.platform, screen.device, specs)}`;
+    return conciseStoreTargetLabel(target, screen.platform, screen.device, specs);
   } catch {
-    return family;
+    return null;
   }
+}
+
+function screenSizeLabel(screen: Screen, specs: StoreSpecs): string {
+  const family = outputFamilyEditorLabel(screen.platform, screen.device, specs);
+  const target = screenTargetLabel(screen, specs);
+  return target ? `${family} ${target}` : family;
+}
+
+function findLeaf(
+  project: Project,
+  layoutId: string,
+  screenId: string,
+  elementId: string,
+): { screen: Screen; element: LeafElement | undefined } | null {
+  const screen = getLayout(project, layoutId).screens.find((candidate) => candidate.id === screenId);
+  return screen
+    ? { screen, element: screen.elements.flatMap(elementLeaves).find((candidate) => candidate.id === elementId) }
+    : null;
 }
 
 /** The screen and text layer a text-overflow issue points at, or null once either is gone. */
@@ -56,11 +78,36 @@ export function overflowTarget(
   project: Project,
   issue: Extract<ProjectIssue, { kind: "text-overflow" }>,
 ): { screen: Screen; element: TextElement } | null {
-  const screen = getLayout(project, issue.layoutId).screens
-    .find((candidate) => candidate.id === issue.screenId);
-  const element = screen?.elements.flatMap(elementLeaves)
-    .find((candidate) => candidate.id === issue.elementId);
-  return screen && element?.type === "text" ? { screen, element } : null;
+  const found = findLeaf(project, issue.layoutId, issue.screenId, issue.elementId);
+  return found?.element?.type === "text" ? { screen: found.screen, element: found.element } : null;
+}
+
+export type MissingImageLayer = Extract<LeafElement, { type: "screenshot" | "image" | "device-frame" }>;
+
+/**
+ * The screen and media layer a missing-image issue points at (null element: the background), or
+ * null once either is gone.
+ */
+export function missingImageTarget(
+  project: Project,
+  issue: Extract<ProjectIssue, { kind: "missing-image" }>,
+): { screen: Screen; element: MissingImageLayer | null } | null {
+  if (issue.elementId === null) {
+    const screen = getLayout(project, issue.layoutId).screens.find((candidate) => candidate.id === issue.screenId);
+    return screen ? { screen, element: null } : null;
+  }
+  const found = findLeaf(project, issue.layoutId, issue.screenId, issue.elementId);
+  const element = found?.element;
+  return element && (element.type === "screenshot" || element.type === "image" || element.type === "device-frame")
+    ? { screen: found.screen, element }
+    : null;
+}
+
+/** Project-folder images that visible layers of any layout still reference but failed to load. */
+export function missingProjectImages(project: Project, images: ImageCache): string[] {
+  const imageMissing = (assetUrl: string) => !images.has(assetUrl);
+  return [...new Set(project.layouts.flatMap((layout) => collectLayoutIssues(project, layout.id, { imageMissing })
+    .flatMap((issue) => issue.kind === "missing-image" ? [issue.assetUrl] : [])))];
 }
 
 export interface IssueRowCopy {
@@ -88,10 +135,25 @@ export function issueRowCopy(
       fixLabel: `Create from ${issue.sourceLocale}`,
     };
   }
+  const multipleLocales = layoutLocales(layout).length > 1;
+  if (issue.kind === "missing-image") {
+    const target = missingImageTarget(project, issue);
+    if (!target) return null;
+    return {
+      title: "Image missing from the project folder",
+      detail: [
+        issue.assetUrl,
+        target.element ? elementLabel(target.element) : "Background",
+        target.screen.name,
+        screenSizeLabel(target.screen, specs),
+        ...(multipleLocales ? [target.screen.locale] : []),
+      ].join(" · "),
+      fixLabel: "Replace",
+    };
+  }
   const target = overflowTarget(project, issue);
   if (!target) return null;
   const { screen, element } = target;
-  const multipleLocales = layoutLocales(layout).length > 1;
   return {
     title: "Text overflows its layer box",
     detail: [
@@ -102,4 +164,57 @@ export function issueRowCopy(
     ].join(" · "),
     fixLabel: "Fit text",
   };
+}
+
+export type TextSizeState = "checking" | "fits" | "overflows" | "hidden" | "unmatched";
+
+export interface TextSizeStatusRow {
+  screen: Screen;
+  label: string;
+  /** The size being edited. */
+  current: boolean;
+  /** The matching text layer on this size; null when none matches. */
+  element: TextElement | null;
+  state: TextSizeState;
+}
+
+/**
+ * Status by size for one text layer: every exact-size screen of its slot, read from the same
+ * issues list as Issues so fit is never measured on a second path. `measured` is false until
+ * project fonts have settled, so no size reads as fitting on fallback metrics.
+ */
+export function textSizeStatus(
+  project: Project,
+  layoutId: string,
+  screenId: string,
+  elementId: string,
+  issues: readonly ProjectIssue[],
+  measured: boolean,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): TextSizeStatusRow[] {
+  const layout = getLayout(project, layoutId);
+  const source = layout.screens.find((candidate) => candidate.id === screenId);
+  if (!source) return [];
+  return slotScreens(layout, source).map((screen) => {
+    const counterpart = slotCounterpart(source, elementId, screen);
+    const element = counterpart?.type === "text" ? counterpart : null;
+    const state: TextSizeState = !element
+      ? "unmatched"
+      : !visibleLeaves(screen).some((leaf) => leaf.id === element.id)
+        ? "hidden"
+        : !measured
+          ? "checking"
+          : issues.some((issue) =>
+            issue.kind === "text-overflow" && issue.screenId === screen.id && issue.elementId === element.id
+          )
+            ? "overflows"
+            : "fits";
+    return {
+      screen,
+      label: screenTargetLabel(screen, specs) ?? screen.name,
+      current: screen.id === source.id,
+      element,
+      state,
+    };
+  });
 }

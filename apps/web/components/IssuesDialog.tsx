@@ -9,6 +9,7 @@ import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { cx, DialogShell, editorUi } from "@web/components/editor-ui";
 import { editorStore } from "@web/lib/editor-store";
 import { countIssues, issueRowCopy, issueSummary, overflowTarget } from "@web/lib/editor-issues";
+import { applyTextFit } from "@web/lib/editor-text-fit";
 import { mutateAndSave } from "@web/lib/mutate-and-save";
 
 function overflowFitSize(project: Project, issue: ProjectIssue): number | null | undefined {
@@ -17,38 +18,30 @@ function overflowFitSize(project: Project, issue: ProjectIssue): number | null |
   return target ? fitTextSize(target.element, target.screen.direction) : null;
 }
 
-function applyFix(issue: ProjectIssue, fitSize: number | null | undefined): void {
-  const store = editorStore.getState();
-  if (issue.kind === "missing-locale-screen") {
-    mutateAndSave(() => store.createScreenFromLocale(issue.sourceScreenId, issue.locale));
-    return;
-  }
-  if (!fitSize) return;
-  // Close any open edit group first so Fit is its own undo step, not part of earlier typing.
-  mutateAndSave(() => {
-    store.endHistoryGroup();
-    store.patchElement({
-      id: issue.elementId,
-      screenId: issue.screenId,
-      type: "text",
-      patch: { size: fitSize },
-    });
-    store.endHistoryGroup();
-  });
-}
-
 /** The Issues list (Handoff 6h): every issue offers Go to and its Fix. */
 export function IssuesDialog({
   issues,
   specs,
   onGoTo,
+  onReplaceImage,
   onClose,
 }: {
   issues: readonly ProjectIssue[];
   specs: StoreSpecs;
   onGoTo: (issue: ProjectIssue) => void;
+  /** Replace opens an asset picker, so the workspace owns it and closes Issues first. */
+  onReplaceImage: (issue: Extract<ProjectIssue, { kind: "missing-image" }>) => void;
   onClose: () => void;
 }) {
+  const applyFix = (issue: ProjectIssue, fitSize: number | null | undefined) => {
+    if (issue.kind === "missing-locale-screen") {
+      mutateAndSave(() => editorStore.getState().createScreenFromLocale(issue.sourceScreenId, issue.locale));
+    } else if (issue.kind === "missing-image") {
+      onReplaceImage(issue);
+    } else if (fitSize) {
+      applyTextFit(issue.screenId, issue.elementId, fitSize);
+    }
+  };
   const project = useStore(editorStore, (state) => state.project);
   if (!project) return null;
 

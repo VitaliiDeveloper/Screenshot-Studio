@@ -3,6 +3,7 @@ import {
   elementLeaves,
   getLayout,
   missingLocaleScreens,
+  type LeafElement,
   type Project,
   type Screen,
   type TextElement,
@@ -23,6 +24,16 @@ export type ProjectIssue =
     allSizes: boolean;
   }
   | {
+    kind: "missing-image";
+    id: string;
+    level: "blocker";
+    layoutId: string;
+    screenId: string;
+    /** The screenshot, image, or device-frame layer; null for the screen background. */
+    elementId: string | null;
+    assetUrl: string;
+  }
+  | {
     kind: "text-overflow";
     id: string;
     level: "warning";
@@ -37,6 +48,19 @@ export interface IssueChecks {
    * have settled so fallback-font metrics never produce overflow issues.
    */
   textOverflows?: (element: TextElement, screen: Screen) => boolean;
+  /**
+   * Whether a project image failed to load from the project folder (the host's image cache).
+   * Omit it until the cache has loaded so images still in flight never report as missing.
+   */
+  imageMissing?: (assetUrl: string) => boolean;
+}
+
+/** Leaves the renderer draws: a hidden group or layer hides everything under it. */
+export function visibleLeaves(screen: Screen): LeafElement[] {
+  return screen.elements
+    .filter((element) => element.visible)
+    .flatMap(elementLeaves)
+    .filter((leaf) => leaf.visible);
 }
 
 /**
@@ -56,14 +80,31 @@ export function collectLayoutIssues(
     layoutId: layout.id,
     ...entry,
   }));
+  const imageMissing = checks.imageMissing;
+  const missingImages = imageMissing
+    ? layout.screens.flatMap((screen) => [
+      ...(screen.background.type === "image" ? [{ elementId: null, assetUrl: screen.background.assetUrl }] : []),
+      ...visibleLeaves(screen).flatMap((leaf) =>
+        (leaf.type === "screenshot" || leaf.type === "image" || leaf.type === "device-frame") && leaf.assetUrl
+          ? [{ elementId: leaf.id, assetUrl: leaf.assetUrl }]
+          : []
+      ),
+    ]
+      .filter(({ assetUrl }) => imageMissing(assetUrl))
+      .map(({ elementId, assetUrl }): ProjectIssue => ({
+        kind: "missing-image",
+        id: `missing-image:${screen.id}:${elementId ?? "background"}`,
+        level: "blocker",
+        layoutId: layout.id,
+        screenId: screen.id,
+        elementId,
+        assetUrl,
+      })))
+    : [];
   const textOverflows = checks.textOverflows;
   const overflows = textOverflows
-    ? layout.screens.flatMap((screen) => screen.elements
-      .filter((element) => element.visible)
-      .flatMap(elementLeaves)
-      .filter((leaf): leaf is TextElement =>
-        leaf.type === "text" && leaf.visible && textOverflows(leaf, screen)
-      )
+    ? layout.screens.flatMap((screen) => visibleLeaves(screen)
+      .filter((leaf): leaf is TextElement => leaf.type === "text" && textOverflows(leaf, screen))
       .map((leaf): ProjectIssue => ({
         kind: "text-overflow",
         id: `text-overflow:${screen.id}:${leaf.id}`,
@@ -73,5 +114,5 @@ export function collectLayoutIssues(
         elementId: leaf.id,
       })))
     : [];
-  return [...missing, ...overflows];
+  return [...missing, ...missingImages, ...overflows];
 }
