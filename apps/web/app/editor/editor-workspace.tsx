@@ -39,7 +39,7 @@ import { useEditorIssues } from "./use-editor-issues";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
-  () => import("@web/components/CanvasViewport").then((m) => m.CanvasViewport),
+  () => import("@web/components/canvas-viewport/CanvasViewport").then((m) => m.CanvasViewport),
   { ssr: false },
 );
 
