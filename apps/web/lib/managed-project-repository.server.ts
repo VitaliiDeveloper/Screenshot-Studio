@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
 import {
-  lstat,
+  randomUUID } from "node:crypto"; import { constants } from "node:fs"; import {   lstat,
   mkdir,
   open,
   readdir,
@@ -11,9 +9,11 @@ import {
   rename,
   rm,
   type FileHandle,
-} from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+  } from "node:fs/promises"; import { dirname,
+  join } from "node:path"; import { readProjectSnapshot,
+  errorCode,
+  syncDirectoryBestEffort,
+} from "@screenshot-studio/core/storage";
 import {
   ManagedProjectCatalogStore,
   type ActiveManagedProjectCatalogEntry,
@@ -29,6 +29,7 @@ import {
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
 import { ManagedProjectLifecycleService } from "./managed-project-lifecycle.server.js";
+import { hasExactKeys, isRecord } from "./json-guards.js";
 
 const STAGE_TOKEN_PATTERN = /^stage_[0-9a-f]{32}$/;
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
@@ -77,11 +78,6 @@ export interface ManagedProjectRepositoryDependencies {
   rename?: (oldPath: string, newPath: string) => Promise<void>;
 }
 
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    && typeof error.code === "string" ? error.code : undefined;
-}
-
 async function exists(path: string): Promise<boolean> {
   try {
     await lstat(path);
@@ -92,31 +88,14 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function syncDirectoryBestEffort(path: string): Promise<void> {
-  let handle: FileHandle | undefined;
-  try {
-    handle = await open(path, constants.O_RDONLY);
-    await handle.sync();
-  } catch {
-    // Some supported local filesystems do not permit directory fsync.
-  } finally {
-    await handle?.close().catch(() => undefined);
-  }
-}
-
 function isCanonicalIsoTimestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const timestamp = new Date(value);
   return !Number.isNaN(timestamp.valueOf()) && timestamp.toISOString() === value;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function requireExactKeys(value: Record<string, unknown>, keys: readonly string[], context: string): void {
-  const actual = Object.keys(value);
-  if (actual.length !== keys.length || actual.some((key) => !keys.includes(key))) {
+  if (!hasExactKeys(value, keys)) {
     throw new TypeError(`Invalid ${context} properties`);
   }
 }

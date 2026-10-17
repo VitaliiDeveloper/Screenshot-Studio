@@ -1,18 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
-import { constants, type BigIntStats, type Dirent } from "node:fs";
-import { lstat, open, opendir, realpath } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
-  discoverCaptureImport,
+  constants,
+  type BigIntStats,
+  type Dirent } from "node:fs"; import { lstat,
+  open,
+  opendir,
+  realpath } from "node:fs/promises"; import { isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep } from "node:path"; import {   discoverCaptureImport,
   planCaptureImport,
   resolveCaptureImportLimits,
   type CaptureImportDiscovery,
   type CaptureImportInputFile,
   type CaptureImportLimits,
   type CaptureImportPlan,
-} from "@screenshot-studio/core/capture-import";
-import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
-import { resolveExistingProjectPath, type ProjectFileDependencies } from "@screenshot-studio/core/storage";
+  } from "@screenshot-studio/core/capture-import"; import { DEFAULT_STORE_SPECS,
+  type StoreSpecs } from "@screenshot-studio/core/export"; import { resolveExistingProjectPath,
+  type ProjectFileDependencies,
+  noFollowFlags,
+} from "@screenshot-studio/core/storage";
 import {
   applyCaptureImportToProject,
   preflightCaptureImportPlanResources,
@@ -40,11 +48,6 @@ function hasSameIdentity(left: BigIntStats, right: BigIntStats): boolean {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
-function noFollowReadFlags(): number {
-  return constants.O_RDONLY
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
-}
-
 async function readRegularInputFile(
   canonicalRoot: string,
   path: string,
@@ -57,7 +60,7 @@ async function readRegularInputFile(
     throw new Error(`Capture import input must not be a hard link: ${path}`);
   }
   assertContained(canonicalRoot, await realpath(path));
-  const handle = await open(path, noFollowReadFlags());
+  const handle = await open(path, noFollowFlags(constants.O_RDONLY));
   try {
     const openedBefore = await handle.stat({ bigint: true });
     if (!openedBefore.isFile() || openedBefore.nlink !== 1n

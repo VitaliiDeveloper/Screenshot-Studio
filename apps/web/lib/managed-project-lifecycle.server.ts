@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID, timingSafeEqual } from "node:crypto";
-import { constants } from "node:fs";
 import {
-  lstat,
+  randomUUID,
+  timingSafeEqual } from "node:crypto"; import { constants } from "node:fs"; import {   lstat,
   mkdir,
   open,
   readFile,
@@ -12,9 +11,12 @@ import {
   rm,
   stat,
   type FileHandle,
-} from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { acquireProjectMutationLock, readProjectSnapshot } from "@screenshot-studio/core/storage";
+  } from "node:fs/promises"; import { dirname,
+  join } from "node:path"; import { acquireProjectMutationLock,
+  readProjectSnapshot,
+  errorCode,
+  syncDirectoryBestEffort,
+} from "@screenshot-studio/core/storage";
 import {
   ManagedProjectCatalogStore,
   parseActiveManagedProjectCatalogEntry,
@@ -33,6 +35,7 @@ import {
   validateManagedStorageChildRoot,
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
+import { hasExactKeys, isRecord } from "./json-guards.js";
 
 interface ManagedProjectSessionInvalidator {
   invalidateManagedProject(projectId: string): number;
@@ -93,11 +96,6 @@ export interface ManagedProjectLifecycleServiceDependencies {
   failpoint?: (point: ManagedProjectDeletionFailpoint) => Promise<void> | void;
 }
 
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    && typeof error.code === "string" ? error.code : undefined;
-}
-
 async function exists(path: string): Promise<boolean> {
   try { await lstat(path); return true; } catch (error) {
     if (errorCode(error) === "ENOENT") return false;
@@ -105,13 +103,8 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
-  const actual = Object.keys(value);
-  if (actual.length !== expected.length || actual.some((key) => !expected.includes(key))) {
+  if (!hasExactKeys(value, expected)) {
     throw new TypeError("Invalid managed deletion recovery intent properties");
   }
 }
@@ -204,13 +197,6 @@ function parseIntent(
     tombstoneIdentity,
     phase: value.phase as ManagedProjectDeleteIntent["phase"],
   };
-}
-
-async function syncDirectoryBestEffort(path: string): Promise<void> {
-  let handle: FileHandle | undefined;
-  try { handle = await open(path, constants.O_RDONLY); await handle.sync(); } catch {
-    // Some supported local filesystems do not permit directory fsync.
-  } finally { await handle?.close().catch(() => undefined); }
 }
 
 export class ManagedProjectLifecycleService {
