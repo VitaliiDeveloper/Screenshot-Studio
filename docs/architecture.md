@@ -11,7 +11,7 @@ Screenshot Studio is a pnpm workspace with one rendering model shared by its int
 CLI:
 
 ```text
-packages/core  → strict model, rendering, export, fonts, assets, storage contracts
+packages/core  → strict model, rendering, validation, export, fonts, assets, storage contracts
 packages/cli   → project management and headless render-host orchestration
 apps/web       → Next.js editor, API routes, and the shared browser render target
 ```
@@ -124,6 +124,9 @@ Every output is rendered at the selected exact target with `Stage.toDataURL({ pi
 flattened to an opaque PNG. Equivalent files need not be byte-identical because metadata and
 compression may differ, but dimensions and visual output are verified by targeted parity coverage.
 New render-affecting fields must extend the shared mapping and parity tests together.
+Validation that depends on rendered geometry, such as text overflow, measures the same
+`elementToNodeConfig` text config with Konva's own layout in the browser; it never estimates metrics
+on a separate path.
 
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one

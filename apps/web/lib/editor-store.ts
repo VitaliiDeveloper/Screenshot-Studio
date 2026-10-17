@@ -60,6 +60,7 @@ import {
   changeProjectLocaleDirection,
   changeOutputFamilyScreenSetMode,
   cloneProjectLocale,
+  createScreenFromLocale,
   createStoreOutputFamily,
   createStoreTargetVariant,
   deleteProjectLocale,
@@ -131,6 +132,8 @@ export interface EditorState {
   removeStoreTargetVariant: (rootScreenId: string, storeTargetId: string) => void;
   setOutputFamilyScreenSetMode: (mode: ScreenSetMode) => void;
   addLocale: (sourceLocale: string, targetLocale: string, direction: LayoutDirection) => void;
+  /** Copy a screen into another locale of the active layout (the missing-locale Issues fix). */
+  createScreenFromLocale: (sourceScreenId: string, targetLocale: string) => void;
   setLocaleDirection: (locale: string, direction: LayoutDirection) => void;
   removeLocale: (locale: string) => void;
   reorderElements: (from: number, to: number) => void;
@@ -611,6 +614,12 @@ export const editorStore = createStore<EditorState>((set) => ({
         targetLocale,
         direction,
       );
+      return recordProjectChange(state, result.project, null, result);
+    }),
+  createScreenFromLocale: (sourceScreenId, targetLocale) =>
+    set((state) => {
+      if (!state.project || !state.activeLayoutId) return state;
+      const result = createScreenFromLocale(state.project, state.activeLayoutId, sourceScreenId, targetLocale);
       return recordProjectChange(state, result.project, null, result);
     }),
   setLocaleDirection: (locale, direction) =>
