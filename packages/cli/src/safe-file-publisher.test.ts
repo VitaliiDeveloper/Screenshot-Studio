@@ -2115,6 +2115,42 @@ describe("publishFileSafely", () => {
     expect(await readFile(destination, "utf8")).toBe("old bytes");
   });
 
+  it("rejects a same-inode rewrite hidden by a ctime-only transition", async () => {
+    const root = await workspace("safe-file-create-rewrite-ctime-");
+    const destination = await canonicalDestination(root, "resource.txt");
+    const fixedTime = new Date("2020-01-01T00:00:00.000Z");
+    let rewritten = false;
+    await writeFile(destination, "same bytes");
+    await utimes(destination, fixedTime, fixedTime);
+
+    await expect(publishWithDependencies({
+      root,
+      relativePath: "resource.txt",
+      bytes: utf8("same bytes"),
+    }, {
+      openVerification: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: handle.stat.bind(handle),
+          read: (async (buffer, offset, length, position) => {
+            if (!rewritten && path === destination) {
+              await writeFile(destination, "other byte");
+              await utimes(destination, fixedTime, fixedTime);
+              rewritten = true;
+            }
+            return handle.read(buffer, offset, length, position);
+          }) as VerificationHandle["read"],
+          readFile: handle.readFile.bind(handle),
+          close: handle.close.bind(handle),
+        };
+      },
+    })).rejects.toBeInstanceOf(SafeFileConflictError);
+
+    expect(rewritten).toBe(true);
+    expect(await readFile(destination, "utf8")).toBe("other byte");
+    expect(await stageEntries(root)).toEqual([]);
+  });
+
   it("returns created false when replacing an existing regular file", async () => {
     const root = await workspace("safe-file-replace-existing-");
     const destination = join(root, "resource.txt");
@@ -2302,6 +2338,62 @@ describe("publishFileSafely", () => {
     expect(results.map((result) => result.created).sort()).toEqual([false, true]);
     expect(await readFile(destination)).toEqual(Buffer.from(bytes));
     expect(await stageEntries(root)).toEqual([]);
+  });
+
+  it("converges when the winner quarantines its linked stage during the loser's comparison", async () => {
+    const root = await workspace("safe-file-concurrent-identical-quarantine-");
+    const destination = await canonicalDestination(root, "resource.txt");
+    const bytes = utf8("same bytes");
+    let markWinnerLinked!: () => void;
+    let markLoserReading!: () => void;
+    let markStageQuarantined!: () => void;
+    const winnerLinked = new Promise<void>((resolve) => { markWinnerLinked = resolve; });
+    const loserReading = new Promise<void>((resolve) => { markLoserReading = resolve; });
+    const stageQuarantined = new Promise<void>((resolve) => { markStageQuarantined = resolve; });
+    let loserComparisonReads = 0;
+
+    const winner = publishWithDependencies({ root, relativePath: "resource.txt", bytes }, {
+      randomId: () => "winner",
+      linkFile: async (source, target) => {
+        await link(source, target);
+        markWinnerLinked();
+      },
+      // The cleanup rename changes the shared inode's ctime while its link count stays at 2.
+      quarantineFile: async (source, target) => {
+        await loserReading;
+        await rename(source, target);
+        markStageQuarantined();
+      },
+    });
+    const loser = publishWithDependencies({ root, relativePath: "resource.txt", bytes }, {
+      randomId: () => "loser",
+      beforePublication: () => winnerLinked,
+      openVerification: async (path, flags) => {
+        const handle = await open(path, flags);
+        return {
+          stat: handle.stat.bind(handle),
+          // Only the bounded destination comparison uses positional reads.
+          read: (async (buffer, offset, length, position) => {
+            if (path === destination && loserComparisonReads++ === 0) {
+              markLoserReading();
+              await stageQuarantined;
+            }
+            return handle.read(buffer, offset, length, position);
+          }) as VerificationHandle["read"],
+          readFile: handle.readFile.bind(handle),
+          close: handle.close.bind(handle),
+        };
+      },
+    });
+
+    await expect(Promise.all([winner, loser])).resolves.toEqual([
+      { path: destination, created: true },
+      { path: destination, created: false },
+    ]);
+    expect(loserComparisonReads).toBeGreaterThanOrEqual(2);
+    expect(await readFile(destination)).toEqual(Buffer.from(bytes));
+    // Also proves no stage quarantine (`<stage>.tmp.<uuid>.quarantine`) was left behind.
+    expect(await readdir(root)).toEqual(["resource.txt"]);
   });
 });
 
