@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import type { ManagedProjectDeletionEvidence } from "@web/lib/managed-project-catalog.server.js";
+import type { ManagedProjectDeletionEvidence } from "@web/lib/managed-projects/managed-project-catalog.server.js";
 import {
   resolveManagedProjectStorageConfig,
   type ManagedProjectStorageConfig,
-} from "@web/lib/managed-project-config.server.js";
+} from "@web/lib/managed-projects/managed-project-config.server.js";
 import {
   ManagedProjectLifecycleService,
   type PermanentlyDeleteManagedProjectInput,
   type ReconcileManagedProjectDeletionInput,
-} from "@web/lib/managed-project-lifecycle.server.js";
-import type { ManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
+} from "@web/lib/managed-projects/managed-project-lifecycle.server.js";
+import type { ManagedProjectLifecycleLock } from "@web/lib/managed-projects/managed-project-lifecycle-lock.server.js";
 import {
   withProjectVersionedReadRequest,
   type ProjectReadRequestDependencies,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { expiredProjectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 const MAX_DELETE_REQUEST_BYTES = 2_048;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -52,13 +53,6 @@ export interface ProjectDeleteOperationRouteDependencies {
 }
 
 class RequestLimitError extends Error {}
-
-function errorResponse(status: number, error: string, code: string): Response {
-  return Response.json({ error, code }, {
-    status,
-    headers: { "cache-control": "no-store" },
-  });
-}
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   const actual = Object.keys(value);
@@ -185,16 +179,16 @@ function acceptedDeletionResponse(
 function deletionFailureResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : "";
   if (/project revision/i.test(message)) {
-    return errorResponse(
+    return jsonError(
       412,
       "Project changed before permanent deletion; reload and confirm again",
       "project-revision-changed",
     );
   }
   if (/lifecycle|active|conflicting|intent|admission/i.test(message)) {
-    return errorResponse(409, "Permanent deletion could not start; reload and try again", "deletion-rejected");
+    return jsonError(409, "Permanent deletion could not start; reload and try again", "deletion-rejected");
   }
-  return errorResponse(500, "Permanent deletion failed", "internal");
+  return jsonError(500, "Permanent deletion failed", "internal");
 }
 
 function resolvedDependencies(dependencies: ProjectDeleteRouteDependencies) {
@@ -209,18 +203,18 @@ function resolvedDependencies(dependencies: ProjectDeleteRouteDependencies) {
 
 async function parseRequest(request: Request): Promise<unknown | Response> {
   if (new URL(request.url).search.length > 0) {
-    return errorResponse(400, "Deletion credentials are accepted only in the request body", "invalid-request");
+    return jsonError(400, "Deletion credentials are accepted only in the request body", "invalid-request");
   }
   const contentType = request.headers.get("content-type") ?? "";
   if (!JSON_CONTENT_TYPE_PATTERN.test(contentType)) {
-    return errorResponse(415, "Permanent deletion requires JSON", "unsupported-media-type");
+    return jsonError(415, "Permanent deletion requires JSON", "unsupported-media-type");
   }
   try {
     return await readBoundedJson(request);
   } catch (error) {
     return error instanceof RequestLimitError
-      ? errorResponse(413, "Permanent deletion request exceeds the byte limit", "limit")
-      : errorResponse(400, "Permanent deletion request is not valid JSON", "invalid-request");
+      ? jsonError(413, "Permanent deletion request exceeds the byte limit", "limit")
+      : jsonError(400, "Permanent deletion request is not valid JSON", "invalid-request");
   }
 }
 
@@ -234,7 +228,7 @@ export async function handleProjectDeletePost(
   try {
     parsed = parseDeleteRequest(raw);
   } catch {
-    return errorResponse(400, "Permanent deletion fields are invalid", "invalid-request");
+    return jsonError(400, "Permanent deletion fields are invalid", "invalid-request");
   }
   const resolved = resolvedDependencies(dependencies);
   const response = await withProjectVersionedReadRequest(
@@ -242,16 +236,16 @@ export async function handleProjectDeletePost(
     async (session, expectedRevision, lifecycleLock) => {
       if (session.descriptor.sourceKind !== "managed-project"
         || !session.descriptor.capabilities.deleteProjectPermanently) {
-        return errorResponse(409, "Permanent deletion is available only for managed projects", "managed-project-required");
+        return jsonError(409, "Permanent deletion is available only for managed projects", "managed-project-required");
       }
       if (session.descriptor.lifecycleRevision !== parsed.expectedLifecycleRevision) {
-        return errorResponse(409, "Project lifecycle changed; reload before deleting", "lifecycle-changed");
+        return jsonError(409, "Project lifecycle changed; reload before deleting", "lifecycle-changed");
       }
       if (parsed.confirmation !== session.descriptor.name) {
-        return errorResponse(400, "Project name confirmation does not match", "confirmation-mismatch");
+        return jsonError(400, "Project name confirmation does not match", "confirmation-mismatch");
       }
       if (parsed.backup.kind === "archive" && parsed.backup.projectRevision !== expectedRevision) {
-        return errorResponse(412, "Project changed after archive export; create a new archive", "archive-stale");
+        return jsonError(412, "Project changed after archive export; create a new archive", "archive-stale");
       }
       const hashedSecret = statusSecretHash(parsed.statusSecret);
       const deletionInput = {
@@ -272,7 +266,7 @@ export async function handleProjectDeletePost(
             statusSecretHash: hashedSecret,
           }, lifecycleLock);
         } catch {
-          return errorResponse(500, "Permanent deletion status is temporarily unavailable", "internal");
+          return jsonError(500, "Permanent deletion status is temporarily unavailable", "internal");
         }
         if (evidence) {
           return acceptedDeletionResponse(request, parsed.operationId, evidence);
@@ -300,7 +294,7 @@ export async function handleProjectDeleteOperationPost(
   try {
     credentials = parseOperationCredentials(raw);
   } catch {
-    return errorResponse(400, "Deletion operation credentials are invalid", "invalid-request");
+    return jsonError(400, "Deletion operation credentials are invalid", "invalid-request");
   }
   const config = dependencies.managedStorageConfig ?? resolveManagedProjectStorageConfig();
   const lifecycle = dependencies.lifecycle ?? new ManagedProjectLifecycleService(
@@ -314,7 +308,7 @@ export async function handleProjectDeleteOperationPost(
       statusSecretHash: statusSecretHash(credentials.statusSecret),
     });
   } catch {
-    return errorResponse(500, "Deletion status is temporarily unavailable", "internal");
+    return jsonError(500, "Deletion status is temporarily unavailable", "internal");
   }
   if (!evidence) {
     return Response.json({ status: "expired-or-unknown" }, {

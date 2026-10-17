@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleThemeGet, handleThemePost } from "./handler.js";
 import { GET, POST } from "./route.js";
 
@@ -83,6 +83,8 @@ describe("/api/themes", () => {
       method: "POST", body: JSON.stringify({ id: "missing" }),
     }));
     expect(missing.status).toBe(404);
+    expect(missing.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await missing.json())).toEqual(["error"]);
     const invalid = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "../bad" }),
     }));

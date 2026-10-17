@@ -13,14 +13,14 @@ import {
   filterProjectImageAssets,
   type ProjectImageAsset,
 } from "@web/lib/project-assets";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import {
   defaultDeviceFrameInputForScreen,
   type MediaAssetTarget,
-} from "@web/lib/editor-workspace";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { projectJsonRequest } from "@web/lib/project-api-client";
-import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
+} from "@web/lib/editor/editor-workspace";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
+import { projectJsonRequest } from "@web/lib/clients/project-api-client";
+import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
 import {
   initialMediaElementSize,
   insertAssetAfterCaching,

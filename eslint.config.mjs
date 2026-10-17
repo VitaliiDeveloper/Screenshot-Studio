@@ -25,6 +25,22 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // A file past 1000 lines owns too much; split it by responsibility instead of growing it.
+    rules: { "max-lines": ["error", { max: 1000 }] },
+  },
+  {
+    // Files that predate the limit and are waiting for a split. Remove an entry once its file
+    // fits; never add one.
+    files: [
+      "packages/cli/src/bundle-publisher.test.ts",
+      "packages/cli/src/safe-file-publisher.test.ts",
+      "packages/cli/src/safe-file-publisher.ts",
+      "packages/core/src/model/project-ops.test.ts",
+      "packages/core/src/model/schema.test.ts",
+    ],
+    rules: { "max-lines": "off" },
+  },
+  {
     files: ["**/*.{ts,tsx,mts,cts}"],
     rules: {
       // TypeScript checks identifier resolution itself; core `no-undef` only produces false

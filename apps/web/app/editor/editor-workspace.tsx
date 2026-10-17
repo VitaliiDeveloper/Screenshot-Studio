@@ -13,13 +13,13 @@ import type {
   WorkspacePanel,
   WorkspaceTool,
   WorkspaceView,
-} from "@web/lib/editor-workspace";
-import { editorStore } from "@web/lib/editor-store";
-import { countIssues, missingImageTarget } from "@web/lib/editor-issues";
+} from "@web/lib/editor/editor-workspace";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
-import { Inspector } from "@web/components/Inspector";
-import { Toolbar } from "@web/components/Toolbar";
+import { Inspector } from "@web/components/inspector/Inspector";
+import { Toolbar } from "@web/components/toolbar/Toolbar";
 import { ToolRail } from "@web/components/ToolRail";
 import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
 import { ConfirmationDialog } from "@web/components/editor-ui";
@@ -28,7 +28,7 @@ import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
-} from "@web/lib/editor-workspace-navigation";
+} from "@web/lib/editor/editor-workspace-navigation";
 import { EditorResourceDialogs } from "./editor-resource-dialogs";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";
@@ -39,7 +39,7 @@ import { useEditorIssues } from "./use-editor-issues";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
-  () => import("@web/components/CanvasViewport").then((m) => m.CanvasViewport),
+  () => import("@web/components/canvas-viewport/CanvasViewport").then((m) => m.CanvasViewport),
   { ssr: false },
 );
 

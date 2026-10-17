@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import type { RecentProjectsStore } from "@web/lib/recent-projects.server.js";
-import type { ProjectSession } from "@web/lib/project-session.server.js";
+import type { RecentProjectsStore } from "@web/lib/session/recent-projects.server.js";
+import type { ProjectSession } from "@web/lib/session/project-session.server.js";
 import {
   handleRecentProjectOpen,
   handleRecentProjectsDelete,

@@ -23,7 +23,7 @@ import {
   conciseStoreTargetLabel,
   outputFamilyEditorLabel,
   storeOutputLabel,
-} from "@web/lib/editor-workspace";
+} from "@web/lib/editor/editor-workspace";
 import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "./editor-ui";
 
 function dimensionsLabel(target: StoreSize): string {

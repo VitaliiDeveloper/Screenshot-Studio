@@ -9,10 +9,10 @@ import {
   assertCaptureImportHandoff,
   useCaptureImportController,
 } from "@web/components/project-launcher/useCaptureImportController";
-import { discardActiveProjectPersistence } from "@web/lib/debounced-save";
-import { editorProjectUrl } from "@web/lib/editor-route";
-import { fetchActiveProject } from "@web/lib/project-session";
-import { getProjectPersistenceIdentity } from "@web/lib/save-project";
+import { discardActiveProjectPersistence } from "@web/lib/editor/debounced-save";
+import { editorProjectUrl } from "@web/lib/editor/editor-route";
+import { fetchActiveProject } from "@web/lib/clients/project-session";
+import { getProjectPersistenceIdentity } from "@web/lib/clients/save-project";
 
 export function useEditorCaptureImport(
   project: Project | null,

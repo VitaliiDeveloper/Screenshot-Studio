@@ -22,7 +22,8 @@ import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
 import { EXPORT_OPERATION_ID_PATTERN } from "@web/lib/export-progress.js";
 import { exportProgressRegistry, type ExportProgressRegistry } from "@web/lib/export-progress.server.js";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { projectRevisionConflictResponse } from "@web/lib/session/project-request-fence.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 interface ExportRequest {
   layoutId?: string;
@@ -81,7 +82,7 @@ export async function handleExportPost(
   if (body.operationId !== undefined && (
     typeof body.operationId !== "string" || !EXPORT_OPERATION_ID_PATTERN.test(body.operationId)
   )) {
-    return Response.json({ error: "Invalid export operation id" }, { status: 422 });
+    return jsonError(422, "Invalid export operation id");
   }
   const operationId = body.operationId;
   const filters: BundleFilters = { platform: body.platform, device: body.device, locale: body.locale };
@@ -89,7 +90,7 @@ export async function handleExportPost(
   try {
     profile = parseExportProfile(body.profile);
   } catch (error) {
-    return Response.json({ error: errorText(error) }, { status: 422 });
+    return jsonError(422, errorText(error));
   }
 
   // Validate before launching a browser so bad input fails fast.
@@ -116,14 +117,14 @@ export async function handleExportPost(
     entryCount = entries.length;
     warnings = bundlePreflightWarnings(entries, specs);
   } catch (error) {
-    return Response.json({ error: errorText(error) }, { status: 422 });
+    return jsonError(422, errorText(error));
   }
 
   if (operationId) {
     try {
       progressRegistry.begin(operationId, entryCount);
     } catch (error) {
-      return Response.json({ error: errorText(error) }, { status: 409 });
+      return jsonError(409, errorText(error));
     }
   }
 
@@ -210,7 +211,7 @@ export async function handleExportPost(
           )).join("; "),
           { cause: cleanupFailures[0]?.error },
         );
-    return Response.json({ error: errorText(error) }, { status: 500 });
+    return jsonError(500, errorText(error));
   }
 
   if (operationId) progressRegistry.finish(operationId, "ready");

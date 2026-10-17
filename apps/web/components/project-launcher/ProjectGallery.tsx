@@ -9,7 +9,7 @@ import {
   listOutputFamilies,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
+import type { ProjectLibraryEntry } from "@web/lib/clients/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
 import {

@@ -13,8 +13,9 @@ import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import {
   withManagedProjectMutationGuard,
   withManagedProjectReadGuard,
-} from "@web/lib/managed-project-mutation-guard.server.js";
-import { withActiveProjectSession } from "@web/lib/project-session.server.js";
+} from "@web/lib/managed-projects/managed-project-mutation-guard.server.js";
+import { withActiveProjectSession } from "@web/lib/session/project-session.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 /**
  * The editor's only persistence channel: the browser reads/writes the same on-disk
@@ -48,7 +49,7 @@ function projectWriteErrorResponse(error: unknown): Response {
   }
   const status = error instanceof ProjectPathError ? 400 : 500;
   const message = error instanceof Error ? error.message : String(error);
-  return Response.json({ error: message }, { status });
+  return jsonError(status, message);
 }
 
 export async function GET(req: Request): Promise<Response> {
@@ -64,7 +65,7 @@ export async function GET(req: Request): Promise<Response> {
         });
       } catch (err) {
         const status = err instanceof ProjectValidationError ? 422 : 404;
-        return Response.json({ error: (err as Error).message }, { status });
+        return jsonError(status, (err as Error).message);
       }
     });
   });
@@ -73,33 +74,27 @@ export async function GET(req: Request): Promise<Response> {
 export async function PUT(req: Request): Promise<Response> {
   const expectedRevision = req.headers.get("if-match");
   if (expectedRevision === null) {
-    return Response.json({ error: "If-Match is required to save the project" }, { status: 428 });
+    return jsonError(428, "If-Match is required to save the project");
   }
   if (!isStrongQuotedETag(expectedRevision)) {
-    return Response.json({ error: "If-Match must be one strong quoted ETag" }, { status: 400 });
+    return jsonError(400, "If-Match must be one strong quoted ETag");
   }
 
   return withActiveProjectSession(req, async (session) => {
     const { projectId, projectPath } = session;
     const expectedProjectId = req.headers.get("x-project-id")?.trim();
     if (!expectedProjectId) {
-      return Response.json(
-        { error: "X-Project-Id is required to save the project" },
-        { status: 428 },
-      );
+      return jsonError(428, "X-Project-Id is required to save the project");
     }
     if (expectedProjectId !== projectId) {
-      return Response.json(
-        { error: "Active project changed; reload it before saving again" },
-        { status: 409 },
-      );
+      return jsonError(409, "Active project changed; reload it before saving again");
     }
 
     let project;
     try {
       project = parseProject(await req.json());
     } catch (err) {
-      return Response.json({ error: (err as Error).message }, { status: 400 });
+      return jsonError(400, (err as Error).message);
     }
 
     try {

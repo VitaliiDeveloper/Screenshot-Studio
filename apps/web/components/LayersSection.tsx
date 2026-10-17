@@ -30,9 +30,9 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
-import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor-store";
-import { isSelected } from "@web/lib/editor-selection";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
+import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
+import { isSelected } from "@web/lib/editor/editor-selection";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { elementLabel, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";

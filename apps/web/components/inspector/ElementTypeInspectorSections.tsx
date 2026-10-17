@@ -14,14 +14,14 @@ import {
   type FontAsset,
   type Screen,
 } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "@web/lib/editor-store";
+import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import {
   ColorField,
   NumberField,
   SelectField,
   ThemeRoleField,
-} from "@web/components/inspector-fields";
+} from "@web/components/inspector/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
 import { ContentModeControl } from "./MediaPresentationFields";

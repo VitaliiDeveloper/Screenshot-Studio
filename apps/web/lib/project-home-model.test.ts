@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
-import type { ActiveProjectSelection } from "./project-session.js";
+import type { ActiveProjectSelection } from "@web/lib/clients/project-session.js";
 import { buildProjectHomeSummary } from "./project-home-model.js";
 
 const project: Project = {

@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleTemplateGet, handleTemplatePost } from "./handler.js";
 import { GET, POST } from "./route.js";
 
@@ -64,6 +64,8 @@ describe("/api/templates", () => {
       method: "POST", body: JSON.stringify({ id: "../bad", locale: "en" }),
     }));
     expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await response.json())).toEqual(["error"]);
   });
 
   it("routes reads and mutations through the cookie-selected project session", async () => {

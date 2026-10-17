@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { MediaAssetTarget, ResourceDialog } from "@web/lib/editor-workspace";
+import type { MediaAssetTarget, ResourceDialog } from "@web/lib/editor/editor-workspace";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { AssetPickerDialog } from "@web/components/AssetPickerDialog";
 import { FontManagerDialog } from "@web/components/FontManagerDialog";

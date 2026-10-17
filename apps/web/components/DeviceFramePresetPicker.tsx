@@ -10,7 +10,7 @@ import {
   type DeviceFramePreset,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { deviceFrameContextForScreen } from "@web/lib/editor-workspace";
+import { deviceFrameContextForScreen } from "@web/lib/editor/editor-workspace";
 import { DialogShell, editorUi } from "./editor-ui";
 import { DeviceFramePresetThumbnail } from "./DeviceFramePresetThumbnail";
 
