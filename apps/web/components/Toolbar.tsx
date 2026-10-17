@@ -350,10 +350,10 @@ export function Toolbar({
         <div ref={leftRef} data-toolbar-left-content className="flex min-w-0 items-center gap-2.5">
           <button
             type="button"
-            aria-label="Projects home"
-            title="Projects"
+            aria-label="Screenshot Studio, back to Projects"
+            title="Back to Projects"
             disabled={projectsBusy}
-            className="hidden shrink-0 items-center gap-2.5 rounded-lg text-slate-600 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-2.5 rounded-lg text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
             onClick={onOpenProjects}
           >
             <span className="inline-flex size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20">
@@ -362,39 +362,15 @@ export function Toolbar({
             <span
               data-toolbar-label
               className={cx(
-                "hidden overflow-hidden whitespace-nowrap text-sm font-medium transition-[max-width,opacity] duration-200 ease-out md:inline-block",
-                compactControls ? "md:max-w-0 md:opacity-0" : "md:max-w-24 md:opacity-100",
+                "hidden overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight transition-[max-width,opacity] duration-200 ease-out md:inline-block",
+                compactControls ? "md:max-w-0 md:opacity-0" : "md:max-w-40 md:opacity-100",
               )}
-            >Projects</span>
+            >Screenshot Studio</span>
           </button>
-          <span className="hidden text-sm text-slate-300 xl:inline" aria-hidden="true">/</span>
-          <span className="hidden max-w-48 truncate whitespace-nowrap text-sm font-semibold text-slate-950 xl:inline">{projectName}</span>
-          <span className="hidden text-sm text-slate-300 xl:inline" aria-hidden="true">/</span>
+          <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
+          <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-slate-600 xl:inline">{projectName}</span>
+          <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
           <LayoutSelector />
-          {!minimalControls ? (
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                aria-label="Undo"
-                title="Undo (⌘Z)"
-                disabled={!canUndo}
-                className={editorUi.iconButton}
-                onClick={() => mutateAndSave(() => editorStore.getState().undo())}
-              >
-                <Undo2 size={15} strokeWidth={1.9} />
-              </button>
-              <button
-                type="button"
-                aria-label="Redo"
-                title="Redo (⇧⌘Z)"
-                disabled={!canRedo}
-                className={editorUi.iconButton}
-                onClick={() => mutateAndSave(() => editorStore.getState().redo())}
-              >
-                <Redo2 size={15} strokeWidth={1.9} />
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -443,6 +419,28 @@ export function Toolbar({
           minimalControls ? "gap-0.5" : "gap-1",
         )}
       >
+        {!minimalControls ? <div className="contents">
+          <button
+            type="button"
+            aria-label="Undo"
+            title="Undo (⌘Z)"
+            disabled={!canUndo}
+            className={cx(editorUi.iconButton, minimalControls && "!size-7")}
+            onClick={() => mutateAndSave(() => editorStore.getState().undo())}
+          >
+            <Undo2 size={15} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            aria-label="Redo"
+            title="Redo (⇧⌘Z)"
+            disabled={!canRedo}
+            className={cx(editorUi.iconButton, minimalControls && "!size-7")}
+            onClick={() => mutateAndSave(() => editorStore.getState().redo())}
+          >
+            <Redo2 size={15} strokeWidth={1.9} />
+          </button>
+        </div> : null}
         {!localeOverflowed && activeLocale && localeOptions.length > 0 ? (
           <div ref={localeRef} className={toolbarMotion}>
             <MenuSelect

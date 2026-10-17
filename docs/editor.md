@@ -159,8 +159,8 @@ dialog rather than an intermediate panel. Its bottom
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
 recovery action; Workspace must never discard the active client state automatically.
-The Workspace top bar starts with a `Projects / project / layout` breadcrumb whose `Projects` button
-is the same home action, followed by undo and redo; Focus / Overview stay centered; the locale menu,
+The Workspace top bar starts with a `Screenshot Studio / project / layout` breadcrumb whose product-name
+button is the same Projects home action; Focus / Overview stay centered; undo, redo, the locale menu,
 Inspect, and Export sit on the right. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.

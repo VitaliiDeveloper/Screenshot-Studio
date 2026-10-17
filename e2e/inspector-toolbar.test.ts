@@ -54,8 +54,7 @@ function elements(): Array<{
 
 describe("inspector + toolbar", () => {
   it("centres the view switch when content fits and falls back without overlap", async () => {
-    // Narrow enough that the measured toolbar compacts its labels on first paint.
-    const page = await browser.newPage({ viewport: { width: 740, height: 998 } });
+    const page = await browser.newPage({ viewport: { width: 828, height: 998 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
@@ -66,7 +65,7 @@ describe("inspector + toolbar", () => {
     const focusLabel = page.getByRole("button", { name: "Focus" }).locator("span");
     const overviewLabel = page.getByRole("button", { name: "Overview" }).locator("span");
     const exportLabel = page.getByRole("button", { name: /^Export/ }).locator("[data-toolbar-label]");
-    const productName = page.getByRole("button", { name: "Projects home" }).locator("[data-toolbar-label]");
+    const productName = page.getByRole("button", { name: /^Screenshot Studio/ }).locator("[data-toolbar-label]");
     const projectName = page.getByText("Store Launch Demo", { exact: true });
 
     expect(await productName.isVisible()).toBe(false);
