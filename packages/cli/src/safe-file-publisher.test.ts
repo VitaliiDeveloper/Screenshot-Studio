@@ -2392,7 +2392,8 @@ describe("publishFileSafely", () => {
     ]);
     expect(loserComparisonReads).toBeGreaterThanOrEqual(2);
     expect(await readFile(destination)).toEqual(Buffer.from(bytes));
-    expect(await stageEntries(root)).toEqual([]);
+    // Also proves no stage quarantine (`<stage>.tmp.<uuid>.quarantine`) was left behind.
+    expect(await readdir(root)).toEqual(["resource.txt"]);
   });
 });
 
