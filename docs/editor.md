@@ -75,7 +75,7 @@ The Workspace Export dialog keeps rendered store images separate from the portab
 archive. Project archive export flushes pending saves first and is available only when the active
 managed project advertises archive-export capability.
 
-Structure presents one **Screens → Layers** tree for the current exact-size scope. The active screen
+The Layers panel presents one **Screens → Layers** tree for the current exact-size scope. The active screen
 expands to its layers, front-most first; layer reorder applies only to the active screen, and every
 layer row has a direct lock toggle.
 
@@ -92,7 +92,7 @@ selection so additive selection gestures remain predictable.
 Adding text is an authoring action and must never open resource management as a prerequisite. Empty
 projects use the renderer-owned built-in font, while the Inspector offers built-in and project fonts
 through the same semantic font field. Uploading or downloading custom fonts remains an explicit,
-separate Resources action.
+separate Fonts action in the tool rail.
 
 Blank project starters, blank screens, and the first screen in a newly added layout use a white solid
 background. Explicit duplication preserves the source screen exactly. Linear-gradient backgrounds
@@ -113,7 +113,7 @@ say so next to the control.
 Layouts, output families, locales, and connected composition may change how content is projected, but
 the interface must preserve scope: an action explains which layout, locale, output, screen, or element
 it affects and must not silently mutate a sibling scope.
-Structure keeps the same `Add screen` action available in every exact-size editing scope. Moving
+The Layers panel keeps the same `Add screen` action available in every exact-size editing scope. Moving
 between primary and variant sizes uses the output targets themselves instead of a second navigation
 control in the Screens header. New projects and newly created output families explicitly default to
 **Keep 1:1**. Existing documents without a persisted policy retain **Independent** behavior for
@@ -152,7 +152,9 @@ URL in another browser activates the same Project Library entry before Workspace
 unavailable identities show a visible error and never fall back to another active project. `/editor`
 remains a compatibility route for sessions whose Project Library entry identity is not available.
 Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
-rail exists only in Workspace. Its bottom
+rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, and one
+entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
+dialog rather than an intermediate panel. Its bottom
 `Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
@@ -208,7 +210,7 @@ an arbitrary local filesystem path.
   portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and Web
   mobile. **Blank** remains explicit, and the existing generic project starters remain available
   where supported. Targeted starters open on their exact persisted variant.
-- Resources exposes global read-only **Design packs** beside project-local themes. Applying either
+- The Design packs dialog exposes global read-only **Design packs** beside project-local themes. Applying either
   source is explicit and bakes editable color, typography, and supported spacing literals into the
   active layout; the project never stores a global pack reference.
 - An empty project presents **Create your first screen** with relevant family starters, capture

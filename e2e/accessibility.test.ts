@@ -51,9 +51,9 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
   return { context, page };
 }
 
-async function openPanel(page: Page, name: "Add panel" | "Structure panel"): Promise<void> {
+async function openPanel(page: Page, name: "Add panel" | "Layers panel"): Promise<void> {
   if (name === "Add panel") {
-    await openPanel(page, "Structure panel");
+    await openPanel(page, "Layers panel");
     await page.getByRole("button", { name: "Add element", exact: true }).click();
     return;
   }
@@ -91,8 +91,8 @@ describe("editor accessibility states", () => {
     const { context, page } = await openEditor({ width: 1440, height: 1000 });
     await expectNoSeriousOrCriticalViolations(page, "desktop shell");
 
-    await openPanel(page, "Structure panel");
-    await page.getByRole("heading", { name: "Structure", exact: true }).waitFor();
+    await openPanel(page, "Layers panel");
+    await page.getByRole("heading", { name: "Layers", exact: true }).waitFor();
     await expectNoSeriousOrCriticalViolations(page, "desktop structure panel");
 
     await openPanel(page, "Add panel");
@@ -108,7 +108,7 @@ describe("editor accessibility states", () => {
     await expectNoSeriousOrCriticalViolations(page, "desktop canvas menu");
     await page.keyboard.press("Escape");
 
-    await page.getByRole("button", { name: "Manage locales", exact: true }).click();
+    await page.getByRole("button", { name: "Locales", exact: true }).click();
     const desktopLocaleDialog = page.getByRole("dialog", { name: "Locale manager", exact: true });
     await desktopLocaleDialog.waitFor();
     await waitForElementAnimations(desktopLocaleDialog);
@@ -116,7 +116,7 @@ describe("editor accessibility states", () => {
     await page.getByRole("button", { name: "Close locale manager", exact: true }).click();
     await desktopLocaleDialog.waitFor({ state: "hidden" });
 
-    await openPanel(page, "Structure panel");
+    await openPanel(page, "Layers panel");
     await page.getByRole("button", { name: "Hero headline", exact: true }).click();
     await page.getByRole("spinbutton", { name: "Width", exact: true }).waitFor();
     await waitForElementAnimations(page.getByRole("tabpanel"));
@@ -149,7 +149,7 @@ describe("editor accessibility states", () => {
     await page.getByRole("heading", { name: "Add", exact: true }).waitFor();
     await expectNoSeriousOrCriticalViolations(page, "compact add panel");
 
-    await page.getByRole("button", { name: "Manage locales", exact: true }).click();
+    await page.getByRole("button", { name: "Locales", exact: true }).click();
     const compactLocaleDialog = page.getByRole("dialog", { name: "Locale manager", exact: true });
     await compactLocaleDialog.waitFor();
     await waitForElementAnimations(compactLocaleDialog);

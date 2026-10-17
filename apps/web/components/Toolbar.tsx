@@ -6,7 +6,6 @@ import { useStore } from "zustand";
 import {
   Download,
   LayoutGrid,
-  Languages,
   PanelsTopLeft,
   PanelRight,
   Redo2,
@@ -105,7 +104,6 @@ export function Toolbar({
   inspectorOpen,
   onViewChange,
   onToggleInspector,
-  onOpenLocales,
   exportRequestKey = 0,
   specs = DEFAULT_STORE_SPECS,
 }: {
@@ -113,7 +111,6 @@ export function Toolbar({
   inspectorOpen: boolean;
   onViewChange: (view: WorkspaceView) => void;
   onToggleInspector: () => void;
-  onOpenLocales: () => void;
   exportRequestKey?: number;
   specs?: StoreSpecs;
 }) {
@@ -441,9 +438,6 @@ export function Toolbar({
         ) : null}
         {!secondaryOverflowed ? (
           <div ref={secondaryRef} className={cx("contents", toolbarMotion)}>
-            <button type="button" aria-label="Manage locales" className={editorUi.iconButton} onClick={onOpenLocales}>
-              <Languages size={15} strokeWidth={1.9} />
-            </button>
             <button
               type="button"
               aria-label="Inspect"
@@ -483,7 +477,6 @@ export function Toolbar({
               activeLocale={activeLocale}
               localeOptions={localeOptions}
               onToggleInspector={onToggleInspector}
-              onOpenLocales={onOpenLocales}
               onLocaleChange={(locale) => editorStore.getState().selectLocale(locale)}
               canUndo={canUndo}
               canRedo={canRedo}

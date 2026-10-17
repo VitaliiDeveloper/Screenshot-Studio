@@ -26,7 +26,6 @@ export interface ToolbarOverflowMenuProps {
   activeLocale: string;
   localeOptions: readonly { value: string; label: string }[];
   onToggleInspector: () => void;
-  onOpenLocales: () => void;
   onLocaleChange: (locale: string) => void;
   canUndo: boolean;
   canRedo: boolean;
@@ -43,7 +42,6 @@ export function ToolbarOverflowMenu({
   activeLocale,
   localeOptions,
   onToggleInspector,
-  onOpenLocales,
   onLocaleChange,
   canUndo,
   canRedo,
@@ -143,14 +141,6 @@ export function ToolbarOverflowMenu({
           onClick={() => select(onToggleInspector)}
         >
           {inspectorOpen ? "Hide Inspector" : "Show Inspector"}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
-          onClick={() => select(onOpenLocales)}
-        >
-          Manage locales
         </button>
         {density === "minimal" ? (
           <>

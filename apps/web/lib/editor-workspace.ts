@@ -28,7 +28,7 @@ export const OUTPUT_FAMILY_LABEL_HEIGHT = 28;
 
 export type WorkspaceView = "focus" | "overview";
 export type WorkspaceTool = "select" | "hand";
-export type WorkspacePanel = "structure" | "resources" | "add";
+export type WorkspacePanel = "structure" | "add";
 export type CanvasPattern = "dots" | "grid" | "none";
 export type ResourceDialog =
   | "fonts"

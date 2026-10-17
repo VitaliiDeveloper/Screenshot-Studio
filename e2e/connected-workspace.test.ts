@@ -255,7 +255,7 @@ describe("connected workspace", () => {
     expect(await page.getByTestId("connected-artboards").getByTestId("editor-stage")
       .getAttribute("data-stage-screen-ids")).toBe("connected-first connected-second");
 
-    const structure = page.getByRole("button", { name: "Structure panel", exact: true });
+    const structure = page.getByRole("button", { name: "Layers panel", exact: true });
     const inspect = page.getByRole("button", { name: "Inspect", exact: true });
     expect(await structure.getAttribute("aria-pressed")).toBe("false");
     expect(await inspect.getAttribute("aria-pressed")).toBe("false");

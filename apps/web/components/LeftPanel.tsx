@@ -7,10 +7,7 @@ import {
   ArrowLeft,
   Box,
   BadgeCheck,
-  Frame,
   Image as ImageIcon,
-  LayoutTemplate,
-  Palette,
   RectangleHorizontal,
   Search,
   Smartphone,
@@ -71,35 +68,6 @@ function PanelHeader({
         {backLabel ? <ArrowLeft size={16} strokeWidth={1.9} /> : <X size={16} strokeWidth={1.9} />}
       </button>
     </header>
-  );
-}
-
-function ResourceButton({
-  icon: Icon,
-  title,
-  description,
-  onClick,
-}: {
-  icon: typeof Frame;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={title}
-      className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-      onClick={onClick}
-    >
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-        <Icon size={17} strokeWidth={1.8} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-xs font-semibold text-slate-800">{title}</span>
-        <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{description}</span>
-      </span>
-    </button>
   );
 }
 
@@ -233,11 +201,11 @@ export function LeftPanel({
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
 }) {
-  const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
+  const title = panel === "structure" ? "Layers" : "Add";
 
   return (
     <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
-      <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
+      <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to layers" : undefined} />
       {panel === "structure" ? (
         <div className="editor-scroll-area min-h-0 flex-1 overflow-y-auto">
           <ScreensSection
@@ -246,13 +214,6 @@ export function LeftPanel({
             onImportCaptures={onImportCaptures}
             onOpenAdd={onOpenAdd}
           />
-        </div>
-      ) : null}
-      {panel === "resources" ? (
-        <div className="flex flex-col gap-2.5 p-3">
-          <ResourceButton icon={Frame} title="Fonts" description="Upload, register, preview, and apply project fonts." onClick={() => onOpenDialog("fonts")} />
-          <ResourceButton icon={Palette} title="Design packs" description="Apply global packs or project themes as editable literals." onClick={() => onOpenDialog("themes")} />
-          <ResourceButton icon={LayoutTemplate} title="Screen templates" description="Create a screen from a built-in or project-local reusable layout." onClick={() => onOpenDialog("templates")} />
         </div>
       ) : null}
       {panel === "add" ? <AddPanel onOpenDialog={onOpenDialog} /> : null}

@@ -85,7 +85,7 @@ describe("editor snapping", () => {
     const connected = page.getByTestId("connected-artboards");
     await connected.waitFor({ state: "visible" });
 
-    const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
+    const structureToggle = page.getByRole("button", { name: "Layers panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
     const stage = connected.getByTestId("editor-stage");
     await page.getByRole("list", { name: "Layers for Connected First" })

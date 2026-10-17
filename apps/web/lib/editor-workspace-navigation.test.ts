@@ -23,8 +23,8 @@ const state: WorkspaceNavigationState = {
   view: "focus",
   tool: "hand",
   pattern: "grid",
-  panel: "resources",
-  lastPanel: "resources",
+  panel: "add",
+  lastPanel: "add",
   inspectorOpen: false,
 };
 
@@ -42,6 +42,14 @@ describe("workspace navigation state", () => {
       zoom: 99,
     }));
     expect(readWorkspaceNavigationState("project-b", storage)).toBeNull();
+
+    // The Resources panel became rail entries; stale state falls back to defaults.
+    storage.setItem("screenshot-studio:workspace-navigation:v1:project-c", JSON.stringify({
+      version: 1,
+      ...state,
+      panel: "resources",
+    }));
+    expect(readWorkspaceNavigationState("project-c", storage)).toBeNull();
   });
 
   it("clears only the selected project's workspace state", () => {

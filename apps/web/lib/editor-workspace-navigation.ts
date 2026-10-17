@@ -40,7 +40,7 @@ function storageKey(projectId: string): string {
 const VIEWS = new Set<WorkspaceView>(["focus", "overview"]);
 const TOOLS = new Set<WorkspaceTool>(["select", "hand"]);
 const PATTERNS = new Set<CanvasPattern>(["dots", "grid", "none"]);
-const PANELS = new Set<WorkspacePanel>(["structure", "resources", "add"]);
+const PANELS = new Set<WorkspacePanel>(["structure", "add"]);
 
 function isWorkspaceNavigationState(value: unknown): value is WorkspaceNavigationState & { version: 1 } {
   if (!value || typeof value !== "object") return false;

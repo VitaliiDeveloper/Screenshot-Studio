@@ -207,7 +207,6 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         inspectorOpen={inspectorOpen}
         exportRequestKey={exportRequestKey}
         onViewChange={setView}
-        onOpenLocales={() => setLocaleDialogOpen(true)}
         onToggleInspector={() => {
           const opening = !inspectorOpen;
           if (opening && layout.compact) setPanel(null);
@@ -226,6 +225,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             if (opening && layout.compact) setInspectorOpen(false);
             setPanel(opening ? next : null);
           }}
+          onOpenDialog={setDialog}
+          onOpenLocales={() => setLocaleDialogOpen(true)}
         />
         <EditorSidePanel side="left" open={panel !== null}>
           <LeftPanel

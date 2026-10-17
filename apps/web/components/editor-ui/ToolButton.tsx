@@ -12,7 +12,8 @@ export function ToolButton({
   ...buttonProps
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "aria-pressed" | "type"> & {
   label: string;
-  active: boolean;
+  /** Omit for actions that open a dialog: they are not toggles, so they carry no pressed state. */
+  active?: boolean;
   variant: "tool" | "panel";
   children?: ReactNode;
 }) {
