@@ -17,6 +17,7 @@ import {
   type ActiveProjectResolverDependencies,
 } from "@web/lib/project-session.server.js";
 import type { ManagedProjectLifecycleLock } from "@web/lib/managed-project-lifecycle-lock.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 type CreatedArchive = Awaited<ReturnType<ManagedProjectArchiveService["create"]>>;
 
@@ -39,10 +40,7 @@ export async function handleProjectArchivePost(
     ?? resolveManagedProjectStorageConfig();
   return withProjectVersionedReadRequest(request, async (session, expectedRevision, lifecycleLock) => {
     if (session.descriptor.sourceKind !== "managed-project") {
-      return Response.json({
-        error: "Project archive export is available only for managed projects",
-        code: "managed-project-required",
-      }, { status: 409, headers: { "cache-control": "no-store" } });
+      return jsonError(409, "Project archive export is available only for managed projects", "managed-project-required");
     }
     const createArchive = dependencies.createArchive ?? ((projectId, heldLock) => (
       new ManagedProjectArchiveService(
@@ -75,19 +73,10 @@ export async function handleProjectArchivePost(
       }
     }
     if (operationError !== undefined) {
-      return Response.json({
-        error: "Project archive export failed",
-        code: "archive-failed",
-      }, { status: 500, headers: { "cache-control": "no-store" } });
+      return jsonError(500, "Project archive export failed", "archive-failed");
     }
     if (revisionMismatch) {
-      return Response.json({
-        error: "Project changed before the archive could be staged",
-        code: "project-revision-changed",
-      }, {
-        status: 412,
-        headers: { "cache-control": "no-store" },
-      });
+      return jsonError(412, "Project changed before the archive could be staged", "project-revision-changed");
     }
     return Response.json({ ...ticket!, projectRevision: archive!.projectRevision }, {
       status: 201,

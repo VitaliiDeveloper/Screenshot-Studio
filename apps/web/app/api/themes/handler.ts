@@ -8,18 +8,13 @@ import {
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
 import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
 
-function errorResponse(error: unknown): Response {
-  const revisionConflict = projectRevisionConflictResponse(error);
-  if (revisionConflict) return revisionConflict;
-  const message = error instanceof Error ? error.message : String(error);
-  const status = error instanceof ThemeValidationError ? 400
-    : error instanceof ThemeNotFoundError ? 404
-      : error instanceof ThemeApplyError ? 422
-        : 500;
-  return Response.json({ error: message }, { status });
-}
+const ERROR_STATUSES: ErrorStatusTable = [
+  [ThemeValidationError, 400],
+  [ThemeNotFoundError, 404],
+  [ThemeApplyError, 422],
+];
 
 async function jsonBody(req: Request): Promise<Record<string, unknown>> {
   let body: unknown;
@@ -41,7 +36,7 @@ export async function handleThemeGet(projectPath: string): Promise<Response> {
       themes: await listThemes(projectPath),
     });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }
 
@@ -59,6 +54,6 @@ export async function handleThemePost(
     );
     return Response.json(project, { headers: { etag: `"${revision}"` } });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }
