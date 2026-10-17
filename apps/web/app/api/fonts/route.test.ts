@@ -115,6 +115,8 @@ describe("/api/fonts", () => {
       body: JSON.stringify({ source: "system", family: "Inter", weight: 400 }),
     }));
     expect(invalidSource.status).toBe(400);
+    expect(invalidSource.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await invalidSource.json())).toEqual(["error"]);
 
     const invalidJson = await handleFontPost(projectPath, new Request("http://localhost/api/fonts", {
       method: "POST",

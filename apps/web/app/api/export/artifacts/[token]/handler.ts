@@ -4,18 +4,14 @@ import {
   consumeExportArtifact,
   type ExportArtifactLookup,
 } from "@web/lib/export-artifacts.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 export interface ExportArtifactRouteDependencies {
   consumeArtifact?: (token: string) => Promise<ExportArtifactLookup>;
 }
 
 function unavailable(status: 404 | 410): Response {
-  return Response.json({
-    error: status === 410 ? "Export artifact expired" : "Export artifact not found",
-  }, {
-    status,
-    headers: { "cache-control": "no-store" },
-  });
+  return jsonError(status, status === 410 ? "Export artifact expired" : "Export artifact not found");
 }
 
 export async function handleExportArtifactGet(
