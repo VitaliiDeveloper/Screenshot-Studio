@@ -32,7 +32,6 @@ export default tseslint.config(
     // Files that predate the limit and are waiting for a split. Remove an entry once its file
     // fits; never add one.
     files: [
-      "apps/web/lib/editor-store.test.ts",
       "packages/cli/src/bundle-publisher.test.ts",
       "packages/cli/src/safe-file-publisher.test.ts",
       "packages/cli/src/safe-file-publisher.ts",
