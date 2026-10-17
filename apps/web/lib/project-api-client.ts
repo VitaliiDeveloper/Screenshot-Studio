@@ -3,6 +3,7 @@ import {
   advanceProjectRevisionFromResponse,
   projectRequestHeaders,
 } from "./save-project.js";
+import { readJsonResponse } from "./json-response.js";
 
 export interface ProjectJsonRequestOptions extends Omit<RequestInit, "headers"> {
   headers?: HeadersInit;
@@ -29,13 +30,7 @@ export async function projectJsonRequest<T>(
     ...init,
     headers: projectRequestHeaders({ conditional, headers }),
   });
-  const body = await response.json().catch(() => ({})) as T & { error?: unknown };
-  if (!response.ok) {
-    const message = typeof body.error === "string"
-      ? body.error
-      : `${errorFallback} (${response.status})`;
-    throw new Error(message);
-  }
+  const body = await readJsonResponse(response, `${errorFallback} (${response.status})`) as T;
   if (advanceRevision) advanceProjectRevisionFromResponse(response);
   return { body, response };
 }

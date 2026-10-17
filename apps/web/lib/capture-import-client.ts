@@ -2,6 +2,7 @@
 import type { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
 import type { ActiveProjectDescriptor } from "./project-session.js";
 import { isStrongQuotedETag } from "./http-etag.js";
+import { readJsonBody, responseErrorMessage } from "./json-response.js";
 
 export interface CaptureImportCurrentDestination {
   kind: "current-project";
@@ -202,13 +203,9 @@ function validPreview(value: unknown): value is CaptureImportPreview {
     && /^[0-9a-f]{64}$/u.test(candidate.confirmationFingerprint);
 }
 
-async function responseBody(response: Response): Promise<Record<string, unknown>> {
-  return record(await response.json().catch(() => ({}))) ?? {};
-}
-
 async function throwResponseError(response: Response, body: Record<string, unknown>): Promise<never> {
   throw new CaptureImportClientError(
-    typeof body.error === "string" ? body.error : `Capture import failed (${response.status})`,
+    responseErrorMessage(body, `Capture import failed (${response.status})`),
     typeof body.code === "string" ? body.code : "request-failed",
     response.status,
   );
@@ -223,7 +220,7 @@ export async function previewCaptureImport(
     buildCaptureImportForm(request),
     { signal: options.signal, headers: requestHeaders(request.destination) },
   );
-  const body = await responseBody(response);
+  const body = await readJsonBody(response);
   if (!response.ok) return throwResponseError(response, body);
   if (!validPreview(body.preview)) {
     throw new CaptureImportClientError(
@@ -255,7 +252,7 @@ export async function applyCaptureImport(
     buildCaptureImportForm(request, confirmationFingerprint),
     { signal: options.signal, headers: requestHeaders(request.destination) },
   );
-  const body = await responseBody(response);
+  const body = await readJsonBody(response);
   if (!response.ok) return throwResponseError(response, body);
   const projectId = response.headers.get("x-project-id")?.trim();
   const validProjectId = request.destination.kind === "new-project"
