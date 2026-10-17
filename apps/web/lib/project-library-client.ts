@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { parseProject, type Project } from "@screenshot-studio/core/model";
+import { responseError } from "./json-response.js";
 
 export interface ProjectLibraryEntry {
   entryId: string;
@@ -96,11 +97,6 @@ export function projectLibraryEntriesEqual(
   right: readonly ProjectLibraryEntry[],
 ): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-async function responseError(response: Response, fallback: string): Promise<Error> {
-  const value = await response.json().catch(() => null) as unknown;
-  return new Error(isRecord(value) && typeof value.error === "string" ? value.error : fallback);
 }
 
 const defaultTransport: ProjectLibraryTransport = (url, init) => fetch(url, init);

@@ -7,6 +7,7 @@ import type {
   ActiveProjectDescriptor,
   ActiveProjectSelection,
 } from "./project-session.js";
+import { readJsonBody, responseErrorMessage } from "./json-response.js";
 
 export type ProjectCreationTransport = (
   input: ProjectCreationInput,
@@ -37,14 +38,14 @@ export async function createProject(
 ): Promise<ActiveProjectSelection> {
   const parsedInput = ProjectScaffoldInput.parse(input);
   const response = await (options.transport ?? fetchProjectCreation)(parsedInput);
-  const body = await response.json().catch(() => ({})) as {
+  const body = await readJsonBody(response) as {
     project?: ActiveProjectDescriptor;
     error?: unknown;
     code?: unknown;
   };
   if (!response.ok) {
     throw new ProjectCreationClientError(
-      typeof body.error === "string" ? body.error : `Project creation failed (${response.status})`,
+      responseErrorMessage(body, `Project creation failed (${response.status})`),
       typeof body.code === "string" ? body.code : "request-failed",
     );
   }

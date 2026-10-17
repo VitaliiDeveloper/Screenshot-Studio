@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { responseError } from "./json-response.js";
 
 export interface ProjectSourceCapabilities {
   writeInPlace: boolean;
@@ -28,19 +29,12 @@ export type ProjectSessionFetcher = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-async function responseError(response: Response): Promise<Error> {
-  const body = await response.json().catch(() => ({})) as { error?: unknown };
-  return new Error(typeof body.error === "string"
-    ? body.error
-    : `Project session request failed (${response.status})`);
-}
-
 export async function fetchActiveProject(
   fetcher: ProjectSessionFetcher = fetch,
 ): Promise<ActiveProjectSelection | null> {
   const response = await fetcher("/api/project-session", { cache: "no-store" });
   if (response.status === 204) return null;
-  if (!response.ok) throw await responseError(response);
+  if (!response.ok) throw await responseError(response, `Project session request failed (${response.status})`);
   const projectId = response.headers.get("x-project-id")?.trim();
   if (!projectId) throw new Error("Project session response is missing its project identity");
   return {
@@ -57,5 +51,5 @@ export async function closeActiveProject(
     method: "DELETE",
     headers: { "x-project-id": projectId },
   });
-  if (!response.ok) throw await responseError(response);
+  if (!response.ok) throw await responseError(response, `Project session request failed (${response.status})`);
 }
