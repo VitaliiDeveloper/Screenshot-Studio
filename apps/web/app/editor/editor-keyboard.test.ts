@@ -11,6 +11,7 @@ const base = {
   shiftKey: false,
   interactive: false,
   modalOpen: false,
+  menuOpen: false,
   canUndo: true,
   canRedo: true,
   hasSelection: true,
@@ -40,6 +41,7 @@ describe("editor keyboard routing", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowUp", hasSelection: false })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowRight", metaKey: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowRight", interactive: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowDown", menuOpen: true })).toBeNull();
     expect(nudgeDelta("ArrowLeft", false)).toEqual({ x: -10, y: 0 });
     expect(nudgeDelta("ArrowDown", true)).toEqual({ x: 0, y: 50 });
     expect(nudgeDelta("a", false)).toBeNull();

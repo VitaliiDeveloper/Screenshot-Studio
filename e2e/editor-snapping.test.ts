@@ -140,6 +140,18 @@ describe("editor snapping", () => {
     await expect.poll(bridgeX).toBe(460);
     expect(await stage.getAttribute("data-snap-guide-x")).toBeNull();
 
+    // On the second connected screen the badge sits under that screen's layer, not the first's.
+    await page.getByRole("button", { name: "Connected Second · iphone" }).click();
+    await page.getByRole("list", { name: "Layers for Connected Second" })
+      .getByRole("button", { name: "Shape", exact: true })
+      .click();
+    await expect.poll(() => sizeBadge.textContent()).toBe("200 × 200");
+    const stageBox = (await stage.locator("canvas").first().boundingBox())!;
+    const stageScale = stageBox.width / CONNECTED_STAGE_WIDTH;
+    const badgeBox = (await sizeBadge.boundingBox())!;
+    expect(Math.abs(badgeBox.x + badgeBox.width / 2 - (stageBox.x + (660 + 160 + 100) * stageScale))).toBeLessThan(2);
+    expect(badgeBox.y).toBeGreaterThan(stageBox.y + 900 * stageScale);
+
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });
     expect(await page.getByTestId("connected-artboards").getByTestId("editor-stage")

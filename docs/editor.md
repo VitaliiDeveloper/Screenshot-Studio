@@ -179,9 +179,9 @@ artboard px: the layer box for one layer, the selection bounds for several. A si
 layer also gets a selection toolbar above it with **Font**, **Color**, and **Fit**, the same edits
 the Layer tab makes; Fit is the Fit text fix and is enabled only while the layer overflows. Badge and
 toolbar step aside while a layer is dragged, transformed, or edited inline, so the pink snap guides
-stay readable. With a selection and focus outside a control, arrows nudge it 10 px and Shift+arrows
-50 px, one undo step per press; locked layers stay put. ⌘D duplicates, ⌘G groups, and Delete removes
-the selection.
+stay readable. With a selection, focus outside a control, and no menu open, arrows nudge it 10 px
+and Shift+arrows 50 px, one undo step per press; locked layers stay put. ⌘D duplicates, ⌘G groups,
+and Delete removes the selection.
 
 A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:
 an amber frame on the layer box, which stays the box the layer is moved and resized by, and a dashed
