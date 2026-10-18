@@ -52,9 +52,14 @@ Project before an atomic write:
 - `theme list` and `theme set <id> [--built-in]` apply a project-local `themes/<id>.json` theme or
   a built-in Design Pack.
 - `element list [--screen <id>] [--locale <locale>]` prints every leaf with its id, type, role,
-  JSON-quoted text, or media path. `element text <screen> <element> <content>` replaces one text
-  leaf's content, and `element media <screen> <element> <path>` assigns an existing
-  project-relative PNG, JPEG, or WebP file to a screenshot, image, or device-frame leaf.
+  JSON-quoted text, or media path. It prints nothing when no screen matches.
+- `element text <screen> <element> [--all-sizes] [--] <content>` replaces one text leaf's content.
+  `--all-sizes` also writes the matching layer on every other exact size of the slot, in one locked
+  write, and reports any size it skips because the layer structure diverged or the layer is
+  locked. A `--` terminator makes every following argument positional, so copy can start with `--`.
+- `element media <screen> <element> <path>` assigns an existing project-relative PNG, JPEG, or WebP
+  file to a screenshot, image, or device-frame leaf. On a device frame this is the screenshot inside
+  the frame; the frame preset and geometry stay unchanged.
 
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
 The artifact carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Presence

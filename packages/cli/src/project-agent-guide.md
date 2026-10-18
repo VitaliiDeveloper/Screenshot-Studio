@@ -165,7 +165,7 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 |---|---|
 | New screen from a starter or project template | `template add <id> --locale <locale> [--built-in]` |
 | Blank screen | `screen add --platform <p> --device <d> --locale <locale>` |
-| Change copy | `element text <screen-id> <element-id> "<copy>"` |
+| Change copy on every exact size of a slot | `element text <screen-id> <element-id> --all-sizes "<copy>"` |
 | Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
 | Recolor with a theme or pack | `theme set <id> [--built-in]` |
@@ -176,8 +176,12 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
 
 Element ids are fresh UUIDs after a template add or locale clone, so list before every edit.
-Store target variants are separate screens with their own elements; edit each one you intend to
-change.
+Store target variants are separate screens with their own elements and ids. `element text
+--all-sizes` also writes the same layer on every other exact size of that slot, matched by layer
+position like the editor's Status by size and Apply to, in one locked write. It reports each size it
+skips: a size whose layer structure has diverged, or whose matching layer is locked. Edit those
+individually. Copy that starts with `--` goes after a `--` terminator:
+`element text <screen-id> <element-id> -- "--flag-like copy"`.
 
 ## Recipe: generate or refresh copy
 
@@ -189,10 +193,11 @@ change.
 
    ```bash
    screenshots element list --locale en --project ./app-store-screenshots.json
-   screenshots element text <screen-id> <element-id> "Track every run" --project ./app-store-screenshots.json
+   screenshots element text <screen-id> <element-id> --all-sizes "Track every run" --project ./app-store-screenshots.json
    ```
 
    The command changes only `content` and keeps ids, roles, font identities, and unrelated locales.
+   Prefer `--all-sizes` so exact-size variants do not drift, and handle any reported skipped size.
    If copy no longer fits, adjust that text element's literal box/typography in JSON and then
    visually inspect it; do not add an automatic runtime layout rule.
 4. Make adjacent slides visibly different in composition while keeping the deck's theme and type
@@ -246,7 +251,7 @@ change.
    ```
 
 3. Translate only text content in the cloned target set with `element list --locale <target>` and
-   `element text`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
+   `element text --all-sizes`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
    the store audience; do not force a word-for-word translation into a box that no longer fits.
 4. Replace screenshots or other media only when a locale-specific asset exists (see the media
    recipe). Shared asset paths are intentional until then.
@@ -276,8 +281,11 @@ pairing fields to the project.
    ```
 
    `screenshot`, decorative `image`, and `device-frame` leaves (including group children) accept
-   media. Only `assetUrl` changes; fit, crop, and geometry stay as they were. Screen backgrounds are
-   JSON literals, not elements.
+   media. Only `assetUrl` changes; fit, crop, and geometry stay as they were. On a `device-frame`
+   the path is the screenshot shown inside the frame, the same as the editor's **Replace
+   screenshot**. The frame preset (`deviceType`) and its geometry are not media; change them with the
+   editor's **Choose frame**. Media is per screen, so assign it on each exact size that should show
+   it. Screen backgrounds are JSON literals, not elements.
 3. Inspect the affected screen in the editor or with a targeted export.
 
 ## Recipe: apply a theme or design pack
