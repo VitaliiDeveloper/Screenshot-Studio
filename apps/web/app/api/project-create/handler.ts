@@ -3,17 +3,17 @@ import { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
 import {
   ManagedProjectCreationError,
   ManagedProjectCreationService,
-} from "@web/lib/managed-project-creation.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
+} from "@web/lib/managed-projects/managed-project-creation.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   recentProjectsStore,
   type RecentProjectsStore,
-} from "@web/lib/recent-projects.server.js";
+} from "@web/lib/session/recent-projects.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 

@@ -8,26 +8,26 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   discardActiveProjectPersistence,
   switchActiveProject,
-} from "@web/lib/debounced-save";
-import { clearWorkspaceNavigationState } from "@web/lib/editor-workspace-navigation";
-import { editorProjectUrl, projectInfoUrl } from "@web/lib/editor-route";
-import { loadProjectHomeData } from "@web/lib/project-home-client";
-import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
-import { fetchActiveProject } from "@web/lib/project-session";
+} from "@web/lib/editor/debounced-save";
+import { clearWorkspaceNavigationState } from "@web/lib/editor/editor-workspace-navigation";
+import { editorProjectUrl, projectInfoUrl } from "@web/lib/editor/editor-route";
+import { loadProjectHomeData } from "@web/lib/clients/project-home-client";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
+import { fetchActiveProject } from "@web/lib/clients/project-session";
 import {
   importProject,
   ProjectImportClientError,
   type BrowserProjectImportSource,
-} from "@web/lib/project-import-client";
-import { createProject } from "@web/lib/project-creation-client";
+} from "@web/lib/clients/project-import-client";
+import { createProject } from "@web/lib/clients/project-creation-client";
 import {
   removeRecentProject,
-} from "@web/lib/recent-projects-client";
+} from "@web/lib/clients/recent-projects-client";
 import {
   fetchProjectLibrary,
   openProjectLibraryEntry,
   projectLibraryEntriesEqual,
-} from "@web/lib/project-library-client";
+} from "@web/lib/clients/project-library-client";
 import { AppHomeShell } from "./AppHomeShell";
 import { CaptureImportDialog } from "./CaptureImportDialog";
 import {

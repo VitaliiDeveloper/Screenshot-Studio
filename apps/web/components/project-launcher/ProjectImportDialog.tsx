@@ -3,7 +3,7 @@
 
 import React, { useRef, type ChangeEvent } from "react";
 import { FileArchive, FileJson, FolderOpen, Images, LoaderCircle } from "lucide-react";
-import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
+import type { BrowserProjectImportSource } from "@web/lib/clients/project-import-client";
 import { DialogShell, editorUi } from "@web/components/editor-ui";
 import type { LauncherImportState } from "./project-launcher-model";
 

@@ -3,8 +3,8 @@
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { Screen } from "@screenshot-studio/core/model";
-import type { WorkspaceView } from "@web/lib/editor-workspace";
-import { editorStore } from "@web/lib/editor-store";
+import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
+import { editorStore } from "@web/lib/editor/editor-store";
 import { cx } from "@web/components/editor-ui";
 import { EditorStage } from "@web/components/EditorStage";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";

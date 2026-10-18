@@ -13,7 +13,7 @@ import {
   removeFontMutation,
   type FontServiceDependencies,
 } from "@screenshot-studio/cli/font-service";
-import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 

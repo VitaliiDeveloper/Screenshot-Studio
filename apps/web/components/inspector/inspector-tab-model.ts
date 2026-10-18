@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Element } from "@screenshot-studio/core/model";
-import type { SelectionRef } from "@web/lib/editor-selection";
+import type { SelectionRef } from "@web/lib/editor/editor-selection";
 import { elementLabel, elementTypeLabel, selectionTypeSummary } from "@web/lib/panel-helpers";
 
 export type InspectorTab = "layer" | "screen";

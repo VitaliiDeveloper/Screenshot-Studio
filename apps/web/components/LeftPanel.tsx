@@ -26,9 +26,9 @@ import {
   type AddCatalogItem,
   type ResourceDialog,
   type WorkspacePanel,
-} from "@web/lib/editor-workspace";
-import { editorStore } from "@web/lib/editor-store";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
+} from "@web/lib/editor/editor-workspace";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ScreensSection } from "./ScreensSection";
 import { cx, editorUi } from "./editor-ui";
 

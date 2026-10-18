@@ -16,7 +16,7 @@ import {
   type TextElement,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "@web/lib/editor-store";
+import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import {
   cx,
   editorUi,
@@ -28,7 +28,7 @@ import {
   FontIdentityField,
   NumberField,
   TextField,
-} from "@web/components/inspector-fields";
+} from "@web/components/inspector/inspector-fields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 import { InspectorDisclosure } from "./InspectorDisclosure";
 

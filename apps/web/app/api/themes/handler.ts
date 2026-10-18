@@ -8,7 +8,7 @@ import {
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
 import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
-import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 
 const ERROR_STATUSES: ErrorStatusTable = [
   [ThemeValidationError, 400],

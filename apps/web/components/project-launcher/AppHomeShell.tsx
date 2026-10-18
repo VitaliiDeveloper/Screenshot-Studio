@@ -5,7 +5,7 @@ import React, { type ReactNode, type Ref } from "react";
 import { CircleCheck, FolderInput, Layers3, LoaderCircle, Plus, RotateCcw, ShieldCheck } from "lucide-react";
 import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
-import type { BrowserProjectImportSource } from "@web/lib/project-import-client";
+import type { BrowserProjectImportSource } from "@web/lib/clients/project-import-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
 import { ProjectCreationDialog } from "./ProjectCreationDialog";

@@ -6,7 +6,7 @@ import { useStore } from "zustand";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { textOverflows } from "@screenshot-studio/core/engine";
 import { collectLayoutIssues, type ProjectIssue } from "@screenshot-studio/core/validation";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 
 const MAX_CACHED_MEASUREMENTS = 2000;
 

@@ -2,7 +2,7 @@
 import {
   projectLibraryService,
   type ProjectLibraryService,
-} from "@web/lib/project-library.server.js";
+} from "@web/lib/session/project-library.server.js";
 import {
   serveProjectAssetPath,
   withPrivateAssetPolicy,

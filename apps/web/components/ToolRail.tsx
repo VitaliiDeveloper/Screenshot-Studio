@@ -12,7 +12,7 @@ import {
   Palette,
   Type,
 } from "lucide-react";
-import type { ResourceDialog, WorkspacePanel, WorkspaceTool } from "@web/lib/editor-workspace";
+import type { ResourceDialog, WorkspacePanel, WorkspaceTool } from "@web/lib/editor/editor-workspace";
 import { ToolButton } from "./editor-ui";
 
 export function ToolRail({

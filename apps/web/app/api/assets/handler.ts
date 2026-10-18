@@ -5,7 +5,7 @@ import {
   ProjectImageValidationError,
   type ProjectImageServiceDependencies,
 } from "@screenshot-studio/cli/project-image-service";
-import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 
 type UploadFile = {
   name: string;

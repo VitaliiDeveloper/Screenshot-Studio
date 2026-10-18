@@ -13,12 +13,12 @@ import type {
   WorkspacePanel,
   WorkspaceTool,
   WorkspaceView,
-} from "@web/lib/editor-workspace";
-import { editorStore } from "@web/lib/editor-store";
-import { countIssues, missingImageTarget } from "@web/lib/editor-issues";
+} from "@web/lib/editor/editor-workspace";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
-import { Inspector } from "@web/components/Inspector";
+import { Inspector } from "@web/components/inspector/Inspector";
 import { Toolbar } from "@web/components/toolbar/Toolbar";
 import { ToolRail } from "@web/components/ToolRail";
 import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
@@ -28,7 +28,7 @@ import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
-} from "@web/lib/editor-workspace-navigation";
+} from "@web/lib/editor/editor-workspace-navigation";
 import { EditorResourceDialogs } from "./editor-resource-dialogs";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";

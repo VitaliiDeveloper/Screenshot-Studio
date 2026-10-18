@@ -10,11 +10,11 @@ import {
   sessionIdFromRequest,
   type ActiveProjectResolverDependencies,
   type ProjectSession,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   recentProjectsStore,
   type RecentProjectsStore,
-} from "@web/lib/recent-projects.server.js";
+} from "@web/lib/session/recent-projects.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 
 interface ProjectSessionHandlerDependencies extends ActiveProjectResolverDependencies {

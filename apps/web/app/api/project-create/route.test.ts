@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { ManagedProjectCreationService } from "@web/lib/managed-projects/managed-project-creation.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
+import { ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 import { handleProjectCreatePost } from "./handler.js";
 import { POST } from "./route.js";
 

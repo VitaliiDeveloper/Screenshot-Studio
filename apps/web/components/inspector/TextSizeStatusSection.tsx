@@ -7,8 +7,8 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { cx, editorUi } from "@web/components/editor-ui";
-import { textSizeStatus, type TextSizeState } from "@web/lib/editor-issues";
-import { applyTextFit } from "@web/lib/editor-text-fit";
+import { textSizeStatus, type TextSizeState } from "@web/lib/editor/editor-issues";
+import { applyTextFit } from "@web/lib/editor/editor-text-fit";
 import { InspectorSection as Section } from "./InspectorSection";
 
 const STATE_COPY: Record<TextSizeState, string> = {

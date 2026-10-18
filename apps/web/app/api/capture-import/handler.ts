@@ -23,26 +23,26 @@ import {
 import {
   createManagedProjectFromCaptureImport,
   previewManagedProjectCaptureImport,
-} from "@web/lib/managed-capture-import.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+} from "@web/lib/managed-projects/managed-capture-import.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import {
   ManagedProjectCreationError,
   ManagedProjectCreationService,
-} from "@web/lib/managed-project-creation.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
+} from "@web/lib/managed-projects/managed-project-creation.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
   projectRevisionConflictResponse,
   withProjectMutationRequest,
   withProjectVersionedReadRequest,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   recentProjectsStore,
   type RecentProjectsStore,
-} from "@web/lib/recent-projects.server.js";
+} from "@web/lib/session/recent-projects.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 

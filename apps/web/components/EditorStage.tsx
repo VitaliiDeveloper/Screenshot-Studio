@@ -11,9 +11,9 @@ import {
 } from "@screenshot-studio/core/model";
 import { applyNodeFilter, backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor-store";
-import { isSelected } from "@web/lib/editor-selection";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
+import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
+import { isSelected } from "@web/lib/editor/editor-selection";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
 import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
