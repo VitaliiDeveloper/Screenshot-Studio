@@ -4,6 +4,7 @@ import { parseProject, type Project } from "@screenshot-studio/core/model";
 import {
   applyDesignPack,
   applyTheme,
+  DesignPack,
   listBuiltInDesignPacks,
   Theme,
 } from "./index.js";
@@ -115,20 +116,61 @@ describe("applyTheme", () => {
   });
 });
 
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((offset) => {
+    const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+}
+
+function contrast(a: string, b: string): number {
+  const [light, dark] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (light! + 0.05) / (dark! + 0.05);
+}
+
+function mix(from: string, to: string, t: number): string {
+  return `#${[1, 3, 5].map((offset) => {
+    const a = Number.parseInt(from.slice(offset, offset + 2), 16);
+    const b = Number.parseInt(to.slice(offset, offset + 2), 16);
+    return Math.round(a + (b - a) * t).toString(16).padStart(2, "0");
+  }).join("")}`;
+}
+
 describe("built-in design packs", () => {
-  it("exposes detached, read-only-style palette, typography, and spacing literals", () => {
+  it("exposes detached background, palette, and relative typography literals", () => {
     const first = listBuiltInDesignPacks();
     expect(first).toMatchObject([{
       id: "neutral-default",
-      palette: { heading: "#0F172A", accent: "#2563EB" },
-      typography: { heading: { family: "Screenshot Studio Sans", weight: 400, size: 64 } },
-      spacing: { compact: 8, regular: 16, spacious: 24 },
+      background: { type: "linear-gradient", from: "#F8FAFC", to: "#DBEAFE" },
+      palette: { heading: "#0F172A", accent: "#1D4ED8" },
+      typography: { heading: { family: "Screenshot Studio Sans", weight: 400, sizeRatio: 0.075 } },
     }]);
     first[0]!.palette.accent = "#000000";
-    expect(listBuiltInDesignPacks()[0]!.palette.accent).toBe("#2563EB");
+    expect(listBuiltInDesignPacks()[0]!.palette.accent).toBe("#1D4ED8");
   });
 
-  it("bakes pack values into strict project literals without persisting a pack reference", () => {
+  it("keeps every text role readable at the worst point of its own background", () => {
+    for (const pack of listBuiltInDesignPacks()) {
+      const background = pack.background;
+      const samples = background.type === "solid"
+        ? [background.color]
+        : Array.from({ length: 101 }, (_, step) => mix(background.from, background.to, step / 100));
+      for (const role of ["heading", "body", "accent"] as const) {
+        const worst = Math.min(...samples.map((sample) => contrast(pack.palette[role], sample)));
+        expect(worst, `${pack.id} ${role}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("accepts only solid and gradient pack backgrounds", () => {
+    const pack = listBuiltInDesignPacks()[0]!;
+    expect(() => DesignPack.parse({
+      ...pack, background: { type: "image", assetUrl: "assets/photo.png", fit: "cover", color: "#000000" },
+    })).toThrow();
+  });
+
+  it("bakes background and role literals without moving geometry or persisting a pack reference", () => {
     const source = project();
     source.fonts = [];
     source.layouts[0]!.screens[0]!.elements.push({
@@ -138,18 +180,28 @@ describe("built-in design packs", () => {
     });
     const pack = listBuiltInDesignPacks()[0]!;
     const next = applyDesignPack(source, "default", pack);
+    const screen = next.layouts[0]!.screens[0]!;
 
-    expect(next.layouts[0]!.screens[0]!.elements[0]).toMatchObject({
+    expect(screen.background).toEqual(pack.background);
+    expect(screen.elements[0]).toMatchObject({
       role: "heading", color: "#0F172A", fontFamily: "Screenshot Studio Sans",
-      weight: 400, size: 64, lineHeight: 1.08, letterSpacing: -1,
+      weight: 400, size: 99, lineHeight: 1.08, letterSpacing: -1.48, x: 0, y: 0,
     });
-    expect(next.layouts[0]!.screens[0]!.elements[1]).toMatchObject({
-      role: "accent", fill: "#2563EB", y: 104, radius: 0,
-    });
-    expect(next.layouts[0]!.screens[0]!.elements.at(-1)).toMatchObject({
-      role: "surface", y: 144, cornerRadius: 0,
-    });
+    expect(screen.elements[1]).toMatchObject({ role: "accent", fill: "#1D4ED8", y: 100, radius: 0 });
+    expect(screen.elements[2]).toEqual(source.layouts[0]!.screens[0]!.elements[2]);
+    expect(screen.elements.at(-1)).toEqual(source.layouts[0]!.screens[0]!.elements.at(-1));
     expect(parseProject(next)).toEqual(next);
     expect(JSON.stringify(next)).not.toContain(pack.id);
+  });
+
+  it.each([
+    [{ width: 384, height: 384 }, 29],
+    [{ width: 3840, height: 2160 }, 162],
+    [{ width: 2160, height: 3840 }, 162],
+  ])("scales heading size with the short side of %o", (artboard, size) => {
+    const source = project();
+    source.layouts[0]!.screens[0]!.artboard = artboard;
+    const next = applyDesignPack(source, "default", listBuiltInDesignPacks()[0]!);
+    expect(next.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ role: "heading", size });
   });
 });

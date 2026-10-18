@@ -222,11 +222,18 @@ system fallbacks remain rejected because they make output depend on a machine. G
 may occur only at add time; later editor rendering and CLI export use local bytes.
 
 Themes and project templates are project-local inputs that produce ordinary strict Project literals.
-The application also ships global read-only built-in template and Design Packs catalogs. Selecting a
-built-in template materializes an ordinary editable root or root/target-variant pair. Applying a pack
-bakes palette, typography, and supported spacing-scale values into render-bearing element literals;
-the pack id is not persisted. No global template or pack definition is copied into a project, and
-neither catalog becomes hidden renderer state. Asset preprocessing is explicit and non-destructive;
+The application also ships global read-only built-in template, screen pack, and Design Packs
+catalogs, defined in code and never read from disk. Selecting a built-in template materializes an
+ordinary editable root or root/target-variant pair. A built-in screen pack (`TemplatePack`: id, name,
+platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends each of its screens the
+same way, in one project update; the style tag names the Design pack its literals were baked from and
+is not persisted. Applying a Design pack writes its solid or linear-gradient background to every
+screen of the target layout, including exact-target variants, and bakes palette and typography into
+role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
+and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
+Applying a pack does not move or resize elements; the pack id is not persisted. No global template,
+screen pack, or Design pack definition is copied into a project, and no catalog becomes hidden
+renderer state. Asset preprocessing is explicit and non-destructive;
 results are new local files that a user may deliberately assign to an element.
 
 ## 6. Interfaces for people and tools

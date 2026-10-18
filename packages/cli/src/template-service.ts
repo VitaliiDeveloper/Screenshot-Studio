@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   createScreenFromTemplate,
+  createScreensFromTemplatePack,
   findBuiltInTemplate,
+  findBuiltInTemplatePack,
   listBuiltInTemplates as listCoreBuiltInTemplates,
   parseTemplateJson,
   type ScreenTemplate,
@@ -112,6 +114,33 @@ export async function createBuiltInTemplateScreen(
   const screen = getLayout(updated.project, updated.value.layoutId).screens
     .find((candidate) => candidate.id === updated.value.screenId)!;
   return { project: updated.project, revision: updated.revision, screen, template: updated.value.template };
+}
+
+/** Append every screen of a process-global screen pack in one locked project update. */
+export async function createBuiltInTemplatePackScreens(
+  projectPath: string,
+  rawId: unknown,
+  rawLocale: unknown,
+  specs: StoreSpecs,
+  lockOptions: ProjectLockOptions = {},
+  layoutReference?: string,
+  preconditions: ProjectUpdatePreconditions = {},
+): Promise<{ project: Project; revision: string; screens: Screen[] }> {
+  const id = templateId(rawId);
+  const locale = templateLocale(rawLocale);
+  const pack = findBuiltInTemplatePack(id, specs);
+  if (!pack) throw new TemplateNotFoundError(`Built-in template pack "${id}" not found`);
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const updated = await updateProjectFile(canonicalPath, (current) => {
+    try {
+      const layout = resolveMutationLayout(current, layoutReference);
+      const result = createScreensFromTemplatePack(current, layout.id, pack, locale, specs);
+      return { project: result.project, value: result.screens };
+    } catch (error) {
+      throw new TemplateCreateError((error as Error).message, { cause: error });
+    }
+  }, lockOptions, {}, preconditions);
+  return { project: updated.project, revision: updated.revision, screens: updated.value };
 }
 
 export async function createTemplateScreen(
