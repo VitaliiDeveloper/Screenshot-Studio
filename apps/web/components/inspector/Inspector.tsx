@@ -24,12 +24,19 @@ import {
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
+import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { typeCountLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor/editor-workspace";
 import { cx, editorUi } from "@web/components/editor-ui";
+import {
+  ApplyScopeFooter,
+  ApplyScopeSelect,
+  resolveApplyScope,
+  type ApplyScopeChoice,
+} from "./ApplyScopeControl";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections";
 import { TextSizeStatusSection } from "./TextSizeStatusSection";
@@ -44,14 +51,6 @@ import {
   type InspectorTabChoice,
 } from "./inspector-tab-model";
 import { TransformInspectorFields } from "./TransformInspectorFields";
-
-function patch<T extends Element["type"]>(
-  id: string,
-  type: T,
-  change: ElementPatchFor<NoInfer<T>>,
-) {
-  mutateAndScheduleSave(() => editorStore.getState().patchElement({ id, type, patch: change }));
-}
 
 // Lucide names the guide axis: "Vertical" icons align x edges, "Horizontal" icons align y edges.
 const ALIGN_ACTIONS = [
@@ -93,6 +92,7 @@ export function Inspector({
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [tabChoice, setTabChoice] = useState<InspectorTabChoice | null>(null);
+  const [scopeChoice, setScopeChoice] = useState<ApplyScopeChoice | null>(null);
   const idPrefix = useId();
 
   if (!project || !activeLayoutId || !activeScreenId) {
@@ -115,6 +115,9 @@ export function Inspector({
     sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
+  const scopeKey = `${activeScreenId}|${selectionKey}`;
+  const applyScope = resolveApplyScope(scopeChoice, scopeKey);
+  const setApplyScope = (scope: ApplyScope) => setScopeChoice({ scope, key: scopeKey });
   const tab = resolveInspectorTab(selectionKey, tabChoice);
   const activeScreen = getScreen(project, activeLayoutId, activeScreenId);
   const [title, subtitle] = inspectorHeading({
@@ -124,6 +127,11 @@ export function Inspector({
     selectionScreenName: screen.name,
   });
   const layout = project.layouts.find((candidate) => candidate.id === activeLayoutId)!;
+  const patch = <T extends Element["type"]>(id: string, type: T, change: ElementPatchFor<NoInfer<T>>) => {
+    mutateAndScheduleSave(() => editorStore.getState().patchElement({ id, type, patch: change, scope: applyScope }));
+  };
+  const scopeScreen = tab === "screen" ? activeScreen : screen;
+  const showApplyScope = tab === "screen" || (selectedItems.length === 1 && Boolean(element));
   const target = specs
     ? (() => {
         try {
@@ -202,6 +210,7 @@ export function Inspector({
             screen={activeScreen}
             specs={specs}
             target={target}
+            applyScope={applyScope}
             onOpenBackgroundAsset={onOpenBackgroundAsset}
           />
         ) : selectedItems.length > 1 ? (
@@ -372,6 +381,9 @@ export function Inspector({
               onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
               screen={screen}
               effectiveLocked={effectiveLocked}
+              textSizeAccessory={
+                <ApplyScopeSelect screen={screen} specs={specs} value={applyScope} onChange={setApplyScope} />
+              }
               onChooseDeviceFrameAsset={element.type === "device-frame" && selectedItems[0]
                 ? () => onOpenDeviceFrameAsset?.({
                   elementId: element.id,
@@ -408,6 +420,16 @@ export function Inspector({
           </p>
         )}
       </div>
+      {showApplyScope ? (
+        <ApplyScopeFooter
+          layout={layout}
+          screen={scopeScreen}
+          specs={specs}
+          value={applyScope}
+          onChange={setApplyScope}
+          element={tab === "layer" ? element ?? undefined : undefined}
+        />
+      ) : null}
     </aside>
   );
 }

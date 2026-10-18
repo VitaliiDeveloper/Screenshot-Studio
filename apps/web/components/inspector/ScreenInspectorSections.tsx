@@ -8,6 +8,7 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
+import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { ArtboardTargets } from "@web/components/ArtboardTargets";
@@ -15,10 +16,7 @@ import { editorUi, SegmentedControl } from "@web/components/editor-ui";
 import { NumberField } from "@web/components/inspector/inspector-fields";
 import { BackgroundInspectorFields } from "./BackgroundInspectorFields";
 import { InspectorSection as Section } from "./InspectorSection";
-
-function editBackground(background: Background) {
-  mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
-}
+import { StoredOnThisScreenSection } from "./StoredOnThisScreenSection";
 
 const STORE_AUTHORING_SCALES = ["1", "2", "3"] as const;
 export type StoreAuthoringScale = (typeof STORE_AUTHORING_SCALES)[number];
@@ -175,17 +173,20 @@ export function ScreenInspectorSections({
   screen,
   specs,
   target,
+  applyScope = "screen",
   onOpenBackgroundAsset,
 }: {
   layout: DesignLayout;
   screen: Screen;
   specs: StoreSpecs | null;
   target: StoreSize | undefined;
+  applyScope?: ApplyScope;
   onOpenBackgroundAsset?: () => void;
 }) {
   const background = screen.background;
   return (
     <>
+      <StoredOnThisScreenSection layout={layout} screen={screen} specs={specs} target={target} />
       <Section>
         <ArtboardSizeEditor
           key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
@@ -217,7 +218,9 @@ export function ScreenInspectorSections({
       <Section title="Background">
         <BackgroundInspectorFields
           background={background}
-          onChange={editBackground}
+          onChange={(next: Background) => mutateAndScheduleSave(
+            () => editorStore.getState().setBackground(next, applyScope),
+          )}
           onChooseImage={onOpenBackgroundAsset}
         />
       </Section>

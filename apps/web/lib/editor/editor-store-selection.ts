@@ -22,13 +22,14 @@ import {
   applyMatchingElementPatch,
   type ElementPatchRequest,
 } from "./editor-element-patch.js";
+import { scopedElementPatches, type ApplyScope } from "./editor-apply-scope.js";
 import { forEachSelectedElement } from "./editor-selection-mutations.js";
 import { recordProjectChange } from "./editor-history.js";
 import { selectEditorLayout } from "./editor-store-layouts.js";
 import type { EditorSet } from "./editor-store.js";
 
 export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
-  ElementPatchRequest<T> & { id: string; screenId?: string };
+  ElementPatchRequest<T> & { id: string; screenId?: string; scope?: ApplyScope };
 
 export interface EditorSelectionActions {
   select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
@@ -69,7 +70,7 @@ export function createEditorSelectionActions(set: EditorSet): EditorSelectionAct
         historyGroupKey: null,
       };
     }),
-    patchElement: ({ id, type, patch, screenId }) =>
+    patchElement: ({ id, type, patch, screenId, scope = "screen" }) =>
       set((state) => {
         if (!state.project || !state.activeLayoutId) return state;
         const primary = primarySelection(state.selectedItems);
@@ -77,13 +78,23 @@ export function createEditorSelectionActions(set: EditorSet): EditorSelectionAct
           ?? (primary?.elementId === id ? primary.screenId : null)
           ?? state.activeScreenId;
         if (!ownerScreenId) return state;
+        const { writes } = scopedElementPatches(
+          getLayout(state.project, state.activeLayoutId),
+          ownerScreenId,
+          id,
+          { type, patch },
+          scope,
+        );
         const project = produce(state.project, (draft) => {
-          const screen = draft.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens
-            .find((candidate) => candidate.id === ownerScreenId);
-          const location = screen ? findElementLocation(screen, id) : null;
-          if (location) applyMatchingElementPatch(location.element, { type, patch });
+          const screens = draft.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens ?? [];
+          for (const write of writes) {
+            const screen = screens.find((candidate) => candidate.id === write.screenId);
+            const location = screen ? findElementLocation(screen, write.elementId) : null;
+            if (location) applyMatchingElementPatch(location.element, { type, patch: write.patch });
+          }
         });
-        return recordProjectChange(state, project, `element:${ownerScreenId}:${id}`);
+        // Every screen in scope changes in this one recorded step, so one undo reverts them all.
+        return recordProjectChange(state, project, `element:${ownerScreenId}:${id}:${scope}`);
       }),
     moveSelected: (delta) =>
       set((state) => {

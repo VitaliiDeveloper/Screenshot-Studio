@@ -293,3 +293,31 @@ describe("ScreenInspectorSections background controls", () => {
     expect(markup).not.toContain("Asset URL");
   });
 });
+
+describe("Stored on this screen", () => {
+  it("shows the screen's persisted locale, destination, size, and layout as read-only facts", () => {
+    const project = sourceProject();
+    const screen = project.layouts[0]!.screens[0]!;
+    const target = findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.3");
+    const markup = renderToStaticMarkup(React.createElement(ScreenInspectorSections, {
+      layout: project.layouts[0]!,
+      screen,
+      specs: DEFAULT_STORE_SPECS,
+      target,
+    }));
+    const start = markup.indexOf("Stored on this screen");
+    const stored = markup.slice(start, markup.indexOf("</section>", start));
+
+    const facts = stored.replace(/<[^>]+>/g, "|").split("|").filter(Boolean);
+
+    expect(facts).toEqual([
+      "Stored on this screen",
+      "Locale", "EN · LTR",
+      "Destination", "App Store · iPhone",
+      "Size", "6.3&quot; · Portrait · 1206\u00a0×\u00a02622",
+      "Layout", "Primary",
+      "Read-only. Another locale or size is another screen.",
+    ]);
+    expect(stored).not.toMatch(/<(input|button|select)\b/);
+  });
+});
