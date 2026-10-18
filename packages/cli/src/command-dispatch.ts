@@ -105,8 +105,10 @@ export async function dispatchCommand(
       console.log(await runTemplateCommand(resolveProjectPath(flags), storeSpecsPath, args, flags));
       break;
     }
-    case "element":
-      console.log(await runElementCommand(resolveProjectPath(flags), args, flags));
+    case "element": {
+      const output = await runElementCommand(resolveProjectPath(flags), args, flags);
+      if (output) console.log(output);
       break;
+    }
   }
 }

@@ -54,7 +54,9 @@ async function savedScreen(projectPath: string, id = "hero") {
 describe("resolveElementAction", () => {
   it("parses list filters, text content, and media paths", () => {
     expect(resolveElementAction(["list"], { locale: "uk" })).toEqual({ kind: "list", screen: undefined, locale: "uk" });
-    expect(resolveElementAction(["text", "hero", "title", ""], {})).toEqual({ kind: "text", screen: "hero", element: "title", content: "" });
+    expect(resolveElementAction(["text", "hero", "title", ""], {})).toEqual({ kind: "text", screen: "hero", element: "title", content: "", allSizes: false });
+    expect(resolveElementAction(["text", "hero", "title", "Copy"], { "all-sizes": "true" }))
+      .toEqual({ kind: "text", screen: "hero", element: "title", content: "Copy", allSizes: true });
     expect(resolveElementAction(["media", "hero", "shot", "assets/b.png"], {})).toEqual({ kind: "media", screen: "hero", element: "shot", path: "assets/b.png" });
   });
 
@@ -62,6 +64,8 @@ describe("resolveElementAction", () => {
     expect(() => resolveElementAction(["text", "hero", "title"], {})).toThrow(/Usage: screenshots element/);
     expect(() => resolveElementAction(["media", "hero", "shot", "a.png", "b.png"], {})).toThrow(/Usage/);
     expect(() => resolveElementAction(["rm"], {})).toThrow(/Usage/);
+    expect(() => resolveElementAction(["media", "hero", "shot", "a.png"], { "all-sizes": "true" }))
+      .toThrow(/--all-sizes applies only to element text/);
   });
 });
 
@@ -75,7 +79,8 @@ describe("runElementCommand", () => {
       "hero en shot screenshot assets/a.png",
       "hero en mockup device-frame -",
     ].join("\n"));
-    await expect(runElementCommand(projectPath, ["list"], { locale: "de" })).rejects.toThrow(/No screens match/);
+    await expect(runElementCommand(projectPath, ["list"], { locale: "de" })).resolves.toBe("");
+    await expect(runElementCommand(projectPath, ["list"], { screen: "missing" })).resolves.toBe("");
   });
 
   it("updates copy on a top-level text and a group child without touching other locales", async () => {
@@ -86,6 +91,38 @@ describe("runElementCommand", () => {
     const hero = await savedScreen(projectPath);
     expect(hero.elements[0]).toMatchObject({ id: "title", content: "Біжи далі", role: "heading" });
     expect(hero.elements[1].children[0]).toMatchObject({ id: "badge-label", content: "Top rated" });
+    expect((await savedScreen(projectPath, "hero-uk")).elements[0].content).toBe("Track every run");
+  });
+
+  it("updates the counterpart layer on every matching exact size with --all-sizes", async () => {
+    type Elements = ReturnType<typeof screen>["elements"];
+    const variant = (id: string, storeTargetId: string, mutate: (elements: Elements) => Elements) => {
+      const root = screen("hero", "en");
+      return {
+        ...root, id, variantOf: "hero", storeTargetId, artboard: { width: 1320, height: 2868 },
+        elements: mutate(root.elements.map((element) => ({ ...element, id: `${id}-${element.id}` }))),
+      };
+    };
+    const { projectPath } = await fixture([{ id: "default", name: "Default", mode: "isolated", screens: [
+      screen("hero", "en"),
+      variant("hero-69", "6.9", (elements) => elements),
+      variant("hero-65", "6.5", (elements) => elements.slice(1)),
+      variant("hero-61", "6.1", (elements) => elements.map((element, index) => index === 0 ? { ...element, locked: true } : element)),
+      screen("hero-uk", "uk"),
+    ] }]);
+    await expect(runElementCommand(projectPath, ["text", "hero", "title", "Run further"], { "all-sizes": "true" }))
+      .resolves.toBe([
+        "Updated text of hero/title",
+        "Updated text of hero-69/hero-69-title",
+        "Skipped hero-65: layer structure differs from hero",
+        "Skipped hero-61/hero-61-title: layer is locked",
+      ].join("\n"));
+    await runElementCommand(projectPath, ["text", "hero-69", "badge-label", "Top rated"], { "all-sizes": "true" });
+    expect((await savedScreen(projectPath, "hero")).elements[0].content).toBe("Run further");
+    expect((await savedScreen(projectPath, "hero")).elements[1].children[0].content).toBe("Top rated");
+    expect((await savedScreen(projectPath, "hero-69")).elements[0].content).toBe("Run further");
+    expect((await savedScreen(projectPath, "hero-65")).elements[0].children[0].content).toBe("4.9 ★");
+    expect((await savedScreen(projectPath, "hero-61")).elements[0].content).toBe("Track every run");
     expect((await savedScreen(projectPath, "hero-uk")).elements[0].content).toBe("Track every run");
   });
 

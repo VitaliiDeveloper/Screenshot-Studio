@@ -34,6 +34,16 @@ describe("parseCommandFlags", () => {
     )).toThrow(/--project requires a value/);
   });
 
+  it("treats every argument after -- as positional", () => {
+    expect(parseCommandFlags(
+      ["text", "hero", "title", "--all-sizes", "--", "--fast", "--project"],
+      COMMAND_FLAG_SPECS.element,
+    )).toEqual({
+      args: ["text", "hero", "title", "--fast", "--project"],
+      flags: { "all-sizes": "true" },
+    });
+  });
+
   it("parses screen --cascade as a boolean without consuming a positional id", () => {
     expect(parseCommandFlags(
       ["rm", "hero", "--cascade"],

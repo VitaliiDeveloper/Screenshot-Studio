@@ -8,6 +8,9 @@ import {
   isProjectRelativePath,
   mapElementLeaves,
   replaceLayout,
+  slotCounterpart,
+  slotScreens,
+  type DesignLayout,
   type LeafElement,
   type Project,
 } from "@screenshot-studio/core/model";
@@ -19,24 +22,27 @@ import { loadProjectFile, updateProjectFile } from "./project-io.js";
 
 export type ElementAction =
   | { kind: "list"; screen?: string; locale?: string }
-  | { kind: "text"; screen: string; element: string; content: string }
+  | { kind: "text"; screen: string; element: string; content: string; allSizes: boolean }
   | { kind: "media"; screen: string; element: string; path: string };
 
 const MEDIA_TYPES = new Set<LeafElement["type"]>(["screenshot", "image", "device-frame"]);
 
 export function resolveElementAction(args: string[], flags: Record<string, string>): ElementAction {
   const [subcommand, screen, element, value, extra] = args;
+  if (flags["all-sizes"] === "true" && subcommand !== "text") {
+    throw new Error("--all-sizes applies only to element text");
+  }
   if (subcommand === "list" && !screen) {
     return { kind: "list", screen: flags.screen, locale: flags.locale };
   }
   if (subcommand === "text" && screen && element && value !== undefined && extra === undefined) {
-    return { kind: "text", screen, element, content: value };
+    return { kind: "text", screen, element, content: value, allSizes: flags["all-sizes"] === "true" };
   }
   if (subcommand === "media" && screen && element && value && extra === undefined) {
     return { kind: "media", screen, element, path: value };
   }
   throw new Error(
-    "Usage: screenshots element <list [--screen <id>] [--locale <locale>]|text <screen> <element> <content>|media <screen> <element> <path>>",
+    "Usage: screenshots element <list [--screen <id>] [--locale <locale>]|text <screen> <element> [--all-sizes] [--] <content>|media <screen> <element> <path>>",
   );
 }
 
@@ -57,7 +63,6 @@ export function formatElementList(
   const screens = getLayout(project, layoutId).screens.filter((screen) => (
     (!filters.screen || screen.id === filters.screen) && (!filters.locale || screen.locale === filters.locale)
   ));
-  if (screens.length === 0) throw new Error("No screens match the given --screen/--locale filters");
   return screens.flatMap((screen) => screen.elements.flatMap(elementLeaves).map((leaf) => (
     `${screen.id} ${screen.locale} ${leaf.id} ${describeLeaf(leaf)}`
   ))).join("\n");
@@ -86,6 +91,25 @@ export function updateLeafInProject(
     ...layout,
     screens: layout.screens.map((candidate) => candidate.id === screenId ? { ...candidate, elements } : candidate),
   });
+}
+
+/**
+ * The edited layer plus its counterpart on every other exact size of the slot, matched like the
+ * editor's Status by size and Apply to; unmatched and locked counterparts are skipped.
+ */
+function slotTextTargets(layout: DesignLayout, screenId: string, elementId: string) {
+  const targets = [{ screen: screenId, element: elementId }];
+  const skipped: string[] = [];
+  const source = layout.screens.find((candidate) => candidate.id === screenId);
+  if (!source) return { targets, skipped };
+  for (const screen of slotScreens(layout, source)) {
+    if (screen.id === source.id) continue;
+    const counterpart = slotCounterpart(source, elementId, screen);
+    if (!counterpart) skipped.push(`Skipped ${screen.id}: layer structure differs from ${source.id}`);
+    else if (counterpart.locked) skipped.push(`Skipped ${screen.id}/${counterpart.id}: layer is locked`);
+    else targets.push({ screen: screen.id, element: counterpart.id });
+  }
+  return { targets, skipped };
 }
 
 async function assertProjectMediaFile(projectPath: string, assetPath: string): Promise<void> {
@@ -118,19 +142,27 @@ export async function runElementCommand(
   }
   if (action.kind === "media") await assertProjectMediaFile(projectPath, action.path);
 
-  await updateProjectFile(projectPath, (project) => {
+  const { value } = await updateProjectFile(projectPath, (project) => {
     const layout = resolveMutationLayout(project, flags.layout);
-    const nextProject = updateLeafInProject(project, layout.id, action.screen, action.element, (leaf) => {
-      if (action.kind === "text") {
-        if (leaf.type !== "text") throw new Error(`Element "${leaf.id}" is ${leaf.type}, not text`);
-        return { ...leaf, content: action.content };
-      }
-      if (!MEDIA_TYPES.has(leaf.type)) {
-        throw new Error(`Element "${leaf.id}" is ${leaf.type}; media needs screenshot, image, or device-frame`);
-      }
-      return { ...leaf, assetUrl: action.path } as LeafElement;
-    });
-    return { project: nextProject, value: undefined };
+    const { targets, skipped } = action.kind === "text" && action.allSizes
+      ? slotTextTargets(layout, action.screen, action.element)
+      : { targets: [{ screen: action.screen, element: action.element }], skipped: [] };
+    const nextProject = targets.reduce((current, target) => updateLeafInProject(
+      current, layout.id, target.screen, target.element, (leaf) => {
+        if (action.kind === "text") {
+          if (leaf.type !== "text") throw new Error(`Element "${leaf.id}" is ${leaf.type}, not text`);
+          return { ...leaf, content: action.content };
+        }
+        if (!MEDIA_TYPES.has(leaf.type)) {
+          throw new Error(`Element "${leaf.id}" is ${leaf.type}; media needs screenshot, image, or device-frame`);
+        }
+        return { ...leaf, assetUrl: action.path } as LeafElement;
+      },
+    ), project);
+    return {
+      project: nextProject,
+      value: [...targets.map((target) => `Updated ${action.kind} of ${target.screen}/${target.element}`), ...skipped],
+    };
   });
-  return `Updated ${action.kind} of ${action.screen}/${action.element}`;
+  return value.join("\n");
 }
