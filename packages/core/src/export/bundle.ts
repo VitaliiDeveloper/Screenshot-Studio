@@ -131,6 +131,14 @@ export function safeStoreSizePathToken(sizeId: string): string {
   return token;
 }
 
+/**
+ * Directory form of the store-size token. The fixed prefix rules out `.`/`..` segments and Windows
+ * reserved names; a trailing dot is escaped because Windows strips it from directory names.
+ */
+function safeStoreSizePathSegment(sizeId: string): string {
+  return `size-${safeStoreSizePathToken(sizeId).replace(/\.$/, "~002e")}`;
+}
+
 export function bundleRelativePath(
   screen: Screen,
   target: Pick<StoreSize, "id">,
@@ -140,8 +148,9 @@ export function bundleRelativePath(
   const safeName = (sanitizeSegment(screen.name) || sanitizeSegment(screen.id) || "screen")
     .slice(0, MAX_SCREEN_NAME_PATH_TOKEN_LENGTH);
   const localeSegment = safeLocalePathSegment(screen.locale);
+  const sizeSegment = safeStoreSizePathSegment(target.id);
   const targetToken = safeStoreSizePathToken(target.id);
-  return `${screen.platform}/${screen.device}/${localeSegment}/${prefix}-${safeName}-${targetToken}.png`;
+  return `${screen.platform}/${screen.device}/${localeSegment}/${sizeSegment}/${prefix}-${safeName}-${targetToken}.png`;
 }
 
 export function buildBundleEntries(

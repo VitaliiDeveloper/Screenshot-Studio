@@ -200,7 +200,7 @@ describe("Packaged CLI", () => {
     expect(bundled.stdout).toContain("Exported 1 screenshots");
     expect(bundled.stdout).toContain("Wrote bundle");
 
-    const bundledPngPath = "apple/iphone/locale-en/01-hero-6.9.png";
+    const bundledPngPath = "apple/iphone/locale-en/size-6.9/01-hero-6.9.png";
     const bundledPng = PNG.sync.read(await readFile(join(bundleDirectory, bundledPngPath)));
     expect({ width: bundledPng.width, height: bundledPng.height })
       .toEqual({ width: 1320, height: 2868 });

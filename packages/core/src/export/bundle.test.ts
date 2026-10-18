@@ -159,17 +159,27 @@ describe("safeStoreSizePathToken", () => {
 describe("bundleRelativePath", () => {
   it("builds a stable platform/device/locale path with a one-based order prefix", () => {
     const path = bundleRelativePath(project().layouts[0]!.screens[0]!, { id: "6.9" } as never, 0);
-    expect(path).toBe("apple/iphone/locale-en/01-hero-phone-6.9.png");
+    expect(path).toBe("apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png");
   });
 
   it("sanitizes empty names by falling back to the screen id", () => {
     const s = { ...project().layouts[0]!.screens[0]!, id: "s_1", name: "!!!" };
-    expect(bundleRelativePath(s, { id: "6.9" } as never, 1)).toBe("apple/iphone/locale-en/02-s-1-6.9.png");
+    expect(bundleRelativePath(s, { id: "6.9" } as never, 1)).toBe("apple/iphone/locale-en/size-6.9/02-s-1-6.9.png");
   });
 
   it("encodes a custom target id before composing the filename", () => {
     const path = bundleRelativePath(project().layouts[0]!.screens[0]!, { id: "6.9:alt*" } as never, 0);
-    expect(path).toBe("apple/iphone/locale-en/01-hero-phone-6.9~003aalt~002a.png");
+    expect(path).toBe("apple/iphone/locale-en/size-6.9~003aalt~002a/01-hero-phone-6.9~003aalt~002a.png");
+  });
+
+  it.each([
+    ["..", "size-.~002e"],
+    [".", "size-~002e"],
+    ["con", "size-con"],
+    ["6.", "size-6~002e"],
+  ])("keeps custom target id %j a portable directory segment", (id, segment) => {
+    const path = bundleRelativePath(project().layouts[0]!.screens[0]!, { id } as never, 0);
+    expect(path.split("/")[3]).toBe(segment);
   });
 });
 
@@ -177,8 +187,8 @@ describe("buildBundleEntries", () => {
   it("attaches lead targets and relative paths", () => {
     const entries = buildBundleEntries(project(), "default", specs, { platform: "apple" });
     expect(entries.map((e) => [e.screen.id, e.target.id, e.relativePath])).toEqual([
-      ["hero", "6.9", "apple/iphone/locale-en/01-hero-phone-6.9.png"],
-      ["ipad", "13", "apple/ipad/locale-en/01-hero-ipad-13.png"],
+      ["hero", "6.9", "apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png"],
+      ["ipad", "13", "apple/ipad/locale-en/size-13/01-hero-ipad-13.png"],
     ]);
   });
 
@@ -189,15 +199,15 @@ describe("buildBundleEntries", () => {
     source.layouts[0]!.screens = [source.layouts[0]!.screens[0]!, source.layouts[0]!.screens[2]!, iphoneTwo, source.layouts[0]!.screens[1]!, androidTwo];
 
     expect(buildBundleEntries(source, "default", specs).map((entry) => entry.relativePath)).toEqual([
-      "apple/iphone/locale-en/01-hero-phone-6.9.png",
-      "android/phone/locale-uk/01-android-hero-phone-portrait.png",
-      "apple/iphone/locale-en/02-hero-two-6.9.png",
-      "apple/ipad/locale-en/01-hero-ipad-13.png",
-      "android/phone/locale-uk/02-android-two-phone-portrait.png",
+      "apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png",
+      "android/phone/locale-uk/size-phone-portrait/01-android-hero-phone-portrait.png",
+      "apple/iphone/locale-en/size-6.9/02-hero-two-6.9.png",
+      "apple/ipad/locale-en/size-13/01-hero-ipad-13.png",
+      "android/phone/locale-uk/size-phone-portrait/02-android-two-phone-portrait.png",
     ]);
   });
 
-  it("exports explicit variants against their own target with independent numbering", () => {
+  it("exports explicit variants into their own size folder with independent numbering", () => {
     const source = project();
     source.layouts[0]!.screens.push({
       ...structuredClone(source.layouts[0]!.screens[0]!),
@@ -208,8 +218,8 @@ describe("buildBundleEntries", () => {
     });
     const entries = buildBundleEntries(source, "default", specs, { platform: "apple", device: "iphone" });
     expect(entries.map((entry) => [entry.screen.id, entry.target.id, entry.relativePath])).toEqual([
-      ["hero", "6.9", "apple/iphone/locale-en/01-hero-phone-6.9.png"],
-      ["hero-65", "6.5", "apple/iphone/locale-en/01-hero-phone-6.5.png"],
+      ["hero", "6.9", "apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png"],
+      ["hero-65", "6.5", "apple/iphone/locale-en/size-6.5/01-hero-phone-6.5.png"],
     ]);
     expect(() => validateBundleArtboards(entries)).not.toThrow();
   });
