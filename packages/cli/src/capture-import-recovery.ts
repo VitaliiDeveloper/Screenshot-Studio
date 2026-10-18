@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
+import { createHash } from "node:crypto";
+import { constants, type BigIntStats } from "node:fs";
+import { lstat, open, type FileHandle } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
+import { isProjectRelativePath } from "@screenshot-studio/core/model";
 import {
-  createHash } from "node:crypto"; import { constants,
-  type BigIntStats } from "node:fs"; import { lstat,
-  open,
-  type FileHandle } from "node:fs/promises"; import { basename,
-  dirname,
-  join } from "node:path"; import { isProjectRelativePath } from "@screenshot-studio/core/model"; import { readIdentifiedProjectSnapshot,
-  resolveExistingProjectPath,
   errorCode,
   noFollowFlags,
+  readIdentifiedProjectSnapshot,
+  resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
 import {
   preparedFileStagePaths,

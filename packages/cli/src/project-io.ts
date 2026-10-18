@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
+import { lstat } from "node:fs/promises";
+import { resolve } from "node:path";
+import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import {
-  lstat } from "node:fs/promises"; import { resolve } from "node:path"; import { Project,
-  type Project as ProjectModel } from "@screenshot-studio/core/model"; import {   createProjectAtomic,
+  createProjectAtomic,
+  errorCode,
+  errorText,
   ProjectPathError,
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
@@ -12,8 +16,6 @@ import {
   type ProjectFileDependencies,
   type ProjectLockOptions,
   type ProjectSnapshot,
-  errorCode,
-  errorText,
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "./capture-import-recovery.js";
 

@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+import { constants } from "node:fs";
+import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
+import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
+import sharp from "sharp";
 import {
-  constants } from "node:fs"; import { lstat,
-  open,
-  realpath,
-  type FileHandle } from "node:fs/promises"; import { basename,
-  dirname,
-  extname,
-  isAbsolute,
-  relative,
-  resolve,
-  sep } from "node:path"; import sharp from "sharp"; import { resolveExistingProjectPath,
-  withProjectMutation,
   errorCode,
+  resolveExistingProjectPath,
+  withProjectMutation,
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "./capture-import-recovery.js";
 import { loadProjectFile } from "./project-io.js";

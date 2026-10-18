@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { randomUUID } from "node:crypto";
+import { constants } from "node:fs";
 import {
-  randomUUID } from "node:crypto"; import { constants } from "node:fs"; import {   lstat,
+  lstat,
   mkdir,
   open,
   readdir,
@@ -9,9 +11,11 @@ import {
   rename,
   rm,
   type FileHandle,
-  } from "node:fs/promises"; import { dirname,
-  join } from "node:path"; import { readProjectSnapshot,
+} from "node:fs/promises";
+import { dirname, join } from "node:path";
+import {
   errorCode,
+  readProjectSnapshot,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
 import {
