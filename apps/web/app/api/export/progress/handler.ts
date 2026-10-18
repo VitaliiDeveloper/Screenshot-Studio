@@ -20,3 +20,19 @@ export function handleExportProgressGet(
     return jsonError(400, (error as Error).message);
   }
 }
+
+/** Stop keeps the files already rendered: the running export packages them and reports `stopped`. */
+export function handleExportStopPost(
+  request: Request,
+  registry: Pick<ExportProgressRegistry, "requestStop"> = exportProgressRegistry,
+): Response {
+  const operationId = new URL(request.url).searchParams.get("operationId") ?? "";
+  try {
+    if (!registry.requestStop(operationId)) {
+      return jsonError(404, "Export operation is not running");
+    }
+    return new Response(null, { status: 202, headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return jsonError(400, (error as Error).message);
+  }
+}

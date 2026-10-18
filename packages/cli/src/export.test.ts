@@ -154,6 +154,76 @@ describe("exportBundle", () => {
     expect(await readFile(prior, "utf8")).toBe("prior");
   });
 
+  it("skips a failed entry when the caller collects per-file errors", async () => {
+    const outDir = await workspace("bundle-export-partial-");
+    const failures: Array<{ screenId: string; message: string }> = [];
+    const progress: Array<{ phase: string; completed: number; total: number }> = [];
+    const zipPath = await exportBundle({
+      baseUrl: "http://localhost:4000",
+      projectPath: "fixtures/project.json",
+      projectRevision: "d".repeat(64),
+      layoutId: "default",
+      outDir,
+      entries,
+      publicationGuard: async (publish) => publish(),
+      renderSession: {
+        renderScreenToPng: vi.fn(async (opts: RenderOptions) => {
+          if (opts.screenId === "s1") throw new Error("font file could not be read");
+          return pngBytes();
+        }),
+      },
+      onEntryError: (entry, message) => failures.push({ screenId: entry.screen.id, message }),
+      onProgress: (event) => progress.push(event),
+    });
+
+    expect(failures).toEqual([{ screenId: "s1", message: "font file could not be read" }]);
+    expect(progress.at(-2)).toEqual({ phase: "rendering", completed: 2, total: 2 });
+    await expect(readFile(join(outDir, entries[0]!.relativePath))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(outDir, entries[1]!.relativePath))).resolves.toBeTruthy();
+    await expect(stat(zipPath)).resolves.toBeTruthy();
+  });
+
+  it("packages only the files rendered before a stop", async () => {
+    const outDir = await workspace("bundle-export-stop-");
+    let stop = false;
+    const renderScreenToPng = vi.fn(async () => {
+      stop = true;
+      return pngBytes();
+    });
+    await exportBundle({
+      baseUrl: "http://localhost:4000",
+      projectPath: "fixtures/project.json",
+      projectRevision: "e".repeat(64),
+      layoutId: "default",
+      outDir,
+      entries,
+      publicationGuard: async (publish) => publish(),
+      renderSession: { renderScreenToPng },
+      shouldStop: () => stop,
+    });
+
+    expect(renderScreenToPng).toHaveBeenCalledTimes(1);
+    await expect(readFile(join(outDir, entries[0]!.relativePath))).resolves.toBeTruthy();
+    await expect(readFile(join(outDir, entries[1]!.relativePath))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("writes nothing when stopped before the first file", async () => {
+    const outDir = await workspace("bundle-export-stop-empty-");
+    await expect(exportBundle({
+      baseUrl: "http://localhost:4000",
+      projectPath: "fixtures/project.json",
+      projectRevision: "f".repeat(64),
+      layoutId: "default",
+      outDir,
+      entries,
+      publicationGuard: async (publish) => publish(),
+      renderSession: { renderScreenToPng: vi.fn(async () => pngBytes()) },
+      shouldStop: () => true,
+    })).rejects.toThrow("Export stopped before any file was rendered");
+    await expect(readFile(join(outDir, "app-store-screenshots-bundle.zip")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("checks the final project revision before publishing any rendered output", async () => {
     const outDir = await workspace("bundle-export-revision-fail-");
     const revisionFailure = new Error("project revision changed");

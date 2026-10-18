@@ -9,6 +9,7 @@ import {
   parseExportProfile,
   parseStoreSpecs,
   validateBundleArtboards,
+  type BundleEntry,
   type BundleFilters,
 } from "@screenshot-studio/core/export";
 import {
@@ -22,6 +23,12 @@ import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
 import { EXPORT_OPERATION_ID_PATTERN } from "@web/lib/export-progress.js";
+import {
+  parseExportSelection,
+  selectExportEntries,
+  type ExportFileFailure,
+  type ExportSelection,
+} from "@web/lib/export-selection.js";
 import { exportProgressRegistry, type ExportProgressRegistry } from "@web/lib/export-progress.server.js";
 import { projectRevisionConflictResponse } from "@web/lib/session/project-request-fence.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
@@ -31,15 +38,18 @@ interface ExportRequest {
   platform?: BundleFilters["platform"];
   device?: BundleFilters["device"];
   locale?: string;
+  sizes?: unknown;
+  locales?: unknown;
   profile?: string;
   operationId?: string;
 }
+
 
 export interface ExportRouteDependencies {
   createRenderBrowserSession?: typeof createRenderBrowserSession;
   exportBundle?: typeof exportBundle;
   stageExportArtifact?: typeof stageExportArtifactDefault;
-  progressRegistry?: Pick<ExportProgressRegistry, "begin" | "update" | "finish">;
+  progressRegistry?: Pick<ExportProgressRegistry, "begin" | "update" | "finish" | "stopRequested">;
 }
 
 function withExportCleanupErrors(
@@ -84,11 +94,18 @@ export async function handleExportPost(
   const operationId = body.operationId;
   const filters: BundleFilters = { platform: body.platform, device: body.device, locale: body.locale };
   let profile: ReturnType<typeof parseExportProfile>;
+  let selection: ExportSelection;
   try {
     profile = parseExportProfile(body.profile);
+    selection = parseExportSelection(body);
   } catch (error) {
     return jsonError(422, errorText(error));
   }
+  const selectedEntries = (entries: BundleEntry[]): BundleEntry[] => {
+    const selected = selectExportEntries(entries, selection);
+    if (selected.length === 0) throw new Error("No files match the export selection");
+    return selected;
+  };
 
   // Validate before launching a browser so bad input fails fast.
   let specs: ReturnType<typeof parseStoreSpecs>;
@@ -109,7 +126,7 @@ export async function handleExportPost(
     layoutId = getLayout(project, body.layoutId ?? project.preferredExportLayoutId).id;
     assertProjectFontsResolved(project, layoutId);
     specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
-    const entries = buildBundleEntries(project, layoutId, specs, filters);
+    const entries = selectedEntries(buildBundleEntries(project, layoutId, specs, filters));
     validateBundleArtboards(entries, specs);
     entryCount = entries.length;
     warnings = bundlePreflightWarnings(entries, specs);
@@ -131,6 +148,8 @@ export async function handleExportPost(
   let stagingDir: string | undefined;
   let operationError: unknown;
   let hasOperationError = false;
+  const failures: ExportFileFailure[] = [];
+  let attempted = 0;
   try {
     stagingDir = await mkdtemp(join(tmpdir(), "screenshot-studio-web-export-"));
     session = await createSession();
@@ -140,8 +159,9 @@ export async function handleExportPost(
       }
       getLayout(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
-      const entries = buildBundleEntries(context.project, layoutId, specs, filters);
+      const entries = selectedEntries(buildBundleEntries(context.project, layoutId, specs, filters));
       validateBundleArtboards(entries, specs);
+      entryCount = entries.length;
       // Return warnings for the exact revision being rendered, not for the earlier fail-fast
       // snapshot. This also keeps un-fenced API callers consistent if the project changes between
       // preflight and the stable export lease.
@@ -155,14 +175,14 @@ export async function handleExportPost(
         entries,
         renderSession: session!,
         publicationGuard: context.publish,
-        onProgress: operationId
-          ? (progress) => progressRegistry.update(
-            operationId,
-            progress.phase,
-            progress.completed,
-            progress.total,
-          )
-          : undefined,
+        onProgress: (progress) => {
+          if (progress.phase === "rendering") attempted = progress.completed;
+          if (operationId) progressRegistry.update(operationId, progress.phase, progress.completed, progress.total);
+        },
+        onEntryError: (entry, message) => {
+          failures.push({ screenId: entry.screen.id, relativePath: entry.relativePath, message });
+        },
+        shouldStop: operationId ? () => progressRegistry.stopRequested(operationId) : undefined,
         profile,
         project: context.project,
       });
@@ -208,12 +228,15 @@ export async function handleExportPost(
           )).join("; "),
           { cause: cleanupFailures[0]?.error },
         );
-    return jsonError(500, errorText(error));
+    return jsonError(500, errorText(error), undefined, failures.length > 0 ? { failures } : {});
   }
 
   if (operationId) progressRegistry.finish(operationId, "ready");
+  // Without a stop every entry was attempted, so this holds even when no progress was reported.
+  const stopped = operationId !== undefined && progressRegistry.stopRequested(operationId) && attempted < entryCount;
+  const written = (stopped ? attempted : entryCount) - failures.length;
 
-  return Response.json({ ...result!, warnings }, {
+  return Response.json({ ...result!, warnings, written, total: entryCount, failures, stopped }, {
     status: 201,
     headers: { "cache-control": "no-store" },
   });

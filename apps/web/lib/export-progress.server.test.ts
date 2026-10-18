@@ -28,4 +28,15 @@ describe("ExportProgressRegistry", () => {
     expect(() => registry.begin(operationId, 1)).toThrow(/already exists/i);
     expect(() => registry.begin(`export_${"cd".repeat(16)}`, 1)).toThrow(/too many/i);
   });
+
+  it("records a stop request only while the export is running", () => {
+    const registry = new ExportProgressRegistry();
+    expect(registry.requestStop(operationId)).toBe(false);
+    registry.begin(operationId, 2);
+    expect(registry.stopRequested(operationId)).toBe(false);
+    expect(registry.requestStop(operationId)).toBe(true);
+    expect(registry.stopRequested(operationId)).toBe(true);
+    registry.finish(operationId, "ready");
+    expect(registry.requestStop(operationId)).toBe(false);
+  });
 });
