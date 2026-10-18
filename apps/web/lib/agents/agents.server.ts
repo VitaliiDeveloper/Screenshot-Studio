@@ -21,10 +21,11 @@ export interface AgentDefinition {
   /** Lowest verified version; detection reports `unsupported-version` below it. */
   minVersion?: string;
   /**
-   * Exclusive ceiling of verified versions. Claude Code docs announce that a future release makes
-   * `-p` default to `--bare`, which ignores the subscription, so unverified releases fail closed.
+   * A flag that `--help` must still list as opt-in. Claude Code docs announce that a future release
+   * makes `-p` default to `--bare`, which ignores the subscription; detection reports
+   * `unsupported-version` once help shows the flag as a default, adds `--no-bare`, or drops it.
    */
-  maxVersionExclusive?: string;
+  optInFlag?: string;
   /** Arguments of the CLI's own auth-status command; it never reads credential files itself. */
   authStatusArgs?: readonly string[];
   /** Model aliases the CLI accepts; empty means the CLI's own default model. */
@@ -39,7 +40,7 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     name: "Claude Code",
     binary: "claude",
     minVersion: "2.1.268",
-    maxVersionExclusive: "2.2.0",
+    optInFlag: "--bare",
     authStatusArgs: ["auth", "status"],
     // Family aliases always resolve to the CLI's current model, so no model version is pinned here.
     models: ["sonnet", "opus", "haiku"],

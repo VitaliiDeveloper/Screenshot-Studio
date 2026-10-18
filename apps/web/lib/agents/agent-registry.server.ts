@@ -27,7 +27,6 @@ export interface AgentStatus {
   installed: boolean | null;
   version: string | null;
   minVersion: string | null;
-  maxVersionExclusive: string | null;
   state: AgentState;
   authMode: AgentAuthMode | null;
   policy: AgentPolicy;
@@ -41,6 +40,7 @@ export interface AgentRegistryOptions {
 }
 
 const DEFAULT_PROBE_TIMEOUT_MS = 5_000;
+const STATUS_TTL_MS = 5_000;
 
 type AuthReading = Pick<AgentStatus, "state" | "authMode">;
 
@@ -63,9 +63,27 @@ export function compareVersions(left: string, right: string): number {
 }
 
 function isSupportedVersion(version: string, definition: AgentDefinition): boolean {
-  return (definition.minVersion === undefined || compareVersions(version, definition.minVersion) >= 0)
-    && (definition.maxVersionExclusive === undefined
-      || compareVersions(version, definition.maxVersionExclusive) < 0);
+  return definition.minVersion === undefined || compareVersions(version, definition.minVersion) >= 0;
+}
+
+function optionFlags(line: string): string[] {
+  return /^\s*(-\S*(?:,\s*-\S*)*)/.exec(line)?.[1]?.split(/,\s*/) ?? [];
+}
+
+/**
+ * True while `--help` still lists `flag` as an opt-in option: present, without a `--no-` negation,
+ * and not described as a default. Wording is heuristic; a missed flip still cannot bill an API key
+ * because the agent env carries none, so such a run fails to authenticate instead.
+ */
+export function isOptInFlag(help: string, flag: string): boolean {
+  const lines = help.split("\n");
+  const start = lines.findIndex((line) => optionFlags(line).includes(flag));
+  const negated = flag.replace(/^--/, "--no-");
+  if (start < 0 || lines.some((line) => optionFlags(line).includes(negated))) return false;
+  const next = lines.findIndex((line, index) => index > start && optionFlags(line).length > 0);
+  const description = lines.slice(start, next < 0 ? undefined : next).join(" ");
+  return !/\(default\b|\bdefault (?:for|in|with|when) (?:-p\b|--print|print|non-interactive|headless)/i
+    .test(description);
 }
 
 // Reads only `loggedIn` and `authMethod`; the JSON also carries email and orgId, which must never leave.
@@ -106,7 +124,6 @@ export async function detectAgent(
     installed: null,
     version: null,
     minVersion: definition.minVersion ?? null,
-    maxVersionExclusive: definition.maxVersionExclusive ?? null,
     state: "unavailable",
     authMode: null,
     policy: definition.policy,
@@ -121,15 +138,40 @@ export async function detectAgent(
   const version = versionResult.kind === "exited" && versionResult.code === 0
     ? parseVersion(versionResult.stdout)
     : null;
-  if (version === null || !isSupportedVersion(version, definition)) {
-    return { ...status, installed: true, version, state: "unsupported-version" };
-  }
-  const authResult = definition.authStatusArgs === undefined
-    ? { kind: "failed" as const }
-    : await runAgentProbe(definition.binary, definition.authStatusArgs, probe);
+  const unsupported: AgentStatus = { ...status, installed: true, version, state: "unsupported-version" };
+  if (version === null || !isSupportedVersion(version, definition)) return unsupported;
+
+  const { optInFlag, authStatusArgs } = definition;
+  const [flagStaysOptIn, authResult] = await Promise.all([
+    optInFlag === undefined || runAgentProbe(definition.binary, ["--help"], probe).then((help) => (
+      help.kind === "exited" && help.code === 0 && isOptInFlag(help.stdout, optInFlag)
+    )),
+    authStatusArgs === undefined
+      ? { kind: "failed" as const }
+      : runAgentProbe(definition.binary, authStatusArgs, probe),
+  ]);
+  if (!flagStaysOptIn) return unsupported;
   return { ...status, installed: true, version, ...readAuth(definition, authResult) };
 }
 
+let statusCache: { key: string; promise: Promise<AgentStatus[]>; expiresAt: number } | undefined;
+
+/**
+ * Concurrent and repeated reads within a few seconds share one round of probes, so a polling
+ * client cannot respawn the CLIs on every request. Runs re-check with `detectAgent` directly.
+ */
 export function listAgentStatuses(options: AgentRegistryOptions = {}): Promise<AgentStatus[]> {
-  return Promise.all(AGENT_DEFINITIONS.map((definition) => detectAgent(definition, options)));
+  const key = JSON.stringify([agentEnv(options.env), options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS]);
+  if (statusCache?.key === key && Date.now() < statusCache.expiresAt) return statusCache.promise;
+  const entry = {
+    key,
+    promise: Promise.all(AGENT_DEFINITIONS.map((definition) => detectAgent(definition, options))),
+    expiresAt: Number.POSITIVE_INFINITY,
+  };
+  const expire = () => {
+    entry.expiresAt = Date.now() + STATUS_TTL_MS;
+  };
+  entry.promise.then(expire, expire);
+  statusCache = entry;
+  return entry.promise;
 }
