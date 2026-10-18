@@ -20,8 +20,13 @@ plain `screenshots` spelling above.
 
 - `app-store-screenshots.json` is the only persisted project state. It is strict v1 JSON; unknown
   keys fail validation.
-- Use CLI commands for structural changes to layouts, screens, locales, fonts, themes, and imports. Directly
-  edit JSON only for literals the CLI does not manage, such as text content and element geometry.
+- Use CLI commands for structural changes to layouts, screens, templates, locales, fonts, themes,
+  and imports, and for copy and media (`element text`, `element media`). Each command takes the
+  project lock, validates the complete strict Project, and writes atomically. Directly edit JSON
+  only for literals the CLI does not manage, such as element geometry, typography, screen names,
+  and backgrounds.
+- The visual editor may be open on this project. It refuses to save over a newer file ("Project
+  changed on disk"), so reload it after CLI or JSON changes made outside it.
 - Preserve layout, screen, and element ids unless intentionally creating a new object. Layout ids
   are immutable. Array order is layout order, layout-local screen order, and z-order inside `elements`.
 - Asset and font paths are project-relative. Do not embed remote URLs, machine-only absolute paths,
@@ -139,7 +144,40 @@ Selecting a cross-screen element resolves to its owner screen, and transforms st
 
 The recipes below omit `--layout` only for a one-layout project. In a multi-layout project, first
 run `screenshots layout list`, choose the intended id or full name, and add
-`--layout <id-or-full-name>` to every screen, locale, theme, import, and export command.
+`--layout <id-or-full-name>` to every screen, template, element, locale, theme, import, and export
+command.
+
+## Command map
+
+Inspect before mutating. Every listing prints one line per item with ids you pass back verbatim:
+
+```bash
+screenshots layout list --project ./app-store-screenshots.json      # id, name, mode
+screenshots screen list --project ./app-store-screenshots.json      # order, screen id, family, locale, name
+screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
+screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
+screenshots theme list --project ./app-store-screenshots.json       # source, id, name
+screenshots element list --locale en --project ./app-store-screenshots.json
+# screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
+```
+
+| Request | Commands |
+|---|---|
+| New screen from a starter or project template | `template add <id> --locale <locale> [--built-in]` |
+| Blank screen | `screen add --platform <p> --device <d> --locale <locale>` |
+| Change copy | `element text <screen-id> <element-id> "<copy>"` |
+| Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
+| Add a locale | `locale add <target> --from <source> [--direction rtl]` |
+| Recolor with a theme or pack | `theme set <id> [--built-in]` |
+| Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
+| Register a font | `font add <file> --family <family> [--weight <100..900>]` |
+| Import raw captures | `import <dir>` |
+| Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
+| Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
+
+Element ids are fresh UUIDs after a template add or locale clone, so list before every edit.
+Store target variants are separate screens with their own elements; edit each one you intend to
+change.
 
 ## Recipe: generate or refresh copy
 
@@ -147,9 +185,16 @@ run `screenshots layout list`, choose the intended id or full name, and add
    slide outline before editing: one user outcome per slide, ordered as a coherent store story.
 2. Keep headlines short enough for the one-second thumbnail test. Supporting copy should add proof
    or context, not repeat the headline.
-3. Edit only the target locale's `text.content` literals. Preserve ids, roles, font identities, and
-   unrelated locales. If copy no longer fits, adjust that text element's literal box/typography and
-   then visually inspect it; do not add an automatic runtime layout rule.
+3. Edit only the target locale's text content. List it, then set each string:
+
+   ```bash
+   screenshots element list --locale en --project ./app-store-screenshots.json
+   screenshots element text <screen-id> <element-id> "Track every run" --project ./app-store-screenshots.json
+   ```
+
+   The command changes only `content` and keeps ids, roles, font identities, and unrelated locales.
+   If copy no longer fits, adjust that text element's literal box/typography in JSON and then
+   visually inspect it; do not add an automatic runtime layout rule.
 4. Make adjacent slides visibly different in composition while keeping the deck's theme and type
    hierarchy consistent.
 5. Validate and inspect the affected set:
@@ -162,8 +207,17 @@ run `screenshots layout list`, choose the intended id or full name, and add
 
 ## Recipe: lay out slides
 
-1. Prefer an existing screen or exact project-local template that already fits the platform/device.
-   A template is an input: the persisted result must still be an ordinary screen with literal fields.
+1. Prefer an existing screen or a template that already fits the platform/device. A template is an
+   input: adding one appends an ordinary screen with literal fields and fresh ids, and never changes
+   existing screens. Built-in starters need `--built-in`; project templates live in
+   `templates/<id>.json` with `id`, `name`, `platform`, `device`, optional store `targetId`,
+   `artboard`, `background`, and `elements`. Every template text font must already be registered.
+
+   ```bash
+   screenshots template list --project ./app-store-screenshots.json
+   screenshots template add iphone-starter --built-in --locale en --project ./app-store-screenshots.json
+   screenshots template add hero-card --locale en --project ./app-store-screenshots.json
+   ```
 2. Establish the hierarchy first: headline, proof/supporting copy, product media, then decoration.
    Keep required text and critical UI inside one artboard.
 3. Write final element geometry against that screen's exact artboard. Keep all finite dimensions
@@ -191,11 +245,11 @@ run `screenshots layout list`, choose the intended id or full name, and add
    screenshots locale add ar --from en --direction rtl --project ./app-store-screenshots.json
    ```
 
-3. Translate only `text.content` in the cloned target set. Preserve the fresh ids, roles, geometry,
-   and source locale. Adapt phrasing for the store audience; do not force a word-for-word translation
-   into a box that no longer fits.
-4. Replace screenshots or other media only when a locale-specific asset exists. Shared asset paths
-   are intentional until then.
+3. Translate only text content in the cloned target set with `element list --locale <target>` and
+   `element text`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
+   the store audience; do not force a word-for-word translation into a box that no longer fits.
+4. Replace screenshots or other media only when a locale-specific asset exists (see the media
+   recipe). Shared asset paths are intentional until then.
 5. Verify that every target glyph is covered by the registered file-backed font. If a different font
    is required, register it first and update `fontFamily` plus `weight` as one identity.
 6. Inspect and export only the target locale:
@@ -208,6 +262,49 @@ run `screenshots layout list`, choose the intended id or full name, and add
 
 Locale copies are independent after cloning. Do not create a sidecar translation database or add
 pairing fields to the project.
+
+## Recipe: replace a screenshot or image
+
+1. Put the file inside the project first, for example `assets/captures/uk/03.png`. The command
+   accepts only an existing project-relative PNG, JPEG, or WebP file of 25 MB or less, and refuses
+   absolute paths, `..`, and symlinks that leave the project.
+2. Find the target leaf and assign the path:
+
+   ```bash
+   screenshots element list --screen <screen-id> --project ./app-store-screenshots.json
+   screenshots element media <screen-id> <element-id> assets/captures/uk/03.png --project ./app-store-screenshots.json
+   ```
+
+   `screenshot`, decorative `image`, and `device-frame` leaves (including group children) accept
+   media. Only `assetUrl` changes; fit, crop, and geometry stay as they were. Screen backgrounds are
+   JSON literals, not elements.
+3. Inspect the affected screen in the editor or with a targeted export.
+
+## Recipe: apply a theme or design pack
+
+```bash
+screenshots theme list --project ./app-store-screenshots.json
+screenshots theme set neutral-default --built-in --project ./app-store-screenshots.json
+screenshots theme set midnight --project ./app-store-screenshots.json
+```
+
+Both bake literals into role-tagged leaves only (`role`: `heading`, `body`, `accent`, `surface`). A
+theme sets text color, swaps the text font when the theme names one, and sets shape fill. A design
+pack also sets text size, line height, and letter spacing, recolors icons, and snaps role-tagged
+positions to its spacing scale. Neither changes backgrounds, untagged elements, or media paths. No
+theme id is persisted, so re-apply after adding screens. A project theme is `themes/<id>.json`:
+
+```json
+{
+  "id": "midnight",
+  "name": "Midnight",
+  "colors": { "heading": "#F8FAFC", "body": "#CBD5E1", "accent": "#38BDF8", "surface": "#0F172A" },
+  "fonts": { "heading": { "family": "Inter", "weight": 700 } }
+}
+```
+
+`fonts` is optional, and each font it names must be registered first. For a dark look, write a dark
+theme, apply it, then set each screen's `background` literal in JSON and inspect contrast.
 
 ## Recipe: import PNG captures
 

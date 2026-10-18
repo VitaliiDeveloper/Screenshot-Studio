@@ -42,6 +42,20 @@ use the core persisted slot policy: independent exact-size rows remain
 independent, while `Keep 1:1` mirrors logical add/delete/order across created sizes without sharing
 screen content.
 
+Templates, themes, copy, and media have their own commands, so an agent or script can work without
+hand-editing the project JSON. Each mutation takes the project lock and validates the complete strict
+Project before an atomic write:
+
+- `template list` and `template add <id> --locale <locale> [--built-in]` add a screen from a
+  built-in starter or a project-local `templates/<id>.json`. A missing project template never
+  falls back to a built-in one, or the other way round.
+- `theme list` and `theme set <id> [--built-in]` apply a project-local `themes/<id>.json` theme or
+  a built-in Design Pack.
+- `element list [--screen <id>] [--locale <locale>]` prints every leaf with its id, type, role,
+  JSON-quoted text, or media path. `element text <screen> <element> <content>` replaces one text
+  leaf's content, and `element media <screen> <element> <path>` assigns an existing
+  project-relative PNG, JPEG, or WebP file to a screenshot, image, or device-frame leaf.
+
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
 The artifact carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Presence
 of this package manifest does not mean a registry release has been published. See the repository's
