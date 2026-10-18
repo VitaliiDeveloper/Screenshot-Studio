@@ -159,7 +159,6 @@ describe("left panel", () => {
 
     await layers.getByRole("button", { name: "Lock Hero support", exact: true }).click();
     await layers.getByRole("button", { name: "Unlock Hero support", exact: true }).waitFor();
-    expect(await layers.getByText("Locked", { exact: true }).isVisible()).toBe(true);
     await expect.poll(() => savedElement("hero-support")?.locked, { timeout: 10_000 }).toBe(true);
     await page.close();
   });

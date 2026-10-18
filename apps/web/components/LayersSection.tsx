@@ -5,6 +5,7 @@ import React, { Fragment, useEffect, useId, useRef, useState, type ButtonHTMLAtt
 import { useStore } from "zustand";
 import {
   Box,
+  Circle,
   Copy,
   Eye,
   EyeOff,
@@ -66,7 +67,7 @@ const elementIcons: Partial<Record<Element["type"], LucideIcon>> = {
 };
 
 function ElementTypeIcon({ element, className }: { element: Element; className: string }) {
-  const Icon = elementIcons[element.type] ?? Box;
+  const Icon = element.type === "shape" && element.kind === "ellipse" ? Circle : elementIcons[element.type] ?? Box;
   return (
     <span aria-hidden="true" className={cx("inline-flex w-3.5 shrink-0 justify-center", className, !element.visible && "opacity-50")}>
       <Icon size={14} strokeWidth={1.7} />
@@ -129,20 +130,10 @@ function layerNameClass(element: Element, tone: LayerTone): string {
   );
 }
 
-/** The overlaid hover controls would cut the chip, so it steps aside while they show; the lock stays. */
-function LockedChip({ tone }: { tone: LayerTone }) {
-  return (
-    <span
-      className={cx(
-        "shrink-0 rounded px-1.5 py-px text-[10px] group-hover:opacity-0 group-focus-within:opacity-0",
-        tone === "solid"
-          ? "bg-[var(--editor-color-accent-hover)] text-[color:var(--editor-color-on-accent)]"
-          : "bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-muted)]",
-      )}
-    >
-      Locked
-    </span>
-  );
+/** A row's lock toggle icon, with a solid body as in mockups 6a and 6f. */
+function LockIcon({ locked }: { locked: boolean }) {
+  const Icon = locked ? Lock : LockOpen;
+  return <Icon size={12} strokeWidth={locked ? 2 : 1.8} className="[&_rect]:fill-current" />;
 }
 
 /**
@@ -296,7 +287,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     className={cx(treeRowButton, el.locked ? lockedButtonTone[tone] : layerButtonTone[tone])}
                     onClick={() => patch(el, { locked: !el.locked })}
                   >
-                    {el.locked ? <Lock size={12} strokeWidth={2} /> : <LockOpen size={12} strokeWidth={1.8} />}
+                    <LockIcon locked={el.locked} />
                   </button>
                 }
               >
@@ -329,7 +320,6 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     className={layerNameClass(el, tone)}
                   />
                 )}
-                {el.locked ? <LockedChip tone={tone} /> : null}
                 {editing ? null : <button
                   ref={(node) => {
                     if (node) actionButtonRefs.current.set(el.id, node);
@@ -472,7 +462,6 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       aria-pressed={childTone !== "idle"}
                       className={layerNameClass(child, childTone)}
                     />
-                    {child.locked ? <LockedChip tone={childTone} /> : null}
                     <button
                       type="button"
                       className={cx(treeRowButton, layerButtonTone[childTone], rowHoverControl, overlayBeforeThat)}
@@ -502,7 +491,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       aria-label={child.locked ? `Unlock ${elementLabel(child)}` : `Lock ${elementLabel(child)}`}
                       onClick={() => patch(child, { locked: !child.locked })}
                     >
-                      {child.locked ? <Lock size={12} strokeWidth={2} /> : <LockOpen size={12} strokeWidth={1.8} />}
+                      <LockIcon locked={child.locked} />
                     </button>
                   </div>
                 );

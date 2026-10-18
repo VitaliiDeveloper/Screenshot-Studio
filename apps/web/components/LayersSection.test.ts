@@ -91,12 +91,24 @@ describe("layer rows", () => {
     expect(multi.match(new RegExp(soft.replace(/[[\]()]/g, "\\$&"), "g"))).toHaveLength(2);
   });
 
-  it("marks a locked layer with a chip and keeps the lock toggle labelled", () => {
+  it("marks a locked layer by its lock alone, with a solid lock body", () => {
     const markup = render();
+    const lock = /<button[^>]*aria-label="Unlock Background panel"[^>]*>.*?<\/button>/.exec(markup)?.[0];
 
-    expect(markup).toContain(">Locked</span>");
-    expect(markup).toContain('aria-label="Unlock Background panel"');
+    expect(markup).not.toContain(">Locked<");
+    expect(lock).toContain("lucide-lock ");
+    expect(lock).toContain("[&amp;_rect]:fill-current");
     expect(markup).toContain('aria-label="Lock Hero headline"');
+  });
+
+  it("gives an ellipse shape its own icon", () => {
+    const hero = editorStore.getState().project!.layouts[0]!.screens[0]!;
+    const shape = hero.elements.find((element) => element.type === "shape")!;
+    editorStore.getState().patchElement({ id: shape.id, screenId: "hero", type: "shape", patch: { kind: "ellipse" } });
+
+    const markup = render();
+    expect(markup).toContain("lucide-circle");
+    expect(markup).toContain("lucide-square");
   });
 
   it("shows the drag handle and more actions on hover or focus within the row", () => {

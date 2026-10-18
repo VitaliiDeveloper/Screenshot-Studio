@@ -86,8 +86,8 @@ with the number of sizes in Overview. A screen row shows its thumbnail, name, an
 `N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
 whose slot has an issue on any size turns amber and shows the first issue, such as
 `6.3": text overflows`, instead of that count. Thumbnails keep their order number because export
-file names use it. Layer rows show a type icon, the name, and the lock; a locked layer is muted
-with a `Locked` chip. One selected layer gets the solid accent fill, several get a light fill.
+file names use it. Layer rows show a type icon (rectangle and ellipse shapes differ), the name, and the lock; a
+locked layer is muted and keeps a dark, closed lock. One selected layer gets the solid accent fill, several get a light fill.
 Each row's drag handle and Delete or More actions appear on hover and whenever focus is inside
 the row, so the handle stays the keyboard path for reorder. Without hover (touch), hidden controls
 ignore taps; they become available on the selected layer or active screen row.
