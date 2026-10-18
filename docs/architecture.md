@@ -243,7 +243,11 @@ CLI off the subscription. A future Claude Code release may default `-p` to `--ba
 subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
 environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
-CLI default.
+CLI default. A run starts only from a loopback Host for the cookie-selected project session, after a
+server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run until
+consent storage exists. It runs in the project folder, at most one per project, receives the user
+message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
+whole process tree.
 
 ## 7. Change rules
 
