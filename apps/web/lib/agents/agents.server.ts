@@ -137,7 +137,8 @@ export function killProcessTree(child: ChildProcess): void {
   try {
     process.kill(-child.pid, "SIGKILL");
   } catch (error) {
-    if (errorCode(error) !== "ESRCH") throw error;
+    // macOS reports EPERM, not ESRCH, for a group whose only member is an unreaped zombie.
+    if (errorCode(error) !== "ESRCH" && errorCode(error) !== "EPERM") throw error;
   }
 }
 
