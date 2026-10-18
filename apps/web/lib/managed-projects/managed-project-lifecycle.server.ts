@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import {
   acquireProjectMutationLock,
   errorCode,
+  noFollowFlags,
   readProjectSnapshot,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
@@ -544,8 +545,7 @@ export class ManagedProjectLifecycleService {
     const stage = join(this.config.recoveryRoot, `.${intent.id}.${randomUUID()}.stage`);
     let handle: FileHandle | undefined;
     try {
-      handle = await open(stage, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
-        | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0), 0o600);
+      handle = await open(stage, noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY), 0o600);
       await handle.writeFile(`${JSON.stringify(intent, null, 2)}\n`, "utf8");
       await handle.sync();
       await handle.close();

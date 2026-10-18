@@ -15,6 +15,7 @@ import {
 import { dirname, join } from "node:path";
 import {
   errorCode,
+  noFollowFlags,
   readProjectSnapshot,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
@@ -432,8 +433,7 @@ export class ManagedProjectRepository {
     try {
       handle = await open(
         stage,
-        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
-          | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0),
+        noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY),
         0o600,
       );
       ownsStage = true;

@@ -5,6 +5,7 @@ import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "
 import sharp from "sharp";
 import {
   errorCode,
+  noFollowFlags,
   resolveExistingProjectPath,
   withProjectMutation,
 } from "@screenshot-studio/core/storage";
@@ -98,9 +99,7 @@ async function resolveAssetPaths(canonicalProjectPath: string, source: string): 
 }
 
 function sourceReadFlags(): number {
-  return constants.O_RDONLY
-    | constants.O_NONBLOCK
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK);
 }
 
 function identityOf(stat: AssetStat): AssetIdentity {

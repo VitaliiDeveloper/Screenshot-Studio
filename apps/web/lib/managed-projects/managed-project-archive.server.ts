@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import JSZip from "jszip";
-import { projectRevision, withProjectMutation } from "@screenshot-studio/core/storage";
+import { noFollowFlags, projectRevision, withProjectMutation } from "@screenshot-studio/core/storage";
 import { isSupportedProjectArchivePath } from "./project-archive-policy.js";
 import {
   ManagedProjectRepository,
@@ -68,9 +68,7 @@ export interface ManagedProjectArchiveServiceDependencies {
 }
 
 function readFlags(): number {
-  return constants.O_RDONLY
-    | constants.O_NONBLOCK
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK);
 }
 
 async function* verifiedFileChunks(source: ArchiveSourceFile): AsyncGenerator<Buffer> {
