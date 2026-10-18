@@ -4,7 +4,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes } from "react";
 import { useStore } from "zustand";
-import { ChevronDown, ChevronRight, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -13,8 +13,9 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
+import { listOutputFamilies, listStoreTargets, type StoreSpecs } from "@screenshot-studio/core/export";
 import {
+  assertNever,
   isPrimaryScreen,
   sameScreenGroup,
   screenSetModeFor,
@@ -45,12 +46,11 @@ const DynamicScreenThumbnail = dynamic(
 
 /** A screen's exact size without its family, e.g. `6.9"`; null when the store specs no longer list it. */
 function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | null {
-  try {
-    const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
-    return compactStoreSizeLabel(findStoreTarget(specs, screen.platform, screen.device, targetId).label, screen.device);
-  } catch {
-    return null;
-  }
+  const family = listOutputFamilies(specs).find(({ key }) => key === `${screen.platform}/${screen.device}`);
+  if (!family) return null;
+  const targetId = screen.storeTargetId ?? family.leadStoreSizeId;
+  const target = listStoreTargets(specs, screen.platform, screen.device).find(({ id }) => id === targetId);
+  return target ? compactStoreSizeLabel(target.label, screen.device) : null;
 }
 
 /** The Screens header scope: `3 · EN · iPhone 6.9"` in Focus, `3 · EN · 4 sizes` in Overview. */
@@ -82,16 +82,24 @@ export function screenRowWarning(
   specs: StoreSpecs,
 ): string | null {
   const slot = slotScreens(layout, screen);
+  const onSize = (screenId: string, problem: string) => {
+    const target = slot.find((candidate) => candidate.id === screenId);
+    return target ? [`${compactSizeLabel(target, specs) ?? target.name}: ${problem}`] : [];
+  };
   const lines = issues.flatMap((issue) => {
     if (issue.layoutId !== layout.id) return [];
-    if (issue.kind === "missing-locale-screen") {
-      return slot.some((candidate) => candidate.id === issue.sourceScreenId)
-        ? [`${issue.locale.toUpperCase()}: screen missing`]
-        : [];
+    switch (issue.kind) {
+      case "missing-locale-screen":
+        return slot.some((candidate) => candidate.id === issue.sourceScreenId)
+          ? [`${issue.locale.toUpperCase()}: screen missing`]
+          : [];
+      case "missing-image":
+        return onSize(issue.screenId, "image missing");
+      case "text-overflow":
+        return onSize(issue.screenId, "text overflows");
+      default:
+        return assertNever(issue);
     }
-    const target = slot.find((candidate) => candidate.id === issue.screenId);
-    if (!target) return [];
-    return [`${compactSizeLabel(target, specs) ?? target.name}: ${issue.kind === "text-overflow" ? "text overflows" : "image missing"}`];
   });
   if (lines.length === 0) return null;
   return lines.length === 1 ? lines[0]! : `${lines[0]} · ${lines.length - 1} more`;
@@ -288,18 +296,6 @@ export function ScreensSection({
             }}
           />
         </div>
-        {/* shortcut: place and look only; finding screens and layers (and the ⌘K key) is VTL-44's search. */}
-        <label className="flex items-center gap-2 rounded-[var(--editor-radius-control)] bg-[var(--editor-color-surface-muted)] px-2.5 py-1.5 text-xs text-[color:var(--editor-color-text-secondary)]">
-          <Search aria-hidden="true" size={13} strokeWidth={1.9} className="shrink-0" />
-          <input
-            type="search"
-            disabled
-            aria-label="Find screen or layer"
-            placeholder="Find screen or layer"
-            className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[color:var(--editor-color-text-secondary)] disabled:cursor-not-allowed"
-          />
-          <kbd aria-hidden="true" className="shrink-0 font-mono text-[10px]">⌘K</kbd>
-        </label>
       </header>
       <DndContext
         sensors={sensors}
@@ -324,6 +320,7 @@ export function ScreensSection({
                   key={s.id}
                   id={s.id}
                   role="listitem"
+                  selected={active}
                   className={cx(
                     "mx-2 my-px gap-[9px] rounded-[9px] border px-2 py-1.5",
                     active

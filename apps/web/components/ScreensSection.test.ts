@@ -122,15 +122,17 @@ describe("ScreensSection", () => {
     onOpenAdd: () => undefined,
   }));
 
-  it("keeps the header, the find field place, and hover-or-focus row controls", () => {
+  it("keeps the header and hover-or-focus row controls that touch reaches on the active row", () => {
     const markup = render("focus");
 
     expect(markup).toContain(">Screens</h2>");
     expect(markup).toContain("· 3 · EN · iPhone 6.3&quot;");
-    expect(markup).toMatch(/<input type="search" disabled="" aria-label="Find screen or layer"/);
+    expect(markup).not.toContain("Find screen or layer");
     expect(markup).toContain('aria-label="Delete Save Fast"');
     const handle = /<span[^>]*aria-label="Drag to reorder"[^>]*>/.exec(markup)?.[0];
     expect(handle).toContain("opacity-0 group-hover:opacity-100 group-focus-within:opacity-100");
+    expect(handle).toContain("[@media(hover:none)]:pointer-events-none");
+    expect(markup.match(/data-selected="true"/g)).toHaveLength(1);
   });
 
   it("counts sizes per screen in Overview and shows a slot's issue as a warning row", () => {

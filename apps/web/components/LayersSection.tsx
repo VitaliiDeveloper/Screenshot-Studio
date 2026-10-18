@@ -287,6 +287,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 className={cx("mx-2 my-px min-h-8 gap-2 rounded-[7px] py-1 pl-[34px] pr-1", layerRowTone[tone])}
                 handleClassName={cx(layerButtonTone[tone], overlayNearLock)}
                 hideHandle={editing}
+                selected={selected}
                 trailing={
                   <button
                     type="button"
@@ -458,6 +459,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                   <div
                     key={child.id}
                     role="listitem"
+                    data-selected={childTone !== "idle" || undefined}
                     className={cx(
                       "group relative mx-2 my-px flex min-h-8 items-center gap-2 rounded-[7px] py-1 pl-[50px] pr-1",
                       layerRowTone[childTone],

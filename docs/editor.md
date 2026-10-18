@@ -82,15 +82,15 @@ layer row has a direct lock toggle. Layer rows are one line. A text layer is lab
 full text is then the row's tooltip and accessible description. Built-in templates leave text
 layers unnamed, and Issues and the Inspector use the same label.
 The Screens header names the scope as `Screens · count · locale · iPhone 6.9"` in Focus and ends
-with the number of sizes in Overview; the find field below it marks where screen and layer search
-goes and stays disabled until that search exists. A screen row shows its thumbnail, name, and
+with the number of sizes in Overview. A screen row shows its thumbnail, name, and
 `N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
 whose slot has an issue on any size turns amber and shows the first issue, such as
 `6.3": text overflows`, instead of that count. Thumbnails keep their order number because export
 file names use it. Layer rows show a type icon, the name, and the lock; a locked layer is muted
 with a `Locked` chip. One selected layer gets the solid accent fill, several get a light fill.
 Each row's drag handle and Delete or More actions appear on hover and whenever focus is inside
-the row, so the handle stays the keyboard path for reorder.
+the row, so the handle stays the keyboard path for reorder. Without hover (touch), hidden controls
+ignore taps; they become available on the selected layer or active screen row.
 
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object

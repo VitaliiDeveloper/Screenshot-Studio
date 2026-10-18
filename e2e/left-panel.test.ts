@@ -137,7 +137,6 @@ describe("left panel", () => {
     expect(await page.getByRole("button", { name: "Save Fast · iphone", exact: true }).textContent()).toContain("1 size");
     await page.getByRole("button", { name: "Focus", exact: true }).click();
     await page.getByText(/^· 3 · EN · iPhone 6\.3"$/).waitFor();
-    expect(await page.getByRole("searchbox", { name: "Find screen or layer" }).isDisabled()).toBe(true);
 
     const saveFast = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
     const deleteSaveFast = page.getByRole("button", { name: "Delete Save Fast", exact: true });
@@ -163,6 +162,25 @@ describe("left panel", () => {
     expect(await layers.getByText("Locked", { exact: true }).isVisible()).toBe(true);
     await expect.poll(() => savedElement("hero-support")?.locked, { timeout: 10_000 }).toBe(true);
     await page.close();
+  });
+
+  it("keeps hidden row controls out of reach of taps until the row is selected", async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 1200 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    expect(await page.evaluate(() => matchMedia("(hover: none)").matches)).toBe(true);
+    const layers = page.getByRole("list", { name: "Layers for Hero", exact: true });
+    await layers.waitFor();
+    const more = layers.getByRole("button", { name: "More actions for Shipments app", exact: true });
+    const pointerEvents = () => more.evaluate((node) => getComputedStyle(node).pointerEvents);
+    expect(await pointerEvents()).toBe("none");
+
+    await layers.getByRole("button", { name: "Shipments app", exact: true }).tap();
+    await expect.poll(pointerEvents).toBe("auto");
+    expect(await opacity(more)).toBe("1");
+    await more.tap();
+    await page.getByRole("menu", { name: "Shipments app actions", exact: true }).waitFor();
+    await context.close();
   });
 
   it("reorders and deletes screens through the Structure panel", async () => {

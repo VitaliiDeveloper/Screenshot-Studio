@@ -80,7 +80,10 @@ describe("layer rows", () => {
 
   it("fills the only selected layer with the accent and several selected layers lightly", () => {
     editorStore.getState().select(headlineId(), "hero");
-    expect(render()).toContain(solid);
+    const single = render();
+    expect(single).toContain(solid);
+    // Touch has no hover: the selected row is where its hidden controls take taps.
+    expect(single.match(/data-selected="true"/g)).toHaveLength(1);
 
     editorStore.getState().select(supportId(), "hero", "toggle");
     const multi = render();
@@ -102,6 +105,7 @@ describe("layer rows", () => {
     const handle = /<span[^>]*aria-label="Drag to reorder"[^>]*>/.exec(markup)?.[0];
 
     expect(more).toContain("opacity-0 group-hover:opacity-100 group-focus-within:opacity-100");
+    expect(more).toContain("[@media(hover:none)]:pointer-events-none");
     expect(handle).toContain("opacity-0 group-hover:opacity-100 group-focus-within:opacity-100");
     expect(markup).toContain("pl-[34px]");
   });

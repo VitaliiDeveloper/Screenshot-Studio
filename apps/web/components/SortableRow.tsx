@@ -9,9 +9,15 @@ import { cx } from "./editor-ui";
 
 /**
  * Row controls shown on hover and while focus is inside the row. Opacity, not display, hides them
- * so they stay focusable: Tab from the row reveals them for keyboard users.
+ * so they stay focusable: Tab from the row reveals them for keyboard users. Without hover (touch),
+ * hidden controls ignore taps; they unlock with focus inside the row or on the selected row, since
+ * Safari does not focus a tapped button.
  */
-export const rowHoverControl = "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100";
+export const rowHoverControl = [
+  "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+  "[@media(hover:none)]:pointer-events-none [@media(hover:none)]:group-focus-within:pointer-events-auto",
+  "[@media(hover:none)]:group-data-selected:pointer-events-auto [@media(hover:none)]:group-data-selected:opacity-100",
+].join(" ");
 
 /** A 24 px icon button for tree rows; callers add the color and a focus ring that fits the row fill. */
 export const treeRowButton = "inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--editor-radius-compact)] transition-colors duration-[var(--editor-motion-fast)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)]";
@@ -29,6 +35,7 @@ export function SortableRow({
   className,
   handleClassName,
   hideHandle = false,
+  selected = false,
   role,
   ariaLevel,
   nested,
@@ -42,6 +49,8 @@ export function SortableRow({
   handleClassName?: string;
   /** Drops the handle, e.g. while the row is renamed. */
   hideHandle?: boolean;
+  /** The selected or active row: on touch its hover controls stay available. */
+  selected?: boolean;
   role?: AriaRole;
   ariaLevel?: number;
   /** Content shown below the row that moves with it while the row is dragged. */
@@ -80,13 +89,20 @@ export function SortableRow({
   if (nested !== undefined) {
     return (
       <div ref={setNodeRef} style={style} role={role} aria-level={ariaLevel}>
-        <div className={rowClassName}>{row}</div>
+        <div className={rowClassName} data-selected={selected || undefined}>{row}</div>
         {nested}
       </div>
     );
   }
   return (
-    <div ref={setNodeRef} style={style} role={role} aria-level={ariaLevel} className={rowClassName}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      role={role}
+      aria-level={ariaLevel}
+      className={rowClassName}
+      data-selected={selected || undefined}
+    >
       {row}
     </div>
   );
