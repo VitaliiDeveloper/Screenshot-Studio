@@ -92,6 +92,9 @@ describe("editor snapping", () => {
       .getByRole("button", { name: "Shape", exact: true })
       .click();
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("1");
+    // The W × H badge reports the layer box in artboard px, whatever the zoom.
+    const sizeBadge = stage.getByTestId("selection-size");
+    await expect.poll(() => sizeBadge.textContent()).toBe("200 × 300");
 
     const zoomControls = page.getByLabel("Zoom controls");
     const zoomValue = zoomControls.getByRole("button").nth(1);
@@ -100,9 +103,21 @@ describe("editor snapping", () => {
 
     let drag = await beginBridgeDrag(page, -108);
     expect(await stage.getAttribute("data-snap-guide-x")).toBeNull();
+    expect(await sizeBadge.count()).toBe(0);
     await page.mouse.up();
     await expect.poll(bridgeX).toBeCloseTo(452, 0);
+    await expect.poll(() => sizeBadge.count()).toBe(1);
 
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(bridgeX).toBe(560);
+
+    // Handoff § 6: arrows nudge the selection 10 px, 50 px with Shift.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(bridgeX).toBe(570);
+    await page.keyboard.press("Shift+ArrowLeft");
+    await expect.poll(bridgeX).toBe(520);
+    await page.getByRole("button", { name: "Undo" }).click();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(bridgeX).toBe(560);
 

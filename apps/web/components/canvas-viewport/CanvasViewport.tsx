@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import { Plus } from "lucide-react";
 import { useStore } from "zustand";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
@@ -16,7 +17,7 @@ import {
   type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
-import { cx } from "@web/components/editor-ui";
+import { cx, editorUi } from "@web/components/editor-ui";
 import { CanvasPatternSelect } from "./CanvasPatternSelect";
 import { CanvasSurface } from "./CanvasSurface";
 import { CanvasZoomControls } from "./CanvasZoomControls";
@@ -41,6 +42,7 @@ export function CanvasViewport({
   rightInset = 0,
   controlsHidden = false,
   issues,
+  onOpenAdd,
 }: {
   images: ImageCache;
   specs: StoreSpecs | null;
@@ -54,6 +56,8 @@ export function CanvasViewport({
   rightInset?: number;
   controlsHidden?: boolean;
   issues?: readonly ProjectIssue[];
+  /** Opens the Add panel, the same entry as the Layers subheader’s add button. */
+  onOpenAdd?: () => void;
 }) {
   const project = useStore(editorStore, (state) => state.project);
   const layout = useStore(editorStore, selectEditorLayout);
@@ -182,18 +186,27 @@ export function CanvasViewport({
         </div>
       </CanvasSurface>
 
-      {!controlsHidden ? (
-        <CanvasPatternSelect pattern={pattern} rightInset={rightInset} onPatternChange={onPatternChange} />
+      {!controlsHidden && onOpenAdd ? (
+        <button
+          type="button"
+          className={cx(editorUi.buttonSecondary, "absolute top-3 z-30 shadow-lg shadow-slate-950/10")}
+          style={{ left: leftInset + 12 }}
+          onClick={onOpenAdd}
+        >
+          <Plus size={14} strokeWidth={2} aria-hidden="true" /> Add
+        </button>
       ) : null}
 
       {!controlsHidden ? (
-        <CanvasZoomControls
-          zoom={zoom}
-          leftInset={leftInset}
-          rightInset={rightInset}
-          onZoom={zoomAt}
-          onFit={fit}
-        />
+        <div
+          data-testid="canvas-footer"
+          className="absolute bottom-4 z-20 flex -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-950/10"
+          style={{ left: `calc(50% + ${(leftInset - rightInset) / 2}px)` }}
+        >
+          <CanvasZoomControls zoom={zoom} onZoom={zoomAt} onFit={fit} />
+          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+          <CanvasPatternSelect pattern={pattern} onPatternChange={onPatternChange} />
+        </div>
       ) : null}
     </section>
   );

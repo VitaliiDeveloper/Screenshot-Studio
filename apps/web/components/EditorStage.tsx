@@ -32,10 +32,14 @@ import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
 import { transformerAppearance } from "./editor-stage/transformer-appearance";
 import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
 import { deriveTextOverflowMarks } from "./editor-stage/text-overflow-model";
+import { deriveSelectionOverlay } from "./editor-stage/selection-overlay-model";
+import { SelectionToolbar } from "./editor-stage/SelectionToolbar";
 
 const NO_ISSUES: readonly ProjectIssue[] = [];
 const OVERFLOW_STROKE = "#F59E0B";
 const TEXT_MEASURE = { contentHeight: textContentHeight, fitSize: fitTextSize };
+// Clears the Transformer's rotate anchor, which sits 16 px above the box.
+const TOOLBAR_GAP = 28;
 
 /**
  * Interactive canvas over the same elementToNodeConfig map used by export. Isolated mode renders
@@ -108,6 +112,7 @@ export function EditorStage({
   const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
+  const fonts = useStore(editorStore, (state) => state.project?.fonts);
   const requestedScreenId = screenId ?? activeScreenId;
 
   const trRef = useRef<Konva.Transformer>(null);
@@ -241,6 +246,18 @@ export function EditorStage({
   const visibleOverflowMarks = interacting
     ? []
     : overflowMarks.filter((mark) => !(editing?.screenId === mark.screenId && editing.id === mark.element.id));
+  const selectionOverlay = canEdit && !interacting && !editingElement
+    ? deriveSelectionOverlay({ layout, activeScreenId, selectedItems, selectedElement })
+    : null;
+  const selectionCenterX = selectionOverlay
+    ? ((selectionOverlay.bounds.minX + selectionOverlay.bounds.maxX) / 2 + baseX) * zoom
+    : 0;
+  const toolbarTarget = selectionOverlay && selectedItems.length === 1 && selectedElement?.type === "text" && !selectedElement.locked
+    ? { screenId: selectedItems[0]!.screenId, element: selectedElement }
+    : undefined;
+  const toolbarMark = toolbarTarget
+    ? overflowMarks.find((mark) => mark.screenId === toolbarTarget.screenId && mark.element.id === toolbarTarget.element.id)
+    : undefined;
 
   const finishElementClick = (
     event: Konva.KonvaEventObject<Event>,
@@ -486,7 +503,7 @@ export function EditorStage({
         />
       ) : null}
 
-      {canEdit ? visibleOverflowMarks.map((mark) => (
+      {canEdit ? visibleOverflowMarks.filter((mark) => mark !== toolbarMark).map((mark) => (
         <button
           key={`fit-${mark.screenId}-${mark.element.id}`}
           type="button"
@@ -505,6 +522,36 @@ export function EditorStage({
           Fit text
         </button>
       )) : null}
+
+      {toolbarTarget && selectionOverlay ? (
+        <SelectionToolbar
+          element={toolbarTarget.element}
+          fonts={fonts ?? []}
+          fitSize={toolbarMark?.fitSize}
+          style={{
+            left: selectionCenterX,
+            top: selectionOverlay.bounds.minY * zoom - TOOLBAR_GAP,
+            transform: "translate(-50%, -100%)",
+          }}
+          onChange={(patch) => mutateAndSave(() => editorStore.getState().patchElement({
+            id: toolbarTarget.element.id,
+            type: "text",
+            patch,
+            screenId: toolbarTarget.screenId,
+          }))}
+          onFit={(size) => applyTextFit(toolbarTarget.screenId, toolbarTarget.element.id, size)}
+        />
+      ) : null}
+
+      {selectionOverlay ? (
+        <div
+          data-testid="selection-size"
+          className="pointer-events-none absolute z-20 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--editor-color-accent)] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[color:var(--editor-color-on-accent)]"
+          style={{ left: selectionCenterX, top: selectionOverlay.bounds.maxY * zoom + 8 }}
+        >
+          {selectionOverlay.sizeLabel}
+        </div>
+      ) : null}
     </div>
   );
 }

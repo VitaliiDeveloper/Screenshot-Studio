@@ -171,15 +171,26 @@ one undo step.
 ### Canvas
 
 Canvas overlays are editor-only: they are drawn over the stage and never reach the renderer or
-export.
+export. The canvas footer holds zoom, Fit, and the canvas pattern menu; **Add** at the canvas's top
+left opens the Add panel, the same entry as the Layers add button.
+
+On the editable artboard a selection shows a **W × H** badge below its rotation-aware bounds, in
+artboard px: the layer box for one layer, the selection bounds for several. A single unlocked text
+layer also gets a selection toolbar above it with **Font**, **Color**, and **Fit**, the same edits
+the Layer tab makes; Fit is the Fit text fix and is enabled only while the layer overflows. Badge and
+toolbar step aside while a layer is dragged, transformed, or edited inline, so the pink snap guides
+stay readable. With a selection and focus outside a control, arrows nudge it 10 px and Shift+arrows
+50 px, one undo step per press; locked layers stay put. ⌘D duplicates, ⌘G groups, and Delete removes
+the selection.
 
 A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:
 an amber frame on the layer box, which stays the box the layer is moved and resized by, and a dashed
 amber outline over the height the text would take without the box limit. The canvas reads the same
 Issues, so it never measures fit a second time and stays empty until project fonts have loaded. On
 the editable artboard a **Fit text** hint at the box's bottom-left corner applies the same fix as
-Issues, on that screen only, as one undo step; it is disabled when even 1 px does not fit. The state
-steps aside while a layer is dragged, transformed, or edited inline.
+Issues, on that screen only, as one undo step; it is disabled when even 1 px does not fit. For the
+selected text layer the selection toolbar's Fit takes its place. The state steps aside while a layer
+is dragged, transformed, or edited inline.
 
 ### Projects and Workspace navigation
 

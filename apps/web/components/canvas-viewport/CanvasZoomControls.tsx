@@ -6,23 +6,15 @@ import { editorUi } from "@web/components/editor-ui";
 
 export function CanvasZoomControls({
   zoom,
-  leftInset,
-  rightInset,
   onZoom,
   onFit,
 }: {
   zoom: number;
-  leftInset: number;
-  rightInset: number;
   onZoom: (zoom: number) => void;
   onFit: () => void;
 }) {
   return (
-    <div
-      className="absolute bottom-4 z-20 flex -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-950/10"
-      style={{ left: `calc(50% + ${(leftInset - rightInset) / 2}px)` }}
-      aria-label="Zoom controls"
-    >
+    <div role="group" className="flex items-center" aria-label="Zoom controls">
       <button type="button" className={editorUi.iconButton} aria-label="Zoom out" onClick={() => onZoom(zoom - 0.1)}>
         <Minus size={15} strokeWidth={2} />
       </button>
