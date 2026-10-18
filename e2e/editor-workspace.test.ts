@@ -190,12 +190,12 @@ describe("editor workspace", () => {
     const artboardMode = page.getByRole("group", { name: "Artboard size mode" });
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
-    expect(await page.getByText('Exports at 1320 × 2868 px for 6.9" iPhone.', { exact: true }).count()).toBe(1);
+    expect(await page.getByText('Exports at 1206 × 2622 px for 6.3" iPhone.', { exact: true }).count()).toBe(1);
     const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
-    const leadTargetRow = page.getByRole("group", { name: '6.9" · Portrait output target', exact: true });
+    const leadTargetRow = page.getByRole("group", { name: '6.3" · Portrait output target', exact: true });
     await expect.poll(() => targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.9" · Portrait', { exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await leadTargetRow.getByText('6.3" · Portrait', { exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('6.3" iPhone (lead)', { exact: true }).count()).toBe(0);
 
     const outputFamilies = page.getByTestId("overview-output-family");
     await expect.poll(() => outputFamilies.count()).toBe(1);
@@ -205,8 +205,8 @@ describe("editor workspace", () => {
     await expect.poll(() => sizeRows.count()).toBe(2);
     const masterSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="master"]');
     const variantSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="variant"]');
-    expect(await iphoneOutput.getByText('6.9"', { exact: true }).count()).toBe(1);
-    expect(await iphoneOutput.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await iphoneOutput.getByText('6.3"', { exact: true }).count()).toBe(1);
+    expect(await iphoneOutput.getByText('6.3" iPhone (lead)', { exact: true }).count()).toBe(0);
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.count()).toBe(1);
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("false");
@@ -232,7 +232,7 @@ describe("editor workspace", () => {
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.getByText("Editing", { exact: true }).count()).toBe(1);
 
-    await leadTargetRow.getByRole("button", { name: 'Open 6.9" · Portrait', exact: true }).click();
+    await leadTargetRow.getByRole("button", { name: 'Open 6.3" · Portrait', exact: true }).click();
     const siblingMaster = project().screens.find((candidate) => (
       candidate.variantOf === undefined
       && candidate.platform === masterBefore.platform
@@ -294,7 +294,7 @@ describe("editor workspace", () => {
     expect(persisted.screens.find((screen) => screen.id === addedVariant!.variantOf)).toMatchObject({
       name: "Save Fast",
       device: "iphone",
-      artboard: { width: 1320, height: 2868 },
+      artboard: { width: 1206, height: 2622 },
     });
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
       .locator(":scope > [role='listitem']").count()).toBe(2);

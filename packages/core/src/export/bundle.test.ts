@@ -26,7 +26,7 @@ function project(): Project {
     layouts: [{
       id: "default", name: "Default", mode: "isolated",
       screens: [
-        screen("hero", "Hero Phone", "apple", "iphone", "en", 1320, 2868),
+        screen("hero", "Hero Phone", "apple", "iphone", "en", 1206, 2622),
         screen("ipad", "Hero iPad", "apple", "ipad", "en", 2064, 2752),
         screen("android", "Android Hero", "android", "phone", "uk", 1080, 1920),
       ],
@@ -124,7 +124,7 @@ describe("selectBundleScreens", () => {
 
   it("matches a free-form locale exactly", () => {
     const source = project();
-    source.layouts[0]!.screens.push(screen("arabic", "Arabic", "apple", "iphone", "../ar", 1320, 2868));
+    source.layouts[0]!.screens.push(screen("arabic", "Arabic", "apple", "iphone", "../ar", 1206, 2622));
     expect(selectBundleScreens(source, "default", { locale: "../ar" }).map((candidate) => candidate.id)).toEqual(["arabic"]);
     expect(() => selectBundleScreens(source, "default", { locale: "ar" })).toThrow(/No screens match/);
   });
@@ -187,21 +187,21 @@ describe("buildBundleEntries", () => {
   it("attaches lead targets and relative paths", () => {
     const entries = buildBundleEntries(project(), "default", specs, { platform: "apple" });
     expect(entries.map((e) => [e.screen.id, e.target.id, e.relativePath])).toEqual([
-      ["hero", "6.9", "apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png"],
+      ["hero", "6.3", "apple/iphone/locale-en/size-6.3/01-hero-phone-6.3.png"],
       ["ipad", "13", "apple/ipad/locale-en/size-13/01-hero-ipad-13.png"],
     ]);
   });
 
   it("restarts numbering for exact interleaved platform/device/locale groups", () => {
     const source = project();
-    const iphoneTwo = screen("hero-two", "Hero Two", "apple", "iphone", "en", 1320, 2868);
+    const iphoneTwo = screen("hero-two", "Hero Two", "apple", "iphone", "en", 1206, 2622);
     const androidTwo = screen("android-two", "Android Two", "android", "phone", "uk", 1080, 1920);
     source.layouts[0]!.screens = [source.layouts[0]!.screens[0]!, source.layouts[0]!.screens[2]!, iphoneTwo, source.layouts[0]!.screens[1]!, androidTwo];
 
     expect(buildBundleEntries(source, "default", specs).map((entry) => entry.relativePath)).toEqual([
-      "apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png",
+      "apple/iphone/locale-en/size-6.3/01-hero-phone-6.3.png",
       "android/phone/locale-uk/size-phone-portrait/01-android-hero-phone-portrait.png",
-      "apple/iphone/locale-en/size-6.9/02-hero-two-6.9.png",
+      "apple/iphone/locale-en/size-6.3/02-hero-two-6.3.png",
       "apple/ipad/locale-en/size-13/01-hero-ipad-13.png",
       "android/phone/locale-uk/size-phone-portrait/02-android-two-phone-portrait.png",
     ]);
@@ -218,7 +218,7 @@ describe("buildBundleEntries", () => {
     });
     const entries = buildBundleEntries(source, "default", specs, { platform: "apple", device: "iphone" });
     expect(entries.map((entry) => [entry.screen.id, entry.target.id, entry.relativePath])).toEqual([
-      ["hero", "6.9", "apple/iphone/locale-en/size-6.9/01-hero-phone-6.9.png"],
+      ["hero", "6.3", "apple/iphone/locale-en/size-6.3/01-hero-phone-6.3.png"],
       ["hero-65", "6.5", "apple/iphone/locale-en/size-6.5/01-hero-phone-6.5.png"],
     ]);
     expect(() => validateBundleArtboards(entries)).not.toThrow();
@@ -269,8 +269,19 @@ describe("validateBundleArtboards", () => {
 
   it("throws naming the screen and target when an artboard cannot scale", () => {
     const bad = project();
-    bad.layouts[0]!.screens[0]!.artboard = { width: 1320, height: 2000 }; // wrong aspect for 6.9
+    bad.layouts[0]!.screens[0]!.artboard = { width: 1320, height: 2000 }; // wrong aspect for 6.3
     const entries = buildBundleEntries(bad, "default", specs, { platform: "apple", device: "iphone" });
-    expect(() => validateBundleArtboards(entries)).toThrow(/Hero Phone.*hero.*6\.9/);
+    expect(() => validateBundleArtboards(entries)).toThrow(/Hero Phone.*hero.*6\.3/);
+  });
+
+  it("points a primary screen authored at another family size to the lead migration", () => {
+    const old = project();
+    old.layouts[0]!.screens[0]!.artboard = { width: 1320, height: 2868 };
+    const entries = buildBundleEntries(old, "default", specs, { platform: "apple", device: "iphone" });
+    expect(() => validateBundleArtboards(entries, specs)).toThrow(
+      'It matches "6.9"; if that was the previous lead size, run '
+        + '"screenshots screen migrate-lead --platform apple --device iphone --from 6.9".',
+    );
+    expect(() => validateBundleArtboards(entries)).toThrow(/export would distort\.$/);
   });
 });

@@ -24,16 +24,16 @@ function screen(id: string, name: string, locale: string, elements: unknown[] = 
     device: "iphone",
     locale,
     direction: "ltr",
-    artboard: { width: 1320, height: 2868 },
+    artboard: { width: 1206, height: 2622 },
     background: { type: "solid", color: "#ffffff" },
     elements,
   };
 }
 
-// The 6.3" size of the de Hero slot. The slot lives in a later locale so the first locale has no
-// 6.3" row for the missing-locale check to compare against.
+// The 6.9" size of the de Hero slot. The slot lives in a later locale so the first locale has no
+// 6.9" row for the missing-locale check to compare against.
 function variant(id: string, root: string, elements: unknown[]) {
-  return { ...screen(id, "Hero", "de", elements), artboard: { width: 1206, height: 2622 }, variantOf: root, storeTargetId: "6.3" };
+  return { ...screen(id, "Hero", "de", elements), artboard: { width: 1320, height: 2868 }, variantOf: root, storeTargetId: "6.9" };
 }
 
 let server: RunningServer;
@@ -58,7 +58,7 @@ beforeAll(async () => {
         screen("hero", "Hero", "en", [stackedText("clipped", 100, 240), stackedText("exact", 600, 360)]),
         screen("details", "Details", "en", [{ ...createImageElement({ assetUrl: "assets/lost.png" }), id: "lost" }]),
         screen("hero-de", "Hero", "de", [stackedText("de-title", 100, 240)]),
-        variant("hero-de-63", "hero-de", [stackedText("de-title-63", 100, 240)]),
+        variant("hero-de-69", "hero-de", [stackedText("de-title-69", 100, 240)]),
       ],
     }],
   }, null, 2));
@@ -134,21 +134,21 @@ describe("editor issues", () => {
     await page.getByRole("button", { name: "Issues: 2 warnings" }).waitFor({ state: "attached" });
 
     // Status by size reads the same issues: Fit on another size changes only that size's layer.
-    await dialog.getByRole("button", { name: /^Go to Text · Hero · iPhone 6\.9.* · de$/ }).click();
+    await dialog.getByRole("button", { name: /^Go to Text · Hero · iPhone 6\.3.* · de$/ }).click();
     await dialog.waitFor({ state: "detached" });
     const status = page.getByRole("list", { name: "Status by size" });
-    await status.getByText(/^6\.3.* — text overflows$/).waitFor({ state: "visible" });
-    expect(await status.getByText(/^6\.9.* — editing · text overflows$/).isVisible()).toBe(true);
-    await status.getByRole("button", { name: /^Fit text on 6\.3/ }).click();
-    await expect.poll(() => textSize("de-title-63", "hero-de-63")).toBe(66);
-    expect(textSize("de-title", "hero-de")).toBe(100);
-    await status.getByText(/^6\.3.* — fits$/).waitFor({ state: "visible" });
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect.poll(() => textSize("de-title-63", "hero-de-63")).toBe(100);
-    await page.getByRole("button", { name: "Redo" }).click();
-    await expect.poll(() => textSize("de-title-63", "hero-de-63")).toBe(66);
-
+    await status.getByText(/^6\.9.* — text overflows$/).waitFor({ state: "visible" });
+    expect(await status.getByText(/^6\.3.* — editing · text overflows$/).isVisible()).toBe(true);
     await status.getByRole("button", { name: /^Fit text on 6\.9/ }).click();
+    await expect.poll(() => textSize("de-title-69", "hero-de-69")).toBe(66);
+    expect(textSize("de-title", "hero-de")).toBe(100);
+    await status.getByText(/^6\.9.* — fits$/).waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => textSize("de-title-69", "hero-de-69")).toBe(100);
+    await page.getByRole("button", { name: "Redo" }).click();
+    await expect.poll(() => textSize("de-title-69", "hero-de-69")).toBe(66);
+
+    await status.getByRole("button", { name: /^Fit text on 6\.3/ }).click();
     await expect.poll(() => textSize("de-title", "hero-de")).toBe(66);
     await page.getByRole("button", { name: "Issues: none" }).click();
     expect(await dialog.getByText("Nothing to fix in this layout.").isVisible()).toBe(true);

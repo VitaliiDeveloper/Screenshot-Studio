@@ -32,7 +32,10 @@ screen’s persisted `storeTargetId`, then its device lead target.
 `screenshots export --profile web-share` packages the same rendered PNGs into a portable local-only
 static review/campaign directory and ZIP. Web Share is independent of the Web platform.
 
-`screen add --size` accepts only a device lead target. `screen rm <id>` protects the last locale
+`screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
+--device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at
+a former lead onto the current lead, keeping each original as a `<previous-size>` variant; it refuses
+ambiguous families and is a no-op once nothing is left to move. `screen rm <id>` protects the last locale
 primary. Under the default independent policy it preserves paired exact-size screens as standalone;
 add `--cascade` to explicitly remove a primary together with its paired variants. Screen mutations
 use the core persisted slot policy: independent exact-size rows remain

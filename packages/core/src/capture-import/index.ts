@@ -8,7 +8,6 @@ import {
   findStoreTarget,
   inspectPng,
   leadStoreSizeId,
-  listStoreTargets,
   outputFamilyLabel,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
@@ -380,22 +379,22 @@ export function discoverCaptureImport(input: {
       ));
       continue;
     }
-    // Imported screens keep the capture size as their artboard, and export refuses any aspect change.
+    // Imported screens are primary screens that keep the capture size as their artboard. They
+    // export at the family lead, and export refuses any aspect change.
     const { platform: capturePlatform, device: captureDevice } = placement;
-    const targets = listStoreTargets(specs, capturePlatform, captureDevice);
-    if (targets.every((target) => artboardTargetStatus(dimensions, target).kind === "invalid")) {
-      const lead = findStoreTarget(
-        specs,
-        capturePlatform,
-        captureDevice,
-        leadStoreSizeId(specs, capturePlatform, captureDevice),
-      );
+    const lead = findStoreTarget(
+      specs,
+      capturePlatform,
+      captureDevice,
+      leadStoreSizeId(specs, capturePlatform, captureDevice),
+    );
+    if (artboardTargetStatus(dimensions, lead).kind === "invalid") {
       warnings.push(warning(
         "unexportable-capture-size",
         sourcePath,
-        `Capture is ${dimensions.width}×${dimensions.height}, which matches no `
-          + `${outputFamilyLabel(capturePlatform, captureDevice, specs)} export size aspect ratio `
-          + `(lead size ${lead.width}×${lead.height}); it imports, but export will fail`,
+        `Capture is ${dimensions.width}×${dimensions.height}, which does not match the `
+          + `${outputFamilyLabel(capturePlatform, captureDevice, specs)} lead size `
+          + `${lead.width}×${lead.height} aspect ratio; it imports, but export will fail`,
       ));
     }
     captures.push({

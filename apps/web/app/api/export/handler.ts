@@ -110,7 +110,7 @@ export async function handleExportPost(
     assertProjectFontsResolved(project, layoutId);
     specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
     const entries = buildBundleEntries(project, layoutId, specs, filters);
-    validateBundleArtboards(entries);
+    validateBundleArtboards(entries, specs);
     entryCount = entries.length;
     warnings = bundlePreflightWarnings(entries, specs);
   } catch (error) {
@@ -141,7 +141,7 @@ export async function handleExportPost(
       getLayout(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
       const entries = buildBundleEntries(context.project, layoutId, specs, filters);
-      validateBundleArtboards(entries);
+      validateBundleArtboards(entries, specs);
       // Return warnings for the exact revision being rendered, not for the earlier fail-fast
       // snapshot. This also keeps un-fenced API callers consistent if the project changes between
       // preflight and the stable export lease.

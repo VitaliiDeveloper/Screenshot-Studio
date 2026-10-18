@@ -177,19 +177,19 @@ describe("Packaged CLI", () => {
       "--screen",
       "hero",
       "--size",
-      "6.9",
+      "6.3",
       "--project",
       projectPath,
       "--out",
       outputDirectory,
     ], consumer, 300_000);
-    expect(exported.stdout).toContain("(1320x2868)");
+    expect(exported.stdout).toContain("(1206x2622)");
 
     const files = await readdir(outputDirectory);
     expect(files).toHaveLength(1);
-    expect(basename(files[0]!)).toContain("apple-iphone-6.9");
+    expect(basename(files[0]!)).toContain("apple-iphone-6.3");
     const png = PNG.sync.read(await readFile(join(outputDirectory, files[0]!)));
-    expect({ width: png.width, height: png.height }).toEqual({ width: 1320, height: 2868 });
+    expect({ width: png.width, height: png.height }).toEqual({ width: 1206, height: 2622 });
 
     const bundleDirectory = join(projectDirectory, "packaged-bundle");
     const bundled = await run(bin, [
@@ -200,10 +200,10 @@ describe("Packaged CLI", () => {
     expect(bundled.stdout).toContain("Exported 1 screenshots");
     expect(bundled.stdout).toContain("Wrote bundle");
 
-    const bundledPngPath = "apple/iphone/locale-en/size-6.9/01-hero-6.9.png";
+    const bundledPngPath = "apple/iphone/locale-en/size-6.3/01-hero-6.3.png";
     const bundledPng = PNG.sync.read(await readFile(join(bundleDirectory, bundledPngPath)));
     expect({ width: bundledPng.width, height: bundledPng.height })
-      .toEqual({ width: 1320, height: 2868 });
+      .toEqual({ width: 1206, height: 2622 });
     const archive = await JSZip.loadAsync(
       await readFile(join(bundleDirectory, "app-store-screenshots-bundle.zip")),
     );
@@ -248,7 +248,7 @@ describe("Packaged CLI", () => {
       "--screen",
       "hero",
       "--size",
-      "6.9",
+      "6.3",
       "--project",
       projectPath,
       "--out",
@@ -262,7 +262,7 @@ describe("Packaged CLI", () => {
     project.layouts[0].screens[0].elements = [];
     await writeFile(projectPath, `${JSON.stringify(project, null, 2)}\n`);
     await expect(run(bin, exportArgs, consumer, 300_000)).resolves.toMatchObject({
-      stdout: expect.stringContaining("(1320x2868)"),
+      stdout: expect.stringContaining("(1206x2622)"),
     });
     expect(await readFile(outputPath)).toEqual(priorOutput);
     expect(await renderHostDirectories()).toEqual(hostsBeforeFailure);

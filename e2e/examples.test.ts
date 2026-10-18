@@ -24,7 +24,7 @@ const examples = [
     name: "RTL delivery",
     projectPath: resolve(repoRoot, "examples/rtl-delivery/app-store-screenshots.json"),
     screenId: "arabic-rtl",
-    targetId: "6.9",
+    targetId: "6.3",
     elementTypes: ["group", "icon"],
   },
 ] as const;

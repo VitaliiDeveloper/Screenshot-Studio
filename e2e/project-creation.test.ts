@@ -289,7 +289,7 @@ describe("managed project creation", () => {
       expect(starterProject.layouts[0]!.screens[0]).toMatchObject({
         platform: "apple",
         device: "iphone",
-        artboard: { width: 1320, height: 2868 },
+        artboard: { width: 1206, height: 2622 },
       });
       expect(starterProject.layouts[0]!.screens[0]!.storeTargetId).toBeUndefined();
       expect(starterProject.layouts[0]!.screens[0]!.elements).toEqual(expect.arrayContaining([

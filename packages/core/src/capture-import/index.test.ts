@@ -123,26 +123,26 @@ describe("discoverCaptureImport", () => {
     expect(discovery.invalidEntries).toEqual([]);
   });
 
-  it("warns, without blocking apply, when a capture aspect matches no export size of its family", () => {
+  it("warns, without blocking apply, when a capture aspect does not match its family lead size", () => {
     const capture = (width: number, height: number) => PNG.sync.write(new PNG({ width, height }));
     const discovery = discoverCaptureImport({
       files: [
         // 920×2000 downscaled capture: no iPhone size shares its aspect ratio.
         file("apple/iphone/en/01.png", capture(23, 50)),
-        // Proportional to the 6.9" lead size (1320×2868).
-        file("apple/iphone/en/02.png", capture(110, 239)),
-        // Proportional to the non-lead 6.5" size (1284×2778).
-        file("apple/iphone/en/03.png", capture(214, 463)),
+        // Proportional to the 6.3" lead size (1206×2622).
+        file("apple/iphone/en/02.png", capture(201, 437)),
+        // Proportional to the non-lead 6.9" size (1320×2868): primary screens export at the lead.
+        file("apple/iphone/en/03.png", capture(110, 239)),
       ],
     });
 
     expect(discovery.captures).toHaveLength(3);
-    expect(discovery.warnings).toEqual([{
-      code: "unexportable-capture-size",
-      path: "apple/iphone/en/01.png",
-      message: "Capture is 23×50, which matches no App Store · iPhone export size aspect ratio "
-        + "(lead size 1320×2868); it imports, but export will fail",
-    }]);
+    const message = (size: string) => `Capture is ${size}, which does not match the App Store · iPhone `
+      + "lead size 1206×2622 aspect ratio; it imports, but export will fail";
+    expect(discovery.warnings).toEqual([
+      { code: "unexportable-capture-size", path: "apple/iphone/en/01.png", message: message("23×50") },
+      { code: "unexportable-capture-size", path: "apple/iphone/en/03.png", message: message("110×239") },
+    ]);
     const plan = planCaptureImport({
       project: sampleProject(),
       layoutId: "default",

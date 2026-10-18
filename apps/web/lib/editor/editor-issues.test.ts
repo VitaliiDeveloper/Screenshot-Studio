@@ -24,7 +24,7 @@ function screen(id: string, name: string, locale: string, elements: Element[] = 
     platform: "apple",
     device: "iphone",
     locale,
-    artboard: { width: 1320, height: 2868 },
+    artboard: { width: 1206, height: 2622 },
     background: { type: "solid", color: "#101827" },
     elements,
   };
@@ -133,7 +133,7 @@ describe("textSizeStatus", () => {
   function variant(id: string, storeTargetId: string, elements: Element[]) {
     return {
       ...screen(id, "Hero", "en", elements),
-      artboard: { width: 1206, height: 2622 },
+      artboard: { width: 1320, height: 2868 },
       variantOf: "hero",
       storeTargetId,
     };
@@ -149,13 +149,13 @@ describe("textSizeStatus", () => {
       mode: "isolated",
       screens: [
         screen("hero", "Hero", "en", [title("title"), title("subtitle")]),
-        variant("hero-63", "6.3", [title("title-63"), title("subtitle-63")]),
+        variant("hero-69", "6.9", [title("title-69"), title("subtitle-69")]),
         variant("hero-61", "6.1", [title("title-61"), title("subtitle-61", false)]),
         variant("hero-65", "6.5", [title("subtitle-65"), { ...createShapeElement({}), id: "added" }]),
       ],
     }],
   });
-  const overflowing = new Set(["title-63"]);
+  const overflowing = new Set(["title-69"]);
   const issues = collectLayoutIssues(slot, "default", {
     textOverflows: (element) => overflowing.has(element.id),
   });
@@ -164,8 +164,8 @@ describe("textSizeStatus", () => {
 
   it("reads each exact size of the slot from the Issues list", () => {
     expect(rows("title")).toEqual([
-      { label: "6.9\" · Portrait", current: true, element: "title", state: "fits" },
-      { label: "6.3\" · Portrait", current: false, element: "title-63", state: "overflows" },
+      { label: "6.3\" · Portrait", current: true, element: "title", state: "fits" },
+      { label: "6.9\" · Portrait", current: false, element: "title-69", state: "overflows" },
       { label: "5.8\" · Portrait", current: false, element: "title-61", state: "fits" },
       { label: "6.5\" · Portrait", current: false, element: null, state: "unmatched" },
     ]);

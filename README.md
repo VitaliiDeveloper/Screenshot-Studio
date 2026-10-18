@@ -150,7 +150,7 @@ These concepts are independent:
 |---|---|---|
 | Destination | App Store or Google Play | The publishing surface and its configured output families |
 | Device family | iPhone or Android phone | A destination-scoped group of compatible export targets |
-| Export size | 1320×2868 or 1080×1920 | The exact pixel dimensions of one rendered PNG |
+| Export size | 1206×2622 or 1080×1920 | The exact pixel dimensions of one rendered PNG |
 | Visual frame preset | Modern Phone — Dark or Browser — Dark | Only the decorative device-frame element drawn inside an artboard |
 
 Choosing a frame never changes a screen's destination, device family, or export size. Screenshot
@@ -196,7 +196,9 @@ Layout-aware mutations require `--layout <id-or-full-name>` when a project has m
 Bundle export writes locale roots at their device lead target and all explicit persisted variants at
 their own targets. A single-screen export resolves explicit `--size`, then its persisted `storeTargetId`,
 then its device lead target. `screen rm <id> --cascade` explicitly removes a primary
-screen together with paired variants.
+screen together with paired variants. After a device lead change, `screen migrate-lead --platform
+<platform> --device <device> --from <previous-size>` moves primary screens onto the current lead and
+keeps each original as a `<previous-size>` variant.
 
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).

@@ -85,6 +85,18 @@ fitted counterparts only for missing slots. Editor and CLI mutations consume thi
 than implementing their own platform- or size-specific rules. Removing an exact output target removes
 the complete size row; it is distinct from deleting one independent screen slot.
 
+A primary-size screen persists no target and exports at its family's current catalog lead, so the
+lead implicitly binds every saved primary screen. The iPhone family leads with its 6.3" target
+because App Store Connect requires a screenshot in that display class, which makes a lead-only export
+submittable. Changing a family's lead is therefore a breaking catalog change that requires the
+explicit core `migrateLeadTarget` operation (CLI `screen migrate-lead`); projects are never migrated
+on load. Per layout and locale it moves a family whose primary screens all fit the previous lead:
+each root takes over its existing current-lead variant's content, or is fitted in place through
+`fitElementsToArtboard`, and its original content stays unchanged as a previous-lead variant. Screen
+ids, slot order, and other variants' pairing are preserved. Families already compatible with the lead
+are left alone, ambiguous families are refused rather than guessed, and exporting an unmigrated
+family fails with a pointer to the command.
+
 `store-specs.json` is the single runtime authority for configured Apple, Android, Windows, and Web
 destinations, output families, creation policy, and exact dimensions. The catalog is deliberately
 curated, not an archive of every size a
