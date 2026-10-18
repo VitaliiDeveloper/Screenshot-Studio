@@ -277,6 +277,8 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
               const selected = isSelected(selectedItems, { screenId: activeScreenId, elementId: el.id });
               const tone = toneFor(selected);
               const menuOpen = openActionsId === el.id;
+              // The floating controls would cover the rename field; nothing reorders mid-rename.
+              const editing = renaming?.id === el.id;
               return (
               <Fragment key={el.id}>
               <SortableRow
@@ -284,6 +286,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 role="listitem"
                 className={cx("mx-2 my-px min-h-8 gap-2 rounded-[7px] py-1 pl-[34px] pr-1", layerRowTone[tone])}
                 handleClassName={cx(layerButtonTone[tone], overlayNearLock)}
+                hideHandle={editing}
                 trailing={
                   <button
                     type="button"
@@ -297,7 +300,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 }
               >
                 <ElementTypeIcon element={el} className={layerIconTone[tone]} />
-                {renaming?.id === el.id ? (
+                {editing ? (
                   <input
                     autoFocus
                     value={renaming.value}
@@ -326,7 +329,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                   />
                 )}
                 {el.locked ? <LockedChip tone={tone} /> : null}
-                <button
+                {editing ? null : <button
                   ref={(node) => {
                     if (node) actionButtonRefs.current.set(el.id, node);
                     else actionButtonRefs.current.delete(el.id);
@@ -347,7 +350,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                   }}
                 >
                   <MoreHorizontal size={14} strokeWidth={1.9} />
-                </button>
+                </button>}
                 {menuOpen ? (
                   <div
                     ref={menuRef}

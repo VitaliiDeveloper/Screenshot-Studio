@@ -28,6 +28,7 @@ export function SortableRow({
   trailing,
   className,
   handleClassName,
+  hideHandle = false,
   role,
   ariaLevel,
   nested,
@@ -39,6 +40,8 @@ export function SortableRow({
   className?: string;
   /** Handle color and focus ring for the row fill. */
   handleClassName?: string;
+  /** Drops the handle, e.g. while the row is renamed. */
+  hideHandle?: boolean;
   role?: AriaRole;
   ariaLevel?: number;
   /** Content shown below the row that moves with it while the row is dragged. */
@@ -58,7 +61,7 @@ export function SortableRow({
   const row = (
     <>
       {children}
-      <span
+      {hideHandle ? null : <span
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
@@ -70,7 +73,7 @@ export function SortableRow({
         )}
       >
         <GripVertical size={14} strokeWidth={1.8} />
-      </span>
+      </span>}
       {trailing}
     </>
   );
