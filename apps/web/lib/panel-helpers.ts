@@ -16,12 +16,15 @@ const TEXT_PREVIEW_LENGTH = 30;
 
 type LabelledElement = Pick<Element, "type" | "name"> & { content?: string };
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
 /** A text layer's content on one line, cut to ~30 characters with "…"; "" when blank. */
 export function textPreview(content: string): string {
-  const chars = [...content.replace(/\s+/g, " ").trim()];
+  const flat = content.replace(/\s+/g, " ").trim();
+  const chars = Array.from(graphemes.segment(flat), ({ segment }) => segment);
   return chars.length > TEXT_PREVIEW_LENGTH
     ? `${chars.slice(0, TEXT_PREVIEW_LENGTH).join("").trimEnd()}…`
-    : chars.join("");
+    : flat;
 }
 
 /** The row label for a layer: its name, else an unnamed text layer's text, else a human type label. */

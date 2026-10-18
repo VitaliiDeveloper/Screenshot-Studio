@@ -59,8 +59,10 @@ describe("text layer labels", () => {
     expect(elementTextPreview({ type: "text", name: "Save fast", content: "Save Fast" })).toBeNull();
     expect(elementTextPreview({ type: "shape", name: "Accent" })).toBeNull();
   });
-  it("never splits a character made of two code units", () => {
+  it("never splits a character made of several code units or code points", () => {
     expect(elementLabel({ type: "text", content: `${"a".repeat(29)}🚚🚚` })).toBe(`${"a".repeat(29)}🚚…`);
+    expect(elementLabel({ type: "text", content: `${"a".repeat(29)}👩‍💻👩‍💻` })).toBe(`${"a".repeat(29)}👩‍💻…`);
+    expect(elementLabel({ type: "text", content: `${"a".repeat(29)}🇺🇦🇺🇦` })).toBe(`${"a".repeat(29)}🇺🇦…`);
   });
 });
 
