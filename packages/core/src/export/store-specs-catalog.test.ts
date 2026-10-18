@@ -45,6 +45,14 @@ describe("unified store catalog", () => {
     }
   });
 
+  it("labels the stable 6.1 iPhone id by the 5.8-inch Face ID class its pixels belong to", () => {
+    // App Store Connect's 6.1"/6.3" Dynamic Island slot rejects 1125×2436.
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.1"))
+      .toMatchObject({ label: '5.8" iPhone', width: 1125, height: 2436 });
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.1-landscape"))
+      .toMatchObject({ label: '5.8" iPhone landscape', width: 2436, height: 1125 });
+  });
+
   it("keeps superseded families visible but non-creatable", () => {
     expect(OUTPUT_DEVICE_FAMILIES.filter(({ creatable }) => !creatable)).toEqual([
       expect.objectContaining({ key: "android/tablet-10", replacementKey: "android/tablet-7" }),

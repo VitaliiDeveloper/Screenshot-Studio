@@ -57,14 +57,14 @@
             },
             {
               "id": "6.1",
-              "label": "6.1\" iPhone",
+              "label": "5.8\" iPhone",
               "width": 1125,
               "height": 2436,
               "orientation": "portrait"
             },
             {
               "id": "6.1-landscape",
-              "label": "6.1\" iPhone landscape",
+              "label": "5.8\" iPhone landscape",
               "width": 2436,
               "height": 1125,
               "orientation": "landscape"
