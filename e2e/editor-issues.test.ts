@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser, type Locator } from "playwright";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -87,6 +87,19 @@ function textSize(id: string, screenId = "hero"): number {
   return savedElement(screenId, id).size;
 }
 
+/** Pixels in the canvas close to the overflow stroke color (#F59E0B). */
+function amberPixels(canvas: Locator): Promise<number> {
+  return canvas.evaluate((node: HTMLCanvasElement) => {
+    const data = node.getContext("2d")!.getImageData(0, 0, node.width, node.height).data;
+    let count = 0;
+    for (let index = 0; index < data.length; index += 4) {
+      const [red, green, blue, alpha] = [data[index]!, data[index + 1]!, data[index + 2]!, data[index + 3]!];
+      if (alpha > 200 && red > 200 && green > 120 && green < 190 && blue < 60) count += 1;
+    }
+    return count;
+  });
+}
+
 describe("editor issues", () => {
   it("measures overflow through the shared renderer and applies every fix", async () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
@@ -103,6 +116,23 @@ describe("editor issues", () => {
 
     await dialog.getByRole("button", { name: /^Go to A B C · Hero · .* · en$/ }).click();
     await dialog.waitFor({ state: "detached" });
+
+    // The canvas marks the same overflowing layer Issues reports and offers its fix in place.
+    const heroStage = page.locator('[data-testid="editor-stage"][data-stage-screen-ids="hero"]');
+    await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
+    // Parity captures the first (artwork) canvas; the amber marks live on their own layer above it.
+    const canvases = heroStage.locator("canvas");
+    await expect.poll(() => canvases.count()).toBe(2);
+    await expect.poll(() => amberPixels(canvases.nth(1))).toBeGreaterThan(0);
+    expect(await amberPixels(canvases.first())).toBe(0);
+    await heroStage.getByRole("button", { name: "Fit text: A B C" }).click();
+    await expect.poll(() => textSize("clipped")).toBe(66);
+    await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("0");
+    expect(await heroStage.getByRole("button", { name: /^Fit text: / }).count()).toBe(0);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => textSize("clipped")).toBe(100);
+    await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
+
     await page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" }).click();
 
     await dialog.getByRole("button", { name: /^Fit text: .* · en$/ }).click();

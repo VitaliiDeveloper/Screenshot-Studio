@@ -23,6 +23,11 @@ export function textOverflows(element: TextElement, direction: LayoutDirection =
   return unbounded.textArr.length > boxed.textArr.length || lineHeightPx > boxed.height();
 }
 
+/** Height the content lays out to without the box's height limit, from the same Konva.Text config. */
+export function textContentHeight(element: TextElement, direction: LayoutDirection = "ltr"): number {
+  return new Konva.Text({ ...textNodeConfig(element, direction), height: undefined }).height();
+}
+
 /**
  * Largest whole size in `[1, max]` that `fits`, or null when even 1 does not.
  * shortcut: assumes fitting is monotonic in size; word wrapping can rarely break that, so a
