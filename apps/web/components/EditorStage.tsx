@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useLayoutEffect, useRef, type Key } from "react";
+import { useLayoutEffect, useRef, useState, type Key } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
@@ -9,11 +9,20 @@ import {
   assertNever,
   type Element,
 } from "@screenshot-studio/core/model";
-import { applyNodeFilter, backgroundToNodeConfig, elementToNodeConfig, type NodeConfig } from "@screenshot-studio/core/engine";
+import {
+  applyNodeFilter,
+  backgroundToNodeConfig,
+  elementToNodeConfig,
+  fitTextSize,
+  textContentHeight,
+  type NodeConfig,
+} from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
+import { applyTextFit } from "@web/lib/editor/editor-text-fit";
 import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
 import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
@@ -21,6 +30,11 @@ import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
 import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
 import { transformerAppearance } from "./editor-stage/transformer-appearance";
 import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
+import { deriveTextOverflowMarks } from "./editor-stage/text-overflow-model";
+
+const NO_ISSUES: readonly ProjectIssue[] = [];
+const OVERFLOW_STROKE = "#F59E0B";
+const TEXT_MEASURE = { contentHeight: textContentHeight, fitSize: fitTextSize };
 
 /**
  * Interactive canvas over the same elementToNodeConfig map used by export. Isolated mode renders
@@ -80,12 +94,15 @@ export function EditorStage({
   screenId,
   interactive = true,
   connectedOverview = false,
+  issues = NO_ISSUES,
 }: {
   images: ImageCache;
   zoom?: number;
   screenId?: string;
   interactive?: boolean;
   connectedOverview?: boolean;
+  /** The active layout's Issues; overflowing text layers get the amber canvas state. */
+  issues?: readonly ProjectIssue[];
 }) {
   const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
@@ -95,6 +112,8 @@ export function EditorStage({
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Overlays are drawn from committed geometry, so they step aside while a node is dragged or transformed.
+  const [interacting, setInteracting] = useState(false);
 
   const {
     requestedScreen,
@@ -213,6 +232,11 @@ export function EditorStage({
     );
   };
 
+  const overflowMarks = deriveTextOverflowMarks({ projections, baseX, issues, measure: TEXT_MEASURE });
+  const visibleOverflowMarks = interacting
+    ? []
+    : overflowMarks.filter((mark) => !(editing?.screenId === mark.screenId && editing.id === mark.element.id));
+
   const finishElementClick = (
     event: Konva.KonvaEventObject<Event>,
     screenId: string,
@@ -233,6 +257,7 @@ export function EditorStage({
       data-active-screen-id={activeScreenId ?? undefined}
       data-stage-screen-ids={projections.map((projection) => projection.screen.id).join(" ")}
       data-selection-count={selectedItems.length}
+      data-text-overflow-count={overflowMarks.length}
       style={{ position: "relative", width: stageWidth * zoom, height: stageHeight * zoom }}
     >
       <Stage
@@ -244,6 +269,8 @@ export function EditorStage({
         onMouseDown={beginMarquee}
         onMouseMove={updateMarquee}
         onMouseUp={finishMarquee}
+        onDragStart={() => setInteracting(true)}
+        onDragEnd={() => setInteracting(false)}
       >
         <Layer>
           {projections.map(({ screen, x, y }) => (
@@ -332,6 +359,28 @@ export function EditorStage({
             </Group>
           ))}
 
+          {visibleOverflowMarks.map((mark) => (
+            <Group key={`overflow-${mark.screenId}-${mark.element.id}`} {...mark.origin} listening={false}>
+              <Group x={mark.parent?.x ?? 0} y={mark.parent?.y ?? 0} rotation={mark.parent?.rotation ?? 0}>
+                <Group x={mark.element.x} y={mark.element.y} rotation={mark.element.rotation}>
+                  <Rect
+                    width={mark.element.width}
+                    height={mark.element.height}
+                    stroke={OVERFLOW_STROKE}
+                    strokeWidth={2 / zoom}
+                  />
+                  <Rect
+                    width={mark.element.width}
+                    height={mark.contentHeight}
+                    stroke={OVERFLOW_STROKE}
+                    strokeWidth={1 / zoom}
+                    dash={[6 / zoom, 4 / zoom]}
+                  />
+                </Group>
+              </Group>
+            </Group>
+          ))}
+
           {layout.mode === "connected" && connectedOverview
             ? projections.map(({ screen, x, y }) => (
               <Rect
@@ -376,6 +425,8 @@ export function EditorStage({
               rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
               keepRatio={selectedKeepsAspectRatio}
               flipEnabled={false}
+              onTransformStart={() => setInteracting(true)}
+              onTransformEnd={() => setInteracting(false)}
               enabledAnchors={selectedKeepsAspectRatio
                 ? ["top-left", "top-right", "bottom-left", "bottom-right"]
                 : undefined}
@@ -425,6 +476,26 @@ export function EditorStage({
           className="absolute z-10 resize-none overflow-hidden border border-blue-500 bg-transparent p-0 outline-none ring-2 ring-blue-500/20"
         />
       ) : null}
+
+      {canEdit ? visibleOverflowMarks.map((mark) => (
+        <button
+          key={`fit-${mark.screenId}-${mark.element.id}`}
+          type="button"
+          disabled={mark.fitSize === null}
+          aria-label={`Fit text: ${mark.element.name ?? "Text"}`}
+          title={mark.fitSize === null
+            ? "The text overflows even at 1 px. Resize the layer instead."
+            : "Text overflows its box. Fit text sets the largest size that fits, on this screen only."}
+          className="absolute z-10 flex items-center gap-1 whitespace-nowrap rounded-md border border-[var(--editor-color-warning-border)] bg-[var(--editor-color-warning-surface)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--editor-color-warning-text)] shadow-sm hover:bg-[var(--editor-color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] disabled:cursor-not-allowed disabled:opacity-70"
+          style={{ left: mark.hint.x * zoom, top: mark.hint.y * zoom + 8 }}
+          onClick={() => {
+            if (mark.fitSize !== null) applyTextFit(mark.screenId, mark.element.id, mark.fitSize);
+          }}
+        >
+          <span aria-hidden="true">!</span>
+          Fit text
+        </button>
+      )) : null}
     </div>
   );
 }

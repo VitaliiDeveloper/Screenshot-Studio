@@ -103,6 +103,18 @@ describe("editor issues", () => {
 
     await dialog.getByRole("button", { name: /^Go to Text · Hero · .* · en$/ }).click();
     await dialog.waitFor({ state: "detached" });
+
+    // The canvas marks the same overflowing layer Issues reports and offers its fix in place.
+    const heroStage = page.locator('[data-testid="editor-stage"][data-stage-screen-ids="hero"]');
+    await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
+    await heroStage.getByRole("button", { name: /^Fit text: / }).click();
+    await expect.poll(() => textSize("clipped")).toBe(66);
+    await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("0");
+    expect(await heroStage.getByRole("button", { name: /^Fit text: / }).count()).toBe(0);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => textSize("clipped")).toBe(100);
+    await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
+
     await page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" }).click();
 
     await dialog.getByRole("button", { name: /^Fit text: .* · en$/ }).click();

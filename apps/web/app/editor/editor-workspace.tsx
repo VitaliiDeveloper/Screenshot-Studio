@@ -291,6 +291,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             leftInset={layout.overlay && panel ? SIDE_PANEL_WIDTH : 0}
             rightInset={layout.overlay && inspectorOpen ? SIDE_PANEL_WIDTH : 0}
             controlsHidden={layout.phone && Boolean(panel || inspectorOpen)}
+            issues={issues}
           />
         </div>
         <EditorSidePanel side="right" open={inspectorOpen}>

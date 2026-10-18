@@ -168,6 +168,19 @@ selected screen's shows *no matching layer* rather than guessing; a hidden count
 *hidden*. **Fit** on a size sets the largest whole font size that fits that size's layer only, as
 one undo step.
 
+### Canvas
+
+Canvas overlays are editor-only: they are drawn over the stage and never reach the renderer or
+export.
+
+A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:
+an amber frame on the layer box, which stays the box the layer is moved and resized by, and a dashed
+amber outline over the height the text would take without the box limit. The canvas reads the same
+Issues, so it never measures fit a second time and stays empty until project fonts have loaded. On
+the editable artboard a **Fit text** hint at the box's bottom-left corner applies the same fix as
+Issues, on that screen only, as one undo step; it is disabled when even 1 px does not fit. The state
+steps aside while a layer is dragged, transformed, or edited inline.
+
 ### Projects and Workspace navigation
 
 `/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows
