@@ -241,6 +241,20 @@ That guide teaches literal layout, copy, localization, local asset processing, a
 without adding provider state or an AI dependency. The optional repository skill only discovers or
 initializes such a project, then defers to its generated guide.
 
+The editor may run an official agent CLI that the user installed and signed in to with their own
+subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
+verified version range, model aliases, and policy (`supported`, `at-own-risk`, or `unavailable`, with
+reason, consequences, source, and check date); there is no remote configuration. Detection runs only
+the CLI's own `--version`, `--help`, and auth-status commands under a timeout that kills the process
+tree, shares one probe round between reads for a few seconds, and answers loopback Hosts only. It
+never reads credential files and returns states, never account identity. Every agent process receives
+an allowlisted environment, so API keys and provider switches in the server environment cannot move a
+CLI off the subscription. A future Claude Code release may default `-p` to `--bare`, which ignores the
+subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
+`unsupported-version`; a flip the help check misses still cannot bill an API key, because the
+environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
+CLI default.
+
 ## 7. Change rules
 
 - Preserve one Project schema and one browser rendering path.
