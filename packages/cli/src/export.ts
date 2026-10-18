@@ -132,6 +132,13 @@ export interface ExportScreenOptions {
   headless?: boolean;
 }
 
+export interface ExportBundleRendering {
+  attempted: number;
+  written: number;
+  /** True when `shouldStop` ended rendering before every entry was attempted. */
+  stopped: boolean;
+}
+
 export type ExportBundleProgress =
   | { phase: "rendering"; completed: number; total: number }
   | { phase: "packaging"; completed: number; total: number };
@@ -185,6 +192,7 @@ export async function exportBundle({
   onProgress,
   onEntryError,
   shouldStop,
+  onRendered,
   profile = "store-bundle",
   project,
 }: {
@@ -201,6 +209,8 @@ export async function exportBundle({
   onEntryError?: (entry: BundleEntry, message: string) => void;
   /** Checked before each entry; once true, the files rendered so far are packaged. */
   shouldStop?: () => boolean;
+  /** Reported once rendering ends, before packaging; the one account of what a stop cut short. */
+  onRendered?: (rendering: ExportBundleRendering) => void;
   profile?: ExportProfile;
   project?: Project;
 }): Promise<string> {
@@ -237,6 +247,7 @@ export async function exportBundle({
     onProgress?.({ phase: "rendering", completed: attempted, total: entries.length });
   }
 
+  onRendered?.({ attempted, written: rendered.length, stopped: attempted < entries.length });
   if (rendered.length === 0 && entries.length > 0) {
     throw new Error(attempted < entries.length
       ? "Export stopped before any file was rendered"

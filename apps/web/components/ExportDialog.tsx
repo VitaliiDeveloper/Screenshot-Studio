@@ -246,21 +246,26 @@ export function ExportDialog({
           total: latestProgress.total,
         };
         setProgress(latestProgress);
-        const ticket = launchExportArtifactDownload(body, {
-          origin: window.location.origin,
-          createAnchor: () => document.createElement("a"),
-          appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
-        });
         const finished = parseExportOutcome(body, requested);
+        // A stop before the first file leaves nothing to download.
+        const ticket = finished.written > 0
+          ? launchExportArtifactDownload(body, {
+            origin: window.location.origin,
+            createAnchor: () => document.createElement("a"),
+            appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
+          })
+          : null;
         setOutcome(finished);
         setFailures(finished.failures);
-        setDownloadedFilename(ticket.filename);
+        setDownloadedFilename(ticket?.filename ?? null);
       });
     } catch (err) {
       setError((err as Error).message);
     } finally {
       operationIdRef.current = null;
       setPending(false);
+      setStopping(false);
+      setStoppable(false);
     }
   };
   const stopExport = () => {
@@ -297,6 +302,10 @@ export function ExportDialog({
     }
   };
   const closeDialog = () => {
+    setError(null);
+    setFailures([]);
+    setOutcome(null);
+    setDownloadedFilename(null);
     setArchiveAvailability({ status: "checking" });
     setArchiveError(null);
     setArchiveDownloadedFilename(null);

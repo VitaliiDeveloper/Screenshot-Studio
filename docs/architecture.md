@@ -159,9 +159,13 @@ list, so the selected files keep the paths an unfiltered bundle gives them. Unli
 route skips a file that fails to render and reports it, and fails only when no file renders.
 An optional opaque export operation id exposes short-lived, bounded progress snapshots while that
 same request retains its normal lifecycle and project-mutation guards. Progress reports attempted
-outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority. A `POST`
-to the progress route with that id asks the running export to stop: files rendered so far are
-packaged and published as usual, and no later file is rendered.
+outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
+`POST /api/export/progress?operationId=…` asks that running export to stop (`202`; `404` once it is
+not running). `exportBundle` checks the stop before each file and reports `attempted`, `written`, and
+`stopped` once rendering ends; files rendered so far are packaged and published as usual, and a stop
+before the first file returns the `201` result with `written: 0`, `stopped: true`, and no artifact
+ticket. Unlike the export `POST`, the stop request carries no project session or revision fence: the
+unguessable operation id is its only guard, which is acceptable for the localhost-only host.
 
 ## 4. Project sources, sessions, and persistence
 

@@ -18,7 +18,11 @@ import {
   readProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
-import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/export";
+import {
+  exportBundle,
+  withStableProjectExport,
+  type ExportBundleRendering,
+} from "@screenshot-studio/cli/export";
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
@@ -149,7 +153,7 @@ export async function handleExportPost(
   let operationError: unknown;
   let hasOperationError = false;
   const failures: ExportFileFailure[] = [];
-  let attempted = 0;
+  let rendering: ExportBundleRendering | undefined;
   try {
     stagingDir = await mkdtemp(join(tmpdir(), "screenshot-studio-web-export-"));
     session = await createSession();
@@ -175,17 +179,27 @@ export async function handleExportPost(
         entries,
         renderSession: session!,
         publicationGuard: context.publish,
-        onProgress: (progress) => {
-          if (progress.phase === "rendering") attempted = progress.completed;
-          if (operationId) progressRegistry.update(operationId, progress.phase, progress.completed, progress.total);
-        },
+        onProgress: operationId
+          ? (progress) => progressRegistry.update(
+            operationId,
+            progress.phase,
+            progress.completed,
+            progress.total,
+          )
+          : undefined,
         onEntryError: (entry, message) => {
           failures.push({ screenId: entry.screen.id, relativePath: entry.relativePath, message });
         },
         shouldStop: operationId ? () => progressRegistry.stopRequested(operationId) : undefined,
+        onRendered: (result) => { rendering = result; },
         profile,
         project: context.project,
+      }).catch((error: unknown) => {
+        // Stopped before any file rendered: a result with nothing to download, not a failure.
+        if (rendering?.stopped && rendering.written === 0) return null;
+        throw error;
       });
+      if (zipPath === null) return undefined;
       // The bundle filename is reusable. Copy it into its private immutable artifact while the
       // stable project/export lease still prevents another export from replacing that pathname.
       if (operationId) progressRegistry.update(operationId, "finalizing", entryCount, entryCount);
@@ -232,11 +246,10 @@ export async function handleExportPost(
   }
 
   if (operationId) progressRegistry.finish(operationId, "ready");
-  // Without a stop every entry was attempted, so this holds even when no progress was reported.
-  const stopped = operationId !== undefined && progressRegistry.stopRequested(operationId) && attempted < entryCount;
-  const written = (stopped ? attempted : entryCount) - failures.length;
+  const written = rendering?.written ?? entryCount - failures.length;
+  const stopped = rendering?.stopped ?? false;
 
-  return Response.json({ ...result!, warnings, written, total: entryCount, failures, stopped }, {
+  return Response.json({ ...result, warnings, written, total: entryCount, failures, stopped }, {
     status: 201,
     headers: { "cache-control": "no-store" },
   });

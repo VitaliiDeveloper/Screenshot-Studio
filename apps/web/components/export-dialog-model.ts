@@ -125,18 +125,27 @@ export function exportSizeRows(
   return [...rows.values()];
 }
 
+/**
+ * One row per locale. Missing screens come from the same scoping as the blockers, for the checked
+ * sizes; an unchecked locale still shows what would block once it is checked.
+ */
 export function exportLocaleRows(
   entries: readonly BundleEntry[],
   checks: ExportChecks,
   issues: readonly ProjectIssue[],
 ): ExportLocaleRow[] {
+  const sizeScoped = exportScopeIssues(
+    entries,
+    { sizes: checks.sizes, locales: allExportChecks(entries).locales },
+    issues,
+  );
   const rows = new Map<string, ExportLocaleRow>();
   for (const entry of entries) {
     const row = rows.get(entry.screen.locale) ?? { locale: entry.screen.locale, files: 0, missingScreens: 0 };
     if (checks.sizes.has(exportSizeKey(entry))) row.files += 1;
     rows.set(entry.screen.locale, row);
   }
-  for (const issue of issues) {
+  for (const issue of sizeScoped) {
     const row = issue.kind === "missing-locale-screen" ? rows.get(issue.locale) : undefined;
     if (row) row.missingScreens += 1;
   }

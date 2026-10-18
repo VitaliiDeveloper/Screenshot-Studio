@@ -87,7 +87,8 @@ the file being rendered), then honest indeterminate `Packaging` and download-pre
 final POST response remains the authority for success or failure; unavailable progress status must
 not cancel an otherwise valid export. A file that fails to render does not fail the bundle: the
 result names how many files were exported and lists each failed file with its reason and **Go to**
-its screen. **Stop** packages the files already rendered into the download. While an export runs,
+its screen. **Stop** packages the files already rendered into the download; a stop before the first
+file reports `Stopped: 0 of N files exported` and downloads nothing. While an export runs,
 Esc, the backdrop, and Close do not dismiss the dialog. The CLI keeps failing the whole export on the
 first file that cannot render.
 

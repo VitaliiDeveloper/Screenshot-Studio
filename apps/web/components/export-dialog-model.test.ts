@@ -175,7 +175,7 @@ describe("export dialog store image selection", () => {
     expect(exportSelectionSummary(checkedExportEntries(entries, all))).toBe("4 files · 3 sizes × 2 locales");
   });
 
-  it("counts a locale's files for the checked sizes and its missing screens", () => {
+  it("counts a locale's files and missing screens for the checked sizes", () => {
     const checks = { sizes: new Set(["apple/iphone/6.3"]), locales: all.locales };
     const missing = {
       kind: "missing-locale-screen", id: "m", level: "blocker", layoutId: "main",
@@ -184,8 +184,12 @@ describe("export dialog store image selection", () => {
 
     expect(exportLocaleRows(entries, checks, [missing])).toEqual([
       { locale: "en", files: 1, missingScreens: 0 },
-      { locale: "uk", files: 1, missingScreens: 1 },
+      { locale: "uk", files: 1, missingScreens: 0 },
     ]);
+    // The missing screen belongs to the 6.9" size; the chip counts it while that size is checked,
+    // even with the locale itself unchecked, matching what would block once it is.
+    expect(exportLocaleRows(entries, { sizes: all.sizes, locales: new Set(["en"]) }, [missing])[1])
+      .toEqual({ locale: "uk", files: 1, missingScreens: 1 });
   });
 
   it("keeps only the issues of the checked sizes and locales", () => {

@@ -378,8 +378,8 @@ describe("POST /api/export", () => {
     const response = await handleExportPost(projectPath, req({ operationId: exportOperationId }), {
       createRenderBrowserSession: vi.fn(async () => ({ renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) })),
       exportBundle: vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
-        options.onProgress?.({ phase: "rendering", completed: 1, total: 2 });
         expect(options.shouldStop?.()).toBe(true);
+        options.onRendered?.({ attempted: 1, written: 1, stopped: true });
         return zipPath;
       }),
       progressRegistry: { begin: vi.fn(), update: vi.fn(), finish: vi.fn(), stopRequested: vi.fn(() => true) },
@@ -392,6 +392,30 @@ describe("POST /api/export", () => {
 
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ written: 1, total: 2, stopped: true, failures: [] });
+  });
+
+  it("returns a stopped result without an artifact when the stop came before the first file", async () => {
+    const { projectPath } = await useProject();
+    const project = completeProject();
+    project.layouts[0]!.screens.push({ ...project.layouts[0]!.screens[0]!, id: "second", name: "Second" });
+    await writeFile(projectPath, JSON.stringify(project));
+    const progressRegistry = { begin: vi.fn(), update: vi.fn(), finish: vi.fn(), stopRequested: vi.fn(() => true) };
+    const stageExportArtifact = vi.fn();
+
+    const response = await handleExportPost(projectPath, req({ operationId: exportOperationId }), {
+      createRenderBrowserSession: vi.fn(async () => ({ renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) })),
+      exportBundle: vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
+        options.onRendered?.({ attempted: 0, written: 0, stopped: true });
+        throw new Error("Export stopped before any file was rendered");
+      }),
+      progressRegistry,
+      stageExportArtifact,
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ warnings: [], written: 0, total: 2, failures: [], stopped: true });
+    expect(stageExportArtifact).not.toHaveBeenCalled();
+    expect(progressRegistry.finish).toHaveBeenCalledWith(exportOperationId, "ready");
   });
 
   it("rejects a malformed or empty selection before rendering", async () => {
