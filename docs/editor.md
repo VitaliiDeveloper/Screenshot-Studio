@@ -200,8 +200,10 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
-Project folder and archive import discard Finder's `.DS_Store` metadata while continuing to reject
-other unsupported, hidden, credential-bearing, or sensitive paths.
+Project folder and archive import discard Finder's `.DS_Store` metadata and skip, without copying,
+paths outside the portable project layout, such as `export/` output or extra root files. Hidden,
+credential-bearing, or private-key paths still reject the whole import, and resources the project
+document references must be present.
 
 ## 4. Responsive and accessible behavior
 
