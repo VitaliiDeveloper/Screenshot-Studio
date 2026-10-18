@@ -81,6 +81,16 @@ layer row has a direct lock toggle. Layer rows are one line. A text layer is lab
 (about 30 characters, cut with `…`) unless it has been renamed, in which case the name wins; the
 full text is then the row's tooltip and accessible description. Built-in templates leave text
 layers unnamed, and Issues and the Inspector use the same label.
+The Screens header names the scope as `Screens · count · locale · iPhone 6.9"` in Focus and ends
+with the number of sizes in Overview; the find field below it marks where screen and layer search
+goes and stays disabled until that search exists. A screen row shows its thumbnail, name, and
+`N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
+whose slot has an issue on any size turns amber and shows the first issue, such as
+`6.3": text overflows`, instead of that count. Thumbnails keep their order number because export
+file names use it. Layer rows show a type icon, the name, and the lock; a locked layer is muted
+with a `Locked` chip. One selected layer gets the solid accent fill, several get a light fill.
+Each row's drag handle and Delete or More actions appear on hover and whenever focus is inside
+the row, so the handle stays the keyboard path for reorder.
 
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object
@@ -192,7 +202,9 @@ remains a compatibility route for sessions whose Project Library entry identity 
 Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
 rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, and one
 entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
-dialog rather than an intermediate panel. Its bottom
+dialog rather than an intermediate panel. Every item carries a short caption under its icon
+(Select, Hand, Layers, Templates, Packs, Fonts, Locales, Projects) that its accessible name contains,
+and active items get the light accent fill. Its bottom
 `Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
