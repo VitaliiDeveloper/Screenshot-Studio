@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import { fontIdentityKey, type FontAsset, type TextElement } from "@screenshot-studio/core/model";
 import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import { MenuSelect } from "@web/components/editor-ui";
-import { fontIdentityOptions } from "@web/components/inspector/inspector-fields";
+import { fontIdentityOptions } from "@web/lib/editor/font-identity-options";
 
 const item = "flex h-6 items-center gap-1.5 rounded-md px-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
 

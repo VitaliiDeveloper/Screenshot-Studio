@@ -3,7 +3,6 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
-  fontIdentityOptions,
   formatNumberFieldValue,
   normalizeNumberFieldValue,
   NumberField,
@@ -104,34 +103,5 @@ describe("number field formatting", () => {
     expect(markup).toContain("max-h-48");
     expect(markup).toContain("resize-y");
     expect(markup).toContain("overflow-y-auto");
-  });
-});
-
-describe("fontIdentityOptions", () => {
-  it("offers the renderer-owned default before optional project fonts", () => {
-    const options = fontIdentityOptions([], {
-      family: "Screenshot Studio Sans",
-      weight: 400,
-    });
-
-    expect(options).toEqual([{
-      value: JSON.stringify(["Screenshot Studio Sans", 400]),
-      label: "Studio Sans · Regular · Built-in",
-    }]);
-  });
-
-  it("keeps missing identities visible and appends project fonts", () => {
-    const options = fontIdentityOptions([{
-      family: "Inter",
-      source: "uploaded",
-      path: "assets/fonts/inter.ttf",
-      weight: 700,
-    }], { family: "Missing", weight: 500 });
-
-    expect(options.map(({ label }) => label)).toEqual([
-      "Missing: Missing · 500",
-      "Studio Sans · Regular · Built-in",
-      "Inter · 700",
-    ]);
   });
 });
