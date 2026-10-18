@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   elementLabel,
+  elementTextPreview,
   screenTreeSummary,
   selectionTypeSummary,
   viewToArrayIndex,
@@ -37,6 +38,29 @@ describe("elementLabel", () => {
     ["group", "Group"],
   ] as const)("labels the current %s element type", (type, label) => {
     expect(elementLabel({ type })).toBe(label);
+  });
+});
+
+describe("text layer labels", () => {
+  const long = "Track every parcel from pickup to your door";
+  it("labels an unnamed text layer by its text on one line, cut to ~30 characters", () => {
+    expect(elementLabel({ type: "text", content: "Fast,\n  reliable shipping" })).toBe("Fast, reliable shipping");
+    expect(elementLabel({ type: "text", content: long })).toBe("Track every parcel from pickup…");
+    expect(elementLabel({ type: "text", content: "  \n " })).toBe("Text");
+  });
+  it("keeps the name and previews the text under a named text layer", () => {
+    expect(elementLabel({ type: "text", name: "Hero support", content: long })).toBe("Hero support");
+    expect(elementTextPreview({ type: "text", name: "Hero support", content: long }))
+      .toBe("Track every parcel from pickup…");
+  });
+  it("adds no preview when there is no name, no text, or the text repeats the name", () => {
+    expect(elementTextPreview({ type: "text", content: long })).toBeNull();
+    expect(elementTextPreview({ type: "text", name: "Title", content: " " })).toBeNull();
+    expect(elementTextPreview({ type: "text", name: "Save fast", content: "Save Fast" })).toBeNull();
+    expect(elementTextPreview({ type: "shape", name: "Accent" })).toBeNull();
+  });
+  it("never splits a character made of two code units", () => {
+    expect(elementLabel({ type: "text", content: `${"a".repeat(29)}🚚🚚` })).toBe(`${"a".repeat(29)}🚚…`);
   });
 });
 

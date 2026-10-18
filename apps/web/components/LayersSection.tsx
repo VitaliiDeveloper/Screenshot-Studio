@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { Fragment, useEffect, useId, useRef, useState, type ButtonHTMLAttributes } from "react";
 import { useStore } from "zustand";
 import {
   Box,
@@ -33,7 +33,7 @@ import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { elementLabel, viewToArrayIndex } from "@web/lib/panel-helpers";
+import { elementLabel, elementTextPreview, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 import { cx, editorUi } from "./editor-ui";
@@ -77,6 +77,36 @@ function ElementTypeIcon({ element }: { element: Element }) {
     >
       <Icon size={14} strokeWidth={1.7} />
     </span>
+  );
+}
+
+/**
+ * A layer row's select button: the label, plus a muted start of the text under a named text layer.
+ * The accessible name stays the label; the text preview is its description.
+ */
+export function LayerNameButton({
+  element,
+  className,
+  ...props
+}: { element: Element } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">) {
+  const previewId = useId();
+  const label = elementLabel(element);
+  const preview = elementTextPreview(element);
+  return (
+    <button
+      type="button"
+      {...props}
+      aria-label={label}
+      aria-describedby={preview ? previewId : undefined}
+      className={cx("min-w-0 flex-1 rounded-md px-1 py-1 text-left", className)}
+    >
+      <span className="block truncate">{label}</span>
+      {preview ? (
+        <span id={previewId} className="block truncate text-[11px] text-[color:var(--editor-color-text-muted)]">
+          {preview}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -206,7 +236,8 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     className="h-8 min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2 text-xs outline-none ring-2 ring-blue-500/15"
                   />
                 ) : (
-                  <button
+                  <LayerNameButton
+                    element={el}
                     onClick={(event) => {
                       setOpenActionsId(null);
                       editorStore.getState().select(
@@ -217,14 +248,12 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     }}
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
                     aria-pressed={selected}
-                    className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
+                    className={`text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
                       selected
                         ? "text-blue-700"
                         : "text-slate-700"
                     } ${el.visible ? "" : "text-slate-400 line-through"}`}
-                  >
-                    {elementLabel(el)}
-                  </button>
+                  />
                 )}
                 <button
                   type="button"
@@ -372,18 +401,16 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     )}
                   >
                     <ElementTypeIcon element={child} />
-                    <button
-                      type="button"
+                    <LayerNameButton
+                      element={child}
                       onClick={() => editorStore.getState().select(child.id, activeScreenId)}
                       aria-pressed={childSelected}
                       className={cx(
-                        "min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
+                        "text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
                         childSelected ? "text-blue-700" : "text-slate-600",
                         !child.visible && "line-through text-slate-400",
                       )}
-                    >
-                      {elementLabel(child)}
-                    </button>
+                    />
                     <button
                       type="button"
                       className={editorUi.rowIconButton}

@@ -12,10 +12,28 @@ const TYPE_LABELS = {
   image: "Image",
 } satisfies Record<Element["type"], string>;
 
-/** The row label for a layer: its name if set, otherwise a human type label. */
-export function elementLabel(el: Pick<Element, "type" | "name">): string {
-  const trimmed = el.name?.trim();
-  return trimmed ? trimmed : TYPE_LABELS[el.type];
+const TEXT_PREVIEW_LENGTH = 30;
+
+type LabelledElement = Pick<Element, "type" | "name"> & { content?: string };
+
+/** A text layer's content on one line, cut to ~30 characters with "…"; "" when blank. */
+export function textPreview(content: string): string {
+  const chars = [...content.replace(/\s+/g, " ").trim()];
+  return chars.length > TEXT_PREVIEW_LENGTH
+    ? `${chars.slice(0, TEXT_PREVIEW_LENGTH).join("").trimEnd()}…`
+    : chars.join("");
+}
+
+/** The row label for a layer: its name, else an unnamed text layer's text, else a human type label. */
+export function elementLabel(el: LabelledElement): string {
+  return el.name?.trim() || (el.type === "text" ? textPreview(el.content ?? "") : "") || TYPE_LABELS[el.type];
+}
+
+/** Muted second line under a named text layer: the start of its text, or null when it adds nothing. */
+export function elementTextPreview(el: LabelledElement): string | null {
+  const name = el.name?.trim();
+  const preview = el.type === "text" ? textPreview(el.content ?? "") : "";
+  return name && preview && preview.toLowerCase() !== name.toLowerCase() ? preview : null;
 }
 
 /** The human label for a layer type, e.g. "Device frame". */
