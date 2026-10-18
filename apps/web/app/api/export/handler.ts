@@ -13,6 +13,7 @@ import {
 } from "@screenshot-studio/core/export";
 import {
   ProjectRevisionConflictError,
+  errorText,
   readProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
@@ -39,10 +40,6 @@ export interface ExportRouteDependencies {
   exportBundle?: typeof exportBundle;
   stageExportArtifact?: typeof stageExportArtifactDefault;
   progressRegistry?: Pick<ExportProgressRegistry, "begin" | "update" | "finish">;
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function withExportCleanupErrors(

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { parseProject, type Project } from "@screenshot-studio/core/model";
 import { responseError } from "@web/lib/json-response.js";
+import { hasExactKeys, isRecord } from "@web/lib/json-guards.js";
 
 export interface ProjectLibraryEntry {
   entryId: string;
@@ -28,15 +29,6 @@ const ENTRY_KEYS = [
   "entryId", "sourceKind", "name", "lastOpenedAt", "availability", "platforms",
   "screenCount", "layoutCount", "previewLayoutId", "previewScreenIds", "previewProject",
 ] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
-  const actual = Object.keys(value);
-  return actual.length === expected.length && actual.every((key) => expected.includes(key));
-}
 
 function boundedString(value: unknown, maximum = 200): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maximum;
