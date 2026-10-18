@@ -166,10 +166,10 @@ describe("textSizeStatus", () => {
     expect(rows("title")).toEqual([
       { label: "6.9\" · Portrait", current: true, element: "title", state: "fits" },
       { label: "6.3\" · Portrait", current: false, element: "title-63", state: "overflows" },
-      { label: "6.1\" · Portrait", current: false, element: "title-61", state: "fits" },
+      { label: "5.8\" · Portrait", current: false, element: "title-61", state: "fits" },
       { label: "6.5\" · Portrait", current: false, element: null, state: "unmatched" },
     ]);
-    expect(rows("subtitle")[2]).toEqual({ label: "6.1\" · Portrait", current: false, element: "subtitle-61", state: "hidden" });
+    expect(rows("subtitle")[2]).toEqual({ label: "5.8\" · Portrait", current: false, element: "subtitle-61", state: "hidden" });
   });
 
   it("never reports fits before text has been measured", () => {
