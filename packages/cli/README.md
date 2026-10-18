@@ -55,8 +55,8 @@ Project before an atomic write:
   JSON-quoted text, or media path. It prints nothing when no screen matches.
 - `element text <screen> <element> [--all-sizes] [--] <content>` replaces one text leaf's content.
   `--all-sizes` also writes the matching layer on every other exact size of the slot, in one locked
-  write, and reports any size it skips because the layer structure diverged or the layer is
-  locked. A `--` terminator makes every following argument positional, so copy can start with `--`.
+  write, and reports any size it skips because the layer structure diverged or the layer or its
+  group is locked. A `--` terminator makes every following argument positional, so copy can start with `--`.
 - `element media <screen> <element> <path>` assigns an existing project-relative PNG, JPEG, or WebP
   file to a screenshot, image, or device-frame leaf. On a device frame this is the screenshot inside
   the frame; the frame preset and geometry stay unchanged.

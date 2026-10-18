@@ -179,8 +179,8 @@ Element ids are fresh UUIDs after a template add or locale clone, so list before
 Store target variants are separate screens with their own elements and ids. `element text
 --all-sizes` also writes the same layer on every other exact size of that slot, matched by layer
 position like the editor's Status by size and Apply to, in one locked write. It reports each size it
-skips: a size whose layer structure has diverged, or whose matching layer is locked. Edit those
-individually. Copy that starts with `--` goes after a `--` terminator:
+skips: a size whose layer structure has diverged, or whose matching layer or its group is locked.
+Edit those individually. Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
 
 ## Recipe: generate or refresh copy

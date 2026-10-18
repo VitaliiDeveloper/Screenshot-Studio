@@ -107,6 +107,9 @@ function slotTextTargets(layout: DesignLayout, screenId: string, elementId: stri
     const counterpart = slotCounterpart(source, elementId, screen);
     if (!counterpart) skipped.push(`Skipped ${screen.id}: layer structure differs from ${source.id}`);
     else if (counterpart.locked) skipped.push(`Skipped ${screen.id}/${counterpart.id}: layer is locked`);
+    else if (findElementLocation(screen, counterpart.id)?.parent?.locked) {
+      skipped.push(`Skipped ${screen.id}/${counterpart.id}: group is locked`);
+    }
     else targets.push({ screen: screen.id, element: counterpart.id });
   }
   return { targets, skipped };

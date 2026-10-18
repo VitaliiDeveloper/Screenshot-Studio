@@ -108,16 +108,26 @@ describe("runElementCommand", () => {
       variant("hero-69", "6.9", (elements) => elements),
       variant("hero-65", "6.5", (elements) => elements.slice(1)),
       variant("hero-61", "6.1", (elements) => elements.map((element, index) => index === 0 ? { ...element, locked: true } : element)),
+      variant("hero-55", "5.5", (elements) => elements.map((element, index) => index === 1 ? { ...element, locked: true } : element)),
       screen("hero-uk", "uk"),
     ] }]);
     await expect(runElementCommand(projectPath, ["text", "hero", "title", "Run further"], { "all-sizes": "true" }))
       .resolves.toBe([
         "Updated text of hero/title",
         "Updated text of hero-69/hero-69-title",
+        "Updated text of hero-55/hero-55-title",
         "Skipped hero-65: layer structure differs from hero",
         "Skipped hero-61/hero-61-title: layer is locked",
       ].join("\n"));
-    await runElementCommand(projectPath, ["text", "hero-69", "badge-label", "Top rated"], { "all-sizes": "true" });
+    await expect(runElementCommand(projectPath, ["text", "hero-69", "badge-label", "Top rated"], { "all-sizes": "true" }))
+      .resolves.toBe([
+        "Updated text of hero-69/badge-label",
+        "Updated text of hero/badge-label",
+        "Updated text of hero-61/badge-label",
+        "Skipped hero-65: layer structure differs from hero-69",
+        "Skipped hero-55/badge-label: group is locked",
+      ].join("\n"));
+    expect((await savedScreen(projectPath, "hero-55")).elements[1].children[0].content).toBe("4.9 ★");
     expect((await savedScreen(projectPath, "hero")).elements[0].content).toBe("Run further");
     expect((await savedScreen(projectPath, "hero")).elements[1].children[0].content).toBe("Top rated");
     expect((await savedScreen(projectPath, "hero-69")).elements[0].content).toBe("Run further");
