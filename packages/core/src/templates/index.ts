@@ -170,7 +170,7 @@ function builtInElements(definition: ResolvedBuiltInDefinition, font?: FontIdent
   ];
   if (font) {
     elements.push({
-      id: "headline", type: "text", name: "Editable headline", x: safe,
+      id: "headline", type: "text", x: safe,
       y: Math.round(height * 0.14), width: Math.round(width * (definition.promotion ? 0.58 : 0.78)),
       height: Math.round(height * 0.2), rotation: 0, opacity: 1, locked: false, visible: true,
       content: definition.promotion ? "Make every moment stand out" : "Show what makes your app different",

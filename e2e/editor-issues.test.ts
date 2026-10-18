@@ -101,7 +101,7 @@ describe("editor issues", () => {
     expect(await dialog.getByText("Screen missing in locale de").isVisible()).toBe(true);
     expect(await dialog.getByText("Image missing from the project folder").isVisible()).toBe(true);
 
-    await dialog.getByRole("button", { name: /^Go to Text · Hero · .* · en$/ }).click();
+    await dialog.getByRole("button", { name: /^Go to A B C · Hero · .* · en$/ }).click();
     await dialog.waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" }).click();
 
@@ -134,7 +134,7 @@ describe("editor issues", () => {
     await page.getByRole("button", { name: "Issues: 2 warnings" }).waitFor({ state: "attached" });
 
     // Status by size reads the same issues: Fit on another size changes only that size's layer.
-    await dialog.getByRole("button", { name: /^Go to Text · Hero · iPhone 6\.3.* · de$/ }).click();
+    await dialog.getByRole("button", { name: /^Go to A B C · Hero · iPhone 6\.3.* · de$/ }).click();
     await dialog.waitFor({ state: "detached" });
     const status = page.getByRole("list", { name: "Status by size" });
     await status.getByText(/^6\.9.* — text overflows$/).waitFor({ state: "visible" });
