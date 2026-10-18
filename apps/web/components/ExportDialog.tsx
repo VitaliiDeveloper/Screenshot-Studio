@@ -114,6 +114,8 @@ export function ExportDialog({
   const [profile, setProfile] = useState<"store-bundle" | "web-share">("store-bundle");
   const [pending, setPending] = useState(false);
   const [stopping, setStopping] = useState(false);
+  // Stop needs the server to know the operation, which happens only after the save flush and preflight.
+  const [stoppable, setStoppable] = useState(false);
   const operationIdRef = useRef<string | null>(null);
   const [progress, setProgress] = useState<ExportProgressSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +171,7 @@ export function ExportDialog({
     const requested = checked.length;
     setPending(true);
     setStopping(false);
+    setStoppable(false);
     setError(null);
     setFailures([]);
     setOutcome(null);
@@ -199,6 +202,7 @@ export function ExportDialog({
             if (snapshot?.operationId === operationId) {
               latestProgress = snapshot;
               setProgress(snapshot);
+              setStoppable(true);
             }
           } catch {
             // Progress is auxiliary; the export request remains the source of success or failure.
@@ -263,9 +267,9 @@ export function ExportDialog({
     const operationId = operationIdRef.current;
     if (!operationId || stopping) return;
     setStopping(true);
-    // A stop that arrives after rendering finished is a no-op; the export response still decides the result.
+    // A stop the server no longer accepts (rendering already finished) leaves the export response in charge.
     void fetch(`/api/export/progress?operationId=${encodeURIComponent(operationId)}`, { method: "POST" })
-      .catch(() => undefined);
+      .then((response) => { if (!response.ok) setStopping(false); }, () => setStopping(false));
   };
   const runProjectArchiveExport = async () => {
     if (pending || archivePending || archiveAvailability.status !== "available") return;
@@ -388,7 +392,7 @@ export function ExportDialog({
                   type="button"
                   className={editorUi.buttonSecondary}
                   onClick={stopExport}
-                  disabled={stopping || !rendering}
+                  disabled={stopping || !stoppable || !rendering}
                 >
                   <Square aria-hidden="true" className="size-3.5" />
                   {stopping ? "Stopping…" : "Stop"}

@@ -193,7 +193,10 @@ describe("multi-locale UI export", () => {
       });
       const downloadPromise = page.waitForEvent("download");
       await exportButton.click();
-      await dialog.getByRole("button", { name: "Stop" }).waitFor();
+      const stop = dialog.getByRole("button", { name: "Stop" });
+      await stop.waitFor();
+      // The held request never reached the server, so there is no operation to stop yet.
+      expect(await stop.isDisabled()).toBe(true);
       await page.keyboard.press("Escape");
       // Longer than the dialog's close animation, so a started close would have finished.
       await new Promise((resolveWait) => setTimeout(resolveWait, 400));
