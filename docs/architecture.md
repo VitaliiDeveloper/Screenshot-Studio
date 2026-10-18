@@ -250,15 +250,21 @@ message on stdin, and streams normalized events. Completion, cancel, timeout, or
 whole process tree.
 
 An agent changes the project only through the `screenshots` CLI, which takes the regular project
-mutation lock per write; the editor's own writers (`PUT /api/project` and every
-`withProjectMutationRequest` route) answer `423 agent-running` while a run is active instead of racing
-it. Before a run the server snapshots `app-store-screenshots.json`; after the process tree is dead it
-reads the file back through the strict schema. An invalid or missing document is written back from the
-snapshot and the stream carries `result: rejected` with the reason before `done: failed`; a valid one
+mutation lock per write; the editor's own writers (`PUT /api/project`, every
+`withProjectMutationRequest` route, and Undo run) answer `423 agent-running` while a run is active
+instead of racing it. A run first reserves its project slot, so new editor writes are refused, then
+waits for editor writes already in flight to finish (`409 project-busy` after 30 s, e.g. behind a long
+export), and only then snapshots `app-store-screenshots.json` under the mutation lock; so no editor
+write lands between the snapshot and the verdict. This fence is in-process: a terminal `screenshots`
+CLI writing during a run is not refused, and Undo run drops it like any change after the snapshot.
+After the process tree is dead the server reads the file back through the strict schema, under the
+same lock. An invalid or deleted document is written back from the snapshot and the stream carries
+`result: rejected` with the reason and the restored revision before `done: failed`; a valid one
 carries `result: accepted` with the changed screen ids and the new revision, and the snapshot stays
 pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it (restore the snapshot
-as one locked write, refused once the editor has written past the run's revision). Undo is per run,
-not per change; snapshots live in server memory, so a restart drops a pending undo.
+as one locked write, refused once the editor has written past the run's revision). A run cancelled
+before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
+per change; snapshots live in server memory, so a restart drops a pending undo.
 
 ## 7. Change rules
 

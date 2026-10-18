@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
-import { agentRunBlockResponse } from "@web/lib/agents/agent-run-guard.server.js";
+import { withAgentRunFence } from "@web/lib/agents/agent-run-guard.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import {
@@ -107,17 +107,15 @@ export function withProjectMutationRequest(
   return withActiveProjectSession(req, async (session) => {
     const identityError = projectIdentityResponse(req, session);
     if (identityError) return identityError;
-    const agentBlock = await agentRunBlockResponse(session.projectPath);
-    if (agentBlock) return agentBlock;
 
     const expectedRevision = expectedRevisionResponse(req);
     return expectedRevision instanceof Response
       ? expectedRevision
-      : withManagedProjectMutationGuard(
+      : withAgentRunFence(session.projectPath, () => withManagedProjectMutationGuard(
         session,
         () => Promise.resolve(operation(session, expectedRevision)),
         { config: dependencies.managedStorageConfig },
-      );
+      ));
   }, dependencies);
 }
 

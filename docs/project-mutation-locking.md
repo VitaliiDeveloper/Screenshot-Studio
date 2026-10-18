@@ -275,10 +275,11 @@ does not make a partially written asset safe, and atomic file replacement does n
 transactions.
 
 An editor-started agent run is a third writer: its `screenshots` CLI child takes this lock for each
-write like any CLI process. The editor's own HTTP writers do not contend with it; they answer
-`423 agent-running` for the run's duration (`apps/web/lib/agents/agent-run-guard.server.ts`), and the
-server restores the pre-run snapshot under this lock when the run leaves an invalid document or the
-user undoes the run (`docs/architecture.md`, § 6).
+write like any CLI process. The editor's own HTTP writers do not contend with it: each one is admitted
+by an in-process gate for its whole operation and answers `423 agent-running` while a run holds the
+project (`apps/web/lib/agents/agent-run-guard.server.ts`). A run waits for admitted writes to finish
+before it snapshots under this lock, and the server restores that snapshot under this lock when the
+run leaves an invalid document or the user undoes the run (`docs/architecture.md`, § 6).
 
 ## Local filesystem boundary
 

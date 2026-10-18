@@ -9,7 +9,7 @@ import {
   writeProjectConditionalAtomic,
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "@screenshot-studio/cli/capture-import-recovery";
-import { agentRunBlockResponse } from "@web/lib/agents/agent-run-guard.server.js";
+import { withAgentRunFence } from "@web/lib/agents/agent-run-guard.server.js";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import {
   withManagedProjectMutationGuard,
@@ -90,32 +90,31 @@ export async function PUT(req: Request): Promise<Response> {
     if (expectedProjectId !== projectId) {
       return jsonError(409, "Active project changed; reload it before saving again");
     }
-    const agentBlock = await agentRunBlockResponse(projectPath);
-    if (agentBlock) return agentBlock;
+    return withAgentRunFence(projectPath, async () => {
+      let project;
+      try {
+        project = parseProject(await req.json());
+      } catch (err) {
+        return jsonError(400, (err as Error).message);
+      }
 
-    let project;
-    try {
-      project = parseProject(await req.json());
-    } catch (err) {
-      return jsonError(400, (err as Error).message);
-    }
+      try {
+        return await withManagedProjectMutationGuard(session, () => withProjectMutation(projectPath, async () => {
+          await reconcileCaptureImport(projectPath);
+          const current = await readIdentifiedProjectSnapshot(projectPath);
+          const actualRevision = quotedRevision(current.revision);
+          if (expectedRevision !== actualRevision) {
+            return revisionConflictResponse(expectedRevision, actualRevision);
+          }
 
-    try {
-      return await withManagedProjectMutationGuard(session, () => withProjectMutation(projectPath, async () => {
-        await reconcileCaptureImport(projectPath);
-        const current = await readIdentifiedProjectSnapshot(projectPath);
-        const actualRevision = quotedRevision(current.revision);
-        if (expectedRevision !== actualRevision) {
-          return revisionConflictResponse(expectedRevision, actualRevision);
-        }
-
-        const persisted = await writeProjectConditionalAtomic(projectPath, project, current);
-        return Response.json(persisted.project, {
-          headers: { etag: quotedRevision(persisted.revision) },
-        });
-      }));
-    } catch (error) {
-      return projectWriteErrorResponse(error);
-    }
+          const persisted = await writeProjectConditionalAtomic(projectPath, project, current);
+          return Response.json(persisted.project, {
+            headers: { etag: quotedRevision(persisted.revision) },
+          });
+        }));
+      } catch (error) {
+        return projectWriteErrorResponse(error);
+      }
+    });
   });
 }

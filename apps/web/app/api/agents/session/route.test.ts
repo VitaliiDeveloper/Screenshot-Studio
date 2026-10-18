@@ -137,7 +137,8 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
 
     expect(first).toBe(": keep-alive\n\n");
     await reader.cancel();
-    expect((await DELETE(await sessionRequest("DELETE"))).status).toBe(404);
+    // The slot frees only once the post-run verdict is in, which is asynchronous.
+    await expect.poll(async () => (await DELETE(await sessionRequest("DELETE"))).status, { timeout: 5_000 }).toBe(404);
 
     // A heartbeat left running after `done` would throw on the closed stream as an unhandled error.
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
