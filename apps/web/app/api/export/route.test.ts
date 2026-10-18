@@ -26,7 +26,7 @@ function completeProject(elements: unknown[] = []) {
       mode: "isolated",
       screens: [{
         id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
-        artboard: { width: 660, height: 1434 },
+        artboard: { width: 603, height: 1311 },
         background: { type: "solid", color: "#111111" },
         elements,
       }],

@@ -32,8 +32,8 @@ const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureRoot = resolve(repoRoot, "fixtures/sample");
 const fixturePath = resolve(fixtureRoot, "app-store-screenshots.json");
 const screenId = "hero";
-const pixelRatio = 1; // The living sample is already authored at the 1320×2868 lead size.
-const target = { width: 1320, height: 2868 };
+const pixelRatio = 1; // The living sample is already authored at the 1206×2622 lead size.
+const target = { width: 1206, height: 2622 };
 
 // Tolerances are starting values, tuned once real diffs are observed.
 const PER_PIXEL_THRESHOLD = 0.1;

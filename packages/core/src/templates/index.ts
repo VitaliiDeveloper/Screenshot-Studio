@@ -90,7 +90,7 @@ type BuiltInDefinition = {
 };
 
 const BUILT_IN_DEFINITIONS: readonly BuiltInDefinition[] = [
-  { id: "iphone-starter", name: "iPhone", description: "Bold headline and an editable iPhone mockup.", platform: "apple", device: "iphone", targetId: "6.9", frame: "iphone" },
+  { id: "iphone-starter", name: "iPhone", description: "Bold headline and an editable iPhone mockup.", platform: "apple", device: "iphone", targetId: "6.3", frame: "iphone" },
   { id: "ipad-portrait-starter", name: "iPad portrait", description: "Spacious portrait composition for tablet storytelling.", platform: "apple", device: "ipad", targetId: "13", frame: "tablet" },
   { id: "ipad-landscape-starter", name: "iPad landscape", description: "Landscape tablet composition with safe edge spacing.", platform: "apple", device: "ipad", targetId: "13-landscape", frame: "tablet" },
   { id: "android-phone-starter", name: "Android phone", description: "Google Play phone starter with an empty assignable mockup.", platform: "android", device: "phone", targetId: "phone-portrait", frame: "android-phone" },

@@ -8,11 +8,13 @@ import {
   DEFAULT_STORE_SPECS,
   findStoreTarget,
   leadStoreSizeId,
+  listStoreTargets,
   outputFamilyLabel,
   type StoreSize,
   type StoreSpecs,
 } from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
+import { artboardTargetStatus } from "./artboard-status.js";
 
 export interface BundleFilters {
   platform?: Screen["platform"];
@@ -181,16 +183,28 @@ export function buildBundleEntries(
  * up front, so the UI/CLI reject an invalid bundle with a screen-identifying message instead of
  * failing mid-render.
  */
-export function validateBundleArtboards(entries: BundleEntry[]): void {
+export function validateBundleArtboards(entries: BundleEntry[], specs?: StoreSpecs): void {
   for (const entry of entries) {
     try {
       exportPixelRatio(entry.screen.artboard, { width: entry.target.width, height: entry.target.height });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
-        `Screen "${entry.screen.name}" (${entry.screen.id}) cannot scale to target "${entry.target.id}": ${message}`,
+        `Screen "${entry.screen.name}" (${entry.screen.id}) cannot scale to target "${entry.target.id}": `
+          + `${message}${leadMigrationHint(entry.screen, specs)}`,
         { cause: err },
       );
     }
   }
+}
+
+/** Primary screens persist no target, so one authored at a former lead fails after a lead change. */
+function leadMigrationHint(screen: Screen, specs: StoreSpecs | undefined): string {
+  if (!specs || screen.storeTargetId !== undefined) return "";
+  const authored = listStoreTargets(specs, screen.platform, screen.device)
+    .find((target) => artboardTargetStatus(screen.artboard, target).kind !== "invalid");
+  return authored
+    ? ` It matches "${authored.id}"; if that was the previous lead size, run "screenshots screen migrate-lead `
+      + `--platform ${screen.platform} --device ${screen.device} --from ${authored.id}".`
+    : "";
 }

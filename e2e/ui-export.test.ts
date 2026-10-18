@@ -14,10 +14,10 @@ const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureDir = resolve(repoRoot, "fixtures/regressions/multi-locale-export");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const expectedPaths = [
-  "apple/iphone/locale-en/01-english-one-6.9.png",
-  "apple/iphone/locale-~002e~002e~002far/01-arabic-one-6.9.png",
-  "apple/iphone/locale-en/02-english-two-6.9.png",
-  "apple/iphone/locale-~002e~002e~002far/02-arabic-two-6.9.png",
+  "apple/iphone/locale-en/01-english-one-6.3.png",
+  "apple/iphone/locale-~002e~002e~002far/01-arabic-one-6.3.png",
+  "apple/iphone/locale-en/02-english-two-6.3.png",
+  "apple/iphone/locale-~002e~002e~002far/02-arabic-two-6.3.png",
   "apple/ipad/locale-en/01-english-ipad-13.png",
   "android/phone/locale-en_~0055~0053/01-underscore-android-phone-portrait.png",
 ];

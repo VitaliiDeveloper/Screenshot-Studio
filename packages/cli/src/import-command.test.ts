@@ -80,8 +80,8 @@ describe("importCaptures", () => {
     expect(result.imported).toBe(2);
     // The square fixture fits no export size of either family.
     expect(result.warnings).toEqual([
-      expect.stringContaining("matches no Google Play · Android tablet export size"),
-      expect.stringContaining("matches no App Store · iPhone export size"),
+      expect.stringContaining("does not match the Google Play · Android tablet lead size"),
+      expect.stringContaining("does not match the App Store · iPhone lead size"),
     ]);
     const iphoneAssetUrl = importedCapturePath("apple-iphone-en-01", png);
     const tabletAssetUrl = importedCapturePath("android-tablet-7-en-01", png);

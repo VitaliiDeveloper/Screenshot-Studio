@@ -22,7 +22,7 @@ const project: Project = {
           device: "iphone",
           locale: "en-US",
           direction: "ltr",
-          artboard: { width: 1320, height: 2868 },
+          artboard: { width: 1206, height: 2622 },
           background: { type: "solid", color: "#101827" },
           elements: [],
         },
@@ -33,7 +33,7 @@ const project: Project = {
           device: "iphone",
           locale: "fr-FR",
           direction: "ltr",
-          artboard: { width: 1320, height: 2868 },
+          artboard: { width: 1206, height: 2622 },
           background: { type: "image", assetUrl: "assets/missing.png", color: "#101827", fit: "cover" },
           elements: [],
         },
@@ -94,7 +94,7 @@ const project: Project = {
 
 const specs: StoreSpecs = structuredClone(DEFAULT_STORE_SPECS);
 specs.platforms.apple.families.iphone.targets = [
-  { id: "6.9", label: "6.9-inch iPhone (lead)", width: 1320, height: 2868, orientation: "portrait" },
+  { id: "6.3", label: "6.3-inch iPhone (lead)", width: 1206, height: 2622, orientation: "portrait" },
 ];
 specs.platforms.android.families.phone.targets = [
   { id: "phone-portrait", label: "Android phone portrait", width: 1080, height: 1920, orientation: "portrait" },
@@ -150,11 +150,11 @@ describe("buildProjectHomeSummary", () => {
       expect.objectContaining({ id: "connected", name: "Connected campaign", mode: "connected", screenCount: 2, emptyScreenCount: 1, preferred: true }),
     ]);
     expect(summary.outputFamilies).toEqual([
-      expect.objectContaining({ key: "apple/iphone", label: "App Store · iPhone", screenCount: 2, storeTargets: ["6.9-inch iPhone"] }),
+      expect.objectContaining({ key: "apple/iphone", label: "App Store · iPhone", screenCount: 2, storeTargets: ["6.3-inch iPhone"] }),
       expect.objectContaining({ key: "android/phone", label: "Google Play · Android phone", screenCount: 2, storeTargets: ["Android phone portrait", "Android phone landscape"] }),
     ]);
     expect(summary.representativeScreens).toEqual([
-      { layoutId: "isolated", screenId: "iphone-en", name: "Welcome", layoutName: "Product cards", outputLabel: "App Store · iPhone", width: 1320, height: 2868 },
+      { layoutId: "isolated", screenId: "iphone-en", name: "Welcome", layoutName: "Product cards", outputLabel: "App Store · iPhone", width: 1206, height: 2622 },
       { layoutId: "connected", screenId: "android-root", name: "Benefits", layoutName: "Connected campaign", outputLabel: "Google Play · Android phone", width: 1080, height: 1920 },
     ]);
     expect(summary.readiness.map((item) => item.kind)).toEqual([
