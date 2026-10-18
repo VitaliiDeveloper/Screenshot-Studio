@@ -5,6 +5,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type Key } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
+import { CircleAlert } from "lucide-react";
 import {
   assertNever,
   type Element,
@@ -520,7 +521,7 @@ export function EditorStage({
               if (mark.fitSize !== null) applyTextFit(mark.screenId, mark.element.id, mark.fitSize);
             }}
           >
-            <span aria-hidden="true">!</span>
+            <CircleAlert size={12} strokeWidth={2.2} aria-hidden="true" />
             Fit text
           </button>
         )) : null}
