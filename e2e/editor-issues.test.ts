@@ -125,7 +125,7 @@ describe("editor issues", () => {
     await expect.poll(() => canvases.count()).toBe(2);
     await expect.poll(() => amberPixels(canvases.nth(1))).toBeGreaterThan(0);
     expect(await amberPixels(canvases.first())).toBe(0);
-    await heroStage.getByRole("button", { name: "Fit text: Text" }).click();
+    await heroStage.getByRole("button", { name: "Fit text: A B C" }).click();
     await expect.poll(() => textSize("clipped")).toBe(66);
     await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("0");
     expect(await heroStage.getByRole("button", { name: /^Fit text: / }).count()).toBe(0);
