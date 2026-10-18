@@ -4,7 +4,6 @@ import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { errorText, noFollowFlags, resolveExistingProjectPath } from "@screenshot-studio/core/storage";
 
-/** Ids of project definition files: lowercase slugs, stored as `<id>.json`. */
 export const DEFINITION_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 interface DefinitionHandle {
@@ -25,7 +24,6 @@ export interface DefinitionStoreDependencies {
 type DefinitionErrorClass = new (message: string, options?: ErrorOptions) => Error;
 
 export interface DefinitionStoreConfig<T extends { id: string }> {
-  /** Directory next to the project file, e.g. `templates`. */
   directoryName: string;
   /** Capitalised noun used in every error message, e.g. `Template`. */
   noun: string;

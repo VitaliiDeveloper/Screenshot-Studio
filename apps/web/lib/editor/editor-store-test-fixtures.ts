@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Shared fixture and typed patch helpers for the editor-store test files.
 import { editorStore } from "./editor-store.js";
 import type { ElementPatchFor } from "./editor-element-patch.js";
 import type { Project } from "@screenshot-studio/core/model";

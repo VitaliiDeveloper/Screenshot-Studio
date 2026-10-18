@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Prepared (two-phase) publication, destination inspection, and deterministic removal.
 import { constants } from "node:fs";
 import { link, open, rename, unlink, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";

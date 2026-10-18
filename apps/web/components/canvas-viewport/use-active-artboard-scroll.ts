@@ -13,7 +13,6 @@ export interface ActiveArtboardScrollInput {
   rightInset: number;
 }
 
-/** In Overview, scrolls the active artboard into the area between the side panels when hidden. */
 export function useActiveArtboardScroll({
   viewportRef,
   activeScreenId,

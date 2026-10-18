@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Create-only and replace publication of one complete file.
 import { randomUUID } from "node:crypto";
 import { link, open, rename, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";

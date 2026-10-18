@@ -12,7 +12,6 @@ export function toolbarIssuesLabel(issueCounts: IssueCounts): string {
     : "Issues: none";
 }
 
-/** Opens the Issues dialog; tinted by the most severe open level. */
 export function ToolbarIssuesButton({
   issueCounts,
   compact,

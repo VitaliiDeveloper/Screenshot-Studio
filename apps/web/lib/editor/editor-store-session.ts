@@ -8,7 +8,6 @@ import {
 } from "./editor-history.js";
 import type { EditorSet, EditorState } from "./editor-store.js";
 
-/** Project lifecycle, save status, and undo/redo for the whole editor session. */
 export interface EditorSessionActions {
   load: (project: Project, locallyActiveLayoutId?: string) => void;
   reloadProject: (project: Project) => void;

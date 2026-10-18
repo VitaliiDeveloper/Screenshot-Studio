@@ -11,7 +11,6 @@ const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
   { value: "none", label: "None", icon: SquareDashed },
 ];
 
-/** Canvas background pattern menu, pinned to the top-right corner clear of the inspector. */
 export function CanvasPatternSelect({
   pattern,
   rightInset,

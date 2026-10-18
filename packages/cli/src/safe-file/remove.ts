@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Quarantine and removal of one owned regular file.
 import { link, open, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { errorText } from "@screenshot-studio/core/storage";

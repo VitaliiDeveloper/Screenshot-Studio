@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Portable relative paths, canonical root containment, and no-link ancestor boundaries.
 import { type Stats } from "node:fs";
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";

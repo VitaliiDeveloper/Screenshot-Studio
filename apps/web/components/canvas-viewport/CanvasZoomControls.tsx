@@ -4,7 +4,6 @@
 import { Maximize2, Minus, Plus } from "lucide-react";
 import { editorUi } from "@web/components/editor-ui";
 
-/** Zoom out / reset / in and Fit, centred in the area between the side panels. */
 export function CanvasZoomControls({
   zoom,
   leftInset,

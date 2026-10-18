@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Public and internal types of the safe file publication engine.
 import { type FileHandle } from "node:fs/promises";
 
 export interface SafeFilePublication {

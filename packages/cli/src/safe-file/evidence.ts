@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Device, inode, link-count, and content evidence that proves which file an operation owns.
 import { type BigIntStats } from "node:fs";
 import { lstat } from "node:fs/promises";
 import { errorText } from "@screenshot-studio/core/storage";

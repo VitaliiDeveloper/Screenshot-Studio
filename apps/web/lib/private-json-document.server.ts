@@ -6,12 +6,10 @@ import { join } from "node:path";
 import { noFollowFlags, syncDirectoryBestEffort } from "@screenshot-studio/core/storage";
 
 export interface PrivateJsonDocumentWrite {
-  /** Directory that holds the document and its stage; synced after the commit. */
   root: string;
   targetPath: string;
   /** Stage file name prefix: the stage is `<root>/<stagePrefix>.<uuid>.stage`. */
   stagePrefix: string;
-  /** Names the document in failure messages, e.g. `Catalog`. */
   label: string;
   contents: string;
   openFile: (path: string, flags: number, mode: number) => Promise<FileHandle>;
