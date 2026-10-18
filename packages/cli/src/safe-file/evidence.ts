@@ -25,7 +25,7 @@ import {
 function compareBoundedFileIdentity(
   actual: BigIntStats,
   expected: BigIntStats,
-): "stable" | "link-transition" | "changed" {
+): "stable" | "metadata-transition" | "changed" {
   if (actual.dev !== expected.dev
     || actual.ino !== expected.ino
     || actual.size !== expected.size
@@ -35,7 +35,9 @@ function compareBoundedFileIdentity(
   if (actual.ctimeNs === expected.ctimeNs && actual.nlink === expected.nlink) {
     return "stable";
   }
-  return actual.nlink !== expected.nlink ? "link-transition" : "changed";
+  // Linking, renaming, or unlinking another name of this inode bumps ctime without touching its
+  // bytes; the caller retries and accepts only a read bracketed by fully stable snapshots.
+  return "metadata-transition";
 }
 export async function destinationMatches(
   path: string,
@@ -186,7 +188,7 @@ export async function inspectBoundedDestinationBytes(
     }
 
     let primaryError: CapturedError | null = null;
-    let retryForLinkTransition = false;
+    let retryForMetadataTransition = false;
     let inspection: {
       state: FilePublicationDestinationState;
       evidence: TrackedFileEvidence;
@@ -205,9 +207,9 @@ export async function inspectBoundedDestinationBytes(
       if (beforeStates.includes("changed")) {
         throw new Error(`Publication destination changed during bounded comparison: ${path}`);
       }
-      retryForLinkTransition = beforeStates.includes("link-transition");
+      retryForMetadataTransition = beforeStates.includes("metadata-transition");
 
-      if (!retryForLinkTransition) {
+      if (!retryForMetadataTransition) {
         const bytes = Buffer.alloc(expected.byteLength);
         let offset = 0;
         while (offset < bytes.length) {
@@ -227,8 +229,8 @@ export async function inspectBoundedDestinationBytes(
         if (afterStates.includes("changed")) {
           throw new Error(`Publication destination changed during bounded comparison: ${path}`);
         }
-        retryForLinkTransition = afterStates.includes("link-transition");
-        if (!retryForLinkTransition) {
+        retryForMetadataTransition = afterStates.includes("metadata-transition");
+        if (!retryForMetadataTransition) {
           inspection = {
             state: offset === bytes.length && bytes.equals(Buffer.from(expected))
               ? "matching"
@@ -260,7 +262,7 @@ export async function inspectBoundedDestinationBytes(
           ) };
     }
     if (primaryError !== null) throw primaryError.value;
-    if (retryForLinkTransition) continue;
+    if (retryForMetadataTransition) continue;
     if (inspection === null) {
       throw new Error(`Publication destination changed during bounded comparison: ${path}`);
     }
@@ -270,7 +272,7 @@ export async function inspectBoundedDestinationBytes(
       throw new Error(`Publication destination changed after bounded comparison: ${path}`);
     }
     const finalState = compareBoundedFileIdentity(named, inspection.identity);
-    if (finalState === "link-transition") continue;
+    if (finalState === "metadata-transition") continue;
     if (finalState === "changed") {
       throw new Error(`Publication destination changed after bounded comparison: ${path}`);
     }
