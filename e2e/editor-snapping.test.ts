@@ -92,6 +92,9 @@ describe("editor snapping", () => {
       .getByRole("button", { name: "Shape", exact: true })
       .click();
     await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("1");
+    // The W × H badge reports the layer box in artboard px, whatever the zoom.
+    const sizeBadge = stage.getByTestId("selection-size");
+    await expect.poll(() => sizeBadge.textContent()).toBe("200 × 300");
 
     const zoomControls = page.getByLabel("Zoom controls");
     const zoomValue = zoomControls.getByRole("button").nth(1);
@@ -100,9 +103,26 @@ describe("editor snapping", () => {
 
     let drag = await beginBridgeDrag(page, -108);
     expect(await stage.getAttribute("data-snap-guide-x")).toBeNull();
+    expect(await sizeBadge.count()).toBe(0);
     await page.mouse.up();
     await expect.poll(bridgeX).toBeCloseTo(452, 0);
+    await expect.poll(() => sizeBadge.count()).toBe(1);
 
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(bridgeX).toBe(560);
+
+    // Handoff § 6: arrows nudge the selection 10 px, 50 px with Shift.
+    // Selecting on the canvas right after a toolbar button must hand the keys back to the canvas.
+    const bridgeCanvas = page.getByTestId("connected-artboards").locator("canvas").first();
+    const bridgeBox = (await bridgeCanvas.boundingBox())!;
+    const bridgeScale = bridgeBox.width / CONNECTED_STAGE_WIDTH;
+    await page.mouse.click(bridgeBox.x + 660 * bridgeScale, bridgeBox.y + 300 * bridgeScale);
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("1");
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(bridgeX).toBe(570);
+    await page.keyboard.press("Shift+ArrowLeft");
+    await expect.poll(bridgeX).toBe(520);
+    await page.getByRole("button", { name: "Undo" }).click();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(bridgeX).toBe(560);
 
@@ -119,6 +139,18 @@ describe("editor snapping", () => {
     await page.mouse.up();
     await expect.poll(bridgeX).toBe(460);
     expect(await stage.getAttribute("data-snap-guide-x")).toBeNull();
+
+    // On the second connected screen the badge sits under that screen's layer, not the first's.
+    await page.getByRole("button", { name: "Connected Second · iphone" }).click();
+    await page.getByRole("list", { name: "Layers for Connected Second" })
+      .getByRole("button", { name: "Shape", exact: true })
+      .click();
+    await expect.poll(() => sizeBadge.textContent()).toBe("200 × 200");
+    const stageBox = (await stage.locator("canvas").first().boundingBox())!;
+    const stageScale = stageBox.width / CONNECTED_STAGE_WIDTH;
+    const badgeBox = (await sizeBadge.boundingBox())!;
+    expect(Math.abs(badgeBox.x + badgeBox.width / 2 - (stageBox.x + (660 + 160 + 100) * stageScale))).toBeLessThan(2);
+    expect(badgeBox.y).toBeGreaterThan(stageBox.y + 900 * stageScale);
 
     await page.reload({ waitUntil: "load" });
     await page.getByTestId("connected-artboards").waitFor({ state: "visible" });

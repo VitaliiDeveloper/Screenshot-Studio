@@ -295,6 +295,10 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             rightInset={layout.overlay && inspectorOpen ? SIDE_PANEL_WIDTH : 0}
             controlsHidden={layout.phone && Boolean(panel || inspectorOpen)}
             issues={issues}
+            onOpenAdd={() => {
+              if (layout.compact) setInspectorOpen(false);
+              setPanel("add");
+            }}
           />
         </div>
         <EditorSidePanel side="right" open={inspectorOpen}>

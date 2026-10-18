@@ -13,26 +13,22 @@ const canvasPatternOptions: MenuSelectOption<CanvasPattern>[] = [
 
 export function CanvasPatternSelect({
   pattern,
-  rightInset,
   onPatternChange,
 }: {
   pattern: CanvasPattern;
-  rightInset: number;
   onPatternChange: (pattern: CanvasPattern) => void;
 }) {
   return (
-    <div className="absolute top-3 z-30" style={{ right: rightInset + 12 }}>
-      <MenuSelect
-        ariaLabel={`Canvas background: ${canvasPatternOptions.find((option) => option.value === pattern)?.label ?? "Dots"}`}
-        menuLabel="Canvas background"
-        value={pattern}
-        options={canvasPatternOptions}
-        onChange={onPatternChange}
-        className="min-w-28"
-        triggerClassName="h-9 min-w-28 rounded-xl border-slate-200/80 px-2 font-medium text-slate-600"
-        menuClassName="w-40"
-        showSelectedIcon
-      />
-    </div>
+    <MenuSelect
+      ariaLabel={`Canvas background: ${canvasPatternOptions.find((option) => option.value === pattern)?.label ?? "Dots"}`}
+      menuLabel="Canvas background"
+      value={pattern}
+      options={canvasPatternOptions}
+      onChange={onPatternChange}
+      className="min-w-28"
+      triggerClassName="!h-8 min-w-28 !border-transparent !shadow-none px-1.5 font-medium text-slate-600 hover:bg-slate-50"
+      menuClassName="w-40"
+      showSelectedIcon
+    />
   );
 }

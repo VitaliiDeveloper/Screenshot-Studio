@@ -117,7 +117,8 @@ describe("editor issues", () => {
     await dialog.getByRole("button", { name: /^Go to A B C · Hero · .* · en$/ }).click();
     await dialog.waitFor({ state: "detached" });
 
-    // The canvas marks the same overflowing layer Issues reports and offers its fix in place.
+    // The canvas marks the same overflowing layer Issues reports. Go to selects it, so its fix
+    // sits in the selection toolbar instead of the canvas hint.
     const heroStage = page.locator('[data-testid="editor-stage"][data-stage-screen-ids="hero"]');
     await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
     // Parity captures the first (artwork) canvas; the amber marks live on their own layer above it.
@@ -125,6 +126,21 @@ describe("editor issues", () => {
     await expect.poll(() => canvases.count()).toBe(2);
     await expect.poll(() => amberPixels(canvases.nth(1))).toBeGreaterThan(0);
     expect(await amberPixels(canvases.first())).toBe(0);
+    const toolbar = heroStage.getByRole("toolbar", { name: "Selection actions" });
+    await toolbar.waitFor({ state: "visible" });
+    expect(await heroStage.getByRole("button", { name: /^Fit text: / }).count()).toBe(0);
+    await toolbar.getByLabel("Selection color").fill("#ff0000");
+    await expect.poll(() => savedElement("hero", "clipped").color).toBe("#ff0000");
+    await toolbar.getByRole("button", { name: "Fit text" }).click();
+    await expect.poll(() => textSize("clipped")).toBe(66);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => textSize("clipped")).toBe(100);
+    await expect.poll(() => savedElement("hero", "clipped").color).not.toBe("#ff0000");
+
+    // Without a selection the hint on the artboard offers the same fix.
+    await page.getByTestId("canvas-viewport").click({ position: { x: 8, y: 240 } });
+    await expect.poll(() => heroStage.getAttribute("data-selection-count")).toBe("0");
     await heroStage.getByRole("button", { name: "Fit text: A B C" }).click();
     await expect.poll(() => textSize("clipped")).toBe(66);
     await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("0");

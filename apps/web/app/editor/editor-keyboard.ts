@@ -16,7 +16,23 @@ export type EditorKeyboardCommand =
   | "templates"
   | "delete"
   | "add-text"
-  | "add-shape";
+  | "add-shape"
+  | "nudge";
+
+const NUDGE_DIRECTIONS: Record<string, { x: number; y: number }> = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+};
+
+/** Handoff § 6: arrows nudge the selection 10 px, 50 px with Shift. */
+export function nudgeDelta(key: string, shiftKey: boolean): { x: number; y: number } | null {
+  const direction = NUDGE_DIRECTIONS[key];
+  if (!direction) return null;
+  const step = shiftKey ? 50 : 10;
+  return { x: direction.x * step, y: direction.y * step };
+}
 
 export interface EditorKeyboardInput {
   key: string;
@@ -27,6 +43,8 @@ export interface EditorKeyboardInput {
   shiftKey: boolean;
   interactive: boolean;
   modalOpen: boolean;
+  /** A non-modal menu is open; its arrow keys move between items. */
+  menuOpen: boolean;
   canUndo: boolean;
   canRedo: boolean;
   hasSelection: boolean;
@@ -46,6 +64,7 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
   if (modifier && input.key === "/") return "templates";
   if (input.metaKey || input.ctrlKey || input.altKey) return null;
   if (input.key === "Delete" || input.key === "Backspace") return input.hasSelection ? "delete" : null;
+  if (nudgeDelta(input.key, false)) return input.hasSelection && !input.menuOpen ? "nudge" : null;
   if (key === "t") return "add-text";
   if (key === "r") return "add-shape";
   return null;
@@ -69,6 +88,7 @@ export function useEditorKeyboardRouting(onOpenDialog: (dialog: ResourceDialog) 
         shiftKey: event.shiftKey,
         interactive: isInteractiveTarget(event.target),
         modalOpen: Boolean(document.querySelector("[role='dialog'][aria-modal='true']")),
+        menuOpen: Boolean(document.querySelector("[role='menu']:not([hidden])")),
         canUndo: state.historyPast.length > 0,
         canRedo: state.historyFuture.length > 0,
         hasSelection: state.selectedItems.length > 0,
@@ -111,6 +131,11 @@ export function useEditorKeyboardRouting(onOpenDialog: (dialog: ResourceDialog) 
         }
         case "add-shape":
           mutateAndSave(() => editorStore.getState().addElement(createShapeElement()));
+          return;
+        case "nudge": {
+          const delta = nudgeDelta(event.key, event.shiftKey);
+          if (delta) mutateAndSave(() => editorStore.getState().moveSelected(delta));
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
