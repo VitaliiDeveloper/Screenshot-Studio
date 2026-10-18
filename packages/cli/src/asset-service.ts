@@ -74,7 +74,7 @@ function assertByte(value: number, name: string): void {
   }
 }
 
-function assertInside(root: string, target: string, label: string): void {
+export function assertInside(root: string, target: string, label: string): void {
   const pathFromRoot = relative(root, target);
   if (
     pathFromRoot === ".." ||

@@ -21,13 +21,16 @@ async function fixture() {
 }
 
 describe("resolveThemeAction", () => {
-  it("accepts set with a slug id", () => {
-    expect(resolveThemeAction(["set", "midnight"])).toEqual({ kind: "set", id: "midnight" });
+  it("accepts list and set with a slug id", () => {
+    expect(resolveThemeAction(["list"])).toEqual({ kind: "list" });
+    expect(resolveThemeAction(["set", "midnight"])).toEqual({ kind: "set", id: "midnight", builtIn: false });
+    expect(resolveThemeAction(["set", "neutral-default"], { "built-in": "true" }))
+      .toEqual({ kind: "set", id: "neutral-default", builtIn: true });
   });
 
   it("rejects traversal and incomplete commands", () => {
     expect(() => resolveThemeAction(["set", "../bad"])).toThrow(/lowercase slug/);
-    expect(() => resolveThemeAction(["list"])).toThrow(/theme set/);
+    expect(() => resolveThemeAction(["set"])).toThrow(/theme <list\|set/);
   });
 });
 
@@ -38,6 +41,21 @@ describe("runThemeCommand", () => {
       .resolves.toBe('Applied theme "Midnight" (midnight)');
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.layouts[0].screens[0].elements[0]).toMatchObject({ role: "heading", color: "#F8FAFC", fontFamily: "Inter", weight: 700 });
+  });
+
+  it("lists built-in design packs and project themes", async () => {
+    const { projectPath } = await fixture();
+    await expect(runThemeCommand(projectPath, ["list"]))
+      .resolves.toBe("built-in neutral-default Neutral default\nproject midnight Midnight");
+  });
+
+  it("applies a built-in design pack only when --built-in is explicit", async () => {
+    const { projectPath } = await fixture();
+    await expect(runThemeCommand(projectPath, ["set", "neutral-default"])).rejects.toThrow(/not found/);
+    await expect(runThemeCommand(projectPath, ["set", "neutral-default"], { "built-in": "true" }))
+      .resolves.toBe('Applied built-in design pack "Neutral default" (neutral-default)');
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.layouts[0].screens[0].elements[0]).toMatchObject({ role: "heading", color: "#0F172A", fontFamily: "Screenshot Studio Sans" });
   });
 
   it("does not write when a theme is invalid", async () => {

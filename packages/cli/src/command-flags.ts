@@ -23,11 +23,13 @@ export const COMMAND_FLAG_SPECS = {
   dev: { value: ["project", "store-specs", "port"], boolean: [] },
   import: { value: ["project", "store-specs", "layout"], boolean: [] },
   font: { value: ["project", "weight", "google", "family"], boolean: [] },
-  theme: { value: ["project", "layout"], boolean: [] },
+  theme: { value: ["project", "layout"], boolean: ["built-in"] },
   locale: { value: ["project", "from", "direction", "to", "layout"], boolean: [] },
   asset: { value: ["project", "threshold", "background", "tolerance"], boolean: [] },
   layout: { value: ["project", "name", "mode"], boolean: [] },
   setup: { value: [], boolean: [] },
+  template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in"] },
+  element: { value: ["project", "layout", "screen", "locale"], boolean: ["all-sizes"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;
@@ -44,6 +46,10 @@ export function parseCommandFlags(argv: string[], spec: CommandFlagSpec): Parsed
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]!;
+    if (arg === "--") {
+      args.push(...argv.slice(index + 1));
+      break;
+    }
     if (!arg.startsWith("--")) {
       args.push(arg);
       continue;

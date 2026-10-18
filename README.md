@@ -189,6 +189,12 @@ pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.jso
 pnpm screenshots import ./my-app-screenshots/screenshots \
   --layout "Feature campaign" \
   --project ./my-app-screenshots/app-store-screenshots.json
+
+# Add a starter screen, then change its copy and screenshot without editing JSON
+pnpm screenshots template add iphone-starter --built-in --locale en --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots element text <screen-id> <element-id> "Track every run" --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots element media <screen-id> <element-id> assets/captures/01.png --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
 Layout-aware mutations require `--layout <id-or-full-name>` when a project has multiple layouts.
