@@ -3,18 +3,19 @@ import * as React from "react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cx, editorUi } from "./styles.js";
 
+/** A tool-rail item: icon over a short visible caption that the accessible `label` contains. */
 export function ToolButton({
   label,
+  caption,
   active,
-  variant,
   className,
   children,
   ...buttonProps
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "aria-pressed" | "type"> & {
   label: string;
+  caption?: string;
   /** Omit for actions that open a dialog: they are not toggles, so they carry no pressed state. */
   active?: boolean;
-  variant: "tool" | "panel";
   children?: ReactNode;
 }) {
   return (
@@ -25,15 +26,12 @@ export function ToolButton({
       aria-pressed={active}
       className={cx(
         editorUi.toolButton,
-        active
-          ? variant === "tool"
-            ? editorUi.toolButtonToolActive
-            : editorUi.toolButtonPanelActive
-          : editorUi.toolButtonInactive,
+        active ? editorUi.toolButtonActive : editorUi.toolButtonInactive,
         className,
       )}
     >
       {children}
+      {caption ? <span>{caption}</span> : null}
     </button>
   );
 }

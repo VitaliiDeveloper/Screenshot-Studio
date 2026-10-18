@@ -71,9 +71,7 @@ describe("project creation terminology", () => {
   it("keeps the add-screen action available in every exact-size editing scope", () => {
     expect(screensSection).toContain('ariaLabel="Add screen"');
     // The Screens → Layers tree scrolls with the panel; its header and add action stay pinned.
-    expect(screensSection).toContain(
-      'className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-white px-3 py-3"',
-    );
+    expect(screensSection).toMatch(/<header className="sticky top-0 z-10 /);
     expect(screensSection).not.toContain("Back to primary size");
     expect(screensSection).not.toContain("Primary size");
     expect(screensSection).not.toContain("Return to master");

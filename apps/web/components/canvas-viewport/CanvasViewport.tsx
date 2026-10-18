@@ -6,6 +6,7 @@ import { useStore } from "zustand";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import {
   CANVAS_PADDING,
   workspaceEditingScope,
@@ -39,6 +40,7 @@ export function CanvasViewport({
   leftInset = 0,
   rightInset = 0,
   controlsHidden = false,
+  issues,
 }: {
   images: ImageCache;
   specs: StoreSpecs | null;
@@ -51,6 +53,7 @@ export function CanvasViewport({
   leftInset?: number;
   rightInset?: number;
   controlsHidden?: boolean;
+  issues?: readonly ProjectIssue[];
 }) {
   const project = useStore(editorStore, (state) => state.project);
   const layout = useStore(editorStore, selectEditorLayout);
@@ -115,6 +118,7 @@ export function CanvasViewport({
       view={view}
       images={images}
       zoom={zoom}
+      issues={issues}
     />
   );
 
@@ -157,6 +161,7 @@ export function CanvasViewport({
                     activeScreenId={activeScreenId}
                     images={images}
                     zoom={zoom}
+                    issues={issues}
                     onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
                 )) : (

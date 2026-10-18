@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { preferredAuthoringFont, type Element } from "@screenshot-studio/core/model";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { createBadgePrimitive, createDeviceFrameElement, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
   ADD_CATEGORIES,
@@ -26,6 +28,7 @@ import {
   type AddCatalogItem,
   type ResourceDialog,
   type WorkspacePanel,
+  type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
@@ -56,8 +59,8 @@ function PanelHeader({
   backLabel?: string;
 }) {
   return (
-    <header className="flex min-h-14 items-center justify-between border-b border-slate-200 px-3">
-      <h2 className="text-sm font-semibold tracking-tight text-slate-950">{title}</h2>
+    <header className="flex min-h-14 items-center justify-between border-b border-[var(--editor-color-border)] px-3">
+      <h2 className="text-sm font-semibold tracking-tight text-[color:var(--editor-color-text-strong)]">{title}</h2>
       <button
         type="button"
         aria-label={backLabel ?? `Close ${title.toLowerCase()} panel`}
@@ -189,6 +192,9 @@ function AddPanel({
 export function LeftPanel({
   panel,
   images,
+  view,
+  specs,
+  issues,
   onClose,
   onOpenAdd,
   onOpenDialog,
@@ -196,6 +202,9 @@ export function LeftPanel({
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
+  view: WorkspaceView;
+  specs: StoreSpecs;
+  issues: readonly ProjectIssue[];
   onClose: () => void;
   onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
@@ -204,12 +213,15 @@ export function LeftPanel({
   const title = panel === "structure" ? "Layers" : "Add";
 
   return (
-    <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
+    <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
       <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to layers" : undefined} />
       {panel === "structure" ? (
         <div className="editor-scroll-area min-h-0 flex-1 overflow-y-auto">
           <ScreensSection
             images={images}
+            view={view}
+            specs={specs}
+            issues={issues}
             onOpenDialog={onOpenDialog}
             onImportCaptures={onImportCaptures}
             onOpenAdd={onOpenAdd}

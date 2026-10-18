@@ -77,7 +77,20 @@ managed project advertises archive-export capability.
 
 The Layers panel presents one **Screens → Layers** tree for the current exact-size scope. The active screen
 expands to its layers, front-most first; layer reorder applies only to the active screen, and every
-layer row has a direct lock toggle.
+layer row has a direct lock toggle. Layer rows are one line. A text layer is labelled by its text
+(about 30 characters, cut with `…`) unless it has been renamed, in which case the name wins; the
+full text is then the row's tooltip and accessible description. Built-in templates leave text
+layers unnamed, and Issues and the Inspector use the same label.
+The Screens header names the scope as `Screens · count · locale · iPhone 6.9"` in Focus and ends
+with the number of sizes in Overview. A screen row shows its thumbnail, name, and
+`N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
+whose slot has an issue on any size turns amber and shows the first issue, such as
+`6.3": text overflows`, instead of that count. Thumbnails keep their order number because export
+file names use it. Layer rows show a type icon (rectangle and ellipse shapes differ), the name, and the lock; a
+locked layer is muted and keeps a dark, closed lock. One selected layer gets the solid accent fill, several get a light fill.
+Each row's drag handle and Delete or More actions appear on hover and whenever focus is inside
+the row, so the handle stays the keyboard path for reorder. Without hover (touch), hidden controls
+ignore taps; they become available on the selected layer or active screen row.
 
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object
@@ -191,6 +204,19 @@ only.
 direction, destination, exact store size with its export pixels, and layout that the screen
 persists. Another locale or size is another screen, so none of these change in place.
 
+### Canvas
+
+Canvas overlays are editor-only: they are drawn over the stage and never reach the renderer or
+export.
+
+A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:
+an amber frame on the layer box, which stays the box the layer is moved and resized by, and a dashed
+amber outline over the height the text would take without the box limit. The canvas reads the same
+Issues, so it never measures fit a second time and stays empty until project fonts have loaded. On
+the editable artboard a **Fit text** hint at the box's bottom-left corner applies the same fix as
+Issues, on that screen only, as one undo step; it is disabled when even 1 px does not fit. The state
+steps aside while a layer is dragged, transformed, or edited inline.
+
 ### Projects and Workspace navigation
 
 `/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows
@@ -212,7 +238,9 @@ remains a compatibility route for sessions whose Project Library entry identity 
 Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
 rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, and one
 entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
-dialog rather than an intermediate panel. Its bottom
+dialog rather than an intermediate panel. Every item carries a short caption under its icon
+(Select, Hand, Layers, Templates, Packs, Fonts, Locales, Projects) that its accessible name contains,
+and active items get the light accent fill. Its bottom
 `Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`

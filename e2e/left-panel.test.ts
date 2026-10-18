@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser, type Locator } from "playwright";
 import { cpSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -47,6 +47,15 @@ function elementIds(): string[] {
 function screenIds(): string[] {
   const project = JSON.parse(readFileSync(projectFile, "utf8"));
   return project.layouts[0].screens.map((screen: { id: string }) => screen.id);
+}
+
+function savedElement(id: string): { name?: string; locked?: boolean } | undefined {
+  const project = JSON.parse(readFileSync(projectFile, "utf8"));
+  return project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === id);
+}
+
+function opacity(locator: Locator): Promise<string> {
+  return locator.evaluate((node) => getComputedStyle(node).opacity);
 }
 
 function elementName(id: string): string | undefined {
@@ -112,6 +121,65 @@ describe("left panel", () => {
     await page.getByRole("button", { name: "Edit Save Fast", exact: true }).first().click();
     await page.getByRole("list", { name: "Layers for Save Fast", exact: true }).waitFor({ timeout: 5_000 });
     await page.close();
+  });
+
+  it("captions the rail and reveals row controls on hover and keyboard focus", async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 940 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const rail = page.getByRole("navigation", { name: "Editor tools" });
+    await rail.waitFor();
+    for (const caption of ["Select", "Hand", "Layers", "Templates", "Packs", "Fonts", "Locales", "Projects"]) {
+      expect(await rail.getByText(caption, { exact: true }).isVisible()).toBe(true);
+    }
+    expect(await page.getByRole("button", { name: "Design packs", exact: true }).isVisible()).toBe(true);
+    // Workspace opens in Overview: the header counts sizes and screen rows count each screen's sizes.
+    await page.getByText(/^· 3 · EN · 2 sizes$/).waitFor();
+    expect(await page.getByRole("button", { name: "Save Fast · iphone", exact: true }).textContent()).toContain("1 size");
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await page.getByText(/^· 3 · EN · iPhone 6\.3"$/).waitFor();
+
+    const saveFast = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
+    const deleteSaveFast = page.getByRole("button", { name: "Delete Save Fast", exact: true });
+    await saveFast.waitFor();
+    expect(await opacity(deleteSaveFast)).toBe("0");
+    await saveFast.hover();
+    await expect.poll(() => opacity(deleteSaveFast)).toBe("1");
+    await page.mouse.move(1200, 900);
+    await expect.poll(() => opacity(deleteSaveFast)).toBe("0");
+    await saveFast.focus();
+    await expect.poll(() => opacity(deleteSaveFast)).toBe("1");
+
+    const layers = page.getByRole("list", { name: "Layers for Hero", exact: true });
+    const support = layers.getByRole("button", { name: "Hero support", exact: true });
+    await support.click();
+    await layers.getByRole("button", { name: "Shipments app", exact: true }).click({ modifiers: ["Shift"] });
+    await expect.poll(() => page.getByRole("button", { name: "Hero · iphone", exact: true }).textContent())
+      .toContain("5 layers · 2 selected");
+    expect(await support.getAttribute("aria-pressed")).toBe("true");
+
+    await layers.getByRole("button", { name: "Lock Hero support", exact: true }).click();
+    await layers.getByRole("button", { name: "Unlock Hero support", exact: true }).waitFor();
+    await expect.poll(() => savedElement("hero-support")?.locked, { timeout: 10_000 }).toBe(true);
+    await page.close();
+  });
+
+  it("keeps hidden row controls out of reach of taps until the row is selected", async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 1200 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    expect(await page.evaluate(() => matchMedia("(hover: none)").matches)).toBe(true);
+    const layers = page.getByRole("list", { name: "Layers for Hero", exact: true });
+    await layers.waitFor();
+    const more = layers.getByRole("button", { name: "More actions for Shipments app", exact: true });
+    const pointerEvents = () => more.evaluate((node) => getComputedStyle(node).pointerEvents);
+    expect(await pointerEvents()).toBe("none");
+
+    await layers.getByRole("button", { name: "Shipments app", exact: true }).tap();
+    await expect.poll(pointerEvents).toBe("auto");
+    expect(await opacity(more)).toBe("1");
+    await more.tap();
+    await page.getByRole("menu", { name: "Shipments app actions", exact: true }).waitFor();
+    await context.close();
   });
 
   it("reorders and deletes screens through the Structure panel", async () => {

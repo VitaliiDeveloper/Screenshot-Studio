@@ -37,61 +37,50 @@ export function ToolRail({
   return (
     <nav
       aria-label="Editor tools"
-      className="z-40 flex h-full w-15 shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white px-1.5 py-3"
+      className="z-40 flex h-full w-15 shrink-0 flex-col items-center gap-0.5 border-r border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] py-2"
     >
-      <ToolButton
-        label="Select tool"
-        active={tool === "select"}
-        variant="tool"
-        onClick={() => onToolChange("select")}
-      >
-        <MousePointer2 size={18} strokeWidth={1.9} />
+      <ToolButton label="Select tool" caption="Select" active={tool === "select"} onClick={() => onToolChange("select")}>
+        <MousePointer2 size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton
-        label="Hand tool"
-        active={tool === "hand"}
-        variant="tool"
-        onClick={() => onToolChange("hand")}
-      >
-        <Hand size={18} strokeWidth={1.9} />
+      <ToolButton label="Hand tool" caption="Hand" active={tool === "hand"} onClick={() => onToolChange("hand")}>
+        <Hand size={16} strokeWidth={1.9} />
       </ToolButton>
 
-      <span className="my-2 h-px w-7 bg-slate-200" aria-hidden="true" />
+      <span className="my-1.5 h-px w-7 bg-[var(--editor-color-border)]" aria-hidden="true" />
 
       <ToolButton
         label="Layers panel"
+        caption="Layers"
         active={panel === "structure"}
-        variant="panel"
         onClick={() => onPanelToggle("structure")}
       >
-        <Layers3 size={18} strokeWidth={1.9} />
+        <Layers3 size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Screen templates" variant="panel" aria-haspopup="dialog" onClick={() => onOpenDialog("templates")}>
-        <LayoutTemplate size={18} strokeWidth={1.9} />
+      <ToolButton label="Screen templates" caption="Templates" aria-haspopup="dialog" onClick={() => onOpenDialog("templates")}>
+        <LayoutTemplate size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Design packs" variant="panel" aria-haspopup="dialog" onClick={() => onOpenDialog("themes")}>
-        <Palette size={18} strokeWidth={1.9} />
+      {/* The caption must stay inside the accessible name (WCAG 2.5.3), so it is "Packs", not "Themes". */}
+      <ToolButton label="Design packs" caption="Packs" aria-haspopup="dialog" onClick={() => onOpenDialog("themes")}>
+        <Palette size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Fonts" variant="panel" aria-haspopup="dialog" onClick={() => onOpenDialog("fonts")}>
-        <Type size={18} strokeWidth={1.9} />
+      <ToolButton label="Fonts" caption="Fonts" aria-haspopup="dialog" onClick={() => onOpenDialog("fonts")}>
+        <Type size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Locales" variant="panel" aria-haspopup="dialog" onClick={onOpenLocales}>
-        <Languages size={18} strokeWidth={1.9} />
+      <ToolButton label="Locales" caption="Locales" aria-haspopup="dialog" onClick={onOpenLocales}>
+        <Languages size={16} strokeWidth={1.9} />
       </ToolButton>
 
-      <button
-        type="button"
-        aria-label="Projects"
-        title="Projects"
+      <ToolButton
+        label="Projects"
+        caption="Projects"
         disabled={projectsBusy}
         onClick={onOpenProjects}
-        className="mt-auto grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60"
+        className="mt-auto disabled:cursor-wait disabled:opacity-60"
       >
         {projectsBusy
-          ? <LoaderCircle aria-hidden="true" className="size-[18px] animate-spin motion-reduce:animate-none" />
-          : <House aria-hidden="true" size={18} strokeWidth={1.9} />}
-      </button>
-
+          ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+          : <House aria-hidden="true" size={16} strokeWidth={1.9} />}
+      </ToolButton>
     </nav>
   );
 }

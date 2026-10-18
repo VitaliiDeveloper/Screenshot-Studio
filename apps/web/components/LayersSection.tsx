@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { Fragment, useEffect, useId, useRef, useState, type ButtonHTMLAttributes } from "react";
 import { useStore } from "zustand";
 import {
   Box,
+  Circle,
   Copy,
   Eye,
   EyeOff,
@@ -33,8 +34,8 @@ import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { elementLabel, viewToArrayIndex } from "@web/lib/panel-helpers";
-import { SortableRow } from "./SortableRow";
+import { elementLabel, elementTextDescription, viewToArrayIndex } from "@web/lib/panel-helpers";
+import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 import { cx, editorUi } from "./editor-ui";
 
@@ -48,10 +49,10 @@ export function LayersHeading({
   showScreenContext: boolean;
 }) {
   return (
-    <h3 className="flex min-w-0 items-center gap-1.5 text-[10px] font-normal uppercase tracking-[0.09em] text-slate-500">
+    <h3 className={cx(editorUi.sectionLabel, "flex min-w-0 items-center gap-1.5")}>
       <span>Layers</span>
-      {showScreenContext ? <span className="truncate normal-case tracking-normal text-slate-500">· {screenName}</span> : null}
-      <span className="shrink-0 font-medium tabular-nums tracking-normal text-slate-400">{count}</span>
+      {showScreenContext ? <span className="truncate normal-case tracking-normal">· {screenName}</span> : null}
+      <span className="shrink-0 font-medium tabular-nums tracking-normal">{count}</span>
     </h3>
   );
 }
@@ -65,18 +66,101 @@ const elementIcons: Partial<Record<Element["type"], LucideIcon>> = {
   "device-frame": Smartphone,
 };
 
-function ElementTypeIcon({ element }: { element: Element }) {
-  const Icon = elementIcons[element.type] ?? Box;
+function ElementTypeIcon({ element, className }: { element: Element; className: string }) {
+  const Icon = element.type === "shape" && element.kind === "ellipse" ? Circle : elementIcons[element.type] ?? Box;
   return (
-    <span
-      aria-hidden="true"
-      className={cx(
-        "inline-flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400",
-        element.visible ? "" : "opacity-50",
-      )}
-    >
+    <span aria-hidden="true" className={cx("inline-flex w-3.5 shrink-0 justify-center", className, !element.visible && "opacity-50")}>
       <Icon size={14} strokeWidth={1.7} />
     </span>
+  );
+}
+
+/** Row fill for a layer: idle, one of several selected (light), or the only selection (solid accent). */
+type LayerTone = "idle" | "soft" | "solid";
+
+const layerRowTone: Record<LayerTone, string> = {
+  idle: "hover:bg-[var(--editor-color-surface-subtle)] focus-within:bg-[var(--editor-color-surface-subtle)]",
+  soft: "bg-[var(--editor-color-accent-muted)]",
+  solid: "bg-[var(--editor-color-accent)]",
+};
+const layerTextTone: Record<LayerTone, string> = {
+  idle: "text-[color:var(--editor-color-text-default)]",
+  soft: "text-[color:var(--editor-color-accent-strong)]",
+  solid: "text-[color:var(--editor-color-on-accent)]",
+};
+const layerIconTone: Record<LayerTone, string> = {
+  idle: "text-[color:var(--editor-color-text-subtle)]",
+  soft: "text-[color:var(--editor-color-accent-hover)]",
+  solid: "text-[color:var(--editor-color-on-accent)]",
+};
+/** Icon buttons in a layer row: color plus a focus ring that stays visible on the row fill. */
+const layerButtonTone: Record<LayerTone, string> = {
+  idle: "text-[color:var(--editor-color-text-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:ring-[var(--editor-color-focus)]",
+  soft: "text-[color:var(--editor-color-accent-hover)] hover:text-[color:var(--editor-color-accent-strong)] focus-visible:ring-[var(--editor-color-focus)]",
+  solid: "text-[color:var(--editor-color-on-media-muted)] hover:text-[color:var(--editor-color-on-accent)] focus-visible:ring-[var(--editor-color-on-accent)]",
+};
+const lockedButtonTone: Record<LayerTone, string> = {
+  idle: "text-[color:var(--editor-color-text-strong)] focus-visible:ring-[var(--editor-color-focus)]",
+  soft: "text-[color:var(--editor-color-accent-strong)] focus-visible:ring-[var(--editor-color-focus)]",
+  solid: "text-[color:var(--editor-color-on-accent)] focus-visible:ring-[var(--editor-color-on-accent)]",
+};
+const nameFocusTone: Record<LayerTone, string> = {
+  idle: "focus-visible:ring-[var(--editor-color-focus)]",
+  soft: "focus-visible:ring-[var(--editor-color-focus)]",
+  solid: "focus-visible:ring-[var(--editor-color-on-accent)]",
+};
+/**
+ * Hover controls float over the end of the name, left of the always-visible lock, so hidden ones
+ * take no room from it; `bg-inherit` takes the row fill so the name does not show through.
+ */
+const overlayNearLock = "absolute right-[30px] top-1/2 -translate-y-1/2 bg-inherit";
+const overlayBeforeThat = "absolute right-[56px] top-1/2 -translate-y-1/2 bg-inherit";
+const menuItemBase = "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
+const menuItem = `${menuItemBase} text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`;
+const menuItemDanger = `${menuItemBase} text-[color:var(--editor-color-danger)] hover:bg-[var(--editor-color-danger-surface)]`;
+
+function layerNameClass(element: Element, tone: LayerTone): string {
+  return cx(
+    "text-xs focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)]",
+    nameFocusTone[tone],
+    tone === "idle" && (element.locked || !element.visible)
+      ? "text-[color:var(--editor-color-text-secondary)]"
+      : layerTextTone[tone],
+    !element.visible && "line-through",
+  );
+}
+
+/** A row's lock toggle icon, with a solid body as in mockups 6a and 6f. */
+function LockIcon({ locked }: { locked: boolean }) {
+  const Icon = locked ? Lock : LockOpen;
+  return <Icon size={12} strokeWidth={locked ? 2 : 1.8} className="[&_rect]:fill-current" />;
+}
+
+/**
+ * A layer row's one-line select button. A text layer's full text, when the label does not already
+ * show it, is the tooltip and accessible description; otherwise the tooltip is the cut-off label.
+ * The accessible name stays the label.
+ */
+export function LayerNameButton({
+  element,
+  className,
+  ...props
+}: { element: Element } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">) {
+  const descriptionId = useId();
+  const label = elementLabel(element);
+  const description = elementTextDescription(element);
+  return (
+    <button
+      type="button"
+      {...props}
+      aria-label={label}
+      aria-describedby={description ? descriptionId : undefined}
+      title={description ?? label}
+      className={cx("min-w-0 flex-1 truncate rounded-md px-1 py-0.5 text-left", className)}
+    >
+      {label}
+      {description ? <span id={descriptionId} hidden>{description}</span> : null}
+    </button>
   );
 }
 
@@ -157,43 +241,58 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
       screenId: activeScreenId,
     }));
 
+  const toneFor = (selected: boolean): LayerTone => !selected ? "idle" : selectedItems.length > 1 ? "soft" : "solid";
+
   return (
-    <div className="pb-2 pl-6">
-      <header className="px-3 py-1.5">
-        <div className="flex items-center justify-between">
-          <LayersHeading
-            count={rows.length}
-            screenName={screen.name}
-            showScreenContext={layout.mode === "connected"}
-          />
-          <button
-            type="button"
-            aria-label="Add element"
-            title="Add element"
-            className={editorUi.compactAddButton}
-            onClick={onOpenAdd}
-          >
-            <Plus size={14} strokeWidth={2} />
-          </button>
-        </div>
+    <div className="pb-1">
+      <header className="flex items-center justify-between py-1 pl-[42px] pr-3">
+        <LayersHeading
+          count={rows.length}
+          screenName={screen.name}
+          showScreenContext={layout.mode === "connected"}
+        />
+        <button
+          type="button"
+          aria-label="Add element"
+          title="Add element"
+          className={editorUi.compactAddButton}
+          onClick={onOpenAdd}
+        >
+          <Plus size={14} strokeWidth={2} />
+        </button>
       </header>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rows.map((el) => el.id)} strategy={verticalListSortingStrategy}>
           <div role="list" aria-label={`Layers for ${screen.name}`}>
             {rows.map((el) => {
               const selected = isSelected(selectedItems, { screenId: activeScreenId, elementId: el.id });
+              const tone = toneFor(selected);
+              const menuOpen = openActionsId === el.id;
+              // The floating controls would cover the rename field; nothing reorders mid-rename.
+              const editing = renaming?.id === el.id;
               return (
               <Fragment key={el.id}>
               <SortableRow
                 id={el.id}
                 role="listitem"
-                className={cx(
-                  "relative pr-1 text-xs",
-                  selected ? "bg-blue-50 ring-1 ring-blue-100" : undefined,
-                )}
+                className={cx("mx-2 my-px min-h-8 gap-2 rounded-[7px] py-1 pl-[34px] pr-1", layerRowTone[tone])}
+                handleClassName={cx(layerButtonTone[tone], overlayNearLock)}
+                hideHandle={editing}
+                selected={selected}
+                trailing={
+                  <button
+                    type="button"
+                    aria-label={el.locked ? `Unlock ${elementLabel(el)}` : `Lock ${elementLabel(el)}`}
+                    title={el.locked ? "Unlock layer" : "Lock layer"}
+                    className={cx(treeRowButton, el.locked ? lockedButtonTone[tone] : layerButtonTone[tone])}
+                    onClick={() => patch(el, { locked: !el.locked })}
+                  >
+                    <LockIcon locked={el.locked} />
+                  </button>
+                }
               >
-                <ElementTypeIcon element={el} />
-                {renaming?.id === el.id ? (
+                <ElementTypeIcon element={el} className={layerIconTone[tone]} />
+                {editing ? (
                   <input
                     autoFocus
                     value={renaming.value}
@@ -203,10 +302,11 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                       if (ev.key === "Enter") { patch(el, { name: renaming.value }); setRenaming(null); }
                       if (ev.key === "Escape") setRenaming(null);
                     }}
-                    className="h-8 min-w-0 flex-1 rounded-lg border border-blue-400 bg-white px-2 text-xs outline-none ring-2 ring-blue-500/15"
+                    className="h-7 min-w-0 flex-1 rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-focus-border)] bg-[var(--editor-color-surface)] px-2 text-xs text-[color:var(--editor-color-text)] outline-none ring-2 ring-[var(--editor-color-focus-subtle)]"
                   />
                 ) : (
-                  <button
+                  <LayerNameButton
+                    element={el}
                     onClick={(event) => {
                       setOpenActionsId(null);
                       editorStore.getState().select(
@@ -217,28 +317,10 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     }}
                     onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
                     aria-pressed={selected}
-                    className={`min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
-                      selected
-                        ? "text-blue-700"
-                        : "text-slate-700"
-                    } ${el.visible ? "" : "text-slate-400 line-through"}`}
-                  >
-                    {elementLabel(el)}
-                  </button>
+                    className={layerNameClass(el, tone)}
+                  />
                 )}
-                <button
-                  type="button"
-                  aria-label={el.locked ? `Unlock ${elementLabel(el)}` : `Lock ${elementLabel(el)}`}
-                  title={el.locked ? "Unlock layer" : "Lock layer"}
-                  className={cx(
-                    editorUi.rowIconButton,
-                    el.locked ? "text-slate-700" : "opacity-60",
-                  )}
-                  onClick={() => patch(el, { locked: !el.locked })}
-                >
-                  {el.locked ? <Lock size={12} strokeWidth={2} /> : <LockOpen size={12} strokeWidth={1.8} />}
-                </button>
-                <button
+                {editing ? null : <button
                   ref={(node) => {
                     if (node) actionButtonRefs.current.set(el.id, node);
                     else actionButtonRefs.current.delete(el.id);
@@ -246,11 +328,12 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                   type="button"
                   aria-label={`More actions for ${elementLabel(el)}`}
                   title={`Actions for ${elementLabel(el)}`}
-                  aria-expanded={openActionsId === el.id}
+                  aria-expanded={menuOpen}
                   className={cx(
-                    editorUi.iconButton,
-                    "size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                    openActionsId === el.id ? "bg-white text-slate-700 opacity-100 shadow-sm" : "",
+                    treeRowButton,
+                    menuOpen
+                      ? "absolute right-[56px] top-1/2 -translate-y-1/2 bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-default)] shadow-[var(--editor-shadow-control)] focus-visible:ring-[var(--editor-color-focus)]"
+                      : cx(layerButtonTone[tone], rowHoverControl, overlayBeforeThat),
                   )}
                   onClick={() => {
                     setOpenActionsUpward(false);
@@ -258,14 +341,14 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                   }}
                 >
                   <MoreHorizontal size={14} strokeWidth={1.9} />
-                </button>
-                {openActionsId === el.id ? (
+                </button>}
+                {menuOpen ? (
                   <div
                     ref={menuRef}
                     role="menu"
                     aria-label={`${elementLabel(el)} actions`}
                     className={cx(
-                      "absolute right-1 z-30 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/10",
+                      "absolute right-1 z-30 w-36 rounded-lg border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-menu)]",
                       openActionsUpward ? "bottom-8" : "top-8",
                     )}
                     onKeyDown={(event) => {
@@ -280,7 +363,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                         setOpenActionsId(null);
                       }}
                       aria-label="Rename layer"
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      className={menuItem}
                     >
                       <Pencil size={13} strokeWidth={1.8} />
                       Rename
@@ -296,7 +379,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                             setOpenActionsId(null);
                           }}
                           aria-label="Duplicate group"
-                          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          className={menuItem}
                         >
                           <Copy size={13} strokeWidth={1.8} /> Duplicate
                         </button>
@@ -309,7 +392,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                             setOpenActionsId(null);
                           }}
                           aria-label="Ungroup layer"
-                          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          className={menuItem}
                         >
                           <Ungroup size={13} strokeWidth={1.8} /> Ungroup
                         </button>
@@ -323,7 +406,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                         setOpenActionsId(null);
                       }}
                       aria-label={el.visible ? "Hide layer" : "Show layer"}
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      className={menuItem}
                     >
                       {el.visible ? <Eye size={13} strokeWidth={1.8} /> : <EyeOff size={13} strokeWidth={1.8} />}
                       {el.visible ? "Hide" : "Show"}
@@ -336,7 +419,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                         setOpenActionsId(null);
                       }}
                       aria-label={el.locked ? "Unlock layer" : "Lock layer"}
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      className={menuItem}
                     >
                       {el.locked ? <Lock size={13} strokeWidth={1.8} /> : <LockOpen size={13} strokeWidth={1.8} />}
                       {el.locked ? "Unlock" : "Lock"}
@@ -349,7 +432,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                         setOpenActionsId(null);
                       }}
                       aria-label="Delete layer"
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium text-red-600 hover:bg-red-50"
+                      className={menuItemDanger}
                     >
                       <Trash2 size={13} strokeWidth={1.8} />
                       Delete
@@ -358,43 +441,30 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                 ) : null}
               </SortableRow>
               {el.type === "group" ? el.children.map((child) => {
-                const childSelected = isSelected(selectedItems, {
+                const childTone = toneFor(isSelected(selectedItems, {
                   screenId: activeScreenId,
                   elementId: child.id,
-                });
+                }));
                 return (
                   <div
                     key={child.id}
                     role="listitem"
+                    data-selected={childTone !== "idle" || undefined}
                     className={cx(
-                      "mx-2 ml-10 flex min-h-9 items-center gap-1 rounded-lg border-l border-slate-200 px-2 text-[11px]",
-                      childSelected ? "bg-blue-50 ring-1 ring-blue-100" : "bg-slate-50/60",
+                      "group relative mx-2 my-px flex min-h-8 items-center gap-2 rounded-[7px] py-1 pl-[50px] pr-1",
+                      layerRowTone[childTone],
                     )}
                   >
-                    <ElementTypeIcon element={child} />
-                    <button
-                      type="button"
+                    <ElementTypeIcon element={child} className={layerIconTone[childTone]} />
+                    <LayerNameButton
+                      element={child}
                       onClick={() => editorStore.getState().select(child.id, activeScreenId)}
-                      aria-pressed={childSelected}
-                      className={cx(
-                        "min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
-                        childSelected ? "text-blue-700" : "text-slate-600",
-                        !child.visible && "line-through text-slate-400",
-                      )}
-                    >
-                      {elementLabel(child)}
-                    </button>
+                      aria-pressed={childTone !== "idle"}
+                      className={layerNameClass(child, childTone)}
+                    />
                     <button
                       type="button"
-                      className={editorUi.rowIconButton}
-                      aria-label={child.locked ? `Unlock ${elementLabel(child)}` : `Lock ${elementLabel(child)}`}
-                      onClick={() => patch(child, { locked: !child.locked })}
-                    >
-                      {child.locked ? <Lock size={12} /> : <LockOpen size={12} />}
-                    </button>
-                    <button
-                      type="button"
-                      className={editorUi.rowIconButton}
+                      className={cx(treeRowButton, layerButtonTone[childTone], rowHoverControl, overlayBeforeThat)}
                       aria-label={child.visible ? `Hide ${elementLabel(child)}` : `Show ${elementLabel(child)}`}
                       onClick={() => patch(child, { visible: !child.visible })}
                     >
@@ -402,11 +472,26 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
                     </button>
                     <button
                       type="button"
-                      className={editorUi.rowIconButtonDanger}
+                      className={cx(
+                        treeRowButton,
+                        rowHoverControl,
+                        overlayNearLock,
+                        childTone === "solid"
+                          ? layerButtonTone.solid
+                          : "text-[color:var(--editor-color-danger)] hover:bg-[var(--editor-color-danger-surface)] focus-visible:ring-[var(--editor-color-focus)]",
+                      )}
                       aria-label={`Delete ${elementLabel(child)}`}
                       onClick={() => mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId))}
                     >
                       <Trash2 size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={cx(treeRowButton, child.locked ? lockedButtonTone[childTone] : layerButtonTone[childTone])}
+                      aria-label={child.locked ? `Unlock ${elementLabel(child)}` : `Lock ${elementLabel(child)}`}
+                      onClick={() => patch(child, { locked: !child.locked })}
+                    >
+                      <LockIcon locked={child.locked} />
                     </button>
                   </div>
                 );
@@ -418,7 +503,7 @@ export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
         </SortableContext>
       </DndContext>
       {rows.length === 0 ? (
-        <p className="px-4 py-3 text-[11px] text-slate-400">No layers in this screen.</p>
+        <p className="py-2 pl-[42px] pr-3 text-[11px] text-[color:var(--editor-color-text-secondary)]">No layers in this screen.</p>
       ) : null}
     </div>
   );
