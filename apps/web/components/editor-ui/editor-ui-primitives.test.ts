@@ -150,25 +150,26 @@ describe("editor UI primitives", () => {
     expect(compactHtml).not.toContain(editorUi.segmentedButtonDefault);
   });
 
-  it("renders tool and panel buttons with an accessible pressed state", () => {
+  it("renders rail buttons with a visible caption and an accessible pressed state", () => {
     const tool = renderToStaticMarkup(createElement(
       ToolButton,
-      { label: "Select tool", active: true, variant: "tool" },
-      "Select",
+      { label: "Select tool", caption: "Select", active: true },
+      "icon",
     ));
     const panel = renderToStaticMarkup(createElement(
       ToolButton,
-      { label: "Structure panel", active: false, variant: "panel" },
+      { label: "Structure panel", active: false },
       "Structure",
     ));
 
     expect(tool).toContain('type="button"');
     expect(tool).toContain('aria-label="Select tool"');
     expect(tool).toContain('aria-pressed="true"');
-    expect(tool).toContain(editorUi.toolButtonToolActive);
+    expect(tool).toContain("<span>Select</span>");
+    expect(tool).toContain(editorUi.toolButtonActive);
     expect(tool).not.toContain(editorUi.toolButtonInactive);
     expect(panel).toContain('aria-pressed="false"');
-    expect(panel).not.toContain(editorUi.toolButtonPanelActive);
+    expect(panel).not.toContain(editorUi.toolButtonActive);
     expect(panel).toContain(editorUi.toolButtonInactive);
   });
 

@@ -5,13 +5,19 @@ import {
   elementTextDescription,
   screenTreeSummary,
   selectionTypeSummary,
+  sizeCountLabel,
   viewToArrayIndex,
 } from "./panel-helpers.js";
 
 describe("screen tree labels", () => {
   it("counts layers and the screen's selected layers", () => {
     expect(screenTreeSummary(1, 0)).toBe("1 layer");
+    expect(screenTreeSummary(5, 1)).toBe("5 layers");
     expect(screenTreeSummary(5, 3)).toBe("5 layers · 3 selected");
+  });
+  it("counts the sizes a screen exists in for Overview", () => {
+    expect(sizeCountLabel(1)).toBe("1 size");
+    expect(sizeCountLabel(4)).toBe("4 sizes");
   });
   it("summarizes a mixed selection by type in first-seen order", () => {
     expect(selectionTypeSummary([{ type: "text" }, { type: "shape" }, { type: "text" }]))

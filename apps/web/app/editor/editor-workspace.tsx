@@ -272,6 +272,9 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           <LeftPanel
             panel={panel ?? lastPanel}
             images={images}
+            view={view}
+            specs={specs}
+            issues={issues}
             onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}

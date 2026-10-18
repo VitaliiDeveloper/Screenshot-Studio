@@ -45,10 +45,19 @@ export function elementTypeLabel(type: Element["type"]): string {
   return TYPE_LABELS[type];
 }
 
-/** Secondary line of a screen row in the Screens → Layers tree. */
+function countLabel(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** Secondary line of a screen row in Focus; the selected count appears only for a multi-selection. */
 export function screenTreeSummary(layerCount: number, selectedCount: number): string {
-  const layers = `${layerCount} layer${layerCount === 1 ? "" : "s"}`;
-  return selectedCount > 0 ? `${layers} · ${selectedCount} selected` : layers;
+  const layers = countLabel(layerCount, "layer");
+  return selectedCount > 1 ? `${layers} · ${selectedCount} selected` : layers;
+}
+
+/** "1 size" / "4 sizes": a screen row in Overview and the Overview Screens header. */
+export function sizeCountLabel(count: number): string {
+  return countLabel(count, "size");
 }
 
 /** One entry of a selection type breakdown, e.g. "2 text". */
