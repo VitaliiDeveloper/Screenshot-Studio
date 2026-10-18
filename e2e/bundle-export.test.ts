@@ -25,12 +25,12 @@ const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const RGBA_CHANNEL_COUNT = 4;
 
 const expectedPaths = [
-  "apple/iphone/locale-en/01-english-one-6.3.png",
-  "apple/iphone/locale-~002e~002e~002far/01-arabic-one-6.3.png",
-  "apple/iphone/locale-en/02-english-two-6.3.png",
-  "apple/iphone/locale-~002e~002e~002far/02-arabic-two-6.3.png",
-  "apple/ipad/locale-en/01-english-ipad-13.png",
-  "android/phone/locale-en_~0055~0053/01-underscore-android-phone-portrait.png",
+  "apple/iphone/locale-en/size-6.3/01-english-one-6.3.png",
+  "apple/iphone/locale-~002e~002e~002far/size-6.3/01-arabic-one-6.3.png",
+  "apple/iphone/locale-en/size-6.3/02-english-two-6.3.png",
+  "apple/iphone/locale-~002e~002e~002far/size-6.3/02-arabic-two-6.3.png",
+  "apple/ipad/locale-en/size-13/01-english-ipad-13.png",
+  "android/phone/locale-en_~0055~0053/size-phone-portrait/01-underscore-android-phone-portrait.png",
 ];
 
 function pixel(png: PNG, x: number, y: number): [number, number, number] {
@@ -113,7 +113,7 @@ describe("multi-locale bundle export", () => {
     const entry = buildBundleEntries(project, project.preferredExportLayoutId, specs, {}).find((candidate) => candidate.screen.id === variant.id);
     expect(entry).toMatchObject({
       target: { id: "6.5", width: 1284, height: 2778 },
-      relativePath: "apple/iphone/locale-en/01-hero-6.5.png",
+      relativePath: "apple/iphone/locale-en/size-6.5/01-hero-6.5.png",
     });
 
     const server = await startWebServer(undefined, { storeSpecsPath });
@@ -216,11 +216,11 @@ describe("multi-locale bundle export", () => {
       .find((candidate) => candidate.screen.id === variantResult.variant.id);
     expect(entry).toMatchObject({
       target: { id: "ultra-3", width: 422, height: 514 },
-      relativePath: "apple/watchos/locale-en/01-hero-ultra-3.png",
+      relativePath: "apple/watchos/locale-en/size-ultra-3/01-hero-ultra-3.png",
     });
     expect(variantEntry).toMatchObject({
       target: { id: "series-11", width: 416, height: 496 },
-      relativePath: "apple/watchos/locale-en/01-hero-series-11.png",
+      relativePath: "apple/watchos/locale-en/size-series-11/01-hero-series-11.png",
     });
 
     const directory = await mkdtemp(join(tmpdir(), "watchos-output-export-"));

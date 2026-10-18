@@ -17,11 +17,11 @@ const fixtureDirectory = resolve(repoRoot, "fixtures/regressions/connected-canva
 const fixturePath = resolve(fixtureDirectory, "app-store-screenshots.json");
 const storeSpecsPath = resolve(repoRoot, "store-specs.json");
 const expectedPaths = [
-  "apple/iphone/locale-en/01-connected-first-6.3.png",
-  "apple/iphone/locale-en/02-connected-second-6.3.png",
-  "android/phone/locale-en/01-unrelated-phone-portrait.png",
-  "apple/iphone/locale-en/01-connected-first-6.9.png",
-  "apple/iphone/locale-en/02-connected-second-6.9.png",
+  "apple/iphone/locale-en/size-6.3/01-connected-first-6.3.png",
+  "apple/iphone/locale-en/size-6.3/02-connected-second-6.3.png",
+  "android/phone/locale-en/size-phone-portrait/01-unrelated-phone-portrait.png",
+  "apple/iphone/locale-en/size-6.9/01-connected-first-6.9.png",
+  "apple/iphone/locale-en/size-6.9/02-connected-second-6.9.png",
 ];
 
 afterAll(async () => {
