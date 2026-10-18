@@ -168,6 +168,23 @@ selected screen's shows *no matching layer* rather than guessing; a hidden count
 *hidden*. **Fit** on a size sets the largest whole font size that fits that size's layer only, as
 one undo step.
 
+**Apply to** in the Inspector footer chooses which exact-size screens the next edit writes to:
+**Only {size}** (the default), **All {destination}** (every size of the screen's slot), or **All
+destinations** (that slot in every destination of the layout). The text Size field repeats the same
+picker. One edit writes literal values into each screen in scope as a single undo step; it is never
+a per-size override inside a screen, and screens of other locales are never touched. Layer edits
+reach the matching layer on each size by the same structural match as Status by size and skip
+unmatched or locked layers. Pixel metrics (position, size, font size, spacing, shadow, radius) are
+written through the same fit used when a size is created, so they scale with each artboard; every
+other field is copied. In the Screen tab the scope applies to Background. Destinations keep no
+persisted slot link, so **All destinations** matches slots by primary-screen position. The scope is
+editor state only and resets to **Only {size}** when the editor reloads; multi-selection keeps
+editing the selected screen only.
+
+**Stored on this screen** at the top of the Screen tab shows, read-only, the locale and its text
+direction, destination, exact store size with its export pixels, and layout that the screen
+persists. Another locale or size is another screen, so none of these change in place.
+
 ### Projects and Workspace navigation
 
 `/` is the source-neutral Projects surface. When no managed or recent local projects exist, it shows

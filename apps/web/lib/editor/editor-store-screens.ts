@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Background, Element, LayoutDirection } from "@screenshot-studio/core/model";
 import { recordProjectChange } from "./editor-history.js";
+import { applyScopeScreens, type ApplyScope } from "./editor-apply-scope.js";
 import {
   appendBlankScreen,
   appendClonedScreen,
@@ -36,7 +37,7 @@ export interface EditorScreenActions {
   reorderElements: (from: number, to: number) => void;
   removeElement: (id: string, screenId?: string) => void;
   addElement: (element: Element) => void;
-  setBackground: (background: Background) => void;
+  setBackground: (background: Background, scope?: ApplyScope) => void;
   resizeArtboard: (size: { width: number; height: number }) => void;
 }
 
@@ -156,14 +157,16 @@ export function createEditorScreenActions(set: EditorSet): EditorScreenActions {
         );
         return recordProjectChange(state, result.project, null, result);
       }),
-    setBackground: (background) =>
+    setBackground: (background, scope = "screen") =>
       set((state) => {
-        if (!state.project || !state.activeLayoutId || !state.activeScreenId) return state;
-        return recordProjectChange(
-          state,
-          setScreenBackground(state.project, state.activeLayoutId, state.activeScreenId, background),
-          `background:${state.activeScreenId}`,
+        const layout = selectEditorLayout(state);
+        const screen = layout?.screens.find((candidate) => candidate.id === state.activeScreenId);
+        if (!state.project || !state.activeLayoutId || !layout || !screen) return state;
+        const project = applyScopeScreens(layout, screen, scope).reduce(
+          (next, target) => setScreenBackground(next, state.activeLayoutId!, target.id, background),
+          state.project,
         );
+        return recordProjectChange(state, project, `background:${screen.id}:${scope}`);
       }),
     resizeArtboard: (size) =>
       set((state) => {
