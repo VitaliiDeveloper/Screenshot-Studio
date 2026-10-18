@@ -18,9 +18,11 @@ type LabelledElement = Pick<Element, "type" | "name"> & { content?: string };
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
+const flatText = (content: string) => content.replace(/\s+/g, " ").trim();
+
 /** A text layer's content on one line, cut to ~30 characters with "…"; "" when blank. */
 export function textPreview(content: string): string {
-  const flat = content.replace(/\s+/g, " ").trim();
+  const flat = flatText(content);
   const chars = Array.from(graphemes.segment(flat), ({ segment }) => segment);
   return chars.length > TEXT_PREVIEW_LENGTH
     ? `${chars.slice(0, TEXT_PREVIEW_LENGTH).join("").trimEnd()}…`
@@ -32,11 +34,10 @@ export function elementLabel(el: LabelledElement): string {
   return el.name?.trim() || (el.type === "text" ? textPreview(el.content ?? "") : "") || TYPE_LABELS[el.type];
 }
 
-/** Muted second line under a named text layer: the start of its text, or null when it adds nothing. */
-export function elementTextPreview(el: LabelledElement): string | null {
-  const name = el.name?.trim();
-  const preview = el.type === "text" ? textPreview(el.content ?? "") : "";
-  return name && preview && preview.toLowerCase() !== name.toLowerCase() ? preview : null;
+/** A text layer's full text on one line when its label does not already show it all, else null. */
+export function elementTextDescription(el: LabelledElement): string | null {
+  const text = el.type === "text" ? flatText(el.content ?? "") : "";
+  return text && text.toLowerCase() !== elementLabel(el).toLowerCase() ? text : null;
 }
 
 /** The human label for a layer type, e.g. "Device frame". */

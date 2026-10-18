@@ -77,9 +77,10 @@ managed project advertises archive-export capability.
 
 The Layers panel presents one **Screens → Layers** tree for the current exact-size scope. The active screen
 expands to its layers, front-most first; layer reorder applies only to the active screen, and every
-layer row has a direct lock toggle. A named text layer shows its name with the start of its text
-(about 30 characters, cut with `…`) muted below; an unnamed text layer is labelled by that text
-instead of `Text`, and Issues and the Inspector use the same label.
+layer row has a direct lock toggle. Layer rows are one line. A text layer is labelled by its text
+(about 30 characters, cut with `…`) unless it has been renamed, in which case the name wins; the
+full text is then the row's tooltip and accessible description. Built-in templates leave text
+layers unnamed, and Issues and the Inspector use the same label.
 
 Selection is explicit and owner-aware. One editing target is active for insertion and contextual
 controls; multi-selection supports only operations that remain meaningful for every selected object

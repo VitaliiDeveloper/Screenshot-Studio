@@ -33,7 +33,7 @@ import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { elementLabel, elementTextPreview, viewToArrayIndex } from "@web/lib/panel-helpers";
+import { elementLabel, elementTextDescription, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { SortableRow } from "./SortableRow";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 import { cx, editorUi } from "./editor-ui";
@@ -81,31 +81,28 @@ function ElementTypeIcon({ element }: { element: Element }) {
 }
 
 /**
- * A layer row's select button: the label, plus a muted start of the text under a named text layer.
- * The accessible name stays the label; the text preview is its description.
+ * A layer row's one-line select button. A text layer's full text, when the label does not already
+ * show it, is the tooltip and accessible description; the accessible name stays the label.
  */
 export function LayerNameButton({
   element,
   className,
   ...props
 }: { element: Element } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">) {
-  const previewId = useId();
+  const descriptionId = useId();
   const label = elementLabel(element);
-  const preview = elementTextPreview(element);
+  const description = elementTextDescription(element);
   return (
     <button
       type="button"
       {...props}
       aria-label={label}
-      aria-describedby={preview ? previewId : undefined}
-      className={cx("min-w-0 flex-1 rounded-md px-1 py-1 text-left", className)}
+      aria-describedby={description ? descriptionId : undefined}
+      title={description ?? undefined}
+      className={cx("min-w-0 flex-1 truncate rounded-md px-1 py-1 text-left", className)}
     >
-      <span className="block truncate">{label}</span>
-      {preview ? (
-        <span id={previewId} className="block truncate text-[11px] text-[color:var(--editor-color-text-muted)]">
-          {preview}
-        </span>
-      ) : null}
+      {label}
+      {description ? <span id={descriptionId} hidden>{description}</span> : null}
     </button>
   );
 }

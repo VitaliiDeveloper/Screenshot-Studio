@@ -22,15 +22,15 @@ describe("layers heading", () => {
 describe("layer name button", () => {
   const text = { ...createTextElement({}), id: "support", content: "Fast, reliable shipping" };
 
-  it("shows a named text layer's text as a muted description of the name", () => {
+  it("keeps a renamed text layer to one line, with its text as tooltip and description", () => {
     const markup = renderToStaticMarkup(createElement(LayerNameButton, {
       element: { ...text, name: "Hero support" },
     }));
     const describedBy = /aria-describedby="([^"]+)"/.exec(markup)?.[1];
 
     expect(markup).toContain('aria-label="Hero support"');
-    expect(markup).toContain(`id="${describedBy}"`);
-    expect(markup).toContain("Fast, reliable shipping");
+    expect(markup).toContain('title="Fast, reliable shipping"');
+    expect(markup).toContain(`<span id="${describedBy}" hidden="">Fast, reliable shipping</span>`);
   });
 
   it("uses an unnamed text layer's text as its label", () => {
@@ -38,5 +38,6 @@ describe("layer name button", () => {
 
     expect(markup).toContain('aria-label="Fast, reliable shipping"');
     expect(markup).not.toContain("aria-describedby");
+    expect(markup).not.toContain("title=");
   });
 });

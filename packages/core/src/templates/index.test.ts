@@ -129,7 +129,7 @@ describe("built-in templates", () => {
     expect(feature.elements.map((element) => element.name)).toEqual(expect.arrayContaining(["Safe zone guide", "Focal zone guide"]));
     expect(marketingTemplates.every(({ elements }) => (
       elements.some((element) => (
-        element.name === "Editable headline" && "role" in element && element.role === "heading"
+        element.id === "headline" && element.name === undefined && "role" in element && element.role === "heading"
       ))
       && elements.some((element) => (
         element.name === "Accent panel" && "role" in element && element.role === "accent"
