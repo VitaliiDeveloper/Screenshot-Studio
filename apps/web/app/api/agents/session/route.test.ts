@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
 } from "@web/lib/session/project-session.server.js";
+import { PUT as putProject } from "@web/app/api/project/route.js";
 import { handleAgentSessionPost } from "./handler.js";
 import { DELETE, POST } from "./route.js";
 
@@ -146,11 +148,17 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }, 20_000);
 
-  it("cancels the running agent through DELETE", async () => {
+  it("refuses editor saves while the agent runs, then cancels it through DELETE", async () => {
     await fakeClaude("exec /bin/sleep 30");
     const response = await POST(await sessionRequest("POST", undefined, RUN));
     expect(response.status).toBe(200);
     await expect.poll(started, { timeout: 5_000 }).toBe(true);
+
+    const save = await sessionRequest("PUT", undefined, JSON.parse(await readFile(projectPath, "utf8")));
+    save.headers.set("if-match", `"${projectRevision(await readFile(projectPath))}"`);
+    const refused = await putProject(save);
+    expect(refused.status).toBe(423);
+    expect(await refused.json()).toMatchObject({ code: "agent-running" });
 
     expect((await DELETE(await sessionRequest("DELETE"))).status).toBe(204);
 

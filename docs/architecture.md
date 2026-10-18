@@ -249,6 +249,17 @@ consent storage exists. It runs in the project folder, at most one per project, 
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
 whole process tree.
 
+An agent changes the project only through the `screenshots` CLI, which takes the regular project
+mutation lock per write; the editor's own writers (`PUT /api/project` and every
+`withProjectMutationRequest` route) answer `423 agent-running` while a run is active instead of racing
+it. Before a run the server snapshots `app-store-screenshots.json`; after the process tree is dead it
+reads the file back through the strict schema. An invalid or missing document is written back from the
+snapshot and the stream carries `result: rejected` with the reason before `done: failed`; a valid one
+carries `result: accepted` with the changed screen ids and the new revision, and the snapshot stays
+pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it (restore the snapshot
+as one locked write, refused once the editor has written past the run's revision). Undo is per run,
+not per change; snapshots live in server memory, so a restart drops a pending undo.
+
 ## 7. Change rules
 
 - Preserve one Project schema and one browser rendering path.

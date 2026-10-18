@@ -274,6 +274,12 @@ Atomic resource publication and project mutation locking solve related but disti
 does not make a partially written asset safe, and atomic file replacement does not serialize two
 transactions.
 
+An editor-started agent run is a third writer: its `screenshots` CLI child takes this lock for each
+write like any CLI process. The editor's own HTTP writers do not contend with it; they answer
+`423 agent-running` for the run's duration (`apps/web/lib/agents/agent-run-guard.server.ts`), and the
+server restores the pre-run snapshot under this lock when the run leaves an invalid document or the
+user undoes the run (`docs/architecture.md`, § 6).
+
 ## Local filesystem boundary
 
 Screenshot Studio supports this coordinator for processes on one machine accessing one local project

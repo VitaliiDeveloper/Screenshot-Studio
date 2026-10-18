@@ -9,6 +9,7 @@ import {
   writeProjectConditionalAtomic,
 } from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "@screenshot-studio/cli/capture-import-recovery";
+import { agentRunBlockResponse } from "@web/lib/agents/agent-run-guard.server.js";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import {
   withManagedProjectMutationGuard,
@@ -89,6 +90,8 @@ export async function PUT(req: Request): Promise<Response> {
     if (expectedProjectId !== projectId) {
       return jsonError(409, "Active project changed; reload it before saving again");
     }
+    const agentBlock = await agentRunBlockResponse(projectPath);
+    if (agentBlock) return agentBlock;
 
     let project;
     try {

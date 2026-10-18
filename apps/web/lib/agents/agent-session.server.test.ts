@@ -4,14 +4,34 @@ import { access, chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseProject } from "@screenshot-studio/core/model";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "./agents.server.js";
 import {
   AgentRunError,
+  agentRunActive,
   cancelAgentRun,
+  keepAgentOutcome,
+  pendingAgentOutcome,
   startAgentRun,
+  undoAgentOutcome,
   type AgentEvent,
   type AgentRun,
 } from "./agent-session.server.js";
+
+const PROJECT = {
+  meta: { name: "Agents", schemaVersion: 1 },
+  fonts: [],
+  preferredExportLayoutId: "primary",
+  layouts: [{
+    id: "primary", name: "Primary", mode: "isolated",
+    screens: [{
+      id: "hero", name: "Hero", platform: "apple", device: "iphone", locale: "en",
+      artboard: { width: 660, height: 1434 }, background: { type: "solid", color: "#000000" }, elements: [],
+    }],
+  }],
+};
+const CHANGED_PROJECT = { ...PROJECT, meta: { ...PROJECT.meta, name: "Agents DE" } };
+const ACCEPTED = { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: expect.any(String) };
 
 // The fake `claude` answers the registry probes like a signed-in subscription and, for `-p`, records
 // its argv, cwd, env and stdin before running the scenario. PATH holds only the fake directory.
@@ -28,6 +48,8 @@ beforeEach(async () => {
   await mkdir(binDir);
   await mkdir(projectDir);
   await writeFile(join(projectDir, "AGENTS.md"), "# Project guide\n");
+  await writeFile(join(projectDir, "app-store-screenshots.json"), JSON.stringify(PROJECT));
+  await writeFile(join(root, "changed.json"), JSON.stringify(CHANGED_PROJECT));
 });
 
 afterEach(async () => {
@@ -111,8 +133,10 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
 
     const events = await collect(await start());
 
-    expect(events.map(({ type }) => type)).toEqual(["text", "progress", "tool-use", "tool-use", "done"]);
+    expect(events.map(({ type }) => type)).toEqual(["text", "progress", "tool-use", "tool-use", "result", "done"]);
+    expect(events.at(-2)).toEqual(ACCEPTED);
     expect(events.at(-1)).toMatchObject({ type: "done", status: "completed" });
+    expect(await pendingAgentOutcome(projectDir)).toBeNull();
     expect(await readFile(join(root, "cwd"), "utf8")).toBe(`${await realpath(projectDir)}\n`);
     expect(await readFile(join(root, "stdin"), "utf8")).toBe("--bare Add German");
     const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
@@ -132,7 +156,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
     expect(await cancelAgentRun(projectDir)).toBe(true);
 
-    expect(await collect(run)).toEqual([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
+    expect(await collect(run)).toEqual([ACCEPTED, { type: "done", status: "cancelled", summary: null, durationMs: null }]);
     expect(await processGone(join(root, "sleep.pid"))).toBe(true);
     expect(await cancelAgentRun(projectDir)).toBe(false);
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
@@ -168,10 +192,85 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
 
     expect(events).toEqual([
       { type: "error", code: "timeout", message: expect.any(String), resets: null },
+      ACCEPTED,
       { type: "done", status: "failed", summary: null, durationMs: null },
     ]);
     expect(await processGone(join(root, "sleep.pid"))).toBe(true);
   }, 20_000);
+
+  it("rolls an invalid project back to the pre-run snapshot and rejects the result", async () => {
+    await fakeClaude(`printf '{"meta":' > app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+
+    const events = await collect(await start());
+
+    expect(events.slice(-2)).toEqual([
+      { type: "result", status: "rejected", reason: expect.stringMatching(/JSON|token|parse/i), changed: false, changedScreens: [], revision: expect.any(String) },
+      { type: "done", status: "failed", summary: expect.any(String), durationMs: 100000 },
+    ]);
+    // The snapshot is restored as a normalized document (defaults applied), like any CLI write.
+    expect(JSON.parse(await readFile(join(projectDir, "app-store-screenshots.json"), "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await pendingAgentOutcome(projectDir)).toBeNull();
+  });
+
+  it("keeps a pending outcome for an accepted change until it is kept or undone", async () => {
+    const projectFile = join(projectDir, "app-store-screenshots.json");
+    await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+
+    const events = await collect(await start());
+    expect(events.at(-2)).toEqual({ ...ACCEPTED, changed: true, changedScreens: [] });
+    const outcome = await pendingAgentOutcome(projectDir);
+    expect(outcome).toMatchObject({ revision: (events.at(-2) as { revision: string }).revision, changedScreens: [] });
+
+    expect(await undoAgentOutcome(projectDir)).toEqual(outcome);
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await pendingAgentOutcome(projectDir)).toBeNull();
+    expect(await rejection(undoAgentOutcome(projectDir))).toMatchObject({ status: 404, code: "no-outcome" });
+
+    await collect(await start());
+    expect(await keepAgentOutcome(projectDir)).toBe(true);
+    expect(await pendingAgentOutcome(projectDir)).toBeNull();
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(CHANGED_PROJECT);
+    expect(await keepAgentOutcome(projectDir)).toBe(false);
+  });
+
+  it("names the changed screens and refuses undo once the editor wrote past the run", async () => {
+    const projectFile = join(projectDir, "app-store-screenshots.json");
+    const renamed = { ...PROJECT, layouts: [{ ...PROJECT.layouts[0], screens: [{ ...PROJECT.layouts[0]!.screens[0], name: "Hero DE" }] }] };
+    await writeFile(join(root, "changed.json"), JSON.stringify(renamed));
+    await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+
+    const events = await collect(await start());
+    expect(events.at(-2)).toMatchObject({ status: "accepted", changed: true, changedScreens: ["hero"] });
+
+    await writeFile(projectFile, JSON.stringify(CHANGED_PROJECT));
+    expect(await rejection(undoAgentOutcome(projectDir))).toMatchObject({ status: 409, code: "project-changed" });
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(CHANGED_PROJECT);
+  });
+
+  it("reports an active run so editor writes can be refused, and a new run supersedes a pending undo", async () => {
+    await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+    await collect(await start());
+    expect(await pendingAgentOutcome(projectDir)).not.toBeNull();
+
+    await fakeClaude(hang());
+    const run = await start();
+    expect(await agentRunActive(projectDir)).toBe(true);
+    expect(await pendingAgentOutcome(projectDir)).toBeNull();
+    expect(await rejection(undoAgentOutcome(projectDir))).toMatchObject({ status: 404, code: "no-outcome" });
+
+    await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+    await cancelAgentRun(projectDir);
+    await collect(run);
+    expect(await agentRunActive(projectDir)).toBe(false);
+  }, 20_000);
+
+  it("refuses to start when the project cannot be snapshotted", async () => {
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    await writeFile(join(projectDir, "app-store-screenshots.json"), "{");
+
+    expect(await rejection(start())).toMatchObject({ status: 409, code: "project-invalid" });
+    expect(await exists(join(root, "argv"))).toBe(false);
+  });
 
   it("never runs unavailable or unconsented at-own-risk agents", async () => {
     const marker = join(root, "spawned");
