@@ -7,9 +7,10 @@ import { ExportProgressStatus } from "./ExportProgressStatus.js";
 
 const operationId = `export_${"a".repeat(32)}`;
 
-function render(progress: Omit<ExportProgressSnapshot, "operationId">): string {
+function render(progress: Omit<ExportProgressSnapshot, "operationId">, currentPath?: string): string {
   return renderToStaticMarkup(createElement(ExportProgressStatus, {
     progress: { operationId, ...progress },
+    currentPath,
   }));
 }
 
@@ -30,8 +31,16 @@ describe("ExportProgressStatus", () => {
 
     expect(rendering).toContain('style="width:25%"');
     expect(rendering).not.toContain("animate-spin");
-    expect(packaging).toContain("Packaging ZIP…");
+    expect(rendering).toContain("Rendering 1 of 4");
+    expect(packaging).toContain("Packaging");
     expect(packaging).toContain('style="width:100%"');
     expect(packaging).toContain("animate-spin");
+  });
+
+  it("names the file being rendered only while rendering", () => {
+    const path = "apple/iphone/locale-uk/size-6.3/02-save-fast-6.3.png";
+
+    expect(render({ phase: "rendering", completed: 1, total: 4 }, path)).toContain(path);
+    expect(render({ phase: "packaging", completed: 4, total: 4 }, path)).not.toContain(path);
   });
 });

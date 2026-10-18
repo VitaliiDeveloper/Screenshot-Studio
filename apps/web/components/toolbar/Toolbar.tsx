@@ -15,6 +15,7 @@ import {
 import { layoutLocales } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import type { IssueCounts } from "@web/lib/editor/editor-issues";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
@@ -42,6 +43,7 @@ export function Toolbar({
   exportRequestKey = 0,
   specs = DEFAULT_STORE_SPECS,
   issueCounts = NO_ISSUES,
+  issues,
   onOpenIssues,
 }: {
   view: WorkspaceView;
@@ -53,6 +55,7 @@ export function Toolbar({
   exportRequestKey?: number;
   specs?: StoreSpecs;
   issueCounts?: IssueCounts;
+  issues?: readonly ProjectIssue[];
   onOpenIssues?: () => void;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -297,6 +300,12 @@ export function Toolbar({
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         specs={specs}
+        issues={issues}
+        onGoToScreen={(screenId) => {
+          editorStore.getState().selectScreen(screenId);
+          onViewChange("focus");
+        }}
+        onOpenIssues={onOpenIssues}
       />
     </header>
   );

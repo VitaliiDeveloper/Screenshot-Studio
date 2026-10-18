@@ -9,15 +9,22 @@ import {
 function progressLabel(progress: ExportProgressSnapshot): string {
   switch (progress.phase) {
     case "preparing": return "Preparing export…";
-    case "rendering": return `Rendering ${progress.completed} of ${progress.total}…`;
-    case "packaging": return "Packaging ZIP…";
+    case "rendering": return `Rendering ${progress.completed} of ${progress.total}`;
+    case "packaging": return "Packaging";
     case "finalizing": return "Preparing download…";
     case "ready": return "Export ready";
     case "failed": return "Export failed";
   }
 }
 
-export function ExportProgressStatus({ progress }: { progress: ExportProgressSnapshot }) {
+/** `currentPath` is the bundle path of the file being rendered, from the same entry list the server renders. */
+export function ExportProgressStatus({
+  progress,
+  currentPath,
+}: {
+  progress: ExportProgressSnapshot;
+  currentPath?: string;
+}) {
   const renderProgressPercent = exportRenderProgressPercent(progress);
   const showPhaseActivity = progress.phase === "preparing"
     || progress.phase === "packaging"
@@ -34,6 +41,9 @@ export function ExportProgressStatus({ progress }: { progress: ExportProgressSna
         )}
         {progressLabel(progress)}
       </p>
+      {progress.phase === "rendering" && currentPath ? (
+        <p className="mt-1 truncate font-mono text-[11px] text-slate-500" title={currentPath}>{currentPath}</p>
+      ) : null}
       <div
         className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"
         role="progressbar"

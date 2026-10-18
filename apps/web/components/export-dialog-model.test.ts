@@ -2,13 +2,24 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { parseProject } from "@screenshot-studio/core/model";
-import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import {
-  DEFAULT_EXPORT_FILTERS,
+  buildBundleEntries,
+  DEFAULT_STORE_SPECS,
+  findStoreTarget,
+  parseStoreSpecs,
+} from "@screenshot-studio/core/export";
+import {
+  allExportChecks,
+  checkedExportEntries,
   exportButtonLabel,
   exportFileCount,
+  exportLocaleRows,
+  exportPathPreview,
+  exportScopeIssues,
+  exportSelectionSummary,
+  exportSizeRows,
   launchExportArtifactDownload,
-  normalizeExportFilters,
+  parseExportOutcome,
 } from "./export-dialog-model.js";
 
 const token = "a".repeat(43);
@@ -109,61 +120,110 @@ describe("export dialog artifact download", () => {
   });
 });
 
-describe("export dialog layout filters", () => {
-  const layout = parseProject({
-    meta: { name: "Android only", schemaVersion: 1 },
+describe("export dialog store image selection", () => {
+  const specs = parseStoreSpecs(JSON.parse(readFileSync("store-specs.json", "utf8")));
+  const base = {
+    name: "Hero",
+    direction: "ltr",
+    background: { type: "solid", color: "#101827" },
+    elements: [],
+  };
+  const project = parseProject({
+    meta: { name: "Selection", schemaVersion: 1 },
     fonts: [],
-    preferredExportLayoutId: "android",
+    preferredExportLayoutId: "main",
     layouts: [{
-      id: "android",
-      name: "Android",
+      id: "main",
+      name: "Main",
       mode: "isolated",
-      screens: [{
-        id: "hero",
-        name: "Hero",
-        platform: "android",
-        device: "phone",
-        locale: "uk",
-        direction: "ltr",
-        artboard: { width: 1080, height: 1920 },
-        background: { type: "solid", color: "#101827" },
-        elements: [],
-      }],
+      screens: [
+        { ...base, id: "en-iphone", platform: "apple", device: "iphone", locale: "en", artboard: { width: 1206, height: 2622 } },
+        { ...base, id: "en-iphone-69", platform: "apple", device: "iphone", locale: "en", storeTargetId: "6.9", artboard: { width: 1320, height: 2868 } },
+        { ...base, id: "uk-iphone", platform: "apple", device: "iphone", locale: "uk", artboard: { width: 1206, height: 2622 } },
+        { ...base, id: "en-phone", name: "Phone", platform: "android", device: "phone", locale: "en", artboard: { width: 1080, height: 1920 } },
+      ],
     }],
-  }).layouts[0]!;
+  });
+  const entries = buildBundleEntries(project, "main", specs);
+  const all = allExportChecks(entries);
 
-  it("drops stale filters that do not exist in the active layout", () => {
-    expect(normalizeExportFilters(layout, {
-      platform: "apple",
-      device: "iphone",
-      locale: "en",
-    })).toEqual(DEFAULT_EXPORT_FILTERS);
+  it("lists each exact size with its pixel target from store-specs.json", () => {
+    const rows = exportSizeRows(entries, all, [], specs);
+
+    expect(rows.map((row) => row.key)).toEqual(["apple/iphone/6.3", "apple/iphone/6.9", "android/phone/phone-portrait"]);
+    for (const row of rows) {
+      const [platform, device, sizeId] = row.key.split("/") as [string, string, string];
+      const target = findStoreTarget(specs, platform, device, sizeId);
+      expect([row.width, row.height]).toEqual([target.width, target.height]);
+    }
+    expect(rows[1]).toMatchObject({ label: 'App Store · iPhone 6.9" · Portrait', width: 1320, height: 2868, files: 1 });
+    expect(rows[0]!.files).toBe(2);
   });
 
-  it("drops a locale that exists in the layout but not for the selected platform and device", () => {
-    const mixed = parseProject({
-      meta: { name: "Mixed", schemaVersion: 1 },
-      fonts: [],
-      preferredExportLayoutId: "mixed",
-      layouts: [{
-        id: "mixed",
-        name: "Mixed",
-        mode: "isolated",
-        screens: [
-          layout.screens[0],
-          { ...layout.screens[0], id: "iphone", platform: "apple", device: "iphone", locale: "en" },
-        ],
-      }],
-    }).layouts[0]!;
+  it("previews the real bundle path of the checked files", () => {
+    const checks = { sizes: new Set(["apple/iphone/6.3"]), locales: new Set(["uk"]) };
+    const checked = checkedExportEntries(entries, checks);
 
-    expect(normalizeExportFilters(mixed, {
-      platform: "android",
-      device: "phone",
-      locale: "en",
-    })).toEqual({ platform: "android", device: "phone", locale: "all" });
+    expect(checked.map((entry) => entry.relativePath))
+      .toEqual(buildBundleEntries(project, "main", specs, { locale: "uk" }).map((entry) => entry.relativePath));
+    expect(exportPathPreview(checkedExportEntries(entries, all))).toEqual([
+      "apple/iphone/locale-en/size-6.3/01-hero-6.3.png",
+      "apple/iphone/locale-en/size-6.9/01-hero-6.9.png",
+      "apple/iphone/locale-uk/size-6.3/01-hero-6.3.png",
+    ]);
+    expect(exportSelectionSummary(checked)).toBe("1 file · 1 size × 1 locale");
+    expect(exportSelectionSummary(checkedExportEntries(entries, all))).toBe("4 files · 3 sizes × 2 locales");
   });
 
-  it("remounts filter and result state whenever the active layout changes", () => {
+  it("counts a locale's files for the checked sizes and its missing screens", () => {
+    const checks = { sizes: new Set(["apple/iphone/6.3"]), locales: all.locales };
+    const missing = {
+      kind: "missing-locale-screen", id: "m", level: "blocker", layoutId: "main",
+      locale: "uk", sourceLocale: "en", sourceScreenId: "en-iphone-69", allSizes: false,
+    } as const;
+
+    expect(exportLocaleRows(entries, checks, [missing])).toEqual([
+      { locale: "en", files: 1, missingScreens: 0 },
+      { locale: "uk", files: 1, missingScreens: 1 },
+    ]);
+  });
+
+  it("keeps only the issues of the checked sizes and locales", () => {
+    const missingLocale = {
+      kind: "missing-locale-screen", id: "m", level: "blocker", layoutId: "main",
+      locale: "uk", sourceLocale: "en", sourceScreenId: "en-iphone-69", allSizes: false,
+    } as const;
+    const missingImage = {
+      kind: "missing-image", id: "i", level: "blocker", layoutId: "main",
+      screenId: "en-phone", elementId: null, assetUrl: "assets/hero.png",
+    } as const;
+    const overflow = {
+      kind: "text-overflow", id: "t", level: "warning", layoutId: "main", screenId: "en-iphone", elementId: "title",
+    } as const;
+    const issues = [missingLocale, missingImage, overflow];
+
+    expect(exportScopeIssues(entries, all, issues)).toEqual(issues);
+    expect(exportScopeIssues(entries, { sizes: all.sizes, locales: new Set(["en"]) }, issues))
+      .toEqual([missingImage, overflow]);
+    expect(exportScopeIssues(entries, { sizes: new Set(["apple/iphone/6.3"]), locales: all.locales }, issues))
+      .toEqual([overflow]);
+    expect(exportScopeIssues(entries, { sizes: new Set(["apple/iphone/6.3"]), locales: all.locales }, [
+      { ...missingLocale, allSizes: true },
+    ])).toHaveLength(1);
+    expect(exportSizeRows(entries, all, issues, specs).map(({ blockers, warnings }) => [blockers, warnings]))
+      .toEqual([[0, 1], [0, 0], [1, 0]]);
+  });
+
+  it("reads the finished export's counts and failed files defensively", () => {
+    const failure = { screenId: "uk-iphone", relativePath: "apple/iphone/locale-uk/size-6.3/01-hero-6.3.png", message: "boom" };
+
+    expect(parseExportOutcome({ written: 3, total: 4, stopped: false, failures: [failure, { screenId: 1 }] }, 4))
+      .toEqual({ written: 3, total: 4, stopped: false, failures: [failure] });
+    expect(parseExportOutcome({}, 4)).toEqual({ written: 4, total: 4, stopped: false, failures: [] });
+    expect(parseExportOutcome({ written: 9, total: 2, stopped: true }, 4)).toMatchObject({ written: 2, stopped: true });
+  });
+
+  it("remounts selection and result state whenever the active layout changes", () => {
     const source = readFileSync(new URL("./toolbar/Toolbar.tsx", import.meta.url), "utf8");
 
     expect(source).toContain('key={activeLayout?.id ?? "no-layout"}');
