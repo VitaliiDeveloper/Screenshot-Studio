@@ -6,6 +6,7 @@ import { isProjectRelativePath } from "@screenshot-studio/core/model";
 import { noFollowFlags, readProjectSnapshot } from "@screenshot-studio/core/storage";
 import {
   collectRequiredProjectResourcePaths,
+  isSensitiveProjectArchivePath,
   isSupportedProjectArchivePath,
 } from "./project-archive-policy.js";
 import {
@@ -125,21 +126,26 @@ function normalizeFiles(
 }
 
 function validateFileSet(
-  files: readonly ProjectImportFile[],
+  input: readonly ProjectImportFile[],
   repository: ManagedProjectRepository,
 ): ProjectImportFile[] {
+  for (const file of input) {
+    if (isSensitiveProjectArchivePath(file.relativePath)) {
+      throw new ManagedProjectImportError(
+        `Project import contains a hidden or credential-bearing path: ${file.relativePath}`,
+        "invalid-path",
+      );
+    }
+  }
+  // Paths outside the portable layout (export output, extra root files) are skipped, not copied,
+  // matching archive export; referenced resources are still enforced after staging.
+  const files = input.filter((file) => isSupportedProjectArchivePath(file.relativePath));
   if (files.length > repository.config.maxProjectFiles) {
     throw new ManagedProjectImportError("Project import exceeds the configured file limit", "limit");
   }
   const seen = new Set<string>();
   let declaredBytes = 0;
   for (const file of files) {
-    if (!isSupportedProjectArchivePath(file.relativePath)) {
-      throw new ManagedProjectImportError(
-        `Project import contains an unsupported or sensitive path: ${file.relativePath}`,
-        "invalid-path",
-      );
-    }
     const folded = foldPortablePath(file.relativePath);
     if (seen.has(folded)) {
       throw new ManagedProjectImportError(

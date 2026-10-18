@@ -189,7 +189,7 @@ describe("ManagedProjectImportService", () => {
     })).rejects.toMatchObject({ code: "invalid-path" });
   });
 
-  it("rejects unsupported and credential-bearing inputs instead of silently copying them", async () => {
+  it("rejects credential-bearing inputs instead of silently copying them", async () => {
     const { service } = await createService();
     await expect(service.import({
       kind: "archive",
@@ -198,6 +198,41 @@ describe("ManagedProjectImportService", () => {
         importFile("assets/signing.pem", "private"),
       ],
     })).rejects.toMatchObject({ code: "invalid-path" });
+    await expect(service.import({
+      kind: "folder",
+      files: [
+        importFile("Project/app-store-screenshots.json", projectJson()),
+        importFile("Project/export/credentials.json", "{}"),
+      ],
+    })).rejects.toMatchObject({ code: "invalid-path" });
+  });
+
+  it("skips export output and extra root files without copying them", async () => {
+    const { repository, service } = await createService({ SCREENSHOT_STUDIO_MAX_PROJECT_FILES: "3" });
+    const image = new Uint8Array([1, 2, 3]);
+
+    const record = await service.import({
+      kind: "folder",
+      files: [
+        importFile("Studio Project/app-store-screenshots.json", projectJson({
+          name: "Studio output project",
+          assetUrl: "screenshots/hero.png",
+        })),
+        importFile("Studio Project/screenshots/hero.png", image),
+        importFile("Studio Project/preview-sheet.png", "contact sheet"),
+        importFile("Studio Project/export/app-store-screenshots-bundle.zip", "bundle"),
+        importFile("Studio Project/export/apple/iphone/locale-en/01.png", "exported"),
+      ],
+    });
+
+    expect(record.name).toBe("Studio output project");
+    await expect(readFile(join(record.projectDirectory, "screenshots/hero.png")))
+      .resolves.toEqual(Buffer.from(image));
+    await expect(readFile(join(record.projectDirectory, "preview-sheet.png")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readdir(join(record.projectDirectory, "export")))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    await expect(repository.list()).resolves.toHaveLength(1);
   });
 
   it("strictly validates the project and lists absent project-relative resources", async () => {

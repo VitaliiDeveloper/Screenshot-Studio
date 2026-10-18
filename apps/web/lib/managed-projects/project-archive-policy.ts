@@ -9,16 +9,19 @@ const CREDENTIAL_BASENAME =
 const PRIVATE_EXTENSION = /\.(?:key|pem|p12|pfx|jks|keystore|mobileprovision)$/iu;
 const TRANSIENT_BASENAME = /(?:^|\.)(?:lock|tmp|temp|stage)(?:\.|$)/iu;
 
-export function isSupportedProjectArchivePath(relativePath: string): boolean {
-  if (!isProjectRelativePath(relativePath)) return false;
+export function isSensitiveProjectArchivePath(relativePath: string): boolean {
   const segments = relativePath.split("/");
-  if (segments.some((segment) => segment.startsWith("."))) return false;
+  if (segments.some((segment) => segment.startsWith("."))) return true;
+  const basename = segments.at(-1)!;
+  return CREDENTIAL_BASENAME.test(basename) || PRIVATE_EXTENSION.test(basename);
+}
+
+export function isSupportedProjectArchivePath(relativePath: string): boolean {
+  if (!isProjectRelativePath(relativePath) || isSensitiveProjectArchivePath(relativePath)) return false;
+  const segments = relativePath.split("/");
   if (segments.length === 1) return ROOT_FILES.has(relativePath);
   if (!RESOURCE_ROOTS.has(segments[0]!)) return false;
-  const basename = segments.at(-1)!;
-  if (CREDENTIAL_BASENAME.test(basename) || PRIVATE_EXTENSION.test(basename)) return false;
-  if (TRANSIENT_BASENAME.test(basename)) return false;
-  return true;
+  return !TRANSIENT_BASENAME.test(segments.at(-1)!);
 }
 
 export function collectRequiredProjectResourcePaths(project: Project): string[] {
