@@ -3,6 +3,7 @@ import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { finished } from "node:stream/promises";
 import { prepareRenderHost, type PreparedRenderHost } from "./packaged-render-host.js";
+import { errorText } from "@screenshot-studio/core/storage";
 
 export {
   extractWebArchive,
@@ -76,10 +77,6 @@ async function terminateChild(child: ChildProcess): Promise<void> {
     child.once("exit", () => resolveStop());
     child.kill("SIGTERM");
   });
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function lifecycleErrors(primary: unknown, cleanup: unknown): AggregateError {

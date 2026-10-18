@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { isStrongQuotedETag } from "./http-etag.js";
+import { readJsonResponse } from "./json-response.js";
 
 const ARCHIVE_URL_PATTERN = /^\/api\/project-archive\/artifacts\/[A-Za-z0-9_-]{43}$/;
 const ARCHIVE_FILENAME = "screenshot-studio-project.zip";
@@ -34,12 +35,7 @@ export async function requestProjectArchive(
     cache: "no-store",
     headers: { "if-match": expectedRevision, "x-project-id": projectId },
   });
-  const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok) {
-    throw new Error(typeof body.error === "string"
-      ? body.error
-      : `Project archive export failed (${response.status})`);
-  }
+  const body = await readJsonResponse(response, `Project archive export failed (${response.status})`);
   if (typeof body.downloadUrl !== "string" || !ARCHIVE_URL_PATTERN.test(body.downloadUrl)
     || body.filename !== ARCHIVE_FILENAME || typeof body.expiresAt !== "string"
     || Number.isNaN(Date.parse(body.expiresAt)) || typeof body.projectRevision !== "string"

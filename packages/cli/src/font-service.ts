@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
-import { dirname, extname } from "node:path";
 import {
-  countProjectFontUsage,
+  readFile } from "node:fs/promises"; import { dirname,
+  extname } from "node:path"; import {   countProjectFontUsage,
   DEFAULT_FONT_WEIGHT,
   FONT_WEIGHT_MAX,
   FONT_WEIGHT_MIN,
@@ -10,11 +9,10 @@ import {
   slugify,
   type FontAsset,
   type Project as ProjectModel,
-} from "@screenshot-studio/core/model";
-import {
-  resolveExistingProjectPath,
+  } from "@screenshot-studio/core/model"; import {   resolveExistingProjectPath,
   type ProjectFileDependencies,
   type ProjectLockOptions,
+  errorCode,
 } from "@screenshot-studio/core/storage";
 import {
   FontValidationError,
@@ -194,10 +192,6 @@ function isManagedFontPath(path: string): boolean {
   return isProjectRelativePath(path)
     && path.startsWith(MANAGED_FONT_PREFIX)
     && path.length > MANAGED_FONT_PREFIX.length;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
 async function addMaterializedFontMutation(

@@ -8,6 +8,7 @@ import {
   type ProjectSessionRegistry,
 } from "@web/lib/project-session.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 const RECENT_ID_PATTERN = /^recent_[0-9a-f]{32}$/;
 
@@ -25,7 +26,7 @@ async function recentIdFromBody(request: Request): Promise<string> {
 }
 
 function badRequest(): Response {
-  return Response.json({ error: "A valid recent project id is required." }, { status: 400 });
+  return jsonError(400, "A valid recent project id is required.");
 }
 
 export async function handleRecentProjectsGet(
@@ -36,9 +37,7 @@ export async function handleRecentProjectsGet(
       headers: { "cache-control": "no-store" },
     });
   } catch {
-    return Response.json({
-      error: "Recent projects could not be loaded. Retry, or reopen a project from its source.",
-    }, { status: 500, headers: { "cache-control": "no-store" } });
+    return jsonError(500, "Recent projects could not be loaded. Retry, or reopen a project from its source.");
   }
 }
 
@@ -54,11 +53,11 @@ export async function handleRecentProjectsDelete(
   }
   try {
     if (!await store.remove(recentId)) {
-      return Response.json({ error: "Recent project does not exist." }, { status: 404 });
+      return jsonError(404, "Recent project does not exist.");
     }
     return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
   } catch {
-    return Response.json({ error: "Recent project could not be removed. Retry." }, { status: 500 });
+    return jsonError(500, "Recent project could not be removed. Retry.");
   }
 }
 
@@ -79,8 +78,6 @@ export async function handleRecentProjectOpen(
       headers: projectSessionResponseHeaders(session, request),
     });
   } catch {
-    return Response.json({
-      error: "This recent project is unavailable. Reopen or import the source to add it again.",
-    }, { status: 409, headers: { "cache-control": "no-store" } });
+    return jsonError(409, "This recent project is unavailable. Reopen or import the source to add it again.");
   }
 }

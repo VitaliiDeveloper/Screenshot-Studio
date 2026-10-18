@@ -19,7 +19,7 @@ import { countIssues, missingImageTarget } from "@web/lib/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
 import { Inspector } from "@web/components/Inspector";
-import { Toolbar } from "@web/components/Toolbar";
+import { Toolbar } from "@web/components/toolbar/Toolbar";
 import { ToolRail } from "@web/components/ToolRail";
 import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
 import { ConfirmationDialog } from "@web/components/editor-ui";
@@ -39,7 +39,7 @@ import { useEditorIssues } from "./use-editor-issues";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
-  () => import("@web/components/CanvasViewport").then((m) => m.CanvasViewport),
+  () => import("@web/components/canvas-viewport/CanvasViewport").then((m) => m.CanvasViewport),
   { ssr: false },
 );
 

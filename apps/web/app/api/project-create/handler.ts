@@ -15,6 +15,7 @@ import {
   type RecentProjectsStore,
 } from "@web/lib/recent-projects.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 const MAX_CREATE_REQUEST_BYTES = 16_384;
 
@@ -24,13 +25,6 @@ export interface ProjectCreateRouteDependencies {
   service?: ManagedProjectCreationService;
   registry?: ProjectSessionRegistry;
   recentProjects?: Pick<RecentProjectsStore, "record">;
-}
-
-function errorResponse(status: number, error: string, code: string): Response {
-  return Response.json({ error, code }, {
-    status,
-    headers: { "cache-control": "no-store" },
-  });
 }
 
 async function readBoundedJson(request: Request): Promise<unknown> {
@@ -67,17 +61,17 @@ export async function handleProjectCreatePost(
 ): Promise<Response> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLocaleLowerCase().startsWith("application/json")) {
-    return errorResponse(415, "Project creation requires JSON", "unsupported-media-type");
+    return jsonError(415, "Project creation requires JSON", "unsupported-media-type");
   }
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
     const bytes = Number(declaredLength);
     if (!Number.isSafeInteger(bytes) || bytes < 0) {
-      return errorResponse(400, "Project creation content length is invalid", "invalid-request");
+      return jsonError(400, "Project creation content length is invalid", "invalid-request");
     }
     if (bytes > MAX_CREATE_REQUEST_BYTES) {
       await request.body?.cancel().catch(() => undefined);
-      return errorResponse(413, "Project creation request exceeds the byte limit", "limit");
+      return jsonError(413, "Project creation request exceeds the byte limit", "limit");
     }
   }
 
@@ -86,12 +80,12 @@ export async function handleProjectCreatePost(
     raw = await readBoundedJson(request);
   } catch (error) {
     return error instanceof CreateRequestLimitError
-      ? errorResponse(413, "Project creation request exceeds the byte limit", "limit")
-      : errorResponse(400, "Project creation request is not valid JSON", "invalid-request");
+      ? jsonError(413, "Project creation request exceeds the byte limit", "limit")
+      : jsonError(400, "Project creation request is not valid JSON", "invalid-request");
   }
   const parsed = ProjectScaffoldInput.safeParse(raw);
   if (!parsed.success) {
-    return errorResponse(400, "Project creation fields are invalid", "invalid-request");
+    return jsonError(400, "Project creation fields are invalid", "invalid-request");
   }
 
   const service = dependencies.service ?? new ManagedProjectCreationService(
@@ -102,7 +96,7 @@ export async function handleProjectCreatePost(
   try {
     reservedSessionId = registry.reserveSessionId();
   } catch {
-    return errorResponse(500, "Project creation failed", "internal");
+    return jsonError(500, "Project creation failed", "internal");
   }
   try {
     const record = await service.create(parsed.data);
@@ -118,16 +112,16 @@ export async function handleProjectCreatePost(
     registry.releaseReservedSessionId(reservedSessionId);
     if (error instanceof ManagedProjectCreationError) {
       if (error.code === "limit") {
-        return errorResponse(413, "Generated project exceeds configured limits", error.code);
+        return jsonError(413, "Generated project exceeds configured limits", error.code);
       }
       if (error.code === "invalid-scaffold") {
-        return errorResponse(
+        return jsonError(
           422,
           "Project creation input is incompatible with the selected starter",
           error.code,
         );
       }
     }
-    return errorResponse(500, "Project creation failed", "internal");
+    return jsonError(500, "Project creation failed", "internal");
   }
 }
