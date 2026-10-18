@@ -108,6 +108,8 @@ export function agentEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.Proces
 export interface AgentSpawnOptions {
   env: NodeJS.ProcessEnv;
   cwd?: string;
+  /** Written to stdin, so user text never becomes an argv token the CLI could parse as a flag. */
+  input?: string;
 }
 
 /** Spawns an agent CLI without a shell, as its own process group so the whole tree can be killed. */
@@ -118,13 +120,16 @@ export function spawnAgentProcess(
 ): ChildProcess {
   // shortcut: no shell, so Windows npm `.cmd` shims are not resolved and read as not-installed;
   // add a PATHEXT resolver when Windows agent runs are supported.
-  return spawn(binary, args, {
+  const child = spawn(binary, args, {
     cwd: options.cwd,
     env: options.env,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     detached: process.platform !== "win32",
     windowsHide: true,
   });
+  // A CLI that exits before reading stdin raises EPIPE here; its exit is reported by the child.
+  child.stdin?.on("error", () => undefined).end(options.input);
+  return child;
 }
 
 /** Kills the child and everything it started; a tree that already exited is not an error. */
