@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
+import { withAgentRunFence } from "@web/lib/agents/agent-run-guard.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import {
@@ -110,11 +111,11 @@ export function withProjectMutationRequest(
     const expectedRevision = expectedRevisionResponse(req);
     return expectedRevision instanceof Response
       ? expectedRevision
-      : withManagedProjectMutationGuard(
+      : withAgentRunFence(session.projectPath, () => withManagedProjectMutationGuard(
         session,
         () => Promise.resolve(operation(session, expectedRevision)),
         { config: dependencies.managedStorageConfig },
-      );
+      ));
   }, dependencies);
 }
 
