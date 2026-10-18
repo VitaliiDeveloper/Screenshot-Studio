@@ -50,7 +50,7 @@ export function SelectionToolbar({
           onChange({ fontFamily, weight });
         }}
       />
-      <label className={`${item} cursor-pointer`}>
+      <label className={`${item} cursor-pointer focus-within:ring-2 focus-within:ring-[var(--editor-color-focus)]`}>
         <input
           type="color"
           aria-label="Selection color"

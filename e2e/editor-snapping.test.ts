@@ -112,7 +112,12 @@ describe("editor snapping", () => {
     await expect.poll(bridgeX).toBe(560);
 
     // Handoff § 6: arrows nudge the selection 10 px, 50 px with Shift.
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    // Selecting on the canvas right after a toolbar button must hand the keys back to the canvas.
+    const bridgeCanvas = page.getByTestId("connected-artboards").locator("canvas").first();
+    const bridgeBox = (await bridgeCanvas.boundingBox())!;
+    const bridgeScale = bridgeBox.width / CONNECTED_STAGE_WIDTH;
+    await page.mouse.click(bridgeBox.x + 660 * bridgeScale, bridgeBox.y + 300 * bridgeScale);
+    await expect.poll(() => stage.getAttribute("data-selection-count")).toBe("1");
     await page.keyboard.press("ArrowRight");
     await expect.poll(bridgeX).toBe(570);
     await page.keyboard.press("Shift+ArrowLeft");
