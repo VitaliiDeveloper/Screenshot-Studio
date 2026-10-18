@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - "main"
+      - "dev"
 
 # A newer push to the same long-lived ref cancels the in-flight run.
 concurrency:
@@ -13,7 +14,7 @@ concurrency:
 
 jobs:
   lint:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.base_ref == 'dev' || github.head_ref == 'dev'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -26,7 +27,7 @@ jobs:
       - run: pnpm lint
 
   test:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.base_ref == 'dev' || github.head_ref == 'dev'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
