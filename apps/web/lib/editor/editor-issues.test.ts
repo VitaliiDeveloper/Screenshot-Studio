@@ -71,6 +71,22 @@ describe("editor issues copy", () => {
     });
   });
 
+  it("names an unnamed text layer by its text, as the layers tree does", () => {
+    const overflow = issues.find((issue): issue is Extract<ProjectIssue, { kind: "text-overflow" }> =>
+      issue.kind === "text-overflow"
+    )!;
+    const unnamed = parseProject({
+      ...project,
+      layouts: [{
+        ...project.layouts[0]!,
+        screens: project.layouts[0]!.screens.map((candidate) => candidate.id === "hero"
+          ? { ...candidate, elements: [{ ...createTextElement({}), id: "title", content: "Fast,\nreliable shipping" }] }
+          : candidate),
+      }],
+    });
+    expect(issueRowCopy(unnamed, overflow)?.detail).toMatch(/^Fast, reliable shipping · Hero · iPhone/);
+  });
+
   it("drops an issue whose target no longer exists", () => {
     const overflow = issues.find((issue): issue is Extract<ProjectIssue, { kind: "text-overflow" }> =>
       issue.kind === "text-overflow"

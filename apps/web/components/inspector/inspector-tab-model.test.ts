@@ -2,6 +2,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { createTextElement } from "@screenshot-studio/core/model";
 import { inspectorHeading, inspectorSelectionKey, resolveInspectorTab } from "./inspector-tab-model.js";
 import { InspectorTabs } from "./InspectorTabs.js";
 
@@ -41,6 +42,16 @@ describe("inspector tab", () => {
       ...selection,
       selectedElements: [{ type: "text" }, { type: "shape" }],
     })).toEqual(["2 layers selected", "1 text · 1 shape"]);
+  });
+
+  it("titles an unnamed text layer by its text, as the layers tree does", () => {
+    const unnamed = { ...createTextElement({}), content: "Fast,\nreliable shipping" };
+    expect(inspectorHeading({
+      tab: "layer",
+      activeScreenName: "Hero",
+      selectedElements: [unnamed],
+      selectionScreenName: "Hero",
+    })).toEqual(["Fast, reliable shipping", "Text layer · Hero"]);
   });
 
   it("renders an ARIA tablist with one focusable selected tab", () => {
