@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useLayoutEffect, useRef, useState, type Key } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type Key } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
@@ -23,6 +23,7 @@ import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/l
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { applyTextFit } from "@web/lib/editor/editor-text-fit";
+import { elementLabel } from "@web/lib/panel-helpers";
 import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
 import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
@@ -123,14 +124,19 @@ export function EditorStage({
     stageHeight,
     canEdit,
     selectedElement,
-  } = deriveStageModel({
+  } = useMemo(() => deriveStageModel({
     layout,
     requestedScreenId,
     activeScreenId,
     selectedItems,
     interactive,
     connectedOverview,
-  });
+  }), [activeScreenId, connectedOverview, interactive, layout, requestedScreenId, selectedItems]);
+  // Fit text measures each mark with a binary search, so marks are rebuilt only when their inputs change.
+  const overflowMarks = useMemo(
+    () => deriveTextOverflowMarks({ projections, baseX, issues, measure: TEXT_MEASURE }),
+    [baseX, issues, projections],
+  );
   const selectedKeepsAspectRatio = elementKeepsAspectRatio(selectedElement);
 
   const commit = (ownerScreenId: string, element: Element, patch: CommonElementPatch) => {
@@ -232,7 +238,6 @@ export function EditorStage({
     );
   };
 
-  const overflowMarks = deriveTextOverflowMarks({ projections, baseX, issues, measure: TEXT_MEASURE });
   const visibleOverflowMarks = interacting
     ? []
     : overflowMarks.filter((mark) => !(editing?.screenId === mark.screenId && editing.id === mark.element.id));
@@ -359,28 +364,6 @@ export function EditorStage({
             </Group>
           ))}
 
-          {visibleOverflowMarks.map((mark) => (
-            <Group key={`overflow-${mark.screenId}-${mark.element.id}`} {...mark.origin} listening={false}>
-              <Group x={mark.parent?.x ?? 0} y={mark.parent?.y ?? 0} rotation={mark.parent?.rotation ?? 0}>
-                <Group x={mark.element.x} y={mark.element.y} rotation={mark.element.rotation}>
-                  <Rect
-                    width={mark.element.width}
-                    height={mark.element.height}
-                    stroke={OVERFLOW_STROKE}
-                    strokeWidth={2 / zoom}
-                  />
-                  <Rect
-                    width={mark.element.width}
-                    height={mark.contentHeight}
-                    stroke={OVERFLOW_STROKE}
-                    strokeWidth={1 / zoom}
-                    dash={[6 / zoom, 4 / zoom]}
-                  />
-                </Group>
-              </Group>
-            </Group>
-          ))}
-
           {layout.mode === "connected" && connectedOverview
             ? projections.map(({ screen, x, y }) => (
               <Rect
@@ -451,6 +434,32 @@ export function EditorStage({
             );
           })() : null}
         </Layer>
+        {visibleOverflowMarks.length > 0 ? (
+          // A separate layer keeps editor marks out of the artwork canvas that parity captures.
+          <Layer listening={false}>
+            {visibleOverflowMarks.map((mark) => (
+              <Group key={`overflow-${mark.screenId}-${mark.element.id}`} {...mark.origin} listening={false}>
+                <Group x={mark.parent?.x ?? 0} y={mark.parent?.y ?? 0} rotation={mark.parent?.rotation ?? 0}>
+                  <Group x={mark.element.x} y={mark.element.y} rotation={mark.element.rotation}>
+                    <Rect
+                      width={mark.element.width}
+                      height={mark.element.height}
+                      stroke={OVERFLOW_STROKE}
+                      strokeWidth={2 / zoom}
+                    />
+                    <Rect
+                      width={mark.element.width}
+                      height={mark.contentHeight}
+                      stroke={OVERFLOW_STROKE}
+                      strokeWidth={1 / zoom}
+                      dash={[6 / zoom, 4 / zoom]}
+                    />
+                  </Group>
+                </Group>
+              </Group>
+            ))}
+          </Layer>
+        ) : null}
       </Stage>
 
       {canEdit && editing && editingElement?.type === "text" && editingProjection ? (
@@ -482,7 +491,7 @@ export function EditorStage({
           key={`fit-${mark.screenId}-${mark.element.id}`}
           type="button"
           disabled={mark.fitSize === null}
-          aria-label={`Fit text: ${mark.element.name ?? "Text"}`}
+          aria-label={`Fit text: ${elementLabel(mark.element)}`}
           title={mark.fitSize === null
             ? "The text overflows even at 1 px. Resize the layer instead."
             : "Text overflows its box. Fit text sets the largest size that fits, on this screen only."}
