@@ -40,7 +40,7 @@ describe("layer name button", () => {
 
     expect(markup).toContain('aria-label="Fast, reliable shipping"');
     expect(markup).not.toContain("aria-describedby");
-    expect(markup).not.toContain("title=");
+    expect(markup).toContain('title="Fast, reliable shipping"');
   });
 });
 
