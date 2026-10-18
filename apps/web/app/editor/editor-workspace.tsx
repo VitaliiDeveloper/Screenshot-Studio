@@ -251,6 +251,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         onOpenProjects={projectNavigation.openProjects}
         projectsBusy={projectNavigation.busy}
         issueCounts={issueCounts}
+        issues={issues}
         onOpenIssues={() => setIssuesOpen(true)}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">

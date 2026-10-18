@@ -150,12 +150,22 @@ with local HTML, CSS, metadata, and an Open Graph image, and is not another pixe
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
-`no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, and preflight warnings; server
+`no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, preflight warnings, and the
+`written`/`total` counts, `failures` (screen id, bundle-relative path, reason), and `stopped`; server
 filesystem paths are not client metadata. A missing artifact returns `404`, an expired artifact
 returns `410`, and clients must not buffer, reuse, or retain an export artifact after download.
+Optional `sizes` (`platform/device/targetId`) and `locales` lists filter the full `buildBundleEntries`
+list, so the selected files keep the paths an unfiltered bundle gives them. Unlike the CLI, the UI
+route skips a file that fails to render and reports it, and fails only when no file renders.
 An optional opaque export operation id exposes short-lived, bounded progress snapshots while that
-same request retains its normal lifecycle and project-mutation guards. Progress reports completed
-rendered outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
+same request retains its normal lifecycle and project-mutation guards. Progress reports attempted
+outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
+`POST /api/export/progress?operationId=…` asks that running export to stop (`202`; `404` once it is
+not running). `exportBundle` checks the stop before each file and reports `attempted`, `written`, and
+`stopped` once rendering ends; files rendered so far are packaged and published as usual, and a stop
+before the first file returns the `201` result with `written: 0`, `stopped: true`, and no artifact
+ticket. Unlike the export `POST`, the stop request carries no project session or revision fence: the
+unguessable operation id is its only guard, which is acceptable for the localhost-only host.
 
 ## 4. Project sources, sessions, and persistence
 

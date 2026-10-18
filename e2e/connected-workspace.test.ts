@@ -289,16 +289,16 @@ describe("connected workspace", () => {
     await page.close();
   });
 
-  it("resets stale export filters after switching layouts", async () => {
+  it("resets export checks after switching layouts", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await waitForConnectedWorkspace(page);
 
     await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
     let dialog = page.getByRole("dialog", { name: "Export" });
-    await dialog.getByRole("button", { name: "Device" }).click();
-    await dialog.getByRole("menuitemradio", { name: "iPad", exact: true }).click();
-    expect(await dialog.getByRole("button", { name: "Device" }).textContent()).toContain("iPad");
+    const ipad = dialog.getByRole("list", { name: "Destinations" }).getByRole("checkbox", { name: /iPad/u });
+    await ipad.uncheck();
+    expect(await ipad.isChecked()).toBe(false);
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
     await page.getByRole("button", { name: "Active layout: Default" }).click();
@@ -307,9 +307,11 @@ describe("connected workspace", () => {
     await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
     dialog = page.getByRole("dialog", { name: "Export" });
 
-    expect((await dialog.getByRole("button", { name: "Platform" }).textContent())?.trim()).toBe("all");
-    expect((await dialog.getByRole("button", { name: "Device" }).textContent())?.trim()).toBe("all");
-    expect((await dialog.getByRole("button", { name: "Locale" }).textContent())?.trim()).toBe("all");
+    const checkboxes = dialog.getByRole("checkbox");
+    await checkboxes.first().waitFor();
+    for (let index = 0; index < await checkboxes.count(); index += 1) {
+      expect(await checkboxes.nth(index).isChecked()).toBe(true);
+    }
     await page.close();
   });
 });

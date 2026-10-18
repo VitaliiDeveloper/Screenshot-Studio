@@ -6,9 +6,11 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { afterEach, describe, expect, it } from "vitest";
+import { chromium } from "playwright";
 import { parseProjectJson } from "@screenshot-studio/core/model";
-import { buildBundleEntries, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
+import { buildBundleEntries, findStoreTarget, inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
 import { startWebServer } from "@screenshot-studio/cli/server";
+import { selectExportEntries } from "../apps/web/lib/export-selection";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fixtureDir = resolve(repoRoot, "fixtures/regressions/multi-locale-export");
@@ -119,6 +121,120 @@ describe("multi-locale UI export", () => {
       expect(consumed.status).toBe(404);
       expect(await consumed.json()).toEqual({ error: "Export artifact not found" });
     } finally {
+      await server?.stop();
+      await rm(workspace, { recursive: true, force: true });
+    }
+  }, 180_000);
+
+  it("sends the dialog's checked sizes and locales and shows the exported and failed files", async () => {
+    // The source-checkout dev host reloads an open editor while the render host runs an export, so
+    // the real export runs from Node and the dialog's request is answered with its result.
+    const workspace = await mkdtemp(join(tmpdir(), "ui-export-dialog-"));
+    await cp(fixtureDir, workspace, { recursive: true });
+    const projectPath = join(workspace, "app-store-screenshots.json");
+    const project = parseProjectJson(await readFile(projectPath, "utf8"));
+    const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
+    const all = buildBundleEntries(project, project.preferredExportLayoutId, specs);
+    const expected = all.filter((entry) => entry.screen.device === "iphone");
+    const selection = { sizes: ["apple/iphone/6.3"], locales: ["../ar", "en"] };
+
+    let server: Awaited<ReturnType<typeof startWebServer>> | undefined;
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+    try {
+      server = await startWebServer(undefined, { projectPath, storeSpecsPath });
+      const projectResponse = await fetch(`${server.url}/api/project`);
+      const exported = await fetch(`${server.url}/api/export`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "if-match": projectResponse.headers.get("etag")!,
+          "x-project-id": projectResponse.headers.get("x-project-id")!,
+        },
+        body: JSON.stringify(selection),
+      });
+      if (exported.status !== 201) throw new Error(`UI export failed (${exported.status}): ${await exported.text()}`);
+      const result = await exported.json() as Record<string, unknown>;
+      expect(result).toMatchObject({ written: 4, total: 4, failures: [], stopped: false });
+      // Compile the routes the dialog calls before the editor opens; a first compile reloads it too.
+      expect((await fetch(`${server.url}/api/export/progress?operationId=export_${"0".repeat(32)}`)).status).toBe(404);
+      expect((await fetch(`${server.url}/api/export/artifacts/${"a".repeat(43)}`)).status).toBe(404);
+
+      browser = await chromium.launch();
+      const page = await browser.newPage({ viewport: { width: 1440, height: 940 }, acceptDownloads: true });
+      await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+      await page.waitForSelector("canvas");
+      await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
+      const dialog = page.getByRole("dialog", { name: "Export" });
+      const destinations = dialog.getByRole("list", { name: "Destinations" });
+      await destinations.waitFor();
+
+      for (const entry of all) {
+        const target = findStoreTarget(specs, entry.screen.platform, entry.screen.device, entry.target.id);
+        expect(await destinations.textContent()).toContain(`${target.width} × ${target.height}`);
+      }
+      // The engine reports screens missing in ../ar (iPad) and en_US; while checked they block export.
+      await dialog.getByText(/blockers stop this export/u).waitFor();
+      expect(await dialog.getByRole("button", { name: "Export 6 files" }).isDisabled()).toBe(true);
+
+      await dialog.getByRole("list", { name: "Locales" }).getByRole("checkbox", { name: /^en_US/u }).uncheck();
+      await destinations.getByRole("checkbox", { name: /iPad 13/u }).uncheck();
+      const exportButton = dialog.getByRole("button", { name: `Export ${expected.length} files` });
+      await expect.poll(() => exportButton.isEnabled()).toBe(true);
+      expect(await dialog.getByRole("list", { name: "Path preview" }).textContent())
+        .toBe(expected.slice(0, 2).map((entry) => entry.relativePath).join(""));
+
+      let requested: { sizes: string[]; locales: string[] } | undefined;
+      let releaseExport!: () => void;
+      const exportHeld = new Promise<void>((resolveHold) => { releaseExport = resolveHold; });
+      await page.route("**/api/export", async (route) => {
+        requested = route.request().postDataJSON() as typeof requested;
+        await exportHeld;
+        await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(result) });
+      });
+      const downloadPromise = page.waitForEvent("download");
+      await exportButton.click();
+      const stop = dialog.getByRole("button", { name: "Stop" });
+      await stop.waitFor();
+      // The held request never reached the server, so there is no operation to stop yet.
+      expect(await stop.isDisabled()).toBe(true);
+      await page.keyboard.press("Escape");
+      // Longer than the dialog's close animation, so a started close would have finished.
+      await new Promise((resolveWait) => setTimeout(resolveWait, 400));
+      expect(await dialog.isVisible()).toBe(true);
+      releaseExport();
+
+      const download = await downloadPromise;
+      expect(selectExportEntries(all, requested!).map((entry) => entry.relativePath))
+        .toEqual(selectExportEntries(all, selection).map((entry) => entry.relativePath));
+      expect(download.suggestedFilename()).toBe("app-store-screenshots-bundle.zip");
+      await dialog.getByRole("status").filter({ hasText: "4 of 4 files exported" }).waitFor();
+      const zip = await JSZip.loadAsync(await readFile((await download.path())!));
+      const names = Object.values(zip.files).filter((f) => !f.dir).map((f) => f.name).sort();
+      expect(names).toEqual(expected.map((entry) => entry.relativePath).sort());
+      for (const entry of expected) {
+        const info = inspectPng(await zip.file(entry.relativePath)!.async("nodebuffer"));
+        expect([info.width, info.height]).toEqual([entry.target.width, entry.target.height]);
+        expect(info.hasAlpha).toBe(false);
+      }
+
+      const failed = expected[1]!;
+      await page.unroute("**/api/export");
+      await page.route("**/api/export", (route) => route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "No file could be rendered",
+          failures: [{ screenId: failed.screen.id, relativePath: failed.relativePath, message: "Render host timed out" }],
+        }),
+      }));
+      await exportButton.click();
+      const failedFiles = dialog.getByRole("list", { name: "Failed files" });
+      await failedFiles.waitFor();
+      expect(await failedFiles.textContent()).toContain(`${failed.relativePath}Render host timed out`);
+      await failedFiles.getByRole("button", { name: `Go to ${failed.relativePath}` }).click();
+      await dialog.waitFor({ state: "hidden" });
+    } finally {
+      await browser?.close();
       await server?.stop();
       await rm(workspace, { recursive: true, force: true });
     }

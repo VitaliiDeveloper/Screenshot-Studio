@@ -132,6 +132,13 @@ export interface ExportScreenOptions {
   headless?: boolean;
 }
 
+export interface ExportBundleRendering {
+  attempted: number;
+  written: number;
+  /** True when `shouldStop` ended rendering before every entry was attempted. */
+  stopped: boolean;
+}
+
 export type ExportBundleProgress =
   | { phase: "rendering"; completed: number; total: number }
   | { phase: "packaging"; completed: number; total: number };
@@ -183,6 +190,9 @@ export async function exportBundle({
   renderSession,
   publicationGuard,
   onProgress,
+  onEntryError,
+  shouldStop,
+  onRendered,
   profile = "store-bundle",
   project,
 }: {
@@ -195,13 +205,21 @@ export async function exportBundle({
   renderSession: Pick<RenderBrowserSession, "renderScreenToPng">;
   publicationGuard: <T>(publish: () => Promise<T>) => Promise<T>;
   onProgress?: (progress: ExportBundleProgress) => void;
+  /** When given, a failed entry is reported here and skipped instead of failing the whole bundle. */
+  onEntryError?: (entry: BundleEntry, message: string) => void;
+  /** Checked before each entry; once true, the files rendered so far are packaged. */
+  shouldStop?: () => boolean;
+  /** Reported once rendering ends, before packaging; the one account of what a stop cut short. */
+  onRendered?: (rendering: ExportBundleRendering) => void;
   profile?: ExportProfile;
   project?: Project;
 }): Promise<string> {
   const rendered: RenderedBundleEntry[] = [];
+  let attempted = 0;
   onProgress?.({ phase: "rendering", completed: 0, total: entries.length });
 
   for (const entry of entries) {
+    if (shouldStop?.()) break;
     try {
       const png = await renderStoreReadyPng({
         screen: entry.screen,
@@ -216,16 +234,26 @@ export async function exportBundle({
         }),
       });
       rendered.push({ entry, png });
-      onProgress?.({ phase: "rendering", completed: rendered.length, total: entries.length });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to export screen "${entry.screen.id}" target "${entry.target.id}": ${message}`, {
-        cause: err,
-      });
+      if (!onEntryError) {
+        throw new Error(`Failed to export screen "${entry.screen.id}" target "${entry.target.id}": ${message}`, {
+          cause: err,
+        });
+      }
+      onEntryError(entry, message);
     }
+    attempted += 1;
+    onProgress?.({ phase: "rendering", completed: attempted, total: entries.length });
   }
 
-  onProgress?.({ phase: "packaging", completed: entries.length, total: entries.length });
+  onRendered?.({ attempted, written: rendered.length, stopped: attempted < entries.length });
+  if (rendered.length === 0 && entries.length > 0) {
+    throw new Error(attempted < entries.length
+      ? "Export stopped before any file was rendered"
+      : "No file could be rendered");
+  }
+  onProgress?.({ phase: "packaging", completed: attempted, total: entries.length });
 
   if (profile === "web-share") {
     if (!project) throw new Error("Web Share export requires the validated project snapshot");

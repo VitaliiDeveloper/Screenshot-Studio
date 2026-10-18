@@ -88,6 +88,7 @@ describe("POST /api/export", () => {
       begin: vi.fn(),
       update: vi.fn(),
       finish: vi.fn(),
+      stopRequested: vi.fn(() => false),
     };
     const exportBundle = vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
       options.onProgress?.({ phase: "rendering", completed: 0, total: 1 });
@@ -194,6 +195,10 @@ describe("POST /api/export", () => {
       expiresAt: "2026-07-15T00:05:00.000Z",
       filename: "bundle.zip",
       warnings: [],
+      written: 1,
+      total: 1,
+      failures: [],
+      stopped: false,
     });
     expect(JSON.stringify(body)).not.toContain(zipPath);
     expect(stageExportArtifact).toHaveBeenCalledWith(zipPath, "bundle.zip");
@@ -320,6 +325,108 @@ describe("POST /api/export", () => {
 
     expect(response.status).toBe(500);
     expect((await response.json()).error).toMatch(/render failed.*browser cleanup failed.*browser close failed/);
+  });
+
+  it("renders only the checked sizes and locales and reports failed files", async () => {
+    const project = completeProject();
+    project.layouts[0]!.screens.push(
+      { ...project.layouts[0]!.screens[0]!, id: "hero-uk", locale: "uk" },
+      { ...project.layouts[0]!.screens[0]!, id: "ipad", device: "ipad", artboard: { width: 1032, height: 1376 } },
+    );
+    const { directory, projectPath } = await useProject(project);
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const exportBundle = vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
+      options.onProgress?.({ phase: "rendering", completed: 1, total: 2 });
+      options.onEntryError?.(options.entries[1]!, "font file could not be read");
+      options.onProgress?.({ phase: "rendering", completed: 2, total: 2 });
+      return zipPath;
+    });
+
+    const response = await handleExportPost(projectPath, req({ sizes: ["apple/iphone/6.3"], locales: ["en", "uk"] }), {
+      createRenderBrowserSession: vi.fn(async () => ({ renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) })),
+      exportBundle,
+      stageExportArtifact: vi.fn(async (_source, filename) => ({
+        downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+        expiresAt: "2026-07-15T00:05:00.000Z",
+        filename: filename!,
+      })),
+    });
+
+    expect(response.status).toBe(201);
+    expect(exportBundle.mock.calls[0]![0].entries.map((entry) => entry.screen.id)).toEqual(["hero", "hero-uk"]);
+    expect(await response.json()).toMatchObject({
+      written: 1,
+      total: 2,
+      stopped: false,
+      failures: [{
+        screenId: "hero-uk",
+        relativePath: "apple/iphone/locale-uk/size-6.3/01-hero-6.3.png",
+        message: "font file could not be read",
+      }],
+    });
+  });
+
+  it("packages the rendered files when a stop was requested", async () => {
+    const { directory, projectPath } = await useProject();
+    const zipPath = join(directory, "bundle.zip");
+    await writeFile(zipPath, "zip bytes");
+    const project = completeProject();
+    project.layouts[0]!.screens.push({ ...project.layouts[0]!.screens[0]!, id: "second", name: "Second" });
+    await writeFile(projectPath, JSON.stringify(project));
+
+    const response = await handleExportPost(projectPath, req({ operationId: exportOperationId }), {
+      createRenderBrowserSession: vi.fn(async () => ({ renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) })),
+      exportBundle: vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
+        expect(options.shouldStop?.()).toBe(true);
+        options.onRendered?.({ attempted: 1, written: 1, stopped: true });
+        return zipPath;
+      }),
+      progressRegistry: { begin: vi.fn(), update: vi.fn(), finish: vi.fn(), stopRequested: vi.fn(() => true) },
+      stageExportArtifact: vi.fn(async (_source, filename) => ({
+        downloadUrl: `/api/export/artifacts/${"a".repeat(43)}`,
+        expiresAt: "2026-07-15T00:05:00.000Z",
+        filename: filename!,
+      })),
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ written: 1, total: 2, stopped: true, failures: [] });
+  });
+
+  it("returns a stopped result without an artifact when the stop came before the first file", async () => {
+    const { projectPath } = await useProject();
+    const project = completeProject();
+    project.layouts[0]!.screens.push({ ...project.layouts[0]!.screens[0]!, id: "second", name: "Second" });
+    await writeFile(projectPath, JSON.stringify(project));
+    const progressRegistry = { begin: vi.fn(), update: vi.fn(), finish: vi.fn(), stopRequested: vi.fn(() => true) };
+    const stageExportArtifact = vi.fn();
+
+    const response = await handleExportPost(projectPath, req({ operationId: exportOperationId }), {
+      createRenderBrowserSession: vi.fn(async () => ({ renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) })),
+      exportBundle: vi.fn(async (options: Parameters<NonNullable<ExportRouteDependencies["exportBundle"]>>[0]) => {
+        options.onRendered?.({ attempted: 0, written: 0, stopped: true });
+        throw new Error("Export stopped before any file was rendered");
+      }),
+      progressRegistry,
+      stageExportArtifact,
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ warnings: [], written: 0, total: 2, failures: [], stopped: true });
+    expect(stageExportArtifact).not.toHaveBeenCalled();
+    expect(progressRegistry.finish).toHaveBeenCalledWith(exportOperationId, "ready");
+  });
+
+  it("rejects a malformed or empty selection before rendering", async () => {
+    const { projectPath } = await useProject();
+    const malformed = await handleExportPost(projectPath, req({ sizes: "apple/iphone/6.3" }));
+    expect(malformed.status).toBe(422);
+    expect((await malformed.json()).error).toBe("Export sizes must be a list of names");
+
+    const empty = await handleExportPost(projectPath, req({ sizes: [], locales: ["en"] }));
+    expect(empty.status).toBe(422);
+    expect((await empty.json()).error).toBe("No files match the export selection");
   });
 
   it("returns 422 without rendering when filters match no screens", async () => {

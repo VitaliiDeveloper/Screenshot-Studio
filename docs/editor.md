@@ -68,12 +68,29 @@ The editor has five durable interaction roles even if their placement changes:
 - **Feedback and recovery** show save, validation, import, export, missing-resource, and destructive
   outcomes in place, with a clear next action.
 
-Export feedback reports the actual completed-output count while rendering, then honest indeterminate
-packaging and download-preparation phases. The final POST response remains the authority for success
-or failure; unavailable progress status must not cancel an otherwise valid export.
 The Workspace Export dialog keeps rendered store images separate from the portable editable-project
 archive. Project archive export flushes pending saves first and is available only when the active
 managed project advertises archive-export capability.
+
+**Store images** lists the active layout's exact sizes, each with its destination, its pixel target
+from `store-specs.json`, and its file count, and the layout's locales, all checked by default so the
+dialog's count matches the toolbar's. Checkboxes narrow the export to the checked sizes and locales;
+the request names them and the export route filters the same `buildBundleEntries` list, so the path
+preview shows real ZIP-relative paths (the first file of each checked size and locale) and the
+download holds exactly the previewed set. The dialog reads the Issues list: a blocker on a checked
+file, or a screen missing in a checked locale and size, disables Export until it is fixed in Issues
+or its size or locale is unchecked; warnings on checked files are shown and do not block. Web Share
+packages the same images and shows the count without the store-bundle paths.
+
+Export feedback reports the actual completed-output count while rendering (`Rendering N of M`, with
+the file being rendered), then honest indeterminate `Packaging` and download-preparation phases. The
+final POST response remains the authority for success or failure; unavailable progress status must
+not cancel an otherwise valid export. A file that fails to render does not fail the bundle: the
+result names how many files were exported and lists each failed file with its reason and **Go to**
+its screen. **Stop** packages the files already rendered into the download; a stop before the first
+file reports `Stopped: 0 of N files exported` and downloads nothing. While an export runs,
+Esc, the backdrop, and Close do not dismiss the dialog. The CLI keeps failing the whole export on the
+first file that cannot render.
 
 The Layers panel presents one **Screens → Layers** tree for the current exact-size scope. The active screen
 expands to its layers, front-most first; layer reorder applies only to the active screen, and every
