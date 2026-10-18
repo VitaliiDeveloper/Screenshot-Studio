@@ -4,6 +4,7 @@ import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import {
   createTemplateScreen,
   createBuiltInTemplateScreen,
+  createBuiltInTemplatePackScreens,
   listBuiltInTemplates,
   listTemplates,
   TemplateCreateError,
@@ -57,6 +58,15 @@ export async function handleTemplatePost(
   try {
     const body = await jsonBody(req);
     const layoutId = typeof body.layoutId === "string" ? body.layoutId : undefined;
+    if (body.source === "built-in-pack") {
+      const { project, revision, screens } = await createBuiltInTemplatePackScreens(
+        projectPath, body.id, body.locale, await loadStoreSpecs(), {}, layoutId, { expectedRevision },
+      );
+      return Response.json(
+        { project, screenId: screens[0]!.id, screenIds: screens.map((screen) => screen.id) },
+        { headers: { etag: `"${revision}"` } },
+      );
+    }
     const result = body.source === "built-in"
       ? await createBuiltInTemplateScreen(
         projectPath,

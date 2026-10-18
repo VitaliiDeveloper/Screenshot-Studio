@@ -29,6 +29,7 @@ import {
   leadStoreSizeId,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
+import { findBuiltInDesignPack, type DesignPack } from "@screenshot-studio/core/themes";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -220,6 +221,165 @@ export function findBuiltInTemplate(id: string, specs: StoreSpecs, font?: FontId
   return listBuiltInTemplates(specs, font).find((template) => template.id === id);
 }
 
+const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug");
+
+/** Built-in-only multi-screen set. Never parsed from disk; each screen materializes as an ordinary Screen. */
+export const TemplatePack = z.object({
+  id: slug,
+  name: z.string().min(1),
+  description: z.string().min(1),
+  platform: z.string().min(1),
+  device: z.string().min(1),
+  /** Style tag for catalog filtering; matches the built-in Design pack the screens were baked from. */
+  style: slug,
+  screens: z.array(ScreenTemplate).min(1),
+}).strict().superRefine((pack, context) => {
+  pack.screens.forEach((screen, index) => {
+    if (screen.platform !== pack.platform || screen.device !== pack.device) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["screens", index],
+        message: `expected ${pack.platform}/${pack.device} screen`,
+      });
+    }
+  });
+});
+export type TemplatePack = z.infer<typeof TemplatePack>;
+
+type BuiltInTemplatePackScreen = { id: string; name: string; headline: string; subline: string; card?: boolean };
+
+type BuiltInTemplatePackDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  platform: ScreenTemplate["platform"];
+  device: ScreenTemplate["device"];
+  targetId: string;
+  frame: DeviceFrameId;
+  style: string;
+  screens: readonly BuiltInTemplatePackScreen[];
+};
+
+// shortcut: one seed pack exercises the multi-screen path; real styles land with VTL-37.
+const BUILT_IN_TEMPLATE_PACK_DEFINITIONS: readonly BuiltInTemplatePackDefinition[] = [{
+  id: "neutral-iphone-basics",
+  name: "Neutral basics · iPhone",
+  description: "Two light iPhone screens with a headline, a subline, and an editable mockup.",
+  platform: "apple",
+  device: "iphone",
+  targetId: "6.3",
+  frame: "iphone",
+  style: "neutral-default",
+  screens: [
+    { id: "neutral-iphone-hero", name: "Hero", headline: "Your app, at a glance", subline: "Say what it does in one short line." },
+    { id: "neutral-iphone-feature", name: "Feature", headline: "One idea per screen", subline: "Explain a single feature with a short supporting line.", card: true },
+  ],
+}];
+
+export interface BuiltInTemplatePackMetadata {
+  id: string;
+  name: string;
+  description: string;
+  platform: ScreenTemplate["platform"];
+  device: ScreenTemplate["device"];
+  style: string;
+  screenCount: number;
+}
+
+export function listBuiltInTemplatePackMetadata(): BuiltInTemplatePackMetadata[] {
+  return BUILT_IN_TEMPLATE_PACK_DEFINITIONS.map((definition) => ({
+    id: definition.id,
+    name: definition.name,
+    description: definition.description,
+    platform: definition.platform,
+    device: definition.device,
+    style: definition.style,
+    screenCount: definition.screens.length,
+  }));
+}
+
+function templatePackElements(
+  definition: BuiltInTemplatePackDefinition,
+  screen: BuiltInTemplatePackScreen,
+  style: DesignPack,
+  width: number,
+  height: number,
+): ScreenTemplate["elements"] {
+  const shortSide = Math.min(width, height);
+  const safe = Math.round(shortSide * 0.08);
+  const text = (role: "heading" | "body", id: string, content: string, y: number, boxHeight: number) => {
+    const typography = style.typography[role];
+    const size = Math.round(shortSide * typography.sizeRatio);
+    return {
+      id, type: "text" as const, role, x: safe, y, width: width - safe * 2, height: boxHeight,
+      rotation: 0, opacity: 1, locked: false, visible: true, content,
+      fontFamily: typography.family, weight: typography.weight, size,
+      lineHeight: typography.lineHeight, letterSpacing: Math.round(size * typography.letterSpacingEm * 100) / 100,
+      align: "left" as const, color: style.palette[role],
+    };
+  };
+  const frameWidth = Math.round(width * 0.6);
+  const frameHeight = Math.round(frameWidth / deviceFramePreset(definition.frame).recipe.spec.aspectRatio);
+  const elements: ScreenTemplate["elements"] = [
+    {
+      id: "accent", type: "shape", role: "accent", name: "Accent bar", x: safe, y: safe,
+      width: Math.round(width * 0.18), height: Math.round(shortSide * 0.016), rotation: 0,
+      opacity: 1, locked: false, visible: true, kind: "rect", fill: style.palette.accent,
+      radius: Math.round(shortSide * 0.008),
+    },
+    text("heading", "headline", screen.headline, Math.round(height * 0.12), Math.round(height * 0.14)),
+  ];
+  if (screen.card) {
+    elements.push({
+      id: "card", type: "shape", role: "surface", name: "Subline card", x: Math.round(safe / 2),
+      y: Math.round(height * 0.26), width: width - safe, height: Math.round(height * 0.1), rotation: 0,
+      opacity: 1, locked: false, visible: true, kind: "rect", fill: style.palette.surface,
+      radius: Math.round(shortSide * 0.03),
+    });
+  }
+  elements.push(
+    text("body", "subline", screen.subline, Math.round(height * 0.27), Math.round(height * 0.08)),
+    {
+      id: "mockup", type: "device-frame", name: "Drop screenshot here",
+      x: Math.round((width - frameWidth) / 2), y: Math.round(height * 0.39),
+      width: frameWidth, height: frameHeight, rotation: 0, opacity: 1, locked: false, visible: true,
+      deviceType: definition.frame, fit: "cover",
+    },
+  );
+  return elements;
+}
+
+/** Process-global read-only screen packs, resolved against store specs for exact artboards. */
+export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
+  return BUILT_IN_TEMPLATE_PACK_DEFINITIONS.map((definition) => {
+    const style = findBuiltInDesignPack(definition.style);
+    if (!style) throw new Error(`Template pack "${definition.id}" references unknown design pack "${definition.style}"`);
+    const target = findStoreTarget(specs, definition.platform, definition.device, definition.targetId);
+    return TemplatePack.parse({
+      id: definition.id,
+      name: definition.name,
+      description: definition.description,
+      platform: definition.platform,
+      device: definition.device,
+      style: definition.style,
+      screens: definition.screens.map((screen) => ({
+        id: screen.id,
+        name: screen.name,
+        targetId: definition.targetId,
+        platform: definition.platform,
+        device: definition.device,
+        artboard: { width: target.width, height: target.height },
+        background: style.background,
+        elements: templatePackElements(definition, screen, style, target.width, target.height),
+      })),
+    });
+  });
+}
+
+export function findBuiltInTemplatePack(id: string, specs: StoreSpecs): TemplatePack | undefined {
+  return listBuiltInTemplatePacks(specs).find((pack) => pack.id === id);
+}
+
 export function parseTemplateJson(json: string): ScreenTemplate {
   let raw: unknown;
   try {
@@ -364,4 +524,23 @@ export function createScreenFromTemplate(
     screens: layout.screens.map((screen) => screen.id === variant.id ? variant : screen),
   });
   return { project: nextProject, screen: variant };
+}
+
+/** Append every pack screen, in order, as ordinary screens of the layout. */
+export function createScreensFromTemplatePack(
+  project: ProjectModel,
+  layoutId: string,
+  input: TemplatePack,
+  locale: string,
+  specs: StoreSpecs,
+): { project: ProjectModel; screens: Screen[] } {
+  const pack = TemplatePack.parse(input);
+  let next = project;
+  const screens: Screen[] = [];
+  for (const template of pack.screens) {
+    const result = createScreenFromTemplate(next, layoutId, template, locale, specs);
+    next = result.project;
+    screens.push(result.screen);
+  }
+  return { project: next, screens };
 }

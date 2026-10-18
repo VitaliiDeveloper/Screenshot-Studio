@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   FontWeight,
   HexColor,
+  LinearGradientBackground,
+  SolidBackground,
   THEME_ROLES,
   DEFAULT_TEXT_FONT,
   fontIdentityKey,
@@ -49,43 +51,43 @@ export const Theme = z
   .strict();
 export type Theme = z.infer<typeof Theme>;
 
+/** Sizes scale with the artboard so one pack fits every target from 384 to 3840 px. */
 const DesignPackTypography = ThemeFont.extend({
-  size: z.number().positive(),
+  /** Font size as a fraction of the artboard's short side. */
+  sizeRatio: z.number().positive().max(1),
   lineHeight: z.number().positive(),
-  letterSpacing: z.number(),
+  /** Letter spacing as a fraction of the baked font size. */
+  letterSpacingEm: z.number().finite(),
 }).strict();
 
 export const DesignPack = z.object({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
   name: z.string().min(1),
   description: z.string().min(1),
+  /** Image backgrounds would need project assets, which a global pack cannot carry. */
+  background: z.discriminatedUnion("type", [SolidBackground, LinearGradientBackground]),
   palette: roleMap(HexColor),
   typography: roleMap(DesignPackTypography),
-  spacing: z.object({
-    compact: z.number().finite().min(0),
-    regular: z.number().finite().min(0),
-    spacious: z.number().finite().min(0),
-  }).strict(),
 }).strict();
 export type DesignPack = z.infer<typeof DesignPack>;
 
 const BUILT_IN_DESIGN_PACKS: readonly DesignPack[] = [DesignPack.parse({
   id: "neutral-default",
   name: "Neutral default",
-  description: "A calm slate palette, balanced type scale, and practical spacing rhythm.",
+  description: "A calm light slate background with dark, high-contrast type.",
+  background: { type: "linear-gradient", from: "#F8FAFC", to: "#DBEAFE", angle: 135 },
   palette: {
     heading: "#0F172A",
     body: "#475569",
-    accent: "#2563EB",
-    surface: "#F1F5F9",
+    accent: "#1D4ED8",
+    surface: "#FFFFFF",
   },
   typography: {
-    heading: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, size: 64, lineHeight: 1.08, letterSpacing: -1 },
-    body: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, size: 32, lineHeight: 1.35, letterSpacing: 0 },
-    accent: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, size: 28, lineHeight: 1.2, letterSpacing: 0 },
-    surface: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, size: 28, lineHeight: 1.2, letterSpacing: 0 },
+    heading: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, sizeRatio: 0.075, lineHeight: 1.08, letterSpacingEm: -0.015 },
+    body: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, sizeRatio: 0.035, lineHeight: 1.35, letterSpacingEm: 0 },
+    accent: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, sizeRatio: 0.03, lineHeight: 1.2, letterSpacingEm: 0 },
+    surface: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, sizeRatio: 0.03, lineHeight: 1.2, letterSpacingEm: 0 },
   },
-  spacing: { compact: 8, regular: 16, spacious: 24 },
 })];
 
 /** Process-global, read-only catalog. Callers receive detached literals. */
@@ -167,8 +169,9 @@ export function applyTheme(project: ProjectModel, layoutId: string, input: Theme
 }
 
 /**
- * Bake a global pack into the same render-bearing literals used by the editor and CLI. The pack id
- * is never persisted. Role metadata remains only so another pack/theme can be intentionally baked.
+ * Bake a global pack into the same render-bearing literals used by the editor and CLI: every screen
+ * background plus role-tagged leaves. Geometry is left untouched. The pack id is never persisted;
+ * role metadata remains only so another pack/theme can be intentionally baked.
  */
 export function applyDesignPack(
   project: ProjectModel,
@@ -178,42 +181,31 @@ export function applyDesignPack(
   const pack = DesignPack.parse(input);
   assertDesignPackFontsRegistered(project, pack);
   const layout = getLayout(project, layoutId);
-  const roleSpacing = {
-    heading: pack.spacing.spacious,
-    body: pack.spacing.regular,
-    accent: pack.spacing.compact,
-    surface: pack.spacing.spacious,
-  } as const;
-  const snap = (value: number, step: number) => step === 0 ? value : Math.round(value / step) * step;
-  const screens = layout.screens.map((screen) => ({
-    ...screen,
-    elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => {
-      if (!leaf.role) return leaf;
-      const spacing = roleSpacing[leaf.role];
-      const position = { x: snap(leaf.x, spacing), y: snap(leaf.y, spacing) };
-      if (leaf.type === "text") {
-        const typography = pack.typography[leaf.role];
-        return {
-          ...leaf,
-          ...position,
-          color: pack.palette[leaf.role],
-          fontFamily: typography.family,
-          weight: typography.weight,
-          size: typography.size,
-          lineHeight: typography.lineHeight,
-          letterSpacing: typography.letterSpacing,
-        };
-      }
-      if (leaf.type === "shape") {
-        return {
-          ...leaf,
-          ...position,
-          fill: pack.palette[leaf.role],
-        };
-      }
-      if (leaf.type === "icon") return { ...leaf, ...position, color: pack.palette[leaf.role] };
-      return { ...leaf, ...position };
-    })),
-  }));
+  const screens = layout.screens.map((screen) => {
+    const shortSide = Math.min(screen.artboard.width, screen.artboard.height);
+    return {
+      ...screen,
+      background: structuredClone(pack.background),
+      elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => {
+        if (!leaf.role) return leaf;
+        if (leaf.type === "text") {
+          const typography = pack.typography[leaf.role];
+          const size = Math.max(1, Math.round(shortSide * typography.sizeRatio));
+          return {
+            ...leaf,
+            color: pack.palette[leaf.role],
+            fontFamily: typography.family,
+            weight: typography.weight,
+            size,
+            lineHeight: typography.lineHeight,
+            letterSpacing: Math.round(size * typography.letterSpacingEm * 100) / 100,
+          };
+        }
+        if (leaf.type === "shape") return { ...leaf, fill: pack.palette[leaf.role] };
+        if (leaf.type === "icon") return { ...leaf, color: pack.palette[leaf.role] };
+        return leaf;
+      })),
+    };
+  });
   return replaceLayout(project, { ...layout, screens });
 }

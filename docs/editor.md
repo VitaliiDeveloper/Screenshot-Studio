@@ -332,9 +332,14 @@ an arbitrary local filesystem path.
   portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and Web
   mobile. **Blank** remains explicit, and the existing generic project starters remain available
   where supported. Targeted starters open on their exact persisted variant.
-- The Design packs dialog exposes global read-only **Design packs** beside project-local themes. Applying either
-  source is explicit and bakes editable color, typography, and supported spacing literals into the
-  active layout; the project never stores a global pack reference.
+- The Design packs dialog exposes global read-only **Design packs** beside project-local themes. Each
+  built-in pack shows a sample of its background, palette, and type. Applying either source is
+  explicit and bakes editable color and typography literals into the active layout; **Apply pack**
+  also replaces every screen background in that layout with the pack background. The project never
+  stores a global pack reference.
+- The same dialog lists built-in **Screen packs** for the active screen's output family. **Add screens
+  from pack** appends each pack screen as an ordinary editable screen in the active layout and
+  locale, then selects the first one.
 - An empty project presents **Create your first screen** with relevant family starters, capture
   import, and blank-screen paths instead of relying on an unexplained empty canvas.
 - **Add device mockup** creates a presentation frame with a visible empty drop target. **Place

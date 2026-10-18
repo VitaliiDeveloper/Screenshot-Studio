@@ -50,7 +50,7 @@ function previewImageUrl(assetUrl: string): string {
   }
 }
 
-function gradientStyle(background: Extract<Background, { type: "linear-gradient" }>): CSSProperties {
+export function gradientStyle(background: Extract<Background, { type: "linear-gradient" }>): CSSProperties {
   const cssAngle = (background.angle + 90) % 360;
   return {
     backgroundImage: `linear-gradient(${cssAngle}deg, ${background.from}, ${background.to})`,

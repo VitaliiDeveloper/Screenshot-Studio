@@ -8,6 +8,7 @@ import {
   ThemeValidationError,
 } from "@screenshot-studio/cli/theme-service";
 import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
+import { listBuiltInTemplatePackMetadata } from "@screenshot-studio/core/templates";
 import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 
 const ERROR_STATUSES: ErrorStatusTable = [
@@ -33,6 +34,7 @@ export async function handleThemeGet(projectPath: string): Promise<Response> {
   try {
     return Response.json({
       builtIns: listBuiltInDesignPacks(),
+      templatePacks: listBuiltInTemplatePackMetadata(),
       themes: await listThemes(projectPath),
     });
   } catch (error) {

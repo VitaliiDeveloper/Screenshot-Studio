@@ -241,14 +241,16 @@ describe("createProjectScaffold", () => {
       color: "#0F172A",
       fontFamily: "Screenshot Studio Sans",
       weight: 400,
-      size: 64,
+      // The pack heading ratio matches the starter's, so headline box capacity does not regress.
+      size: (beforeHeading as { size: number }).size,
     });
     expect(packedScreen.elements.find((element) => (
       "role" in element && element.role === "accent"
     ))).toMatchObject({
       type: "shape",
-      fill: "#2563EB",
+      fill: "#1D4ED8",
     });
+    expect(packedScreen.background).toEqual(pack.background);
     expect(parseProject(packed)).toEqual(packed);
     expect(JSON.stringify(packed)).not.toContain(pack.id);
   });
