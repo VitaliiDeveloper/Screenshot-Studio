@@ -256,9 +256,11 @@ describe("connected workspace", () => {
       .getAttribute("data-stage-screen-ids")).toBe("connected-first connected-second");
 
     const structure = page.getByRole("button", { name: "Layers panel", exact: true });
-    const inspect = page.getByRole("button", { name: "Inspect", exact: true });
+    const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
+    // At this width the top bar moves Inspect into its overflow menu (docs/editor.md §3).
+    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     expect(await structure.getAttribute("aria-pressed")).toBe("false");
-    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
 
     const layoutSelector = page.getByRole("button", { name: "Active layout: Default" });
     await layoutSelector.focus();
@@ -278,7 +280,7 @@ describe("connected workspace", () => {
     await structure.focus();
     await page.keyboard.press("Space");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
-    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
     await page.getByRole("list", { name: "Screens for en · iphone" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
