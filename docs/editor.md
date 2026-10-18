@@ -176,10 +176,16 @@ a per-size override inside a screen, and screens of other locales are never touc
 reach the matching layer on each size by the same structural match as Status by size and skip
 unmatched or locked layers. Pixel metrics (position, size, font size, spacing, shadow, radius) are
 written through the same fit used when a size is created, so they scale with each artboard; every
-other field is copied. In the Screen tab the scope applies to Background. Destinations keep no
-persisted slot link, so **All destinations** matches slots by primary-screen position. The scope is
-editor state only and resets to **Only {size}** when the editor reloads; multi-selection keeps
-editing the selected screen only.
+other field is copied. Each counterpart takes the edited layer's fitted value for every changed
+field, replacing it rather than applying a delta, so editing position on one size also replaces
+manual placement on the others in scope. A size that cannot take the fitted value within its limits
+is skipped. In the Screen tab the scope applies to Background. Destinations keep no persisted slot
+link, so **All destinations** pairs a destination only when its primary screen at the same position
+has the same name, and skips it otherwise. The footer counts only the screens the next edit will
+write and names how many sizes and destinations it skips. The scope is editor state only: it holds
+while the same layer (or, with nothing selected, the same screen) stays selected and resets to
+**Only {size}** on any other selection or reload; multi-selection keeps editing the selected screen
+only.
 
 **Stored on this screen** at the top of the Screen tab shows, read-only, the locale and its text
 direction, destination, exact store size with its export pixels, and layout that the screen

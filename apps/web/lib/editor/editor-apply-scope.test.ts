@@ -4,6 +4,7 @@ import {
   createShapeElement,
   createTextElement,
   getLayout,
+  TEXT_SHADOW_BLUR_MAX,
   parseProject,
   type Element,
   type Project,
@@ -18,7 +19,8 @@ const title = (id: string, extra: Partial<TextElement> = {}): Element =>
 function screen(id: string, elements: Element[], extra: Record<string, unknown> = {}) {
   return {
     id,
-    name: id,
+    // Destination copies keep their slot's name: "hero-ipad" is named "hero".
+    name: id.split("-")[0],
     platform: "apple",
     device: "iphone",
     locale: "en",
@@ -66,21 +68,35 @@ function element(project: Project, screenId: string, elementId: string): TextEle
 
 describe("applyScopeScreens", () => {
   const layout = getLayout(fixture(), "default");
-  const hero = layout.screens[0]!;
+
+  const reach = (target: typeof layout, source: string, scope: "screen" | "family" | "destinations") => {
+    const { screens, skippedDestinations } = applyScopeScreens(
+      target,
+      target.screens.find(({ id }) => id === source)!,
+      scope,
+    );
+    return { screens: ids(screens), skippedDestinations };
+  };
 
   it("widens from the screen to its slot to that slot in every destination of the locale", () => {
-    expect(ids(applyScopeScreens(layout, hero, "screen"))).toEqual(["hero"]);
-    expect(ids(applyScopeScreens(layout, hero, "family"))).toEqual(["hero", "hero-69", "hero-61"]);
-    expect(ids(applyScopeScreens(layout, hero, "destinations")))
-      .toEqual(["hero", "hero-69", "hero-61", "hero-ipad"]);
+    expect(reach(layout, "hero", "screen")).toEqual({ screens: ["hero"], skippedDestinations: 0 });
+    expect(reach(layout, "hero", "family"))
+      .toEqual({ screens: ["hero", "hero-69", "hero-61"], skippedDestinations: 0 });
+    expect(reach(layout, "hero", "destinations"))
+      .toEqual({ screens: ["hero", "hero-69", "hero-61", "hero-ipad"], skippedDestinations: 0 });
   });
 
   it("resolves the same scope from a variant and never crosses into another locale", () => {
-    const variantScreen = layout.screens.find(({ id }) => id === "hero-69")!;
-    expect(ids(applyScopeScreens(layout, variantScreen, "destinations")))
-      .toEqual(["hero", "hero-69", "hero-61", "hero-ipad"]);
-    const second = layout.screens.find(({ id }) => id === "details")!;
-    expect(ids(applyScopeScreens(layout, second, "destinations"))).toEqual(["details", "details-ipad"]);
+    expect(reach(layout, "hero-69", "destinations").screens).toEqual(["hero", "hero-69", "hero-61", "hero-ipad"]);
+    expect(reach(layout, "details", "destinations").screens).toEqual(["details", "details-ipad"]);
+  });
+
+  it("skips a destination whose screen order diverged instead of editing an unrelated screen", () => {
+    const moved = layout.screens.filter(({ device }) => device === "ipad").reverse();
+    const diverged = { ...layout, screens: [...layout.screens.filter(({ device }) => device !== "ipad"), ...moved] };
+    expect(reach(diverged, "hero", "destinations"))
+      .toEqual({ screens: ["hero", "hero-69", "hero-61"], skippedDestinations: 1 });
+    expect(reach(diverged, "details", "destinations")).toEqual({ screens: ["details"], skippedDestinations: 1 });
   });
 });
 
@@ -88,7 +104,7 @@ describe("scopedElementPatches", () => {
   const layout = getLayout(fixture(), "default");
 
   it("copies plain fields, fits pixel metrics per artboard, and skips locked layers", () => {
-    const writes = scopedElementPatches(
+    const { writes, skippedSizes } = scopedElementPatches(
       layout,
       "hero",
       "title",
@@ -97,6 +113,7 @@ describe("scopedElementPatches", () => {
     );
     expect(writes.map(({ screenId, elementId }) => `${screenId}/${elementId}`))
       .toEqual(["hero/title", "hero-69/title-69"]);
+    expect(skippedSizes).toBe(1);
     expect(writes[0]!.patch).toEqual({ color: "#FF0000", size: 120, shadow: null });
     const fitted = writes[1]!.patch as { color: string; size: number; shadow: null };
     expect(fitted.color).toBe("#FF0000");
@@ -106,7 +123,21 @@ describe("scopedElementPatches", () => {
 
   it("writes only the edited layer when the scope is this screen", () => {
     expect(scopedElementPatches(layout, "hero", "title", { type: "text", patch: { size: 90 } }, "screen"))
-      .toEqual([{ screenId: "hero", elementId: "title", patch: { size: 90 } }]);
+      .toEqual({ writes: [{ screenId: "hero", elementId: "title", patch: { size: 90 } }], skippedSizes: 0 });
+  });
+
+  it("skips and counts a size that cannot take the fitted value", () => {
+    const shadow = { color: "#000000", blur: TEXT_SHADOW_BLUR_MAX, offsetX: 0, offsetY: 0, opacity: 1 };
+    const { writes, skippedSizes } = scopedElementPatches(
+      layout,
+      "hero",
+      "title",
+      { type: "text", patch: { shadow } },
+      "family",
+    );
+    // Scaling up to 6.9" would push the blur past its maximum; 6.1" is locked.
+    expect(writes.map(({ screenId }) => screenId)).toEqual(["hero"]);
+    expect(skippedSizes).toBe(2);
   });
 });
 

@@ -78,7 +78,7 @@ export function createEditorSelectionActions(set: EditorSet): EditorSelectionAct
           ?? (primary?.elementId === id ? primary.screenId : null)
           ?? state.activeScreenId;
         if (!ownerScreenId) return state;
-        const writes = scopedElementPatches(
+        const { writes } = scopedElementPatches(
           getLayout(state.project, state.activeLayoutId),
           ownerScreenId,
           id,

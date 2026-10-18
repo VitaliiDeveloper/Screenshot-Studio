@@ -31,18 +31,31 @@ function familyKey(screen: Screen): string {
   return `${screen.platform}/${screen.device}`;
 }
 
+/** The screens a scope reaches, plus the destinations it leaves out because their slot is unclear. */
+export interface ApplyScopeScreens {
+  screens: Screen[];
+  skippedDestinations: number;
+}
+
+/** The layer writes of one scoped edit, plus the other in-scope sizes it leaves untouched. */
+export interface ScopedElementPatches {
+  writes: ScopedElementPatch[];
+  skippedSizes: number;
+}
+
 /**
  * The screens an edit on `source` writes to, in layout order and always in `source`'s locale.
- * shortcut: destinations keep no persisted slot link, so their slots match by primary-screen
- * position (a new destination is an ordered copy of the source's screens); diverged orders need a
- * persisted link, which is a schema change.
+ * shortcut: destinations keep no persisted slot link, so a destination pairs with the primary
+ * screen at the same position only while that screen keeps the source slot's name (a new
+ * destination is an ordered, same-named copy); any other destination is skipped and counted.
+ * Pairing diverged orders needs a persisted slot link, which is a schema change.
  */
-export function applyScopeScreens(layout: DesignLayout, source: Screen, scope: ApplyScope): Screen[] {
-  if (scope === "screen") return [source];
+export function applyScopeScreens(layout: DesignLayout, source: Screen, scope: ApplyScope): ApplyScopeScreens {
+  if (scope === "screen") return { screens: [source], skippedDestinations: 0 };
   const root = source.variantOf
     ? layout.screens.find((screen) => screen.id === source.variantOf)
     : isPrimaryScreen(source) ? source : undefined;
-  if (scope === "family" || !root) return slotScreens(layout, source);
+  if (scope === "family" || !root) return { screens: slotScreens(layout, source), skippedDestinations: 0 };
 
   const rootsByFamily = new Map<string, Screen[]>();
   for (const screen of layout.screens) {
@@ -50,17 +63,28 @@ export function applyScopeScreens(layout: DesignLayout, source: Screen, scope: A
     rootsByFamily.set(familyKey(screen), [...(rootsByFamily.get(familyKey(screen)) ?? []), screen]);
   }
   const position = rootsByFamily.get(familyKey(root))!.indexOf(root);
-  const ids = new Set([...rootsByFamily.values()].flatMap((roots) =>
-    roots[position] ? slotScreens(layout, roots[position]).map((screen) => screen.id) : []
-  ));
-  return layout.screens.filter((screen) => ids.has(screen.id));
+  const peers = [...rootsByFamily.values()].map((roots) => roots[position]);
+  const paired = peers.filter((peer) => peer?.name === root.name);
+  const ids = new Set(paired.flatMap((peer) => slotScreens(layout, peer!).map((screen) => screen.id)));
+  return {
+    screens: layout.screens.filter((screen) => ids.has(screen.id)),
+    skippedDestinations: peers.length - paired.length,
+  };
+}
+
+// Core throws plain Errors when a scaled value leaves its range (a bounded metric or the strict
+// schema); both messages start with this prefix. Anything else is a bug and must surface.
+function isScaleRangeError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith("Cannot scale ");
 }
 
 /**
  * One layer edit, resolved per screen in scope. The edited layer takes the patch as given; its
  * counterpart on another size takes the patched fields of the edited layer fitted into that
  * artboard, the same fit sizes are created with, so pixel metrics scale and the rest is copied.
- * Unmatched, locked, and other-type counterparts are skipped, as is a size the fit cannot take.
+ * Each patched field replaces the counterpart's value; it is never a delta.
+ * Unmatched, locked, and other-type counterparts are skipped and counted, as is a size the fit
+ * cannot take. An empty patch reports which sizes an edit of this layer would reach.
  */
 export function scopedElementPatches(
   layout: DesignLayout,
@@ -68,8 +92,8 @@ export function scopedElementPatches(
   elementId: string,
   request: ElementPatchRequest,
   scope: ApplyScope,
-): ScopedElementPatch[] {
-  const self = [{ screenId: sourceScreenId, elementId, patch: request.patch }];
+): ScopedElementPatches {
+  const self = { writes: [{ screenId: sourceScreenId, elementId, patch: request.patch }], skippedSizes: 0 };
   const source = layout.screens.find((screen) => screen.id === sourceScreenId);
   const location = source ? findElementLocation(source, elementId) : null;
   if (scope === "screen" || !source || !location) return self;
@@ -78,24 +102,28 @@ export function scopedElementPatches(
   const editedLeaf = (top: Element) => location.parent && top.type === "group"
     ? top.children.find((child) => child.id === elementId)!
     : top;
-  if (!applyMatchingElementPatch(editedLeaf(edited), request)) return [];
+  if (!applyMatchingElementPatch(editedLeaf(edited), request)) return { writes: [], skippedSizes: 0 };
 
   const writes: ScopedElementPatch[] = [];
-  for (const screen of applyScopeScreens(layout, source, scope)) {
+  let skippedSizes = 0;
+  for (const screen of applyScopeScreens(layout, source, scope).screens) {
     if (screen.id === source.id) {
-      writes.push(...self);
+      writes.push(...self.writes);
       continue;
     }
     const counterpart = slotCounterpart(source, elementId, screen);
     const counterpartParent = counterpart ? findElementLocation(screen, counterpart.id)?.parent : null;
     if (!counterpart || counterpart.type !== request.type || counterpart.locked || counterpartParent?.locked) {
+      skippedSizes += 1;
       continue;
     }
     let fitted: Record<string, unknown>;
     try {
       fitted = editedLeaf(fitElementsToArtboard([edited], source.artboard, screen.artboard)[0]!);
-    } catch {
-      continue; // Scaling up pushed a bounded metric (shadow blur, stroke width) past its maximum.
+    } catch (error) {
+      if (!isScaleRangeError(error)) throw error;
+      skippedSizes += 1;
+      continue;
     }
     const patch = Object.fromEntries(Object.entries(request.patch).map(([key, value]) => [
       key,
@@ -103,5 +131,5 @@ export function scopedElementPatches(
     ])) as ElementPatch;
     writes.push({ screenId: screen.id, elementId: counterpart.id, patch });
   }
-  return writes;
+  return { writes, skippedSizes };
 }

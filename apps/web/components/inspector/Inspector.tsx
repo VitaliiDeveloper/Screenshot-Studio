@@ -31,7 +31,12 @@ import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { typeCountLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor/editor-workspace";
 import { cx, editorUi } from "@web/components/editor-ui";
-import { ApplyScopeFooter, ApplyScopeSelect } from "./ApplyScopeControl";
+import {
+  ApplyScopeFooter,
+  ApplyScopeSelect,
+  resolveApplyScope,
+  type ApplyScopeChoice,
+} from "./ApplyScopeControl";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections";
 import { TextSizeStatusSection } from "./TextSizeStatusSection";
@@ -87,7 +92,7 @@ export function Inspector({
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [tabChoice, setTabChoice] = useState<InspectorTabChoice | null>(null);
-  const [applyScope, setApplyScope] = useState<ApplyScope>("screen");
+  const [scopeChoice, setScopeChoice] = useState<ApplyScopeChoice | null>(null);
   const idPrefix = useId();
 
   if (!project || !activeLayoutId || !activeScreenId) {
@@ -110,6 +115,9 @@ export function Inspector({
     sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
+  const scopeKey = `${activeScreenId}|${selectionKey}`;
+  const applyScope = resolveApplyScope(scopeChoice, scopeKey);
+  const setApplyScope = (scope: ApplyScope) => setScopeChoice({ scope, key: scopeKey });
   const tab = resolveInspectorTab(selectionKey, tabChoice);
   const activeScreen = getScreen(project, activeLayoutId, activeScreenId);
   const [title, subtitle] = inspectorHeading({
@@ -419,6 +427,7 @@ export function Inspector({
           specs={specs}
           value={applyScope}
           onChange={setApplyScope}
+          element={tab === "layer" ? element ?? undefined : undefined}
         />
       ) : null}
     </aside>

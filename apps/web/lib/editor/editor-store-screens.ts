@@ -162,7 +162,7 @@ export function createEditorScreenActions(set: EditorSet): EditorScreenActions {
         const layout = selectEditorLayout(state);
         const screen = layout?.screens.find((candidate) => candidate.id === state.activeScreenId);
         if (!state.project || !state.activeLayoutId || !layout || !screen) return state;
-        const project = applyScopeScreens(layout, screen, scope).reduce(
+        const project = applyScopeScreens(layout, screen, scope).screens.reduce(
           (next, target) => setScreenBackground(next, state.activeLayoutId!, target.id, background),
           state.project,
         );
