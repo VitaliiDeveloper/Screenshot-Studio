@@ -44,6 +44,7 @@ async function fakeClaude(scenario: string): Promise<void> {
   await writeFile(path, `#!/bin/sh
 case "$1" in
   --version) echo '2.1.296 (Claude Code)' ;;
+  --help) echo '  --bare    Minimal mode' ;;
   auth) echo '{"loggedIn":true,"authMethod":"claude.ai"}' ;;
   *) echo started > '${dir}/started'; ${scenario} ;;
 esac
@@ -67,6 +68,10 @@ async function sessionRequest(method: string, host = "localhost:3000", body?: un
 
 const RUN = { agentId: "claude-code", message: "Add German" };
 
+function started(): Promise<boolean> {
+  return access(join(dir, "started")).then(() => true, () => false);
+}
+
 describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
   it("streams a run as server-sent events for the cookie-selected project", async () => {
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
@@ -87,7 +92,7 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
 
     expect(response.status).toBe(403);
     expect((await DELETE(await sessionRequest("DELETE", "rebound.example"))).status).toBe(403);
-    expect(await access(join(dir, "started")).then(() => true, () => false)).toBe(false);
+    expect(await started()).toBe(false);
   });
 
   it("rejects invalid requests with explicit errors", async () => {
@@ -103,11 +108,49 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
     expect(await unavailable.json()).toMatchObject({ code: "unavailable" });
   });
 
+  it("cancels the run when the request is aborted", async () => {
+    await fakeClaude("exec /bin/sleep 30");
+    const abort = new AbortController();
+    const request = new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify(RUN), signal: abort.signal,
+    });
+    const response = await handleAgentSessionPost(projectPath, request);
+    expect(response.status).toBe(200);
+    await expect.poll(started, { timeout: 5_000 }).toBe(true);
+
+    abort.abort();
+
+    expect(await response.text()).toContain('"status":"cancelled"');
+    expect((await DELETE(await sessionRequest("DELETE"))).status).toBe(404);
+  }, 20_000);
+
+  it("sends keep-alive comments while a run is silent and stops them when it ends", async () => {
+    await fakeClaude("exec /bin/sleep 30");
+    const response = await handleAgentSessionPost(projectPath, new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify(RUN),
+    }), { heartbeatMs: 50 });
+    const reader = response.body!.getReader();
+
+    const first = new TextDecoder().decode((await reader.read()).value);
+
+    expect(first).toBe(": keep-alive\n\n");
+    await reader.cancel();
+    expect((await DELETE(await sessionRequest("DELETE"))).status).toBe(404);
+
+    // A heartbeat left running after `done` would throw on the closed stream as an unhandled error.
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    const finished = await handleAgentSessionPost(projectPath, new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify(RUN),
+    }), { heartbeatMs: 10 });
+    expect(await finished.text()).toContain('"status":"completed"');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }, 20_000);
+
   it("cancels the running agent through DELETE", async () => {
     await fakeClaude("exec /bin/sleep 30");
     const response = await POST(await sessionRequest("POST", undefined, RUN));
     expect(response.status).toBe(200);
-    await expect.poll(() => access(join(dir, "started")).then(() => true, () => false), { timeout: 5_000 }).toBe(true);
+    await expect.poll(started, { timeout: 5_000 }).toBe(true);
 
     expect((await DELETE(await sessionRequest("DELETE"))).status).toBe(204);
 

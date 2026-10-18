@@ -40,9 +40,14 @@ async function writeFake(name: string, body: string): Promise<void> {
   await chmod(path, 0o755);
 }
 
-function fakeClaude(scenario: string, auth = `echo '{"loggedIn":true,"authMethod":"claude.ai"}'`): Promise<void> {
+function fakeClaude(
+  scenario: string,
+  auth = `echo '{"loggedIn":true,"authMethod":"claude.ai"}'`,
+  version = "echo '2.1.296 (Claude Code)'",
+): Promise<void> {
   return writeFake("claude", `case "$1" in
-  --version) echo '2.1.296 (Claude Code)'; exit 0 ;;
+  --version) ${version} ;;
+  --help) echo '  --bare    Minimal mode' ;;
   auth) ${auth} ;;
   *)
     printf '%s\\n' "$@" > '${root}/argv'
@@ -132,6 +137,17 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await cancelAgentRun(projectDir)).toBe(false);
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
     expect((await collect(await start())).at(-1)).toMatchObject({ status: "completed" });
+  }, 20_000);
+
+  it("never launches a run cancelled during its readiness check", async () => {
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 1; echo '2.1.296 (Claude Code)'");
+    const pending = start();
+
+    await expect.poll(() => cancelAgentRun(projectDir), { timeout: 5_000 }).toBe(true);
+
+    expect(await collect(await pending)).toEqual([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
+    expect(await exists(join(root, "argv"))).toBe(false);
+    expect(await cancelAgentRun(projectDir)).toBe(false);
   }, 20_000);
 
   it("stops a run when the event stream is abandoned", async () => {

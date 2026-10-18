@@ -50,7 +50,7 @@ describe("Claude Code adapter", () => {
     ]);
   });
 
-  it("classifies a crash without a result from stderr but never forwards stderr", async () => {
+  it("classifies failures from stderr or the result but never forwards their text", async () => {
     const normalizer = claudeCodeAdapter.normalizer();
     const crash = normalizer.end({ code: 1, stderr: "Error: EACCES /Users/owner/secret-path token=abc" });
     expect(crash).toEqual([
@@ -59,6 +59,15 @@ describe("Claude Code adapter", () => {
     ]);
     expect(claudeCodeAdapter.normalizer().end({ code: 1, stderr: "You've hit your weekly limit · resets Mon 9am" }))
       .toMatchObject([{ type: "error", code: "usage-limit", resets: "Mon 9am" }, { type: "done" }]);
+
+    const failedResult = claudeCodeAdapter.normalizer().line(JSON.stringify({
+      type: "result", subtype: "error_during_execution", is_error: true, duration_ms: 5,
+      result: "EACCES: permission denied, open '/Users/owner/Library/secret.json'",
+    }));
+    expect(failedResult[0]).toEqual({
+      type: "error", code: "failed", message: "Claude Code stopped with an error", resets: null,
+    });
+    expect(JSON.stringify(failedResult)).not.toContain("/Users/owner");
   });
 
   it("ignores output after the result and keeps only one terminal event", async () => {

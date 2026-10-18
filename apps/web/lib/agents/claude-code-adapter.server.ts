@@ -10,6 +10,7 @@ import type {
 } from "./agent-session.server.js";
 
 const SUMMARY_LIMIT = 2_000;
+const RESETS_LIMIT = 80;
 const USAGE_LIMIT = /(?:hit|reached) your [\w ]*limit|spend limit|usage limit/i;
 const NOT_AUTHORIZED = /not logged in|please run \/login|invalid api key|oauth token (?:has )?expired|authentication[_ ](?:error|failed)/i;
 const RESETS = /\bresets? (?:at )?([^\n·]+)/i;
@@ -33,7 +34,9 @@ function text(value: unknown): string | null {
 type CliErrorCode = Exclude<AgentErrorCode, "timeout">;
 
 function failure(message: string): { code: CliErrorCode; resets: string | null } {
-  if (USAGE_LIMIT.test(message)) return { code: "usage-limit", resets: RESETS.exec(message)?.[1]?.trim() ?? null };
+  if (USAGE_LIMIT.test(message)) {
+    return { code: "usage-limit", resets: RESETS.exec(message)?.[1]?.trim().slice(0, RESETS_LIMIT) ?? null };
+  }
   if (NOT_AUTHORIZED.test(message)) return { code: "not-authorized", resets: null };
   return { code: "failed", resets: null };
 }
@@ -44,13 +47,9 @@ const ERROR_MESSAGES: Record<CliErrorCode, string> = {
   failed: "Claude Code stopped with an error",
 };
 
-function errorEvent(code: CliErrorCode, resets: string | null, detail?: string | null): AgentEvent {
-  return {
-    type: "error",
-    code,
-    message: code === "failed" && detail ? detail.slice(0, SUMMARY_LIMIT) : ERROR_MESSAGES[code],
-    resets,
-  };
+// Failure text is only classified, like stderr: it may carry absolute paths or account hints.
+function errorEvent(code: CliErrorCode, resets: string | null): AgentEvent {
+  return { type: "error", code, message: ERROR_MESSAGES[code], resets };
 }
 
 function progressEvent(input: Record<string, unknown>): AgentEvent[] {
@@ -90,7 +89,7 @@ function resultEvents(result: Record<string, unknown>): AgentEvent[] {
     return [{ type: "done", status: "completed", summary: summary?.slice(0, SUMMARY_LIMIT) ?? null, durationMs }];
   }
   const { code, resets } = failure(summary ?? "");
-  return [errorEvent(code, resets, summary), { type: "done", status: "failed", summary: null, durationMs }];
+  return [errorEvent(code, resets), { type: "done", status: "failed", summary: null, durationMs }];
 }
 
 /** Claude Code `-p --output-format stream-json`, restricted per the VTL-29 spike. */
@@ -131,7 +130,6 @@ export const claudeCodeAdapter: AgentAdapter = {
         finished = true;
         return resultEvents(message);
       },
-      // stderr is only classified, never forwarded: it may hold paths, tokens or account details.
       end({ stderr }) {
         if (finished) return [];
         const { code, resets } = failure(stderr);

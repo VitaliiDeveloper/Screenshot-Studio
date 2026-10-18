@@ -140,9 +140,16 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
   if (runs.has(projectDir)) {
     throw new AgentRunError(409, "agent-busy", "An agent is already running in this project");
   }
-  runs.set(projectDir, () => undefined);
+  let cancelledBeforeLaunch = false;
+  runs.set(projectDir, () => {
+    cancelledBeforeLaunch = true;
+  });
   try {
     const status = await detectAgent(definition, { env: options.env });
+    if (cancelledBeforeLaunch) {
+      runs.delete(projectDir);
+      return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
+    }
     if (status.state !== "ready") {
       throw new AgentRunError(409, status.state, `${definition.name} is not ready (${status.state})`);
     }
@@ -161,7 +168,19 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
   }
 }
 
-/** Cancels the project's run, if any, by killing its whole process tree. */
+function finishedRun(event: AgentEvent): AgentRun {
+  return {
+    events: new ReadableStream<AgentEvent>({
+      start(controller) {
+        controller.enqueue(event);
+        controller.close();
+      },
+    }),
+    cancel: () => undefined,
+  };
+}
+
+/** Cancels the project's run, if any; a run still in its readiness check never launches. */
 export async function cancelAgentRun(projectDir: string): Promise<boolean> {
   const cancel = activeRuns().get(await realpath(projectDir));
   cancel?.();

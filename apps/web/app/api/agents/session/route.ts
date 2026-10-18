@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { jsonError } from "@web/lib/api-error-response.server.js";
+import { rejectNonLoopbackRequest } from "@web/lib/agents/loopback-request.server.js";
 import { withProjectReadRequest } from "@web/lib/session/project-request-fence.server.js";
-import { handleAgentSessionDelete, handleAgentSessionPost, isLoopbackRequest } from "./handler.js";
+import { handleAgentSessionDelete, handleAgentSessionPost } from "./handler.js";
 
 /**
  * Runs the selected agent CLI in the active project's folder and streams its events (SSE).
@@ -11,14 +11,12 @@ import { handleAgentSessionDelete, handleAgentSessionPost, isLoopbackRequest } f
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const NOT_LOOPBACK = "Agent runs are only available from localhost";
-
 export async function POST(req: Request): Promise<Response> {
-  if (!isLoopbackRequest(req)) return jsonError(403, NOT_LOOPBACK);
-  return withProjectReadRequest(req, ({ projectPath }) => handleAgentSessionPost(projectPath, req));
+  return rejectNonLoopbackRequest(req)
+    ?? withProjectReadRequest(req, ({ projectPath }) => handleAgentSessionPost(projectPath, req));
 }
 
 export async function DELETE(req: Request): Promise<Response> {
-  if (!isLoopbackRequest(req)) return jsonError(403, NOT_LOOPBACK);
-  return withProjectReadRequest(req, ({ projectPath }) => handleAgentSessionDelete(projectPath));
+  return rejectNonLoopbackRequest(req)
+    ?? withProjectReadRequest(req, ({ projectPath }) => handleAgentSessionDelete(projectPath));
 }
