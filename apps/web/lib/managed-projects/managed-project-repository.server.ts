@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { randomUUID } from "node:crypto";
+import { constants } from "node:fs";
 import {
-  randomUUID } from "node:crypto"; import { constants } from "node:fs"; import {   lstat,
+  lstat,
   mkdir,
   open,
   readdir,
@@ -9,9 +11,12 @@ import {
   rename,
   rm,
   type FileHandle,
-  } from "node:fs/promises"; import { dirname,
-  join } from "node:path"; import { readProjectSnapshot,
+} from "node:fs/promises";
+import { dirname, join } from "node:path";
+import {
   errorCode,
+  noFollowFlags,
+  readProjectSnapshot,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
 import {
@@ -428,8 +433,7 @@ export class ManagedProjectRepository {
     try {
       handle = await open(
         stage,
-        constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
-          | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0),
+        noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY),
         0o600,
       );
       ownsStage = true;

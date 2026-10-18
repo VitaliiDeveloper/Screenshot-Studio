@@ -4,7 +4,6 @@
 import { editorStore } from "@web/lib/editor/editor-store";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui";
 
-/** Switches the active locale of the current layout. */
 export function ToolbarLocaleSelect({
   activeLocale,
   localeOptions,

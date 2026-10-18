@@ -9,12 +9,9 @@ import {
 } from "@web/lib/session/project-session.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
+import { isRecord } from "@web/lib/json-guards.js";
 
 const RECENT_ID_PATTERN = /^recent_[0-9a-f]{32}$/;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 async function recentIdFromBody(request: Request): Promise<string> {
   const value = await request.json() as unknown;

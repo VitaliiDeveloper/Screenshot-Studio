@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Owned sibling stages: exclusive creation and fail-closed cleanup after publication attempts.
 import { constants } from "node:fs";
 import { lstat } from "node:fs/promises";
 import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";

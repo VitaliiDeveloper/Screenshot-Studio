@@ -2,9 +2,8 @@
 import { constants, type BigIntStats } from "node:fs";
 import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
-import { resolveExistingProjectPath } from "@screenshot-studio/core/storage";
+import { errorText, noFollowFlags, resolveExistingProjectPath } from "@screenshot-studio/core/storage";
 
-/** Ids of project definition files: lowercase slugs, stored as `<id>.json`. */
 export const DEFINITION_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 interface DefinitionHandle {
@@ -25,7 +24,6 @@ export interface DefinitionStoreDependencies {
 type DefinitionErrorClass = new (message: string, options?: ErrorOptions) => Error;
 
 export interface DefinitionStoreConfig<T extends { id: string }> {
-  /** Directory next to the project file, e.g. `templates`. */
   directoryName: string;
   /** Capitalised noun used in every error message, e.g. `Template`. */
   noun: string;
@@ -80,13 +78,8 @@ function hasCode(error: unknown, code: string): boolean {
   return (error as NodeJS.ErrnoException | undefined)?.code === code;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function noFollowReadFlags(): number {
-  return constants.O_RDONLY
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0)
+  return noFollowFlags(constants.O_RDONLY)
     | (typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0);
 }
 
@@ -110,7 +103,7 @@ export function createDefinitionStore<T extends { id: string }>({
   function withCloseError(primary: unknown, cleanup: unknown): AggregateError {
     return new AggregateError(
       [primary, cleanup],
-      `${errorMessage(primary)}; ${lowerNoun} definition close failed: ${errorMessage(cleanup)}`,
+      `${errorText(primary)}; ${lowerNoun} definition close failed: ${errorText(cleanup)}`,
       { cause: primary },
     );
   }

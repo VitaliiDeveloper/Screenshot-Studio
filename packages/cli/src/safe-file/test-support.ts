@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Shared fixtures for the safe file publication tests.
 import { execFile } from "node:child_process";
 import { mkdtemp, readdir, realpath, rm, type FileHandle } from "node:fs/promises";
 import { tmpdir } from "node:os";

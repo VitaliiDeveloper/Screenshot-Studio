@@ -21,6 +21,7 @@ import {
 } from "@web/lib/session/project-session.server.js";
 import { expiredProjectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
+import { hasExactKeys, isRecord } from "@web/lib/json-guards.js";
 
 const MAX_DELETE_REQUEST_BYTES = 2_048;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
@@ -53,15 +54,6 @@ export interface ProjectDeleteOperationRouteDependencies {
 }
 
 class RequestLimitError extends Error {}
-
-function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
-  const actual = Object.keys(value);
-  return actual.length === expected.length && actual.every((key) => expected.includes(key));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 async function readBoundedJson(request: Request): Promise<unknown> {
   if (!request.body) throw new TypeError("Request body is missing");
@@ -105,7 +97,7 @@ function statusSecretHash(secret: string): string {
 }
 
 function parseOperationCredentials(value: unknown): { operationId: string; statusSecret: string } {
-  if (!isRecord(value) || !exactKeys(value, ["operationId", "statusSecret"])
+  if (!isRecord(value) || !hasExactKeys(value, ["operationId", "statusSecret"])
     || typeof value.operationId !== "string" || !OPERATION_ID_PATTERN.test(value.operationId)
     || typeof value.statusSecret !== "string" || !SECRET_PATTERN.test(value.statusSecret)) {
     throw new TypeError("Invalid deletion operation credentials");
@@ -122,7 +114,7 @@ interface ParsedDeleteRequest {
 }
 
 function parseDeleteRequest(value: unknown): ParsedDeleteRequest {
-  if (!isRecord(value) || !exactKeys(value, [
+  if (!isRecord(value) || !hasExactKeys(value, [
     "operationId", "statusSecret", "expectedLifecycleRevision", "confirmation", "backup",
   ])) throw new TypeError("Invalid permanent deletion fields");
   const credentials = parseOperationCredentials({
@@ -136,11 +128,11 @@ function parseDeleteRequest(value: unknown): ParsedDeleteRequest {
     throw new TypeError("Invalid permanent deletion fields");
   }
   let backup: ParsedDeleteRequest["backup"];
-  if (value.backup.kind === "none" && exactKeys(value.backup, ["kind", "acknowledged"])
+  if (value.backup.kind === "none" && hasExactKeys(value.backup, ["kind", "acknowledged"])
     && value.backup.acknowledged === true) {
     backup = { kind: "none" };
   } else if (value.backup.kind === "archive"
-    && exactKeys(value.backup, ["kind", "projectRevision"])
+    && hasExactKeys(value.backup, ["kind", "projectRevision"])
     && typeof value.backup.projectRevision === "string"
     && REVISION_PATTERN.test(value.backup.projectRevision)) {
     backup = { kind: "archive", projectRevision: value.backup.projectRevision };

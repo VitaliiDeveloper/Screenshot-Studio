@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { mkdir, open, type FileHandle } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
-import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { noFollowFlags, readProjectSnapshot } from "@screenshot-studio/core/storage";
 import {
   collectRequiredProjectResourcePaths,
   isSupportedProjectArchivePath,
@@ -163,8 +163,7 @@ function validateFileSet(
 }
 
 function writeFlags(): number {
-  return constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY);
 }
 
 async function closeAfterWrite(handle: FileHandle, error?: unknown): Promise<void> {

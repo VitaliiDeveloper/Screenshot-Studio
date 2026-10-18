@@ -1,25 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
+import { constants, type BigIntStats, type Dirent } from "node:fs";
+import { lstat, open, opendir, realpath } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
-  constants,
-  type BigIntStats,
-  type Dirent } from "node:fs"; import { lstat,
-  open,
-  opendir,
-  realpath } from "node:fs/promises"; import { isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep } from "node:path"; import {   discoverCaptureImport,
+  discoverCaptureImport,
   planCaptureImport,
   resolveCaptureImportLimits,
   type CaptureImportDiscovery,
   type CaptureImportInputFile,
   type CaptureImportLimits,
   type CaptureImportPlan,
-  } from "@screenshot-studio/core/capture-import"; import { DEFAULT_STORE_SPECS,
-  type StoreSpecs } from "@screenshot-studio/core/export"; import { resolveExistingProjectPath,
-  type ProjectFileDependencies,
+} from "@screenshot-studio/core/capture-import";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
+import {
   noFollowFlags,
+  resolveExistingProjectPath,
+  type ProjectFileDependencies,
 } from "@screenshot-studio/core/storage";
 import {
   applyCaptureImportToProject,

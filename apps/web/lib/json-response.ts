@@ -8,12 +8,10 @@ export async function readJsonBody(response: Response): Promise<Record<string, u
     : {};
 }
 
-/** The server's `{ error }` message when it sent one, otherwise `fallback`. */
 export function responseErrorMessage(body: { error?: unknown }, fallback: string): string {
   return typeof body.error === "string" ? body.error : fallback;
 }
 
-/** The error for a failed response whose body is not otherwise needed. */
 export async function responseError(response: Response, fallback: string): Promise<Error> {
   return new Error(responseErrorMessage(await readJsonBody(response), fallback));
 }

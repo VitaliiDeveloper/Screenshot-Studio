@@ -68,7 +68,6 @@ function outputSizeLabel(row: WorkspaceOutputFamily, specs: StoreSpecs | null): 
   return compactStoreSizeLabel(label, screen.device);
 }
 
-/** Overview of an isolated layout: one section per output family, master row first. */
 export function IsolatedOutputFamilies({
   rows,
   specs,

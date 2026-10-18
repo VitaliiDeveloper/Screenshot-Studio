@@ -6,7 +6,6 @@ export function errorCode(error: unknown): string | undefined {
     && typeof error.code === "string" ? error.code : undefined;
 }
 
-/** A thrown value as message text for composite error messages. */
 export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

@@ -12,7 +12,7 @@ import {
   type ProjectScaffold,
   type ProjectScaffoldFile,
 } from "@screenshot-studio/core/scaffold";
-import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { noFollowFlags, readProjectSnapshot } from "@screenshot-studio/core/storage";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import {
   ManagedProjectRepository,
@@ -53,8 +53,7 @@ export interface ManagedProjectCreationDependencies {
 }
 
 function writeFlags(): number {
-  return constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY);
 }
 
 async function closeAfterWrite(handle: FileHandle, writeError?: unknown): Promise<void> {

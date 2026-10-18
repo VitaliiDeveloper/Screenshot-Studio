@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Small filesystem and error primitives shared by every publication step.
 import { createHash } from "node:crypto";
 import { constants, type BigIntStats, type Stats } from "node:fs";
 import { lstat } from "node:fs/promises";

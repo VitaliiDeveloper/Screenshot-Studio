@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Private quarantine names and exact-evidence restore or removal of quarantined entries.
 import { randomUUID } from "node:crypto";
 import { errorText } from "@screenshot-studio/core/storage";
 import type {

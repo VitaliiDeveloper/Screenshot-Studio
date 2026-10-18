@@ -15,7 +15,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import JSZip from "jszip";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
-import { noFollowFlags } from "@screenshot-studio/core/storage";
+import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
 
 export interface RenderedBundleEntry {
   entry: BundleEntry;
@@ -59,14 +59,10 @@ interface BundleOutputDependencies {
   unlinkFile?: (path: string) => Promise<void>;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function withSecondaryError(primary: unknown, secondary: unknown, action: string): AggregateError {
   return new AggregateError(
     [primary, secondary],
-    `${errorMessage(primary)}; ${action}: ${errorMessage(secondary)}`,
+    `${errorText(primary)}; ${action}: ${errorText(secondary)}`,
     { cause: primary },
   );
 }
@@ -218,10 +214,7 @@ async function ensureSafeOutputDirectory(outDir: string, directory: string): Pro
 }
 
 function noFollowStageFlags(): number {
-  return constants.O_WRONLY
-    | constants.O_CREAT
-    | constants.O_EXCL
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
 }
 
 function noFollowReadFlags(): number {
@@ -748,7 +741,7 @@ export async function writeBundleOutputs({
         preserveStagingForRecovery = true;
         throw new AggregateError(
           [publishError, ...rollbackErrors],
-          `${errorMessage(publishError)}; bundle output rollback failed; recovery data retained at ${stagingRoot}`,
+          `${errorText(publishError)}; bundle output rollback failed; recovery data retained at ${stagingRoot}`,
           { cause: publishError },
         );
       }

@@ -11,7 +11,6 @@ import {
 } from "./editor-project-actions.js";
 import type { EditorSet } from "./editor-store.js";
 
-/** Store output families, exact-size target variants, and their screen-set mode. */
 export interface EditorOutputActions {
   ensureStoreOutputFamily: (platform: string, device: string, leadTarget: StoreSize) => void;
   removeStoreOutputFamily: (sourceScreenId: string) => void;

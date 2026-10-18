@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFile } from "node:fs/promises";
+import { dirname, extname } from "node:path";
 import {
-  readFile } from "node:fs/promises"; import { dirname,
-  extname } from "node:path"; import {   countProjectFontUsage,
+  countProjectFontUsage,
   DEFAULT_FONT_WEIGHT,
   FONT_WEIGHT_MAX,
   FONT_WEIGHT_MIN,
@@ -9,10 +10,12 @@ import {
   slugify,
   type FontAsset,
   type Project as ProjectModel,
-  } from "@screenshot-studio/core/model"; import {   resolveExistingProjectPath,
+} from "@screenshot-studio/core/model";
+import {
+  errorCode,
+  resolveExistingProjectPath,
   type ProjectFileDependencies,
   type ProjectLockOptions,
-  errorCode,
 } from "@screenshot-studio/core/storage";
 import {
   FontValidationError,

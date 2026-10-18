@@ -30,7 +30,6 @@ import type { EditorSet } from "./editor-store.js";
 export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
   ElementPatchRequest<T> & { id: string; screenId?: string };
 
-/** Owner-aware selection and the edits that apply to every selected element. */
 export interface EditorSelectionActions {
   select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
   setSelection: (items: SelectionRef[]) => void;

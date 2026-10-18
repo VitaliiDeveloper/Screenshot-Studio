@@ -21,7 +21,6 @@ import {
 import { selectEditorLayout } from "./editor-store-layouts.js";
 import type { EditorSet } from "./editor-store.js";
 
-/** Screens and locales of the active layout, and the content of the active screen. */
 export interface EditorScreenActions {
   selectScreen: (id: string) => void;
   selectLocale: (locale: string) => void;
