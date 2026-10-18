@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
-const systemFamilies = ["ui-sans-serif", "-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "sans-serif"];
+const systemFamilies = ["ui-sans-serif", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"];
 
 describe("editor chrome font stack", () => {
   it("names only system families so project fonts cannot restyle the UI", async () => {
