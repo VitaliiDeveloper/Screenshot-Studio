@@ -33,12 +33,13 @@ const CLAUDE_HELP = [
 ].join("\n");
 
 const BASE_ENV = {
+  NODE_ENV: "test",
   CLAUDE_CONFIG_DIR: "/claude-config",
   CODEX_HOME: "/codex-home",
   ANTHROPIC_API_KEY: "sk-ant-should-be-stripped",
   CODEX_API_KEY: "sk-codex-should-be-stripped",
   OPENAI_API_KEY: "sk-openai-should-be-stripped",
-};
+} satisfies NodeJS.ProcessEnv;
 
 let binDir: string;
 const originalPath = process.env.PATH;

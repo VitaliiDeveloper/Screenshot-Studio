@@ -92,7 +92,7 @@ function start(overrides: Partial<Parameters<typeof startAgentRun>[0]> = {}): Pr
     projectDir,
     message: "--bare Add German",
     model: "sonnet",
-    env: { PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root },
+    env: { NODE_ENV: "test", PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root },
     ...overrides,
   });
 }
