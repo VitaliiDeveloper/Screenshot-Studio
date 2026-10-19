@@ -123,12 +123,13 @@ export function useCanvasTransitions({
         > nextState.screenIds.indexOf(previousState.activeScreenId ?? "");
       content.style.removeProperty("transform-origin");
       // Start before paint so the incoming artboard is never shown at its settled position first.
+      // Fading in from fully transparent avoids a visible offset copy while the old screen is gone.
       const animation = content.animate(
         [
-          { opacity: 0.4, transform: `translateX(${forward ? 48 : -48}px)` },
+          { opacity: 0, transform: `translateX(${forward ? 12 : -12}px)` },
           { opacity: 1, transform: "translateX(0)" },
         ],
-        { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+        { duration: 200, easing: "ease-out" },
       );
       transitionRef.current = animation;
       setTransitioning(true);

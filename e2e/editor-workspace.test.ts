@@ -621,7 +621,7 @@ describe("editor workspace", () => {
         from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.transform,
       })));
 
-    // Both switches run inside one frame-paced evaluation so the 220 ms window cannot be missed.
+    // Both switches run inside one frame-paced evaluation so the 200 ms window cannot be missed.
     const switches = await page.evaluate(async ([next, previous]) => {
       // Rows swap elements when they become active, so resolve each button at click time.
       const click = (label: string) => [...document.querySelectorAll("button")]
@@ -650,8 +650,8 @@ describe("editor workspace", () => {
       return { forward, backward: read() };
     }, [`${second!.name} · ${second!.device}`, `${first!.name} · ${first!.device}`]);
     expect(switches).toEqual({
-      forward: { transition: "running", animations: [{ duration: 220, from: "translateX(48px)" }], layerLists: ["closing", "opening"] },
-      backward: { transition: "running", animations: [{ duration: 220, from: "translateX(-48px)" }], layerLists: ["closing", "opening"] },
+      forward: { transition: "running", animations: [{ duration: 200, from: "translateX(12px)" }], layerLists: ["closing", "opening"] },
+      backward: { transition: "running", animations: [{ duration: 200, from: "translateX(-12px)" }], layerLists: ["closing", "opening"] },
     });
     await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
 
