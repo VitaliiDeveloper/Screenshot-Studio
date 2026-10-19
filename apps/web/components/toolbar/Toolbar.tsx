@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   PanelsTopLeft,
   PanelRight,
+  Play,
   Redo2,
   Scan,
   Undo2,
@@ -23,6 +24,7 @@ import { ExportDialog } from "@web/components/ExportDialog";
 import { exportButtonLabel, exportFileCount } from "@web/components/export-dialog-model";
 import { cx, editorUi } from "@web/components/editor-ui";
 import { LayoutSelector } from "@web/components/LayoutSelector";
+import { playEntries } from "@web/components/play-gallery-model";
 import { toolbarMeasurementKey } from "./toolbar-density";
 import { useToolbarDensity } from "./use-toolbar-density";
 import { ToolbarIssuesButton, toolbarIssuesLabel } from "./ToolbarIssuesButton";
@@ -45,6 +47,7 @@ export function Toolbar({
   issueCounts = NO_ISSUES,
   issues,
   onOpenIssues,
+  onOpenPlay,
 }: {
   view: WorkspaceView;
   inspectorOpen: boolean;
@@ -57,6 +60,7 @@ export function Toolbar({
   issueCounts?: IssueCounts;
   issues?: readonly ProjectIssue[];
   onOpenIssues?: () => void;
+  onOpenPlay?: () => void;
 }) {
   const [exportOpen, setExportOpen] = useState(false);
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
@@ -72,6 +76,8 @@ export function Toolbar({
   const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0);
   const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
   const exportLabel = exportButtonLabel(exportCount);
+  const canPlay = useStore(editorStore, (state) =>
+    playEntries(state.project, state.activeLayoutId, state.activeScreenId, specs).length > 0);
   const issueTotal = issueCounts.blockers + issueCounts.warnings;
   const localeOptions = useMemo(
     () => locales.map((locale) => ({ value: locale, label: locale })),
@@ -155,42 +161,55 @@ export function Toolbar({
         </div>
       </div>
 
-      <div
-        ref={viewSwitchRef}
-        className={cx(
-          "flex items-center justify-self-center rounded-xl border border-slate-200 bg-slate-50",
-          minimalControls ? "p-0.5" : "p-1",
-        )}
-        aria-label="Canvas view"
-      >
-        <button
-          type="button"
-          aria-label="Focus"
-          aria-pressed={view === "focus"}
-          title="Focus"
+      <div ref={viewSwitchRef} className="flex items-center gap-1 justify-self-center">
+        <div
           className={cx(
-            "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
-            compactControls ? "gap-0" : "gap-1.5",
-            view === "focus" ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+            "flex items-center rounded-xl border border-slate-200 bg-slate-50",
+            minimalControls ? "p-0.5" : "p-1",
           )}
-          onClick={() => onViewChange("focus")}
+          aria-label="Canvas view"
         >
-          <Scan size={14} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Focus</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Overview"
-          aria-pressed={view === "overview"}
-          title="Overview"
-          className={cx(
-            "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
-            compactControls ? "gap-0" : "gap-1.5",
-            view === "overview" ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
-          )}
-          onClick={() => onViewChange("overview")}
-        >
-          <LayoutGrid size={14} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Overview</span>
-        </button>
+          <button
+            type="button"
+            aria-label="Focus"
+            aria-pressed={view === "focus"}
+            title="Focus"
+            className={cx(
+              "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
+              compactControls ? "gap-0" : "gap-1.5",
+              view === "focus" ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+            )}
+            onClick={() => onViewChange("focus")}
+          >
+            <Scan size={14} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Focus</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Overview"
+            aria-pressed={view === "overview"}
+            title="Overview"
+            className={cx(
+              "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
+              compactControls ? "gap-0" : "gap-1.5",
+              view === "overview" ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+            )}
+            onClick={() => onViewChange("overview")}
+          >
+            <LayoutGrid size={14} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Overview</span>
+          </button>
+        </div>
+        {onOpenPlay ? (
+          <button
+            type="button"
+            aria-label="Play"
+            title="Play"
+            disabled={!canPlay}
+            className={cx(editorUi.buttonGhost, compactSharedButtonClassName, minimalControls && "!size-7 !min-h-7 !px-0")}
+            onClick={onOpenPlay}
+          >
+            <Play size={14} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Play</span>
+          </button>
+        ) : null}
       </div>
 
       <div

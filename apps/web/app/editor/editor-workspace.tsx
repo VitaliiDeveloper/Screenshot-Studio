@@ -43,6 +43,12 @@ const DynamicCanvasViewport = dynamic(
   { ssr: false },
 );
 
+// EditorStage pulls in react-konva, which needs the DOM.
+const DynamicPlayGalleryDialog = dynamic(
+  () => import("@web/components/PlayGalleryDialog").then((m) => m.PlayGalleryDialog),
+  { ssr: false },
+);
+
 const SIDE_PANEL_WIDTH = 288;
 
 export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: string }) {
@@ -79,6 +85,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
   const [exportRequestKey, setExportRequestKey] = useState(0);
   const [issuesOpen, setIssuesOpen] = useState(false);
+  const [playOpen, setPlayOpen] = useState(false);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
@@ -253,6 +260,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         issueCounts={issueCounts}
         issues={issues}
         onOpenIssues={() => setIssuesOpen(true)}
+        onOpenPlay={() => setPlayOpen(true)}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
@@ -359,6 +367,9 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             {fontRetrying ? "Retrying project fonts…" : "Retry project fonts"}
           </button>
         </div>
+      ) : null}
+      {playOpen ? (
+        <DynamicPlayGalleryDialog images={images} specs={specs} onClose={() => setPlayOpen(false)} />
       ) : null}
       {issuesOpen ? (
         <IssuesDialog
