@@ -173,7 +173,7 @@ describe("connected workspace", () => {
 
     const screens = page.getByRole("list", { name: "Screens for en · iphone" });
     await screens.waitFor({ state: "visible" });
-    expect(await screens.getByRole("listitem").count()).toBe(2);
+    expect(await screens.locator(":scope > [role='listitem']").count()).toBe(2);
     expect(await page.getByRole("button", { name: "Unrelated · phone", exact: true }).count()).toBe(0);
 
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
@@ -255,10 +255,12 @@ describe("connected workspace", () => {
     expect(await page.getByTestId("connected-artboards").getByTestId("editor-stage")
       .getAttribute("data-stage-screen-ids")).toBe("connected-first connected-second");
 
-    const structure = page.getByRole("button", { name: "Structure panel", exact: true });
-    const inspect = page.getByRole("button", { name: "Inspect", exact: true });
+    const structure = page.getByRole("button", { name: "Layers panel", exact: true });
+    const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
+    // At this width the top bar moves Inspect into its overflow menu (docs/editor.md §3).
+    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     expect(await structure.getAttribute("aria-pressed")).toBe("false");
-    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
 
     const layoutSelector = page.getByRole("button", { name: "Active layout: Default" });
     await layoutSelector.focus();
@@ -278,7 +280,7 @@ describe("connected workspace", () => {
     await structure.focus();
     await page.keyboard.press("Space");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
-    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
     await page.getByRole("list", { name: "Screens for en · iphone" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
@@ -287,27 +289,29 @@ describe("connected workspace", () => {
     await page.close();
   });
 
-  it("resets stale export filters after switching layouts", async () => {
+  it("resets export checks after switching layouts", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await waitForConnectedWorkspace(page);
 
-    await page.getByRole("button", { name: "Export", exact: true }).click();
+    await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
     let dialog = page.getByRole("dialog", { name: "Export" });
-    await dialog.getByRole("button", { name: "Device" }).click();
-    await dialog.getByRole("menuitemradio", { name: "iPad", exact: true }).click();
-    expect(await dialog.getByRole("button", { name: "Device" }).textContent()).toContain("iPad");
+    const ipad = dialog.getByRole("list", { name: "Destinations" }).getByRole("checkbox", { name: /iPad/u });
+    await ipad.uncheck();
+    expect(await ipad.isChecked()).toBe(false);
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
     await page.getByRole("button", { name: "Active layout: Default" }).click();
     await page.getByRole("menuitemradio", { name: /Isolated campaign/ }).click();
     await page.getByRole("button", { name: "Active layout: Isolated campaign" }).waitFor();
-    await page.getByRole("button", { name: "Export", exact: true }).click();
+    await page.getByRole("button", { name: /^Export(, \d+ files?)?$/ }).click();
     dialog = page.getByRole("dialog", { name: "Export" });
 
-    expect((await dialog.getByRole("button", { name: "Platform" }).textContent())?.trim()).toBe("all");
-    expect((await dialog.getByRole("button", { name: "Device" }).textContent())?.trim()).toBe("all");
-    expect((await dialog.getByRole("button", { name: "Locale" }).textContent())?.trim()).toBe("all");
+    const checkboxes = dialog.getByRole("checkbox");
+    await checkboxes.first().waitFor();
+    for (let index = 0; index < await checkboxes.count(); index += 1) {
+      expect(await checkboxes.nth(index).isChecked()).toBe(true);
+    }
     await page.close();
   });
 });

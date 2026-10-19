@@ -10,7 +10,7 @@ import {
   type DeviceFramePreset,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { deviceFrameContextForScreen } from "@web/lib/editor-workspace";
+import { deviceFrameContextForScreen } from "@web/lib/editor/editor-workspace";
 import { DialogShell, editorUi } from "./editor-ui";
 import { DeviceFramePresetThumbnail } from "./DeviceFramePresetThumbnail";
 
@@ -159,7 +159,7 @@ export function DeviceFramePresetCatalog({
           <section key={group.label} aria-labelledby={`frame-group-${group.label.toLocaleLowerCase()}`}>
             <h3
               id={`frame-group-${group.label.toLocaleLowerCase()}`}
-              className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--editor-color-text-secondary)]"
+              className={`mb-2 ${editorUi.sectionLabel}`}
             >
               {group.label}
             </h3>

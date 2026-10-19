@@ -14,7 +14,8 @@
     "./assets": "./src/assets/index.ts",
     "./storage": "./src/storage/index.ts",
     "./scaffold": "./src/scaffold/index.ts",
-    "./capture-import": "./src/capture-import/index.ts"
+    "./capture-import": "./src/capture-import/index.ts",
+    "./validation": "./src/validation/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

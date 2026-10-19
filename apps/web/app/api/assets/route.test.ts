@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleAssetPost } from "./handler.js";
 import { GET, POST } from "./route.js";
 
@@ -97,6 +97,8 @@ describe("/api/assets", () => {
       uploadRequest("invalid.png", new TextEncoder().encode("not an image")),
     );
     expect(invalid.status).toBe(400);
+    expect(invalid.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await invalid.json())).toEqual(["error"]);
 
     const stale = await handleAssetPost(
       projectPath,

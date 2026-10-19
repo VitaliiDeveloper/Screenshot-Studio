@@ -8,11 +8,13 @@ import {
   DEFAULT_STORE_SPECS,
   findStoreTarget,
   leadStoreSizeId,
+  listStoreTargets,
   outputFamilyLabel,
   type StoreSize,
   type StoreSpecs,
 } from "./specs.js";
 import { exportPixelRatio } from "./pixel-ratio.js";
+import { artboardTargetStatus } from "./artboard-status.js";
 
 export interface BundleFilters {
   platform?: Screen["platform"];
@@ -131,6 +133,14 @@ export function safeStoreSizePathToken(sizeId: string): string {
   return token;
 }
 
+/**
+ * Directory form of the store-size token. The fixed prefix rules out `.`/`..` segments and Windows
+ * reserved names; a trailing dot is escaped because Windows strips it from directory names.
+ */
+function safeStoreSizePathSegment(sizeId: string): string {
+  return `size-${safeStoreSizePathToken(sizeId).replace(/\.$/, "~002e")}`;
+}
+
 export function bundleRelativePath(
   screen: Screen,
   target: Pick<StoreSize, "id">,
@@ -140,8 +150,9 @@ export function bundleRelativePath(
   const safeName = (sanitizeSegment(screen.name) || sanitizeSegment(screen.id) || "screen")
     .slice(0, MAX_SCREEN_NAME_PATH_TOKEN_LENGTH);
   const localeSegment = safeLocalePathSegment(screen.locale);
+  const sizeSegment = safeStoreSizePathSegment(target.id);
   const targetToken = safeStoreSizePathToken(target.id);
-  return `${screen.platform}/${screen.device}/${localeSegment}/${prefix}-${safeName}-${targetToken}.png`;
+  return `${screen.platform}/${screen.device}/${localeSegment}/${sizeSegment}/${prefix}-${safeName}-${targetToken}.png`;
 }
 
 export function buildBundleEntries(
@@ -181,16 +192,28 @@ export function buildBundleEntries(
  * up front, so the UI/CLI reject an invalid bundle with a screen-identifying message instead of
  * failing mid-render.
  */
-export function validateBundleArtboards(entries: BundleEntry[]): void {
+export function validateBundleArtboards(entries: BundleEntry[], specs?: StoreSpecs): void {
   for (const entry of entries) {
     try {
       exportPixelRatio(entry.screen.artboard, { width: entry.target.width, height: entry.target.height });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
-        `Screen "${entry.screen.name}" (${entry.screen.id}) cannot scale to target "${entry.target.id}": ${message}`,
+        `Screen "${entry.screen.name}" (${entry.screen.id}) cannot scale to target "${entry.target.id}": `
+          + `${message}${leadMigrationHint(entry.screen, specs)}`,
         { cause: err },
       );
     }
   }
+}
+
+/** Primary screens persist no target, so one authored at a former lead fails after a lead change. */
+function leadMigrationHint(screen: Screen, specs: StoreSpecs | undefined): string {
+  if (!specs || screen.storeTargetId !== undefined) return "";
+  const authored = listStoreTargets(specs, screen.platform, screen.device)
+    .find((target) => artboardTargetStatus(screen.artboard, target).kind !== "invalid");
+  return authored
+    ? ` It matches "${authored.id}"; if that was the previous lead size, run "screenshots screen migrate-lead `
+      + `--platform ${screen.platform} --device ${screen.device} --from ${authored.id}".`
+    : "";
 }

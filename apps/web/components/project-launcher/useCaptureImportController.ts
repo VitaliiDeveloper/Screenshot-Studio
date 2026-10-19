@@ -7,7 +7,7 @@ import {
   CaptureImportClientError,
   previewCaptureImport,
   type CaptureImportApplyResult,
-} from "@web/lib/capture-import-client";
+} from "@web/lib/clients/capture-import-client";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import {
   captureImportRequest,

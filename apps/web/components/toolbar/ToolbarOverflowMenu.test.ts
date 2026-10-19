@@ -25,7 +25,6 @@ function renderOverflow(
         { value: "uk", label: "Locale · uk" },
       ],
       onToggleInspector: () => {},
-      onOpenLocales: () => {},
       onLocaleChange: () => {},
       canUndo: true,
       canRedo: false,
@@ -70,7 +69,6 @@ describe("ToolbarOverflowMenu", () => {
 
   it("keeps secondary actions in both overflow densities", () => {
     expect(renderOverflow("overflow-secondary", true)).toContain("Hide Inspector");
-    expect(renderOverflow("overflow-secondary", true)).toContain("Manage locales");
   });
 
   it("only includes locale choices in locale overflow", () => {

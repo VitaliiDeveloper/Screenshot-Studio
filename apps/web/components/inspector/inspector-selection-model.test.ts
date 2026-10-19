@@ -57,9 +57,41 @@ describe("inspector selection model", () => {
     ]);
     expect(model.canGroup).toBe(true);
     expect(model.canUngroup).toBe(false);
+    expect(model.canDuplicate).toBe(true);
+    expect(model.canAlign).toBe(false);
+    expect(model.selectedElements.map((element) => element.id)).toEqual(["same", "second"]);
     expect(model.everyLocked).toBe(true);
     expect(model.everyHidden).toBe(true);
     expect(model.aggregate).not.toBeNull();
+  });
+
+  it("groups selection refs by element type in first-seen order", () => {
+    const project = fixture();
+    project.layouts[0]!.screens[0]!.elements.push({
+      id: "group",
+      type: "group",
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      children: [],
+    });
+    const model = deriveInspectorSelection(project, "primary", "first", [
+      { screenId: "first", elementId: "same" },
+      { screenId: "first", elementId: "group" },
+      { screenId: "first", elementId: "second" },
+    ]);
+    expect(model.selectionTypeGroups).toEqual([
+      { type: "shape", items: [
+        { screenId: "first", elementId: "same" },
+        { screenId: "first", elementId: "second" },
+      ] },
+      { type: "group", items: [{ screenId: "first", elementId: "group" }] },
+    ]);
   });
 
   it("refuses grouping across owner screens even when element ids match", () => {
@@ -68,6 +100,15 @@ describe("inspector selection model", () => {
       { screenId: "other", elementId: "same" },
     ]);
     expect(model.canGroup).toBe(false);
+    expect(model.canAlign).toBe(true);
+    expect(model.canDistribute).toBe(false);
+
+    const lockedPrimary = fixture();
+    lockedPrimary.layouts[0]!.screens[1]!.elements[0]!.opacity = 0.4;
+    expect(deriveInspectorSelection(lockedPrimary, "primary", "first", [
+      { screenId: "other", elementId: "same" },
+      { screenId: "first", elementId: "same" },
+    ]).sharedOpacity).toBe(0.4);
   });
 
   it("treats an unlocked child of a locked group as effectively locked", () => {
@@ -109,5 +150,7 @@ describe("inspector selection model", () => {
 
     expect(model.element?.locked).toBe(false);
     expect(model.effectiveLocked).toBe(true);
+    // duplicateSelected copies top-level layers only.
+    expect(model.canDuplicate).toBe(false);
   });
 });

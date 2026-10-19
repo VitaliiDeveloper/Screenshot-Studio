@@ -11,9 +11,9 @@ import {
 } from "react";
 import { ArrowLeftRight, ChevronDown, Image as ImageIcon, RotateCcw } from "lucide-react";
 import type { Background } from "@screenshot-studio/core/model";
-import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
+import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
 import { editorUi, SegmentedControl } from "@web/components/editor-ui";
-import { NumberField } from "@web/components/inspector-fields";
+import { NumberField } from "@web/components/inspector/inspector-fields";
 
 const GRADIENT_DIRECTION_AXES = [
   {
@@ -50,7 +50,7 @@ function previewImageUrl(assetUrl: string): string {
   }
 }
 
-function gradientStyle(background: Extract<Background, { type: "linear-gradient" }>): CSSProperties {
+export function gradientStyle(background: Extract<Background, { type: "linear-gradient" }>): CSSProperties {
   const cssAngle = (background.angle + 90) % 360;
   return {
     backgroundImage: `linear-gradient(${cssAngle}deg, ${background.from}, ${background.to})`,

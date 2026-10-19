@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleThemeGet, handleThemePost } from "./handler.js";
 import { GET, POST } from "./route.js";
 
@@ -42,7 +42,8 @@ describe("/api/themes", () => {
   it("lists definitions and applies one durably", async () => {
     const listed = await handleThemeGet(projectPath);
     expect(await listed.json()).toMatchObject({
-      builtIns: [{ id: "neutral-default", name: "Neutral default" }],
+      builtIns: [{ id: "neutral-default", name: "Neutral default", background: { type: "linear-gradient" } }],
+      templatePacks: [{ id: "neutral-iphone-basics", style: "neutral-default", screenCount: 2 }],
       themes: [{ id: "midnight", name: "Midnight" }],
     });
 
@@ -66,7 +67,8 @@ describe("/api/themes", () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.layouts[0].screens[0].elements[0]).toMatchObject({ fill: "#2563EB", radius: 0 });
+    expect(body.layouts[0].screens[0].elements[0]).toMatchObject({ fill: "#1D4ED8", radius: 0 });
+    expect(body.layouts[0].screens[0].background).toMatchObject({ type: "linear-gradient", from: "#F8FAFC" });
     const persisted = JSON.parse((await readFile(projectPath)).toString("utf8"));
     expect(JSON.stringify(persisted)).not.toContain("neutral-default");
     expect(await readdir(dir)).toEqual(beforeEntries);
@@ -83,6 +85,8 @@ describe("/api/themes", () => {
       method: "POST", body: JSON.stringify({ id: "missing" }),
     }));
     expect(missing.status).toBe(404);
+    expect(missing.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await missing.json())).toEqual(["error"]);
     const invalid = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "../bad" }),
     }));

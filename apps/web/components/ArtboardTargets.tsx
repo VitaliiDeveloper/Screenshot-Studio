@@ -23,7 +23,7 @@ import {
   conciseStoreTargetLabel,
   outputFamilyEditorLabel,
   storeOutputLabel,
-} from "@web/lib/editor-workspace";
+} from "@web/lib/editor/editor-workspace";
 import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "./editor-ui";
 
 function dimensionsLabel(target: StoreSize): string {
@@ -225,7 +225,7 @@ export function ArtboardTargets({
   }) => (
     <div className="border-t border-[var(--editor-color-surface-muted)] pt-3">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-secondary)]">
+        <p className={`min-w-0 truncate ${editorUi.sectionLabel}`}>
           {title}
         </p>
         <AddMenu
@@ -254,7 +254,7 @@ export function ArtboardTargets({
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Destinations</h3>
+          <h3 className={editorUi.sectionLabel}>Destinations</h3>
           <AddMenu
             ariaLabel="Add destination"
             menuLabel="Available destinations"

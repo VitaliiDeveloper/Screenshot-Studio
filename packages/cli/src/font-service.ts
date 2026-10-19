@@ -12,6 +12,7 @@ import {
   type Project as ProjectModel,
 } from "@screenshot-studio/core/model";
 import {
+  errorCode,
   resolveExistingProjectPath,
   type ProjectFileDependencies,
   type ProjectLockOptions,
@@ -194,10 +195,6 @@ function isManagedFontPath(path: string): boolean {
   return isProjectRelativePath(path)
     && path.startsWith(MANAGED_FONT_PREFIX)
     && path.length > MANAGED_FONT_PREFIX.length;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
 async function addMaterializedFontMutation(

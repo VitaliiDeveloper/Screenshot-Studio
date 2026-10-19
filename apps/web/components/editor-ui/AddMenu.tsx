@@ -111,7 +111,7 @@ export function AddMenu<T extends string>({
           aria-label={menuLabel}
           data-placement={openUpward ? "top" : "bottom"}
           className={cx(
-            "absolute right-0 z-40 w-56 overflow-hidden rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-menu)]",
+            "absolute right-0 z-40 max-h-[min(24rem,calc(100dvh-6rem))] w-56 overflow-y-auto rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-menu)]",
             openUpward ? "bottom-full mb-1" : "top-full mt-1",
             menuClassName,
           )}

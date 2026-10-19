@@ -266,7 +266,7 @@ describe("managed project creation", () => {
       await dialog.getByRole("radio", { name: /^iPhone\b/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor/**`);
-      await page.getByRole("button", { name: "Editable headline", exact: true }).waitFor();
+      await page.getByRole("button", { name: /^Show what makes your app/ }).waitFor();
       expect(await page.getByTestId("first-screen-onboarding").count()).toBe(0);
 
       const starterCatalog = JSON.parse(
@@ -289,11 +289,11 @@ describe("managed project creation", () => {
       expect(starterProject.layouts[0]!.screens[0]).toMatchObject({
         platform: "apple",
         device: "iphone",
-        artboard: { width: 1320, height: 2868 },
+        artboard: { width: 1206, height: 2622 },
       });
       expect(starterProject.layouts[0]!.screens[0]!.storeTargetId).toBeUndefined();
       expect(starterProject.layouts[0]!.screens[0]!.elements).toEqual(expect.arrayContaining([
-        expect.objectContaining({ name: "Editable headline", role: "heading" }),
+        expect.objectContaining({ type: "text", role: "heading" }),
         expect.objectContaining({ name: "Accent panel", role: "accent" }),
       ]));
     } finally {

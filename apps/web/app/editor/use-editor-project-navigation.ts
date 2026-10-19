@@ -3,12 +3,12 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { abandonProjectSession } from "@web/lib/project-close";
+import { abandonProjectSession } from "@web/lib/clients/project-close";
 import {
   navigateToProjects,
   writeWorkspaceNavigationState,
   type WorkspaceNavigationState,
-} from "@web/lib/editor-workspace-navigation";
+} from "@web/lib/editor/editor-workspace-navigation";
 
 export function useEditorProjectNavigation(
   activeProjectId: string | null,

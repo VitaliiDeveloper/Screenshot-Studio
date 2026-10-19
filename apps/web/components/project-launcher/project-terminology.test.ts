@@ -7,11 +7,11 @@ const screenTemplateDialog = readFileSync(
   "utf8",
 );
 const workspaceModel = readFileSync(
-  new URL("../../lib/editor-workspace.ts", import.meta.url),
+  new URL("../../lib/editor/editor-workspace.ts", import.meta.url),
   "utf8",
 );
 const screensSection = readFileSync(new URL("../ScreensSection.tsx", import.meta.url), "utf8");
-const leftPanel = readFileSync(new URL("../LeftPanel.tsx", import.meta.url), "utf8");
+const toolRail = readFileSync(new URL("../ToolRail.tsx", import.meta.url), "utf8");
 const editorPage = readFileSync(new URL("../../app/editor/editor-workspace.tsx", import.meta.url), "utf8");
 const captureImportHook = readFileSync(
   new URL("../../app/editor/use-editor-capture-import.ts", import.meta.url),
@@ -49,7 +49,7 @@ describe("project creation terminology", () => {
     expect(screensSection).toContain('label: "From screen template"');
     expect(screensSection).toContain('description: "Create from a screen template"');
     expect(screensSection).not.toContain("Create from a project template");
-    expect(leftPanel).toContain('title="Screen templates"');
+    expect(toolRail).toContain('label="Screen templates"');
   });
 
   it("makes the blank-screen onboarding actions explicit", () => {
@@ -70,9 +70,8 @@ describe("project creation terminology", () => {
 
   it("keeps the add-screen action available in every exact-size editing scope", () => {
     expect(screensSection).toContain('ariaLabel="Add screen"');
-    expect(screensSection).toContain(
-      'className="max-h-64 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"',
-    );
+    // The Screens → Layers tree scrolls with the panel; its header and add action stay pinned.
+    expect(screensSection).toMatch(/<header className="sticky top-0 z-10 /);
     expect(screensSection).not.toContain("Back to primary size");
     expect(screensSection).not.toContain("Primary size");
     expect(screensSection).not.toContain("Return to master");

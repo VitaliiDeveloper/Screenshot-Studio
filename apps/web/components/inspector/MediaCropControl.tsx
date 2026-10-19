@@ -6,8 +6,8 @@ import type { KeyboardEvent, PointerEvent } from "react";
 import { Minus, Plus } from "lucide-react";
 import type { MediaCrop } from "@screenshot-studio/core/model";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
-import { NumberField, rangeProgressStyle } from "@web/components/inspector-fields";
-import { resolveActiveProjectAssetUrl } from "@web/lib/save-project";
+import { NumberField, rangeProgressStyle } from "@web/components/inspector/inspector-fields";
+import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
 import {
   adjustCropZoom,
   cropFromPointer,
@@ -74,7 +74,7 @@ export function MediaCropControl({
   return (
     <InsetPanel>
       <div>
-        <p className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Cover crop</p>
+        <p className={editorUi.sectionLabel}>Cover crop</p>
         <p className="mt-1 text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
           Drag the focal point to reposition. Zoom to adjust the crop.
         </p>

@@ -3,7 +3,7 @@ import { handleFontDelete, handleFontGet, handleFontPost } from "./handler.js";
 import {
   withProjectMutationRequest,
   withProjectReadRequest,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Copy, ImagePlus, PanelsTopLeft, Smartphone, Trash2, Ungroup } from "lucide-react";
 import {
@@ -14,14 +14,14 @@ import {
   type FontAsset,
   type Screen,
 } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "@web/lib/editor-store";
+import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import {
   ColorField,
   NumberField,
   SelectField,
   ThemeRoleField,
-} from "@web/components/inspector-fields";
+} from "@web/components/inspector/inspector-fields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { MediaInspectorFields } from "./MediaInspectorFields";
 import { ContentModeControl } from "./MediaPresentationFields";
@@ -54,6 +54,7 @@ export function ElementTypeInspectorSections({
   onRemoveElement,
   effectiveLocked,
   screen,
+  textSizeAccessory,
 }: {
   element: Element;
   fonts: FontAsset[];
@@ -65,6 +66,7 @@ export function ElementTypeInspectorSections({
   onRemoveElement?: () => void;
   effectiveLocked?: boolean;
   screen?: Pick<Screen, "platform" | "device" | "artboard">;
+  textSizeAccessory?: ReactNode;
 }) {
   const [framePickerOpen, setFramePickerOpen] = useState(false);
   const patchText = (change: ElementPatchFor<"text">) => onPatch(element.id, "text", change);
@@ -107,6 +109,7 @@ export function ElementTypeInspectorSections({
             element={element}
             fonts={fonts}
             onChange={patchText}
+            sizeAccessory={textSizeAccessory}
           />
         </Section>
       )}

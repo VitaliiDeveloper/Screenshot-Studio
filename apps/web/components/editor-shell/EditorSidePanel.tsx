@@ -18,8 +18,8 @@ export function EditorSidePanel({
       aria-hidden={!open}
       inert={open ? undefined : true}
       className={cx(
-        "absolute inset-y-0 z-30 h-full w-[min(18rem,calc(100vw-3.5rem))] shrink-0 overflow-hidden transition-[width,translate,opacity] duration-200 ease-out motion-reduce:duration-0 xl:static xl:z-auto",
-        side === "left" ? "left-14" : "right-0",
+        "absolute inset-y-0 z-30 h-full w-[min(18rem,calc(100vw-3.75rem))] shrink-0 overflow-hidden transition-[width,translate,opacity] duration-200 ease-out motion-reduce:duration-0 xl:static xl:z-auto",
+        side === "left" ? "left-15" : "right-0",
         open
           ? "translate-x-0 opacity-100 xl:w-72"
           : cx(

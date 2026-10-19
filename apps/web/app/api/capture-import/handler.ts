@@ -23,27 +23,28 @@ import {
 import {
   createManagedProjectFromCaptureImport,
   previewManagedProjectCaptureImport,
-} from "@web/lib/managed-capture-import.server.js";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
+} from "@web/lib/managed-projects/managed-capture-import.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import {
   ManagedProjectCreationError,
   ManagedProjectCreationService,
-} from "@web/lib/managed-project-creation.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
+} from "@web/lib/managed-projects/managed-project-creation.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
   projectRevisionConflictResponse,
   withProjectMutationRequest,
   withProjectVersionedReadRequest,
-} from "@web/lib/project-request-fence.server.js";
+} from "@web/lib/session/project-request-fence.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   recentProjectsStore,
   type RecentProjectsStore,
-} from "@web/lib/recent-projects.server.js";
+} from "@web/lib/session/recent-projects.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 class CaptureUploadLimitError extends Error {}
 class CaptureRequestError extends Error {}
@@ -77,13 +78,6 @@ const NEW_FIELDS = new Set([
   "templateId",
   "confirmationFingerprint",
 ]);
-
-function errorResponse(status: number, error: string, code: string): Response {
-  return Response.json({ error, code }, {
-    status,
-    headers: { "cache-control": "no-store" },
-  });
-}
 
 function quotedRevision(revision: string): string {
   return `"${revision}"`;
@@ -273,39 +267,39 @@ function routeError(error: unknown): Response {
   if (revisionConflict) return revisionConflict;
   if (error instanceof CaptureUploadLimitError
     || (error instanceof Error && /configured (?:file|byte) limit/iu.test(error.message))) {
-    return errorResponse(413, "Capture import exceeds the configured limit", "limit");
+    return jsonError(413, "Capture import exceeds the configured limit", "limit");
   }
   if (error instanceof CaptureRequestError) {
     const media = error.message.includes("multipart form data");
-    return errorResponse(media ? 415 : 400, error.message, media ? "unsupported-media-type" : "invalid-request");
+    return jsonError(media ? 415 : 400, error.message, media ? "unsupported-media-type" : "invalid-request");
   }
   if (error instanceof CaptureImportConfirmationError) {
-    return errorResponse(409, error.message, "preview-changed");
+    return jsonError(409, error.message, "preview-changed");
   }
   if (error instanceof SafeFileConflictError) {
-    return errorResponse(
+    return jsonError(
       409,
       "Capture import preview changed; preview again before applying",
       "preview-changed",
     );
   }
   if (error instanceof CaptureImportCancelledError) {
-    return errorResponse(499, error.message, "cancelled");
+    return jsonError(499, error.message, "cancelled");
   }
   if (error instanceof DOMException && error.name === "AbortError") {
-    return errorResponse(499, "Capture import was cancelled", "cancelled");
+    return jsonError(499, "Capture import was cancelled", "cancelled");
   }
   if (error instanceof ManagedProjectCreationError) {
-    if (error.code === "cancelled") return errorResponse(499, "Capture import was cancelled", "cancelled");
-    if (error.code === "limit") return errorResponse(413, "Capture import exceeds the configured limit", "limit");
+    if (error.code === "cancelled") return jsonError(499, "Capture import was cancelled", "cancelled");
+    if (error.code === "limit") return jsonError(413, "Capture import exceeds the configured limit", "limit");
     if (error.code === "invalid-scaffold") {
-      return errorResponse(422, "Capture import project fields are incompatible", "invalid-scaffold");
+      return jsonError(422, "Capture import project fields are incompatible", "invalid-scaffold");
     }
   }
   if (error instanceof Error && /invalid entries|cannot be applied|layout/iu.test(error.message)) {
-    return errorResponse(422, "Capture import preview is invalid", "invalid-preview");
+    return jsonError(422, "Capture import preview is invalid", "invalid-preview");
   }
-  return errorResponse(500, "Capture import failed", "internal");
+  return jsonError(500, "Capture import failed", "internal");
 }
 
 function resolveDependencies(dependencies: CaptureImportRouteDependencies) {
@@ -399,7 +393,7 @@ export async function handleCaptureImportApplyPost(
     try {
       reservedSessionId = resolved.registry.reserveSessionId();
     } catch {
-      return errorResponse(500, "Capture import failed", "internal");
+      return jsonError(500, "Capture import failed", "internal");
     }
     try {
       const record = await createManagedProjectFromCaptureImport({

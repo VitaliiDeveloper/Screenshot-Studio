@@ -88,7 +88,7 @@ describe("badge authoring", () => {
       fit: "contain", width: 420, height: 140,
     });
 
-    await page.getByRole("button", { name: "Structure panel" }).click();
+    await page.getByRole("button", { name: "Layers panel" }).click();
     const layers = page.getByRole("list", { name: "Layers for First" });
     await layers.getByRole("button", { name: "Rating copy", exact: true }).click();
     const content = page.locator("textarea");

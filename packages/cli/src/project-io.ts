@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
 import {
   createProjectAtomic,
+  errorCode,
+  errorText,
   ProjectPathError,
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
@@ -38,14 +40,6 @@ export async function loadProjectSnapshot(projectPath: string): Promise<ProjectS
 
 export async function loadProjectFile(projectPath: string): Promise<ProjectModel> {
   return (await loadProjectSnapshot(projectPath)).project;
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 type ProjectWriteTarget =

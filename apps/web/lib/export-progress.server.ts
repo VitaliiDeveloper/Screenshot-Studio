@@ -18,6 +18,7 @@ interface ExportProgressRegistryOptions {
 
 export class ExportProgressRegistry {
   readonly #entries = new Map<string, ExportProgressEntry>();
+  readonly #stops = new Set<string>();
   readonly #now: () => number;
   readonly #activeTtlMs: number;
   readonly #finalTtlMs: number;
@@ -60,6 +61,20 @@ export class ExportProgressRegistry {
     this.#write(operationId, phase, current.completed, current.total, this.#finalTtlMs);
   }
 
+  /** Asks a running export to package what it has rendered; false when it is not running. */
+  requestStop(operationId: string): boolean {
+    this.#assertOperationId(operationId);
+    this.#prune();
+    const current = this.#entries.get(operationId);
+    if (!current || current.phase === "ready" || current.phase === "failed") return false;
+    this.#stops.add(operationId);
+    return true;
+  }
+
+  stopRequested(operationId: string): boolean {
+    return this.#stops.has(operationId);
+  }
+
   get(operationId: string): ExportProgressSnapshot | undefined {
     this.#assertOperationId(operationId);
     this.#prune();
@@ -92,7 +107,10 @@ export class ExportProgressRegistry {
   #prune(): void {
     const now = this.#now();
     for (const [operationId, entry] of this.#entries) {
-      if (entry.expiresAt <= now) this.#entries.delete(operationId);
+      if (entry.expiresAt <= now) {
+        this.#entries.delete(operationId);
+        this.#stops.delete(operationId);
+      }
     }
   }
 

@@ -5,3 +5,4 @@ export * from "./pixel-ratio.js";
 export * from "./profiles.js";
 export * from "./bundle.js";
 export * from "./artboard-status.js";
+export * from "./lead-migration.js";

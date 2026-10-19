@@ -12,15 +12,15 @@
       "mode": "isolated",
       "screens": [
         {
-          "id": "english-one",
-          "name": "English One",
           "platform": "apple",
           "device": "iphone",
+          "id": "english-one",
+          "name": "English One",
           "locale": "en",
           "direction": "ltr",
           "artboard": {
-            "width": 1320,
-            "height": 2868
+            "width": 1206,
+            "height": 2622
           },
           "background": {
             "type": "solid",
@@ -29,15 +29,15 @@
           "elements": []
         },
         {
-          "id": "arabic-one",
-          "name": "Arabic One",
           "platform": "apple",
           "device": "iphone",
+          "id": "arabic-one",
+          "name": "Arabic One",
           "locale": "../ar",
           "direction": "rtl",
           "artboard": {
-            "width": 1320,
-            "height": 2868
+            "width": 1206,
+            "height": 2622
           },
           "background": {
             "type": "solid",
@@ -46,15 +46,15 @@
           "elements": []
         },
         {
-          "id": "english-two",
-          "name": "English Two",
           "platform": "apple",
           "device": "iphone",
+          "id": "english-two",
+          "name": "English Two",
           "locale": "en",
           "direction": "ltr",
           "artboard": {
-            "width": 1320,
-            "height": 2868
+            "width": 1206,
+            "height": 2622
           },
           "background": {
             "type": "solid",
@@ -63,15 +63,15 @@
           "elements": []
         },
         {
-          "id": "arabic-two",
-          "name": "Arabic Two",
           "platform": "apple",
           "device": "iphone",
+          "id": "arabic-two",
+          "name": "Arabic Two",
           "locale": "../ar",
           "direction": "rtl",
           "artboard": {
-            "width": 1320,
-            "height": 2868
+            "width": 1206,
+            "height": 2622
           },
           "background": {
             "type": "solid",
@@ -80,10 +80,10 @@
           "elements": []
         },
         {
-          "id": "english-ipad",
-          "name": "English iPad",
           "platform": "apple",
           "device": "ipad",
+          "id": "english-ipad",
+          "name": "English iPad",
           "locale": "en",
           "direction": "ltr",
           "artboard": {
@@ -97,10 +97,10 @@
           "elements": []
         },
         {
-          "id": "underscore-android",
-          "name": "Underscore Android",
           "platform": "android",
           "device": "phone",
+          "id": "underscore-android",
+          "name": "Underscore Android",
           "locale": "en_US",
           "direction": "ltr",
           "artboard": {
