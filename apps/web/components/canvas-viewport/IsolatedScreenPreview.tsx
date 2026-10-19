@@ -42,7 +42,8 @@ export function IsolatedScreenPreview({
       className="min-w-0 shrink-0"
       style={{ width: previewWidth }}
     >
-      <ScreenPreviewTitle screen={screen} active={active} />
+      {/* Labels are text on the bare canvas: the outgoing ones clear at once so they never overlap. */}
+      <ScreenPreviewTitle screen={screen} active={active} className={outgoing ? "invisible" : undefined} />
       <div
         role={selectable ? "button" : undefined}
         tabIndex={selectable ? 0 : undefined}
@@ -71,7 +72,7 @@ export function IsolatedScreenPreview({
           interactive={connected ? false : active}
         />
       </div>
-      <ScreenPreviewMetadata screen={screen} />
+      <ScreenPreviewMetadata screen={screen} className={outgoing ? "invisible" : undefined} />
     </div>
   );
 }

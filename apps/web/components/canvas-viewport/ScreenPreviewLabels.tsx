@@ -17,16 +17,19 @@ export function ScreenPreviewTitle({
   screen,
   active,
   width,
+  className,
 }: {
   screen: Screen;
   active: boolean;
   width?: number;
+  className?: string;
 }) {
   return (
     <div
       className={cx(
         "mb-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[11px] font-semibold leading-5 transition-colors duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none",
         active ? "text-blue-700" : "text-slate-500",
+        className,
       )}
       data-testid="artboard-preview-label"
       style={previewWidthStyle(width)}
@@ -42,11 +45,22 @@ export function ScreenPreviewTitle({
   );
 }
 
-export function ScreenPreviewMetadata({ screen, width }: { screen: Screen; width?: number }) {
+export function ScreenPreviewMetadata({
+  screen,
+  width,
+  className,
+}: {
+  screen: Screen;
+  width?: number;
+  className?: string;
+}) {
   const metadata = screenPreviewMetadata(screen);
   return (
     <div
-      className="mt-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400"
+      className={cx(
+        "mt-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400",
+        className,
+      )}
       data-testid="artboard-preview-caption"
       style={previewWidthStyle(width)}
     >

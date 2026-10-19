@@ -632,6 +632,8 @@ describe("editor workspace", () => {
           artboards: [...content.querySelectorAll("[data-artboard-screen-id]")].map((node) => ({
             id: node.getAttribute("data-artboard-screen-id"),
             outgoing: node.hasAttribute("inert"),
+            // Labels sit on the bare canvas, so the outgoing title must not show under the new one.
+            titleVisible: getComputedStyle(node.querySelector('[data-testid="artboard-preview-label"]')!).visibility === "visible",
             fades: node.getAnimations().map((animation) => ({
               duration: animation.effect?.getTiming().duration,
               from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.opacity,
@@ -656,12 +658,18 @@ describe("editor workspace", () => {
     expect(switches).toEqual({
       forward: {
         transition: "running",
-        artboards: [{ id: first!.id, outgoing: true, fades: [] }, { id: second!.id, outgoing: false, fades: fadingIn }],
+        artboards: [
+          { id: first!.id, outgoing: true, titleVisible: false, fades: [] },
+          { id: second!.id, outgoing: false, titleVisible: true, fades: fadingIn },
+        ],
         layerLists: ["closing", "opening"],
       },
       backward: {
         transition: "running",
-        artboards: [{ id: second!.id, outgoing: true, fades: [] }, { id: first!.id, outgoing: false, fades: fadingIn }],
+        artboards: [
+          { id: second!.id, outgoing: true, titleVisible: false, fades: [] },
+          { id: first!.id, outgoing: false, titleVisible: true, fades: fadingIn },
+        ],
         layerLists: ["closing", "opening"],
       },
     });
