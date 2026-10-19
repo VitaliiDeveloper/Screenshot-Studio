@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { CSSProperties } from "react";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
 import { cx } from "@web/components/editor-ui";
+import { screenSizeLabel } from "@web/lib/editor/editor-issues";
+import { screenStoreTarget } from "@web/lib/editor/editor-workspace";
 
 function previewWidthStyle(width?: number): CSSProperties | undefined {
   return width === undefined ? undefined : { width };
 }
 
-export function screenPreviewMetadata(screen: Screen): string {
-  return `${screen.device} · ${screen.locale}${screen.storeTargetId ? ` · ${screen.storeTargetId}` : ""}`;
+export function screenPreviewMetadata(screen: Screen, specs?: StoreSpecs): string {
+  const target = screenStoreTarget(screen, specs);
+  return [
+    screenSizeLabel(screen, specs),
+    target ? `${target.width} × ${target.height}` : null,
+    screen.locale,
+  ].filter(Boolean).join(" · ");
 }
 
 /** Every canvas mode uses the same preview hierarchy: title above artwork, metadata below it. */
@@ -42,8 +50,16 @@ export function ScreenPreviewTitle({
   );
 }
 
-export function ScreenPreviewMetadata({ screen, width }: { screen: Screen; width?: number }) {
-  const metadata = screenPreviewMetadata(screen);
+export function ScreenPreviewMetadata({
+  screen,
+  specs,
+  width,
+}: {
+  screen: Screen;
+  specs?: StoreSpecs;
+  width?: number;
+}) {
+  const metadata = screenPreviewMetadata(screen, specs);
   return (
     <div
       className="mt-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400"

@@ -80,6 +80,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
   const activeScreen = project && activeLayoutId && activeScreenId
     ? getScreen(project, activeLayoutId, activeScreenId)
     : null;
+  const designPackNames = new Map(builtIns.map((pack) => [pack.id, pack.name]));
   const compatiblePacks = activeScreen
     ? templatePacks.filter((pack) => pack.platform === activeScreen.platform && pack.device === activeScreen.device)
     : [];
@@ -177,7 +178,9 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
-                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Style · {pack.style}</span>
+                  {designPackNames.has(pack.style) ? (
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Style · {designPackNames.get(pack.style)}</span>
+                  ) : null}
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
                 <p className="mt-1 text-xs text-slate-500">Adds {pack.screenCount} editable screens in locale {activeScreen?.locale}.</p>
@@ -207,7 +210,6 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-sm font-semibold text-slate-900">{theme.name}</h3>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{theme.id}</span>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {THEME_ROLES.map((role) => (

@@ -15,6 +15,7 @@ import {
   conciseStoreTargetLabel,
   defaultDeviceFrameInputForScreen,
   deviceFrameContextForScreen,
+  distinctSizeLabels,
   filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
@@ -323,7 +324,7 @@ describe("editor workspace helpers", () => {
     const rows = workspaceOverviewRows(connected, firstVariant);
     expect(rows.map((row) => [row.label, row.screens.map((screen) => screen.id)]))
       .toEqual([
-        ["App Store · iPhone · 6.5", ["first-65", "second-65"]],
+        ["App Store · iPhone · 6.5\" · Portrait", ["first-65", "second-65"]],
         ["Google Play · Android phone", ["unrelated"]],
       ]);
   });
@@ -341,7 +342,7 @@ describe("editor workspace helpers", () => {
     const rows = workspaceOverviewRows(connected, connected.screens[0]!);
     expect(rows[1]).toMatchObject({
       key: "android/phone",
-      label: "Google Play · Android phone · phone-lead",
+      label: "Google Play · Android phone",
       editing: false,
     });
     expect(rows[1]!.screens.map((screen) => screen.id)).toEqual(["android-target"]);
@@ -390,7 +391,7 @@ describe("editor workspace helpers", () => {
     expect(rows.map((row) => [row.label, row.editing, row.screens.map((screen) => screen.id)]))
       .toEqual([
         ["App Store · iPhone", true, ["first", "second"]],
-        ["App Store · iPhone · 6.5", false, ["first-65"]],
+        ["App Store · iPhone · 6.5\" · Portrait", false, ["first-65"]],
         ["Google Play · Android phone", false, ["unrelated"]],
       ]);
   });
@@ -417,5 +418,16 @@ describe("editor workspace helpers", () => {
       .toEqual(["first", "second"]);
     expect(workspaceEditingScope(connected, firstVariant).map((screen) => screen.id))
       .toEqual(["first-65", "second-65"]);
+  });
+});
+
+describe("distinctSizeLabels", () => {
+  it("appends artboard px only to labels the list repeats", () => {
+    const artboard = (width: number, height: number) => ({ artboard: { width, height } });
+    expect(distinctSizeLabels([
+      { label: '6.3"', screen: artboard(603, 1311) },
+      { label: '6.3"', screen: artboard(1206, 2622) },
+      { label: '6.9"', screen: artboard(1320, 2868) },
+    ])).toEqual(['6.3" · 603 × 1311', '6.3" · 1206 × 2622', '6.9"']);
   });
 });

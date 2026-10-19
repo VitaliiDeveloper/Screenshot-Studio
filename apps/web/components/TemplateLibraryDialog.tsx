@@ -162,7 +162,6 @@ export function TemplateLibraryDialog({
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-sm font-semibold text-slate-900">{template.name}</h3>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{template.id}</span>
                   </div>
                   {template.description ? <p className="mt-1 text-xs leading-5 text-slate-500">{template.description}</p> : null}
                   <p className="mt-2 text-xs font-medium text-slate-500">
