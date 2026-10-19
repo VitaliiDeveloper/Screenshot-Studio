@@ -53,6 +53,17 @@ describe("unified store catalog", () => {
       .toMatchObject({ label: '5.8" iPhone landscape', width: 2436, height: 1125 });
   });
 
+  it("leads Android tablets at Play's 9:16 large-screen ratio and keeps the 10:16 migration source", () => {
+    const lead = findStoreTarget(DEFAULT_STORE_SPECS, "android", "tablet-7",
+      DEFAULT_STORE_SPECS.platforms.android.families["tablet-7"].leadStoreSizeId);
+    expect(lead).toMatchObject({ id: "tablet-portrait", width: 1440, height: 2560 });
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "android", "tablet-7", "tablet-landscape"))
+      .toMatchObject({ width: 2560, height: 1440, orientation: "landscape" });
+    // migrateLeadTarget resolves the previous lead from the current catalog.
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "android", "tablet-7", "tablet-7-portrait"))
+      .toMatchObject({ width: 1200, height: 1920 });
+  });
+
   it("offers both iPhone Duo displays as exact iPhone targets without moving the 6.3 lead", () => {
     // App Store Connect's iPhone Duo class is not scaled from other iPhone classes.
     expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "duo-inner"))

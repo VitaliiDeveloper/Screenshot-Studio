@@ -57,7 +57,7 @@ describe("ProjectCreationDialog starters", () => {
 
     const android = render("android");
     expect(android).toContain("Android phone");
-    expect(android).not.toContain("7-inch tablet portrait starter");
+    expect(android).not.toContain("9:16 tablet portrait starter");
     expect(android).toContain("Play Feature Graphic");
     expect(android).not.toContain("iPad portrait");
 

@@ -96,7 +96,7 @@ describe("ExportDialog", () => {
     for (const [label, platform, device] of [
       ["App Store · iPhone 6.3&quot; · Portrait", "apple", "iphone"],
       ["App Store · iPad 13&quot; · Portrait", "apple", "ipad"],
-      ["Google Play · Tablet 7-inch · Portrait", "android", "tablet-7"],
+      ["Google Play · Tablet 9:16 · Portrait", "android", "tablet-7"],
       ["Web · Desktop 1920×1080 · Landscape", "web", "desktop"],
     ] as const) {
       const target = findStoreTarget(specs, platform, device, leadStoreSizeId(specs, platform, device));

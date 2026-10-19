@@ -196,7 +196,7 @@ export function outputFamilyEditorLabel(
 export function compactStoreSizeLabel(label: string, device: string): string {
   const withoutLead = label.replace(/\s+\(lead\)$/i, "");
   if (device === "tablet-7") {
-    const canonicalTabletSize = /^(\d+-inch) Android tablet(?: (.+))?$/.exec(withoutLead);
+    const canonicalTabletSize = /^(\d+-inch|\d+:\d+) Android tablet(?: (.+))?$/.exec(withoutLead);
     if (canonicalTabletSize) {
       return [canonicalTabletSize[1], canonicalTabletSize[2]].filter(Boolean).join(" ");
     }

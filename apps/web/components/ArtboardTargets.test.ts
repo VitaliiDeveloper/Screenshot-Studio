@@ -212,7 +212,7 @@ describe("ArtboardTargets", () => {
       ...androidPhone,
       id: "android-tablet",
       device: "tablet-7",
-      artboard: { width: 1200, height: 1920 },
+      artboard: { width: 1440, height: 2560 },
     } as Screen;
     const androidSpecs = specs;
     const markup = renderToStaticMarkup(React.createElement(ArtboardTargets, {

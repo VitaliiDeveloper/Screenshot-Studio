@@ -99,7 +99,7 @@ describe("bundlePreflightWarnings", () => {
       id: `tablet-${index}`,
       name: `Tablet ${index}`,
       device: "tablet-7",
-      artboard: { width: 1200, height: 1920 },
+      artboard: { width: 1440, height: 2560 },
     })) as DesignLayout["screens"];
     const entries = buildBundleEntries(source, "default", specs);
     expect(bundlePreflightWarnings(entries)).toEqual([expect.objectContaining({
