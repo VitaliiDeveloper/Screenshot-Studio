@@ -35,15 +35,17 @@ Screenshot Studio combines both workflows:
   use the same Konva stage through the Chromium render host. Store PNGs are exact-size and opaque.
 - **Visual authoring.** Focus and Overview modes, isolated and connected canvases, multi-selection,
   one-level groups, snapping, guides, zoom, inline text editing, history, and schema-bounded
-  inspectors work across layouts and locales.
+  inspectors work across layouts and locales. **Apply to** picks which exact-size screens an edit
+  writes to, and **Issues** lists pre-export problems with Go to and Fix.
 - **Complete creative surface.** Text, shapes, screenshots, decorative images, trusted vector icons,
   device frames, editable badge groups, solid/gradient/project-image backgrounds, media crop,
   shadows, gradients, and strokes share render/export parity.
 - **Store and locale workflows.** Apple, Android, Windows, and responsive Web output families,
   explicit exact-size variants, synchronized or independent screen slots, complete locale sets, and
-  baked RTL geometry use the same project model.
-- **Reusable local resources.** Built-in starters and Design Packs work alongside project-local
-  fonts, themes, templates, assets, auto-crop, and flat-background removal.
+  baked RTL geometry use the same project model. Export bundles only the checked sizes and locales
+  and previews their file paths.
+- **Reusable local resources.** Built-in starters, Design Packs, and screen packs work alongside
+  project-local fonts, themes, templates, assets, auto-crop, and flat-background removal.
 - **CLI and agent workflows.** The `screenshots` CLI manages layouts, screens, imports, fonts,
   themes, locales, local assets, and exports. Generated project-local guidance and the optional
   [agent skill](skills/screenshot-studio/SKILL.md) operate on the same strict JSON and CLI contract.
@@ -53,8 +55,9 @@ Screenshot Studio combines both workflows:
 
 ## Example project
 
-The Store Launch Demo shows one campaign authored across iPhone and iPad, with synchronized screen
-structure, exact-size output variants, and element-level visual controls.
+The screenshots below use the bundled [`connected-launch`](examples/README.md) example: one
+connected campaign across App Store iPhone, Google Play phone, and Web desktop, with exact-size
+output variants and element-level visual controls.
 
 Start with a guided project or import an existing Folder, project ZIP, or complete JSON document.
 
@@ -70,15 +73,19 @@ the same composition through the shared renderer.
 ![Screenshot Studio connected multi-artboard editor](docs/images/readme/editor-overview.png)
 
 <details>
-<summary><strong>See element and screen controls</strong></summary>
+<summary><strong>See element, screen, and export controls</strong></summary>
 
 Select a device frame to adjust its transform, screenshot content, and frame preset.
 
 ![Screenshot Studio device frame inspector](docs/images/readme/device-frame-inspector.png)
 
-Select a screen to manage synchronized structure, destinations, exact output sizes, and background.
+Select a screen to manage destinations, synchronized structure, exact output sizes, and background.
 
 ![Screenshot Studio screen and output variants](docs/images/readme/screen-variants.png)
+
+Export the checked destinations, sizes, and locales as one store bundle, with a preview of its paths.
+
+<img src="docs/images/readme/export-dialog.png" alt="Screenshot Studio export dialog" width="560">
 
 </details>
 
