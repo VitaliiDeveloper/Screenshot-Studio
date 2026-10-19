@@ -621,7 +621,7 @@ describe("editor workspace", () => {
         from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.transform,
       })));
 
-    // Both switches run inside one frame-paced evaluation so the 160 ms window cannot be missed.
+    // Both switches run inside one frame-paced evaluation so the 220 ms window cannot be missed.
     const switches = await page.evaluate(async ([next, previous]) => {
       // Rows swap elements when they become active, so resolve each button at click time.
       const click = (label: string) => [...document.querySelectorAll("button")]
@@ -634,6 +634,11 @@ describe("editor workspace", () => {
             duration: animation.effect?.getTiming().duration,
             from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.transform,
           })),
+          layerLists: document.getAnimations()
+            .map((animation) => (animation.effect as KeyframeEffect | null)?.getKeyframes()[0]?.height)
+            .filter((height) => height !== undefined)
+            .map((height) => (height === "0px" ? "opening" : "closing"))
+            .sort(),
         };
       };
       const frame = () => new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
@@ -645,8 +650,8 @@ describe("editor workspace", () => {
       return { forward, backward: read() };
     }, [`${second!.name} · ${second!.device}`, `${first!.name} · ${first!.device}`]);
     expect(switches).toEqual({
-      forward: { transition: "running", animations: [{ duration: 160, from: "translateX(28px)" }] },
-      backward: { transition: "running", animations: [{ duration: 160, from: "translateX(-28px)" }] },
+      forward: { transition: "running", animations: [{ duration: 220, from: "translateX(48px)" }], layerLists: ["closing", "opening"] },
+      backward: { transition: "running", animations: [{ duration: 220, from: "translateX(-48px)" }], layerLists: ["closing", "opening"] },
     });
     await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
 

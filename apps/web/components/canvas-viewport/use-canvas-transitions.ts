@@ -125,10 +125,10 @@ export function useCanvasTransitions({
       // Start before paint so the incoming artboard is never shown at its settled position first.
       const animation = content.animate(
         [
-          { opacity: 0.6, transform: `translateX(${forward ? 28 : -28}px)` },
+          { opacity: 0.4, transform: `translateX(${forward ? 48 : -48}px)` },
           { opacity: 1, transform: "translateX(0)" },
         ],
-        { duration: 160, easing: "ease-out" },
+        { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
       );
       transitionRef.current = animation;
       setTransitioning(true);
