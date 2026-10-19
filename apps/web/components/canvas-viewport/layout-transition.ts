@@ -6,9 +6,11 @@ export interface CanvasTransitionState {
   layoutId: string | null;
   layoutMode: CanvasMode | null;
   view: WorkspaceView;
+  activeScreenId: string | null;
+  screenIds: readonly string[];
 }
 
-export type CanvasTransitionKind = "none" | "view" | "layout";
+export type CanvasTransitionKind = "none" | "view" | "layout" | "screen";
 
 export function canvasTransitionKind(
   previous: CanvasTransitionState,
@@ -19,5 +21,17 @@ export function canvasTransitionKind(
   )) {
     return "layout";
   }
-  return previous.view === next.view ? "none" : "view";
+  if (previous.view !== next.view) return "view";
+  // Both screens existing before and after excludes screen creation and deletion.
+  if (
+    next.view === "focus"
+    && previous.activeScreenId !== next.activeScreenId
+    && previous.activeScreenId !== null
+    && next.activeScreenId !== null
+    && previous.screenIds.includes(next.activeScreenId)
+    && next.screenIds.includes(previous.activeScreenId)
+  ) {
+    return "screen";
+  }
+  return "none";
 }

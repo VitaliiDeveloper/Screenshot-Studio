@@ -104,6 +104,7 @@ export function CanvasViewport({
     layoutMode: layout?.mode ?? null,
     view,
     activeScreenId,
+    screens: layout?.screens ?? [],
     fit,
     fitLayoutKey,
   });

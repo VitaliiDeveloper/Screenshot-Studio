@@ -12,13 +12,14 @@ export interface CanvasTransitionsInput {
   layoutMode: CanvasMode | null;
   view: WorkspaceView;
   activeScreenId: string | null;
+  screens: readonly { id: string }[];
   fit: () => void;
   fitLayoutKey: string;
 }
 
 /**
  * Installs every fit before paint and animates the canvas content: the first reveal, then each
- * layout or view change, anchored on the active artboard.
+ * layout or view change anchored on the active artboard, and each Focus screen switch.
  */
 export function useCanvasTransitions({
   contentRef,
@@ -26,6 +27,7 @@ export function useCanvasTransitions({
   layoutMode,
   view,
   activeScreenId,
+  screens,
   fit,
   fitLayoutKey,
 }: CanvasTransitionsInput): {
@@ -38,6 +40,8 @@ export function useCanvasTransitions({
     layoutId,
     layoutMode,
     view,
+    activeScreenId,
+    screenIds: screens.map((screen) => screen.id),
   });
   const initialRevealStartedRef = useRef(false);
   const initialRevealRef = useRef<Animation | null>(null);
@@ -91,8 +95,11 @@ export function useCanvasTransitions({
       layoutId,
       layoutMode,
       view,
+      activeScreenId,
+      screenIds: screens.map((screen) => screen.id),
     };
-    const transitionKind = canvasTransitionKind(previousCanvasStateRef.current, nextState);
+    const previousState = previousCanvasStateRef.current;
+    const transitionKind = canvasTransitionKind(previousState, nextState);
     previousCanvasStateRef.current = nextState;
     if (transitionKind === "none") return;
 
@@ -106,6 +113,33 @@ export function useCanvasTransitions({
     setFittedView(view);
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    if (transitionKind === "screen") {
+      const content = contentRef.current;
+      if (!content) return;
+      const forward = nextState.screenIds.indexOf(activeScreenId ?? "")
+        > nextState.screenIds.indexOf(previousState.activeScreenId ?? "");
+      content.style.removeProperty("transform-origin");
+      // Start before paint so the incoming artboard is never shown at its settled position first.
+      const animation = content.animate(
+        [
+          { opacity: 0.6, transform: `translateX(${forward ? 28 : -28}px)` },
+          { opacity: 1, transform: "translateX(0)" },
+        ],
+        { duration: 160, easing: "ease-out" },
+      );
+      transitionRef.current = animation;
+      setTransitioning(true);
+      animation.finished.then(() => {
+        if (transitionRef.current !== animation) return;
+        transitionRef.current = null;
+        setTransitioning(false);
+      }).catch(() => {
+        // A cancelled run that nothing replaced (reduced motion, unmount) must not stay running.
+        if (transitionRef.current === null && transitionFrameRef.current === null) setTransitioning(false);
+      });
       return;
     }
 
@@ -145,9 +179,11 @@ export function useCanvasTransitions({
         transitionRef.current = null;
         content.style.removeProperty("transform-origin");
         setTransitioning(false);
-      }).catch(() => undefined);
+      }).catch(() => {
+        if (transitionRef.current === null && transitionFrameRef.current === null) setTransitioning(false);
+      });
     });
-  }, [activeScreenId, contentRef, fit, layoutId, layoutMode, view]);
+  }, [activeScreenId, contentRef, fit, layoutId, layoutMode, screens, view]);
 
   useEffect(() => () => {
     initialRevealRef.current?.cancel();
