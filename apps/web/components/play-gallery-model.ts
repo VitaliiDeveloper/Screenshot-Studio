@@ -82,6 +82,11 @@ export function playbackReducer(count: number) {
   };
 }
 
+/** A wheel gesture that scrolls the strip sideways; a plain vertical wheel moves nothing here. */
+export function wheelScrollsSideways(event: { deltaX: number; deltaY: number; shiftKey: boolean }): boolean {
+  return event.shiftKey ? event.deltaY !== 0 || event.deltaX !== 0 : Math.abs(event.deltaX) > Math.abs(event.deltaY);
+}
+
 /** Index of the slide whose center is closest to the scroller's center. */
 export function nearestSlideIndex(slideCenters: readonly number[], viewportCenter: number): number {
   let best = 0;

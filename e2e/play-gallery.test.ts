@@ -72,4 +72,29 @@ describe("play gallery", () => {
     expect(await overview.getAttribute("aria-pressed")).toBe(viewBefore);
     await page.close();
   });
+
+  it("returns focus to Play when the click did not focus it and ignores vertical wheel", async () => {
+    const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.getByTestId("connected-artboards").locator("canvas").first().waitFor({ state: "visible" });
+
+    // A scripted click does not move focus, matching how Safari treats a clicked button.
+    await page.getByRole("button", { name: "Play", exact: true }).evaluate((button: HTMLButtonElement) => button.click());
+    const dialog = page.getByRole("dialog", { name: "Play" });
+    await dialog.waitFor({ state: "visible" });
+    await expect.poll(() => dialog.locator("[data-play-slide] canvas").count()).toBeGreaterThan(1);
+
+    const gallery = dialog.getByTestId("play-gallery");
+    const center = await gallery.boundingBox();
+    await page.mouse.move(center!.x + center!.width / 2, center!.y + center!.height / 2);
+    await page.mouse.wheel(0, 300);
+    expect(await dialog.getByRole("button", { name: "Pause autoplay" }).count()).toBe(1);
+    await page.mouse.wheel(300, 0);
+    await dialog.getByRole("button", { name: "Start autoplay" }).waitFor();
+
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "detached" });
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Play");
+    await page.close();
+  });
 });

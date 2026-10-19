@@ -7,6 +7,7 @@ import {
   nearestSlideIndex,
   playbackReducer,
   playEntries,
+  wheelScrollsSideways,
 } from "./play-gallery-model.js";
 
 function screen(id: string, overrides: Partial<Screen> = {}): Screen {
@@ -116,6 +117,14 @@ describe("play gallery autoplay", () => {
     expect(reduce({ index: 1, playing: false }, { type: "toggle" })).toEqual({ index: 1, playing: true });
     expect(reduce({ index: 2, playing: false }, { type: "toggle" })).toEqual({ index: 0, playing: true });
     expect(playbackReducer(1)({ index: 0, playing: false }, { type: "toggle" })).toEqual({ index: 0, playing: false });
+  });
+
+  it("pauses only for wheel gestures that scroll the strip sideways", () => {
+    expect(wheelScrollsSideways({ deltaX: 0, deltaY: 120, shiftKey: false })).toBe(false);
+    expect(wheelScrollsSideways({ deltaX: 4, deltaY: 30, shiftKey: false })).toBe(false);
+    expect(wheelScrollsSideways({ deltaX: 40, deltaY: 6, shiftKey: false })).toBe(true);
+    expect(wheelScrollsSideways({ deltaX: 0, deltaY: 120, shiftKey: true })).toBe(true);
+    expect(wheelScrollsSideways({ deltaX: 0, deltaY: 0, shiftKey: true })).toBe(false);
   });
 
   it("finds the slide nearest the viewport center", () => {

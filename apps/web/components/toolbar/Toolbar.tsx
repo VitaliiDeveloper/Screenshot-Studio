@@ -205,7 +205,11 @@ export function Toolbar({
             title="Play"
             disabled={!canPlay}
             className={cx(editorUi.buttonGhost, compactSharedButtonClassName, minimalControls && "!size-7 !min-h-7 !px-0")}
-            onClick={onOpenPlay}
+            onClick={(event) => {
+              // Safari does not focus a clicked button, and DialogShell returns focus to the opener.
+              event.currentTarget.focus();
+              onOpenPlay();
+            }}
           >
             <Play size={14} strokeWidth={1.9} /> <span data-toolbar-label className={toolbarLabelClassName}>Play</span>
           </button>

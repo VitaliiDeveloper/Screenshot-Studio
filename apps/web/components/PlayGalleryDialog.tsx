@@ -16,6 +16,7 @@ import {
   PLAY_INTERVAL_MS,
   playbackReducer,
   playEntries,
+  wheelScrollsSideways,
 } from "./play-gallery-model";
 
 const SLIDE_GAP = 24;
@@ -150,7 +151,9 @@ export function PlayGalleryDialog({
             : undefined,
         }}
         onScroll={onScroll}
-        onWheel={() => dispatch({ type: "pause" })}
+        onWheel={(event) => {
+          if (wheelScrollsSideways(event)) dispatch({ type: "pause" });
+        }}
         onPointerDown={() => dispatch({ type: "pause" })}
       >
         {measured ? entries.map(({ screen }, slide) => (
