@@ -64,6 +64,20 @@ describe("unified store catalog", () => {
       .toMatchObject({ width: 1200, height: 1920 });
   });
 
+  it("offers both iPhone Duo displays as exact iPhone targets without moving the 6.3 lead", () => {
+    // App Store Connect's iPhone Duo class is not scaled from other iPhone classes.
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "duo-inner"))
+      .toMatchObject({ width: 2007, height: 2853, orientation: "portrait" });
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "duo-inner-landscape"))
+      .toMatchObject({ width: 2853, height: 2007, orientation: "landscape" });
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "duo-outer"))
+      .toMatchObject({ width: 1398, height: 2034, orientation: "portrait" });
+    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "duo-outer-landscape"))
+      .toMatchObject({ width: 2034, height: 1398, orientation: "landscape" });
+    expect(OUTPUT_DEVICE_FAMILIES.find(({ key }) => key === "apple/iphone"))
+      .toMatchObject({ leadStoreSizeId: "6.3" });
+  });
+
   it("keeps superseded families visible but non-creatable", () => {
     expect(OUTPUT_DEVICE_FAMILIES.filter(({ creatable }) => !creatable)).toEqual([
       expect.objectContaining({ key: "android/tablet-10", replacementKey: "android/tablet-7" }),
