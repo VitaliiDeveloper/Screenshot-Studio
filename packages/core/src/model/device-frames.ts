@@ -361,6 +361,22 @@ const foldableSpec = {
   slotCornerRadius: 0.035,
 } satisfies DeviceFrameSpec;
 
+const foldableTallSpec = {
+  aspectRatio: 0.714,
+  bezelColor: "#222328",
+  frameCornerRadius: 0.05,
+  slotInset: { top: 0.018, right: 0.025, bottom: 0.018, left: 0.025 },
+  slotCornerRadius: 0.035,
+} satisfies DeviceFrameSpec;
+
+const phoneFlipSpec = {
+  aspectRatio: 0.44,
+  bezelColor: "#18191C",
+  frameCornerRadius: 0.12,
+  slotInset: { top: 0.0175, right: 0.03, bottom: 0.0175, left: 0.03 },
+  slotCornerRadius: 0.09,
+} satisfies DeviceFrameSpec;
+
 const automotiveDisplaySpec = {
   aspectRatio: 16 / 7,
   bezelColor: "#202124",
@@ -873,6 +889,42 @@ export const DEVICE_FRAME_PRESETS: readonly DeviceFramePreset[] = deepFreeze([
       spec: foldableSpec,
       shadow,
       outline: { color: "#404248", widthFrac: 0.006, insetFrac: 0.003 },
+    },
+  },
+  {
+    id: "foldable-tall",
+    label: "Tall Foldable",
+    group: "foldable",
+    tags: ["foldable", "mobile", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile", "tablet"],
+    legacy: false,
+    recipe: {
+      spec: foldableTallSpec,
+      shadow,
+      outline: { color: "#404248", widthFrac: 0.006, insetFrac: 0.003 },
+    },
+  },
+  {
+    id: "phone-flip",
+    label: "Flip Phone",
+    group: "foldable",
+    tags: ["foldable", "phone", "mobile", "modern", "dark"],
+    finish: "dark",
+    recommendedFor: ["mobile"],
+    legacy: false,
+    recipe: {
+      spec: phoneFlipSpec,
+      shadow,
+      outline: { color: "#34363A", widthFrac: 0.008, insetFrac: 0.004 },
+      camera: {
+        kind: "circle",
+        color: "#08090A",
+        xFrac: 0.5,
+        yFrac: 0.03,
+        widthFrac: 0.03,
+        heightFrac: 0.03 * phoneFlipSpec.aspectRatio,
+      },
     },
   },
   {

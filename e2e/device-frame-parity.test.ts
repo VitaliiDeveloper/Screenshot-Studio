@@ -33,6 +33,8 @@ const recipeScreenIds = [
   "laptop-silver",
   "watch-square",
   "frameless-phone",
+  "foldable-tall",
+  "phone-flip",
 ] as const;
 const pixelRatio = 1;
 const target = { width: 660, height: 1434 };

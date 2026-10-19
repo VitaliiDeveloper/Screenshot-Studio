@@ -229,8 +229,8 @@ describe("DeviceFrameElement", () => {
       "frameless-phone", "tablet-rounded-dark", "tablet-rounded-light", "tablet-outline",
       "frameless-tablet", "browser-light", "browser-dark", "browser-minimal", "frameless-browser",
       "laptop-silver", "laptop-dark", "display-stand", "display-minimal", "tv-flat",
-      "watch-rounded", "watch-square", "frameless-watch", "foldable", "automotive-display",
-      "xr-viewport",
+      "watch-rounded", "watch-square", "frameless-watch", "foldable", "foldable-tall", "phone-flip",
+      "automotive-display", "xr-viewport",
     ] as const;
     expect(DEVICE_FRAME_IDS).toEqual(expectedDeviceFrameIds);
     for (const deviceType of expectedDeviceFrameIds) {
