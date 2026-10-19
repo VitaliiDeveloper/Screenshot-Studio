@@ -224,6 +224,21 @@ describe("buildBundleEntries", () => {
     expect(() => validateBundleArtboards(entries)).not.toThrow();
   });
 
+  it("plans an iPhone Duo inner-display variant at its exact catalog size", () => {
+    const source = project();
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
+      id: "hero-duo",
+      variantOf: "hero",
+      storeTargetId: "duo-inner",
+      artboard: { width: 2007, height: 2853 },
+    });
+    const entries = buildBundleEntries(source, "default", specs, { platform: "apple", device: "iphone" });
+    expect(entries.map((entry) => [entry.target.id, entry.target.width, entry.target.height, entry.relativePath]))
+      .toContainEqual(["duo-inner", 2007, 2853, "apple/iphone/locale-en/size-duo-inner/01-hero-phone-duo-inner.png"]);
+    expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
   it("throws if store-specs lacks the schema-supported lead target", () => {
     const broken = structuredClone(specs);
     broken.platforms.apple.families.iphone.targets = [];
