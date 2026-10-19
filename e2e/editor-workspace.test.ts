@@ -221,7 +221,7 @@ describe("editor workspace", () => {
     expect(await page.getByRole("spinbutton", { name: "W", exact: true }).inputValue()).toBe("1284");
     expect(await page.getByRole("spinbutton", { name: "H", exact: true }).inputValue()).toBe("2778");
     expect(await page.getByText(
-      "Apply resizes every screen in this Store Target output and fits each composition.",
+      "Apply resizes every screen at this export size and fits each composition.",
       { exact: true },
     ).count()).toBe(1);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -315,7 +315,7 @@ describe("editor workspace", () => {
     }).toBe(1);
 
     const slotBehavior = page.getByRole("group", { name: "Screen structure behavior", exact: true });
-    await slotBehavior.getByRole("button", { name: "Sync structure", exact: true }).click();
+    await slotBehavior.getByRole("button", { name: "Sync sizes", exact: true }).click();
     await expect.poll(() => project().screenSetPolicies?.[0]?.mode, { timeout: 10_000 })
       .toBe("synchronized");
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {

@@ -121,7 +121,7 @@ export function TemplateLibraryDialog({
   return (
     <DialogShell
       title="Screen templates"
-      description={`Create an ordinary editable screen in locale ${activeScreen?.locale ?? "—"} from a built-in template or from a project-local screen template.`}
+      description={`Add a new screen in ${activeScreen?.locale ?? "—"} from a template. Everything stays editable.`}
       ariaLabel="Screen template library"
       closeLabel="Close screen template library"
       onClose={close}
