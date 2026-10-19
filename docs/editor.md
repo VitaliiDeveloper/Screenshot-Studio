@@ -279,7 +279,7 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
-Play opens a full-screen, read-only dark scene with the files that bundle writes for the active
+Play opens a full-screen, read-only scene in the editor's current appearance with the files that bundle writes for the active
 destination, size, and locale, in file order. The current screen is centered at full size with its
 neighbours smaller and dimmed beside it; connected layouts show each screen's exact export crop
 through the same `EditorStage`. Screens change with eased motion, not scrolling, and reduced motion

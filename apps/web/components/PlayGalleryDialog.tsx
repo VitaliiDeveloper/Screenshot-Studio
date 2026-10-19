@@ -192,11 +192,11 @@ export function PlayGalleryDialog({
       description={description}
       initialFocus="heading"
       closeLabel="Close play"
-      widthClass="editor-scene h-full !max-h-none max-w-none outline-none [&>header]:border-transparent"
+      widthClass="h-full !max-h-none max-w-none outline-none"
       bodyClassName="flex min-h-0 flex-1 flex-col !overflow-hidden !p-0"
       onClose={onClose}
     >
-      <div className="flex gap-1.5 px-4 sm:px-5">
+      <div className="flex gap-1.5 px-4 py-2 sm:px-5">
         {entries.map(({ screen }, slide) => (
           <button
             key={screen.id}
@@ -206,10 +206,10 @@ export function PlayGalleryDialog({
             className="flex h-5 min-w-0 flex-1 items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]"
             onClick={() => dispatch({ type: "go", index: slide })}
           >
-            <span className="h-[3px] w-full overflow-hidden rounded-full bg-white/20">
+            <span className="h-[3px] w-full overflow-hidden rounded-full bg-[var(--editor-color-border)]">
               <span
                 ref={(element) => { progressRefs.current[slide] = element; }}
-                className="block h-full origin-left bg-white"
+                className="block h-full origin-left bg-[var(--editor-color-accent)]"
                 style={{ transform: `scaleX(${slide < index || (slide === index && !playing) ? 1 : 0})` }}
               />
             </span>
@@ -222,7 +222,7 @@ export function PlayGalleryDialog({
         role="region"
         aria-roledescription="carousel"
         aria-label="Screens"
-        className="relative min-h-0 flex-1 touch-pan-y select-none overflow-hidden overscroll-x-none"
+        className="relative min-h-0 flex-1 touch-pan-y select-none overflow-hidden overscroll-x-none bg-[var(--editor-color-surface-subtle)]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
@@ -243,7 +243,7 @@ export function PlayGalleryDialog({
                 aria-label={`${slide + 1} of ${count}: ${screen.name}`}
                 aria-current={slide === index ? "true" : undefined}
                 className={cx(
-                  "relative shrink-0 overflow-hidden rounded-lg bg-white transition-[transform,opacity]",
+                  "relative shrink-0 overflow-hidden rounded-lg bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-menu)] ring-1 ring-[var(--editor-color-border)] transition-[transform,opacity]",
                   motion,
                   slide === index ? "opacity-100" : "scale-[0.86] cursor-pointer opacity-40",
                 )}
@@ -255,7 +255,7 @@ export function PlayGalleryDialog({
           </div>
         ) : null}
       </div>
-      <div className="flex items-center justify-center gap-3 px-4 pb-4 pt-2">
+      <div className="flex items-center justify-center gap-3 border-t border-[var(--editor-color-border)] px-4 py-3">
         <button
           type="button"
           aria-label="Previous screen"
