@@ -58,3 +58,15 @@
   --editor-motion-fast: 150ms;
   --editor-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Dark scheme for full-screen media viewing such as Play; the editor chrome itself stays light. */
+.editor-scene {
+  --editor-color-surface: #111214;
+  --editor-color-surface-muted: rgb(255 255 255 / 10%);
+  --editor-color-surface-translucent: transparent;
+  --editor-color-text-strong: #f8fafc;
+  --editor-color-text-default: #e2e8f0;
+  --editor-color-text-secondary: #94a3b8;
+  --editor-color-text-subtle: #cbd5e1;
+  --editor-shadow-dialog: none;
+}

@@ -42,7 +42,6 @@ export interface PlaybackState {
 export type PlaybackAction =
   | { type: "tick" }
   | { type: "go"; index: number }
-  | { type: "scrolled"; index: number }
   | { type: "pause" }
   | { type: "toggle" };
 
@@ -66,9 +65,6 @@ export function playbackReducer(count: number) {
       case "go":
         next = { index: clamp(action.index), playing: false };
         break;
-      case "scrolled":
-        next = { ...state, index: clamp(action.index) };
-        break;
       case "pause":
         next = { ...state, playing: false };
         break;
@@ -87,11 +83,15 @@ export function wheelScrollsSideways(event: { deltaX: number; deltaY: number; sh
   return event.shiftKey ? event.deltaY !== 0 || event.deltaX !== 0 : Math.abs(event.deltaX) > Math.abs(event.deltaY);
 }
 
-/** Index of the slide whose center is closest to the scroller's center. */
-export function nearestSlideIndex(slideCenters: readonly number[], viewportCenter: number): number {
-  let best = 0;
-  slideCenters.forEach((center, index) => {
-    if (Math.abs(center - viewportCenter) < Math.abs(slideCenters[best]! - viewportCenter)) best = index;
-  });
-  return best;
+/** Screens to advance for a drag or accumulated wheel distance: +1 next, -1 previous, 0 none. */
+export function swipeStep(travel: number, threshold: number): -1 | 0 | 1 {
+  if (travel >= threshold) return 1;
+  if (travel <= -threshold) return -1;
+  return 0;
+}
+
+/** Track translation that centers slide `index` in a viewport `viewportWidth` wide. */
+export function centeredTrackX(widths: readonly number[], gap: number, index: number, viewportWidth: number): number {
+  const left = widths.slice(0, index).reduce((sum, width) => sum + width + gap, 0);
+  return viewportWidth / 2 - (left + (widths[index] ?? 0) / 2);
 }

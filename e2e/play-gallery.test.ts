@@ -38,7 +38,7 @@ describe("play gallery", () => {
 
     const overview = page.getByRole("button", { name: "Overview", exact: true });
     const viewBefore = await overview.getAttribute("aria-pressed");
-    const playButton = page.getByRole("button", { name: "Play", exact: true });
+    const playButton = page.getByRole("navigation", { name: "Editor tools" }).getByRole("button", { name: "Play", exact: true });
     await playButton.click();
     const dialog = page.getByRole("dialog", { name: "Play" });
     await dialog.waitFor({ state: "visible" });
@@ -73,13 +73,13 @@ describe("play gallery", () => {
     await page.close();
   });
 
-  it("returns focus to Play when the click did not focus it and ignores vertical wheel", async () => {
+  it("returns focus to Play when the click did not focus it and steps by wheel and drag", async () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.getByTestId("connected-artboards").locator("canvas").first().waitFor({ state: "visible" });
 
     // A scripted click does not move focus, matching how Safari treats a clicked button.
-    await page.getByRole("button", { name: "Play", exact: true }).evaluate((button: HTMLButtonElement) => button.click());
+    await page.getByRole("navigation", { name: "Editor tools" }).getByRole("button", { name: "Play", exact: true }).evaluate((button: HTMLButtonElement) => button.click());
     const dialog = page.getByRole("dialog", { name: "Play" });
     await dialog.waitFor({ state: "visible" });
     await expect.poll(() => dialog.locator("[data-play-slide] canvas").count()).toBeGreaterThan(1);
@@ -91,6 +91,12 @@ describe("play gallery", () => {
     expect(await dialog.getByRole("button", { name: "Pause autoplay" }).count()).toBe(1);
     await page.mouse.wheel(300, 0);
     await dialog.getByRole("button", { name: "Start autoplay" }).waitFor();
+    await expect.poll(() => dialog.getByText("2 / 2").count()).toBe(1);
+
+    await page.mouse.down();
+    await page.mouse.move(center!.x + center!.width / 2 + 200, center!.y + center!.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await expect.poll(() => dialog.getByText("1 / 2").count()).toBe(1);
 
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "detached" });

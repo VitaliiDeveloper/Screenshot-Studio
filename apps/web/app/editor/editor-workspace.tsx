@@ -25,6 +25,7 @@ import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImp
 import { ConfirmationDialog } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { playEntries } from "@web/components/play-gallery-model";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
@@ -109,6 +110,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
   const issues = useEditorIssues(textMeasured, images);
   const issueCounts = useMemo(() => countIssues(issues), [issues]);
+  const canPlay = useStore(editorStore, (state) =>
+    specs ? playEntries(state.project, state.activeLayoutId, state.activeScreenId, specs).length > 0 : false);
   const goToIssue = useCallback((issue: ProjectIssue) => {
     const store = editorStore.getState();
     if (issue.kind === "missing-locale-screen") {
@@ -260,7 +263,6 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         issueCounts={issueCounts}
         issues={issues}
         onOpenIssues={() => setIssuesOpen(true)}
-        onOpenPlay={() => setPlayOpen(true)}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
@@ -276,6 +278,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           }}
           onOpenDialog={setDialog}
           onOpenLocales={() => setLocaleDialogOpen(true)}
+          onOpenPlay={() => setPlayOpen(true)}
+          playDisabled={!canPlay}
         />
         <EditorSidePanel side="left" open={panel !== null}>
           <LeftPanel

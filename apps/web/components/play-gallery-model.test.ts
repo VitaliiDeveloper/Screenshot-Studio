@@ -4,9 +4,10 @@ import { buildBundleEntries, DEFAULT_STORE_SPECS } from "@screenshot-studio/core
 import type { CanvasMode, Project, Screen } from "@screenshot-studio/core/model";
 import {
   initialPlayback,
-  nearestSlideIndex,
+  centeredTrackX,
   playbackReducer,
   playEntries,
+  swipeStep,
   wheelScrollsSideways,
 } from "./play-gallery-model.js";
 
@@ -106,12 +107,6 @@ describe("play gallery autoplay", () => {
     expect(reduce(state, { type: "pause" })).toEqual({ index: 0, playing: false });
   });
 
-  it("tracks scrolled position without changing playback", () => {
-    expect(reduce({ index: 0, playing: true }, { type: "scrolled", index: 2 })).toEqual({ index: 2, playing: true });
-    const state = { index: 1, playing: true };
-    expect(reduce(state, { type: "scrolled", index: 1 })).toBe(state);
-  });
-
   it("toggles playback and restarts from the first screen at the end", () => {
     expect(reduce({ index: 1, playing: true }, { type: "toggle" })).toEqual({ index: 1, playing: false });
     expect(reduce({ index: 1, playing: false }, { type: "toggle" })).toEqual({ index: 1, playing: true });
@@ -127,9 +122,16 @@ describe("play gallery autoplay", () => {
     expect(wheelScrollsSideways({ deltaX: 0, deltaY: 0, shiftKey: true })).toBe(false);
   });
 
-  it("finds the slide nearest the viewport center", () => {
-    expect(nearestSlideIndex([100, 500, 900], 480)).toBe(1);
-    expect(nearestSlideIndex([100, 500, 900], 2000)).toBe(2);
-    expect(nearestSlideIndex([100], 0)).toBe(0);
+  it("steps one screen once a drag or wheel passes the threshold", () => {
+    expect(swipeStep(80, 60)).toBe(1);
+    expect(swipeStep(-60, 60)).toBe(-1);
+    expect(swipeStep(59, 60)).toBe(0);
+    expect(swipeStep(-10, 60)).toBe(0);
+  });
+
+  it("centers the requested slide on the viewport", () => {
+    expect(centeredTrackX([200, 300, 200], 20, 0, 1000)).toBe(400);
+    expect(centeredTrackX([200, 300, 200], 20, 1, 1000)).toBe(130);
+    expect(centeredTrackX([200, 300, 200], 20, 2, 1000)).toBe(-140);
   });
 });

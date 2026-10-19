@@ -23,16 +23,17 @@ describe("ToolRail project navigation", () => {
       "Design packs",
       "Fonts",
       "Locales",
+      "Play",
       "Projects",
     ]);
     expect(source).not.toContain('"resources"');
-    expect(source.match(/aria-haspopup="dialog"/g)).toHaveLength(4);
+    expect(source.match(/aria-haspopup="dialog"/g)).toHaveLength(5);
   });
 
   it("captions every rail item with text its accessible name contains", () => {
     const items = [...source.matchAll(/label="([^"]+)"\s+caption="([^"]+)"/g)];
     expect(items.map((match) => match[2])).toEqual([
-      "Select", "Hand", "Layers", "Templates", "Packs", "Fonts", "Locales", "Projects",
+      "Select", "Hand", "Layers", "Templates", "Packs", "Fonts", "Locales", "Play", "Projects",
     ]);
     for (const [, label, caption] of items) expect(label!.toLowerCase()).toContain(caption!.toLowerCase());
   });

@@ -267,22 +267,26 @@ Capture folder is a choice inside `Import`, not a third top-level first-run acti
 rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, and one
 entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
 dialog rather than an intermediate panel. Every item carries a short caption under its icon
-(Select, Hand, Layers, Templates, Packs, Fonts, Locales, Projects) that its accessible name contains,
-and active items get the light accent fill. Its bottom
-`Projects` home action drains pending saves, preserves project-keyed workspace state, and returns to
+(Select, Hand, Layers, Templates, Packs, Fonts, Locales, Play, Projects) that its accessible name
+contains, and active items get the light accent fill. Its bottom group holds Play and the
+`Projects` home action, which drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
 recovery action; Workspace must never discard the active client state automatically.
 The Workspace top bar starts with a `Screenshot Studio / project / layout` breadcrumb whose product-name
-button is the same Projects home action; Focus / Overview stay centered with Play beside them; undo,
-redo, the locale menu, Issues with its count, Inspect, and Export sit on the right; Issues moves into
-the toolbar overflow menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
+button is the same Projects home action; Focus / Overview stay centered; undo, redo, the locale menu,
+Issues with its count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
+menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
-Play opens a read-only gallery of the files that bundle writes for the active destination, size, and
-locale, in file order; connected layouts show each screen's exact export crop through the same
-`EditorStage`. It autoplays every 3 s, stops on the last screen, and pauses on any manual navigation.
-It never changes the active screen, view, or project, and is disabled when that bundle cannot be built.
+Play opens a full-screen, read-only dark scene with the files that bundle writes for the active
+destination, size, and locale, in file order. The current screen is centered at full size with its
+neighbours smaller and dimmed beside it; connected layouts show each screen's exact export crop
+through the same `EditorStage`. Screens change with eased motion, not scrolling, and reduced motion
+switches instantly. Autoplay advances every 3 s with a progress bar per screen and stops on the last
+screen; buttons, arrow keys, dragging, a sideways wheel, or a progress-bar click pause it, and Space
+toggles it. Play never changes the active screen, view, or project, and is disabled when that
+bundle cannot be built.
 Project folder and archive import discard Finder's `.DS_Store` metadata and skip, without copying,
 paths outside the portable project layout, such as `export/` output or extra root files. Hidden,
 credential-bearing, or private-key paths still reject the whole import, and resources the project
