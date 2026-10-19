@@ -283,11 +283,8 @@ export function PlayGalleryDialog({
         >
           <ChevronRight size={18} strokeWidth={1.9} />
         </button>
-        <p className="min-w-12 text-center text-xs font-medium tabular-nums text-[color:var(--editor-color-text-secondary)]">
-          <span aria-hidden="true">{count > 0 ? `${index + 1} / ${count}` : "0 / 0"}</span>
-          <span className="sr-only" aria-live="polite">
-            {current ? `Screen ${index + 1} of ${count}: ${current.screen.name}` : ""}
-          </span>
+        <p className="sr-only" aria-live="polite">
+          {current ? `Screen ${index + 1} of ${count}: ${current.screen.name}` : ""}
         </p>
       </div>
     </DialogShell>

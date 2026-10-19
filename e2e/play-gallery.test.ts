@@ -44,6 +44,7 @@ describe("play gallery", () => {
     await dialog.waitFor({ state: "visible" });
 
     const slides = dialog.locator("[data-play-slide]");
+    const currentSlide = () => dialog.locator("[data-play-slide][aria-current='true']").getAttribute("aria-label");
     await expect.poll(() => slides.count()).toBe(2);
     expect(await slides.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label"))))
       .toEqual(["1 of 2: Connected First", "2 of 2: Connected Second"]);
@@ -52,18 +53,17 @@ describe("play gallery", () => {
     expect(Math.abs(box!.width / box!.height - 660 / 1434)).toBeLessThan(0.01);
 
     // Autoplay advances once (~3 s) and stops on the last screen.
-    await expect.poll(() => dialog.getByText("2 / 2").count(), { timeout: 6_000 }).toBe(1);
+    await expect.poll(currentSlide, { timeout: 6_000 }).toBe("2 of 2: Connected Second");
     await dialog.getByRole("button", { name: "Start autoplay" }).waitFor();
-    await expect.poll(() => slides.nth(1).getAttribute("aria-current")).toBe("true");
 
     await page.keyboard.press("ArrowLeft");
-    await expect.poll(() => dialog.getByText("1 / 2").count()).toBe(1);
+    await expect.poll(currentSlide).toBe("1 of 2: Connected First");
     expect(await dialog.getByRole("button", { name: "Start autoplay" }).count()).toBe(1);
 
     await page.keyboard.press(" ");
     await dialog.getByRole("button", { name: "Pause autoplay" }).waitFor();
     await dialog.getByRole("button", { name: "Next screen" }).click();
-    await expect.poll(() => dialog.getByText("2 / 2").count()).toBe(1);
+    await expect.poll(currentSlide).toBe("2 of 2: Connected Second");
     expect(await dialog.getByRole("button", { name: "Start autoplay" }).count()).toBe(1);
 
     await page.keyboard.press("Escape");
@@ -84,6 +84,7 @@ describe("play gallery", () => {
     await dialog.waitFor({ state: "visible" });
     await expect.poll(() => dialog.locator("[data-play-slide] canvas").count()).toBeGreaterThan(1);
 
+    const currentSlide = () => dialog.locator("[data-play-slide][aria-current='true']").getAttribute("aria-label");
     const gallery = dialog.getByTestId("play-gallery");
     const center = await gallery.boundingBox();
     await page.mouse.move(center!.x + center!.width / 2, center!.y + center!.height / 2);
@@ -91,12 +92,12 @@ describe("play gallery", () => {
     expect(await dialog.getByRole("button", { name: "Pause autoplay" }).count()).toBe(1);
     await page.mouse.wheel(300, 0);
     await dialog.getByRole("button", { name: "Start autoplay" }).waitFor();
-    await expect.poll(() => dialog.getByText("2 / 2").count()).toBe(1);
+    await expect.poll(currentSlide).toBe("2 of 2: Connected Second");
 
     await page.mouse.down();
     await page.mouse.move(center!.x + center!.width / 2 + 200, center!.y + center!.height / 2, { steps: 5 });
     await page.mouse.up();
-    await expect.poll(() => dialog.getByText("1 / 2").count()).toBe(1);
+    await expect.poll(currentSlide).toBe("1 of 2: Connected First");
 
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "detached" });
