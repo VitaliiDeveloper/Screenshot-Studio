@@ -51,7 +51,12 @@ of truth.
 - Use `<agent>/<short-kebab-slug>` for agent branches. If Git has a real slash-namespace conflict,
   fall back to `<agent>-<short-kebab-slug>` and report it.
 - Target `main` only for an explicitly requested integration/release PR. PR titles follow the commit
-  convention; bodies record scope, validation, and risks.
+  convention; bodies record scope, validation, and risks. Never open a PR with an empty body.
+- PRs that change visible UI add a `Screenshots` section that shows each changed surface. Host the
+  images outside code branches, link them pinned to a commit SHA, and never commit capture scripts.
+- The repository is public and the issue tracker is private. Keep tracker ids and links out of PR
+  titles, bodies, and commit messages; link the PR from the tracker issue instead. An issue id in the
+  branch name is fine because it drives automatic linking.
 
 ## Verification
 
