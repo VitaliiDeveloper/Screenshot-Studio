@@ -2,7 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import {
@@ -105,6 +105,46 @@ export function screenRowWarning(
   return lines.length === 1 ? lines[0]! : `${lines[0]} · ${lines.length - 1} more`;
 }
 
+/** Grows or shrinks a screen's nested layers; nothing animates until the expanded screen first changes. */
+function TreeCollapse({
+  id,
+  open,
+  animate,
+  onClosed,
+  children,
+}: {
+  id: string;
+  open: boolean;
+  animate: boolean;
+  onClosed: (id: string) => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || (open && !animate)) return;
+    const height = `${node.scrollHeight}px`;
+    const animation = node.animate(
+      [
+        { height: open ? "0px" : height, opacity: open ? 0 : 1, overflow: "hidden" },
+        { height: open ? height : "0px", opacity: open ? 1 : 0, overflow: "hidden" },
+      ],
+      {
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 200,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: open ? "none" : "forwards",
+      },
+    );
+    if (!open) animation.finished.then(() => onClosed(id), () => undefined);
+    return () => animation.cancel();
+  }, [animate, id, onClosed, open]);
+  return (
+    <div ref={ref} inert={!open} aria-hidden={open ? undefined : true}>
+      {children}
+    </div>
+  );
+}
+
 /** A screen row's select button: name over its caption, which the accessible name refers to. */
 export function ScreenRowButton({
   name,
@@ -192,6 +232,19 @@ export function ScreensSection({
   // Keyed by screen: collapsing one never hides the layers of a screen activated from the canvas.
   const [collapsedScreenId, setCollapsedScreenId] = useState<string | null>(null);
   const [draggingScreen, setDraggingScreen] = useState(false);
+  // The previously expanded screen keeps its layers mounted while they collapse.
+  const expandedScreenId = activeScreenId !== null && collapsedScreenId !== activeScreenId ? activeScreenId : null;
+  const [shownExpandedScreenId, setShownExpandedScreenId] = useState(expandedScreenId);
+  const [closingScreenId, setClosingScreenId] = useState<string | null>(null);
+  const [treeAnimates, setTreeAnimates] = useState(false);
+  if (shownExpandedScreenId !== expandedScreenId) {
+    setShownExpandedScreenId(expandedScreenId);
+    setClosingScreenId(shownExpandedScreenId);
+    setTreeAnimates(true);
+  }
+  const finishClosing = useCallback((id: string) => {
+    setClosingScreenId((current) => (current === id ? null : current));
+  }, []);
   const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -329,7 +382,11 @@ export function ScreensSection({
                         ? "border-[var(--editor-color-warning-border)] bg-[var(--editor-color-warning-surface)]"
                         : "border-transparent hover:bg-[var(--editor-color-surface-subtle)]",
                   )}
-                  nested={expanded && !draggingScreen ? <LayersSection onOpenAdd={onOpenAdd} /> : undefined}
+                  nested={(expanded || closingScreenId === s.id) && !draggingScreen ? (
+                    <TreeCollapse id={s.id} open={expanded} animate={treeAnimates} onClosed={finishClosing}>
+                      <LayersSection onOpenAdd={onOpenAdd} screenId={s.id} />
+                    </TreeCollapse>
+                  ) : undefined}
                 >
                   <button
                     type="button"

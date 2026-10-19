@@ -44,9 +44,9 @@ export function IsolatedScreenPreview({
         aria-label={selectable ? `Edit ${screen.name}` : undefined}
         data-screen-id={screen.id}
         className={cx(
-          "relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)]",
+          "relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] transition-shadow duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none",
           active ? "ring-2 ring-blue-600 ring-offset-2 ring-offset-slate-50" : "ring-1 ring-slate-300",
-          selectable && "cursor-pointer transition-shadow hover:shadow-[0_12px_34px_rgba(15,23,42,0.16)]",
+          selectable && "cursor-pointer hover:shadow-[0_12px_34px_rgba(15,23,42,0.16)]",
         )}
         onClick={() => {
           if (selectable) editorStore.getState().selectScreen(screen.id);
