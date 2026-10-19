@@ -102,7 +102,7 @@ export function agentEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.Proces
     const key = name.toUpperCase();
     return value !== undefined
       && (PASSTHROUGH_ENV.has(key) || PASSTHROUGH_PREFIXES.some((prefix) => key.startsWith(prefix)));
-  }));
+  })) as NodeJS.ProcessEnv;
 }
 
 export interface AgentSpawnOptions {
