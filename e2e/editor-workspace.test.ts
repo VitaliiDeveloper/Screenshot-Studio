@@ -603,7 +603,7 @@ describe("editor workspace", () => {
     await expectSettledView("overview");
   });
 
-  it("slides Focus screen switches in screen order and interrupts instead of queueing", async () => {
+  it("dissolves Focus screen switches over the outgoing screen and interrupts instead of queueing", async () => {
     const page = await openEditor({ width: 1200, height: 998 });
     const viewport = page.getByTestId("canvas-viewport");
     await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("idle");
@@ -615,13 +615,12 @@ describe("editor workspace", () => {
       name: `${screen!.name} · ${screen!.device}`,
       exact: true,
     });
-    const screenAnimations = () => page.getByTestId("focus-artboard").evaluate((content) =>
-      content.getAnimations().map((animation) => ({
-        duration: animation.effect?.getTiming().duration,
-        from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.transform,
-      })));
+    const artboardStack = () => page.getByTestId("focus-artboard").evaluate((content) => ({
+      artboards: [...content.querySelectorAll("[data-artboard-screen-id]")].map((node) => node.getAttribute("data-artboard-screen-id")),
+      animations: content.getAnimations({ subtree: true }).length,
+    }));
 
-    // Both switches run inside one frame-paced evaluation so the 200 ms window cannot be missed.
+    // Both switches run inside one frame-paced evaluation so the 500 ms window cannot be missed.
     const switches = await page.evaluate(async ([next, previous]) => {
       // Rows swap elements when they become active, so resolve each button at click time.
       const click = (label: string) => [...document.querySelectorAll("button")]
@@ -630,9 +629,13 @@ describe("editor workspace", () => {
         const content = document.querySelector('[data-testid="focus-artboard"]')!;
         return {
           transition: document.querySelector('[data-testid="canvas-viewport"]')!.getAttribute("data-view-transition"),
-          animations: content.getAnimations().map((animation) => ({
-            duration: animation.effect?.getTiming().duration,
-            from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.transform,
+          artboards: [...content.querySelectorAll("[data-artboard-screen-id]")].map((node) => ({
+            id: node.getAttribute("data-artboard-screen-id"),
+            outgoing: node.hasAttribute("inert"),
+            fades: node.getAnimations().map((animation) => ({
+              duration: animation.effect?.getTiming().duration,
+              from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.opacity,
+            })),
           })),
           layerLists: document.getAnimations()
             .map((animation) => (animation.effect as KeyframeEffect | null)?.getKeyframes()[0]?.height)
@@ -649,16 +652,26 @@ describe("editor workspace", () => {
       await frame();
       return { forward, backward: read() };
     }, [`${second!.name} · ${second!.device}`, `${first!.name} · ${first!.device}`]);
+    const fadingIn = [{ duration: 500, from: "0" }];
     expect(switches).toEqual({
-      forward: { transition: "running", animations: [{ duration: 200, from: "translateX(12px)" }], layerLists: ["closing", "opening"] },
-      backward: { transition: "running", animations: [{ duration: 200, from: "translateX(-12px)" }], layerLists: ["closing", "opening"] },
+      forward: {
+        transition: "running",
+        artboards: [{ id: first!.id, outgoing: true, fades: [] }, { id: second!.id, outgoing: false, fades: fadingIn }],
+        layerLists: ["closing", "opening"],
+      },
+      backward: {
+        transition: "running",
+        artboards: [{ id: second!.id, outgoing: true, fades: [] }, { id: first!.id, outgoing: false, fades: fadingIn }],
+        layerLists: ["closing", "opening"],
+      },
     });
     await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
+    expect(await artboardStack()).toEqual({ artboards: [first!.id], animations: 0 });
 
     await page.emulateMedia({ reducedMotion: "reduce" });
     await screenButton(second).click();
     await expect.poll(() => screenButton(second).getAttribute("aria-current")).toBe("true");
-    expect(await screenAnimations()).toEqual([]);
+    expect(await artboardStack()).toEqual({ artboards: [second!.id], animations: 0 });
     expect(await viewport.getAttribute("data-view-transition")).toBe("idle");
   });
 

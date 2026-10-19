@@ -14,6 +14,7 @@ import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels
 export function IsolatedScreenPreview({
   screen,
   active,
+  outgoing = false,
   connected,
   view,
   images,
@@ -22,6 +23,8 @@ export function IsolatedScreenPreview({
 }: {
   screen: Screen;
   active: boolean;
+  /** The Focus screen being replaced: shown under the incoming one, out of reach while it fades in. */
+  outgoing?: boolean;
   connected: boolean;
   view: WorkspaceView;
   images: ImageCache;
@@ -34,6 +37,8 @@ export function IsolatedScreenPreview({
     <div
       data-testid="artboard-preview-item"
       data-artboard-screen-id={screen.id}
+      inert={outgoing}
+      aria-hidden={outgoing || undefined}
       className="min-w-0 shrink-0"
       style={{ width: previewWidth }}
     >

@@ -19,7 +19,8 @@ export interface CanvasTransitionsInput {
 
 /**
  * Installs every fit before paint and animates the canvas content: the first reveal, then each
- * layout or view change anchored on the active artboard, and each Focus screen switch.
+ * layout or view change anchored on the active artboard, and each Focus screen switch, which
+ * dissolves the incoming artboard over the outgoing one (`outgoingScreenId`, kept mounted meanwhile).
  */
 export function useCanvasTransitions({
   contentRef,
@@ -34,6 +35,7 @@ export function useCanvasTransitions({
   fittedView: WorkspaceView;
   initialReveal: "pending" | "running" | "idle";
   transitioning: boolean;
+  outgoingScreenId: string | null;
 } {
   const lastFitLayoutRef = useRef<string | null>(null);
   const previousCanvasStateRef = useRef<CanvasTransitionState>({
@@ -51,6 +53,23 @@ export function useCanvasTransitions({
   const [fittedView, setFittedView] = useState<WorkspaceView>(view);
   const [initialReveal, setInitialReveal] = useState<"pending" | "running" | "idle">("pending");
   const [transitioning, setTransitioning] = useState(false);
+  // Decided during render so the outgoing artboard is never unmounted before the dissolve starts.
+  const [shown, setShown] = useState({ layoutId, layoutMode, view, activeScreenId, screens });
+  const [outgoingScreenId, setOutgoingScreenId] = useState<string | null>(null);
+  if (
+    shown.layoutId !== layoutId || shown.layoutMode !== layoutMode || shown.view !== view
+    || shown.activeScreenId !== activeScreenId || shown.screens !== screens
+  ) {
+    const kind = canvasTransitionKind(
+      { ...shown, screenIds: shown.screens.map((screen) => screen.id) },
+      { layoutId, layoutMode, view, activeScreenId, screenIds: screens.map((screen) => screen.id) },
+    );
+    if (kind !== "none") {
+      const dissolve = kind === "screen" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      setOutgoingScreenId(dissolve ? shown.activeScreenId : null);
+    }
+    setShown({ layoutId, layoutMode, view, activeScreenId, screens });
+  }
 
   useLayoutEffect(() => {
     if (initialRevealStartedRef.current) return;
@@ -98,8 +117,7 @@ export function useCanvasTransitions({
       activeScreenId,
       screenIds: screens.map((screen) => screen.id),
     };
-    const previousState = previousCanvasStateRef.current;
-    const transitionKind = canvasTransitionKind(previousState, nextState);
+    const transitionKind = canvasTransitionKind(previousCanvasStateRef.current, nextState);
     previousCanvasStateRef.current = nextState;
     if (transitionKind === "none") return;
 
@@ -117,25 +135,18 @@ export function useCanvasTransitions({
     }
 
     if (transitionKind === "screen") {
-      const content = contentRef.current;
-      if (!content) return;
-      const forward = nextState.screenIds.indexOf(activeScreenId ?? "")
-        > nextState.screenIds.indexOf(previousState.activeScreenId ?? "");
-      content.style.removeProperty("transform-origin");
-      // Start before paint so the incoming artboard is never shown at its settled position first.
-      // Fading in from fully transparent avoids a visible offset copy while the old screen is gone.
-      const animation = content.animate(
-        [
-          { opacity: 0, transform: `translateX(${forward ? 12 : -12}px)` },
-          { opacity: 1, transform: "translateX(0)" },
-        ],
-        { duration: 200, easing: "ease-out" },
+      const incoming = contentRef.current?.querySelector<HTMLElement>(
+        `[data-artboard-screen-id="${CSS.escape(activeScreenId ?? "")}"]`,
       );
+      if (!incoming) return;
+      // Started before paint, so the incoming artboard never flashes in at full opacity first.
+      const animation = incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: "ease-in-out" });
       transitionRef.current = animation;
       setTransitioning(true);
       animation.finished.then(() => {
         if (transitionRef.current !== animation) return;
         transitionRef.current = null;
+        setOutgoingScreenId(null);
         setTransitioning(false);
       }).catch(() => {
         // A cancelled run that nothing replaced (reduced motion, unmount) must not stay running.
@@ -203,5 +214,5 @@ export function useCanvasTransitions({
     fit();
   }, [fit, fitLayoutKey]);
 
-  return { fittedView, initialReveal, transitioning };
+  return { fittedView, initialReveal, transitioning, outgoingScreenId };
 }
