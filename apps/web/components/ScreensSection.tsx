@@ -374,8 +374,12 @@ export function ScreensSection({
                   id={s.id}
                   role="listitem"
                   selected={active}
+                  // The whole row selects its screen; its own controls keep their actions.
+                  onClick={(event) => {
+                    if (!(event.target as Element).closest("button, [role='button']")) selectScreen(s.id);
+                  }}
                   className={cx(
-                    "mx-2 my-px gap-[9px] rounded-[9px] border px-2 py-1.5",
+                    "mx-2 my-px cursor-pointer gap-[9px] rounded-[9px] border px-2 py-1.5",
                     active
                       ? "border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)]"
                       : warning
