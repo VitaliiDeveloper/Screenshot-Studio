@@ -4,29 +4,25 @@ import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import {
   createTemplateScreen,
   createBuiltInTemplateScreen,
+  createBuiltInTemplatePackScreens,
   listBuiltInTemplates,
   listTemplates,
   TemplateCreateError,
   TemplateNotFoundError,
   TemplateValidationError,
 } from "@screenshot-studio/cli/template-service";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 
 async function loadStoreSpecs() {
   return parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
 }
 
-function errorResponse(error: unknown): Response {
-  const revisionConflict = projectRevisionConflictResponse(error);
-  if (revisionConflict) return revisionConflict;
-  const message = error instanceof Error ? error.message : String(error);
-  const status = error instanceof TemplateValidationError ? 400
-    : error instanceof TemplateNotFoundError ? 404
-      : error instanceof TemplateCreateError ? 422
-        : 500;
-  return Response.json({ error: message }, { status });
-}
+const ERROR_STATUSES: ErrorStatusTable = [
+  [TemplateValidationError, 400],
+  [TemplateNotFoundError, 404],
+  [TemplateCreateError, 422],
+];
 
 async function jsonBody(req: Request): Promise<Record<string, unknown>> {
   let body: unknown;
@@ -50,7 +46,7 @@ export async function handleTemplateGet(projectPath: string): Promise<Response> 
     ]);
     return Response.json({ templates, builtIns });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }
 
@@ -62,6 +58,15 @@ export async function handleTemplatePost(
   try {
     const body = await jsonBody(req);
     const layoutId = typeof body.layoutId === "string" ? body.layoutId : undefined;
+    if (body.source === "built-in-pack") {
+      const { project, revision, screens } = await createBuiltInTemplatePackScreens(
+        projectPath, body.id, body.locale, await loadStoreSpecs(), {}, layoutId, { expectedRevision },
+      );
+      return Response.json(
+        { project, screenId: screens[0]!.id, screenIds: screens.map((screen) => screen.id) },
+        { headers: { etag: `"${revision}"` } },
+      );
+    }
     const result = body.source === "built-in"
       ? await createBuiltInTemplateScreen(
         projectPath,
@@ -81,6 +86,6 @@ export async function handleTemplatePost(
       { headers: { etag: `"${revision}"` } },
     );
   } catch (error) {
-    return errorResponse(error);
+    return errorResponseByClass(error, ERROR_STATUSES);
   }
 }

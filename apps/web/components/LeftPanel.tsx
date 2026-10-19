@@ -7,10 +7,7 @@ import {
   ArrowLeft,
   Box,
   BadgeCheck,
-  Frame,
   Image as ImageIcon,
-  LayoutTemplate,
-  Palette,
   RectangleHorizontal,
   Search,
   Smartphone,
@@ -21,6 +18,8 @@ import {
 } from "lucide-react";
 import { preferredAuthoringFont, type Element } from "@screenshot-studio/core/model";
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { createBadgePrimitive, createDeviceFrameElement, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
   ADD_CATEGORIES,
@@ -29,10 +28,10 @@ import {
   type AddCatalogItem,
   type ResourceDialog,
   type WorkspacePanel,
-} from "@web/lib/editor-workspace";
-import { editorStore } from "@web/lib/editor-store";
-import { mutateAndSave } from "@web/lib/mutate-and-save";
-import { LayersSection } from "./LayersSection";
+  type WorkspaceView,
+} from "@web/lib/editor/editor-workspace";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ScreensSection } from "./ScreensSection";
 import { cx, editorUi } from "./editor-ui";
 
@@ -60,8 +59,8 @@ function PanelHeader({
   backLabel?: string;
 }) {
   return (
-    <header className="flex min-h-14 items-center justify-between border-b border-slate-200 px-3">
-      <h2 className="text-sm font-semibold tracking-tight text-slate-950">{title}</h2>
+    <header className="flex min-h-14 items-center justify-between border-b border-[var(--editor-color-border)] px-3">
+      <h2 className="text-sm font-semibold tracking-tight text-[color:var(--editor-color-text-strong)]">{title}</h2>
       <button
         type="button"
         aria-label={backLabel ?? `Close ${title.toLowerCase()} panel`}
@@ -72,35 +71,6 @@ function PanelHeader({
         {backLabel ? <ArrowLeft size={16} strokeWidth={1.9} /> : <X size={16} strokeWidth={1.9} />}
       </button>
     </header>
-  );
-}
-
-function ResourceButton({
-  icon: Icon,
-  title,
-  description,
-  onClick,
-}: {
-  icon: typeof Frame;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={title}
-      className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
-      onClick={onClick}
-    >
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-        <Icon size={17} strokeWidth={1.8} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-xs font-semibold text-slate-800">{title}</span>
-        <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{description}</span>
-      </span>
-    </button>
   );
 }
 
@@ -205,7 +175,7 @@ function AddPanel({
           if (rows.length === 0) return null;
           return (
             <section key={category} className="border-b border-slate-100 py-3 last:border-b-0">
-              <h3 className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">{category}</h3>
+              <h3 className={`mb-1 px-2.5 ${editorUi.sectionLabel}`}>{category}</h3>
               {rows.map((item) => <AddCatalogRow key={item.id} item={item} onAction={onAction} />)}
             </section>
           );
@@ -222,6 +192,9 @@ function AddPanel({
 export function LeftPanel({
   panel,
   images,
+  view,
+  specs,
+  issues,
   onClose,
   onOpenAdd,
   onOpenDialog,
@@ -229,31 +202,30 @@ export function LeftPanel({
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
+  view: WorkspaceView;
+  specs: StoreSpecs;
+  issues: readonly ProjectIssue[];
   onClose: () => void;
   onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
 }) {
-  const title = panel === "structure" ? "Structure" : panel === "resources" ? "Resources" : "Add";
+  const title = panel === "structure" ? "Layers" : "Add";
 
   return (
-    <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
-      <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to structure" : undefined} />
+    <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]">
+      <PanelHeader title={title} onClose={onClose} backLabel={panel === "add" ? "Back to layers" : undefined} />
       {panel === "structure" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="editor-scroll-area min-h-0 flex-1 overflow-y-auto">
           <ScreensSection
             images={images}
+            view={view}
+            specs={specs}
+            issues={issues}
             onOpenDialog={onOpenDialog}
             onImportCaptures={onImportCaptures}
+            onOpenAdd={onOpenAdd}
           />
-          <LayersSection onOpenAdd={onOpenAdd} />
-        </div>
-      ) : null}
-      {panel === "resources" ? (
-        <div className="flex flex-col gap-2.5 p-3">
-          <ResourceButton icon={Frame} title="Fonts" description="Upload, register, preview, and apply project fonts." onClick={() => onOpenDialog("fonts")} />
-          <ResourceButton icon={Palette} title="Design packs" description="Apply global packs or project themes as editable literals." onClick={() => onOpenDialog("themes")} />
-          <ResourceButton icon={LayoutTemplate} title="Screen templates" description="Create a screen from a built-in or project-local reusable layout." onClick={() => onOpenDialog("templates")} />
         </div>
       ) : null}
       {panel === "add" ? <AddPanel onOpenDialog={onOpenDialog} /> : null}

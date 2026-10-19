@@ -13,29 +13,33 @@ import type {
   WorkspacePanel,
   WorkspaceTool,
   WorkspaceView,
-} from "@web/lib/editor-workspace";
-import { editorStore } from "@web/lib/editor-store";
+} from "@web/lib/editor/editor-workspace";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
-import { Inspector } from "@web/components/Inspector";
-import { Toolbar } from "@web/components/Toolbar";
+import { Inspector } from "@web/components/inspector/Inspector";
+import { Toolbar } from "@web/components/toolbar/Toolbar";
 import { ToolRail } from "@web/components/ToolRail";
 import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
 import { ConfirmationDialog } from "@web/components/editor-ui";
+import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
-} from "@web/lib/editor-workspace-navigation";
+} from "@web/lib/editor/editor-workspace-navigation";
 import { EditorResourceDialogs } from "./editor-resource-dialogs";
 import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";
 import { useEditorProjectNavigation } from "./use-editor-project-navigation";
 import { useEditorResources } from "./editor-resources";
 import { useEditorSaveGuards } from "./use-editor-save-guards";
+import { useEditorIssues } from "./use-editor-issues";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
-  () => import("@web/components/CanvasViewport").then((m) => m.CanvasViewport),
+  () => import("@web/components/canvas-viewport/CanvasViewport").then((m) => m.CanvasViewport),
   { ssr: false },
 );
 
@@ -74,6 +78,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
   const [exportRequestKey, setExportRequestKey] = useState(0);
+  const [issuesOpen, setIssuesOpen] = useState(false);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
@@ -93,6 +98,37 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   }, []);
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   useEditorSaveGuards(saveStatus);
+  // Fallback-font metrics would report false overflow, so measure only with every project font loaded.
+  const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
+  const issues = useEditorIssues(textMeasured, images);
+  const issueCounts = useMemo(() => countIssues(issues), [issues]);
+  const goToIssue = useCallback((issue: ProjectIssue) => {
+    const store = editorStore.getState();
+    if (issue.kind === "missing-locale-screen") {
+      store.selectScreen(issue.sourceScreenId);
+    } else {
+      store.selectScreen(issue.screenId);
+      if (issue.elementId) store.select(issue.elementId, issue.screenId);
+    }
+    setView("focus");
+    setIssuesOpen(false);
+  }, []);
+  const replaceMissingImage = useCallback((issue: Extract<ProjectIssue, { kind: "missing-image" }>) => {
+    const current = editorStore.getState().project;
+    const element = current ? missingImageTarget(current, issue)?.element : undefined;
+    // Go to first: the background picker writes to the active screen.
+    goToIssue(issue);
+    if (element === undefined) return;
+    if (element === null) {
+      setDialog("background-assets");
+    } else if (element.type === "device-frame") {
+      setDeviceFrameAssetTarget({ elementId: element.id, screenId: issue.screenId });
+      setDialog("mockup-screenshot-assets");
+    } else {
+      setMediaAssetTarget({ elementId: element.id, screenId: issue.screenId, elementType: element.type });
+      setDialog("replace-media-asset");
+    }
+  }, [goToIssue]);
 
   useEffect(() => {
     const overlayQuery = window.matchMedia("(max-width: 1279px)");
@@ -207,12 +243,16 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         inspectorOpen={inspectorOpen}
         exportRequestKey={exportRequestKey}
         onViewChange={setView}
-        onOpenLocales={() => setLocaleDialogOpen(true)}
         onToggleInspector={() => {
           const opening = !inspectorOpen;
           if (opening && layout.compact) setPanel(null);
           setInspectorOpen(opening);
         }}
+        onOpenProjects={projectNavigation.openProjects}
+        projectsBusy={projectNavigation.busy}
+        issueCounts={issueCounts}
+        issues={issues}
+        onOpenIssues={() => setIssuesOpen(true)}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
@@ -226,11 +266,16 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             if (opening && layout.compact) setInspectorOpen(false);
             setPanel(opening ? next : null);
           }}
+          onOpenDialog={setDialog}
+          onOpenLocales={() => setLocaleDialogOpen(true)}
         />
         <EditorSidePanel side="left" open={panel !== null}>
           <LeftPanel
             panel={panel ?? lastPanel}
             images={images}
+            view={view}
+            specs={specs}
+            issues={issues}
             onClose={() => setPanel(panel === "add" ? "structure" : null)}
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
@@ -250,11 +295,18 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             leftInset={layout.overlay && panel ? SIDE_PANEL_WIDTH : 0}
             rightInset={layout.overlay && inspectorOpen ? SIDE_PANEL_WIDTH : 0}
             controlsHidden={layout.phone && Boolean(panel || inspectorOpen)}
+            issues={issues}
+            onOpenAdd={() => {
+              if (layout.compact) setInspectorOpen(false);
+              setPanel("add");
+            }}
           />
         </div>
         <EditorSidePanel side="right" open={inspectorOpen}>
           <Inspector
             specs={specs}
+            issues={issues}
+            textMeasured={textMeasured}
             onOpenBackgroundAsset={() => setDialog("background-assets")}
             onOpenDeviceFrameAsset={(target) => {
               setDeviceFrameAssetTarget(target);
@@ -307,6 +359,15 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             {fontRetrying ? "Retrying project fonts…" : "Retry project fonts"}
           </button>
         </div>
+      ) : null}
+      {issuesOpen ? (
+        <IssuesDialog
+          issues={issues}
+          specs={specs}
+          onGoTo={goToIssue}
+          onReplaceImage={replaceMissingImage}
+          onClose={() => setIssuesOpen(false)}
+        />
       ) : null}
       <EditorResourceDialogs
         dialog={dialog}

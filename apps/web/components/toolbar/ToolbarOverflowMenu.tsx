@@ -23,10 +23,13 @@ export interface ToolbarOverflowMenuProps {
   onOpenChange: (open: boolean) => void;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   inspectorOpen: boolean;
+  /** Accessible Issues summary; the Issues item appears only when it and `onOpenIssues` are set. */
+  issuesLabel?: string;
+  issueCount?: number;
+  onOpenIssues?: () => void;
   activeLocale: string;
   localeOptions: readonly { value: string; label: string }[];
   onToggleInspector: () => void;
-  onOpenLocales: () => void;
   onLocaleChange: (locale: string) => void;
   canUndo: boolean;
   canRedo: boolean;
@@ -40,10 +43,12 @@ export function ToolbarOverflowMenu({
   onOpenChange,
   triggerRef,
   inspectorOpen,
+  issuesLabel,
+  issueCount = 0,
+  onOpenIssues,
   activeLocale,
   localeOptions,
   onToggleInspector,
-  onOpenLocales,
   onLocaleChange,
   canUndo,
   canRedo,
@@ -135,6 +140,27 @@ export function ToolbarOverflowMenu({
           handleMenuKeyboardNavigation(event, TOOLBAR_OVERFLOW_MENU_ITEM_SELECTOR);
         }}
       >
+        {issuesLabel && onOpenIssues ? (
+          <button
+            type="button"
+            role="menuitem"
+            aria-label={issuesLabel}
+            className="flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
+            onClick={() => {
+              // Focus the live trigger first so the dialog returns focus there, not to this hidden item.
+              closeMenu();
+              triggerRef.current?.focus();
+              onOpenIssues();
+            }}
+          >
+            Issues
+            {issueCount > 0 ? (
+              <span aria-hidden="true" className="ml-auto rounded-md bg-slate-100 px-1.5 text-[11px] font-semibold tabular-nums text-slate-600">
+                {issueCount}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
         <button
           type="button"
           role="menuitemcheckbox"
@@ -143,14 +169,6 @@ export function ToolbarOverflowMenu({
           onClick={() => select(onToggleInspector)}
         >
           {inspectorOpen ? "Hide Inspector" : "Show Inspector"}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/50"
-          onClick={() => select(onOpenLocales)}
-        >
-          Manage locales
         </button>
         {density === "minimal" ? (
           <>

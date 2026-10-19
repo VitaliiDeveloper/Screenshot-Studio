@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { resolveEditorKeyboardCommand } from "./editor-keyboard";
+import { nudgeDelta, resolveEditorKeyboardCommand } from "./editor-keyboard";
 
 const base = {
   key: "",
@@ -11,6 +11,7 @@ const base = {
   shiftKey: false,
   interactive: false,
   modalOpen: false,
+  menuOpen: false,
   canUndo: true,
   canRedo: true,
   hasSelection: true,
@@ -32,6 +33,18 @@ describe("editor keyboard routing", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "Backspace" })).toBe("delete");
     expect(resolveEditorKeyboardCommand({ ...base, key: "t" })).toBe("add-text");
     expect(resolveEditorKeyboardCommand({ ...base, key: "r" })).toBe("add-shape");
+  });
+
+  it("nudges the selection with arrows, 10 px or 50 px with Shift", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowLeft" })).toBe("nudge");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowDown", shiftKey: true })).toBe("nudge");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowUp", hasSelection: false })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowRight", metaKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowRight", interactive: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowDown", menuOpen: true })).toBeNull();
+    expect(nudgeDelta("ArrowLeft", false)).toEqual({ x: -10, y: 0 });
+    expect(nudgeDelta("ArrowDown", true)).toEqual({ x: 0, y: 50 });
+    expect(nudgeDelta("a", false)).toBeNull();
   });
 
   it("ignores repeated, interactive, modal, and modified plain-key events", () => {

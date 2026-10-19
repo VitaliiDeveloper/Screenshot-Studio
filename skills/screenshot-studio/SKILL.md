@@ -29,7 +29,9 @@ the CLI initialization path.
 ## Boundaries
 
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the
-  generated `AGENTS.md` and the CLI it documents.
+  generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
+  `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
+  validate the project.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.
 - Never overwrite an existing project file or project-local agent guide.

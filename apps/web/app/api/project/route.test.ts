@@ -17,7 +17,7 @@ import { join } from "node:path";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { GET, PUT } from "./route.js";
 import { captureImportIntentPath } from "@screenshot-studio/cli/capture-import-recovery";
 

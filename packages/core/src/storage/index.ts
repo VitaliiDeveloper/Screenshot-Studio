@@ -30,6 +30,9 @@ export {
   ProjectPathError,
   resolveExistingProjectPath,
 } from "./project-path.js";
+export { syncDirectoryBestEffort, type DirectoryHandle } from "./directory-sync.js";
+export { errorCode, errorText } from "./errors.js";
+export { noFollowFlags } from "./open-flags.js";
 
 /**
  * Storage boundary (docs/architecture.md). `core` depends on this interface, not a concrete

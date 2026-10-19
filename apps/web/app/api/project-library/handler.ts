@@ -2,18 +2,16 @@
 import {
   projectLibraryService,
   type ProjectLibraryService,
-} from "@web/lib/project-library.server.js";
+} from "@web/lib/session/project-library.server.js";
 import {
   projectSessionRegistry,
   type ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { projectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
+import { isRecord } from "@web/lib/json-guards.js";
 
 const ENTRY_ID_PATTERN = /^(?:project|recent)_[0-9a-f]{32}$/;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 async function entryIdFromBody(request: Request): Promise<string> {
   const value = await request.json() as unknown;
@@ -32,9 +30,7 @@ export async function handleProjectLibraryGet(
       headers: { "cache-control": "no-store" },
     });
   } catch {
-    return Response.json({
-      error: "Projects could not be loaded. Retry, or reopen a local project from its source.",
-    }, { status: 500, headers: { "cache-control": "no-store" } });
+    return jsonError(500, "Projects could not be loaded. Retry, or reopen a local project from its source.");
   }
 }
 
@@ -47,7 +43,7 @@ export async function handleProjectLibraryOpen(
   try {
     entryId = await entryIdFromBody(request);
   } catch {
-    return Response.json({ error: "A valid project entry id is required." }, { status: 400 });
+    return jsonError(400, "A valid project entry id is required.");
   }
   try {
     const session = await service.activate(entryId, registry);
@@ -55,8 +51,6 @@ export async function handleProjectLibraryOpen(
       headers: projectSessionResponseHeaders(session, request),
     });
   } catch {
-    return Response.json({
-      error: "This project is unavailable. Reopen or import its source to continue.",
-    }, { status: 409, headers: { "cache-control": "no-store" } });
+    return jsonError(409, "This project is unavailable. Reopen or import its source to continue.");
   }
 }

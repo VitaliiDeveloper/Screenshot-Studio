@@ -10,11 +10,11 @@ import {
   loadProjectImages,
   type ImageCache,
 } from "@screenshot-studio/core/assets";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import {
   resolveActiveProjectAssetUrl,
   type ProjectAssetResolver,
-} from "@web/lib/save-project";
+} from "@web/lib/clients/save-project";
 import type { CachedAssetDimensions } from "@web/components/asset-picker-model";
 
 export async function loadAllProjectImages(

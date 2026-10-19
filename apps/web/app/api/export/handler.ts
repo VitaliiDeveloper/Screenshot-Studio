@@ -9,39 +9,51 @@ import {
   parseExportProfile,
   parseStoreSpecs,
   validateBundleArtboards,
+  type BundleEntry,
   type BundleFilters,
 } from "@screenshot-studio/core/export";
 import {
   ProjectRevisionConflictError,
+  errorText,
   readProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
-import { exportBundle, withStableProjectExport } from "@screenshot-studio/cli/export";
+import {
+  exportBundle,
+  withStableProjectExport,
+  type ExportBundleRendering,
+} from "@screenshot-studio/cli/export";
 import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { stageExportArtifact as stageExportArtifactDefault } from "@web/lib/export-artifacts.server.js";
 import { EXPORT_OPERATION_ID_PATTERN } from "@web/lib/export-progress.js";
+import {
+  parseExportSelection,
+  selectExportEntries,
+  type ExportFileFailure,
+  type ExportSelection,
+} from "@web/lib/export-selection.js";
 import { exportProgressRegistry, type ExportProgressRegistry } from "@web/lib/export-progress.server.js";
-import { projectRevisionConflictResponse } from "@web/lib/project-request-fence.server.js";
+import { projectRevisionConflictResponse } from "@web/lib/session/project-request-fence.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 interface ExportRequest {
   layoutId?: string;
   platform?: BundleFilters["platform"];
   device?: BundleFilters["device"];
   locale?: string;
+  sizes?: unknown;
+  locales?: unknown;
   profile?: string;
   operationId?: string;
 }
+
 
 export interface ExportRouteDependencies {
   createRenderBrowserSession?: typeof createRenderBrowserSession;
   exportBundle?: typeof exportBundle;
   stageExportArtifact?: typeof stageExportArtifactDefault;
-  progressRegistry?: Pick<ExportProgressRegistry, "begin" | "update" | "finish">;
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  progressRegistry?: Pick<ExportProgressRegistry, "begin" | "update" | "finish" | "stopRequested">;
 }
 
 function withExportCleanupErrors(
@@ -81,16 +93,23 @@ export async function handleExportPost(
   if (body.operationId !== undefined && (
     typeof body.operationId !== "string" || !EXPORT_OPERATION_ID_PATTERN.test(body.operationId)
   )) {
-    return Response.json({ error: "Invalid export operation id" }, { status: 422 });
+    return jsonError(422, "Invalid export operation id");
   }
   const operationId = body.operationId;
   const filters: BundleFilters = { platform: body.platform, device: body.device, locale: body.locale };
   let profile: ReturnType<typeof parseExportProfile>;
+  let selection: ExportSelection;
   try {
     profile = parseExportProfile(body.profile);
+    selection = parseExportSelection(body);
   } catch (error) {
-    return Response.json({ error: errorText(error) }, { status: 422 });
+    return jsonError(422, errorText(error));
   }
+  const selectedEntries = (entries: BundleEntry[]): BundleEntry[] => {
+    const selected = selectExportEntries(entries, selection);
+    if (selected.length === 0) throw new Error("No files match the export selection");
+    return selected;
+  };
 
   // Validate before launching a browser so bad input fails fast.
   let specs: ReturnType<typeof parseStoreSpecs>;
@@ -111,19 +130,19 @@ export async function handleExportPost(
     layoutId = getLayout(project, body.layoutId ?? project.preferredExportLayoutId).id;
     assertProjectFontsResolved(project, layoutId);
     specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
-    const entries = buildBundleEntries(project, layoutId, specs, filters);
-    validateBundleArtboards(entries);
+    const entries = selectedEntries(buildBundleEntries(project, layoutId, specs, filters));
+    validateBundleArtboards(entries, specs);
     entryCount = entries.length;
     warnings = bundlePreflightWarnings(entries, specs);
   } catch (error) {
-    return Response.json({ error: errorText(error) }, { status: 422 });
+    return jsonError(422, errorText(error));
   }
 
   if (operationId) {
     try {
       progressRegistry.begin(operationId, entryCount);
     } catch (error) {
-      return Response.json({ error: errorText(error) }, { status: 409 });
+      return jsonError(409, errorText(error));
     }
   }
 
@@ -133,6 +152,8 @@ export async function handleExportPost(
   let stagingDir: string | undefined;
   let operationError: unknown;
   let hasOperationError = false;
+  const failures: ExportFileFailure[] = [];
+  let rendering: ExportBundleRendering | undefined;
   try {
     stagingDir = await mkdtemp(join(tmpdir(), "screenshot-studio-web-export-"));
     session = await createSession();
@@ -142,8 +163,9 @@ export async function handleExportPost(
       }
       getLayout(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
-      const entries = buildBundleEntries(context.project, layoutId, specs, filters);
-      validateBundleArtboards(entries);
+      const entries = selectedEntries(buildBundleEntries(context.project, layoutId, specs, filters));
+      validateBundleArtboards(entries, specs);
+      entryCount = entries.length;
       // Return warnings for the exact revision being rendered, not for the earlier fail-fast
       // snapshot. This also keeps un-fenced API callers consistent if the project changes between
       // preflight and the stable export lease.
@@ -165,9 +187,19 @@ export async function handleExportPost(
             progress.total,
           )
           : undefined,
+        onEntryError: (entry, message) => {
+          failures.push({ screenId: entry.screen.id, relativePath: entry.relativePath, message });
+        },
+        shouldStop: operationId ? () => progressRegistry.stopRequested(operationId) : undefined,
+        onRendered: (result) => { rendering = result; },
         profile,
         project: context.project,
+      }).catch((error: unknown) => {
+        // Stopped before any file rendered: a result with nothing to download, not a failure.
+        if (rendering?.stopped && rendering.written === 0) return null;
+        throw error;
       });
+      if (zipPath === null) return undefined;
       // The bundle filename is reusable. Copy it into its private immutable artifact while the
       // stable project/export lease still prevents another export from replacing that pathname.
       if (operationId) progressRegistry.update(operationId, "finalizing", entryCount, entryCount);
@@ -210,12 +242,14 @@ export async function handleExportPost(
           )).join("; "),
           { cause: cleanupFailures[0]?.error },
         );
-    return Response.json({ error: errorText(error) }, { status: 500 });
+    return jsonError(500, errorText(error), undefined, failures.length > 0 ? { failures } : {});
   }
 
   if (operationId) progressRegistry.finish(operationId, "ready");
+  const written = rendering?.written ?? entryCount - failures.length;
+  const stopped = rendering?.stopped ?? false;
 
-  return Response.json({ ...result!, warnings }, {
+  return Response.json({ ...result, warnings, written, total: entryCount, failures, stopped }, {
     status: 201,
     headers: { "cache-control": "no-store" },
   });

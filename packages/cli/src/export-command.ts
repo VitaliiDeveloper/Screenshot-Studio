@@ -177,7 +177,7 @@ export async function runExportCommand(
       resolveLayoutReference(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
       const entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
-      validateBundleArtboards(entries);
+      validateBundleArtboards(entries, specs);
       for (const warning of bundlePreflightWarnings(entries, specs)) log(`Warning: ${warning.message}`);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
       const zipPath = await failWhenServerExits(server, exportBundleOutputs({

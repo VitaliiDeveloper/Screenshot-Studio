@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-import { findElementLocation, getLayout, getScreen, type Project } from "@screenshot-studio/core/model";
+import {
+  findElementLocation,
+  getLayout,
+  getScreen,
+  type Element,
+  type Project,
+} from "@screenshot-studio/core/model";
 import {
   primarySelection,
   selectionBounds,
   type SelectionRef,
-} from "@web/lib/editor-selection";
+} from "@web/lib/editor/editor-selection";
 
 export function deriveInspectorSelection(
   project: Project,
@@ -36,6 +42,14 @@ export function deriveInspectorSelection(
   const selectedElements = selectedLocations.flatMap(({ location }) => (
     location ? [location.element] : []
   ));
+  // Type groups in first-seen order, matching the header's "2 text · 1 shape" summary.
+  const selectionTypeGroups = new Map<Element["type"], SelectionRef[]>();
+  for (const { selection, location } of selectedLocations) {
+    if (!location) continue;
+    const group = selectionTypeGroups.get(location.element.type) ?? [];
+    group.push(selection);
+    selectionTypeGroups.set(location.element.type, group);
+  }
   const everyLocked = selectedElements.length > 0
     && selectedElements.every((candidate) => candidate.locked);
   const everyHidden = selectedElements.length > 0
@@ -49,15 +63,31 @@ export function deriveInspectorSelection(
     && selectedLocations.every(({ location }) => (
       location && !location.parent && location.element.type === "group"
     ));
+  const canDuplicate = selectedItems.length > 0
+    && selectedLocations.every(({ location }) => location && !location.parent);
+  // Arrange measures top-level bounds and never moves locked layers.
+  const canAlign = selectedItems.length >= 2 && canDuplicate && !everyLocked;
+  const canDistribute = canAlign && selectedItems.length >= 3;
+  // Batch opacity skips locked layers, so the slider mirrors the last layer it can change.
+  const opacitySource = [...selectedLocations].reverse().find(({ location }) => (
+    location && !location.element.locked && !location.parent?.locked
+  )) ?? selectedLocations.at(-1);
+  const sharedOpacity = opacitySource?.location?.element.opacity ?? 1;
 
   return {
     screen,
     element,
     effectiveLocked,
     aggregate,
+    selectedElements,
+    selectionTypeGroups: [...selectionTypeGroups].map(([type, items]) => ({ type, items })),
     everyLocked,
     everyHidden,
     canGroup,
     canUngroup,
+    canDuplicate,
+    canAlign,
+    canDistribute,
+    sharedOpacity,
   };
 }

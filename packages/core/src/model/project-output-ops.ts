@@ -34,7 +34,7 @@ const WATCHOS_AUTHORING_SCALE = 3.5;
  * Store outputs author at their exact target size by default. watchOS uses a larger proportional
  * canvas; the shared export path still renders it to the exact target dimensions.
  */
-function deriveAuthoringArtboard(
+export function deriveAuthoringArtboard(
   placement: Pick<Screen, "platform" | "device">,
   target: StoreTargetDimensions,
 ): { width: number; height: number } {

@@ -6,6 +6,7 @@ import { runAssetCommand } from "./asset-commands.js";
 import { ensureRenderBrowsers, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
 import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
+import { runElementCommand } from "./element-commands.js";
 import { runExportCommand } from "./export-command.js";
 import { runFontCommand } from "./font-commands.js";
 import { runInit } from "./init.js";
@@ -13,6 +14,7 @@ import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { resolveProjectPath } from "./project-io.js";
 import { runScreenCommand } from "./screen-commands.js";
+import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
 
 export function positionalArgs(argv: string[]): string[] {
@@ -58,7 +60,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout|setup> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout|setup|template|element> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -98,5 +100,15 @@ export async function dispatchCommand(
     case "setup":
       await runSetupCommand(defaults.browserSetup);
       break;
+    case "template": {
+      const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaults.storeSpecsPath;
+      console.log(await runTemplateCommand(resolveProjectPath(flags), storeSpecsPath, args, flags));
+      break;
+    }
+    case "element": {
+      const output = await runElementCommand(resolveProjectPath(flags), args, flags);
+      if (output) console.log(output);
+      break;
+    }
   }
 }

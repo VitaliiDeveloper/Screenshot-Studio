@@ -16,7 +16,7 @@ import {
   type TextElement,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "@web/lib/editor-store";
+import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import {
   cx,
   editorUi,
@@ -28,7 +28,7 @@ import {
   FontIdentityField,
   NumberField,
   TextField,
-} from "@web/components/inspector-fields";
+} from "@web/components/inspector/inspector-fields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 import { InspectorDisclosure } from "./InspectorDisclosure";
 
@@ -72,10 +72,13 @@ export function TextInspectorFields({
   element,
   fonts,
   onChange,
+  sizeAccessory,
 }: {
   element: TextElement;
   fonts: FontAsset[];
   onChange: (change: ElementPatchFor<"text">) => void;
+  /** Rendered beside Size (the Apply to scope picker). */
+  sizeAccessory?: React.ReactNode;
 }) {
   return (
     <>
@@ -94,13 +97,19 @@ export function TextInspectorFields({
           weight={element.weight}
           onChange={({ family, weight }) => onChange({ fontFamily: family, weight })}
         />
-        <NumberField
-          label="Size"
-          value={element.size}
-          min={1}
-          suffix="px"
-          onChange={(size) => onChange({ size })}
-        />
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1">
+            <NumberField
+              label="Size"
+              value={element.size}
+              min={1}
+              suffix="px"
+              controlClassName={sizeAccessory ? "w-20" : undefined}
+              onChange={(size) => onChange({ size })}
+            />
+          </span>
+          {sizeAccessory}
+        </div>
         <div className="flex items-center justify-between gap-3 text-xs">
           <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">
             Horizontal align

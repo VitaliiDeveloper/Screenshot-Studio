@@ -7,9 +7,9 @@ import {
   type ImageElement,
   type ScreenshotElement,
 } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "@web/lib/editor-store";
+import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import { SegmentedControl } from "@web/components/editor-ui";
-import { NumberField } from "@web/components/inspector-fields";
+import { NumberField } from "@web/components/inspector/inspector-fields";
 import { OptionalInspectorEffect } from "./OptionalInspectorEffect";
 
 export type CornerRadiusMode = "square" | "soft" | "round";

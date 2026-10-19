@@ -13,11 +13,11 @@ import {
   selectEditorResourceSerializer,
   type EditorResourceSerializer,
 } from "./editor-resources";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import {
   clearProjectPersistenceIdentity,
   setProjectPersistenceIdentity,
-} from "@web/lib/save-project";
+} from "@web/lib/clients/save-project";
 
 const project = {
   meta: { name: "Resources", schemaVersion: 1 },

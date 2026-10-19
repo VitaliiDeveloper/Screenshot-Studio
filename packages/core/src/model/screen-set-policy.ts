@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { DesignLayout, Screen, ScreenSetMode } from "./schema.js";
+import type { DesignLayout, Element, Screen, ScreenSetMode } from "./schema.js";
 
 export type OutputFamilyRef = Pick<Screen, "platform" | "device" | "locale">;
 
@@ -83,4 +83,39 @@ export function reorderSynchronizedScreenSets(
   roots.splice(to, 0, moved!);
   indices.forEach((index, position) => { next[index] = roots[position]!; });
   return alignSynchronizedScreenSets(next, family);
+}
+
+/**
+ * The exact-size screens of one logical slot in layout order: the primary screen and its variants.
+ * A standalone exact-size screen is a slot of its own.
+ */
+export function slotScreens(layout: DesignLayout, screen: Screen): Screen[] {
+  const rootId = screen.variantOf ?? (isPrimaryScreen(screen) ? screen.id : undefined);
+  if (!rootId) return [screen];
+  return layout.screens.filter((candidate) => candidate.id === rootId || candidate.variantOf === rootId);
+}
+
+function layerStructure(elements: readonly Element[]): string {
+  return JSON.stringify(elements.map((element) =>
+    element.type === "group" ? element.children.map((child) => child.type) : element.type
+  ));
+}
+
+/**
+ * The same layer on another exact-size screen of its slot. Layers keep no link across sizes
+ * (variants are fitted clones with fresh ids), so a counterpart exists only while both screens keep
+ * the same layer structure, and it is the layer at the same position.
+ * shortcut: one added or deleted layer on either size unmatches the whole screen; a persisted layer
+ * link needs a schema change if users need matching across diverged sizes.
+ */
+export function slotCounterpart(source: Screen, elementId: string, target: Screen): Element | null {
+  if (layerStructure(source.elements) !== layerStructure(target.elements)) return null;
+  for (const [index, element] of source.elements.entries()) {
+    if (element.id === elementId) return target.elements[index]!;
+    if (element.type !== "group") continue;
+    const childIndex = element.children.findIndex((child) => child.id === elementId);
+    const group = target.elements[index]!;
+    if (childIndex >= 0 && group.type === "group") return group.children[childIndex]!;
+  }
+  return null;
 }

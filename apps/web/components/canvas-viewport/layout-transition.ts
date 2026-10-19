@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { CanvasMode } from "@screenshot-studio/core/model";
-import type { WorkspaceView } from "@web/lib/editor-workspace";
+import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
 
 export interface CanvasTransitionState {
   layoutId: string | null;

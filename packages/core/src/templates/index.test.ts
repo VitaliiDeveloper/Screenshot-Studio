@@ -10,12 +10,19 @@ import {
 } from "@screenshot-studio/core/export";
 import {
   ensureStoreTargetVariant,
+  elementLeaves,
+  parseProject,
   setLocaleDirection,
   setOutputFamilyScreenSetMode,
   type Project,
 } from "@screenshot-studio/core/model";
+import { findBuiltInDesignPack } from "@screenshot-studio/core/themes";
 import {
   createScreenFromTemplate,
+  createScreensFromTemplatePack,
+  listBuiltInTemplatePackMetadata,
+  listBuiltInTemplatePacks,
+  TemplatePack,
   listBuiltInProjectStarterMetadata,
   listBuiltInTemplates,
   ScreenTemplate,
@@ -129,7 +136,7 @@ describe("built-in templates", () => {
     expect(feature.elements.map((element) => element.name)).toEqual(expect.arrayContaining(["Safe zone guide", "Focal zone guide"]));
     expect(marketingTemplates.every(({ elements }) => (
       elements.some((element) => (
-        element.name === "Editable headline" && "role" in element && element.role === "heading"
+        element.id === "headline" && element.name === undefined && "role" in element && element.role === "heading"
       ))
       && elements.some((element) => (
         element.name === "Accent panel" && "role" in element && element.role === "accent"
@@ -441,5 +448,48 @@ describe("createScreenFromTemplate", () => {
   it("rejects template text with an unregistered font", () => {
     const missing = { ...template, elements: [{ ...template.elements[0]!, fontFamily: "Missing" }] } as Template;
     expect(() => createScreenFromTemplate(project(), "default", missing, "en")).toThrow(/unregistered font/);
+  });
+});
+
+describe("built-in template packs", () => {
+  it("resolves exact store artboards and bakes the tagged design pack", () => {
+    const [pack] = listBuiltInTemplatePacks(storeSpecs);
+    const style = findBuiltInDesignPack(pack!.style)!;
+    const target = findStoreTarget(storeSpecs, "apple", "iphone", "6.3");
+    expect(listBuiltInTemplatePackMetadata()).toEqual([expect.objectContaining({
+      id: pack!.id, platform: "apple", device: "iphone", style: "neutral-default", screenCount: pack!.screens.length,
+    })]);
+    expect(pack!.screens.length).toBeGreaterThan(1);
+    for (const screen of pack!.screens) {
+      expect(screen.artboard).toEqual({ width: target.width, height: target.height });
+      expect(screen.background).toEqual(style.background);
+      for (const leaf of screen.elements.flatMap(elementLeaves)) {
+        expect(leaf.x).toBeGreaterThanOrEqual(0);
+        expect(leaf.y).toBeGreaterThanOrEqual(0);
+        expect(leaf.x + leaf.width).toBeLessThanOrEqual(target.width);
+        expect(leaf.y + leaf.height).toBeLessThanOrEqual(target.height);
+        if (leaf.type === "text") expect(leaf.color).toBe(style.palette[leaf.role!]);
+      }
+    }
+    const roles = new Set(pack!.screens.flatMap((screen) => screen.elements.flatMap(elementLeaves).map((leaf) => leaf.role)));
+    expect(roles).toEqual(new Set(["heading", "body", "accent", "surface", undefined]));
+  });
+
+  it("rejects a screen outside the pack platform and device", () => {
+    const [pack] = listBuiltInTemplatePacks(storeSpecs);
+    expect(() => TemplatePack.parse({ ...pack, device: "ipad" })).toThrow(/apple\/ipad/);
+  });
+
+  it("appends every pack screen as an ordinary screen, with fresh ids on repeat", () => {
+    const source = project();
+    source.layouts[0]!.mode = "isolated";
+    const [pack] = listBuiltInTemplatePacks(storeSpecs);
+    const once = createScreensFromTemplatePack(source, "default", pack!, "en", storeSpecs);
+    const twice = createScreensFromTemplatePack(once.project, "default", pack!, "en", storeSpecs);
+    const screens = twice.project.layouts[0]!.screens;
+    expect(once.screens.map((screen) => screen.name)).toEqual(pack!.screens.map((screen) => screen.name));
+    expect(screens).toHaveLength(1 + pack!.screens.length * 2);
+    expect(new Set(screens.map((screen) => screen.id)).size).toBe(screens.length);
+    expect(parseProject(twice.project)).toEqual(twice.project);
   });
 });

@@ -19,7 +19,7 @@ const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const stagedPackage = join(repoRoot, "packages", "cli", "package");
 const livingProject = join(repoRoot, "examples", "connected-launch");
 const hostPrefix = "screenshot-studio-web-";
-const expectedSize = { width: 1320, height: 2868 };
+const expectedSize = { width: 1206, height: 2622 };
 const defaultSamples = 5;
 
 export const budgets = {
@@ -217,7 +217,7 @@ async function listFiles(root, directory = root) {
 function assertOpaqueExactPng(bytes, relativePath) {
   const png = PNG.sync.read(bytes);
   if (png.width !== expectedSize.width || png.height !== expectedSize.height) {
-    throw new Error(`${relativePath} has ${png.width}x${png.height}, expected 1320x2868`);
+    throw new Error(`${relativePath} has ${png.width}x${png.height}, expected ${expectedSize.width}x${expectedSize.height}`);
   }
   for (let index = 3; index < png.data.length; index += 4) {
     if (png.data[index] !== 255) throw new Error(`${relativePath} contains alpha`);

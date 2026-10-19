@@ -4,9 +4,9 @@
 import { useRef, type RefObject } from "react";
 import type Konva from "konva";
 import type { Element } from "@screenshot-studio/core/model";
-import type { CommonElementPatch } from "@web/lib/editor-element-patch.js";
-import { isSelected, type SelectionRef } from "@web/lib/editor-selection.js";
-import { snapElementDrag, type SnapGuide } from "@web/lib/editor-snapping.js";
+import type { CommonElementPatch } from "@web/lib/editor/editor-element-patch.js";
+import { isSelected, type SelectionRef } from "@web/lib/editor/editor-selection.js";
+import { snapElementDrag, type SnapGuide } from "@web/lib/editor/editor-snapping.js";
 import type { StageProjection } from "./stage-model.js";
 import { transformedDimensions } from "./element-transform-model.js";
 import { nodeSelectionKey } from "./use-transformer-selection.js";

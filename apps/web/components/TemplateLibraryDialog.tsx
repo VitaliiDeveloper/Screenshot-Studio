@@ -11,9 +11,9 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import type { ScreenTemplate } from "@screenshot-studio/core/templates";
-import { editorStore } from "@web/lib/editor-store";
-import { withFlushedProject } from "@web/lib/debounced-save";
-import { projectJsonRequest } from "@web/lib/project-api-client";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { withFlushedProject } from "@web/lib/editor/debounced-save";
+import { projectJsonRequest } from "@web/lib/clients/project-api-client";
 import {
   DialogShell,
   EmptyResourceState,

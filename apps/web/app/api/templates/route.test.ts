@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleTemplateGet, handleTemplatePost } from "./handler.js";
 import { GET, POST } from "./route.js";
 
@@ -53,6 +53,26 @@ describe("/api/templates", () => {
     expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
   });
 
+  it("appends every screen of a built-in screen pack in one durable update", async () => {
+    const response = await handleTemplatePost(projectPath, new Request("http://localhost/api/templates", {
+      method: "POST", body: JSON.stringify({ id: "neutral-iphone-basics", source: "built-in-pack", locale: "en" }),
+    }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.screenIds).toHaveLength(2);
+    expect(body.screenId).toBe(body.screenIds[0]);
+    const persisted = await readFile(projectPath);
+    const saved = JSON.parse(persisted.toString("utf8"));
+    expect(saved.layouts[0].screens.map((screen: { id: string }) => screen.id)).toEqual(["hero", ...body.screenIds]);
+    expect(saved.layouts[0].screens[1]).toMatchObject({ artboard: { width: 1206, height: 2622 }, background: { from: "#F8FAFC" } });
+    expect(response.headers.get("etag")).toBe(`"${projectRevision(persisted)}"`);
+
+    const missing = await handleTemplatePost(projectPath, new Request("http://localhost/api/templates", {
+      method: "POST", body: JSON.stringify({ id: "missing-pack", source: "built-in-pack", locale: "en" }),
+    }));
+    expect(missing.status).toBe(404);
+  });
+
   it("returns explicit errors for invalid input", async () => {
     const nullBody = await handleTemplatePost(projectPath, new Request("http://localhost/api/templates", {
       method: "POST", body: "null",
@@ -64,6 +84,8 @@ describe("/api/templates", () => {
       method: "POST", body: JSON.stringify({ id: "../bad", locale: "en" }),
     }));
     expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await response.json())).toEqual(["error"]);
   });
 
   it("routes reads and mutations through the cookie-selected project session", async () => {

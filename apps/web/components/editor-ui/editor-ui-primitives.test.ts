@@ -16,6 +16,7 @@ import {
 const menuSelectSource = readFileSync(new URL("./MenuSelect.tsx", import.meta.url), "utf8");
 const addMenuSource = readFileSync(new URL("./AddMenu.tsx", import.meta.url), "utf8");
 const emptyResourceStateSource = readFileSync(new URL("./EmptyResourceState.tsx", import.meta.url), "utf8");
+const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 describe("editor UI primitives", () => {
   it("associates visible dialog descriptions with the modal semantics", () => {
@@ -103,6 +104,11 @@ describe("editor UI primitives", () => {
     expect(menuSelectSource).not.toContain("fontSize");
   });
 
+  it("leaves the control font reset to layered preflight so text utilities apply", () => {
+    // Unlayered CSS outranks every Tailwind utility; preflight already resets control fonts in @layer base.
+    expect(globalStyles).not.toMatch(/font:\s*inherit/);
+  });
+
   it("uses one thin range contract across inspector sliders", () => {
     expect(editorUi.rangeInput).toContain("editor-range");
     expect(editorUi.rangeInput).toContain("h-6");
@@ -144,25 +150,26 @@ describe("editor UI primitives", () => {
     expect(compactHtml).not.toContain(editorUi.segmentedButtonDefault);
   });
 
-  it("renders tool and panel buttons with an accessible pressed state", () => {
+  it("renders rail buttons with a visible caption and an accessible pressed state", () => {
     const tool = renderToStaticMarkup(createElement(
       ToolButton,
-      { label: "Select tool", active: true, variant: "tool" },
-      "Select",
+      { label: "Select tool", caption: "Select", active: true },
+      "icon",
     ));
     const panel = renderToStaticMarkup(createElement(
       ToolButton,
-      { label: "Structure panel", active: false, variant: "panel" },
+      { label: "Structure panel", active: false },
       "Structure",
     ));
 
     expect(tool).toContain('type="button"');
     expect(tool).toContain('aria-label="Select tool"');
     expect(tool).toContain('aria-pressed="true"');
-    expect(tool).toContain(editorUi.toolButtonToolActive);
+    expect(tool).toContain("<span>Select</span>");
+    expect(tool).toContain(editorUi.toolButtonActive);
     expect(tool).not.toContain(editorUi.toolButtonInactive);
     expect(panel).toContain('aria-pressed="false"');
-    expect(panel).not.toContain(editorUi.toolButtonPanelActive);
+    expect(panel).not.toContain(editorUi.toolButtonActive);
     expect(panel).toContain(editorUi.toolButtonInactive);
   });
 

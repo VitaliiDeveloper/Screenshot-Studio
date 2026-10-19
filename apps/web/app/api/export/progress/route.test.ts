@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { handleExportProgressGet } from "./handler.js";
+import { handleExportProgressGet, handleExportStopPost } from "./handler.js";
 
 const operationId = `export_${"ab".repeat(16)}`;
 
@@ -29,5 +29,17 @@ describe("GET /api/export/progress", () => {
       { get: vi.fn(() => { throw new TypeError("Invalid export operation id"); }) },
     );
     expect(malformed.status).toBe(400);
+  });
+});
+
+describe("POST /api/export/progress", () => {
+  it("requests a stop only for a running export", async () => {
+    const url = `http://localhost/api/export/progress?operationId=${operationId}`;
+    const requestStop = vi.fn(() => true);
+    expect(handleExportStopPost(new Request(url, { method: "POST" }), { requestStop }).status).toBe(202);
+    expect(requestStop).toHaveBeenCalledWith(operationId);
+
+    const finished = handleExportStopPost(new Request(url, { method: "POST" }), { requestStop: vi.fn(() => false) });
+    expect(finished.status).toBe(404);
   });
 });

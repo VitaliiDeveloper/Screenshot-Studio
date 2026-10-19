@@ -3,7 +3,7 @@
 
 import { useRef, useState } from "react";
 import type Konva from "konva";
-import type { SelectionRef } from "@web/lib/editor-selection.js";
+import type { SelectionRef } from "@web/lib/editor/editor-selection.js";
 import type { StageProjection } from "./stage-model.js";
 import {
   marqueeBounds,

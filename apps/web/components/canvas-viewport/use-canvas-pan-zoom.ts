@@ -10,7 +10,7 @@ import {
   type MutableRefObject,
   type RefObject,
 } from "react";
-import { clampZoom, type WorkspaceTool } from "@web/lib/editor-workspace";
+import { clampZoom, type WorkspaceTool } from "@web/lib/editor/editor-workspace";
 import {
   clientToViewportPoint,
   nextAnchoredScroll,

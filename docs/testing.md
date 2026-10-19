@@ -161,11 +161,12 @@ catalog lifecycle filtering, activation-route recording, and lock ordering stay 
 
 ## CI policy
 
-Automatic CI runs only for a pull request whose head is `dev` and base is `main`. That integration
-gate runs lint, typecheck, unit tests, coverage, the path-scoped package matrix and release-candidate
-checks, plus the complete `pnpm test:e2e` browser suite. Feature pull requests into `dev` consume no
-GitHub Actions minutes; use the cheapest exact local check for the changed behavior. The workflows
-remain available through `workflow_dispatch` for an explicitly requested candidate head.
+Feature pull requests into `dev` run only lint, typecheck, and unit tests (about two job-minutes per
+push). Browser E2E, coverage, and the release gates stay off them; use the cheapest exact local check
+for the changed behavior. The full integration gate runs for a pull request whose head is `dev` and
+base is `main`: lint, typecheck, unit tests, coverage, the path-scoped package matrix and
+release-candidate checks, plus the complete `pnpm test:e2e` browser suite. The workflows remain
+available through `workflow_dispatch` for an explicitly requested candidate head.
 
 The full browser command composes the leaf groups as separate Vitest processes, preserving complete
 coverage without leaking mutable `PROJECT_PATH`, browser, or Next.js runtime state across unrelated

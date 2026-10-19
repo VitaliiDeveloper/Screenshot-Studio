@@ -3,7 +3,12 @@ import { constants } from "node:fs";
 import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import sharp from "sharp";
-import { resolveExistingProjectPath, withProjectMutation } from "@screenshot-studio/core/storage";
+import {
+  errorCode,
+  noFollowFlags,
+  resolveExistingProjectPath,
+  withProjectMutation,
+} from "@screenshot-studio/core/storage";
 import { reconcileCaptureImport } from "./capture-import-recovery.js";
 import { loadProjectFile } from "./project-io.js";
 import {
@@ -69,7 +74,7 @@ function assertByte(value: number, name: string): void {
   }
 }
 
-function assertInside(root: string, target: string, label: string): void {
+export function assertInside(root: string, target: string, label: string): void {
   const pathFromRoot = relative(root, target);
   if (
     pathFromRoot === ".." ||
@@ -94,15 +99,7 @@ async function resolveAssetPaths(canonicalProjectPath: string, source: string): 
 }
 
 function sourceReadFlags(): number {
-  return constants.O_RDONLY
-    | constants.O_NONBLOCK
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
-}
-
-function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    ? String(error.code)
-    : undefined;
+  return noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK);
 }
 
 function identityOf(stat: AssetStat): AssetIdentity {

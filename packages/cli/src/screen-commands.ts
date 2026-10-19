@@ -14,6 +14,7 @@ import {
 import {
   findStoreSize,
   leadStoreSizeId,
+  migrateLeadTarget,
   parseStoreSpecs,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
@@ -36,11 +37,12 @@ export type ScreenAction =
   | { kind: "list" }
   | { kind: "add"; options: AddScreenOptions }
   | { kind: "rm"; id: string; cascadeVariants?: boolean }
-  | { kind: "reorder"; id: string; to: number };
+  | { kind: "reorder"; id: string; to: number }
+  | { kind: "migrate-lead"; platform: string; device: string; from: string };
 
-function requireFlag(flags: Record<string, string>, key: string): string {
+function requireFlag(flags: Record<string, string>, key: string, subcommand = "add"): string {
   const value = flags[key];
-  if (!value) throw new Error(`screen add requires --${key}`);
+  if (!value) throw new Error(`screen ${subcommand} requires --${key}`);
   return value;
 }
 
@@ -84,8 +86,16 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
       if (!Number.isInteger(to)) throw new Error("screen reorder requires --to <position>");
       return { kind: "reorder", id, to };
     }
+    case "migrate-lead": {
+      const platform = requireFlag(flags, "platform", subcommand);
+      const device = requireFlag(flags, "device", subcommand);
+      if (!parseScreenPlacement(platform, device)) {
+        throw new Error(`Unsupported platform/device pair: ${platform}/${device}`);
+      }
+      return { kind: "migrate-lead", platform, device, from: requireFlag(flags, "from", subcommand) };
+    }
     default:
-      throw new Error("Usage: screenshots screen <list|add|rm|reorder>");
+      throw new Error("Usage: screenshots screen <list|add|rm|reorder|migrate-lead>");
   }
 }
 
@@ -150,6 +160,19 @@ export async function runScreenCommand(
     const project = await loadProjectFile(projectPath);
     const layout = resolveMutationLayout(project, flags.layout);
     return formatScreenList(project, layout.id);
+  }
+  if (action.kind === "migrate-lead") {
+    const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
+    const { value: migrated } = await updateProjectFile(projectPath, (project) => {
+      const result = migrateLeadTarget(project, specs, action.platform, action.device, action.from);
+      return { project: result.project, value: result.migrated };
+    }, lockOptions);
+    if (migrated.length === 0) {
+      return `No ${action.platform}/${action.device} primary screens need migration from "${action.from}"`;
+    }
+    return migrated.map(({ layoutId, locale, screens }) =>
+      `Migrated ${screens} ${action.platform}/${action.device} ${locale} primary screen(s) in layout ${layoutId}`
+    ).join("\n");
   }
 
   const updated = await updateProjectFile(projectPath, async (project) => {

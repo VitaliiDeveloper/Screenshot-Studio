@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { BrowserProjectImportSource } from "@web/lib/project-import-client.js";
+import type { BrowserProjectImportSource } from "@web/lib/clients/project-import-client.js";
 
 type LauncherImportKind = BrowserProjectImportSource["kind"];
 

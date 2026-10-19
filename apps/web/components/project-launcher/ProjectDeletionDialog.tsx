@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Download, LoaderCircle, ShieldAlert, Trash2 } from "lucide-react";
-import type { ProjectDeletionRequest } from "@web/lib/project-delete-client.js";
+import type { ProjectDeletionRequest } from "@web/lib/clients/project-delete-client.js";
 import { DialogShell } from "@web/components/editor-ui/DialogShell.js";
 import { editorUi } from "@web/components/editor-ui/styles.js";
 

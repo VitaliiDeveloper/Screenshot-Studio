@@ -4,8 +4,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { loadProjectImages, type ImageCache } from "@screenshot-studio/core/assets";
 import type { Project } from "@screenshot-studio/core/model";
-import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
-import { projectLibraryAssetUrl } from "@web/lib/project-library-client";
+import type { ProjectLibraryEntry } from "@web/lib/clients/project-library-client";
+import { projectLibraryAssetUrl } from "@web/lib/clients/project-library-client";
 import { ScreenThumbnail } from "@web/components/ScreenThumbnail";
 
 export function ProjectPreviewStrip({ entry }: { entry: ProjectLibraryEntry }) {

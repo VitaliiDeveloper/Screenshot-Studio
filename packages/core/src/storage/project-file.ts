@@ -4,7 +4,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { link, lstat, mkdir, open, rename, rm, type FileHandle } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { parseProjectJson, Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
-import { withOptionalNoFollow } from "./open-flags.js";
+import { syncDirectoryBestEffort, type DirectoryHandle } from "./directory-sync.js";
+import { errorCode, errorText } from "./errors.js";
+import { noFollowFlags } from "./open-flags.js";
 import {
   ProjectPathError,
   createProjectCreationIntent,
@@ -44,7 +46,6 @@ export class ProjectRevisionConflictError extends Error {
 }
 
 type WritableStageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">;
-type DirectoryHandle = Pick<FileHandle, "sync" | "close">;
 interface ReadableSnapshotHandle {
   stat(options: { bigint: true }): Promise<BigIntStats>;
   readFile(): Promise<Buffer>;
@@ -64,10 +65,6 @@ export interface ProjectFileDependencies {
   beforeCreatePublication?: (projectPath: string) => Promise<void>;
 }
 
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function withCleanupError(primary: unknown, cleanup: unknown, action: string): AggregateError {
   return new AggregateError(
     [primary, cleanup],
@@ -82,14 +79,6 @@ export function projectRevision(bytes: string | Uint8Array): string {
 
 export function serializeProject(project: ProjectModel): string {
   return `${JSON.stringify(project, null, 2)}\n`;
-}
-
-function noFollowFlags(base: number): number {
-  return withOptionalNoFollow(base, constants.O_NOFOLLOW);
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
 function projectOpenError(projectPath: string, error: unknown): ProjectPathError {
@@ -242,21 +231,6 @@ async function createOwnedStage(
       }
     }
     throw primaryError;
-  }
-}
-
-async function syncDirectoryBestEffort(
-  directory: string,
-  openDirectory: NonNullable<ProjectFileDependencies["openDirectory"]>,
-): Promise<void> {
-  let handle: DirectoryHandle | undefined;
-  try {
-    handle = await openDirectory(directory);
-    await handle.sync();
-  } catch {
-    // Some supported local filesystems do not permit directory fsync.
-  } finally {
-    await handle?.close().catch(() => undefined);
   }
 }
 

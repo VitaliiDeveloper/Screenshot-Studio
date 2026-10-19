@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
+import { noFollowFlags } from "@screenshot-studio/core/storage";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN_BYTES = 32;
@@ -78,16 +79,11 @@ export interface ExportArtifactStoreDependencies {
 }
 
 function readFlags(): number {
-  return constants.O_RDONLY
-    | constants.O_NONBLOCK
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK);
 }
 
 function writeFlags(): number {
-  return constants.O_WRONLY
-    | constants.O_CREAT
-    | constants.O_EXCL
-    | (typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0);
+  return noFollowFlags(constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
 }
 
 function assertSafeDownloadFilename(filename: string): void {

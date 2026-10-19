@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","cwd":"/project","session_id":"s-3","tools":["Bash","Read","Glob","Grep","TodoWrite"],"model":"claude-sonnet","permissionMode":"dontAsk","apiKeySource":"none"}
+{"type":"result","subtype":"success","is_error":true,"duration_ms":300,"num_turns":1,"result":"OAuth token has expired. Please run /login","session_id":"s-3"}

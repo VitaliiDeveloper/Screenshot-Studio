@@ -55,7 +55,7 @@ describe("runInit", () => {
     expect(project).toMatchObject({ preferredExportLayoutId: "default", meta: { schemaVersion: 1 } });
     expect(project.layouts[0]).toMatchObject({ id: "default", name: "Default", mode: "isolated" });
     expect(project.layouts[0]!.screens).toHaveLength(1);
-    expect(project.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(project.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1206, height: 2622 });
     expect(bytes).toBe(new TextDecoder().decode(projectScaffoldFiles(createProjectScaffold({
       name: "Launch Deck",
       platform: "apple",

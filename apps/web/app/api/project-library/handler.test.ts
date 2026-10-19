@@ -4,7 +4,7 @@ import {
   handleProjectLibraryGet,
   handleProjectLibraryOpen,
 } from "./handler.js";
-import type { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import type { ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 
 const managedId = "project_00000000000000000000000000000001";
 

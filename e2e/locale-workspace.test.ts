@@ -120,7 +120,7 @@ describe("locale workspace", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
-    await page.getByRole("button", { name: "Manage locales" }).click();
+    await page.getByRole("button", { name: "Locales", exact: true }).click();
     const manager = page.getByRole("dialog", { name: "Locale manager" });
     await manager.getByLabel("Target locale").fill("ar");
     await manager.getByLabel("Copy from locale").selectOption("en");
@@ -179,7 +179,7 @@ describe("locale workspace", () => {
     await expect.poll(() => localeScreens("ar")[0]!.elements.length, { timeout: 10_000 }).toBe(activeBeforeInsert + 1);
     expect(localeScreens("ar")[0]!.elements.at(-1)).toMatchObject({ type: "text", align: "right" });
 
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    await page.getByRole("button", { name: "Layers panel", exact: true }).click();
     const orderBefore = localeScreenIds("ar");
     const handle = arabicList.getByLabel("Drag to reorder").first();
     await handle.focus();
@@ -193,7 +193,7 @@ describe("locale workspace", () => {
     expect(localeScreenIds("en")).toEqual(sourceScreenIds);
     const rtlSnapshot = structuredClone(localeScreens("ar"));
 
-    await page.getByRole("button", { name: "Manage locales" }).click();
+    await page.getByRole("button", { name: "Locales", exact: true }).click();
     const reopenedManager = page.getByRole("dialog", { name: "Locale manager" });
     const arabicRow = reopenedManager.locator('[data-locale="ar"]');
     await arabicRow.getByRole("button", { name: "Mirror ar to LTR" }).click();

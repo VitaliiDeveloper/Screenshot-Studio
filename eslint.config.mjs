@@ -8,6 +8,29 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import next from "@next/eslint-plugin-next";
 
+// No formatter runs here, so guard the layout defect that once passed every check: a script
+// glued `} from "a"; import { b } from "c";` onto one line.
+// shortcut: only top-level statements are checked, adopt a formatter to cover nested layout.
+const layout = {
+  rules: {
+    "one-top-level-statement-per-line": {
+      meta: {
+        type: "layout",
+        messages: { glued: "Start each top-level statement on its own line." },
+      },
+      create(context) {
+        return {
+          "Program > *"(node) {
+            if (context.sourceCode.getTokenBefore(node)?.loc.end.line === node.loc.start.line) {
+              context.report({ node, messageId: "glued" });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -24,6 +47,14 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // No exemptions: split a file by responsibility before it passes 1000 lines.
+    rules: { "max-lines": ["error", { max: 1000 }] },
+  },
+  {
+    plugins: { layout },
+    rules: { "layout/one-top-level-statement-per-line": "error" },
+  },
   {
     files: ["**/*.{ts,tsx,mts,cts}"],
     rules: {

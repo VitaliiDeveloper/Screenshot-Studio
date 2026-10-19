@@ -12,7 +12,7 @@ import {
 import {
   defaultDeviceFrameInputForScreen,
   deviceFrameContextForScreen,
-} from "@web/lib/editor-workspace";
+} from "@web/lib/editor/editor-workspace";
 
 Object.assign(globalThis, { React });
 vi.mock("./DeviceFramePresetThumbnail.js", () => ({

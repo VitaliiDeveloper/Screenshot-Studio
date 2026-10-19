@@ -74,7 +74,7 @@ describe("connected editor stage", () => {
     expect(await connected.getByText("Connected Second", { exact: true }).count()).toBe(1);
     expect(await connected.getByText("Unrelated", { exact: true }).count()).toBe(0);
 
-    const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
+    const structureToggle = page.getByRole("button", { name: "Layers panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
 
     const canvas = connected.locator("canvas").first();

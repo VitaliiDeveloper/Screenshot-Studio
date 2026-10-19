@@ -80,7 +80,6 @@ describe("template library UI", () => {
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
 
-    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     const templatesButton = page.getByRole("button", { name: /Screen templates/ });
     await templatesButton.click();
     const templateDialog = page.getByRole("dialog", { name: "Screen template library" });
@@ -143,10 +142,11 @@ describe("template library UI", () => {
       .not.toContain("template-title");
 
     await templateDialog.waitFor({ state: "hidden" });
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    const layersPanel = page.getByRole("button", { name: "Layers panel", exact: true });
+    if (await layersPanel.getAttribute("aria-pressed") !== "true") await layersPanel.click();
     const screenButton = page.getByRole("button", { name: /Promo card · macos/ });
     await screenButton.waitFor({ state: "visible" });
-    expect(await screenButton.getAttribute("class")).toContain("text-blue-700");
+    expect(await screenButton.getAttribute("aria-current")).toBe("true");
 
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");

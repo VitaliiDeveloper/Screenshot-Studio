@@ -319,6 +319,9 @@ beforeAll(async () => {
     type: "image", assetUrl: magentaAssetUrl, fit: "cover", color: "#000000",
   };
   imageBackgroundScreen.elements = [];
+  // Styling probes are laid out on this artboard, independent of the sample's store lead size.
+  stylingScreen.artboard = { ...artboard };
+  imageBackgroundScreen.artboard = { ...artboard };
   project.layouts[0].screens = [stylingScreen, imageBackgroundScreen];
   writeFileSync(projectPath, `${JSON.stringify(project, null, 2)}\n`);
   harness = await startParityRenderHarness(

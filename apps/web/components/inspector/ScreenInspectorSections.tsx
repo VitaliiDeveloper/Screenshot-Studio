@@ -8,17 +8,15 @@ import {
   type StoreSize,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import { editorStore } from "@web/lib/editor-store";
-import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/mutate-and-save";
+import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { ArtboardTargets } from "@web/components/ArtboardTargets";
 import { editorUi, SegmentedControl } from "@web/components/editor-ui";
-import { NumberField } from "@web/components/inspector-fields";
+import { NumberField } from "@web/components/inspector/inspector-fields";
 import { BackgroundInspectorFields } from "./BackgroundInspectorFields";
 import { InspectorSection as Section } from "./InspectorSection";
-
-function editBackground(background: Background) {
-  mutateAndScheduleSave(() => editorStore.getState().setBackground(background));
-}
+import { StoredOnThisScreenSection } from "./StoredOnThisScreenSection";
 
 const STORE_AUTHORING_SCALES = ["1", "2", "3"] as const;
 export type StoreAuthoringScale = (typeof STORE_AUTHORING_SCALES)[number];
@@ -71,7 +69,7 @@ function ArtboardSizeEditor({
     return (
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Artboard</h3>
+          <h3 className={editorUi.sectionLabel}>Artboard</h3>
           <span className="rounded-md bg-[var(--editor-color-warning-surface)] px-1.5 py-0.5 text-[length:var(--editor-font-label-size)] font-medium text-[color:var(--editor-color-warning-text)]">Explicit override</span>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr_auto] items-end gap-2">
@@ -102,7 +100,7 @@ function ArtboardSizeEditor({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[length:var(--editor-font-label-size)] font-semibold uppercase tracking-[var(--editor-font-label-tracking)] text-[color:var(--editor-color-text-muted)]">Artboard</h3>
+        <h3 className={editorUi.sectionLabel}>Artboard</h3>
         <SegmentedControl
           label="Artboard size mode"
           value={!target ? undefined : authoringScale ? "store" : "custom"}
@@ -175,17 +173,20 @@ export function ScreenInspectorSections({
   screen,
   specs,
   target,
+  applyScope = "screen",
   onOpenBackgroundAsset,
 }: {
   layout: DesignLayout;
   screen: Screen;
   specs: StoreSpecs | null;
   target: StoreSize | undefined;
+  applyScope?: ApplyScope;
   onOpenBackgroundAsset?: () => void;
 }) {
   const background = screen.background;
   return (
     <>
+      <StoredOnThisScreenSection layout={layout} screen={screen} specs={specs} target={target} />
       <Section>
         <ArtboardSizeEditor
           key={`${screen.id}:${screen.artboard.width}:${screen.artboard.height}`}
@@ -217,7 +218,9 @@ export function ScreenInspectorSections({
       <Section title="Background">
         <BackgroundInspectorFields
           background={background}
-          onChange={editBackground}
+          onChange={(next: Background) => mutateAndScheduleSave(
+            () => editorStore.getState().setBackground(next, applyScope),
+          )}
           onChooseImage={onOpenBackgroundAsset}
         />
       </Section>

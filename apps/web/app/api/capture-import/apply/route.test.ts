@@ -10,11 +10,11 @@ import {
   applyCaptureImportToProject,
   SafeFileConflictError,
 } from "@screenshot-studio/cli/capture-import-transaction";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { ManagedProjectCatalogStore } from "@web/lib/managed-project-catalog.server.js";
-import { ManagedProjectCreationService } from "@web/lib/managed-project-creation.server.js";
-import { ManagedProjectRepository } from "@web/lib/managed-project-repository.server.js";
-import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { ManagedProjectCatalogStore } from "@web/lib/managed-projects/managed-project-catalog.server.js";
+import { ManagedProjectCreationService } from "@web/lib/managed-projects/managed-project-creation.server.js";
+import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
+import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 import {
   handleCaptureImportApplyPost,
   handleCaptureImportPreviewPost,

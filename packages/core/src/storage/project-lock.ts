@@ -2,6 +2,7 @@
 import { lock as acquireFileLock, type LockOptions } from "proper-lockfile";
 import { realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { errorCode } from "./errors.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_STALE_AFTER_MS = 30_000;
@@ -62,11 +63,6 @@ function normalizeOptions(options: ProjectLockOptions): NormalizedProjectLockOpt
     throw new RangeError("heartbeatMs must be less than or equal to staleAfterMs / 2");
   }
   return { timeoutMs, staleAfterMs, retryDelayMs, heartbeatMs };
-}
-
-function errorCode(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
-  return typeof error.code === "string" ? error.code : undefined;
 }
 
 function retryOptions(options: NormalizedProjectLockOptions): LockOptions["retries"] {

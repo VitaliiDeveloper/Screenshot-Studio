@@ -5,16 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
-import { resolveManagedProjectStorageConfig } from "@web/lib/managed-project-config.server.js";
-import { ManagedProjectLifecycleService } from "@web/lib/managed-project-lifecycle.server.js";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { ManagedProjectLifecycleService } from "@web/lib/managed-projects/managed-project-lifecycle.server.js";
 import {
   ManagedProjectNotFoundError,
   ManagedProjectRepository,
-} from "@web/lib/managed-project-repository.server.js";
+} from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
   ManagedProjectSourceAdapter,
   ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   handleProjectDeleteOperationPost,
   handleProjectDeletePost,

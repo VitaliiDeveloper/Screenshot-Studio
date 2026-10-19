@@ -4,12 +4,14 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Palette } from "lucide-react";
-import { parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
+import { getScreen, parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
+import type { BuiltInTemplatePackMetadata } from "@screenshot-studio/core/templates";
 import type { DesignPack, Theme } from "@screenshot-studio/core/themes";
-import { editorStore } from "@web/lib/editor-store";
-import { withFlushedProject } from "@web/lib/debounced-save";
-import { projectJsonRequest } from "@web/lib/project-api-client";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { withFlushedProject } from "@web/lib/editor/debounced-save";
+import { projectJsonRequest } from "@web/lib/clients/project-api-client";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
+import { gradientStyle } from "./inspector/BackgroundInspectorFields";
 
 async function applyResource(id: string, layoutId: string, source: "built-in" | "project"): Promise<Project> {
   const { body } = await projectJsonRequest<Record<string, unknown>>("/api/themes", {
@@ -23,9 +25,33 @@ async function applyResource(id: string, layoutId: string, source: "built-in" | 
   return parseProject(body);
 }
 
+function DesignPackSample({ pack }: { pack: DesignPack }) {
+  const background = pack.background.type === "solid"
+    ? { backgroundColor: pack.background.color }
+    : gradientStyle(pack.background);
+  return (
+    <div
+      aria-hidden="true"
+      data-testid={`design-pack-sample-${pack.id}`}
+      className="flex aspect-[9/16] w-24 shrink-0 flex-col gap-1.5 overflow-hidden rounded-xl border border-black/10 p-2.5 shadow-inner"
+      style={background}
+    >
+      <span className="h-1 w-6 rounded-full" style={{ backgroundColor: pack.palette.accent }} />
+      <span className="text-[13px] font-semibold leading-tight" style={{ color: pack.palette.heading }}>Headline</span>
+      <span className="text-[8px] leading-snug" style={{ color: pack.palette.body }}>A short supporting line</span>
+      <span className="mt-auto h-8 rounded-md" style={{ backgroundColor: pack.palette.surface }} />
+    </div>
+  );
+}
+
+const percent = (ratio: number) => `${Math.round(ratio * 1000) / 10}%`;
+
 export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
+  const project = useStore(editorStore, (state) => state.project);
   const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
+  const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const [builtIns, setBuiltIns] = useState<DesignPack[]>([]);
+  const [templatePacks, setTemplatePacks] = useState<BuiltInTemplatePackMetadata[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
@@ -39,6 +65,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
     })
       .then(({ body }) => {
         setBuiltIns((body.builtIns ?? []) as DesignPack[]);
+        setTemplatePacks((body.templatePacks ?? []) as BuiltInTemplatePackMetadata[]);
         setThemes((body.themes ?? []) as Theme[]);
       })
       .catch((fetchError) => {
@@ -50,6 +77,12 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
     return () => controller.abort();
   }, []);
 
+  const activeScreen = project && activeLayoutId && activeScreenId
+    ? getScreen(project, activeLayoutId, activeScreenId)
+    : null;
+  const compatiblePacks = activeScreen
+    ? templatePacks.filter((pack) => pack.platform === activeScreen.platform && pack.device === activeScreen.device)
+    : [];
   const close = () => {
     setError(null);
     onClose();
@@ -69,6 +102,30 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
       setApplying(null);
     }
   };
+  const addScreens = async (id: string) => {
+    if (!activeLayoutId || !activeScreen) return;
+    setApplying(`template-pack:${id}`);
+    setError(null);
+    try {
+      await withFlushedProject(async () => {
+        const { body } = await projectJsonRequest<Record<string, unknown>>("/api/templates", {
+          method: "POST",
+          conditional: true,
+          advanceRevision: true,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, source: "built-in-pack", locale: activeScreen.locale, layoutId: activeLayoutId }),
+          errorFallback: "Template operation failed",
+        });
+        editorStore.getState().replaceProject(parseProject(body.project));
+        editorStore.getState().selectScreen(String(body.screenId));
+      });
+      close();
+    } catch (addError) {
+      setError((addError as Error).message);
+    } finally {
+      setApplying(null);
+    }
+  };
   return (
     <DialogShell
       title="Design packs"
@@ -81,30 +138,24 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
     >
       {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
       {loading ? <p className="text-xs text-slate-500">Loading design packs…</p> : null}
-      {!loading ? <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Built-in packs</h3> : null}
+      {!loading ? <h3 className={`mb-2 ${editorUi.sectionLabel}`}>Built-in packs</h3> : null}
       <div className="flex flex-col gap-3">
         {builtIns.map((pack) => {
           const operationId = `built-in:${pack.id}`;
           return (
             <section key={pack.id} data-testid={`design-pack-row-${pack.id}`} className={editorUi.resourceCard}>
               <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <DesignPackSample pack={pack} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
                     <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Built in · read only</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {THEME_ROLES.map((role) => (
-                      <div key={role} className="text-[10px] font-medium text-slate-500">
-                        <span className="mb-1 block h-6 rounded-lg border border-black/10 shadow-inner" style={{ backgroundColor: pack.palette[role] }} />
-                        {role}
-                      </div>
-                    ))}
-                  </div>
                   <p className="mt-3 text-xs text-slate-500">
-                    Type: {pack.typography.heading.family} {pack.typography.heading.weight} · Spacing: {pack.spacing.compact} / {pack.spacing.regular} / {pack.spacing.spacious}px
+                    Type: {pack.typography.heading.family} {pack.typography.heading.weight} · Heading {percent(pack.typography.heading.sizeRatio)} / body {percent(pack.typography.body.sizeRatio)} of the short side
                   </p>
+                  <p className="mt-1 text-xs text-slate-500">Replaces every screen background in this layout.</p>
                 </div>
                 <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={applying !== null} onClick={() => apply(pack.id, "built-in")}>
                   {applying === operationId ? "Applying…" : "Apply pack"}
@@ -115,7 +166,31 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
         })}
       </div>
 
-      {!loading ? <h3 className="mb-2 mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">Project themes</h3> : null}
+      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Screen packs</h3> : null}
+      {!loading && compatiblePacks.length === 0 ? (
+        <p className="text-xs text-slate-500">No built-in screen packs for the active screen&apos;s output family yet.</p>
+      ) : null}
+      <div className="flex flex-col gap-3">
+        {compatiblePacks.map((pack) => (
+          <section key={pack.id} data-testid={`template-pack-row-${pack.id}`} className={editorUi.resourceCard}>
+            <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
+                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Style · {pack.style}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
+                <p className="mt-1 text-xs text-slate-500">Adds {pack.screenCount} editable screens in locale {activeScreen?.locale}.</p>
+              </div>
+              <button className={`${editorUi.buttonSecondary} w-full sm:w-auto`} disabled={applying !== null} onClick={() => addScreens(pack.id)}>
+                {applying === `template-pack:${pack.id}` ? "Adding…" : "Add screens from pack"}
+              </button>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Project themes</h3> : null}
       {!loading && themes.length === 0 ? (
         <EmptyResourceState
           icon={Palette}

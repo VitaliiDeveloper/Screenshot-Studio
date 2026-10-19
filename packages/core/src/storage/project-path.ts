@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 import { constants, type BigIntStats } from "node:fs";
-import { lstat, open, readdir, realpath, unlink, type FileHandle } from "node:fs/promises";
+import { lstat, open, readdir, realpath, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import { withOptionalNoFollow } from "./open-flags.js";
+import { syncDirectoryBestEffort } from "./directory-sync.js";
+import { errorCode, errorText } from "./errors.js";
+import { noFollowFlags } from "./open-flags.js";
 
 export class ProjectPathError extends Error {
   override name = "ProjectPathError";
@@ -61,14 +63,6 @@ const UUID_V4_SOURCE = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 const UUID_V4_PATTERN = new RegExp(`^${UUID_V4_SOURCE}$`, "i");
 const REVISION_PATTERN = /^[0-9a-f]{64}$/;
 const DECIMAL_PATTERN = /^(0|[1-9][0-9]*)$/;
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function errorCode(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | undefined)?.code;
-}
 
 function identityOf(stats: BigIntStats): ProjectPathIdentity {
   return { device: stats.dev, inode: stats.ino };
@@ -133,10 +127,7 @@ export function serializeProjectCreationIntent(intent: ProjectCreationIntent): s
 }
 
 function noFollowReadFlags(): number {
-  return withOptionalNoFollow(
-    constants.O_RDONLY | constants.O_NONBLOCK,
-    constants.O_NOFOLLOW,
-  );
+  return noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK);
 }
 
 async function lstatIfExists(path: string): Promise<BigIntStats | null> {
@@ -292,18 +283,6 @@ async function removeTrackedPublicationFile(
       `Unable to remove tracked project publication file ${path}: ${errorText(error)}`,
       { cause: error },
     );
-  }
-}
-
-async function syncDirectoryBestEffort(directory: string): Promise<void> {
-  let handle: FileHandle | undefined;
-  try {
-    handle = await open(directory, constants.O_RDONLY);
-    await handle.sync();
-  } catch {
-    // Some supported local filesystems do not permit directory fsync.
-  } finally {
-    await handle?.close().catch(() => undefined);
   }
 }
 

@@ -1,34 +1,40 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { Archive, Download, Images } from "lucide-react";
-import { editorStore } from "@web/lib/editor-store";
-import {
-  type DesignLayout,
-} from "@screenshot-studio/core/model";
-import {
-  DEFAULT_STORE_SPECS,
-  destinationLabel,
-  listOutputFamilies,
-  type StoreSpecs,
-} from "@screenshot-studio/core/export";
-import { withFlushedProject } from "@web/lib/debounced-save";
-import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
-import { fetchActiveProject } from "@web/lib/project-session";
-import { getProjectPersistenceIdentity, projectRequestHeaders } from "@web/lib/save-project";
+import { Archive, Download, Images, Square } from "lucide-react";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
+import { withFlushedProject } from "@web/lib/editor/debounced-save";
+import { countIssues } from "@web/lib/editor/editor-issues";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
+import { fetchActiveProject } from "@web/lib/clients/project-session";
+import { getProjectPersistenceIdentity, projectRequestHeaders } from "@web/lib/clients/save-project";
 import {
   createExportOperationId,
   parseExportProgress,
   type ExportProgressSnapshot,
 } from "@web/lib/export-progress";
-import { DialogShell, editorUi, MenuSelect } from "./editor-ui";
+import type { ExportFileFailure } from "@web/lib/export-selection";
+import { readJsonBody, responseErrorMessage } from "@web/lib/json-response";
+import { cx, DialogShell, editorUi, MenuSelect } from "./editor-ui";
 import {
-  DEFAULT_EXPORT_FILTERS,
+  allExportChecks,
+  checkedExportEntries,
+  exportLocaleRows,
+  exportScopeIssues,
+  exportSizeRows,
   launchExportArtifactDownload,
-  normalizeExportFilters,
+  layoutExportEntries,
+  parseExportFailures,
+  parseExportOutcome,
+  plural,
+  type ExportChecks,
+  type ExportOutcome,
 } from "./export-dialog-model";
+import { ExportDialogSelection } from "./ExportDialogSelection";
 import { ExportProgressStatus } from "./ExportProgressStatus";
 
 type ProjectArchiveAvailability =
@@ -36,46 +42,85 @@ type ProjectArchiveAvailability =
   | { status: "available" }
   | { status: "unavailable"; message: string };
 
-function exportDeviceLabel(
-  layout: DesignLayout,
-  platform: string,
-  device: string,
-  specs: StoreSpecs,
-): string {
-  const families = listOutputFamilies(specs);
-  const labels = [...new Set(layout.screens
-    .filter((screen) => platform === "all" || screen.platform === platform)
-    .filter((screen) => screen.device === device)
-    .map((screen) => families.find(
-      ({ key }) => key === `${screen.platform}/${screen.device}`,
-    )?.label)
-    .filter((label) => label !== undefined))];
-  if (labels.length === 0) throw new Error(`No output device family configured for ${platform}/${device}`);
-  return labels.join(" / ");
+const NO_ISSUES: readonly ProjectIssue[] = [];
+const ZIP_FILENAMES = { "store-bundle": "app-store-screenshots-bundle.zip", "web-share": "web-share-package.zip" };
+
+function toggled(values: ReadonlySet<string>, value: string): Set<string> {
+  const next = new Set(values);
+  if (!next.delete(value)) next.add(value);
+  return next;
+}
+
+function FailedFiles({ failures, onGoTo }: {
+  failures: readonly ExportFileFailure[];
+  onGoTo?: (screenId: string) => void;
+}) {
+  return (
+    <ul aria-label="Failed files" className="divide-y divide-[var(--editor-color-surface-muted)] rounded-[var(--editor-radius-control)] border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)]">
+      {failures.map((failure) => (
+        <li key={failure.relativePath} className="flex items-start gap-2.5 px-3 py-2">
+          <span aria-hidden="true" className="mt-0.5 text-[11px] font-semibold text-[color:var(--editor-color-danger-text)]">✕</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-mono text-[11px] text-[color:var(--editor-color-text-strong)]" title={failure.relativePath}>
+              {failure.relativePath}
+            </p>
+            <p className="mt-0.5 text-xs text-[color:var(--editor-color-text-secondary)]">{failure.message}</p>
+          </div>
+          {onGoTo ? (
+            <button
+              type="button"
+              aria-label={`Go to ${failure.relativePath}`}
+              className={cx(editorUi.buttonSecondary, "!min-h-7 shrink-0 !text-xs")}
+              onClick={() => onGoTo(failure.screenId)}
+            >
+              Go to
+            </button>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function outcomeHeadline(outcome: ExportOutcome): string {
+  const exported = `${outcome.written} of ${plural(outcome.total, "file")} exported`;
+  return outcome.stopped ? `Stopped: ${exported}` : exported;
 }
 
 /**
  * Keeps rendered outputs and the portable editable project as distinct export actions. Both paths
- * flush pending saves first so the requested artifact matches the current Workspace state.
+ * flush pending saves first so the requested artifact matches the current Workspace state. Store
+ * images read the same bundle entries and validation issues as the export route and Issues.
  */
 export function ExportDialog({
   open,
   onClose,
   specs = DEFAULT_STORE_SPECS,
+  issues = NO_ISSUES,
+  onGoToScreen,
+  onOpenIssues,
 }: {
   open: boolean;
   onClose: () => void;
   specs?: StoreSpecs;
+  issues?: readonly ProjectIssue[];
+  onGoToScreen?: (screenId: string) => void;
+  onOpenIssues?: () => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const activeLayoutId = useStore(editorStore, (s) => s.activeLayoutId);
-  const [platform, setPlatform] = useState(DEFAULT_EXPORT_FILTERS.platform);
-  const [device, setDevice] = useState(DEFAULT_EXPORT_FILTERS.device);
-  const [locale, setLocale] = useState<string>(DEFAULT_EXPORT_FILTERS.locale);
+  // Unchecked values, so a size or locale added later starts checked like the toolbar count.
+  const [unchecked, setUnchecked] = useState<ExportChecks>({ sizes: new Set(), locales: new Set() });
   const [profile, setProfile] = useState<"store-bundle" | "web-share">("store-bundle");
   const [pending, setPending] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  // Stop needs the server to know the operation, which happens only after the save flush and preflight.
+  const [stoppable, setStoppable] = useState(false);
+  const operationIdRef = useRef<string | null>(null);
   const [progress, setProgress] = useState<ExportProgressSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failures, setFailures] = useState<ExportFileFailure[]>([]);
+  const [outcome, setOutcome] = useState<ExportOutcome | null>(null);
   const [downloadedFilename, setDownloadedFilename] = useState<string | null>(null);
   const [archiveAvailability, setArchiveAvailability] = useState<ProjectArchiveAvailability>({
     status: "checking",
@@ -108,27 +153,36 @@ export function ExportDialog({
 
   if (!open || !project || !activeLayoutId) return null;
 
-  const layout = project.layouts.find((candidate) => candidate.id === activeLayoutId)!;
-  const platforms = Array.from(new Set(layout.screens.map((screen) => screen.platform)));
-  const devices = Array.from(new Set(layout.screens
-    .filter((screen) => platform === "all" || screen.platform === platform)
-    .map((screen) => screen.device)));
-  const locales = Array.from(new Set(layout.screens
-    .filter((screen) => platform === "all" || screen.platform === platform)
-    .filter((screen) => device === "all" || screen.device === device)
-    .map((screen) => screen.locale)));
+  const built = layoutExportEntries(project, activeLayoutId, specs);
+  const entries = "entries" in built ? built.entries : [];
+  const all = allExportChecks(entries);
+  const effectiveChecks: ExportChecks = {
+    sizes: new Set([...all.sizes].filter((key) => !unchecked.sizes.has(key))),
+    locales: new Set([...all.locales].filter((locale) => !unchecked.locales.has(locale))),
+  };
+  const checked = checkedExportEntries(entries, effectiveChecks);
+  const scopedIssues = exportScopeIssues(entries, effectiveChecks, issues);
+  const scopedCounts = countIssues(scopedIssues);
+  const busy = pending || archivePending;
+  const canExport = !busy && checked.length > 0 && scopedCounts.blockers === 0;
+
   const runExport = async () => {
-    if (archivePending) return;
-    const filters = normalizeExportFilters(layout, { platform, device, locale });
+    if (!canExport) return;
+    const requested = checked.length;
     setPending(true);
+    setStopping(false);
+    setStoppable(false);
     setError(null);
+    setFailures([]);
+    setOutcome(null);
     setDownloadedFilename(null);
     const operationId = createExportOperationId();
+    operationIdRef.current = operationId;
     let latestProgress: ExportProgressSnapshot = {
       operationId,
       phase: "preparing",
       completed: 0,
-      total: 0,
+      total: requested,
     };
     setProgress(latestProgress);
     try {
@@ -148,6 +202,7 @@ export function ExportDialog({
             if (snapshot?.operationId === operationId) {
               latestProgress = snapshot;
               setProgress(snapshot);
+              setStoppable(true);
             }
           } catch {
             // Progress is auxiliary; the export request remains the source of success or failure.
@@ -166,9 +221,8 @@ export function ExportDialog({
           }),
           body: JSON.stringify({
             layoutId: activeLayoutId,
-            platform: filters.platform === "all" ? undefined : filters.platform,
-            device: filters.device === "all" ? undefined : filters.device,
-            locale: filters.locale === "all" ? undefined : filters.locale,
+            sizes: [...effectiveChecks.sizes],
+            locales: [...effectiveChecks.locales],
             profile,
             operationId,
           }),
@@ -180,9 +234,10 @@ export function ExportDialog({
           stopped = true;
           window.clearInterval(pollTimer);
         }
-        const body = await res.json().catch(() => ({}));
+        const body = await readJsonBody(res);
         if (!res.ok) {
-          throw new Error(body.error ?? `Export failed (${res.status})`);
+          setFailures(parseExportFailures(body.failures));
+          throw new Error(responseErrorMessage(body, `Export failed (${res.status})`));
         }
         latestProgress = {
           operationId,
@@ -191,18 +246,35 @@ export function ExportDialog({
           total: latestProgress.total,
         };
         setProgress(latestProgress);
-        const ticket = launchExportArtifactDownload(body, {
-          origin: window.location.origin,
-          createAnchor: () => document.createElement("a"),
-          appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
-        });
-        setDownloadedFilename(ticket.filename);
+        const finished = parseExportOutcome(body, requested);
+        // A stop before the first file leaves nothing to download.
+        const ticket = finished.written > 0
+          ? launchExportArtifactDownload(body, {
+            origin: window.location.origin,
+            createAnchor: () => document.createElement("a"),
+            appendAnchor: (anchor) => document.body.appendChild(anchor as HTMLAnchorElement),
+          })
+          : null;
+        setOutcome(finished);
+        setFailures(finished.failures);
+        setDownloadedFilename(ticket?.filename ?? null);
       });
     } catch (err) {
       setError((err as Error).message);
     } finally {
+      operationIdRef.current = null;
       setPending(false);
+      setStopping(false);
+      setStoppable(false);
     }
+  };
+  const stopExport = () => {
+    const operationId = operationIdRef.current;
+    if (!operationId || stopping) return;
+    setStopping(true);
+    // A stop the server no longer accepts (rendering already finished) leaves the export response in charge.
+    void fetch(`/api/export/progress?operationId=${encodeURIComponent(operationId)}`, { method: "POST" })
+      .then((response) => { if (!response.ok) setStopping(false); }, () => setStopping(false));
   };
   const runProjectArchiveExport = async () => {
     if (pending || archivePending || archiveAvailability.status !== "available") return;
@@ -229,32 +301,42 @@ export function ExportDialog({
       setArchivePending(false);
     }
   };
-  const busy = pending || archivePending;
   const closeDialog = () => {
+    setError(null);
+    setFailures([]);
+    setOutcome(null);
+    setDownloadedFilename(null);
     setArchiveAvailability({ status: "checking" });
     setArchiveError(null);
     setArchiveDownloadedFilename(null);
     onClose();
   };
+  const goToScreen = onGoToScreen && ((screenId: string) => {
+    closeDialog();
+    onGoToScreen(screenId);
+  });
+  const openIssues = onOpenIssues && (() => {
+    closeDialog();
+    onOpenIssues();
+  });
+  const rendering = progress?.phase === "preparing" || progress?.phase === "rendering";
 
   return (
     <DialogShell
       title="Export"
       description="Choose rendered store images or a portable editable project archive."
       onClose={closeDialog}
-      widthClass="max-w-lg"
+      closeDisabled={busy}
+      widthClass="max-w-2xl"
     >
       <div className="flex flex-col gap-4">
         <section aria-labelledby="store-images-export-title" className={editorUi.insetPanel}>
           <div className="flex items-start gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700"><Images aria-hidden="true" className="size-4" /></span>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 id="store-images-export-title" className="text-sm font-semibold text-slate-950">Store images</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Render store-ready PNGs and package them into one download.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Render PNGs at exact store sizes and package them into one download.</p>
             </div>
-          </div>
-          <label className="flex items-center justify-between gap-4 text-xs">
-            <span className="font-medium text-slate-600">Export profile</span>
             <MenuSelect
               ariaLabel="Export profile"
               value={profile}
@@ -263,62 +345,72 @@ export function ExportDialog({
                 { value: "web-share", label: "Web Share" },
               ]}
               onChange={setProfile}
-              className="w-40"
+              className="w-36"
             />
-          </label>
-          <label className="flex items-center justify-between gap-4 text-xs">
-            <span className="font-medium text-slate-600">Platform</span>
-            <MenuSelect
-              ariaLabel="Platform"
-              value={platform}
-              options={[{ value: "all", label: "all" }, ...platforms.map((value) => ({
-                value,
-                label: destinationLabel(value, specs),
-              }))]}
-              onChange={(value) => {
-                setPlatform(value);
-                setDevice("all");
-                setLocale("all");
-              }}
-              className="w-40"
-            />
-          </label>
+          </div>
 
-          <label className="flex items-center justify-between gap-4 text-xs">
-            <span className="font-medium text-slate-600">Device</span>
-            <MenuSelect
-              ariaLabel="Device"
-              value={device}
-              options={[{ value: "all", label: "all" }, ...devices.map((value) => ({
-                value,
-                label: exportDeviceLabel(layout, platform, value, specs),
-              }))]}
-              onChange={(value) => {
-                setDevice(value);
-                setLocale("all");
-              }}
-              className="w-40"
+          {"error" in built ? (
+            <p role="alert" className={editorUi.statusError}>This layout cannot be exported: {built.error}</p>
+          ) : (
+            <ExportDialogSelection
+              sizeRows={exportSizeRows(entries, effectiveChecks, scopedIssues, specs)}
+              localeRows={exportLocaleRows(entries, effectiveChecks, issues)}
+              checks={effectiveChecks}
+              checked={checked}
+              disabled={busy}
+              showPaths={profile === "store-bundle"}
+              zipFilename={ZIP_FILENAMES[profile]}
+              onToggleSize={(key) => setUnchecked({ ...unchecked, sizes: toggled(unchecked.sizes, key) })}
+              onToggleLocale={(locale) => setUnchecked({ ...unchecked, locales: toggled(unchecked.locales, locale) })}
             />
-          </label>
+          )}
 
-          <label className="flex items-center justify-between gap-4 text-xs">
-            <span className="font-medium text-slate-600">Locale</span>
-            <MenuSelect
-              ariaLabel="Locale"
-              value={locale}
-              options={[{ value: "all", label: "all" }, ...locales.map((entry) => ({ value: entry, label: entry }))]}
-              onChange={setLocale}
-              className="w-40"
-            />
-          </label>
+          {scopedCounts.blockers > 0 ? (
+            <div className={cx(editorUi.statusError, "flex items-center gap-3")}>
+              <p className="flex-1">
+                {plural(scopedCounts.blockers, "blocker")} {scopedCounts.blockers === 1 ? "stops" : "stop"} this
+                export. Fix {scopedCounts.blockers === 1 ? "it" : "them"} in Issues, or uncheck the sizes and locales
+                {scopedCounts.blockers === 1 ? " it affects" : " they affect"}.
+              </p>
+              {openIssues ? <button type="button" className={cx(editorUi.buttonSecondary, "!min-h-7 shrink-0 !text-xs")} onClick={openIssues}>Review issues</button> : null}
+            </div>
+          ) : scopedCounts.warnings > 0 ? (
+            <div className={cx(editorUi.statusWarning, "flex items-center gap-3")}>
+              <p className="flex-1">{plural(scopedCounts.warnings, "warning")} in the checked files. Export still runs.</p>
+              {openIssues ? <button type="button" className={cx(editorUi.buttonSecondary, "!min-h-7 shrink-0 !text-xs")} onClick={openIssues}>Review issues</button> : null}
+            </div>
+          ) : null}
 
           {error && <p role="alert" className={editorUi.statusError}>{error}</p>}
-          {downloadedFilename && <p role="status" className={editorUi.statusProgress}>Store image download started: {downloadedFilename}</p>}
-          {pending && progress && <ExportProgressStatus progress={progress} />}
-          <div className="flex justify-end">
-            <button className={editorUi.buttonPrimary} onClick={runExport} disabled={busy}>
+          {outcome ? (
+            <p role="status" className={outcome.written < outcome.total ? editorUi.statusWarning : editorUi.statusProgress}>
+              {outcomeHeadline(outcome)}
+              {outcome.failures.length > 0 ? ` · ${outcome.failures.length} failed` : ""}
+              {downloadedFilename ? `. Store image download started: ${downloadedFilename}` : ""}
+            </p>
+          ) : null}
+          {failures.length > 0 ? <FailedFiles failures={failures} onGoTo={goToScreen} /> : null}
+          {pending && progress ? (
+            <ExportProgressStatus progress={progress} currentPath={checked[progress.completed]?.relativePath} />
+          ) : null}
+          <div className="flex items-center justify-end gap-2">
+            {pending ? (
+              <>
+                <p className="mr-auto text-xs text-[color:var(--editor-color-text-secondary)]">Stop keeps the files already written.</p>
+                <button
+                  type="button"
+                  className={editorUi.buttonSecondary}
+                  onClick={stopExport}
+                  disabled={stopping || !stoppable || !rendering}
+                >
+                  <Square aria-hidden="true" className="size-3.5" />
+                  {stopping ? "Stopping…" : "Stop"}
+                </button>
+              </>
+            ) : null}
+            <button className={editorUi.buttonPrimary} onClick={runExport} disabled={!canExport}>
               <Download size={14} strokeWidth={2} />
-              {pending ? "Exporting images…" : "Export images"}
+              {pending ? "Exporting…" : `Export ${plural(checked.length, "file")}`}
             </button>
           </div>
         </section>

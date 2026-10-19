@@ -83,6 +83,13 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
   return page;
 }
 
+async function showInspectorFromOverflow(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "More toolbar actions" }).click();
+  await page.getByRole("menu", { name: "More toolbar actions" })
+    .getByRole("menuitemcheckbox", { name: "Show Inspector", exact: true })
+    .click();
+}
+
 beforeEach(() => {
   writeWorkspaceBaseline();
   expect(project().screens).toHaveLength(3);
@@ -143,7 +150,7 @@ describe("editor workspace", () => {
     const firstScreen = currentProject.screens[0]!;
     const secondScreen = currentProject.screens[1]!;
 
-    const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
+    const structureToggle = page.getByRole("button", { name: "Layers panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") {
       await structureToggle.click();
     }
@@ -183,12 +190,12 @@ describe("editor workspace", () => {
     const artboardMode = page.getByRole("group", { name: "Artboard size mode" });
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
-    expect(await page.getByText('Exports at 1320 × 2868 px for 6.9" iPhone.', { exact: true }).count()).toBe(1);
+    expect(await page.getByText('Exports at 1206 × 2622 px for 6.3" iPhone.', { exact: true }).count()).toBe(1);
     const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
-    const leadTargetRow = page.getByRole("group", { name: '6.9" · Portrait output target', exact: true });
+    const leadTargetRow = page.getByRole("group", { name: '6.3" · Portrait output target', exact: true });
     await expect.poll(() => targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.9" · Portrait', { exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await leadTargetRow.getByText('6.3" · Portrait', { exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('6.3" iPhone (lead)', { exact: true }).count()).toBe(0);
 
     const outputFamilies = page.getByTestId("overview-output-family");
     await expect.poll(() => outputFamilies.count()).toBe(1);
@@ -198,8 +205,8 @@ describe("editor workspace", () => {
     await expect.poll(() => sizeRows.count()).toBe(2);
     const masterSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="master"]');
     const variantSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="variant"]');
-    expect(await iphoneOutput.getByText('6.9"', { exact: true }).count()).toBe(1);
-    expect(await iphoneOutput.getByText('6.9" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await iphoneOutput.getByText('6.3"', { exact: true }).count()).toBe(1);
+    expect(await iphoneOutput.getByText('6.3" iPhone (lead)', { exact: true }).count()).toBe(0);
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.count()).toBe(1);
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("false");
@@ -225,7 +232,7 @@ describe("editor workspace", () => {
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.getByText("Editing", { exact: true }).count()).toBe(1);
 
-    await leadTargetRow.getByRole("button", { name: 'Open 6.9" · Portrait', exact: true }).click();
+    await leadTargetRow.getByRole("button", { name: 'Open 6.3" · Portrait', exact: true }).click();
     const siblingMaster = project().screens.find((candidate) => (
       candidate.variantOf === undefined
       && candidate.platform === masterBefore.platform
@@ -265,7 +272,7 @@ describe("editor workspace", () => {
     const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
     await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
-      .getByRole("listitem").count()).toBe(1);
+      .locator(":scope > [role='listitem']").count()).toBe(1);
 
     await page.getByRole("button", { name: "Add screen", exact: true }).click();
     await page.getByRole("menuitem", { name: "Blank screen", exact: true }).click();
@@ -287,10 +294,10 @@ describe("editor workspace", () => {
     expect(persisted.screens.find((screen) => screen.id === addedVariant!.variantOf)).toMatchObject({
       name: "Save Fast",
       device: "iphone",
-      artboard: { width: 1320, height: 2868 },
+      artboard: { width: 1206, height: 2622 },
     });
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
-      .getByRole("listitem").count()).toBe(2);
+      .locator(":scope > [role='listitem']").count()).toBe(2);
     expect(await page.getByRole("button", { name: "Untitled · iphone", exact: true })
       .getAttribute("aria-current")).toBe("true");
     expect(await targetRow.getAttribute("aria-current")).toBe("true");
@@ -354,7 +361,7 @@ describe("editor workspace", () => {
     const ipadOutput = page.getByRole("group", { name: "App Store · iPad output", exact: true });
     await expect.poll(() => ipadOutput.getAttribute("aria-current")).toBe("true");
 
-    const structureToggle = page.getByRole("button", { name: "Structure panel", exact: true });
+    const structureToggle = page.getByRole("button", { name: "Layers panel", exact: true });
     if ((await structureToggle.getAttribute("aria-pressed")) !== "true") await structureToggle.click();
 
     expect(await page.getByRole("button", { name: "Output family for en", exact: true }).count()).toBe(0);
@@ -377,15 +384,16 @@ describe("editor workspace", () => {
     await expect.poll(() => storeOutputs.getByRole("heading", { name: "Destinations", exact: true }).count()).toBe(1);
 
     const ipadScreens = page.getByRole("list", { name: "Screens for en · ipad", exact: true });
-    await expect.poll(() => ipadScreens.getByRole("listitem").count()).toBe(3);
-    expect(await ipadScreens.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
-    expect(await ipadScreens.evaluate((element) => getComputedStyle(element).maxHeight)).toBe("256px");
+    await expect.poll(() => ipadScreens.locator(":scope > [role='listitem']").count()).toBe(3);
+    // The Screens → Layers tree scrolls with the panel while its header and Add screen stay pinned.
+    expect(await page.getByRole("heading", { name: "Screens", exact: true }).locator("xpath=ancestor::header[1]")
+      .evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
 
     const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
     await iphoneOutput.getByRole("button", { name: "Open App Store · iPhone output", exact: true }).click();
     const iphoneScreens = page.getByRole("list", { name: "Screens for en · iphone", exact: true });
-    await expect.poll(() => iphoneScreens.getByRole("listitem").count()).toBe(3);
+    await expect.poll(() => iphoneScreens.locator(":scope > [role='listitem']").count()).toBe(3);
     expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
     expect(await page.getByRole("button", { name: "Hero · ipad", exact: true }).count()).toBe(0);
@@ -674,17 +682,19 @@ describe("editor workspace", () => {
   it("keeps compact Structure free of output navigation and opens outputs through Inspect", async () => {
     const page = await openEditor({ width: 720, height: 900 });
 
-    const structure = page.getByRole("button", { name: "Structure panel", exact: true });
-    const inspect = page.getByRole("button", { name: "Inspect", exact: true });
+    const structure = page.getByRole("button", { name: "Layers panel", exact: true });
+    const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
+    // At this width the top bar moves Inspect into its overflow menu (docs/editor.md §3).
+    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     await structure.click();
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
-    expect(await inspect.getAttribute("aria-pressed")).toBe("false");
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
 
     expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
-    await inspect.click();
+    await showInspectorFromOverflow(page);
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
-    await expect.poll(() => inspect.getAttribute("aria-pressed")).toBe("true");
+    await expect.poll(() => inspectorPanel.getAttribute("data-state")).toBe("open");
 
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
@@ -707,10 +717,12 @@ describe("editor workspace", () => {
     const page = await openEditor({ width: 1440, height: 900 });
 
     expect(await page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("true");
-    expect(await page.getByRole("button", { name: "Structure panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
+    expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
     await page.setViewportSize({ width: 720, height: 900 });
-    await expect.poll(() => page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("false");
-    await expect.poll(() => page.getByRole("button", { name: "Structure panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
+    const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
+    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
+    await expect.poll(() => inspectorPanel.getAttribute("data-state")).toBe("closed");
+    await expect.poll(() => page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
 
     const viewportBox = await page.getByTestId("canvas-viewport").boundingBox();
     const controlsBox = await page.getByLabel("Zoom controls").boundingBox();
@@ -719,8 +731,8 @@ describe("editor workspace", () => {
     expect(controlsBox!.x).toBeGreaterThanOrEqual(viewportBox!.x);
     expect(controlsBox!.x + controlsBox!.width).toBeLessThanOrEqual(viewportBox!.x + viewportBox!.width);
 
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
-    expect(await page.getByRole("button", { name: "Inspect", exact: true }).getAttribute("aria-pressed")).toBe("false");
+    await page.getByRole("button", { name: "Layers panel", exact: true }).click();
+    expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
     const layers = page.getByRole("list", { name: /^Layers for / });
     await layers.waitFor({ state: "visible" });
     const layersBox = await layers.boundingBox();
@@ -728,8 +740,8 @@ describe("editor workspace", () => {
     expect(layersBox!.x).toBeGreaterThanOrEqual(0);
     expect(layersBox!.x + layersBox!.width).toBeLessThanOrEqual(720);
 
-    await page.getByRole("button", { name: "Inspect", exact: true }).click();
-    expect(await page.getByRole("button", { name: "Structure panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
+    await showInspectorFromOverflow(page);
+    expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
     const shiftedControls = await page.getByLabel("Zoom controls").boundingBox();
     expect(shiftedControls).not.toBeNull();
     expect(shiftedControls!.x).toBeGreaterThanOrEqual(viewportBox!.x);
@@ -738,13 +750,13 @@ describe("editor workspace", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.locator('[data-editor-side-panel="right"]').getAttribute("data-state"))
       .toBe("closed");
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    await page.getByRole("button", { name: "Layers panel", exact: true }).click();
     expect(await page.getByLabel("Zoom controls").count()).toBe(0);
-    const phonePanel = await page.getByRole("heading", { name: "Structure", exact: true }).locator("..")
+    const phonePanel = await page.getByRole("heading", { name: "Layers", exact: true }).locator("..")
       .locator("xpath=ancestor::aside").boundingBox();
     expect(phonePanel).not.toBeNull();
     expect(phonePanel!.x + phonePanel!.width).toBeLessThanOrEqual(390);
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    await page.getByRole("button", { name: "Layers panel", exact: true }).click();
     expect(await page.getByLabel("Zoom controls").count()).toBe(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });

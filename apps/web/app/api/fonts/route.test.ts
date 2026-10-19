@@ -7,7 +7,7 @@ import { projectRevision } from "@screenshot-studio/core/storage";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { handleFontDelete, handleFontGet, handleFontPost } from "./handler.js";
 import { DELETE, GET, POST } from "./route.js";
 
@@ -115,6 +115,8 @@ describe("/api/fonts", () => {
       body: JSON.stringify({ source: "system", family: "Inter", weight: 400 }),
     }));
     expect(invalidSource.status).toBe(400);
+    expect(invalidSource.headers.get("cache-control")).toBe("no-store");
+    expect(Object.keys(await invalidSource.json())).toEqual(["error"]);
 
     const invalidJson = await handleFontPost(projectPath, new Request("http://localhost/api/fonts", {
       method: "POST",

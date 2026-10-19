@@ -4,15 +4,14 @@ import {
   consumeProjectArchiveArtifact,
 } from "@web/lib/project-archive-artifacts.server.js";
 import type { ExportArtifactLookup } from "@web/lib/export-artifacts.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 export interface ProjectArchiveArtifactRouteDependencies {
   consumeArtifact?: (token: string) => Promise<ExportArtifactLookup>;
 }
 
 function unavailable(status: 404 | 410): Response {
-  return Response.json({
-    error: status === 410 ? "Project archive expired" : "Project archive not found",
-  }, { status, headers: { "cache-control": "no-store" } });
+  return jsonError(status, status === 410 ? "Project archive expired" : "Project archive not found");
 }
 
 export async function handleProjectArchiveArtifactGet(

@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","cwd":"/project","session_id":"s-2","tools":["Bash","Read","Glob","Grep","TodoWrite"],"model":"claude-sonnet","permissionMode":"dontAsk","apiKeySource":"none"}
+{"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"retry_delay_ms":1000,"error":"rate_limit","session_id":"s-2"}
+{"type":"result","subtype":"success","is_error":true,"duration_ms":2400,"num_turns":1,"result":"You've hit your session limit · resets 3pm (Europe/Kyiv)","session_id":"s-2"}

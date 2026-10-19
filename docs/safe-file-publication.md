@@ -6,9 +6,9 @@ process. A normal `writeFile(destination)` is therefore not an acceptable commit
 follow a link, expose partial bytes, or overwrite a file the current operation does not own.
 
 This document describes the local-filesystem contract implemented by the internal
-`packages/cli/src/safe-file-publisher.ts` engine and the resource-specific
-`packages/cli/src/managed-resource-file.ts` adapter. They are deliberately narrower than a general
-storage API.
+`packages/cli/src/safe-file/` engine (entry point `packages/cli/src/safe-file-publisher.ts`) and the
+resource-specific `packages/cli/src/managed-resource-file.ts` adapter. They are deliberately
+narrower than a general storage API.
 
 ## iOS mental model
 

@@ -2,10 +2,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { hasPendingProjectSave } from "@web/lib/debounced-save";
-import { requestProjectArchive, downloadProjectArchive } from "@web/lib/project-archive-client";
-import { advanceProjectHomeDeletion, type ProjectDeletionAttemptHolder } from "@web/lib/project-deletion-controller";
-import type { ProjectHomeData } from "@web/lib/project-home-client";
+import { hasPendingProjectSave } from "@web/lib/editor/debounced-save";
+import { requestProjectArchive, downloadProjectArchive } from "@web/lib/clients/project-archive-client";
+import { advanceProjectHomeDeletion, type ProjectDeletionAttemptHolder } from "@web/lib/clients/project-deletion-controller";
+import type { ProjectHomeData } from "@web/lib/clients/project-home-client";
 import type { ProjectDeletionDialogState } from "./ProjectDeletionDialog";
 
 export interface ManagedProjectDeletionFlow {

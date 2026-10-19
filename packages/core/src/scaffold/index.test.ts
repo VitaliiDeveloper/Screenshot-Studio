@@ -40,7 +40,7 @@ const reorderedLeadSpecs = parseStoreSpecs({
           ...fullSpecs.platforms.apple.families.iphone,
           targets: [
             { id: "6.1", label: "6.1-inch display", width: 1179, height: 2556, orientation: "portrait" },
-            { id: "6.9", label: "6.9-inch display", width: 1320, height: 2868, orientation: "portrait" },
+            { id: "6.3", label: "6.3-inch display", width: 1206, height: 2622, orientation: "portrait" },
           ],
         },
       },
@@ -156,7 +156,7 @@ describe("createProjectScaffold", () => {
       layoutMode: "isolated", templateId: null,
     }, reorderedLeadSpecs);
 
-    expect(scaffold.project.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1320, height: 2868 });
+    expect(scaffold.project.layouts[0]!.screens[0]!.artboard).toEqual({ width: 1206, height: 2622 });
   });
 
   it("creates a valid empty project using the selected platform lead size and layout mode", () => {
@@ -241,14 +241,16 @@ describe("createProjectScaffold", () => {
       color: "#0F172A",
       fontFamily: "Screenshot Studio Sans",
       weight: 400,
-      size: 64,
+      // The pack heading ratio matches the starter's, so headline box capacity does not regress.
+      size: (beforeHeading as { size: number }).size,
     });
     expect(packedScreen.elements.find((element) => (
       "role" in element && element.role === "accent"
     ))).toMatchObject({
       type: "shape",
-      fill: "#2563EB",
+      fill: "#1D4ED8",
     });
+    expect(packedScreen.background).toEqual(pack.background);
     expect(parseProject(packed)).toEqual(packed);
     expect(JSON.stringify(packed)).not.toContain(pack.id);
   });

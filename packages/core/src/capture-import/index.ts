@@ -3,8 +3,11 @@ import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import {
   DEFAULT_STORE_SPECS,
+  artboardTargetStatus,
   destinationLabel,
+  findStoreTarget,
   inspectPng,
+  leadStoreSizeId,
   outputFamilyLabel,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
@@ -60,7 +63,10 @@ export interface CaptureImportIssue {
   message: string;
 }
 
-export type CaptureImportWarningCode = "unsupported-capture-path" | "unsupported-input";
+export type CaptureImportWarningCode =
+  | "unexportable-capture-size"
+  | "unsupported-capture-path"
+  | "unsupported-input";
 
 export interface CaptureImportWarning {
   code: CaptureImportWarningCode;
@@ -372,6 +378,24 @@ export function discoverCaptureImport(input: {
         `Capture is not a valid PNG: ${sourcePath}`,
       ));
       continue;
+    }
+    // Imported screens are primary screens that keep the capture size as their artboard. They
+    // export at the family lead, and export refuses any aspect change.
+    const { platform: capturePlatform, device: captureDevice } = placement;
+    const lead = findStoreTarget(
+      specs,
+      capturePlatform,
+      captureDevice,
+      leadStoreSizeId(specs, capturePlatform, captureDevice),
+    );
+    if (artboardTargetStatus(dimensions, lead).kind === "invalid") {
+      warnings.push(warning(
+        "unexportable-capture-size",
+        sourcePath,
+        `Capture is ${dimensions.width}×${dimensions.height}, which does not match the `
+          + `${outputFamilyLabel(capturePlatform, captureDevice, specs)} lead size `
+          + `${lead.width}×${lead.height} aspect ratio; it imports, but export will fail`,
+      ));
     }
     captures.push({
       sourcePath,

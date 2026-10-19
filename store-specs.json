@@ -11,11 +11,11 @@
           "label": "iPhone",
           "creatable": true,
           "recommended": true,
-          "leadStoreSizeId": "6.9",
+          "leadStoreSizeId": "6.3",
           "targets": [
             {
               "id": "6.9",
-              "label": "6.9\" iPhone (lead)",
+              "label": "6.9\" iPhone",
               "width": 1320,
               "height": 2868,
               "orientation": "portrait"
@@ -43,7 +43,7 @@
             },
             {
               "id": "6.3",
-              "label": "6.3\" iPhone",
+              "label": "6.3\" iPhone (lead)",
               "width": 1206,
               "height": 2622,
               "orientation": "portrait"
@@ -57,14 +57,14 @@
             },
             {
               "id": "6.1",
-              "label": "6.1\" iPhone",
+              "label": "5.8\" iPhone",
               "width": 1125,
               "height": 2436,
               "orientation": "portrait"
             },
             {
               "id": "6.1-landscape",
-              "label": "6.1\" iPhone landscape",
+              "label": "5.8\" iPhone landscape",
               "width": 2436,
               "height": 1125,
               "orientation": "landscape"

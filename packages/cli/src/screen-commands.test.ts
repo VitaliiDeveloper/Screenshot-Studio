@@ -28,6 +28,7 @@ async function temporaryDirectory(prefix: string): Promise<string> {
 }
 
 const specs = structuredClone(DEFAULT_STORE_SPECS);
+specs.platforms.apple.families.iphone.leadStoreSizeId = "6.9";
 specs.platforms.apple.families.iphone.targets = [
   { id: "6.9", label: "6.9", width: 1320, height: 2868, orientation: "portrait" },
   { id: "6.5", label: "6.5", width: 1284, height: 2778, orientation: "portrait" },
@@ -109,6 +110,8 @@ describe("screen commands", () => {
     expect(() => resolveScreenAction([], {})).toThrow(/Usage: screenshots screen/);
     expect(() => resolveScreenAction(["rm"], {})).toThrow(/screen rm <id>/);
     expect(() => resolveScreenAction(["reorder", "hero"], {})).toThrow(/--to/);
+    expect(() => resolveScreenAction(["migrate-lead"], { platform: "apple", device: "iphone" }))
+      .toThrow("screen migrate-lead requires --from");
     expect(() => resolveScreenAction(["add"], { platform: "apple", device: "iphone" })).toThrow(/--locale/);
     expect(() => resolveScreenAction(["add"], {
       platform: "apple", device: "iphone", locale: "ar", direction: "auto",
@@ -240,6 +243,28 @@ describe("screen commands", () => {
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     expect(written.layouts[0]!.screens.map((screen) => screen.id)).toEqual(["android-hero", "hero"]);
+  });
+
+  it("migrates primary screens from a previous lead and reports when nothing is left", async () => {
+    const dir = await temporaryDirectory("screenshot-studio-screen-migrate-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const specsPath = join(dir, "store-specs.json");
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await writeFile(specsPath, `${JSON.stringify(DEFAULT_STORE_SPECS, null, 2)}\n`, "utf8");
+    const flags = { platform: "apple", device: "iphone", from: "6.9" };
+
+    await expect(runScreenCommand(projectPath, specsPath, ["migrate-lead"], flags))
+      .resolves.toBe("Migrated 2 apple/iphone en primary screen(s) in layout default");
+    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    expect(written.layouts[0]!.screens.map(({ id, storeTargetId, variantOf, artboard }) =>
+      [id, storeTargetId, variantOf, artboard.width])).toEqual([
+      ["hero", undefined, undefined, 1206],
+      ["details", undefined, undefined, 1206],
+      [expect.any(String), "6.9", "hero", 1320],
+      [expect.any(String), "6.9", "details", 1320],
+    ]);
+    await expect(runScreenCommand(projectPath, specsPath, ["migrate-lead"], flags))
+      .resolves.toBe('No apple/iphone primary screens need migration from "6.9"');
   });
 
   it("preserves independent exact screens by default and supports an explicit cascade", async () => {

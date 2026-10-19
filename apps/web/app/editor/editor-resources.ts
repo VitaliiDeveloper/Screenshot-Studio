@@ -9,19 +9,19 @@ import {
 } from "@screenshot-studio/core/fonts";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { parseStoreSpecs, type StoreSpecs } from "@screenshot-studio/core/export";
-import { editorStore } from "@web/lib/editor-store";
+import { editorStore } from "@web/lib/editor/editor-store";
 import {
   readActiveLayoutPreference,
   writeActiveLayoutPreference,
-} from "@web/lib/editor-layout-preference";
+} from "@web/lib/editor/editor-layout-preference";
 import {
   createProjectAssetResolver,
   getProjectPersistenceIdentity,
   requireProjectRevision,
   setProjectPersistenceIdentity,
   type ProjectAssetResolver,
-} from "@web/lib/save-project";
-import { withFlushedProject } from "@web/lib/debounced-save";
+} from "@web/lib/clients/save-project";
+import { withFlushedProject } from "@web/lib/editor/debounced-save";
 import {
   loadAllProjectImages,
   useEditorImageCache,
@@ -30,6 +30,7 @@ import {
   loadProjectFontWarnings,
   useEditorFontWarnings,
 } from "./use-editor-font-warnings";
+import { responseError } from "@web/lib/json-response";
 
 export {
   cacheDecodedProjectImage,
@@ -110,11 +111,6 @@ export async function runEditorResourceReload(
   });
 }
 
-async function responseError(response: Response, fallback: string): Promise<Error> {
-  const body = await response.json().catch(() => ({})) as { error?: unknown };
-  return new Error(typeof body.error === "string" ? body.error : `${fallback} (${response.status})`);
-}
-
 export async function loadEditorResources(
   dependencies: EditorResourceDependencies = {},
 ): Promise<EditorResourceResult> {
@@ -126,7 +122,7 @@ export async function loadEditorResources(
   const fetchStoreSpecs = dependencies.fetchStoreSpecs ?? (() => fetch("/api/store-specs"));
 
   const projectResponse = await fetchProject();
-  if (!projectResponse.ok) throw await responseError(projectResponse, "Failed to load project");
+  if (!projectResponse.ok) throw await responseError(projectResponse, `Failed to load project (${projectResponse.status})`);
   const revision = requireProjectRevision(projectResponse.headers.get("etag"));
   const projectId = projectResponse.headers.get("x-project-id")?.trim();
   if (!projectId) throw new Error("Project response is missing its project identifier");
@@ -143,7 +139,7 @@ export async function loadEditorResources(
   );
 
   const specsResponse = await fetchStoreSpecs();
-  if (!specsResponse.ok) throw await responseError(specsResponse, "Failed to load store specs");
+  if (!specsResponse.ok) throw await responseError(specsResponse, `Failed to load store specs (${specsResponse.status})`);
   const specs = parseStoreSpecs(await specsResponse.json());
 
   return { project, projectId, revision, images, specs, fontWarnings };

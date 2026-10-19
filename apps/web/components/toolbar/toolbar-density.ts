@@ -64,3 +64,8 @@ export function toolbarGap({
   const sideWidth = Math.max(0, (headerWidth - horizontalPadding - centerWidth - columnGap * 2) / 2);
   return columnGap + Math.min(sideWidth - leftWidth, sideWidth - rightWidth);
 }
+
+/** Any value that changes toolbar content width must be here, or cached widths go stale. */
+export function toolbarMeasurementKey(values: ReadonlyArray<string | number | null>): string {
+  return values.map((value) => value ?? "").join("\u0000");
+}

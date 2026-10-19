@@ -83,7 +83,6 @@ describe("font management UI", () => {
     await waitForEditorCanvas(page);
 
     await page.getByRole("button", { name: "Font headline", exact: true }).click();
-    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: "Fonts", exact: true }).click();
     await page.getByLabel("Font file").setInputFiles(resolve(sampleAssets, "fonts/Pacifico-Regular.ttf"));
     await page.getByLabel("Upload font family").fill("Pacifico Alt");
@@ -131,12 +130,10 @@ describe("font management UI", () => {
     await fontManager.waitFor({ state: "hidden" });
     await page.reload({ waitUntil: "load" });
     await waitForEditorCanvas(page);
-    await page.getByRole("heading", { name: "Resources", exact: true }).waitFor({ state: "visible" });
-    await page.getByRole("button", { name: "Structure panel", exact: true }).click();
+    await page.getByRole("heading", { name: "Layers", exact: true }).waitFor({ state: "visible" });
     await page.getByRole("button", { name: "Font headline", exact: true }).click();
     expect(await page.getByRole("button", { name: "Font", exact: true }).textContent()).toContain("Pacifico Alt · 700");
 
-    await page.getByRole("button", { name: "Resources panel", exact: true }).click();
     await page.getByRole("button", { name: "Fonts", exact: true }).click();
     await row.getByRole("button", { name: "Remove" }).click();
     const inUseError = page.getByRole("alert").filter({ hasText: /used by .* text element/i });

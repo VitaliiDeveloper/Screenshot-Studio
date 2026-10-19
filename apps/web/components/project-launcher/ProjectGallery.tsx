@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { CircleCheck, Download, Ellipsis, Info, LoaderCircle, Trash2 } from "lucide-react";
 import {
   DEFAULT_STORE_SPECS,
@@ -9,10 +9,16 @@ import {
   listOutputFamilies,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
-import type { ProjectLibraryEntry } from "@web/lib/project-library-client";
+import type { ProjectLibraryEntry } from "@web/lib/clients/project-library-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
 import { ProjectPreviewStrip } from "./ProjectPreviewStrip";
-import type { ProjectLibraryNotice } from "./project-action-notice";
+import {
+  neighbourEntryId,
+  projectCardExitMs,
+  projectCardSlideEasing,
+  projectCardSlideMs,
+  type ProjectLibraryNotice,
+} from "./project-action-notice";
 
 export interface ProjectLibraryAction {
   entryId: string;
@@ -51,6 +57,7 @@ export function ProjectGallery({
   action,
   actionError,
   actionNotice,
+  leavingEntryId = null,
   visibleOpeningEntryId,
   onOpen,
   onOpenDetails,
@@ -63,6 +70,7 @@ export function ProjectGallery({
   action: ProjectLibraryAction | null;
   actionError: string | null;
   actionNotice: ProjectLibraryNotice | null;
+  leavingEntryId?: string | null;
   visibleOpeningEntryId: string | null;
   onOpen(entryId: string): void;
   onOpenDetails(entryId: string): void;
@@ -71,6 +79,47 @@ export function ProjectGallery({
   onRemoveRecent(entryId: string): void;
 }) {
   const galleryRef = useRef<HTMLElement>(null);
+  const cardPositionsRef = useRef(new Map<string, { left: number; top: number }>());
+
+  // FLIP: a card that moved within its row slides home from its old position; a card that changed
+  // rows fades in at its new slot instead of flying diagonally across the grid. The global
+  // reduced-motion rule shortens both transitions to an instant change.
+  useLayoutEffect(() => {
+    const positions = new Map<string, { left: number; top: number }>();
+    for (const card of galleryRef.current?.querySelectorAll<HTMLElement>("li[data-entry-id]") ?? []) {
+      const entryId = card.dataset.entryId!;
+      const position = { left: card.offsetLeft, top: card.offsetTop };
+      positions.set(entryId, position);
+      const previous = cardPositionsRef.current.get(entryId);
+      if (!previous || (previous.left === position.left && previous.top === position.top)) continue;
+      const property = previous.top === position.top ? "transform" : "opacity";
+      card.style.transition = "none";
+      if (property === "transform") card.style.transform = `translateX(${previous.left - position.left}px)`;
+      else card.style.opacity = "0";
+      void card.offsetWidth;
+      card.style.transition = `${property} ${projectCardSlideMs}ms ${projectCardSlideEasing}`;
+      card.style.transform = "";
+      card.style.opacity = "";
+      card.addEventListener("transitionend", () => { card.style.transition = ""; }, { once: true });
+    }
+    cardPositionsRef.current = positions;
+  }, [entries, leavingEntryId]);
+
+  // Passive, so it runs after a closing dialog has restored focus into the leaving card.
+  useEffect(() => {
+    if (!leavingEntryId) return;
+    const gallery = galleryRef.current;
+    const active = document.activeElement;
+    const leavingCard = gallery?.querySelector(`li[data-entry-id="${CSS.escape(leavingEntryId)}"]`);
+    if (active && active !== document.body && !leavingCard?.contains(active)) return;
+    const targetId = neighbourEntryId(entries, leavingEntryId);
+    if (!targetId) return;
+    gallery?.querySelector(`li[data-entry-id="${CSS.escape(targetId)}"]`)
+      ?.querySelector<HTMLElement>("button:not(:disabled), summary")
+      ?.focus({ preventScroll: true });
+    // Only the start of a leave moves focus; later entry refreshes must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leavingEntryId]);
 
   useEffect(() => {
     const dismissOutside = (event: PointerEvent) => {
@@ -124,6 +173,24 @@ export function ProjectGallery({
           const unavailable = entry.availability === "unavailable";
           const cardContent = <>
             <ProjectPreviewStrip entry={entry} />
+            {unavailable ? (
+              // Pinned over the preview's top edge so the card body matches available cards.
+              <span className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                <span className="line-clamp-2 min-w-0 text-left leading-5"><strong>Source unavailable.</strong> Reopen or import the source to continue.</span>
+                <button
+                  type="button"
+                  disabled={Boolean(action)}
+                  className={editorUi.rowIconButtonDanger}
+                  aria-label={`Remove ${entry.name} from recents`}
+                  title="Removes this recent item only; project files stay untouched."
+                  onClick={() => onRemoveRecent(entry.entryId)}
+                >
+                  {pending && action?.kind === "removing"
+                    ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+                    : <Trash2 aria-hidden="true" className="size-4" />}
+                </button>
+              </span>
+            ) : null}
             <span className={cx("block p-5", !unavailable && "pr-14")}>
               <span className="flex items-center gap-2">
                 <span className="truncate text-base font-semibold text-slate-950">{entry.name}</span>
@@ -137,28 +204,12 @@ export function ProjectGallery({
                 <span>{plural(entry.layoutCount, "layout")}</span>
               </span>
               <time className="mt-3 block text-xs text-slate-500" dateTime={entry.lastOpenedAt}>Updated {entry.lastOpenedAt.slice(0, 10)}</time>
-              {unavailable ? (
-                <span className="mt-3 flex min-h-10 items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                  <span className="min-w-0 text-left leading-5"><strong>Source unavailable.</strong> Reopen or import the source to continue.</span>
-                  <button
-                    type="button"
-                    disabled={Boolean(action)}
-                    className={editorUi.rowIconButtonDanger}
-                    aria-label={`Remove ${entry.name} from recents`}
-                    title="Removes this recent item only; project files stay untouched."
-                    onClick={() => onRemoveRecent(entry.entryId)}
-                  >
-                    {pending && action?.kind === "removing"
-                      ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
-                      : <Trash2 aria-hidden="true" className="size-4" />}
-                  </button>
-                </span>
-              ) : null}
             </span>
           </>;
+          const leaving = leavingEntryId === entry.entryId;
           return (
-            <li key={entry.entryId} aria-busy={pending || undefined} className={cx(
-              "group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow,transform] duration-150",
+            <li key={entry.entryId} data-entry-id={entry.entryId} data-motion={leaving ? "leaving" : undefined} inert={leaving || undefined} style={leaving ? { animationDuration: `${projectCardExitMs}ms` } : undefined} aria-busy={pending || undefined} className={cx(
+              "project-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow,transform] duration-150",
               !unavailable && "hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg motion-reduce:transform-none",
             )}>
               {unavailable ? (

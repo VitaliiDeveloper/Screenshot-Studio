@@ -11,7 +11,7 @@ Screenshot Studio is a pnpm workspace with one rendering model shared by its int
 CLI:
 
 ```text
-packages/core  → strict model, rendering, export, fonts, assets, storage contracts
+packages/core  → strict model, rendering, validation, export, fonts, assets, storage contracts
 packages/cli   → project management and headless render-host orchestration
 apps/web       → Next.js editor, API routes, and the shared browser render target
 ```
@@ -85,6 +85,18 @@ fitted counterparts only for missing slots. Editor and CLI mutations consume thi
 than implementing their own platform- or size-specific rules. Removing an exact output target removes
 the complete size row; it is distinct from deleting one independent screen slot.
 
+A primary-size screen persists no target and exports at its family's current catalog lead, so the
+lead implicitly binds every saved primary screen. The iPhone family leads with its 6.3" target
+because App Store Connect requires a screenshot in that display class, which makes a lead-only export
+submittable. Changing a family's lead is therefore a breaking catalog change that requires the
+explicit core `migrateLeadTarget` operation (CLI `screen migrate-lead`); projects are never migrated
+on load. Per layout and locale it moves a family whose primary screens all fit the previous lead:
+each root takes over its existing current-lead variant's content, or is fitted in place through
+`fitElementsToArtboard`, and its original content stays unchanged as a previous-lead variant. Screen
+ids, slot order, and other variants' pairing are preserved. Families already compatible with the lead
+are left alone, ambiguous families are refused rather than guessed, and exporting an unmigrated
+family fails with a pointer to the command.
+
 `store-specs.json` is the single runtime authority for configured Apple, Android, Windows, and Web
 destinations, output families, creation policy, and exact dimensions. The catalog is deliberately
 curated, not an archive of every size a
@@ -124,6 +136,9 @@ Every output is rendered at the selected exact target with `Stage.toDataURL({ pi
 flattened to an opaque PNG. Equivalent files need not be byte-identical because metadata and
 compression may differ, but dimensions and visual output are verified by targeted parity coverage.
 New render-affecting fields must extend the shared mapping and parity tests together.
+Validation that depends on rendered geometry, such as text overflow, measures the same
+`elementToNodeConfig` text config with Konva's own layout in the browser; it never estimates metrics
+on a separate path.
 
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
@@ -135,12 +150,22 @@ with local HTML, CSS, metadata, and an Open Graph image, and is not another pixe
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
-`no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, and preflight warnings; server
+`no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, preflight warnings, and the
+`written`/`total` counts, `failures` (screen id, bundle-relative path, reason), and `stopped`; server
 filesystem paths are not client metadata. A missing artifact returns `404`, an expired artifact
 returns `410`, and clients must not buffer, reuse, or retain an export artifact after download.
+Optional `sizes` (`platform/device/targetId`) and `locales` lists filter the full `buildBundleEntries`
+list, so the selected files keep the paths an unfiltered bundle gives them. Unlike the CLI, the UI
+route skips a file that fails to render and reports it, and fails only when no file renders.
 An optional opaque export operation id exposes short-lived, bounded progress snapshots while that
-same request retains its normal lifecycle and project-mutation guards. Progress reports completed
-rendered outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
+same request retains its normal lifecycle and project-mutation guards. Progress reports attempted
+outputs plus packaging/finalization phases; it is auxiliary status, not artifact authority.
+`POST /api/export/progress?operationId=…` asks that running export to stop (`202`; `404` once it is
+not running). `exportBundle` checks the stop before each file and reports `attempted`, `written`, and
+`stopped` once rendering ends; files rendered so far are packaged and published as usual, and a stop
+before the first file returns the `201` result with `written: 0`, `stopped: true`, and no artifact
+ticket. Unlike the export `POST`, the stop request carries no project session or revision fence: the
+unguessable operation id is its only guard, which is acceptable for the localhost-only host.
 
 ## 4. Project sources, sessions, and persistence
 
@@ -197,11 +222,18 @@ system fallbacks remain rejected because they make output depend on a machine. G
 may occur only at add time; later editor rendering and CLI export use local bytes.
 
 Themes and project templates are project-local inputs that produce ordinary strict Project literals.
-The application also ships global read-only built-in template and Design Packs catalogs. Selecting a
-built-in template materializes an ordinary editable root or root/target-variant pair. Applying a pack
-bakes palette, typography, and supported spacing-scale values into render-bearing element literals;
-the pack id is not persisted. No global template or pack definition is copied into a project, and
-neither catalog becomes hidden renderer state. Asset preprocessing is explicit and non-destructive;
+The application also ships global read-only built-in template, screen pack, and Design Packs
+catalogs, defined in code and never read from disk. Selecting a built-in template materializes an
+ordinary editable root or root/target-variant pair. A built-in screen pack (`TemplatePack`: id, name,
+platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends each of its screens the
+same way, in one project update; the style tag names the Design pack its literals were baked from and
+is not persisted. Applying a Design pack writes its solid or linear-gradient background to every
+screen of the target layout, including exact-target variants, and bakes palette and typography into
+role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
+and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
+Applying a pack does not move or resize elements; the pack id is not persisted. No global template,
+screen pack, or Design pack definition is copied into a project, and no catalog becomes hidden
+renderer state. Asset preprocessing is explicit and non-destructive;
 results are new local files that a user may deliberately assign to an element.
 
 ## 6. Interfaces for people and tools
@@ -215,6 +247,41 @@ otherwise uses `preferredExportLayoutId`.
 That guide teaches literal layout, copy, localization, local asset processing, and schema guardrails
 without adding provider state or an AI dependency. The optional repository skill only discovers or
 initializes such a project, then defers to its generated guide.
+
+The editor may run an official agent CLI that the user installed and signed in to with their own
+subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
+verified version range, model aliases, and policy (`supported`, `at-own-risk`, or `unavailable`, with
+reason, consequences, source, and check date); there is no remote configuration. Detection runs only
+the CLI's own `--version`, `--help`, and auth-status commands under a timeout that kills the process
+tree, shares one probe round between reads for a few seconds, and answers loopback Hosts only. It
+never reads credential files and returns states, never account identity. Every agent process receives
+an allowlisted environment, so API keys and provider switches in the server environment cannot move a
+CLI off the subscription. A future Claude Code release may default `-p` to `--bare`, which ignores the
+subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
+`unsupported-version`; a flip the help check misses still cannot bill an API key, because the
+environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
+CLI default. A run starts only from a loopback Host for the cookie-selected project session, after a
+server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run until
+consent storage exists. It runs in the project folder, at most one per project, receives the user
+message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
+whole process tree.
+
+An agent changes the project only through the `screenshots` CLI, which takes the regular project
+mutation lock per write; the editor's own writers (`PUT /api/project`, every
+`withProjectMutationRequest` route, and Undo run) answer `423 agent-running` while a run is active
+instead of racing it. A run first reserves its project slot, so new editor writes are refused, then
+waits for editor writes already in flight to finish (`409 project-busy` after 30 s, e.g. behind a long
+export), and only then snapshots `app-store-screenshots.json` under the mutation lock; so no editor
+write lands between the snapshot and the verdict. This fence is in-process: a terminal `screenshots`
+CLI writing during a run is not refused, and Undo run drops it like any change after the snapshot.
+After the process tree is dead the server reads the file back through the strict schema, under the
+same lock. An invalid or deleted document is written back from the snapshot and the stream carries
+`result: rejected` with the reason and the restored revision before `done: failed`; a valid one
+carries `result: accepted` with the changed screen ids and the new revision, and the snapshot stays
+pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it (restore the snapshot
+as one locked write, refused once the editor has written past the run's revision). A run cancelled
+before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
+per change; snapshots live in server memory, so a restart drops a pending undo.
 
 ## 7. Change rules
 

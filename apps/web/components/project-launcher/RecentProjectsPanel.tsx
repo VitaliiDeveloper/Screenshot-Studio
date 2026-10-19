@@ -3,7 +3,7 @@
 
 import React, { type Ref } from "react";
 import { Clock3, LoaderCircle, RotateCcw, X } from "lucide-react";
-import type { RecentProjectSummary } from "@web/lib/recent-projects-client";
+import type { RecentProjectSummary } from "@web/lib/clients/recent-projects-client";
 import { editorUi } from "@web/components/editor-ui/styles";
 
 export type RecentProjectsPanelState =

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ProjectSessionRegistry } from "@web/lib/project-session.server.js";
+import { ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 import { handleProjectArchivePost } from "./handler.js";
 import { POST } from "./route.js";
 

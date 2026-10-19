@@ -10,11 +10,12 @@ import {
   sessionIdFromRequest,
   type ActiveProjectResolverDependencies,
   type ProjectSession,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   recentProjectsStore,
   type RecentProjectsStore,
-} from "@web/lib/recent-projects.server.js";
+} from "@web/lib/session/recent-projects.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 
 interface ProjectSessionHandlerDependencies extends ActiveProjectResolverDependencies {
   recentProjects?: Pick<RecentProjectsStore, "record">;
@@ -110,20 +111,14 @@ export async function handleProjectSessionDelete(
 ): Promise<Response> {
   const expectedProjectId = request.headers.get("x-project-id")?.trim();
   if (!expectedProjectId) {
-    return Response.json(
-      { error: "X-Project-Id is required to close the active project" },
-      { status: 428 },
-    );
+    return jsonError(428, "X-Project-Id is required to close the active project");
   }
 
   const registry = dependencies.registry ?? projectSessionRegistry;
   const sessionId = sessionIdFromRequest(request);
   const session = sessionId ? registry.get(sessionId) : undefined;
   if (session && session.projectId !== expectedProjectId) {
-    return Response.json(
-      { error: "Active project changed; reload it before continuing" },
-      { status: 409 },
-    );
+    return jsonError(409, "Active project changed; reload it before continuing");
   }
   if (sessionId && session) registry.close(sessionId, expectedProjectId);
   const headers = expiredProjectSessionResponseHeaders(request);

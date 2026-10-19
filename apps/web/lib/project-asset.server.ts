@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { jsonError } from "./api-error-response.server.js";
 
 const ASSET_CACHE_CONTROL = "private, no-store";
 
@@ -32,29 +33,29 @@ export async function serveProjectAssetPath(
   relativePath: string,
 ): Promise<Response> {
   if (isAbsolute(relativePath)) {
-    return Response.json({ error: "path outside project" }, { status: 400 });
+    return jsonError(400, "path outside project");
   }
   let baseDir: string;
   try {
     baseDir = dirname(await realpath(resolve(projectPath)));
   } catch {
-    return Response.json({ error: "project not found" }, { status: 404 });
+    return jsonError(404, "project not found");
   }
   const target = resolve(join(baseDir, relativePath));
   const lexical = relative(baseDir, target);
   if (lexical === ".." || lexical.startsWith(`..${sep}`) || isAbsolute(lexical)) {
-    return Response.json({ error: "path outside project" }, { status: 400 });
+    return jsonError(400, "path outside project");
   }
   try {
     const canonical = await realpath(target);
     const within = relative(baseDir, canonical);
     if (within === ".." || within.startsWith(`..${sep}`) || isAbsolute(within)) {
-      return Response.json({ error: "path outside project" }, { status: 400 });
+      return jsonError(400, "path outside project");
     }
     const bytes = await readFile(canonical);
     const type = CONTENT_TYPES[extname(canonical).toLowerCase()] ?? "application/octet-stream";
     return new Response(bytes, { status: 200, headers: { "content-type": type } });
   } catch {
-    return Response.json({ error: "not found" }, { status: 404 });
+    return jsonError(404, "not found");
   }
 }

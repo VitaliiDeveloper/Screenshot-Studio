@@ -47,7 +47,7 @@
   --editor-font-control-size: 0.75rem;
   --editor-font-control-emphasis-size: 0.8125rem;
   --editor-font-label-size: 0.625rem;
-  --editor-font-label-tracking: 0.16em;
+  --editor-font-label-tracking: 0.09em;
   --editor-shadow-control: var(--shadow-sm);
   --editor-shadow-accent: 0 1px 3px 0 rgb(37 99 235 / 20%), 0 1px 2px -1px rgb(37 99 235 / 20%);
   --editor-shadow-dialog: 0 25px 50px -12px rgb(2 6 23 / 25%);

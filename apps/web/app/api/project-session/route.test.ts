@@ -3,10 +3,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ManagedProjectNotFoundError } from "@web/lib/managed-project-repository.server.js";
+import { ManagedProjectNotFoundError } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
   ProjectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import {
   handleProjectSessionDelete,
   handleProjectSessionGet,

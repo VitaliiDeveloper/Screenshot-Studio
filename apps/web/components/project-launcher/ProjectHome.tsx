@@ -13,14 +13,14 @@ import {
   Ellipsis,
   LoaderCircle,
 } from "lucide-react";
-import { missingImageUrls } from "@web/app/editor/editor-resources";
-import { closeProjectSession } from "@web/lib/project-close";
-import { downloadProjectArchive, requestProjectArchive } from "@web/lib/project-archive-client";
-import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/project-home-client";
+import { missingProjectImages } from "@web/lib/editor/editor-issues";
+import { closeProjectSession } from "@web/lib/clients/project-close";
+import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
+import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/clients/project-home-client";
 import { buildProjectHomeSummary } from "@web/lib/project-home-model";
-import { editorStore } from "@web/lib/editor-store";
-import { getProjectPersistenceIdentity } from "@web/lib/save-project";
-import { projectInfoEntryBindingError } from "@web/lib/editor-route";
+import { editorStore } from "@web/lib/editor/editor-store";
+import { getProjectPersistenceIdentity } from "@web/lib/clients/save-project";
+import { projectInfoEntryBindingError } from "@web/lib/editor/editor-route";
 import { editorUi } from "@web/components/editor-ui/styles";
 
 const DynamicScreenThumbnail = dynamic(
@@ -70,7 +70,7 @@ export function ProjectHome({ expectedProjectId, expectedEntryId }: {
     project: data.resources.project,
     selection: data.selection,
     specs: data.resources.specs,
-    missingAssets: missingImageUrls(data.resources.project, data.resources.images),
+    missingAssets: missingProjectImages(data.resources.project, data.resources.images),
     fontWarnings: data.resources.fontWarnings.map(({ font, error: warning }) =>
       `${font.family} ${font.weight}: ${warning.message}`),
     saveError: getProjectPersistenceIdentity()?.projectId === data.selection.projectId

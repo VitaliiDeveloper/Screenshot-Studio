@@ -142,6 +142,13 @@ describe("Permanent managed-project deletion", () => {
       await confirmDelete.click();
 
       await dialog.waitFor({ state: "detached" });
+      await page.getByRole("status").filter({
+        hasText: "Deleted “Remaining project” permanently.",
+      }).waitFor();
+      await expect.poll(() => page.locator('li[data-motion="leaving"]').count()).toBe(0);
+      expect(await page.evaluate(() => Boolean(
+        document.activeElement?.closest("li[data-entry-id]"),
+      ))).toBe(true);
       expect(new URL(page.url()).pathname).toBe("/");
       await page.getByRole("button", { name: /^New project/ }).click();
       await page.getByRole("dialog", { name: "Create a managed project" }).waitFor();

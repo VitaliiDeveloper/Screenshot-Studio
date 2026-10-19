@@ -6,7 +6,7 @@ import { join } from "node:path";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
-} from "@web/lib/project-session.server.js";
+} from "@web/lib/session/project-session.server.js";
 import { GET } from "./route.js";
 
 let dir: string;

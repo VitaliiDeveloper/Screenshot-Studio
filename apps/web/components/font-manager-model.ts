@@ -5,6 +5,7 @@ import {
   type FontAsset,
   type Project,
 } from "@screenshot-studio/core/model";
+import { readJsonResponse } from "@web/lib/json-response";
 
 type FontMutationOperation =
   | { operation: "add" }
@@ -27,14 +28,6 @@ export interface FontMutationReconciliationResult {
   warning: string | null;
 }
 
-function responseError(body: unknown, status: number): Error {
-  const message = body && typeof body === "object" && "error" in body
-    && typeof body.error === "string"
-    ? body.error
-    : `Font operation failed (${status})`;
-  return new Error(message);
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -43,8 +36,7 @@ export async function reconcileFontMutationResponse(
   input: FontMutationResponseInput,
   dependencies: FontMutationReconciliationDependencies,
 ): Promise<FontMutationReconciliationResult> {
-  const body = await input.response.json().catch(() => ({}));
-  if (!input.response.ok) throw responseError(body, input.response.status);
+  const body = await readJsonResponse(input.response, `Font operation failed (${input.response.status})`);
 
   const project = parseProject(body);
   dependencies.setProjectRevision(input.response.headers.get("etag"));

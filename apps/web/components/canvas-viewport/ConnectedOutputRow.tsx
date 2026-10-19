@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import type { WorkspaceOutputFamily } from "@web/lib/editor-workspace";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
+import type { WorkspaceOutputFamily } from "@web/lib/editor/editor-workspace";
 import { EditorStage } from "@web/components/EditorStage";
 import { OutputFamilySection } from "./OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";
@@ -11,12 +12,14 @@ export function ConnectedOutputRow({
   activeScreenId,
   images,
   zoom,
+  issues,
   onActivate,
 }: {
   row: WorkspaceOutputFamily;
   activeScreenId: string | null;
   images: ImageCache;
   zoom: number;
+  issues?: readonly ProjectIssue[];
   onActivate: (screenId: string) => void;
 }) {
   const stageScreenId = row.editing
@@ -52,10 +55,11 @@ export function ConnectedOutputRow({
             </div>
           ))}
         </div>
-        <div className="relative overflow-hidden bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
+        <div className="relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
           <EditorStage
             images={images}
             zoom={zoom}
+          issues={issues}
             screenId={stageScreenId}
             connectedOverview
             interactive={row.editing}

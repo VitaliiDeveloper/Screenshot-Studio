@@ -4,7 +4,7 @@ import { ProjectLauncher } from "@web/components/project-launcher/ProjectLaunche
 import type { ProjectLibraryState } from "@web/components/project-launcher/ProjectGallery";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
-import { projectLibraryService } from "@web/lib/project-library.server";
+import { projectLibraryService } from "@web/lib/session/project-library.server";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path";
 
 async function loadInitialProjects(): Promise<ProjectLibraryState> {

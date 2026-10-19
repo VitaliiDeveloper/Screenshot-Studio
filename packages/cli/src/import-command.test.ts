@@ -78,7 +78,11 @@ describe("importCaptures", () => {
     const result = await importCaptures({ projectPath, inputDir });
 
     expect(result.imported).toBe(2);
-    expect(result.warnings).toEqual([]);
+    // The square fixture fits no export size of either family.
+    expect(result.warnings).toEqual([
+      expect.stringContaining("does not match the Google Play · Android tablet lead size"),
+      expect.stringContaining("does not match the App Store · iPhone lead size"),
+    ]);
     const iphoneAssetUrl = importedCapturePath("apple-iphone-en-01", png);
     const tabletAssetUrl = importedCapturePath("android-tablet-7-en-01", png);
     await expect(readFile(join(dir, iphoneAssetUrl))).resolves.toEqual(png);
