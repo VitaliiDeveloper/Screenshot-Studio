@@ -71,28 +71,28 @@
             },
             {
               "id": "duo-inner",
-              "label": "iPhone Duo inner display",
+              "label": "iPhone Duo inner",
               "width": 2007,
               "height": 2853,
               "orientation": "portrait"
             },
             {
               "id": "duo-inner-landscape",
-              "label": "iPhone Duo inner display landscape",
+              "label": "iPhone Duo inner landscape",
               "width": 2853,
               "height": 2007,
               "orientation": "landscape"
             },
             {
               "id": "duo-outer",
-              "label": "iPhone Duo outer display",
+              "label": "iPhone Duo outer",
               "width": 1398,
               "height": 2034,
               "orientation": "portrait"
             },
             {
               "id": "duo-outer-landscape",
-              "label": "iPhone Duo outer display landscape",
+              "label": "iPhone Duo outer landscape",
               "width": 2034,
               "height": 1398,
               "orientation": "landscape"
