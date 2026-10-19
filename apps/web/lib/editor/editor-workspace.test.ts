@@ -162,7 +162,8 @@ describe("editor workspace helpers", () => {
     ["apple", "visionos", "vision-pro", "Apple Vision Pro (lead)", "landscape", "Landscape"],
     ["android", "phone", "phone-portrait", "Android phone portrait (lead)", "portrait", "Portrait"],
     ["android", "phone", "phone-portrait-high-res", "Android phone portrait high resolution", "portrait", "Portrait · High-res"],
-    ["android", "tablet-7", "tablet-7-portrait", "7-inch Android tablet portrait (lead)", "portrait", "7-inch · Portrait"],
+    ["android", "tablet-7", "tablet-portrait", "9:16 Android tablet portrait (lead)", "portrait", "9:16 · Portrait"],
+    ["android", "tablet-7", "tablet-7-portrait", "7-inch Android tablet portrait", "portrait", "7-inch · Portrait"],
     ["android", "wear", "wear-square", "Wear OS square (frameless)", "square", "Square · Frameless"],
     ["windows", "desktop", "4k", "Windows desktop 4K (lead)", "landscape", "4K · Landscape"],
     ["web", "tablet", "tablet-portrait", "Web tablet portrait (lead)", "portrait", "Portrait"],
@@ -230,8 +231,12 @@ describe("editor workspace helpers", () => {
     expect(compactStoreSizeLabel("Windows desktop Full HD", "desktop")).toBe("Full HD");
   });
 
-  it("keeps the physical size visible for every canonical Android tablet row", () => {
-    expect(compactStoreSizeLabel("7-inch Android tablet portrait (lead)", "tablet-7"))
+  it("keeps the ratio or physical size visible for every canonical Android tablet row", () => {
+    expect(compactStoreSizeLabel("9:16 Android tablet portrait (lead)", "tablet-7"))
+      .toBe("9:16 portrait");
+    expect(compactStoreSizeLabel("16:9 Android tablet landscape", "tablet-7"))
+      .toBe("16:9 landscape");
+    expect(compactStoreSizeLabel("7-inch Android tablet portrait", "tablet-7"))
       .toBe("7-inch portrait");
     expect(compactStoreSizeLabel("7-inch Android tablet landscape", "tablet-7"))
       .toBe("7-inch landscape");

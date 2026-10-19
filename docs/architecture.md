@@ -88,9 +88,12 @@ the complete size row; it is distinct from deleting one independent screen slot.
 A primary-size screen persists no target and exports at its family's current catalog lead, so the
 lead implicitly binds every saved primary screen. The iPhone family leads with its 6.3" target
 because App Store Connect requires a screenshot in that display class, which makes a lead-only export
-submittable. Changing a family's lead is therefore a breaking catalog change that requires the
-explicit core `migrateLeadTarget` operation (CLI `screen migrate-lead`); projects are never migrated
-on load. Per layout and locale it moves a family whose primary screens all fit the previous lead:
+submittable. The Android tablet family leads with a 9:16 portrait target because Google Play's
+large-screen guidance and recommendation eligibility name only 16:9 and 9:16; its former 10:16 lead
+stays in the catalog as the migration source. Changing a family's lead is therefore a breaking
+catalog change that requires the explicit core `migrateLeadTarget` operation (CLI
+`screen migrate-lead`); projects are never migrated on load. Per layout and locale it moves a family
+whose primary screens all fit the previous lead:
 each root takes over its existing current-lead variant's content, or is fitted in place through
 `fitElementsToArtboard`, and its original content stays unchanged as a previous-lead variant. Screen
 ids, slot order, and other variants' pairing are preserved. Families already compatible with the lead

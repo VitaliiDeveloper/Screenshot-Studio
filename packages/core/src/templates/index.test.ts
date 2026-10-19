@@ -213,7 +213,7 @@ describe("built-in templates", () => {
 
   it.each([
     ["ipad-landscape-starter", "13-landscape", 2752, 2064],
-    ["android-tablet-landscape-starter", "tablet-10-landscape", 2560, 1600],
+    ["android-tablet-landscape-starter", "tablet-landscape", 2560, 1440],
     ["play-feature-graphic", "play-feature-graphic", 1024, 500],
   ] as const)("materializes %s as an exportable exact-target variant", (id, targetId, width, height) => {
     const builtIn = listBuiltInTemplates(storeSpecs).find((candidate) => candidate.id === id)!;
