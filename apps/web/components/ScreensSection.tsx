@@ -271,7 +271,7 @@ export function ScreensSection({
     screen.locale === activeLocale && isPrimaryScreen(screen),
   ).length;
   const listLabel = activeScreen
-    ? `Screens for ${activeLocale} · ${activeScreen.device}`
+    ? `Screens for ${activeLocale} · ${outputFamilyEditorLabel(activeScreen.platform, activeScreen.device, specs)}`
     : `Screens for ${activeLocale}`;
   const scopeLabel = screensScopeLabel(layout, screens, activeScreen ?? screens[0], activeLocale, view, specs);
   const firstRunScreen = layout.screens.length === 1 && layout.screens[0]!.elements.length === 0
@@ -430,7 +430,7 @@ export function ScreensSection({
                     warning={warning !== null}
                     onClick={() => selectScreen(s.id)}
                     data-screen-id={s.id}
-                    aria-label={`${s.name} · ${s.device}`}
+                    aria-label={`${s.name} · ${outputFamilyEditorLabel(s.platform, s.device, specs)}`}
                   />
                   <button
                     type="button"
