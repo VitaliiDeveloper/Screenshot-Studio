@@ -25,6 +25,7 @@ import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImp
 import { ConfirmationDialog } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { playEntries } from "@web/components/play-gallery-model";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
@@ -40,6 +41,12 @@ import { useEditorIssues } from "./use-editor-issues";
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
   () => import("@web/components/canvas-viewport/CanvasViewport").then((m) => m.CanvasViewport),
+  { ssr: false },
+);
+
+// EditorStage pulls in react-konva, which needs the DOM.
+const DynamicPlayGalleryDialog = dynamic(
+  () => import("@web/components/PlayGalleryDialog").then((m) => m.PlayGalleryDialog),
   { ssr: false },
 );
 
@@ -79,6 +86,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
   const [exportRequestKey, setExportRequestKey] = useState(0);
   const [issuesOpen, setIssuesOpen] = useState(false);
+  const [playOpen, setPlayOpen] = useState(false);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
@@ -102,6 +110,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
   const issues = useEditorIssues(textMeasured, images);
   const issueCounts = useMemo(() => countIssues(issues), [issues]);
+  const canPlay = useStore(editorStore, (state) =>
+    specs ? playEntries(state.project, state.activeLayoutId, state.activeScreenId, specs).length > 0 : false);
   const goToIssue = useCallback((issue: ProjectIssue) => {
     const store = editorStore.getState();
     if (issue.kind === "missing-locale-screen") {
@@ -268,6 +278,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           }}
           onOpenDialog={setDialog}
           onOpenLocales={() => setLocaleDialogOpen(true)}
+          onOpenPlay={() => setPlayOpen(true)}
+          playDisabled={!canPlay}
         />
         <EditorSidePanel side="left" open={panel !== null}>
           <LeftPanel
@@ -359,6 +371,9 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             {fontRetrying ? "Retrying project fonts…" : "Retry project fonts"}
           </button>
         </div>
+      ) : null}
+      {playOpen ? (
+        <DynamicPlayGalleryDialog images={images} specs={specs} onClose={() => setPlayOpen(false)} />
       ) : null}
       {issuesOpen ? (
         <IssuesDialog
