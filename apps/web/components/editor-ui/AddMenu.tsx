@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx, editorUi } from "./styles.js";
+import { WrapAtSeparators } from "./WrapAtSeparators.js";
 
 export type AddMenuOption<T extends string> = {
   value: T;
@@ -132,8 +133,8 @@ export function AddMenu<T extends string>({
                 requestAnimationFrame(() => triggerRef.current?.focus());
               }}
             >
-              <span className="truncate text-[11px] font-normal leading-4">{option.label}</span>
-              {option.description ? <span className="truncate text-[10px] font-normal leading-4 text-[color:var(--editor-color-text-subtle)]">{option.description}</span> : null}
+              <span className="break-words text-[11px] font-normal leading-4"><WrapAtSeparators text={option.label} /></span>
+              {option.description ? <span className="break-words text-[10px] font-normal leading-4 text-[color:var(--editor-color-text-subtle)]"><WrapAtSeparators text={option.description} /></span> : null}
             </button>
           ))}
         </div>

@@ -23,6 +23,7 @@ import {
   OVERVIEW_GAP,
   outputFamilyEditorLabel,
   storeOutputLabel,
+  storeTargetDeviceCopy,
   workspaceEditingScope,
   workspaceOverviewRows,
 } from "./editor-workspace";
@@ -156,6 +157,8 @@ describe("editor workspace helpers", () => {
   it.each([
     ["apple", "iphone", "6.9", '6.9" iPhone (lead)', "portrait", '6.9" · Portrait'],
     ["apple", "iphone", "6.9-landscape", '6.9" iPhone landscape', "landscape", '6.9" · Landscape'],
+    ["apple", "iphone", "6.3", "iPhone Dynamic Island · Medium (lead)", "portrait", "Dynamic Island · Medium · Portrait"],
+    ["apple", "iphone", "6.1-landscape", "iPhone Face ID · Medium landscape", "landscape", "Face ID · Medium · Landscape"],
     ["apple", "ipad", "13", '13" iPad (lead)', "portrait", '13" · Portrait'],
     ["apple", "macos", "2880x1800", "Mac 2880×1800 (lead)", "landscape", "2880×1800 · Landscape"],
     ["apple", "tvos", "4k", "Apple TV 4K (lead)", "landscape", "4K · Landscape"],
@@ -183,6 +186,24 @@ describe("editor workspace helpers", () => {
       height: 100,
       orientation,
     } as StoreSize, platform, device)).toBe(expected);
+  });
+
+  it("titles sizes by the devices they reach and keeps the store slot as detail", () => {
+    const iphone = (id: string) => DEFAULT_STORE_SPECS.platforms.apple.families.iphone.targets.find((target) => target.id === id)!;
+    expect(storeTargetDeviceCopy(iphone("6.3"), "apple", "iphone")).toEqual({
+      title: "iPhone 18 Pro · 17 Pro · 17 +5",
+      detail: "Dynamic Island · Medium · 1206 × 2622 px",
+      devices: "iPhone 18 Pro, iPhone 17 Pro, iPhone 17, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 14 Pro",
+    });
+    expect(storeTargetDeviceCopy(iphone("6.1-landscape"), "apple", "iphone")).toMatchObject({
+      title: "iPhone 17e · 16e · 14 +9 · Landscape",
+      detail: "Face ID · Medium · 2436 × 1125 px",
+    });
+    expect(storeTargetDeviceCopy(iphone("duo-inner"), "apple", "iphone"))
+      .toEqual({ title: "Duo inner · Portrait", detail: "2007 × 2853 px", devices: null });
+    const ipad = DEFAULT_STORE_SPECS.platforms.apple.families.ipad.targets[0]!;
+    expect(storeTargetDeviceCopy(ipad, "apple", "ipad"))
+      .toEqual({ title: '13" · Portrait', detail: `${ipad.width} × ${ipad.height} px`, devices: null });
   });
 
   it("keeps promotional asset names separate from screenshot orientation", () => {
@@ -324,7 +345,7 @@ describe("editor workspace helpers", () => {
     const rows = workspaceOverviewRows(connected, firstVariant);
     expect(rows.map((row) => [row.label, row.screens.map((screen) => screen.id)]))
       .toEqual([
-        ["App Store · iPhone · 6.5\" · Portrait", ["first-65", "second-65"]],
+        ["App Store · iPhone · Face ID · Large · Portrait", ["first-65", "second-65"]],
         ["Google Play · Android phone", ["unrelated"]],
       ]);
   });
@@ -391,7 +412,7 @@ describe("editor workspace helpers", () => {
     expect(rows.map((row) => [row.label, row.editing, row.screens.map((screen) => screen.id)]))
       .toEqual([
         ["App Store · iPhone", true, ["first", "second"]],
-        ["App Store · iPhone · 6.5\" · Portrait", false, ["first-65"]],
+        ["App Store · iPhone · Face ID · Large · Portrait", false, ["first-65"]],
         ["Google Play · Android phone", false, ["unrelated"]],
       ]);
   });

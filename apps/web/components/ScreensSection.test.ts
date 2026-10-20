@@ -46,7 +46,7 @@ describe("screens header scope", () => {
   const iphone = layout.screens.filter((screen) => screen.device === "iphone");
 
   it("names the active size in Focus and counts sizes in Overview", () => {
-    expect(screensScopeLabel(layout, iphone, iphone[0], "en", "focus", specs)).toBe('3 · EN · iPhone 6.3"');
+    expect(screensScopeLabel(layout, iphone, iphone[0], "en", "focus", specs)).toBe('3 · EN · iPhone Dynamic Island · Medium');
     expect(screensScopeLabel(layout, iphone, iphone[0], "en", "overview", specs)).toBe("3 · EN · 2 sizes");
   });
 });
@@ -58,9 +58,9 @@ describe("screen row warning", () => {
   const saveFast = layout.screens.find((screen) => screen.id === "save-fast")!;
 
   it("names the size of another slot screen that has the issue", () => {
-    expect(screenRowWarning(layout, hero, [overflow("hero-69")], specs)).toBe('6.9": text overflows');
+    expect(screenRowWarning(layout, hero, [overflow("hero-69")], specs)).toBe('Dynamic Island · Large: text overflows');
     expect(screenRowWarning(layout, hero, [overflow("hero-69"), overflow("hero")], specs))
-      .toBe('6.9": text overflows · 1 more');
+      .toBe('Dynamic Island · Large: text overflows · 1 more');
   });
 
   it("ignores issues of other slots and other layouts", () => {
@@ -72,7 +72,7 @@ describe("screen row warning", () => {
     expect(screenRowWarning(layout, hero, [{
       kind: "missing-image", id: "img", level: "blocker", layoutId: "default",
       screenId: "hero", elementId: null, assetUrl: "assets/gone.png",
-    }], specs)).toBe('6.3": image missing');
+    }], specs)).toBe('Dynamic Island · Medium: image missing');
     expect(screenRowWarning(layout, hero, [{
       kind: "missing-locale-screen", id: "de", level: "blocker", layoutId: "default",
       locale: "de", sourceLocale: "en", sourceScreenId: "hero", allSizes: false,
@@ -95,10 +95,10 @@ describe("screen row button", () => {
   });
 
   it("shows the warning text in the warning color instead of the layer count", () => {
-    const markup = render(false, true, '6.3": text overflows');
+    const markup = render(false, true, 'Dynamic Island · Medium: text overflows');
 
     expect(markup).not.toContain("aria-current");
-    expect(markup).toContain("6.3&quot;: text overflows");
+    expect(markup).toContain("Dynamic Island · Medium: text overflows");
     expect(markup).toContain("text-[color:var(--editor-color-warning-text)]");
   });
 });
@@ -126,7 +126,7 @@ describe("ScreensSection", () => {
     const markup = render("focus");
 
     expect(markup).toContain(">Screens</h2>");
-    expect(markup).toContain("· 3 · EN · iPhone 6.3&quot;");
+    expect(markup).toContain("· 3 · EN · iPhone Dynamic Island · Medium");
     expect(markup).not.toContain("Find screen or layer");
     expect(markup).toContain('aria-label="Delete Save Fast"');
     const handle = /<span[^>]*aria-label="Drag to reorder"[^>]*>/.exec(markup)?.[0];
@@ -147,8 +147,8 @@ describe("ScreensSection", () => {
     const markup = render("overview", [overflow("hero-69"), overflow("save-fast")]);
 
     expect(markup).toContain("· 3 · EN · 3 sizes");
-    expect(markup).toContain("6.9&quot;: text overflows");
-    expect(markup).toContain("6.3&quot;: text overflows");
+    expect(markup).toContain("Dynamic Island · Large: text overflows");
+    expect(markup).toContain("Dynamic Island · Medium: text overflows");
     expect(markup).toContain(">1 size</span>");
     // The active row keeps its accent fill; only the inactive warning row turns amber.
     expect(markup.match(/border-dashed border-\[var\(--editor-color-warning-text\)\]/g)).toHaveLength(1);

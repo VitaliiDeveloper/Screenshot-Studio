@@ -16,9 +16,12 @@ interface ApplyScopeProps {
   onChange: (scope: ApplyScope) => void;
 }
 
-/** `Only 6.9"` / `All iPhone` / `All destinations`, named from the screen being edited. */
+/** `Only Dynamic Island · Large` / `All iPhone` / `All destinations`, named from the screen being edited. */
 export function applyScopeOptions(screen: Screen, specs: StoreSpecs | null) {
-  const size = specs ? screenTargetLabel(screen, specs)?.split(" · ")[0] : null;
+  const parts = specs ? screenTargetLabel(screen, specs)?.split(" · ") : undefined;
+  // The size name can itself contain ` · `, so cut at the orientation, not at the first separator.
+  const orientation = parts?.findIndex((part) => /^(?:Portrait|Landscape|Square)$/.test(part)) ?? -1;
+  const size = parts ? parts.slice(0, orientation > 0 ? orientation : 1).join(" · ") : null;
   return [
     { value: "screen", label: size ? `Only ${size}` : "Only this size" },
     { value: "family", label: `All ${outputFamilyEditorLabel(screen.platform, screen.device, specs ?? undefined)}` },
@@ -32,7 +35,9 @@ export function ApplyScopeSelect({ screen, specs, value, onChange }: Omit<ApplyS
     <MenuSelect
       ariaLabel="Apply to"
       value={value}
-      options={applyScopeOptions(screen, specs)}
+      // Size names like `Dynamic Island · Medium` overflow this trigger; the menu keeps the full name.
+      options={applyScopeOptions(screen, specs).map((option) =>
+        option.value === "screen" ? { ...option, triggerLabel: "This size" } : option)}
       onChange={onChange}
       density="compact"
       className="w-32 shrink-0"

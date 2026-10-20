@@ -13,10 +13,10 @@ const screen = (storeTargetId?: string) => ({
 
 describe("screenPreviewMetadata", () => {
   it("names the store target and its export px instead of persisted ids", () => {
-    expect(screenPreviewMetadata(screen("6.1"))).toBe('iPhone 5.8" · Portrait · 1125 × 2436 · en');
+    expect(screenPreviewMetadata(screen("6.1"))).toBe('iPhone Face ID · Medium · Portrait · 1125 × 2436 · en');
   });
 
   it("resolves a master to its family's lead target", () => {
-    expect(screenPreviewMetadata(screen())).toBe('iPhone 6.3" · Portrait · 1206 × 2622 · en');
+    expect(screenPreviewMetadata(screen())).toBe('iPhone Dynamic Island · Medium · Portrait · 1206 × 2622 · en');
   });
 });

@@ -72,7 +72,7 @@ export function screensScopeLabel(
 }
 
 /**
- * A screen row's warning: the first issue on any size of its slot, e.g. `6.3": text overflows`,
+ * A screen row's warning: the first issue on any size of its slot, e.g. `Dynamic Island · Medium: text overflows`,
  * with how many more there are; null when the slot has none.
  */
 export function screenRowWarning(

@@ -20,15 +20,11 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import {
-  conciseStoreTargetLabel,
+  storeTargetDeviceCopy,
   outputFamilyEditorLabel,
   storeOutputLabel,
 } from "@web/lib/editor/editor-workspace";
-import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl } from "./editor-ui";
-
-function dimensionsLabel(target: StoreSize): string {
-  return `${target.width} × ${target.height} px`;
-}
+import { AddMenu, ConfirmationDialog, editorUi, SegmentedControl, WrapAtSeparators } from "./editor-ui";
 
 /**
  * Store-target navigation never mutates the active artboard. The lead row opens the root/master;
@@ -158,7 +154,8 @@ export function ArtboardTargets({
     const isCurrent = target.id === leadId
       ? isPrimaryScreen(screen)
       : screen.storeTargetId === target.id;
-    const displayLabel = conciseStoreTargetLabel(target, screen.platform, screen.device, specs);
+    const copy = storeTargetDeviceCopy(target, screen.platform, screen.device, specs);
+    const displayLabel = copy.title;
     const canRemove = !isLead && root !== undefined && targetScreen !== undefined;
     return (
       <div
@@ -166,22 +163,23 @@ export function ArtboardTargets({
         role="group"
         aria-label={`${displayLabel} output target`}
         aria-current={isCurrent ? "true" : undefined}
+        title={copy.devices ?? undefined}
         className={`relative mb-1.5 flex items-center justify-between gap-2 rounded-[var(--editor-radius-control)] border p-2.5 text-xs transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] ${isCurrent ? "border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)]" : `border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] ${targetScreen ? "cursor-pointer hover:border-[var(--editor-color-accent-muted)] hover:bg-[var(--editor-color-accent-subtle)]" : ""}`}`}
       >
         {!isCurrent && targetScreen ? (
           <button
             type="button"
             aria-label={`Open ${displayLabel}`}
-            title={`Open ${displayLabel}`}
+            title={`Open ${copy.devices ?? displayLabel}`}
             className="absolute inset-0 rounded-[var(--editor-radius-control)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
             onClick={() => onOpen(targetScreen.id)}
           />
         ) : null}
         <span className="pointer-events-none relative z-[1] flex min-w-0 flex-col gap-1">
-          <span data-testid="store-target-name" className="truncate font-semibold text-[color:var(--editor-color-text-default)]">
-            {displayLabel}
+          <span data-testid="store-target-name" className="break-words font-semibold text-[color:var(--editor-color-text-default)]">
+            {copy.devices ? <WrapAtSeparators text={displayLabel} /> : displayLabel}
           </span>
-          <span className="text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-muted)]">{dimensionsLabel(target)}</span>
+          <span className="text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-muted)]"><WrapAtSeparators text={copy.detail} /></span>
         </span>
         <span className="pointer-events-none relative z-[2] flex shrink-0 items-center gap-1">
           <span
@@ -232,11 +230,10 @@ export function ArtboardTargets({
           ariaLabel={ariaLabel}
           menuLabel={`Available ${title.toLowerCase()}`}
           menuClassName="menu-select-surface"
-          options={available.map((target) => ({
-            value: target.id,
-            label: conciseStoreTargetLabel(target, screen.platform, screen.device, specs),
-            description: dimensionsLabel(target),
-          }))}
+          options={available.map((target) => {
+            const { title, detail } = storeTargetDeviceCopy(target, screen.platform, screen.device, specs);
+            return { value: target.id, label: title, description: detail };
+          })}
           onSelect={(targetId) => {
             const target = available.find((candidate) => candidate.id === targetId);
             if (target) onCreate(target);

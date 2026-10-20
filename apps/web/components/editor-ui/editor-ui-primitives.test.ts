@@ -11,6 +11,7 @@ import {
   SegmentedControl,
   StatusMessage,
   ToolButton,
+  WrapAtSeparators,
 } from "@web/components/editor-ui.js";
 
 const menuSelectSource = readFileSync(new URL("./MenuSelect.tsx", import.meta.url), "utf8");
@@ -202,5 +203,14 @@ describe("editor UI primitives", () => {
     expect(html).toContain(editorUi.insetPanel);
     expect(html).toContain("extra");
     expect(html).toContain("Inspector controls");
+  });
+});
+
+describe("WrapAtSeparators", () => {
+  it("keeps each part unbroken and shows a trailing device count as a chip", () => {
+    const markup = renderToStaticMarkup(createElement(WrapAtSeparators, { text: "iPhone 18 Pro · 17 Pro · 17 +5" }));
+    expect(markup.match(/whitespace-nowrap/g)).toHaveLength(3);
+    expect(markup).toMatch(/17 <span class="inline-block rounded-full[^"]*">\+5<\/span>/);
+    expect(renderToStaticMarkup(createElement(WrapAtSeparators, { text: "1206 × 2622 px" }))).not.toContain("rounded-full");
   });
 });

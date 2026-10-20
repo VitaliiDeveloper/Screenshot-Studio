@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import { createTextElement, getLayout, parseProject, type Element } from "@screenshot-studio/core/model";
-import { applyScopeSummary, resolveApplyScope } from "./ApplyScopeControl";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
+import { applyScopeOptions, applyScopeSummary, resolveApplyScope } from "./ApplyScopeControl";
 
 function screen(id: string, name: string, elements: Element[], extra: Record<string, unknown> = {}) {
   return {
@@ -50,6 +51,15 @@ describe("applyScopeSummary", () => {
     expect(applyScopeSummary(layout, hero, "destinations")).toBe(
       "One edit across 2 exact-size screens in EN, one undo step. 1 destination skipped: no screen named “Hero” at this position.",
     );
+  });
+});
+
+describe("applyScopeOptions", () => {
+  it("names the whole size, including a size name that contains a separator", () => {
+    const only = (target: typeof hero) => applyScopeOptions(target, DEFAULT_STORE_SPECS)[0].label;
+    expect(only(hero)).toBe("Only Dynamic Island · Medium");
+    expect(only(layout.screens[1]!)).toBe("Only Dynamic Island · Large");
+    expect(only(layout.screens[2]!)).toBe('Only 13"');
   });
 });
 

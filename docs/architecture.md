@@ -86,9 +86,14 @@ than implementing their own platform- or size-specific rules. Removing an exact 
 the complete size row; it is distinct from deleting one independent screen slot.
 
 A primary-size screen persists no target and exports at its family's current catalog lead, so the
-lead implicitly binds every saved primary screen. The iPhone family leads with its 6.3" target
+lead implicitly binds every saved primary screen. The iPhone family leads with its Dynamic Island · Medium target (id `6.3`)
 because App Store Connect requires a screenshot in that display class, which makes a lead-only export
-submittable. The Android tablet family leads with a 9:16 portrait target because Google Play's
+submittable. iPhone target labels name the App Store Connect display group (Dynamic Island or
+Face ID, Large or Medium) instead of inches, because one inch size spans several upload groups
+(6.1" is both iPhone 16 and 17e); the persisted ids keep their inch form. Each iPhone target also
+lists the `devices` whose store listing shows that upload, newest first, identically on its landscape
+twin. The list is display data only and is updated when Apple adds a phone to a group; the git
+history of `store-specs.json` is the record of past lineups. The Android tablet family leads with a 9:16 portrait target because Google Play's
 large-screen guidance and recommendation eligibility name only 16:9 and 9:16; its former 10:16 lead
 stays in the catalog as the migration source. Changing a family's lead is therefore a breaking
 catalog change that requires the explicit core `migrateLeadTarget` operation (CLI

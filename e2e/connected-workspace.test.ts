@@ -167,8 +167,8 @@ describe("connected workspace", () => {
     const previewMetadata = connected.getByTestId("artboard-preview-caption");
     expect(await previewTitles.allTextContents()).toEqual(["Connected First", "Connected Second"]);
     expect(await previewMetadata.allTextContents()).toEqual([
-      'iPhone 6.3" · Portrait · 1206 × 2622 · en',
-      'iPhone 6.3" · Portrait · 1206 × 2622 · en',
+      'iPhone Dynamic Island · Medium · Portrait · 1206 × 2622 · en',
+      'iPhone Dynamic Island · Medium · Portrait · 1206 × 2622 · en',
     ]);
     const stage = connected.getByTestId("editor-stage");
     expect(await stage.getAttribute("data-stage-screen-ids"))

@@ -180,12 +180,12 @@ describe("textSizeStatus", () => {
 
   it("reads each exact size of the slot from the Issues list", () => {
     expect(rows("title")).toEqual([
-      { label: "6.3\" · Portrait", current: true, element: "title", state: "fits" },
-      { label: "6.9\" · Portrait", current: false, element: "title-69", state: "overflows" },
-      { label: "5.8\" · Portrait", current: false, element: "title-61", state: "fits" },
-      { label: "6.5\" · Portrait", current: false, element: null, state: "unmatched" },
+      { label: "iPhone 18 Pro · 17 Pro · 17 +5", current: true, element: "title", state: "fits" },
+      { label: "iPhone 18 Pro Max · Air · 17 Pro Max +5", current: false, element: "title-69", state: "overflows" },
+      { label: "iPhone 17e · 16e · 14 +9", current: false, element: "title-61", state: "fits" },
+      { label: "iPhone 14 Plus · 13 Pro Max · 12 Pro Max +4", current: false, element: null, state: "unmatched" },
     ]);
-    expect(rows("subtitle")[2]).toEqual({ label: "5.8\" · Portrait", current: false, element: "subtitle-61", state: "hidden" });
+    expect(rows("subtitle")[2]).toEqual({ label: "iPhone 17e · 16e · 14 +9", current: false, element: "subtitle-61", state: "hidden" });
   });
 
   it("never reports fits before text has been measured", () => {
@@ -211,9 +211,9 @@ describe("textSizeStatus", () => {
       }],
     });
     expect(textSizeStatus(lead, "default", "hero", "title", [], true).map(({ label }) => label)).toEqual([
-      "6.3\" · Portrait · 603 × 1311",
-      "6.3\" · Portrait · 1206 × 2622",
-      "6.9\" · Portrait",
+      "iPhone 18 Pro · 17 Pro · 17 +5 · 603 × 1311",
+      "iPhone 18 Pro · 17 Pro · 17 +5 · 1206 × 2622",
+      "iPhone 18 Pro Max · Air · 17 Pro Max +5",
     ]);
   });
 });

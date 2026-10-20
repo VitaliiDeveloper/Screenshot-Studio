@@ -9,6 +9,7 @@ import {
   findStoreTarget,
   listOutputDestinations,
   listOutputFamilies,
+  listStoreTargets,
   outputFamilyLabel,
   parseStoreSpecs,
 } from "./specs.js";
@@ -45,12 +46,29 @@ describe("unified store catalog", () => {
     }
   });
 
-  it("labels the stable 6.1 iPhone id by the 5.8-inch Face ID class its pixels belong to", () => {
-    // App Store Connect's 6.1"/6.3" Dynamic Island slot rejects 1125×2436.
-    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.1"))
-      .toMatchObject({ label: '5.8" iPhone', width: 1125, height: 2436 });
-    expect(findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.1-landscape"))
-      .toMatchObject({ label: '5.8" iPhone landscape', width: 2436, height: 1125 });
+  it("labels iPhone targets by their App Store Connect display group, not by inches", () => {
+    // Inches collide across groups (6.1" iPhone 16 vs 17e, 6.5" Air vs XR), so the label names
+    // the upload slot; the stable ids stay as persisted.
+    const labels = Object.fromEntries(["6.9", "6.5", "6.3", "6.1", "6.1-landscape"].map((id) =>
+      [id, findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", id)]));
+    expect(labels).toMatchObject({
+      "6.9": { label: "iPhone Dynamic Island · Large", width: 1320, height: 2868 },
+      "6.5": { label: "iPhone Face ID · Large", width: 1284, height: 2778 },
+      "6.3": { label: "iPhone Dynamic Island · Medium (lead)", width: 1206, height: 2622 },
+      "6.1": { label: "iPhone Face ID · Medium", width: 1125, height: 2436 },
+      "6.1-landscape": { label: "iPhone Face ID · Medium landscape", width: 2436, height: 1125 },
+    });
+  });
+
+  it("lists the devices each iPhone upload reaches, identically on its landscape twin", () => {
+    const targets = listStoreTargets(DEFAULT_STORE_SPECS, "apple", "iphone");
+    expect(targets.find(({ id }) => id === "6.3")?.devices).toEqual([
+      "iPhone 18 Pro", "iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro", "iPhone 15", "iPhone 14 Pro",
+    ]);
+    for (const target of targets.filter(({ id }) => id.endsWith("-landscape"))) {
+      const portrait = targets.find(({ id }) => id === target.id.replace(/-landscape$/, ""));
+      expect(target.devices, target.id).toEqual(portrait?.devices);
+    }
   });
 
   it("leads Android tablets at Play's 9:16 large-screen ratio and keeps the 10:16 migration source", () => {

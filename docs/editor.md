@@ -98,11 +98,11 @@ layer row has a direct lock toggle. Layer rows are one line. A text layer is lab
 (about 30 characters, cut with `…`) unless it has been renamed, in which case the name wins; the
 full text is then the row's tooltip and accessible description. Built-in templates leave text
 layers unnamed, and Issues and the Inspector use the same label.
-The Screens header names the scope as `Screens · count · locale · iPhone 6.9"` in Focus and ends
+The Screens header names the scope as `Screens · count · locale · iPhone Dynamic Island · Large` in Focus and ends
 with the number of sizes in Overview. A screen row shows its thumbnail, name, and
 `N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
 whose slot has an issue on any size turns amber and shows the first issue, such as
-`6.3": text overflows`, instead of that count. Thumbnails keep their order number because export
+`Dynamic Island · Medium: text overflows`, instead of that count. Thumbnails keep their order number because export
 file names use it. Layer rows show a type icon (rectangle and ellipse shapes differ), the name, and the lock; a
 locked layer is muted and keeps a dark, closed lock. One selected layer gets the solid accent fill, several get a light fill.
 Each row's drag handle and Delete or More actions appear on hover and whenever focus is inside
@@ -162,6 +162,12 @@ the current family and exact size without a redundant `Current` action. Removing
 the same labelled app-owned confirmation pattern and follows the visible Separate/Sync sizes scope.
 Removing a size removes that complete exact-size row; deleting an individual screen changes only the
 slot scope described above.
+Where people pick or edit a size (the Add output size menu, the output size cards, and Status by
+size), a target the catalog lists devices for is titled by those devices, up to three and then
+`+N` (`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store
+slot and pixels follow as the detail (`Dynamic Island · Medium · 1206 × 2622 px`), and the full
+device list is the card's tooltip. Export, Overview rows, the Screens header, Apply to, and the
+artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
 (`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues

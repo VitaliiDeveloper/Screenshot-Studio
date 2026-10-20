@@ -149,7 +149,7 @@ describe("left panel", () => {
     await page.getByText(/^· 3 · EN · 2 sizes$/).waitFor();
     expect(await page.getByRole("button", { name: "Save Fast · iPhone", exact: true }).textContent()).toContain("1 size");
     await page.getByRole("button", { name: "Focus", exact: true }).click();
-    await page.getByText(/^· 3 · EN · iPhone 6\.3"$/).waitFor();
+    await page.getByText(/^· 3 · EN · iPhone Dynamic Island · Medium$/).waitFor();
 
     const saveFast = page.getByRole("button", { name: "Save Fast · iPhone", exact: true });
     const deleteSaveFast = page.getByRole("button", { name: "Delete Save Fast", exact: true });

@@ -14,6 +14,7 @@ export { EmptyResourceState } from "./editor-ui/EmptyResourceState.js";
 export { ToolButton } from "./editor-ui/ToolButton.js";
 export { StatusMessage } from "./editor-ui/StatusMessage.js";
 export { InsetPanel } from "./editor-ui/InsetPanel.js";
+export { WrapAtSeparators } from "./editor-ui/WrapAtSeparators.js";
 export {
   SegmentedControl,
   type SegmentedControlOption,

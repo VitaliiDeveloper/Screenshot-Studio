@@ -180,21 +180,21 @@ describe("editor issues", () => {
     await page.getByRole("button", { name: "Issues: 2 warnings" }).waitFor({ state: "attached" });
 
     // Status by size reads the same issues: Fit on another size changes only that size's layer.
-    await dialog.getByRole("button", { name: /^Go to A B C · Hero · iPhone 6\.3.* · de$/ }).click();
+    await dialog.getByRole("button", { name: /^Go to A B C · Hero · iPhone Dynamic Island · Medium.* · de$/ }).click();
     await dialog.waitFor({ state: "detached" });
     const status = page.getByRole("list", { name: "Status by size" });
-    await status.getByText(/^6\.9.* — text overflows$/).waitFor({ state: "visible" });
-    expect(await status.getByText(/^6\.3.* — editing · text overflows$/).isVisible()).toBe(true);
-    await status.getByRole("button", { name: /^Fit text on 6\.9/ }).click();
+    await status.getByText(/^iPhone 18 Pro Max .* — text overflows$/).waitFor({ state: "visible" });
+    expect(await status.getByText(/^iPhone 18 Pro · .* — editing · text overflows$/).isVisible()).toBe(true);
+    await status.getByRole("button", { name: /^Fit text on iPhone 18 Pro Max / }).click();
     await expect.poll(() => textSize("de-title-69", "hero-de-69")).toBe(66);
     expect(textSize("de-title", "hero-de")).toBe(100);
-    await status.getByText(/^6\.9.* — fits$/).waitFor({ state: "visible" });
+    await status.getByText(/^iPhone 18 Pro Max .* — fits$/).waitFor({ state: "visible" });
     await page.getByRole("button", { name: "Undo" }).click();
     await expect.poll(() => textSize("de-title-69", "hero-de-69")).toBe(100);
     await page.getByRole("button", { name: "Redo" }).click();
     await expect.poll(() => textSize("de-title-69", "hero-de-69")).toBe(66);
 
-    await status.getByRole("button", { name: /^Fit text on 6\.3/ }).click();
+    await status.getByRole("button", { name: /^Fit text on iPhone 18 Pro · / }).click();
     await expect.poll(() => textSize("de-title", "hero-de")).toBe(66);
     await page.getByRole("button", { name: "Issues: none" }).click();
     expect(await dialog.getByText("Nothing to fix in this layout.").isVisible()).toBe(true);
