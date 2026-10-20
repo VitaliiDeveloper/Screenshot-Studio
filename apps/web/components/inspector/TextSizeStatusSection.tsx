@@ -70,7 +70,7 @@ export function TextSizeStatusSection({
                           : "bg-[var(--editor-color-border-strong)]",
                   )}
                 />
-                <span className="min-w-0 flex-1"><WrapAtSeparators text={`${label} — ${status}`} /></span>
+                <span className="min-w-0 flex-1"><WrapAtSeparators text={label} /> — {status}</span>
                 {overflows && element ? (
                   <button
                     type="button"
