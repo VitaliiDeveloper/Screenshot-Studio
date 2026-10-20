@@ -227,7 +227,7 @@ my-app-screenshots/
 ├── assets/                      # screenshots, images, fonts, and processed assets
 ├── screenshots/                 # organized PNG captures for import
 ├── templates/<id>.json          # project-local screen templates
-├── themes/<id>.json             # project-local themes
+├── themes/<id>.json             # project-local design packs
 └── export/                      # generated outputs
 ```
 
