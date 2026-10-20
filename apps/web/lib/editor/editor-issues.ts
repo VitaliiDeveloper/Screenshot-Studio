@@ -21,6 +21,7 @@ import {
   distinctSizeLabels,
   outputFamilyEditorLabel,
   screenStoreTarget,
+  storeTargetDeviceCopy,
 } from "./editor-workspace.js";
 import { elementLabel } from "@web/lib/panel-helpers.js";
 
@@ -195,7 +196,11 @@ export function textSizeStatus(
   if (!source) return [];
   const screens = slotScreens(layout, source);
   const labels = distinctSizeLabels(
-    screens.map((screen) => ({ screen, label: screenTargetLabel(screen, specs) ?? screen.name })),
+    screens.map((screen) => {
+      const target = screenStoreTarget(screen, specs);
+      const label = target ? storeTargetDeviceCopy(target, screen.platform, screen.device, specs).title : screen.name;
+      return { screen, label };
+    }),
   );
   return screens.map((screen, index) => {
     const counterpart = slotCounterpart(source, elementId, screen);

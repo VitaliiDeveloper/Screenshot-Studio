@@ -282,6 +282,33 @@ export function conciseStoreTargetLabel(
   ].filter(Boolean).join(" · ");
 }
 
+const SHOWN_TARGET_DEVICES = 3;
+
+/**
+ * Size copy where people pick or edit a size: the devices the upload reaches as the title
+ * (`iPhone 18 Pro · 17 Pro · 17 +5`), and the store slot with its pixels as the detail. Targets the
+ * catalog lists no devices for keep the concise target label as the title.
+ */
+export function storeTargetDeviceCopy(
+  target: StoreSize,
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): { title: string; detail: string; devices: string | null } {
+  const slot = conciseStoreTargetLabel(target, platform, device, specs);
+  const pixels = `${target.width} × ${target.height} px`;
+  if (!target.devices) return { title: slot, detail: pixels, devices: null };
+  const [first, ...rest] = target.devices;
+  const shown = [first, ...rest.slice(0, SHOWN_TARGET_DEVICES - 1).map((name) => name.replace(/^iPhone /, ""))];
+  const more = target.devices.length - shown.length;
+  const orientation = target.orientation === "portrait" ? "" : ` · ${capitalizeDisplayLabel(target.orientation)}`;
+  return {
+    title: `${shown.join(" · ")}${more > 0 ? ` +${more}` : ""}${orientation}`,
+    detail: `${slot.replace(/ · (?:Portrait|Landscape)\b/, "")} · ${pixels}`,
+    devices: target.devices.join(", "),
+  };
+}
+
 export interface OutputFamily {
   key: string;
   label: string;

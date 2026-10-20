@@ -162,6 +162,12 @@ the current family and exact size without a redundant `Current` action. Removing
 the same labelled app-owned confirmation pattern and follows the visible Separate/Sync sizes scope.
 Removing a size removes that complete exact-size row; deleting an individual screen changes only the
 slot scope described above.
+Where people pick or edit a size (the Add output size menu, the output size cards, and Status by
+size), a target the catalog lists devices for is titled by those devices, up to three and then
+`+N` (`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store
+slot and pixels follow as the detail (`Dynamic Island · Medium · 1206 × 2622 px`), and the full
+device list is the card's tooltip. Export, Overview rows, the Screens header, Apply to, and the
+artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
 (`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues

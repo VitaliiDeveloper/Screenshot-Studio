@@ -90,7 +90,10 @@ lead implicitly binds every saved primary screen. The iPhone family leads with i
 because App Store Connect requires a screenshot in that display class, which makes a lead-only export
 submittable. iPhone target labels name the App Store Connect display group (Dynamic Island or
 Face ID, Large or Medium) instead of inches, because one inch size spans several upload groups
-(6.1" is both iPhone 16 and 17e); the persisted ids keep their inch form. The Android tablet family leads with a 9:16 portrait target because Google Play's
+(6.1" is both iPhone 16 and 17e); the persisted ids keep their inch form. Each iPhone target also
+lists the `devices` whose store listing shows that upload, newest first, identically on its landscape
+twin. The list is display data only and is updated when Apple adds a phone to a group; the git
+history of `store-specs.json` is the record of past lineups. The Android tablet family leads with a 9:16 portrait target because Google Play's
 large-screen guidance and recommendation eligibility name only 16:9 and 9:16; its former 10:16 lead
 stays in the catalog as the migration source. Changing a family's lead is therefore a breaking
 catalog change that requires the explicit core `migrateLeadTarget` operation (CLI

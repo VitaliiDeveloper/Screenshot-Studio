@@ -6,7 +6,7 @@ import { fitTextSize } from "@screenshot-studio/core/engine";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import { cx, editorUi } from "@web/components/editor-ui";
+import { cx, editorUi, WrapAtSeparators } from "@web/components/editor-ui";
 import { textSizeStatus, type TextSizeState } from "@web/lib/editor/editor-issues";
 import { applyTextFit } from "@web/lib/editor/editor-text-fit";
 import { InspectorSection as Section } from "./InspectorSection";
@@ -70,7 +70,7 @@ export function TextSizeStatusSection({
                           : "bg-[var(--editor-color-border-strong)]",
                   )}
                 />
-                <span className="min-w-0 flex-1">{label} — {status}</span>
+                <span className="min-w-0 flex-1"><WrapAtSeparators text={`${label} — ${status}`} /></span>
                 {overflows && element ? (
                   <button
                     type="button"

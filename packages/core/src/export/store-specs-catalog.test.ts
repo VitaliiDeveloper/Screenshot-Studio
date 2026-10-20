@@ -9,6 +9,7 @@ import {
   findStoreTarget,
   listOutputDestinations,
   listOutputFamilies,
+  listStoreTargets,
   outputFamilyLabel,
   parseStoreSpecs,
 } from "./specs.js";
@@ -57,6 +58,17 @@ describe("unified store catalog", () => {
       "6.1": { label: "iPhone Face ID · Medium", width: 1125, height: 2436 },
       "6.1-landscape": { label: "iPhone Face ID · Medium landscape", width: 2436, height: 1125 },
     });
+  });
+
+  it("lists the devices each iPhone upload reaches, identically on its landscape twin", () => {
+    const targets = listStoreTargets(DEFAULT_STORE_SPECS, "apple", "iphone");
+    expect(targets.find(({ id }) => id === "6.3")?.devices).toEqual([
+      "iPhone 18 Pro", "iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro", "iPhone 15", "iPhone 14 Pro",
+    ]);
+    for (const target of targets.filter(({ id }) => id.endsWith("-landscape"))) {
+      const portrait = targets.find(({ id }) => id === target.id.replace(/-landscape$/, ""));
+      expect(target.devices, target.id).toEqual(portrait?.devices);
+    }
   });
 
   it("leads Android tablets at Play's 9:16 large-screen ratio and keeps the 10:16 migration source", () => {
