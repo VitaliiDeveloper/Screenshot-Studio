@@ -197,4 +197,23 @@ describe("textSizeStatus", () => {
   it("never matches a layer once a size's structure diverged", () => {
     expect(rows("title")[3]?.element).toBeNull();
   });
+
+  it("tells sizes that share a label apart by artboard px", () => {
+    const lead = parseProject({
+      ...slot,
+      layouts: [{
+        ...slot.layouts[0]!,
+        screens: [
+          { ...screen("hero", "Hero", "en", [title("title")]), artboard: { width: 603, height: 1311 } },
+          { ...variant("hero-63", "6.3", [title("title-63")]), artboard: { width: 1206, height: 2622 } },
+          variant("hero-69", "6.9", [title("title-69")]),
+        ],
+      }],
+    });
+    expect(textSizeStatus(lead, "default", "hero", "title", [], true).map(({ label }) => label)).toEqual([
+      "6.3\" · Portrait · 603 × 1311",
+      "6.3\" · Portrait · 1206 × 2622",
+      "6.9\" · Portrait",
+    ]);
+  });
 });
