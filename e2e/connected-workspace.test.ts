@@ -127,7 +127,7 @@ describe("connected workspace", () => {
     await ipadRowButton.click();
     const ipadRow = rows.filter({ hasText: "App Store · iPad" });
     await expect.poll(() => ipadRow.getAttribute("data-editing")).toBe("true");
-    await page.getByRole("list", { name: "Screens for en · ipad" }).waitFor({ state: "visible" });
+    await page.getByRole("list", { name: "Screens for en · iPad" }).waitFor({ state: "visible" });
     await page.getByRole("heading", { name: /^Layers · Unrelated \d+$/ }).waitFor({ state: "visible" });
     await page.getByText("540 × 960 px", { exact: true }).waitFor({ state: "visible" });
     const ipadConnected = page.getByTestId("connected-artboards");
@@ -171,10 +171,10 @@ describe("connected workspace", () => {
     expect(await stage.getAttribute("data-stage-screen-ids"))
       .toBe("connected-first connected-second");
 
-    const screens = page.getByRole("list", { name: "Screens for en · iphone" });
+    const screens = page.getByRole("list", { name: "Screens for en · iPhone" });
     await screens.waitFor({ state: "visible" });
     expect(await screens.locator(":scope > [role='listitem']").count()).toBe(2);
-    expect(await page.getByRole("button", { name: "Unrelated · phone", exact: true }).count()).toBe(0);
+    expect(await page.getByRole("button", { name: "Unrelated · iPad", exact: true }).count()).toBe(0);
 
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
     const activeLayout = page.getByRole("button", { name: "Active layout: Default" });
@@ -193,7 +193,7 @@ describe("connected workspace", () => {
     await waitForConnectedWorkspace(page);
     expect(await page.getByRole("button", { name: "Undo" }).isDisabled()).toBe(true);
 
-    const secondButton = screens.getByRole("button", { name: "Connected Second · iphone" });
+    const secondButton = screens.getByRole("button", { name: "Connected Second · iPhone" });
     const secondThumbnail = secondButton.locator("xpath=..").locator("img");
     const originalThumbnail = await secondThumbnail.getAttribute("src");
     expect(originalThumbnail).toMatch(/^data:image\/png/);
@@ -281,7 +281,7 @@ describe("connected workspace", () => {
     await page.keyboard.press("Space");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
     expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
-    await page.getByRole("list", { name: "Screens for en · iphone" }).waitFor({ state: "visible" });
+    await page.getByRole("list", { name: "Screens for en · iPhone" }).waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

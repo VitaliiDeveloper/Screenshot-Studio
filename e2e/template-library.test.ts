@@ -144,13 +144,13 @@ describe("template library UI", () => {
     await templateDialog.waitFor({ state: "hidden" });
     const layersPanel = page.getByRole("button", { name: "Layers panel", exact: true });
     if (await layersPanel.getAttribute("aria-pressed") !== "true") await layersPanel.click();
-    const screenButton = page.getByRole("button", { name: /Promo card · macos/ });
+    const screenButton = page.getByRole("button", { name: /Promo card · macOS/ });
     await screenButton.waitFor({ state: "visible" });
     expect(await screenButton.getAttribute("aria-current")).toBe("true");
 
     await page.reload({ waitUntil: "load" });
     await page.waitForSelector("canvas");
-    expect(await page.getByRole("button", { name: /Promo card · macos/ }).count()).toBe(1);
+    expect(await page.getByRole("button", { name: /Promo card · macOS/ }).count()).toBe(1);
     await page.close();
   });
 });
