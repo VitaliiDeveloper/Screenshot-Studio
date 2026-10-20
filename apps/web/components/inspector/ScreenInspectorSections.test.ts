@@ -314,7 +314,7 @@ describe("Stored on this screen", () => {
       "Stored on this screen",
       "Locale", "EN · LTR",
       "Destination", "App Store · iPhone",
-      "Size", "6.3&quot; · Portrait · 1206\u00a0×\u00a02622",
+      "Size", "Dynamic Island · Medium · Portrait · 1206\u00a0×\u00a02622",
       "Layout", "Primary",
       "Read-only. Another locale or size is another screen.",
     ]);

@@ -155,6 +155,8 @@ describe("editor workspace helpers", () => {
   it.each([
     ["apple", "iphone", "6.9", '6.9" iPhone (lead)', "portrait", '6.9" · Portrait'],
     ["apple", "iphone", "6.9-landscape", '6.9" iPhone landscape', "landscape", '6.9" · Landscape'],
+    ["apple", "iphone", "6.3", "iPhone Dynamic Island · Medium (lead)", "portrait", "Dynamic Island · Medium · Portrait"],
+    ["apple", "iphone", "6.1-landscape", "iPhone Face ID · Medium landscape", "landscape", "Face ID · Medium · Landscape"],
     ["apple", "ipad", "13", '13" iPad (lead)', "portrait", '13" · Portrait'],
     ["apple", "macos", "2880x1800", "Mac 2880×1800 (lead)", "landscape", "2880×1800 · Landscape"],
     ["apple", "tvos", "4k", "Apple TV 4K (lead)", "landscape", "4K · Landscape"],

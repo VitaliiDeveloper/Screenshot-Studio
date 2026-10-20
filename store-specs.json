@@ -15,56 +15,56 @@
           "targets": [
             {
               "id": "6.9",
-              "label": "6.9\" iPhone",
+              "label": "iPhone Dynamic Island · Large",
               "width": 1320,
               "height": 2868,
               "orientation": "portrait"
             },
             {
               "id": "6.9-landscape",
-              "label": "6.9\" iPhone landscape",
+              "label": "iPhone Dynamic Island · Large landscape",
               "width": 2868,
               "height": 1320,
               "orientation": "landscape"
             },
             {
               "id": "6.5",
-              "label": "6.5\" iPhone",
+              "label": "iPhone Face ID · Large",
               "width": 1284,
               "height": 2778,
               "orientation": "portrait"
             },
             {
               "id": "6.5-landscape",
-              "label": "6.5\" iPhone landscape",
+              "label": "iPhone Face ID · Large landscape",
               "width": 2778,
               "height": 1284,
               "orientation": "landscape"
             },
             {
               "id": "6.3",
-              "label": "6.3\" iPhone (lead)",
+              "label": "iPhone Dynamic Island · Medium (lead)",
               "width": 1206,
               "height": 2622,
               "orientation": "portrait"
             },
             {
               "id": "6.3-landscape",
-              "label": "6.3\" iPhone landscape",
+              "label": "iPhone Dynamic Island · Medium landscape",
               "width": 2622,
               "height": 1206,
               "orientation": "landscape"
             },
             {
               "id": "6.1",
-              "label": "5.8\" iPhone",
+              "label": "iPhone Face ID · Medium",
               "width": 1125,
               "height": 2436,
               "orientation": "portrait"
             },
             {
               "id": "6.1-landscape",
-              "label": "5.8\" iPhone landscape",
+              "label": "iPhone Face ID · Medium landscape",
               "width": 2436,
               "height": 1125,
               "orientation": "landscape"

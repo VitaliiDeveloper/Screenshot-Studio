@@ -172,7 +172,7 @@ describe("editor workspace", () => {
     const addSize = page.getByRole("button", { name: "Add output size", exact: true });
     await expect.poll(() => addSize.count(), { timeout: 5_000 }).toBe(1);
     await addSize.click();
-    await page.getByRole("menuitem", { name: '6.5" · Portrait', exact: true }).click();
+    await page.getByRole("menuitem", { name: 'Face ID · Large · Portrait', exact: true }).click();
 
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, { timeout: 10_000 }).toBe(1);
     const persisted = project();
@@ -190,12 +190,12 @@ describe("editor workspace", () => {
     const artboardMode = page.getByRole("group", { name: "Artboard size mode" });
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
-    expect(await page.getByText('Exports at 1206 × 2622 px for 6.3" iPhone.', { exact: true }).count()).toBe(1);
-    const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
-    const leadTargetRow = page.getByRole("group", { name: '6.3" · Portrait output target', exact: true });
-    await expect.poll(() => targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.3" · Portrait', { exact: true }).count()).toBe(1);
-    expect(await leadTargetRow.getByText('6.3" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await page.getByText('Exports at 1206 × 2622 px for iPhone Dynamic Island · Medium.', { exact: true }).count()).toBe(1);
+    const targetRow = page.getByRole("group", { name: 'Face ID · Large · Portrait output target', exact: true });
+    const leadTargetRow = page.getByRole("group", { name: 'Dynamic Island · Medium · Portrait output target', exact: true });
+    await expect.poll(() => targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('Dynamic Island · Medium · Portrait', { exact: true }).count()).toBe(1);
+    expect(await leadTargetRow.getByText('iPhone Dynamic Island · Medium (lead)', { exact: true }).count()).toBe(0);
 
     const outputFamilies = page.getByTestId("overview-output-family");
     await expect.poll(() => outputFamilies.count()).toBe(1);
@@ -205,16 +205,16 @@ describe("editor workspace", () => {
     await expect.poll(() => sizeRows.count()).toBe(2);
     const masterSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="master"]');
     const variantSizeRow = iphoneOutput.locator('[data-testid="overview-size-row"][data-size-kind="variant"]');
-    expect(await iphoneOutput.getByText('6.3"', { exact: true }).count()).toBe(1);
-    expect(await iphoneOutput.getByText('6.3" iPhone (lead)', { exact: true }).count()).toBe(0);
+    expect(await iphoneOutput.getByText('Dynamic Island · Medium', { exact: true }).count()).toBe(1);
+    expect(await iphoneOutput.getByText('iPhone Dynamic Island · Medium (lead)', { exact: true }).count()).toBe(0);
     expect(await masterSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.count()).toBe(1);
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("false");
     expect(await variantSizeRow.getByTestId("output-identity-role").textContent()).toBe("variant");
     expect(await iphoneOutput.getByTestId("output-identity-role").first().textContent()).toBe("master");
 
-    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
-    await expect.poll(() => page.getByText('Exports at 1284 × 2778 px for 6.5" iPhone.', { exact: true }).count()).toBe(1);
+    await targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).click();
+    await expect.poll(() => page.getByText('Exports at 1284 × 2778 px for iPhone Face ID · Large.', { exact: true }).count()).toBe(1);
     expect(await artboardMode.getByRole("button", { name: "Use Store size" }).getAttribute("aria-pressed"))
       .toBe("true");
     await artboardMode.getByRole("button", { name: "Use custom artboard size" }).click();
@@ -232,7 +232,7 @@ describe("editor workspace", () => {
     expect(await variantSizeRow.getAttribute("data-editing")).toBe("true");
     expect(await variantSizeRow.getByText("Editing", { exact: true }).count()).toBe(1);
 
-    await leadTargetRow.getByRole("button", { name: 'Open 6.3" · Portrait', exact: true }).click();
+    await leadTargetRow.getByRole("button", { name: 'Open Dynamic Island · Medium · Portrait', exact: true }).click();
     const siblingMaster = project().screens.find((candidate) => (
       candidate.variantOf === undefined
       && candidate.platform === masterBefore.platform
@@ -245,14 +245,14 @@ describe("editor workspace", () => {
       exact: true,
     }).click();
     await expect.poll(() => targetRow.count()).toBe(1);
-    expect(await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).count()).toBe(1);
+    expect(await targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).count()).toBe(1);
     expect(await targetRow.getByRole("button", {
-      name: 'Remove 6.5" · Portrait output',
+      name: 'Remove Face ID · Large · Portrait output',
       exact: true,
     }).count()).toBe(1);
-    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
+    await targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).click();
 
-    await targetRow.getByRole("button", { name: 'Remove 6.5" · Portrait output', exact: true }).click();
+    await targetRow.getByRole("button", { name: 'Remove Face ID · Large · Portrait output', exact: true }).click();
     const confirmation = page.getByRole("dialog", { name: "Remove output size?", exact: true });
     const confirmationBox = await confirmation.boundingBox();
     expect(confirmationBox).not.toBeNull();
@@ -268,9 +268,9 @@ describe("editor workspace", () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 
     await page.getByRole("button", { name: "Add output size", exact: true }).click();
-    await page.getByRole("menuitem", { name: '6.5" · Portrait', exact: true }).click();
-    const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
-    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
+    await page.getByRole("menuitem", { name: 'Face ID · Large · Portrait', exact: true }).click();
+    const targetRow = page.getByRole("group", { name: 'Face ID · Large · Portrait output target', exact: true });
+    await targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).click();
     await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
       .locator(":scope > [role='listitem']").count()).toBe(1);
 
@@ -307,9 +307,9 @@ describe("editor workspace", () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 
     await page.getByRole("button", { name: "Add output size", exact: true }).click();
-    await page.getByRole("menuitem", { name: '6.5" · Portrait', exact: true }).click();
-    const targetRow = page.getByRole("group", { name: '6.5" · Portrait output target', exact: true });
-    await targetRow.getByRole("button", { name: 'Open 6.5" · Portrait', exact: true }).click();
+    await page.getByRole("menuitem", { name: 'Face ID · Large · Portrait', exact: true }).click();
+    const targetRow = page.getByRole("group", { name: 'Face ID · Large · Portrait output target', exact: true });
+    await targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).click();
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
       timeout: 10_000,
     }).toBe(1);

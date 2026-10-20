@@ -178,7 +178,7 @@ export function ArtboardTargets({
           />
         ) : null}
         <span className="pointer-events-none relative z-[1] flex min-w-0 flex-col gap-1">
-          <span data-testid="store-target-name" className="truncate font-semibold text-[color:var(--editor-color-text-default)]">
+          <span data-testid="store-target-name" className="break-words font-semibold text-[color:var(--editor-color-text-default)]">
             {displayLabel}
           </span>
           <span className="text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-muted)]">{dimensionsLabel(target)}</span>
