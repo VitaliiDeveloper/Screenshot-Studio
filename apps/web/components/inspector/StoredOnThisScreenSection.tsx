@@ -38,7 +38,7 @@ export function StoredOnThisScreenSection({
         ))}
       </dl>
       <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">
-        Read-only. Another locale or size is another screen.
+        Each locale and size is its own screen. Switch screens to edit another.
       </p>
     </Section>
   );

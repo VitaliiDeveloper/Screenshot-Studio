@@ -325,14 +325,14 @@ export function ArtboardTargets({
           fill
           options={[
             { value: "independent", label: "Separate" },
-            { value: "synchronized", label: "Sync structure" },
+            { value: "synchronized", label: "Sync sizes" },
           ]}
           onChange={onScreenSetModeChange}
         />
         <p className="text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
           {screenSetMode === "synchronized"
-            ? "Additions, deletions, and order stay synchronized. Content remains independent for every size."
-            : "Each size keeps its own screen count and order."}
+            ? "Adding, deleting, or reordering screens applies to every size. Each size keeps its own content."
+            : "Each size keeps its own screens and order."}
         </p>
       </div> : null}
 

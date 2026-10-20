@@ -230,7 +230,7 @@ describe("ScreenInspectorSections Store Target artboard size", () => {
     expect(markup).toContain(
       'aria-label="Use custom artboard size" aria-pressed="false" disabled=""',
     );
-    expect(markup).toContain("This screen references a Store Target that is unavailable.");
+    expect(markup).toContain("This screen&#x27;s export size is unavailable.");
   });
 });
 
@@ -316,7 +316,7 @@ describe("Stored on this screen", () => {
       "Destination", "App Store · iPhone",
       "Size", "6.3&quot; · Portrait · 1206\u00a0×\u00a02622",
       "Layout", "Primary",
-      "Read-only. Another locale or size is another screen.",
+      "Each locale and size is its own screen. Switch screens to edit another.",
     ]);
     expect(stored).not.toMatch(/<(input|button|select)\b/);
   });

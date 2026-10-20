@@ -18,6 +18,7 @@ import { closeProjectSession } from "@web/lib/clients/project-close";
 import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
 import { loadProjectHomeData, type ProjectHomeData } from "@web/lib/clients/project-home-client";
 import { buildProjectHomeSummary } from "@web/lib/project-home-model";
+import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { getProjectPersistenceIdentity } from "@web/lib/clients/save-project";
 import { projectInfoEntryBindingError } from "@web/lib/editor/editor-route";
@@ -218,7 +219,7 @@ export function ProjectHome({ expectedProjectId, expectedEntryId }: {
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{layout.name}</p>
                     {layout.preferred ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-200">Preferred</span> : null}
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold capitalize text-slate-600">{layout.mode}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{LAYOUT_MODE_LABELS[layout.mode]}</span>
                   </div>
                   <p className="shrink-0 text-xs text-[color:var(--editor-color-text-muted)]">{screenCountLabel(layout.screenCount)}{layout.emptyScreenCount > 0 ? ` · ${layout.emptyScreenCount} empty` : ""}</p>
                 </div>

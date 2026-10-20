@@ -108,7 +108,7 @@ describe("managed project creation", () => {
       await dialog.getByLabel("Project name").fill("Empty desktop story");
       await selectTargetPlatform(dialog, "Microsoft Store");
       await selectDeviceFamily(dialog, "Xbox");
-      await dialog.getByRole("radio", { name: /Connected/ }).check();
+      await dialog.getByRole("radio", { name: /Panorama/ }).check();
       await dialog.getByRole("button", { name: "Create project", exact: true }).click();
       await page.waitForURL(`${server.url}/editor/**`);
       let onboarding = page.getByTestId("first-screen-onboarding");

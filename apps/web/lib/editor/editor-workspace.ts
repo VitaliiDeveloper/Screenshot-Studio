@@ -531,7 +531,7 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     category: "Library",
     action: "open-templates",
     shortcut: "⌘/",
-    hint: "Create a screen from a project-local screen template",
+    hint: "Create a screen from a template",
   },
   {
     id: "rating-badge",

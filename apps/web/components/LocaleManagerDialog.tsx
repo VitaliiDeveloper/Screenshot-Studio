@@ -114,7 +114,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
   return (
     <DialogShell
       title="Locales"
-      description="Clone complete screenshot sets and bake an explicit LTR or RTL layout direction."
+      description="Copy your screens into another language. RTL mirrors the layout once; screenshots aren't flipped."
       ariaLabel="Locale manager"
       closeLabel="Close locale manager"
       widthClass="max-w-2xl"

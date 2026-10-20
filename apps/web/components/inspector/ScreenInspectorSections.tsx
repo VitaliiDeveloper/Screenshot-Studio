@@ -80,8 +80,8 @@ function ArtboardSizeEditor({
         </div>
         <p className={`text-[length:var(--editor-font-label-size)] leading-4 ${draftStatus?.kind === "invalid" ? "text-[color:var(--editor-color-danger)]" : "text-[color:var(--editor-color-text-secondary)]"}`}>
           {draftStatus?.kind === "invalid"
-            ? "Custom dimensions must keep the Store Target aspect ratio."
-            : "Apply resizes every screen in this Store Target output and fits each composition."}
+            ? "Custom dimensions must keep the export size's aspect ratio."
+            : "Apply resizes every screen at this export size and fits each composition."}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button className={editorUi.buttonSecondary} onClick={() => setEditing(false)}>Cancel</button>
@@ -159,9 +159,9 @@ function ArtboardSizeEditor({
       )}
       <p className="text-[length:var(--editor-font-label-size)] leading-4 text-[color:var(--editor-color-text-secondary)]">
         {!target
-          ? "This screen references a Store Target that is unavailable."
+          ? "This screen's export size is unavailable."
           : status?.kind === "invalid"
-            ? "This custom size does not match the Store Target aspect ratio."
+            ? "This custom size does not match the export size's aspect ratio."
             : targetExportDescription(target)}
       </p>
     </div>

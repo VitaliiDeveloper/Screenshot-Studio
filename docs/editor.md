@@ -56,7 +56,7 @@ The editor has five durable interaction roles even if their placement changes:
 - **Navigation and context** choose the active project, layout, locale, and current editing scope.
 - **Canvas and viewport** show an exact screen crop or broader composition context. Fit, zoom, pan,
   and canvas patterns affect only the workspace view, never the export.
-- **Structure and resources** expose ordered screens/layers and reusable local fonts, themes,
+- **Structure and resources** expose ordered screens/layers and reusable local fonts, project packs,
   templates, and assets. Their controls act on the explicit current scope.
 - **Authoring and inspection** add or edit strict project literals. The Inspector has **Layer** and
   **Screen** tabs: Layer exposes only fields valid for the selected object, and Screen exposes the
@@ -136,30 +136,30 @@ New Screenshot and Image elements preserve the decoded asset aspect ratio at ins
 Content mode control presents `Fill` for cover-and-crop and `Fit` for uncropped containment.
 
 Text boxes expose independent horizontal (`left`, `center`, `right`) and vertical (`top`, `middle`,
-`bottom`) alignment. A theme role is a semantic marker for the next explicit theme application; role
-assignment alone does not silently change the current literal color or font, and the Inspector must
-say so next to the control.
+`bottom`) alignment. A **Theme role** is a semantic marker used the next time a design pack or
+project pack is applied; assigning it alone does not silently change the current color or font, and
+the Inspector must say so next to the control.
 
-Layouts, output families, locales, and connected composition may change how content is projected, but
+Layouts, output families, locales, and Panorama composition may change how content is projected, but
 the interface must preserve scope: an action explains which layout, locale, output, screen, or element
 it affects and must not silently mutate a sibling scope.
 The Layers panel keeps the same `Add screen` action available in every exact-size editing scope. Moving
-between primary and variant sizes uses the output targets themselves instead of a second navigation
+between master and variant sizes uses the output targets themselves instead of a second navigation
 control in the Screens header. New projects and newly created output families explicitly default to
-**Keep 1:1**. Existing documents without a persisted policy retain **Independent** behavior for
+**Sync sizes**. Existing documents without a persisted policy retain **Separate** behavior for
 backward compatibility: adding, deleting, or reordering in an exact size changes only that size. A
-new exact-size screen pairs with the next compatible unoccupied primary slot when one exists; after
+new exact-size screen pairs with the next compatible unoccupied master slot when one exists; after
 those slots are occupied it remains a
-standalone exact-size screen and never creates a hidden primary screen. Removing a primary screen
+standalone exact-size screen and never creates a hidden master screen. Removing a master screen
 preserves paired exact-size composition by detaching it into an ordinary standalone screen.
-**Keep 1:1** is an explicit persisted policy: add, delete, and order mirror across primary and every
+**Sync sizes** is an explicit persisted policy: add, delete, and order mirror across master and every
 created exact size while each screen's layers and copy stay independently editable. Enabling it
 reconciles unequal rows to the longest row and makes the resulting slot mapping visible before later
 mutations follow it.
 The Inspector lists exact-size targets at the active destination/device/locale family scope, so a target
-does not disappear when another compatible primary screen is selected. Selection styling identifies
+does not disappear when another compatible master screen is selected. Selection styling identifies
 the current family and exact size without a redundant `Current` action. Removing a size or slot uses
-the same labelled app-owned confirmation pattern and follows the visible Independent/Keep 1:1 scope.
+the same labelled app-owned confirmation pattern and follows the visible Separate/Sync sizes scope.
 Removing a size removes that complete exact-size row; deleting an individual screen changes only the
 slot scope described above.
 
@@ -176,10 +176,10 @@ size and offers **Go to** and a fix:
   screens have no persisted link and may be named per locale, so a locale lacks screens only where
   one of its size rows is shorter than the first locale's row. Names then pick which screens are
   missing, because locale copies keep them; when names differ, the trailing screens are reported. A
-  Keep 1:1 family is compared by slot, and **Create from {first locale}** copies the slot into every
-  size that family has; an Independent family copies only that screen. The copy keeps the source
-  name and takes the target locale's text direction. A size row that exists in one locale's Keep
-  1:1 family but not another's is a sizes difference, not a missing screen.
+  Sync sizes family is compared by slot, and **Create from {first locale}** copies the slot into every
+  size that family has; a Separate family copies only that screen. The copy keeps the source name
+  and takes the target locale's text direction. A size row that exists in one locale's Sync sizes
+  family but not another's is a sizes difference, not a missing screen.
 - *Image missing from the project folder* (blocker) is the editor's missing-asset placeholder: a
   background, or a visible screenshot, image, or device-frame layer, whose project image did not
   load. It is reported per screen and layer once the image cache has loaded, and the row names the
@@ -191,7 +191,7 @@ into a private staging folder and hands the bundle to the browser as a download,
 export-folder row.
 
 **Status by size** in the Layer tab lists, for the selected text layer, every exact size of its
-screen slot (the primary screen and its variants) with whether the layer fits there. It reads the
+screen slot (the master screen and its variants) with whether the layer fits there. It reads the
 same Issues, so fit is never measured twice, and shows *checking* until project fonts have loaded.
 Layers keep no persisted link across sizes, so a size whose layer structure differs from the
 selected screen's shows *no matching layer* rather than guessing; a hidden counterpart shows
@@ -210,7 +210,7 @@ other field is copied. Each counterpart takes the edited layer's fitted value fo
 field, replacing it rather than applying a delta, so editing position on one size also replaces
 manual placement on the others in scope. A size that cannot take the fitted value within its limits
 is skipped. In the Screen tab the scope applies to Background. Destinations keep no persisted slot
-link, so **All destinations** pairs a destination only when its primary screen at the same position
+link, so **All destinations** pairs a destination only when its master screen at the same position
 has the same name, and skips it otherwise. The footer counts only the screens the next edit will
 write and names how many sizes and destinations it skips. The scope is editor state only: it holds
 while the same layer (or, with nothing selected, the same screen) stays selected and resets to
@@ -340,8 +340,8 @@ an arbitrary local filesystem path.
   portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and Web
   mobile. **Blank** remains explicit, and the existing generic project starters remain available
   where supported. Targeted starters open on their exact persisted variant.
-- The Design packs dialog exposes global read-only **Design packs** beside project-local themes. Each
-  built-in pack shows a sample of its background, palette, and type. Applying either source is
+- The Design packs dialog lists built-in **Design packs** beside the project's own **Project packs**.
+  Each built-in pack shows a sample of its background, palette, and type. Applying either source is
   explicit and bakes editable color and typography literals into the active layout; **Apply pack**
   also replaces every screen background in that layout with the pack background. The project never
   stores a global pack reference.

@@ -18,6 +18,7 @@ import {
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
+import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import {
   isProjectTemplateSupported,
   type ProjectCreationForm,
@@ -107,7 +108,7 @@ export function ProjectCreationDialog({
   return (
     <DialogShell
       title="Create a managed project"
-      description="Choose the first store target and layout mode. Screenshot Studio validates the complete starter before publishing it to managed storage."
+      description="Choose the first destination and layout mode. Screenshot Studio validates the complete starter before publishing it to managed storage."
       onClose={onClose}
       closeLabel="Close project creation"
       closeDisabled={busy}
@@ -159,8 +160,8 @@ export function ProjectCreationDialog({
               <legend className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Layout mode</legend>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
                 {([
-                  ["isolated", "Isolated", "Design each store image independently."],
-                  ["connected", "Connected", "Compose screens as one continuous strip."],
+                  ["isolated", LAYOUT_MODE_LABELS.isolated, "Design each store image on its own."],
+                  ["connected", LAYOUT_MODE_LABELS.connected, "Compose screens as one continuous strip."],
                 ] as const).map(([value, label, description]) => (
                   <label key={value} className={editorUi.choiceCard}>
                     <input type="radio" name="layout-mode" value={value} checked={state.form.layoutMode === value} onChange={() => onChange({ layoutMode: value })} />

@@ -130,7 +130,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
   return (
     <DialogShell
       title="Design packs"
-      description="Apply global read-only packs or project themes as ordinary editable literals."
+      description="Apply colors and fonts to every screen in this layout. Everything stays editable."
       ariaLabel="Design pack picker"
       closeLabel="Close design pack picker"
       onClose={close}
@@ -150,7 +150,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Built in · read only</span>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Built-in</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
                   <p className="mt-3 text-xs text-slate-500">
@@ -193,13 +193,12 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Project themes</h3> : null}
+      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Project packs</h3> : null}
       {!loading && themes.length === 0 ? (
         <EmptyResourceState
           icon={Palette}
-          title="No project themes yet"
-          description="Built-in packs above are always available. Add a strict theme definition for project-specific choices."
-          path="themes/<id>.json"
+          title="No project packs yet"
+          description="Built-in design packs above work in every project."
         />
       ) : null}
 

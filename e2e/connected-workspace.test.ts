@@ -272,9 +272,9 @@ describe("connected workspace", () => {
     await layoutMenu.waitFor({ state: "visible" });
     await page.getByRole("button", { name: "More actions for Default" }).click();
     const modeAction = page.getByRole("menu", { name: "Actions for Default" })
-      .getByRole("menuitem", { name: /Switch to isolated/ });
+      .getByRole("menuitem", { name: /Switch to Separate images/ });
     expect(await modeAction.textContent()).toContain(
-      "will be clipped while isolated. Layout data remains unchanged.",
+      "will be clipped in Separate images mode. Layout data remains unchanged.",
     );
     await page.keyboard.press("Escape");
     await expect.poll(() => layoutMenu.count()).toBe(0);
