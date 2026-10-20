@@ -7,7 +7,7 @@ import { ArrowLeftRight, Languages, Trash2 } from "lucide-react";
 import { layoutLocales, type DesignLayout, type LayoutDirection } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { ConfirmationDialog, DialogShell, cx, editorUi } from "./editor-ui";
+import { ConfirmationDialog, DialogShell, MenuSelect, SegmentedControl, cx, editorUi } from "./editor-ui";
 
 type PendingLocaleAction =
   | { kind: "direction"; locale: string; next: LayoutDirection }
@@ -136,33 +136,28 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
                 onChange={(event) => setTargetLocale(event.target.value)}
               />
             </label>
-            <label className="space-y-1">
+            <div className="space-y-1">
               <span className="block text-[11px] font-medium text-slate-600">Copy from</span>
-              <select
-                aria-label="Copy from locale"
-                className={editorUi.field}
+              <MenuSelect
+                ariaLabel="Copy from locale"
                 value={sourceLocale}
-                onChange={(event) => {
-                  const locale = event.target.value;
+                options={locales.map((locale) => ({ value: locale, label: locale }))}
+                onChange={(locale) => {
                   setSourceLocale(locale);
                   setTargetDirection(localeDirection(layout, locale));
                 }}
-              >
-                {locales.map((locale) => <option key={locale} value={locale}>{locale}</option>)}
-              </select>
-            </label>
-            <label className="space-y-1">
+              />
+            </div>
+            <div className="space-y-1">
               <span className="block text-[11px] font-medium text-slate-600">Direction</span>
-              <select
-                aria-label="Layout direction"
-                className={editorUi.field}
+              <SegmentedControl<LayoutDirection>
+                label="Layout direction"
                 value={targetDirection}
-                onChange={(event) => setTargetDirection(event.target.value as LayoutDirection)}
-              >
-                <option value="ltr">LTR</option>
-                <option value="rtl">RTL</option>
-              </select>
-            </label>
+                options={[{ value: "ltr", label: "LTR" }, { value: "rtl", label: "RTL" }]}
+                fill
+                onChange={setTargetDirection}
+              />
+            </div>
             <button type="submit" className={cx(editorUi.buttonPrimary, "h-8")}>Create locale</button>
           </div>
           <p className="mt-2 text-[11px] leading-4 text-slate-500">

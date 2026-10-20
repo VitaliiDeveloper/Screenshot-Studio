@@ -123,8 +123,9 @@ describe("locale workspace", () => {
     await page.getByRole("button", { name: "Locales", exact: true }).click();
     const manager = page.getByRole("dialog", { name: "Locale manager" });
     await manager.getByLabel("Target locale").fill("ar");
-    await manager.getByLabel("Copy from locale").selectOption("en");
-    await manager.getByLabel("Layout direction").selectOption("rtl");
+    await manager.getByRole("button", { name: "Copy from locale" }).click();
+    await manager.getByRole("menuitemradio", { name: "en", exact: true }).click();
+    await manager.getByRole("group", { name: "Layout direction" }).getByRole("button", { name: "RTL", exact: true }).click();
     await manager.getByRole("button", { name: "Create locale" }).click();
 
     await expect.poll(() => locales().join(","), { timeout: 10_000 }).toBe("en,ar");

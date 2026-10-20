@@ -8,7 +8,7 @@ import { findOwnerOverflows, type CanvasMode, type DesignLayout, type Project } 
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { ConfirmationDialog, cx, DialogShell, editorUi } from "./editor-ui";
+import { ConfirmationDialog, cx, DialogShell, editorUi, SegmentedControl } from "./editor-ui";
 
 const actionMenuItem = "flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60 disabled:pointer-events-none disabled:opacity-45";
 
@@ -272,13 +272,19 @@ export function LayoutSelector() {
               <input className={editorUi.field} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
             </label>
             {dialog === "create" ? (
-              <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                Mode
-                <select className={editorUi.field} value={mode} onChange={(event) => setMode(event.target.value as CanvasMode)}>
-                  <option value="isolated">{LAYOUT_MODE_LABELS.isolated}</option>
-                  <option value="connected">{LAYOUT_MODE_LABELS.connected}</option>
-                </select>
-              </label>
+              <div className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+                <span>Mode</span>
+                <SegmentedControl<CanvasMode>
+                  label="Layout mode"
+                  value={mode}
+                  options={[
+                    { value: "isolated", label: LAYOUT_MODE_LABELS.isolated },
+                    { value: "connected", label: LAYOUT_MODE_LABELS.connected },
+                  ]}
+                  fill
+                  onChange={setMode}
+                />
+              </div>
             ) : null}
             {error ? <p role="alert" className={editorUi.statusError}>{error}</p> : null}
             <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
