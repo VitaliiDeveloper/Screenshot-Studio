@@ -603,6 +603,86 @@ describe("editor workspace", () => {
     await expectSettledView("overview");
   });
 
+  it("dissolves Focus screen switches over the outgoing screen and interrupts instead of queueing", async () => {
+    const page = await openEditor({ width: 1200, height: 998 });
+    const viewport = page.getByTestId("canvas-viewport");
+    await expect.poll(() => viewport.getAttribute("data-initial-reveal")).toBe("idle");
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
+
+    const [first, second] = project().screens;
+    const screenButton = (screen: typeof first) => page.getByRole("button", {
+      name: `${screen!.name} · ${screen!.device}`,
+      exact: true,
+    });
+    const artboardStack = () => page.getByTestId("focus-artboard").evaluate((content) => ({
+      artboards: [...content.querySelectorAll("[data-artboard-screen-id]")].map((node) => node.getAttribute("data-artboard-screen-id")),
+      animations: content.getAnimations({ subtree: true }).length,
+    }));
+
+    // Both switches run inside one frame-paced evaluation so the 500 ms window cannot be missed.
+    const switches = await page.evaluate(async ([next, previous]) => {
+      // Rows swap elements when they become active, so resolve each button at click time.
+      const click = (label: string) => [...document.querySelectorAll("button")]
+        .find((button) => button.getAttribute("aria-label") === label)!.click();
+      const read = () => {
+        const content = document.querySelector('[data-testid="focus-artboard"]')!;
+        return {
+          transition: document.querySelector('[data-testid="canvas-viewport"]')!.getAttribute("data-view-transition"),
+          artboards: [...content.querySelectorAll("[data-artboard-screen-id]")].map((node) => ({
+            id: node.getAttribute("data-artboard-screen-id"),
+            outgoing: node.hasAttribute("inert"),
+            // Labels sit on the bare canvas, so the outgoing title must not show under the new one.
+            titleVisible: getComputedStyle(node.querySelector('[data-testid="artboard-preview-label"]')!).visibility === "visible",
+            fades: node.getAnimations().map((animation) => ({
+              duration: animation.effect?.getTiming().duration,
+              from: (animation.effect as KeyframeEffect).getKeyframes()[0]?.opacity,
+            })),
+          })),
+          layerLists: document.getAnimations()
+            .map((animation) => (animation.effect as KeyframeEffect | null)?.getKeyframes()[0]?.height)
+            .filter((height) => height !== undefined)
+            .map((height) => (height === "0px" ? "opening" : "closing"))
+            .sort(),
+        };
+      };
+      const frame = () => new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+      click(next);
+      await frame();
+      const forward = read();
+      click(previous);
+      await frame();
+      return { forward, backward: read() };
+    }, [`${second!.name} · ${second!.device}`, `${first!.name} · ${first!.device}`]);
+    const fadingIn = [{ duration: 500, from: "0" }];
+    expect(switches).toEqual({
+      forward: {
+        transition: "running",
+        artboards: [
+          { id: first!.id, outgoing: true, titleVisible: false, fades: [] },
+          { id: second!.id, outgoing: false, titleVisible: true, fades: fadingIn },
+        ],
+        layerLists: ["closing", "opening"],
+      },
+      backward: {
+        transition: "running",
+        artboards: [
+          { id: second!.id, outgoing: true, titleVisible: false, fades: [] },
+          { id: first!.id, outgoing: false, titleVisible: true, fades: fadingIn },
+        ],
+        layerLists: ["closing", "opening"],
+      },
+    });
+    await expect.poll(() => viewport.getAttribute("data-view-transition")).toBe("idle");
+    expect(await artboardStack()).toEqual({ artboards: [first!.id], animations: 0 });
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await screenButton(second).click();
+    await expect.poll(() => screenButton(second).getAttribute("aria-current")).toBe("true");
+    expect(await artboardStack()).toEqual({ artboards: [second!.id], animations: 0 });
+    expect(await viewport.getAttribute("data-view-transition")).toBe("idle");
+  });
+
   it("supports overview, extensible add, canvas patterns, zoom, and hand pan", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
 

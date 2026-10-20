@@ -29,6 +29,8 @@ import { useCanvasPanZoom } from "./use-canvas-pan-zoom";
 import { useCanvasTransitions } from "./use-canvas-transitions";
 import { useCanvasViewportMetrics } from "./use-canvas-viewport-metrics";
 
+const NO_SCREENS: readonly Screen[] = [];
+
 export function CanvasViewport({
   images,
   specs,
@@ -98,16 +100,20 @@ export function CanvasViewport({
     rightInset,
     onZoomChange,
   });
-  const { fittedView, initialReveal, transitioning } = useCanvasTransitions({
+  const { fittedView, initialReveal, transitioning, outgoingScreenId } = useCanvasTransitions({
     contentRef,
     layoutId: layout?.id ?? null,
     layoutMode: layout?.mode ?? null,
     view,
     activeScreenId,
+    screens: layout?.screens ?? NO_SCREENS,
     fit,
     fitLayoutKey,
   });
   useActiveArtboardScroll({ viewportRef, activeScreenId, view, leftInset, rightInset });
+  const outgoingScreen = view === "focus" && outgoingScreenId !== activeScreen?.id
+    ? layout?.screens.find((screen) => screen.id === outgoingScreenId)
+    : undefined;
 
   if (!project || !layout || screens.length === 0) {
     return <section className="min-w-0 flex-1 bg-slate-50" />;
@@ -118,6 +124,7 @@ export function CanvasViewport({
       key={screen.id}
       screen={screen}
       active={screen.id === activeScreenId}
+      outgoing={screen.id === outgoingScreen?.id}
       connected={layout.mode === "connected"}
       view={view}
       images={images}
@@ -178,8 +185,8 @@ export function CanvasViewport({
                 )}
               </div>
             ) : (
-              <div className="flex items-start gap-0">
-                {screens.map(renderIsolatedScreen)}
+              <div className="grid items-start [&>*]:[grid-area:1/1]">
+                {(outgoingScreen ? [outgoingScreen, ...screens] : screens).map(renderIsolatedScreen)}
               </div>
             )}
           </div>

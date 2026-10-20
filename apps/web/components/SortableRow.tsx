@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import type { AriaRole, ReactNode } from "react";
+import type { AriaRole, MouseEventHandler, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
@@ -39,6 +39,7 @@ export function SortableRow({
   role,
   ariaLevel,
   nested,
+  onClick,
 }: {
   id: string;
   children: ReactNode;
@@ -55,6 +56,8 @@ export function SortableRow({
   ariaLevel?: number;
   /** Content shown below the row that moves with it while the row is dragged. */
   nested?: ReactNode;
+  /** Pointer clicks anywhere on the row itself, excluding `nested`. */
+  onClick?: MouseEventHandler<HTMLDivElement>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -89,7 +92,7 @@ export function SortableRow({
   if (nested !== undefined) {
     return (
       <div ref={setNodeRef} style={style} role={role} aria-level={ariaLevel}>
-        <div className={rowClassName} data-selected={selected || undefined}>{row}</div>
+        <div className={rowClassName} data-selected={selected || undefined} onClick={onClick}>{row}</div>
         {nested}
       </div>
     );
@@ -102,6 +105,7 @@ export function SortableRow({
       aria-level={ariaLevel}
       className={rowClassName}
       data-selected={selected || undefined}
+      onClick={onClick}
     >
       {row}
     </div>
