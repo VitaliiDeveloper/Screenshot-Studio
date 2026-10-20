@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   MousePointer2,
   Palette,
+  Play,
   Type,
 } from "lucide-react";
 import type { ResourceDialog, WorkspacePanel, WorkspaceTool } from "@web/lib/editor/editor-workspace";
@@ -22,6 +23,8 @@ export function ToolRail({
   onPanelToggle,
   onOpenDialog,
   onOpenLocales,
+  onOpenPlay,
+  playDisabled,
   onOpenProjects,
   projectsBusy,
 }: {
@@ -31,6 +34,8 @@ export function ToolRail({
   onPanelToggle: (panel: WorkspacePanel) => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
   onOpenLocales: () => void;
+  onOpenPlay: () => void;
+  playDisabled: boolean;
   onOpenProjects: () => void;
   projectsBusy: boolean;
 }) {
@@ -71,11 +76,25 @@ export function ToolRail({
       </ToolButton>
 
       <ToolButton
+        label="Play"
+        caption="Play"
+        aria-haspopup="dialog"
+        disabled={playDisabled}
+        onClick={(event) => {
+          // Safari does not focus a clicked button, and DialogShell returns focus to the opener.
+          event.currentTarget.focus();
+          onOpenPlay();
+        }}
+        className="mt-auto disabled:pointer-events-none disabled:opacity-40"
+      >
+        <Play size={16} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton
         label="Projects"
         caption="Projects"
         disabled={projectsBusy}
         onClick={onOpenProjects}
-        className="mt-auto disabled:cursor-wait disabled:opacity-60"
+        className="disabled:cursor-wait disabled:opacity-60"
       >
         {projectsBusy
           ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />

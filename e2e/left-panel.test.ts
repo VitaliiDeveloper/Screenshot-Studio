@@ -123,6 +123,19 @@ describe("left panel", () => {
     await page.close();
   });
 
+  it("activates a screen from anywhere on its row, including the thumbnail", async () => {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "networkidle" });
+    const saveFast = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
+    await saveFast.waitFor();
+    expect(await saveFast.getAttribute("aria-current")).toBeNull();
+
+    await page.getByRole("listitem").filter({ has: saveFast }).locator("span[aria-hidden='true']").first().click();
+    await expect.poll(() => saveFast.getAttribute("aria-current")).toBe("true");
+    await page.getByRole("list", { name: "Layers for Save Fast", exact: true }).waitFor({ timeout: 5_000 });
+    await page.close();
+  });
+
   it("captions the rail and reveals row controls on hover and keyboard focus", async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 940 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
