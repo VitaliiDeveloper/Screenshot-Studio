@@ -60,7 +60,7 @@ describe("representative cross-browser editor smoke", () => {
         const before = JSON.parse(await readFile(projectPath, "utf8")) as ProjectFile;
         const secondScreen = before.layouts[0].screens[1]!;
         await page.getByRole("button", {
-          name: `${secondScreen.name} · ${secondScreen.device}`,
+          name: `${secondScreen.name} · iPhone`,
           exact: true,
         }).click();
         await page.getByRole("list", { name: `Layers for ${secondScreen.name}` }).waitFor();
@@ -88,7 +88,7 @@ describe("representative cross-browser editor smoke", () => {
           await structurePanel.click();
         }
         await page.getByRole("button", {
-          name: `${secondScreen.name} · ${secondScreen.device}`,
+          name: `${secondScreen.name} · iPhone`,
           exact: true,
         }).click();
         const layers = page.getByRole("list", { name: `Layers for ${secondScreen.name}` });

@@ -48,7 +48,7 @@ describe("ArtboardTargets", () => {
     expect(markup).toContain("Desktop");
     expect(markup).toContain("Screen structure");
     expect(markup).toContain("Separate");
-    expect(markup).toContain("Sync structure");
+    expect(markup).toContain("Sync sizes");
     expect(markup).toContain("Output sizes");
     expect(markup).not.toContain("Output targets");
     expect(markup).not.toContain("Screenshot sizes");
@@ -345,9 +345,9 @@ describe("ArtboardTargets", () => {
     }));
 
     expect(markup).toContain("Screen structure");
-    expect(markup).toContain("Sync structure");
+    expect(markup).toContain("Sync sizes");
     expect(markup).toContain('aria-pressed="true"');
-    expect(markup).toContain("Content remains independent for every size.");
+    expect(markup).toContain("Each size keeps its own content.");
     expect(markup).toContain(editorUi.segmentedControl);
     expect(markup.indexOf("Screen structure")).toBeLessThan(
       markup.indexOf('aria-label="Screen structure behavior"'),

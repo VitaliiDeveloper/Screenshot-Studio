@@ -2,6 +2,7 @@
 "use client";
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import type { Screen } from "@screenshot-studio/core/model";
 import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
@@ -20,6 +21,7 @@ export function IsolatedScreenPreview({
   images,
   zoom,
   issues,
+  specs,
 }: {
   screen: Screen;
   active: boolean;
@@ -30,6 +32,7 @@ export function IsolatedScreenPreview({
   images: ImageCache;
   zoom: number;
   issues?: readonly ProjectIssue[];
+  specs?: StoreSpecs;
 }) {
   const selectable = !active && view === "overview";
   const previewWidth = screen.artboard.width * zoom;
@@ -72,7 +75,7 @@ export function IsolatedScreenPreview({
           interactive={connected ? false : active}
         />
       </div>
-      <ScreenPreviewMetadata screen={screen} className={outgoing ? "invisible" : undefined} />
+      <ScreenPreviewMetadata screen={screen} specs={specs} className={outgoing ? "invisible" : undefined} />
     </div>
   );
 }

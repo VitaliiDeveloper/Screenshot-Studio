@@ -158,7 +158,7 @@ describe("editor workspace", () => {
     await firstLayers.waitFor({ state: "visible" });
     await expect.poll(() => firstLayers.getByRole("listitem").count()).toBe(firstScreen.elements.length);
 
-    await page.getByRole("button", { name: `${secondScreen.name} · ${secondScreen.device}`, exact: true }).click();
+    await page.getByRole("button", { name: `${secondScreen.name} · iPhone`, exact: true }).click();
     const secondLayers = page.getByRole("list", { name: `Layers for ${secondScreen.name}` });
     await secondLayers.waitFor({ state: "visible" });
     await expect.poll(() => secondLayers.getByRole("listitem").count()).toBe(secondScreen.elements.length);
@@ -221,7 +221,7 @@ describe("editor workspace", () => {
     expect(await page.getByRole("spinbutton", { name: "W", exact: true }).inputValue()).toBe("1284");
     expect(await page.getByRole("spinbutton", { name: "H", exact: true }).inputValue()).toBe("2778");
     expect(await page.getByText(
-      "Apply resizes every screen in this Store Target output and fits each composition.",
+      "Apply resizes every screen at this export size and fits each composition.",
       { exact: true },
     ).count()).toBe(1);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -241,7 +241,7 @@ describe("editor workspace", () => {
       && candidate.id !== masterBefore.id
     ))!;
     await page.getByRole("button", {
-      name: `${siblingMaster.name} · ${siblingMaster.device}`,
+      name: `${siblingMaster.name} · iPhone`,
       exact: true,
     }).click();
     await expect.poll(() => targetRow.count()).toBe(1);
@@ -271,7 +271,7 @@ describe("editor workspace", () => {
     await page.getByRole("menuitem", { name: 'Face ID · Large · Portrait', exact: true }).click();
     const targetRow = page.getByRole("group", { name: 'Face ID · Large · Portrait output target', exact: true });
     await targetRow.getByRole("button", { name: 'Open Face ID · Large · Portrait', exact: true }).click();
-    await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
+    await expect.poll(() => page.getByRole("list", { name: "Screens for en · iPhone" })
       .locator(":scope > [role='listitem']").count()).toBe(1);
 
     await page.getByRole("button", { name: "Add screen", exact: true }).click();
@@ -296,9 +296,9 @@ describe("editor workspace", () => {
       device: "iphone",
       artboard: { width: 1206, height: 2622 },
     });
-    await expect.poll(() => page.getByRole("list", { name: "Screens for en · iphone" })
+    await expect.poll(() => page.getByRole("list", { name: "Screens for en · iPhone" })
       .locator(":scope > [role='listitem']").count()).toBe(2);
-    expect(await page.getByRole("button", { name: "Untitled · iphone", exact: true })
+    expect(await page.getByRole("button", { name: "Untitled · iPhone", exact: true })
       .getAttribute("aria-current")).toBe("true");
     expect(await targetRow.getAttribute("aria-current")).toBe("true");
   });
@@ -315,7 +315,7 @@ describe("editor workspace", () => {
     }).toBe(1);
 
     const slotBehavior = page.getByRole("group", { name: "Screen structure behavior", exact: true });
-    await slotBehavior.getByRole("button", { name: "Sync structure", exact: true }).click();
+    await slotBehavior.getByRole("button", { name: "Sync sizes", exact: true }).click();
     await expect.poll(() => project().screenSetPolicies?.[0]?.mode, { timeout: 10_000 })
       .toBe("synchronized");
     await expect.poll(() => project().screens.filter((screen) => screen.storeTargetId === "6.5").length, {
@@ -383,20 +383,20 @@ describe("editor workspace", () => {
     await storeOutputs.waitFor({ state: "visible" });
     await expect.poll(() => storeOutputs.getByRole("heading", { name: "Destinations", exact: true }).count()).toBe(1);
 
-    const ipadScreens = page.getByRole("list", { name: "Screens for en · ipad", exact: true });
+    const ipadScreens = page.getByRole("list", { name: "Screens for en · iPad", exact: true });
     await expect.poll(() => ipadScreens.locator(":scope > [role='listitem']").count()).toBe(3);
     // The Screens → Layers tree scrolls with the panel while its header and Add screen stay pinned.
     expect(await page.getByRole("heading", { name: "Screens", exact: true }).locator("xpath=ancestor::header[1]")
       .evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
-    expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).count()).toBe(0);
+    expect(await page.getByRole("button", { name: "Hero · iPhone", exact: true }).count()).toBe(0);
 
     const iphoneOutput = storeOutputs.getByRole("group", { name: "App Store · iPhone output", exact: true });
     await iphoneOutput.getByRole("button", { name: "Open App Store · iPhone output", exact: true }).click();
-    const iphoneScreens = page.getByRole("list", { name: "Screens for en · iphone", exact: true });
+    const iphoneScreens = page.getByRole("list", { name: "Screens for en · iPhone", exact: true });
     await expect.poll(() => iphoneScreens.locator(":scope > [role='listitem']").count()).toBe(3);
-    expect(await page.getByRole("button", { name: "Hero · iphone", exact: true }).getAttribute("aria-current"))
+    expect(await page.getByRole("button", { name: "Hero · iPhone", exact: true }).getAttribute("aria-current"))
       .toBe("true");
-    expect(await page.getByRole("button", { name: "Hero · ipad", exact: true }).count()).toBe(0);
+    expect(await page.getByRole("button", { name: "Hero · iPad", exact: true }).count()).toBe(0);
     expect(await page.getByTestId("overview-output-families").getByRole("region").count()).toBe(2);
 
     await ipadOutput.getByRole("button", { name: "Open App Store · iPad output", exact: true }).click();
@@ -510,7 +510,7 @@ describe("editor workspace", () => {
     await inactiveArtboard.focus();
     await page.keyboard.press("Enter");
     await expect.poll(() => page.getByRole("button", {
-      name: `${secondScreen.name} · ${secondScreen.device}`,
+      name: `${secondScreen.name} · iPhone`,
       exact: true,
     }).getAttribute("aria-current")).toBe("true");
 
@@ -612,7 +612,7 @@ describe("editor workspace", () => {
 
     const [first, second] = project().screens;
     const screenButton = (screen: typeof first) => page.getByRole("button", {
-      name: `${screen!.name} · ${screen!.device}`,
+      name: `${screen!.name} · iPhone`,
       exact: true,
     });
     const artboardStack = () => page.getByTestId("focus-artboard").evaluate((content) => ({
@@ -653,7 +653,7 @@ describe("editor workspace", () => {
       click(previous);
       await frame();
       return { forward, backward: read() };
-    }, [`${second!.name} · ${second!.device}`, `${first!.name} · ${first!.device}`]);
+    }, [`${second!.name} · iPhone`, `${first!.name} · iPhone`]);
     const fadingIn = [{ duration: 500, from: "0" }];
     expect(switches).toEqual({
       forward: {

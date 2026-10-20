@@ -11,6 +11,8 @@ import {
 import {
   DEFAULT_STORE_SPECS,
   destinationLabel,
+  findStoreTarget,
+  leadStoreSizeId,
   listOutputFamilies,
   outputFamilyLabel,
   type StoreSize,
@@ -209,6 +211,27 @@ export function compactStoreSizeLabel(label: string, device: string): string {
     .trim();
 }
 
+/** The exact store target a screen exports to: its own target, or its family's lead for a master. */
+export function screenStoreTarget(screen: Screen, specs: StoreSpecs = DEFAULT_STORE_SPECS): StoreSize | null {
+  try {
+    const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
+    return findStoreTarget(specs, screen.platform, screen.device, targetId);
+  } catch {
+    return null;
+  }
+}
+
+/** Append artboard px to any label its list repeats, so two exact sizes never read the same. */
+export function distinctSizeLabels(
+  entries: readonly { label: string; screen: Pick<Screen, "artboard"> }[],
+): string[] {
+  return entries.map(({ label, screen }) =>
+    entries.filter((entry) => entry.label === label).length > 1
+      ? `${label} · ${screen.artboard.width} × ${screen.artboard.height}`
+      : label
+  );
+}
+
 /**
  * Format every target as `discriminator · orientation · qualifier`.
  * The family card supplies destination/device context, so this copy never repeats it.
@@ -271,6 +294,13 @@ export interface WorkspaceOutputFamily extends OutputFamily {
 
 function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
   return `${screen.platform}/${screen.device}`;
+}
+
+function overviewRowLabel(familyLabel: string, screen: Screen, specs: StoreSpecs): string {
+  const target = screen.storeTargetId === undefined ? null : screenStoreTarget(screen, specs);
+  return target
+    ? `${familyLabel} · ${conciseStoreTargetLabel(target, screen.platform, screen.device, specs)}`
+    : familyLabel;
 }
 
 /** Preserve project order while separating independent output families into canvas rows. */
@@ -343,7 +373,7 @@ export function workspaceOverviewRows(
 
       return rows.map(({ targetId, screens }) => ({
         key: targetId === undefined ? key : `${key}/${targetId}`,
-        label: targetId === undefined ? familyLabel : `${familyLabel} · ${targetId}`,
+        label: overviewRowLabel(familyLabel, screens[0]!, specs),
         screens,
         editing: screens.some((screen) => screen.id === activeScreen.id),
       }));
@@ -358,12 +388,11 @@ export function workspaceOverviewRows(
     const screens = editing || roots.length === 0
       ? layout.screens.filter((screen) => sameScreenGroup(screen, anchor))
       : roots;
-    const targetId = screens[0]?.storeTargetId;
     const familyLabel = storeOutputLabel(anchor.platform, anchor.device, specs);
 
     return {
       key,
-      label: targetId ? `${familyLabel} · ${targetId}` : familyLabel,
+      label: overviewRowLabel(familyLabel, screens[0] ?? anchor, specs),
       screens,
       editing,
     };
@@ -502,7 +531,7 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     category: "Library",
     action: "open-templates",
     shortcut: "⌘/",
-    hint: "Create a screen from a project-local screen template",
+    hint: "Create a screen from a template",
   },
   {
     id: "rating-badge",

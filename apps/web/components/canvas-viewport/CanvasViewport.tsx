@@ -130,6 +130,7 @@ export function CanvasViewport({
       images={images}
       zoom={zoom}
       issues={issues}
+      specs={specs ?? undefined}
     />
   );
 
@@ -173,6 +174,7 @@ export function CanvasViewport({
                     images={images}
                     zoom={zoom}
                     issues={issues}
+                    specs={specs ?? undefined}
                     onActivate={(screenId) => editorStore.getState().selectScreen(screenId)}
                   />
                 )) : (

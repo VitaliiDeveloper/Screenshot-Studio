@@ -8,12 +8,12 @@ describe("LauncherExamples", () => {
   it("renders four keyboard-reachable workflows with current terminology", () => {
     const markup = renderToStaticMarkup(createElement(LauncherExamples, { onSelect: vi.fn() }));
     for (const copy of [
-      "Isolated feature project",
-      "Connected launch deck",
+      "Separate images feature project",
+      "Panorama launch deck",
       "RTL and multi-locale delivery",
       "Imported screenshot story",
-      "Create isolated example",
-      "Create connected example",
+      "Create separate images example",
+      "Create panorama example",
       "Import locale example",
       "Import screenshot example",
     ]) expect(markup).toContain(copy);

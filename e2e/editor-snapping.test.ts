@@ -141,7 +141,7 @@ describe("editor snapping", () => {
     expect(await stage.getAttribute("data-snap-guide-x")).toBeNull();
 
     // On the second connected screen the badge sits under that screen's layer, not the first's.
-    await page.getByRole("button", { name: "Connected Second · iphone" }).click();
+    await page.getByRole("button", { name: "Connected Second · iPhone" }).click();
     await page.getByRole("list", { name: "Layers for Connected Second" })
       .getByRole("button", { name: "Shape", exact: true })
       .click();

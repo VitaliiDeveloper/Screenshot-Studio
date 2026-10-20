@@ -105,7 +105,7 @@ function buildActions(selection: ActiveProjectSelection, entryId?: string): Proj
     { id: "import-project", label: "Import another project", description: "Validate a Folder, project ZIP, or JSON into a separate managed copy.", enabled: true, href: "/?switch=1" },
     { id: "store-image-export", label: "Export store images", description: "Render exact store-ready PNG bundles from the shared Workspace renderer.", enabled: true, href: editorIntentUrl("export") },
     { id: "project-archive-export", label: "Export project archive", description: "Download a portable project backup for later project import.", enabled: selection.capabilities.exportProjectArchive },
-    { id: "permanently-delete-project", label: "Permanently delete project", description: "Irreversibly delete this managed project and its project-local resources.", enabled: selection.capabilities.deleteProjectPermanently },
+    { id: "permanently-delete-project", label: "Permanently delete project", description: "Permanently delete this project and all its screenshots, fonts, and assets.", enabled: selection.capabilities.deleteProjectPermanently },
   ];
 }
 

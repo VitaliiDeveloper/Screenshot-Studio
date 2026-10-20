@@ -82,7 +82,7 @@ describe("screen row warning", () => {
 
 describe("screen row button", () => {
   const render = (active: boolean, warning: boolean, caption = "5 layers") => renderToStaticMarkup(
-    createElement(ScreenRowButton, { name: "Track", caption, active, warning, "aria-label": "Track · iphone" }),
+    createElement(ScreenRowButton, { name: "Track", caption, active, warning, "aria-label": "Track · iPhone" }),
   );
 
   it("describes the button with its caption and marks the active screen", () => {
@@ -133,6 +133,14 @@ describe("ScreensSection", () => {
     expect(handle).toContain("opacity-0 group-hover:opacity-100 group-focus-within:opacity-100");
     expect(handle).toContain("[@media(hover:none)]:pointer-events-none");
     expect(markup.match(/data-selected="true"/g)).toHaveLength(1);
+  });
+
+  it("names the list and rows with catalog family copy instead of persisted device ids", () => {
+    const markup = render("focus");
+
+    expect(markup).toContain('aria-label="Screens for en · iPhone"');
+    expect(markup).toContain('aria-label="Save Fast · iPhone"');
+    expect(markup).not.toMatch(/aria-label="[^"]*· iphone"/);
   });
 
   it("counts sizes per screen in Overview and shows a slot's issue as a warning row", () => {

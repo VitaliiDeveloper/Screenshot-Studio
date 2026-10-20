@@ -126,7 +126,7 @@ describe("left panel", () => {
   it("activates a screen from anywhere on its row, including the thumbnail", async () => {
     const page = await browser.newPage({ viewport: { width: 1000, height: 1200 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "networkidle" });
-    const saveFast = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
+    const saveFast = page.getByRole("button", { name: "Save Fast · iPhone", exact: true });
     await saveFast.waitFor();
     expect(await saveFast.getAttribute("aria-current")).toBeNull();
 
@@ -147,11 +147,11 @@ describe("left panel", () => {
     expect(await page.getByRole("button", { name: "Design packs", exact: true }).isVisible()).toBe(true);
     // Workspace opens in Overview: the header counts sizes and screen rows count each screen's sizes.
     await page.getByText(/^· 3 · EN · 2 sizes$/).waitFor();
-    expect(await page.getByRole("button", { name: "Save Fast · iphone", exact: true }).textContent()).toContain("1 size");
+    expect(await page.getByRole("button", { name: "Save Fast · iPhone", exact: true }).textContent()).toContain("1 size");
     await page.getByRole("button", { name: "Focus", exact: true }).click();
     await page.getByText(/^· 3 · EN · iPhone 6\.3"$/).waitFor();
 
-    const saveFast = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
+    const saveFast = page.getByRole("button", { name: "Save Fast · iPhone", exact: true });
     const deleteSaveFast = page.getByRole("button", { name: "Delete Save Fast", exact: true });
     await saveFast.waitFor();
     expect(await opacity(deleteSaveFast)).toBe("0");
@@ -166,7 +166,7 @@ describe("left panel", () => {
     const support = layers.getByRole("button", { name: "Hero support", exact: true });
     await support.click();
     await layers.getByRole("button", { name: "Shipments app", exact: true }).click({ modifiers: ["Shift"] });
-    await expect.poll(() => page.getByRole("button", { name: "Hero · iphone", exact: true }).textContent())
+    await expect.poll(() => page.getByRole("button", { name: "Hero · iPhone", exact: true }).textContent())
       .toContain("5 layers · 2 selected");
     expect(await support.getAttribute("aria-pressed")).toBe("true");
 
