@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { createTextElement, getLayout, parseProject, type Element } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
-import { applyScopeOptions, applyScopeSummary, resolveApplyScope } from "./ApplyScopeControl";
+import { ApplyScopeFooter, applyScopeOptions, applyScopeSummary, resolveApplyScope } from "./ApplyScopeControl";
 
 function screen(id: string, name: string, elements: Element[], extra: Record<string, unknown> = {}) {
   return {
@@ -49,7 +51,7 @@ describe("applyScopeSummary", () => {
       "Edits change this screen only. 1 size skipped: no matching unlocked layer, or a value out of range there.",
     );
     expect(applyScopeSummary(layout, hero, "destinations")).toBe(
-      "One edit across 2 exact-size screens in EN, one undo step. 1 destination skipped: no screen named “Hero” at this position.",
+      "Edits change 2 screens in EN, one undo step. 1 destination skipped: no screen named “Hero” at this position.",
     );
   });
 });
@@ -60,6 +62,28 @@ describe("applyScopeOptions", () => {
     expect(only(hero)).toBe("Only Dynamic Island · Medium");
     expect(only(layout.screens[1]!)).toBe("Only Dynamic Island · Large");
     expect(only(layout.screens[2]!)).toBe('Only 13"');
+  });
+
+  it("shows the size alone in the picker trigger", () => {
+    expect(applyScopeOptions(hero, DEFAULT_STORE_SPECS)[0].triggerLabel).toBe("Dynamic Island · Medium");
+    expect(applyScopeOptions(hero, null)[0]).toMatchObject({ label: "Only this size", triggerLabel: "This size" });
+  });
+});
+
+describe("ApplyScopeFooter", () => {
+  const footer = (value: "screen" | "destinations") => renderToStaticMarkup(React.createElement(ApplyScopeFooter, {
+    layout, screen: hero, specs: DEFAULT_STORE_SPECS, value, onChange: () => undefined,
+  }));
+
+  it("is one picker row while the edit stays on this screen", () => {
+    const markup = footer("screen");
+    expect(markup).toContain('aria-label="Apply to"');
+    expect(markup).toContain(">Dynamic Island · Medium<");
+    expect(markup).not.toContain("Edits change");
+  });
+
+  it("counts and names skips once the scope reaches other screens", () => {
+    expect(footer("destinations")).toContain("Edits change 2 screens in EN, one undo step.");
   });
 });
 

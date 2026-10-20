@@ -3,7 +3,7 @@
 
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { DesignLayout, Element, Screen } from "@screenshot-studio/core/model";
-import { editorUi, MenuSelect, SegmentedControl } from "@web/components/editor-ui";
+import { MenuSelect } from "@web/components/editor-ui";
 import { applyScopeScreens, scopedElementPatches, type ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { screenTargetLabel } from "@web/lib/editor/editor-issues";
 import { outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
@@ -23,17 +23,17 @@ export function applyScopeOptions(screen: Screen, specs: StoreSpecs | null) {
   const orientation = parts?.findIndex((part) => /^(?:Portrait|Landscape|Square)$/.test(part)) ?? -1;
   const size = parts ? parts.slice(0, orientation > 0 ? orientation : 1).join(" · ") : null;
   return [
-    { value: "screen", label: size ? `Only ${size}` : "Only this size" },
+    { value: "screen", label: size ? `Only ${size}` : "Only this size", triggerLabel: size ?? "This size" },
     { value: "family", label: `All ${outputFamilyEditorLabel(screen.platform, screen.device, specs ?? undefined)}` },
     { value: "destinations", label: "All destinations" },
-  ] as const satisfies readonly { value: ApplyScope; label: string }[];
+  ] as const satisfies readonly { value: ApplyScope; label: string; triggerLabel?: string }[];
 }
 
 /** The scope picker beside a field (text size, Handoff 6a); it shares the footer's scope. */
 export function ApplyScopeSelect({ screen, specs, value, onChange }: Omit<ApplyScopeProps, "layout">) {
   return (
     <MenuSelect
-      ariaLabel="Apply to"
+      ariaLabel="Apply size to"
       value={value}
       // Size names like `Dynamic Island · Medium` overflow this trigger; the menu keeps the full name.
       options={applyScopeOptions(screen, specs).map((option) =>
@@ -74,7 +74,7 @@ export function applyScopeSummary(layout: DesignLayout, screen: Screen, scope: A
   return [
     count === 1
       ? "Edits change this screen only."
-      : `One edit across ${count} exact-size screens in ${screen.locale.toUpperCase()}, one undo step.`,
+      : `Edits change ${count} screens in ${screen.locale.toUpperCase()}, one undo step.`,
     ...(reach?.skippedSizes
       ? [`${plural(reach.skippedSizes, "size")} skipped: no matching unlocked layer, or a value out of range there.`]
       : []),
@@ -90,20 +90,23 @@ export function ApplyScopeFooter({ layout, screen, specs, value, onChange, eleme
   element?: Element;
 }) {
   return (
-    <footer className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t border-[var(--editor-color-border)] bg-white px-4 py-3">
-      <span className={editorUi.sectionLabel}>Apply to</span>
-      <SegmentedControl
-        label="Apply to"
-        value={value}
-        options={applyScopeOptions(screen, specs)}
-        fill
-        compact
-        className="flex-wrap [&_button]:min-w-fit"
-        onChange={onChange}
-      />
-      <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">
-        {applyScopeSummary(layout, screen, value, element)}
-      </p>
+    <footer className="sticky bottom-0 z-10 mt-auto flex flex-col gap-1.5 border-t border-[var(--editor-color-border)] bg-white px-4 py-2.5">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">Apply to</span>
+        <MenuSelect
+          ariaLabel="Apply to"
+          value={value}
+          options={applyScopeOptions(screen, specs)}
+          onChange={onChange}
+          className="min-w-0 flex-1"
+        />
+      </div>
+      {/* This screen alone can skip nothing, so the picker already says it all. */}
+      {value === "screen" ? null : (
+        <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">
+          {applyScopeSummary(layout, screen, value, element)}
+        </p>
+      )}
     </footer>
   );
 }
