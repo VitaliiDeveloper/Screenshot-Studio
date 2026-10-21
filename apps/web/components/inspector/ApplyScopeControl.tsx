@@ -16,15 +16,27 @@ interface ApplyScopeProps {
   onChange: (scope: ApplyScope) => void;
 }
 
+/**
+ * The size as Apply to names it. Portrait is the default orientation, so it is dropped; Landscape,
+ * Square and qualifiers such as High-res tell sizes apart and stay. A size without a name of its
+ * own (`Portrait · High-res`) leads with its family, so it never reads as a bare orientation.
+ */
+function applyScopeSizeName(screen: Screen, specs: StoreSpecs, family: string): string | null {
+  const parts = screenTargetLabel(screen, specs)?.split(" · ");
+  if (!parts) return null;
+  const named = parts.filter((part) => part !== "Portrait");
+  return /^(?:Portrait|Landscape|Square)$/.test(parts[0]!)
+    ? [family, ...(named.length ? named : parts)].join(" · ")
+    : named.join(" · ");
+}
+
 /** `Only Dynamic Island · Large` / `All iPhone` / `All destinations`, named from the screen being edited. */
 export function applyScopeOptions(screen: Screen, specs: StoreSpecs | null) {
-  const parts = specs ? screenTargetLabel(screen, specs)?.split(" · ") : undefined;
-  // The size name can itself contain ` · `, so cut at the orientation, not at the first separator.
-  const orientation = parts?.findIndex((part) => /^(?:Portrait|Landscape|Square)$/.test(part)) ?? -1;
-  const size = parts ? parts.slice(0, orientation > 0 ? orientation : 1).join(" · ") : null;
+  const family = outputFamilyEditorLabel(screen.platform, screen.device, specs ?? undefined);
+  const size = specs ? applyScopeSizeName(screen, specs, family) : null;
   return [
     { value: "screen", label: size ? `Only ${size}` : "Only this size", triggerLabel: size ?? "This size" },
-    { value: "family", label: `All ${outputFamilyEditorLabel(screen.platform, screen.device, specs ?? undefined)}` },
+    { value: "family", label: `All ${family}` },
     { value: "destinations", label: "All destinations" },
   ] as const satisfies readonly { value: ApplyScope; label: string; triggerLabel?: string }[];
 }
@@ -40,6 +52,7 @@ export function ApplyScopeSelect({ screen, specs, value, onChange }: Omit<ApplyS
         option.value === "screen" ? { ...option, triggerLabel: "This size" } : option)}
       onChange={onChange}
       density="compact"
+      wrapLabels
       className="w-32 shrink-0"
     />
   );
@@ -98,6 +111,7 @@ export function ApplyScopeFooter({ layout, screen, specs, value, onChange, eleme
           value={value}
           options={applyScopeOptions(screen, specs)}
           onChange={onChange}
+          wrapLabels
           className="min-w-0 flex-1"
         />
       </div>

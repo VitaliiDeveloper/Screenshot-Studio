@@ -5,6 +5,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./menu-behavior.js";
 import { cx } from "./styles.js";
+import { WrapAtSeparators } from "./WrapAtSeparators.js";
 
 export type MenuSelectOption<T extends string> = {
   value: T;
@@ -27,6 +28,7 @@ export function MenuSelect<T extends string>({
   showSelectedIcon = false,
   density = "default",
   appearance = "field",
+  wrapLabels = false,
 }: {
   ariaLabel: string;
   menuLabel?: string;
@@ -40,6 +42,8 @@ export function MenuSelect<T extends string>({
   showSelectedIcon?: boolean;
   density?: "default" | "compact";
   appearance?: "field" | "breadcrumb";
+  /** Wrap long labels between ` · ` parts instead of truncating them, in the trigger and the menu. */
+  wrapLabels?: boolean;
 }) {
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
@@ -114,8 +118,8 @@ export function MenuSelect<T extends string>({
           compact
             ? breadcrumb
               ? "min-h-7 px-1 py-1 font-normal"
-              : "h-7 px-2 font-normal text-[color:var(--editor-color-text-secondary)]"
-            : "h-8 px-2.5 text-[color:var(--editor-color-text)]",
+              : cx(wrapLabels ? "min-h-7 py-1" : "h-7", "px-2 font-normal text-[color:var(--editor-color-text-secondary)]")
+            : cx(wrapLabels ? "min-h-8 py-1.5" : "h-8", "px-2.5 text-[color:var(--editor-color-text)]"),
           emphasis
             ? "text-[length:var(--editor-font-control-emphasis-size)]"
             : compact ? "text-[10px]" : "text-[length:var(--editor-font-control-size)]",
@@ -140,10 +144,13 @@ export function MenuSelect<T extends string>({
           </span>
         ) : null}
         <span className={cx(
-          "min-w-0 flex-1 truncate text-left",
+          "min-w-0 flex-1 text-left",
+          wrapLabels ? "break-words leading-4" : "truncate",
           breadcrumb && "text-[11px] font-normal leading-4 text-[color:var(--editor-color-text-secondary)]",
         )}>
-          {activeOption.triggerLabel ?? activeOption.label}
+          {wrapLabels
+            ? <WrapAtSeparators text={activeOption.triggerLabel ?? activeOption.label} />
+            : activeOption.triggerLabel ?? activeOption.label}
         </span>
         <ChevronDown size={14} strokeWidth={1.9} className={cx("shrink-0 text-[color:var(--editor-color-text-subtle)] transition-transform", open && "rotate-180")} />
       </button>
@@ -191,8 +198,8 @@ export function MenuSelect<T extends string>({
                   compact
                     ? breadcrumb
                       ? "min-h-11 border-b border-[var(--editor-color-surface-muted)] px-2.5 py-1.5 font-normal leading-4 last:border-b-0"
-                      : "h-8 rounded-none border-b border-[var(--editor-color-surface-muted)] px-2 font-normal last:border-b-0"
-                    : "h-9 rounded-[var(--editor-radius-control)] px-2 font-medium",
+                      : cx(wrapLabels ? "min-h-8 py-1" : "h-8", "rounded-none border-b border-[var(--editor-color-surface-muted)] px-2 font-normal last:border-b-0")
+                    : cx(wrapLabels ? "min-h-9 py-1.5" : "h-9", "rounded-[var(--editor-radius-control)] px-2 font-medium"),
                   emphasis
                     ? "text-[length:var(--editor-font-control-emphasis-size)]"
                     : compact ? "text-[11px]" : "text-[length:var(--editor-font-control-size)]",
@@ -222,10 +229,11 @@ export function MenuSelect<T extends string>({
                   </span>
                 ) : null}
                 <span className={cx(
-                  "flex-1 truncate",
+                  "flex-1",
+                  wrapLabels ? "min-w-0 break-words leading-4" : "truncate",
                   breadcrumb && "text-[11px] font-normal leading-4",
                 )}>
-                  {option.label}
+                  {wrapLabels ? <WrapAtSeparators text={option.label} /> : option.label}
                 </span>
                 <Check size={14} strokeWidth={2.2} className={cx("text-[color:var(--editor-color-accent)]", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
               </button>

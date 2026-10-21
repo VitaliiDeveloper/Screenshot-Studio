@@ -206,10 +206,11 @@ selected screen's shows *no matching layer* rather than guessing; a hidden count
 one undo step.
 
 **Apply to** in the Inspector footer is one picker row that chooses which exact-size screens the
-next edit writes to:
-**Only {size}** (the default), **All {destination}** (every size of the screen's slot), or **All
-destinations** (that slot in every destination of the layout). The text Size field repeats the same
-picker. One edit writes literal values into each screen in scope as a single undo step; it is never
+next edit writes to: **Only {size}** (the default), **All {destination}** (every size of the
+screen's slot), or **All destinations** (that slot in every destination of the layout). The size name
+drops Portrait, the default orientation, but keeps Landscape, Square, and qualifiers such as High-res;
+a size without a name of its own leads with its family (`Phone · Portrait`, `Phone · High-res`). Long
+names wrap between ` · ` parts instead of truncating. The text Size field repeats the same picker. One edit writes literal values into each screen in scope as a single undo step; it is never
 a per-size override inside a screen, and screens of other locales are never touched. Layer edits
 reach the matching layer on each size by the same structural match as Status by size and skip
 unmatched or locked layers. Pixel metrics (position, size, font size, spacing, shadow, radius) are

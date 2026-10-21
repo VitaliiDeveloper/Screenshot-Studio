@@ -105,6 +105,22 @@ describe("editor UI primitives", () => {
     expect(menuSelectSource).not.toContain("fontSize");
   });
 
+  it("wraps long labels between parts only when asked", () => {
+    const trigger = (wrapLabels: boolean) => renderToStaticMarkup(createElement(MenuSelect, {
+      ariaLabel: "Apply to",
+      value: "screen",
+      options: [{ value: "screen", label: "Only Dynamic Island · Medium · Landscape" }],
+      onChange: () => undefined,
+      wrapLabels,
+    }));
+
+    expect(trigger(true)).toContain('<span class="whitespace-nowrap">Landscape</span>');
+    expect(trigger(true)).toContain("min-h-8");
+    expect(trigger(true)).not.toContain("truncate");
+    expect(trigger(false)).toContain("truncate");
+    expect(trigger(false)).toContain("h-8");
+  });
+
   it("leaves the control font reset to layered preflight so text utilities apply", () => {
     // Unlayered CSS outranks every Tailwind utility; preflight already resets control fonts in @layer base.
     expect(globalStyles).not.toMatch(/font:\s*inherit/);
