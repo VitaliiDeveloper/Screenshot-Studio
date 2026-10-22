@@ -14,7 +14,7 @@ const all = { latin: true, latinExtA: true, cyrillic: true, greek: true };
 const latinOnly = { latin: true, latinExtA: false, cyrillic: false, greek: false };
 
 function face(id: string, family: string, weight: number | null, overrides: Partial<SystemFontFace> = {}): SystemFontFace {
-  return { id, family, weight, source: "user", format: "ttf", coverage: all, ...overrides };
+  return { id, family, weight, style: "Regular", source: "user", format: "ttf", coverage: all, ...overrides };
 }
 
 const faces = [

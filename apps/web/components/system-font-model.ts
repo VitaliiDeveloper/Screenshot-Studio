@@ -50,7 +50,7 @@ export function groupSystemFontFamilies(faces: readonly SystemFontFace[]): Syste
   for (const face of faces) byName.set(face.family, [...(byName.get(face.family) ?? []), face]);
   return [...byName]
     .map(([name, members]) => {
-      const sorted = [...members].sort((a, b) => (a.weight ?? 0) - (b.weight ?? 0) || a.id.localeCompare(b.id));
+      const sorted = [...members].sort((a, b) => (a.weight ?? 0) - (b.weight ?? 0) || a.style.localeCompare(b.style) || a.id.localeCompare(b.id));
       return {
         name,
         faces: sorted,

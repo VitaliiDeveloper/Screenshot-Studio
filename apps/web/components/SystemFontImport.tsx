@@ -128,6 +128,7 @@ export function SystemFontImportView({
                   <button
                     type="button"
                     aria-current={selectedFamily?.name === family.name ? "true" : undefined}
+                    disabled={busy}
                     onClick={() => onSelectFamily(family.name)}
                     className={cx(
                       editorUi.buttonBase,
@@ -173,6 +174,7 @@ export function SystemFontImportView({
                           <strong className="font-medium tabular-nums text-[color:var(--editor-color-text-strong)]">
                             {face.weight ?? "Unknown weight"}
                           </strong>
+                          {face.style && <span className="text-[color:var(--editor-color-text-muted)]">{face.style}</span>}
                           <span className={badgeClass}>{face.source === "system" ? "System" : "User"}</span>
                           <span className={cx(badgeClass, "uppercase")}>{face.format}</span>
                         </label>

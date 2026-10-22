@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, symlink, truncate, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FontValidationError } from "./font-validation.js";
 import {
   createSystemFontScanner,
+  readFontkitMetadata,
   SYSTEM_FONT_MAX_BYTES,
   SystemFontNotFoundError,
   SystemFontUnavailableError,
@@ -21,10 +22,16 @@ const studioSans = new URL("apps/web/public/fonts/screenshot-studio-sans-regular
 
 const latinOnly: SystemFontCoverage = { latin: true, latinExtA: false, cyrillic: false, greek: false };
 
+let faceCount = 0;
+
 function face(overrides: Partial<SystemFontMetadata> = {}): SystemFontMetadata {
+  faceCount += 1;
   return {
     family: "Fake Sans",
+    style: "Regular",
+    postscriptName: `Fake-${faceCount}`,
     weight: 400,
+    width: 5,
     italic: false,
     variable: false,
     collection: false,
@@ -86,15 +93,15 @@ describe("system font scanner with real fixtures", () => {
 
     expect(faces.map(({ id: _id, ...rest }) => rest)).toEqual([
       {
-        family: "Noto Sans", weight: 400, source: "system", format: "ttf",
+        family: "Noto Sans", weight: 400, style: "Regular", source: "system", format: "ttf",
         coverage: { latin: true, latinExtA: false, cyrillic: false, greek: false },
       },
       {
-        family: "Noto Sans Arabic", weight: 700, source: "system", format: "ttf",
+        family: "Noto Sans Arabic", weight: 700, style: "Bold", source: "system", format: "ttf",
         coverage: { latin: true, latinExtA: true, cyrillic: false, greek: false },
       },
       {
-        family: "Pacifico", weight: 400, source: "user", format: "ttf",
+        family: "Pacifico", weight: 400, style: "Regular", source: "user", format: "ttf",
         coverage: { latin: true, latinExtA: true, cyrillic: true, greek: false },
       },
     ]);
@@ -201,16 +208,16 @@ describe("system font scanner policy", () => {
     await expect(scanner.read(faces[1]!.id)).rejects.toBeInstanceOf(SystemFontUnavailableError);
   });
 
-  it("keeps one face per family and weight: usable beats disabled, then user beats system", async () => {
+  it("collapses identical faces by PostScript name: usable beats disabled, then user beats system", async () => {
     await stub(user, "Mine.ttf");
     await stub(system, "Theirs.ttf");
     await stub(system, "Restricted.ttf");
     await stub(user, "Locked.ttf");
     const { scanner } = scannerFor({
-      "Mine.ttf": [face({ family: "Same" })],
-      "Theirs.ttf": [face({ family: "Same" })],
-      "Locked.ttf": [face({ family: "Other", fsType: 0x0002 })],
-      "Restricted.ttf": [face({ family: "Other" })],
+      "Mine.ttf": [face({ family: "Same", postscriptName: "Same-Regular" })],
+      "Theirs.ttf": [face({ family: "Same", postscriptName: "Same-Regular" })],
+      "Locked.ttf": [face({ family: "Other", postscriptName: "Other-Regular", fsType: 0x0002 })],
+      "Restricted.ttf": [face({ family: "Other", postscriptName: "Other-Regular" })],
     });
 
     const faces = await scanner.list();
@@ -218,6 +225,69 @@ describe("system font scanner policy", () => {
     expect(faces.map(({ family, source, unavailable }) => [family, source, unavailable])).toEqual([
       ["Other", "system", undefined],
       ["Same", "user", undefined],
+    ]);
+  });
+
+  it("lists different faces that declare the same family and weight with their style and disables them all", async () => {
+    await stub(user, "Black.ttf");
+    await stub(user, "Heavy.ttf");
+    await stub(user, "Solo.ttf");
+    const { scanner } = scannerFor({
+      "Black.ttf": [face({ family: "Sans", weight: 900, style: "Black" })],
+      "Heavy.ttf": [face({ family: "Sans", weight: 900, style: "Heavy" })],
+      "Solo.ttf": [face({ family: "Sans", weight: 400, style: "Regular" })],
+    });
+
+    const faces = await scanner.list();
+
+    expect(faces.map(({ weight, style, unavailable }) => [weight, style, unavailable])).toEqual([
+      [400, "Regular", undefined],
+      [900, "Black", "Another face (Heavy) also declares 900; add the file with Upload and choose a weight"],
+      [900, "Heavy", "Another face (Black) also declares 900; add the file with Upload and choose a weight"],
+    ]);
+  });
+
+  it("keeps a lone condensed family usable because nothing else shares its family and weight", async () => {
+    await stub(user, "Narrow.ttf");
+    const { scanner } = scannerFor({
+      "Narrow.ttf": [face({ family: "Arial Narrow", style: "Regular", width: 3 })],
+    });
+
+    const [listed] = await scanner.list();
+
+    expect(listed).toMatchObject({ family: "Arial Narrow", weight: 400 });
+    expect(listed!.unavailable).toBeUndefined();
+  });
+
+  it("disables condensed and expanded faces that share a weight when no normal-width face exists", async () => {
+    await stub(user, "Condensed.ttf");
+    await stub(user, "Extended.ttf");
+    const { scanner } = scannerFor({
+      "Condensed.ttf": [face({ family: "Wide", style: "Condensed", width: 3 })],
+      "Extended.ttf": [face({ family: "Wide", style: "Extended", width: 7 })],
+    });
+
+    const faces = await scanner.list();
+
+    expect(faces.map(({ style, unavailable }) => [style, unavailable])).toEqual([
+      ["Condensed", expect.stringMatching(/Width class 3 .*another face \(Extended\)/)],
+      ["Extended", expect.stringMatching(/Width class 7 .*another face \(Condensed\)/)],
+    ]);
+  });
+
+  it("disables non-normal widths without making the normal-width face ambiguous", async () => {
+    await stub(user, "Regular.otf");
+    await stub(user, "Condensed.otf");
+    const { scanner } = scannerFor({
+      "Condensed.otf": [face({ family: "Myriad", style: "Condensed", width: 3 })],
+      "Regular.otf": [face({ family: "Myriad", style: "Regular", width: 5 })],
+    });
+
+    const faces = await scanner.list();
+
+    expect(faces.map(({ style, unavailable }) => [style, unavailable])).toEqual([
+      ["Condensed", expect.stringMatching(/Width class 3/)],
+      ["Regular", undefined],
     ]);
   });
 
@@ -282,6 +352,91 @@ describe("system font scanner containment", () => {
     for (const id of ["sf_" + "0".repeat(32), "../../etc/passwd", join(user, "A.ttf"), ""]) {
       await expect(scanner.read(id)).rejects.toBeInstanceOf(SystemFontNotFoundError);
     }
+  });
+});
+
+describe("system font scanner freshness and re-validation", () => {
+  it("rescans when a root's top level changes and keeps the cache otherwise", async () => {
+    await stub(user, "A.ttf");
+    const { scanner, readMetadata } = scannerFor({
+      "A.ttf": [face({ family: "A" })],
+      "B.ttf": [face({ family: "B" })],
+    });
+    expect((await scanner.list()).map(({ family }) => family)).toEqual(["A"]);
+    await scanner.list();
+    expect(readMetadata).toHaveBeenCalledTimes(1);
+
+    await stub(user, "B.ttf");
+    const later = new Date(Date.now() + 60_000);
+    await utimes(user, later, later);
+
+    expect((await scanner.list()).map(({ family }) => family)).toEqual(["A", "B"]);
+    await scanner.list();
+    expect(readMetadata).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects a file whose metadata no longer matches the scan", async () => {
+    await stub(user, "Drift.ttf");
+    let weight = 400;
+    const scanner = createSystemFontScanner({
+      roots: [{ dir: user, source: "user" }],
+      readMetadata: () => [face({ weight })],
+    });
+    const [listed] = await scanner.list();
+
+    weight = 700;
+
+    await expect(scanner.read(listed!.id)).rejects.toBeInstanceOf(SystemFontNotFoundError);
+  });
+
+  it.skipIf(process.getuid?.() === 0)("maps an unreadable file to not found without leaking its path", async () => {
+    await stub(user, "Locked.ttf");
+    const { scanner } = scannerFor({ "Locked.ttf": [face()] });
+    const [listed] = await scanner.list();
+
+    await chmod(join(user, "Locked.ttf"), 0o000);
+
+    const failure = await scanner.read(listed!.id).catch((error: unknown) => error);
+    await chmod(join(user, "Locked.ttf"), 0o600);
+    expect(failure).toBeInstanceOf(SystemFontNotFoundError);
+    expect((failure as Error).message).not.toContain(dir);
+  });
+});
+
+describe("readFontkitMetadata italic detection", () => {
+  function patched(tag: string, patch: (bytes: Buffer, tableOffset: number) => void): Promise<Buffer> {
+    return readFile(pacifico).then((bytes) => {
+      const tableCount = bytes.readUInt16BE(4);
+      for (let index = 0; index < tableCount; index += 1) {
+        const entry = 12 + index * 16;
+        if (bytes.toString("ascii", entry, entry + 4) === tag) {
+          patch(bytes, bytes.readUInt32BE(entry + 8));
+          return bytes;
+        }
+      }
+      throw new Error(`fixture has no ${tag} table`);
+    });
+  }
+
+  it("flags a face whose head.macStyle has the italic bit", async () => {
+    const italic = await patched("head", (bytes, offset) => bytes.writeUInt16BE(0x0002, offset + 44));
+
+    expect(readFontkitMetadata(italic, "Pacifico.ttf")[0]!.italic).toBe(true);
+    expect(readFontkitMetadata(await readFile(pacifico), "Pacifico.ttf")[0]!.italic).toBe(false);
+  });
+
+  it("does not treat a non-zero italic angle alone as italic", async () => {
+    const slanted = await patched("post", (bytes, offset) => bytes.writeInt32BE(-12 * 0x10000, offset + 4));
+
+    expect(readFontkitMetadata(slanted, "Pacifico.ttf")[0]!.italic).toBe(false);
+  });
+
+  it("reports the style, PostScript name and width class", async () => {
+    expect(readFontkitMetadata(await readFile(pacifico), "Pacifico.ttf")[0]).toMatchObject({
+      style: "Regular",
+      postscriptName: "Pacifico-Regular",
+      width: 5,
+    });
   });
 });
 

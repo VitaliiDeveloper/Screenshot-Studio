@@ -10,7 +10,13 @@ import { isRecord } from "./json-guards.js";
 export const SYSTEM_FONT_ROOTS_ENV = "SCREENSHOT_STUDIO_SYSTEM_FONT_ROOTS";
 
 function parseRootsOverride(raw: string): SystemFontRoot[] {
-  const parsed: unknown = JSON.parse(raw);
+  const parsed: unknown = (() => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  })();
   if (!Array.isArray(parsed) || !parsed.every((root) => (
     isRecord(root)
     && typeof root.dir === "string"

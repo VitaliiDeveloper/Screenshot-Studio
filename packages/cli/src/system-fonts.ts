@@ -31,6 +31,7 @@ export interface SystemFontFace {
   id: string;
   family: string;
   weight: number | null;
+  style: string;
   source: SystemFontSource;
   format: SystemFontFormat;
   coverage: SystemFontCoverage;
@@ -39,7 +40,10 @@ export interface SystemFontFace {
 
 export interface SystemFontMetadata {
   family: string;
+  style: string;
+  postscriptName: string;
   weight: number | undefined;
+  width: number | undefined;
   italic: boolean;
   variable: boolean;
   collection: boolean;
@@ -87,6 +91,7 @@ const COVERAGE_SAMPLES: Record<keyof SystemFontCoverage, string> = {
   greek: "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρςστυφχψω",
 };
 
+const NORMAL_WIDTH_CLASS = 5;
 const FS_TYPE_RESTRICTED = 0x0002;
 const FS_TYPE_LESS_RESTRICTIVE = 0x0004 | 0x0008;
 
@@ -138,11 +143,15 @@ function covers(font: Font, sample: string): boolean {
 
 function metadataOf(font: Font, collection: boolean): SystemFontMetadata {
   const os2 = font["OS/2"] as Font["OS/2"] | null | undefined;
+  const macStyle = (font as unknown as { head?: { macStyle?: { italic?: boolean } } }).head?.macStyle;
   const fsType = os2?.fsType;
   return {
     family: (font.getName("preferredFamily", "en") ?? font.familyName).trim(),
+    style: (font.getName("preferredSubfamily", "en") ?? font.subfamilyName ?? "").trim(),
+    postscriptName: (font.postscriptName ?? "").trim(),
     weight: os2?.usWeightClass,
-    italic: Boolean(os2?.fsSelection.italic || os2?.fsSelection.oblique) || font.italicAngle !== 0,
+    width: os2?.usWidthClass,
+    italic: Boolean(os2?.fsSelection.italic || os2?.fsSelection.oblique || macStyle?.italic),
     variable: Object.keys(font.variationAxes).length > 0,
     collection,
     fsType: (fsType?.noEmbedding ? 0x0002 : 0)
@@ -206,6 +215,9 @@ interface ScanEntry {
   path: string;
   fileName: string;
   root: string;
+  index: number;
+  postscriptName: string;
+  width: number | undefined;
 }
 
 /** Symlinked directories are never followed; symlinked files must resolve inside their root. */
@@ -243,15 +255,22 @@ async function describeFile(
   readMetadata: ReadSystemFontMetadata,
 ): Promise<ScanEntry[]> {
   const format = extname(file.name).slice(1).toLowerCase() as SystemFontFormat;
-  const entry = (index: number, face: Omit<SystemFontFace, "id" | "source" | "format">): ScanEntry => ({
+  const entry = (
+    index: number,
+    face: Omit<SystemFontFace, "id" | "source" | "format">,
+    identity: { postscriptName: string; width: number | undefined } = { postscriptName: "", width: undefined },
+  ): ScanEntry => ({
     face: { id: faceId(file.path, index), source: root.source, format, ...face },
     path: file.path,
     fileName: file.name,
     root: realRoot,
+    index,
+    ...identity,
   });
   const unreadable = (reason: string) => [entry(0, {
     family: basename(file.name, extname(file.name)),
     weight: null,
+    style: "",
     coverage: NO_COVERAGE,
     unavailable: reason,
   })];
@@ -275,25 +294,61 @@ async function describeFile(
     return [entry(index, {
       family: face.family,
       weight: face.weight ?? null,
+      style: face.style,
       coverage: face.coverage,
       ...(unavailable ? { unavailable } : {}),
-    })];
+    }, { postscriptName: face.postscriptName, width: face.width })];
   });
 }
 
-/** One entry per family and weight: usable beats disabled, then the user's own folders beat machine-wide ones. */
-function preferred(entries: ScanEntry[]): ScanEntry[] {
+const normalWidth = ({ width }: ScanEntry) => width === undefined || width === NORMAL_WIDTH_CLASS;
+
+/**
+ * Identical faces (same PostScript name) collapse to one copy: usable beats disabled, then the user's
+ * own folders beat machine-wide ones. Different usable faces that declare the same family and weight
+ * (Heavy vs Black, Regular vs Condensed) cannot be told apart by a project font identity, so they are
+ * kept but disabled; a lone normal-width face among condensed or expanded ones stays usable, and a
+ * condensed face with no sibling at its weight is unambiguous and also stays usable.
+ */
+function resolveFaces(entries: ScanEntry[]): ScanEntry[] {
   const rank = (entry: ScanEntry) => (entry.face.unavailable ? 2 : 0) + (entry.face.source === "user" ? 0 : 1);
   const seen = new Set<string>();
-  return [...entries]
+  const unique = [...entries]
     .sort((a, b) => rank(a) - rank(b) || a.path.localeCompare(b.path) || a.face.id.localeCompare(b.face.id))
-    .filter(({ face }) => {
-      if (face.weight === null) return true;
-      const key = JSON.stringify([face.family, face.weight]);
-      if (seen.has(key)) return false;
-      seen.add(key);
+    .filter(({ postscriptName }) => {
+      if (!postscriptName) return true;
+      if (seen.has(postscriptName)) return false;
+      seen.add(postscriptName);
       return true;
     });
+
+  const groups = new Map<string, ScanEntry[]>();
+  for (const entry of unique) {
+    if (entry.face.unavailable || entry.face.weight === null) continue;
+    const key = JSON.stringify([entry.face.family, entry.face.weight]);
+    groups.set(key, [...(groups.get(key) ?? []), entry]);
+  }
+  const disabled = new Map<string, string>();
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    const normal = members.filter(normalWidth);
+    for (const member of members) {
+      const wide = !normalWidth(member);
+      if (!wide && normal.length === 1) continue;
+      const others = (wide ? members : normal)
+        .filter((other) => other !== member)
+        .map(({ face }) => face.style || "unnamed face");
+      const detail = `(${others.join(", ")}) also declares ${member.face.weight}; add the file with Upload and choose a weight`;
+      disabled.set(
+        member.face.id,
+        wide ? `Width class ${member.width} (condensed or expanded): another face ${detail}` : `Another face ${detail}`,
+      );
+    }
+  }
+  return unique.map((entry) => {
+    const unavailable = disabled.get(entry.face.id);
+    return unavailable ? { ...entry, face: { ...entry.face, unavailable } } : entry;
+  });
 }
 
 async function scanSystemFonts(
@@ -308,7 +363,27 @@ async function scanSystemFonts(
       entries.push(...await describeFile(file, root, realRoot, readMetadata));
     }
   }
-  return new Map(preferred(entries).map((entry) => [entry.face.id, entry]));
+  return new Map(resolveFaces(entries).map((entry) => [entry.face.id, entry]));
+}
+
+/** Installers (Font Book, apt) touch the top of a root; deeper changes need a restart. */
+async function rootsStamp(roots: SystemFontRoot[]): Promise<string> {
+  return (await Promise.all(roots.map(async ({ dir }) => (
+    `${dir}:${(await stat(dir).catch(() => undefined))?.mtimeMs ?? "missing"}`
+  )))).join("\n");
+}
+
+function unchanged(entry: ScanEntry, bytes: Buffer, readMetadata: ReadSystemFontMetadata): boolean {
+  try {
+    const current = readMetadata(bytes, entry.fileName)[entry.index];
+    return current !== undefined
+      && !current.italic
+      && unavailableReason(current) === undefined
+      && current.family === entry.face.family
+      && current.weight === entry.face.weight;
+  } catch {
+    return false;
+  }
 }
 
 export function createSystemFontScanner({
@@ -318,20 +393,24 @@ export function createSystemFontScanner({
   roots?: SystemFontRoot[];
   readMetadata?: ReadSystemFontMetadata;
 } = {}): SystemFontScanner {
-  let scan: Promise<Map<string, ScanEntry>> | undefined;
-  const entries = () => {
-    scan ??= scanSystemFonts(roots, readMetadata).catch((error: unknown) => {
-      scan = undefined;
-      throw error;
-    });
-    return scan;
+  let cache: { stamp: string; scan: Promise<Map<string, ScanEntry>> } | undefined;
+  const entries = async () => {
+    const stamp = await rootsStamp(roots);
+    if (cache?.stamp !== stamp) {
+      const scan: Promise<Map<string, ScanEntry>> = scanSystemFonts(roots, readMetadata).catch((error: unknown) => {
+        if (cache?.scan === scan) cache = undefined;
+        throw error;
+      });
+      cache = { stamp, scan };
+    }
+    return cache.scan;
   };
 
   return {
     async list() {
       return [...(await entries()).values()]
         .map(({ face }) => face)
-        .sort((a, b) => a.family.localeCompare(b.family) || (a.weight ?? 0) - (b.weight ?? 0) || a.id.localeCompare(b.id));
+        .sort((a, b) => a.family.localeCompare(b.family) || (a.weight ?? 0) - (b.weight ?? 0) || a.style.localeCompare(b.style) || a.id.localeCompare(b.id));
     },
 
     async read(id) {
@@ -344,7 +423,9 @@ export function createSystemFontScanner({
       if (path !== entry.path || !isInside(entry.root, path)) throw gone;
       const info = await stat(path).catch(() => undefined);
       if (!info?.isFile() || info.size > SYSTEM_FONT_MAX_BYTES) throw gone;
-      return { face: entry.face, fileName: entry.fileName, bytes: await readFile(path) };
+      const bytes = await readFile(path).catch(() => undefined);
+      if (!bytes || !unchanged(entry, bytes, readMetadata)) throw gone;
+      return { face: entry.face, fileName: entry.fileName, bytes };
     },
   };
 }

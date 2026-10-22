@@ -19,6 +19,11 @@ describe("systemFontRootsFromEnvironment", () => {
     expect(systemFontRootsFromEnvironment({ NODE_ENV: "development" } as NodeJS.ProcessEnv)).toEqual(systemFontRoots());
   });
 
+  it("names the variable when the override is not valid JSON", () => {
+    expect(() => systemFontRootsFromEnvironment({ [SYSTEM_FONT_ROOTS_ENV]: "{nope", NODE_ENV: "test" } as NodeJS.ProcessEnv))
+      .toThrow(/SCREENSHOT_STUDIO_SYSTEM_FONT_ROOTS must be a JSON array/);
+  });
+
   it("fails loudly on a malformed override", () => {
     expect(() => systemFontRootsFromEnvironment({ [SYSTEM_FONT_ROOTS_ENV]: '[{"dir":1}]', NODE_ENV: "test" } as NodeJS.ProcessEnv))
       .toThrow(/JSON array/);

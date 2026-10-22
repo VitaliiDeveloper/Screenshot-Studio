@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FontAsset, Project } from "@screenshot-studio/core/model";
 import { editorStore } from "@web/lib/editor/editor-store.js";
-import { reconcileFontMutationResponse } from "./font-manager-model.js";
+import { appendWarning, reconcileFontMutationResponse } from "./font-manager-model.js";
 
 const font: FontAsset = {
   family: "Inter",
@@ -198,5 +198,14 @@ describe("reconcileFontMutationResponse", () => {
     expect(editorStore.getState().project).toBe(before.project);
     expect(editorStore.getState().historyPast).toEqual(before.historyPast);
     expect(editorStore.getState().historyFuture).toEqual(before.historyFuture);
+  });
+});
+
+describe("appendWarning", () => {
+  it("keeps earlier warnings when later adds also warn", () => {
+    expect(appendWarning(null, null)).toBeNull();
+    expect(appendWarning(null, "first")).toBe("first");
+    expect(appendWarning("first", null)).toBe("first");
+    expect(appendWarning("first", "second")).toBe("first\nsecond");
   });
 });

@@ -19,9 +19,15 @@ import {
   handleSystemFontsGet,
 } from "./handler.js";
 
-const shared = vi.hoisted(() => ({ scanner: undefined as SystemFontScanner | undefined }));
+const shared = vi.hoisted(() => ({
+  scanner: undefined as SystemFontScanner | undefined,
+  failure: undefined as Error | undefined,
+}));
 vi.mock("@web/lib/system-fonts.server.js", () => ({
-  sharedSystemFontScanner: () => shared.scanner,
+  sharedSystemFontScanner: () => {
+    if (shared.failure) throw shared.failure;
+    return shared.scanner;
+  },
 }));
 
 import { GET as listRoute } from "./route.js";
@@ -73,6 +79,7 @@ beforeEach(async () => {
     )),
   });
   shared.scanner = scanner;
+  shared.failure = undefined;
 });
 
 afterEach(async () => {
@@ -114,6 +121,7 @@ describe("system font handlers", () => {
       ["Pacifico", 400, "system", true],
     ]);
     expect(body.fonts[0].unavailable).toMatch(/Restricted License embedding/);
+    expect(body.fonts.map((font: { style: string }) => font.style)).toEqual(["Bold", "Regular"]);
     expect(JSON.stringify(body)).not.toContain(dir);
   });
 
@@ -187,6 +195,19 @@ describe("system font handlers", () => {
     expect(duplicate.status).toBe(409);
     expect((await duplicate.json()).error).toMatch(/already registered/);
     expect(await readFile(projectPath)).toEqual(registered);
+  });
+
+  it("reports a misconfigured scanner as a clear error instead of throwing out of the handler", async () => {
+    shared.failure = new TypeError("SCREENSHOT_STUDIO_SYSTEM_FONT_ROOTS must be a JSON array of { dir, source } objects");
+
+    for (const response of [
+      await handleSystemFontsGet(),
+      await handleSystemFontPreview(previewRequest("?id=x")),
+      await handleSystemFontImport(projectPath, importRequest({ id: "x" })),
+    ]) {
+      expect(response.status).toBe(500);
+      expect((await response.json()).error).toMatch(/SCREENSHOT_STUDIO_SYSTEM_FONT_ROOTS must be a JSON array/);
+    }
   });
 
   it("does not serve a symlink that leaves the scanned folder", async () => {

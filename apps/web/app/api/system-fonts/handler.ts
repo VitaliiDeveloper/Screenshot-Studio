@@ -37,11 +37,10 @@ async function importId(req: Request): Promise<string> {
   return body.id;
 }
 
-export async function handleSystemFontsGet(
-  scanner: SystemFontScanner = sharedSystemFontScanner(),
-): Promise<Response> {
+export async function handleSystemFontsGet(scanner?: SystemFontScanner): Promise<Response> {
   try {
-    return Response.json({ fonts: await scanner.list() }, { headers: { "cache-control": "no-store" } });
+    const fonts = await (scanner ?? sharedSystemFontScanner()).list();
+    return Response.json({ fonts }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponseByClass(error, ERROR_STATUSES);
   }
@@ -49,10 +48,10 @@ export async function handleSystemFontsGet(
 
 export async function handleSystemFontPreview(
   req: Request,
-  scanner: SystemFontScanner = sharedSystemFontScanner(),
+  scanner?: SystemFontScanner,
 ): Promise<Response> {
   try {
-    const { bytes } = await scanner.read(previewId(req));
+    const { bytes } = await (scanner ?? sharedSystemFontScanner()).read(previewId(req));
     return new Response(new Uint8Array(bytes), {
       headers: {
         "content-type": "application/octet-stream",
@@ -68,12 +67,12 @@ export async function handleSystemFontPreview(
 export async function handleSystemFontImport(
   projectPath: string,
   req: Request,
-  scanner: SystemFontScanner = sharedSystemFontScanner(),
+  scanner?: SystemFontScanner,
   dependencies: FontServiceDependencies = {},
   expectedRevision?: string,
 ): Promise<Response> {
   try {
-    const { face, fileName, bytes } = await scanner.read(await importId(req));
+    const { face, fileName, bytes } = await (scanner ?? sharedSystemFontScanner()).read(await importId(req));
     const result = await addUploadedFontMutation(projectPath, {
       family: face.family,
       weight: face.weight!,

@@ -19,7 +19,7 @@ const all = { latin: true, latinExtA: true, cyrillic: true, greek: false };
 const latinOnly = { latin: true, latinExtA: false, cyrillic: false, greek: false };
 
 function face(id: string, family: string, weight: number | null, overrides: Partial<SystemFontFace> = {}): SystemFontFace {
-  return { id, family, weight, source: "user", format: "ttf", coverage: all, ...overrides };
+  return { id, family, weight, style: "Regular", source: "user", format: "ttf", coverage: all, ...overrides };
 }
 
 const faces = [
@@ -136,6 +136,18 @@ describe("SystemFontImportView", () => {
     expect(render({ status: "loading", totalFamilies: 0, families: [] })).toContain("Scanning installed fonts…");
     expect(render({ status: "error", loadError: "Installed font scan failed (500)" })).toContain("Installed font scan failed (500)");
     expect(render({ totalFamilies: 0, families: [] })).toContain("No installed fonts found");
+  });
+
+  it("shows each face's style name beside its weight", () => {
+    const html = render({ selectedFamily: families.find(({ name }) => name === "Pacifico")! });
+
+    expect(html).toMatch(/400<\/strong><span[^>]*>Regular<\/span>/);
+  });
+
+  it("disables the family buttons while an import is running", () => {
+    const html = render({ busy: true });
+
+    expect(html.match(/<button[^>]*disabled=""[^>]*><span[^>]*>Pacifico/g)).toHaveLength(1);
   });
 
   it("disables the controls and reports the outcome while importing", () => {

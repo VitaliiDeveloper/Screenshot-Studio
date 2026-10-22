@@ -27,7 +27,7 @@ import {
   setProjectRevision,
 } from "@web/lib/clients/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
-import { reconcileFontMutationResponse } from "./font-manager-model";
+import { appendWarning, reconcileFontMutationResponse } from "./font-manager-model";
 import { SystemFontImport } from "./SystemFontImport";
 
 type PendingAction = "upload" | "google" | "remove" | "system" | null;
@@ -93,7 +93,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         resolveActiveProjectAssetUrl,
       ),
     });
-    setWarning(result.warning);
+    setWarning((current) => appendWarning(current, result.warning));
   };
 
   const addUpload = async () => {
@@ -153,7 +153,6 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   };
 
   const importSystemFont = async (id: string) => {
-    setWarning(null);
     await withFlushedProject(async () => {
       const previousProject = editorStore.getState().project!;
       const response = await fetch("/api/system-fonts/import", {
@@ -226,7 +225,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
           <SystemFontImport
             registered={project.fonts}
             onImportFace={importSystemFont}
-            onBusyChange={(busy) => setPending(busy ? "system" : null)}
+            onBusyChange={(busy) => {
+              setPending(busy ? "system" : null);
+              if (busy) setWarning(null);
+            }}
             onBack={() => {
               returnedFromSystem.current = true;
               setView("manage");

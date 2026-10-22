@@ -136,13 +136,20 @@ metadata, through the same registration path as Upload, so duplicates of an exis
 are disabled up front and reported by the server rather than overwritten. Fonts from machine-wide
 folders show a license warning (for example SF Pro is licensed only for UI mockups for Apple
 platforms); the user is responsible for checking it. Fonts with the "Restricted License embedding"
-flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, and weights that are not a
-multiple of 100 are listed as disabled with the reason; italic faces are skipped because a font
-identity has no style. The server scans only the standard font folders of the current OS (macOS:
+flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, weights that are not a
+multiple of 100, and condensed or expanded faces that share a family and weight with another face
+are listed as disabled with the reason (a condensed family with no sibling at its weight stays
+usable); italic faces are skipped because a font identity has no style. Each row shows the face's
+style name beside its weight. Copies of the same face (same PostScript name) collapse to one; different faces that declare
+the same family and weight (for example Black and Heavy at 900) are all listed and all disabled, naming
+each other, because a project font identity cannot tell them apart and choosing one would be arbitrary.
+Add such a file with Upload and choose a weight. The server scans only the standard font folders of the current OS (macOS:
 `/System/Library/Fonts`, `/Library/Fonts`, `~/Library/Fonts`; Windows: `%WINDIR%\Fonts`,
 `%LOCALAPPDATA%\Microsoft\Windows\Fonts`; Linux: `/usr/share/fonts`, `/usr/local/share/fonts`,
 `~/.local/share/fonts`, `~/.fonts`), addresses files by opaque ids, and serves them only to loopback
-requests; the browser never sends a path. The Windows and Linux folder lists are covered by unit tests
+requests; the browser never sends a path. The scan is cached and repeats when the top level of a
+folder changes (a font installed through Font Book or a package manager); a font installed into a
+nested subfolder may need a restart of the editor server to appear. The Windows and Linux folder lists are covered by unit tests
 with injected environments and have not been verified on real machines.
 
 Blank project starters, blank screens, and the first screen in a newly added layout use a white solid
