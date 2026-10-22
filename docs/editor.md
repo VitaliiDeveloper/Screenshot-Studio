@@ -304,14 +304,16 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
-A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state, the
-active screen with the current layer selection (`Hero · Hero headline (Text)`, or
-`No layer selected`), and the key hints `[ ] O ⌘K ⌘Z`, which hide below the medium width. The save
-state reads `Saving…`, `Saved` with the time of the last successful save, or `Save failed · last
-saved` with that time (`nothing saved yet` when no save has succeeded since the project opened), so
-a failure still says how far the work is durable. The save cell is plain text, not a live region,
-so autosaves are not announced; the `Save failed: …` alert keeps announcing the error. The time is editor state, cleared when another
-project loads, and never part of the Project document.
+A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
+the active screen, the current layer selection, and that screen's size, as in
+`Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or
+`3 layers (2 text · 1 shape)` take the layer's place), then the key hints `[ ] Size`,
+`O Focus/Overview`, `⌘K Find`, and `⌘Z Undo`, which hide below the medium width. The save state
+reads `Saving…`, `Saved ·` with the time of the last successful save, or `Save failed · last saved`
+with that time (`nothing saved yet` when no save has succeeded since the project opened), so a
+failure still says how far the work is durable. The save cell is plain text, not a live region, so
+autosaves are not announced; the `Save failed: …` alert keeps announcing the error. The time is
+editor state, cleared when another project loads, and never part of the Project document.
 Play opens a full-screen, read-only scene in the editor's current appearance with the files that bundle writes for the active
 destination, size, and locale, in file order. The current screen is centered at full size with its
 neighbours smaller and dimmed beside it; connected layouts show each screen's exact export crop
