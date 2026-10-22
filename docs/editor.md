@@ -127,23 +127,24 @@ explicit, separate Fonts action in the tool rail.
 
 **Import from system** in the Fonts dialog switches the dialog to a selective import view (its Back
 button returns to the font list and restores focus to the entry button). A search field filters the
-installed families, each showing coverage badges for Latin, Latin Ext-A, Cyrillic, and Greek. Choosing
-a family previews Latin and Cyrillic sample text for every weight, drawn with a `FontFace` built from
-the file's bytes under a private preview family, never `local()` and never the project family name, and
-removed when the selection changes or the view closes. Each importable weight has a checkbox; **Import**
-copies the ticked weights one at a time into the project as `uploaded` fonts named from the file's
-metadata, through the same registration path as Upload, so duplicates of an existing family and weight
-are disabled up front and reported by the server rather than overwritten. Fonts from machine-wide
-folders show a license warning (for example SF Pro is licensed only for UI mockups for Apple
-platforms); the user is responsible for checking it. Fonts with the "Restricted License embedding"
-flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, missing or out-of-range
-weights (outside 100 to 900), and condensed or expanded faces that share a family and weight with
-another face are listed as disabled with the reason (a condensed family with no sibling at its
-weight stays usable); italic faces are skipped because a font identity has no style. Each row shows the face's
-style name beside its weight. Copies of the same face (same PostScript name) collapse to one; different faces that declare
-the same family and weight (for example Black and Heavy at 900) are all listed and all disabled, naming
-each other, because a project font identity cannot tell them apart and choosing one would be arbitrary.
-Add such a file with Upload and choose a weight. The server scans only the standard font folders of the current OS (macOS:
+installed families, each showing coverage badges for Latin, Latin Ext-A, Cyrillic, and Greek.
+Choosing a family previews Latin and Cyrillic sample text for every weight, drawn with a `FontFace`
+built from the file's bytes under a private preview family, never `local()` and never the project
+family name, and removed when the selection changes or the view closes. Each importable weight has a
+checkbox; **Import** copies the ticked weights one at a time into the project as `uploaded` fonts
+named from the file's metadata, through the same registration path as Upload, so duplicates of an
+existing family and weight are disabled up front and reported by the server rather than overwritten.
+Fonts from machine-wide folders show a license warning (for example SF Pro is licensed only for UI
+mockups for Apple platforms); the user is responsible for checking it. Fonts with the "Restricted
+License embedding" flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, missing or
+out-of-range weights (outside 100 to 900), and condensed or expanded faces that share a family and
+weight with another face are listed as disabled with the reason (a condensed family with no sibling
+at its weight stays usable); italic faces are skipped because a font identity has no style. Each row
+shows the face's style name beside its weight. Copies of the same face (same PostScript name)
+collapse to one; different faces that declare the same family and weight (for example Black and
+Heavy at 900) are all listed and all disabled, naming each other, because a project font identity
+cannot tell them apart and choosing one would be arbitrary. Add such a file with Upload and choose a
+weight. The server scans only the standard font folders of the current OS (macOS:
 `/System/Library/Fonts`, `/Library/Fonts`, `~/Library/Fonts`; Windows: `%WINDIR%\Fonts`,
 `%LOCALAPPDATA%\Microsoft\Windows\Fonts`; Linux: `/usr/share/fonts`, `/usr/local/share/fonts`,
 `~/.local/share/fonts`, `~/.fonts`), addresses files by opaque ids, and serves them only to loopback
