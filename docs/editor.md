@@ -232,22 +232,25 @@ persists. Another locale or size is another screen, so none of these change in p
 
 **Text placement** in the Screen tab (**Top**, **Bottom**, **Side**) is a one-time preset: it writes
 literal positions, stores nothing on the screen, and leaves later edits free. The screen's visible,
-unlocked text layers move as one block and its screenshot, image, and device-frame layers as another
-into regions of the artboard, so the text sits above, below, or beside the media; Side puts the text
-on the start edge of a right-to-left screen. Each block keeps its internal arrangement and is
-centered in its region. It is scaled down uniformly, never up, only when it is larger than the region,
-so Side on a narrow artboard also shrinks the text. Locked and hidden layers, shapes, and groups stay
-put. The preset follows **Apply to**, is one undo step, and is disabled without an unlocked text
-layer.
+unlocked text layers stack in their current top-to-bottom order at the full width of a text region,
+centered vertically; their font size and box height stay, so text reflows and Issues reports any
+overflow with **Fit text**. Its screenshot and device-frame layers are fitted into a media region as
+one block that keeps its arrangement and aspect ratio, so a preset gives the same result whatever
+was applied before. Side puts the text on the start edge of a right-to-left screen. Images, shapes,
+groups, and locked or hidden layers stay put. Applying a preset again moves nothing and records no
+undo step. The preset follows **Apply to**, is one undo step, and is disabled without a visible,
+unlocked text layer.
 
 **Locale matrix**, opened from **Locales**, lists the first locale's screens as rows against every
-locale as columns, for the exact size the active screen shows. A cell says whether the screen exists
-in that locale. It reads the missing-locale entries of Issues, so the matrix and Issues cannot
-disagree. A missing cell offers **+ {first locale}**, the same fix as Issues: it copies the screen
-with the target locale's text direction, into every size of a Sync sizes family and into the shown
-size only under Separate, as one undo step through the usual save path. Under Sync sizes a size's row
-is missing together with its slot. The header names the layout, the structure (and the size under
-Separate), the screen and locale counts, and how many cells are missing.
+locale as columns, for the exact size the matrix was opened on. A cell says whether the screen exists
+in that locale, and each cell matches the missing-locale entries of Issues. The header names the
+layout, the structure, the shown destination (Sync sizes) or size (Separate), the screen and locale
+counts, and how many cells are missing; blockers that Issues lists for other sizes or destinations
+are counted as **in other sizes**. A missing cell offers **+ {first locale}**, the same fix as
+Issues: it copies the screen with the target locale's text direction, into every size of a Sync
+sizes family and into the shown size only under Separate, as one undo step through the usual save
+path. Screen structure is stored per locale, so a cell's tooltip says which of the two its own click
+does. Under Sync sizes a size's row is missing together with its slot.
 
 ### Canvas
 
