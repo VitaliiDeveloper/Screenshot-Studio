@@ -53,6 +53,8 @@ function SearchBox({
       ref={boxRef}
       className="relative"
       onBlur={(event) => {
+        // Switching windows blurs the field too; the query should survive it.
+        if (!document.hasFocus()) return;
         if (!boxRef.current?.contains(event.relatedTarget as Node | null)) onClose(false);
       }}
     >
@@ -134,7 +136,7 @@ function SearchBox({
           role="status"
           className={cx("absolute inset-x-0 top-full z-20 mt-1 rounded-[var(--editor-radius-surface)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3 py-2 text-xs shadow-[var(--editor-shadow-menu)]", secondary)}
         >
-          No screens or layers match “{query}”.
+          {query.trim() ? `No screens or layers match “${query.trim()}”.` : "No screens or layers to find yet."}
         </p>
       )}
     </div>
