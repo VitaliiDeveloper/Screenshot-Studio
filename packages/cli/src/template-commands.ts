@@ -24,8 +24,10 @@ export function resolveTemplateAction(args: string[], flags: Record<string, stri
   if (subcommand === "list" && !id) return { kind: "list" };
   if (subcommand === "add" && id && !extra) {
     if (!flags.locale) throw new Error("template add requires --locale <locale>");
-    if (flags["built-in"] && flags.pack) throw new Error("template add takes either --built-in or --pack, not both");
-    const source = flags.pack ? "pack" : flags["built-in"] ? "built-in" : "project";
+    const builtIn = flags["built-in"] === "true";
+    const pack = flags.pack === "true";
+    if (builtIn && pack) throw new Error("template add takes either --built-in or --pack, not both");
+    const source = pack ? "pack" : builtIn ? "built-in" : "project";
     return { kind: "add", id: templateId(id), locale: flags.locale, source };
   }
   throw new Error("Usage: screenshots template <list|add <id> --locale <locale> [--built-in|--pack]>");
