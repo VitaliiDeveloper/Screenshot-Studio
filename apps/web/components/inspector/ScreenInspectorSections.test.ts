@@ -3,6 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  createTextElement,
   ensureStoreOutputFamily,
   ensureStoreTargetVariant,
   type Project,
@@ -319,5 +320,34 @@ describe("Stored on this screen", () => {
       "Each locale and size is its own screen. Switch screens to edit another.",
     ]);
     expect(stored).not.toMatch(/<(input|button|select)\b/);
+  });
+});
+
+describe("Text placement", () => {
+  const render = (elements: Project["layouts"][number]["screens"][number]["elements"]) => {
+    const project = sourceProject();
+    const screen = { ...project.layouts[0]!.screens[0]!, elements };
+    return renderToStaticMarkup(React.createElement(ScreenInspectorSections, {
+      layout: project.layouts[0]!,
+      screen,
+      specs: DEFAULT_STORE_SPECS,
+      target: findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.3"),
+    }));
+  };
+  const buttons = (markup: string) => ["Top", "Bottom", "Side"].map((label) =>
+    new RegExp(`<button[^>]*aria-label="Text placement ${label}"([^>]*)>`).exec(markup)?.[1]);
+
+  it("offers Top, Bottom and Side once the screen has a text layer", () => {
+    const markup = render([createTextElement({})]);
+
+    expect(buttons(markup).every((attributes) => attributes !== undefined && !attributes.includes("disabled"))).toBe(true);
+    expect(markup).toContain("One-shot preset: writes positions once and isn&#x27;t stored on the screen.");
+  });
+
+  it("disables the presets while there is no text layer to place", () => {
+    const markup = render([]);
+
+    expect(buttons(markup).every((attributes) => attributes !== undefined && attributes.includes("disabled"))).toBe(true);
+    expect(markup).toContain("This screen has no unlocked text layer to place.");
   });
 });
