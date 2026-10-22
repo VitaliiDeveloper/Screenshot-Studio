@@ -234,7 +234,8 @@ persists. Another locale or size is another screen, so none of these change in p
 literal positions, stores nothing on the screen, and leaves later edits free. The screen's visible,
 unlocked text layers stack in their current top-to-bottom order at the full width of a text region,
 centered vertically; their font size and box height stay, so text reflows and Issues reports any
-overflow with **Fit text**. Its screenshot and device-frame layers are fitted into a media region as
+overflow with **Fit text**. A stack taller than its region grows past it but stays on the artboard,
+even if it then overlaps the media. Its screenshot and device-frame layers are fitted into a media region as
 one block that keeps its arrangement and aspect ratio, so a preset gives the same result whatever
 was applied before. Side puts the text on the start edge of a right-to-left screen. Images, shapes,
 groups, and locked or hidden layers stay put. Applying a preset again moves nothing and records no
