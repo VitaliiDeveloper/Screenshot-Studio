@@ -359,8 +359,7 @@ an arbitrary local filesystem path.
 
 - Do not add UI-only fields, prompt history, translation databases, or server metadata to the Project
   document.
-- Do not offer generic remote asset fetching, system-font fallback (Import from system copies a chosen
-  file into the project and is not a fallback), hidden filesystem mutation, or a
+- Do not offer generic remote asset fetching, system-font fallback, hidden filesystem mutation, or a
   second rendering/export path.
 - Do not turn templates, themes, or starter content into hidden runtime state; persisted results remain
   ordinary strict Project literals.
