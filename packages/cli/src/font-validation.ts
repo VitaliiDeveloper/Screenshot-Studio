@@ -95,10 +95,15 @@ function isFontCollection(font: Font | FontCollection): font is FontCollection {
   return font.type === "TTC" || font.type === "DFont";
 }
 
-export function parseSupportedFont(
+export interface InspectedFont {
+  identity: ParsedFontIdentity;
+  font: Font;
+}
+
+export function inspectSupportedFont(
   bytes: Uint8Array,
   filename: string,
-): ParsedFontIdentity {
+): InspectedFont {
   const expectedFormat = extensionFor(filename);
   const buffer = Buffer.from(bytes);
   const parsedFormat = containerFor(buffer, filename);
@@ -117,9 +122,12 @@ export function parseSupportedFont(
     }
     const identity = forceEssentialTables(parsed);
     return {
-      format: parsedFormat,
-      family: identity.family,
-      postscriptName: identity.postscriptName,
+      identity: {
+        format: parsedFormat,
+        family: identity.family,
+        postscriptName: identity.postscriptName,
+      },
+      font: parsed,
     };
   } catch (error) {
     if (error instanceof FontValidationError) throw error;
@@ -129,4 +137,11 @@ export function parseSupportedFont(
       { cause: error },
     );
   }
+}
+
+export function parseSupportedFont(
+  bytes: Uint8Array,
+  filename: string,
+): ParsedFontIdentity {
+  return inspectSupportedFont(bytes, filename).identity;
 }

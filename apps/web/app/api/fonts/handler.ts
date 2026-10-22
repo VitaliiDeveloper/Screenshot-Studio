@@ -31,7 +31,7 @@ function isUploadFile(value: FormDataEntryValue | null): value is File & UploadF
     && "arrayBuffer" in value;
 }
 
-const ERROR_STATUSES: ErrorStatusTable = [
+export const ERROR_STATUSES: ErrorStatusTable = [
   [FontValidationError, 400],
   [FontConflictError, 409],
   [FontInUseError, 409],
@@ -39,7 +39,7 @@ const ERROR_STATUSES: ErrorStatusTable = [
   [GoogleFontError, 422],
 ];
 
-function mutationResponse(
+export function mutationResponse(
   result: { project: unknown; revision: string },
   status = 200,
 ): Response {

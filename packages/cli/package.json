@@ -32,6 +32,7 @@
     "./export": "./src/export.ts",
     "./project-image-service": "./src/project-image-service.ts",
     "./font-service": "./src/font-service.ts",
+    "./system-fonts": "./src/system-fonts.ts",
     "./theme-service": "./src/theme-service.ts",
     "./template-service": "./src/template-service.ts",
     "./capture-import-recovery": "./src/capture-import-recovery.ts",
