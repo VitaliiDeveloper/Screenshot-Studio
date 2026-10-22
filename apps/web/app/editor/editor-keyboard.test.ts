@@ -61,21 +61,45 @@ describe("editor keyboard routing", () => {
 });
 
 describe("editor navigation shortcuts", () => {
-  it("maps Search on either modifier, without Shift or Alt", () => {
+  it("maps Search and Export on either modifier, without Shift or Alt", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "k", metaKey: true })).toBe("search");
     expect(resolveEditorKeyboardCommand({ ...base, key: "K", ctrlKey: true })).toBe("search");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "e", metaKey: true })).toBe("export");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "E", ctrlKey: true })).toBe("export");
     expect(resolveEditorKeyboardCommand({ ...base, key: "k", ctrlKey: true, shiftKey: true })).toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...base, key: "k", metaKey: true, altKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "e", metaKey: true, altKey: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...base, key: "k" })).toBeNull();
   });
 
-  it("ignores Search in input fields, dialogs, open menus, and key repeats", () => {
-    const event = { ...base, key: "k", metaKey: true };
-    expect(resolveEditorKeyboardCommand(event)).toBe("search");
+  it("maps [ and ] to the previous and next size and O to Focus / Overview", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "[" })).toBe("prev-size");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "]" })).toBe("next-size");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "o" })).toBe("toggle-view");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "O", shiftKey: true })).toBe("toggle-view");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "[", metaKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "]", altKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "o", ctrlKey: true })).toBeNull();
+  });
+
+  it.each([
+    ["k", { metaKey: true }],
+    ["e", { ctrlKey: true }],
+    ["[", {}],
+    ["]", {}],
+    ["o", {}],
+  ])("ignores %s in input fields, dialogs, open menus, and key repeats", (key, modifiers) => {
+    const event = { ...base, key, ...modifiers };
+    expect(resolveEditorKeyboardCommand(event)).not.toBeNull();
     expect(resolveEditorKeyboardCommand({ ...event, interactive: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...event, modalOpen: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...event, menuOpen: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...event, repeat: true })).toBeNull();
+  });
+
+  it("works without a selection or history", () => {
+    const idle = { ...base, hasSelection: false, canUndo: false, canRedo: false };
+    expect(resolveEditorKeyboardCommand({ ...idle, key: "k", ctrlKey: true })).toBe("search");
+    expect(resolveEditorKeyboardCommand({ ...idle, key: "]" })).toBe("next-size");
   });
 });
 
@@ -83,6 +107,9 @@ describe("routeEditorKeyDown", () => {
   const handlers = (): EditorKeyboardHandlers => ({
     onOpenDialog: vi.fn(),
     onSearch: vi.fn(),
+    onExport: vi.fn(),
+    onToggleView: vi.fn(),
+    onStepSize: vi.fn(),
   });
   const press = (key: string, modifiers: Partial<KeyboardEvent>, target: unknown = null) => {
     const event = {
@@ -101,27 +128,53 @@ describe("routeEditorKeyDown", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("takes Ctrl+K from the browser, which uses it to focus the address bar", () => {
+  it("takes Ctrl+K and Ctrl+E from the browser, which uses them to focus the address bar", () => {
     vi.stubGlobal("Element", class {});
     vi.stubGlobal("document", { querySelector: () => null });
     const wired = handlers();
 
     const search = press("k", { ctrlKey: true });
     routeEditorKeyDown(search, wired);
+    const exportEvent = press("e", { ctrlKey: true });
+    routeEditorKeyDown(exportEvent, wired);
 
     expect(search.preventDefault).toHaveBeenCalledOnce();
+    expect(exportEvent.preventDefault).toHaveBeenCalledOnce();
     expect(wired.onSearch).toHaveBeenCalledOnce();
+    expect(wired.onExport).toHaveBeenCalledOnce();
   });
 
-  it("does not route while a menu is open", () => {
+  it("routes the size and view keys and leaves unrelated keys alone", () => {
+    vi.stubGlobal("Element", class {});
+    vi.stubGlobal("document", { querySelector: () => null });
+    const wired = handlers();
+
+    routeEditorKeyDown(press("[", {}), wired);
+    routeEditorKeyDown(press("]", {}), wired);
+    routeEditorKeyDown(press("o", {}), wired);
+    const unrelated = press("q", {});
+    routeEditorKeyDown(unrelated, wired);
+
+    expect(wired.onStepSize).toHaveBeenNthCalledWith(1, -1);
+    expect(wired.onStepSize).toHaveBeenNthCalledWith(2, 1);
+    expect(wired.onToggleView).toHaveBeenCalledOnce();
+    expect(unrelated.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("does not route while a menu or dialog is open", () => {
     const wired = handlers();
     vi.stubGlobal("Element", class {});
-    vi.stubGlobal("document", { querySelector: (selector: string) => (selector.includes("menu") ? {} : null) });
 
+    vi.stubGlobal("document", { querySelector: (selector: string) => (selector.includes("menu") ? {} : null) });
     const withMenu = press("k", { metaKey: true });
     routeEditorKeyDown(withMenu, wired);
+    vi.stubGlobal("document", { querySelector: (selector: string) => (selector.includes("modal") ? {} : null) });
+    const withDialog = press("]", {});
+    routeEditorKeyDown(withDialog, wired);
 
     expect(wired.onSearch).not.toHaveBeenCalled();
+    expect(wired.onStepSize).not.toHaveBeenCalled();
     expect(withMenu.preventDefault).not.toHaveBeenCalled();
+    expect(withDialog.preventDefault).not.toHaveBeenCalled();
   });
 });

@@ -6,15 +6,16 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "zustand";
-import type {
-  CanvasPattern,
-  MediaAssetTarget,
-  ResourceDialog,
-  WorkspacePanel,
-  WorkspaceTool,
-  WorkspaceView,
+import {
+  adjacentSizeScreenId,
+  type CanvasPattern,
+  type MediaAssetTarget,
+  type ResourceDialog,
+  type WorkspacePanel,
+  type WorkspaceTool,
+  type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
-import { editorStore } from "@web/lib/editor/editor-store";
+import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
@@ -218,7 +219,17 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       setPanel("structure");
       setSearchOpen(true);
     },
-  }), [layout.compact, openDialog, setPanel]);
+    onExport: () => setExportRequestKey((current) => current + 1),
+    onToggleView: () => setView((current) => (current === "focus" ? "overview" : "focus")),
+    onStepSize: (step: -1 | 1) => {
+      const state = editorStore.getState();
+      const activeLayout = selectEditorLayout(state);
+      const activeScreen = activeLayout?.screens.find((screen) => screen.id === state.activeScreenId);
+      if (!specs || !activeLayout || !activeScreen) return;
+      const next = adjacentSizeScreenId(activeLayout, activeScreen, step, specs);
+      if (next) state.selectScreen(next);
+    },
+  }), [layout.compact, openDialog, setPanel, specs]);
   useEditorKeyboardRouting(keyboardHandlers);
   useEditorEscapeRouting({
     dialog,

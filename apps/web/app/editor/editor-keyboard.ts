@@ -18,11 +18,18 @@ export type EditorKeyboardCommand =
   | "add-text"
   | "add-shape"
   | "nudge"
-  | "search";
+  | "search"
+  | "export"
+  | "toggle-view"
+  | "prev-size"
+  | "next-size";
 
 export interface EditorKeyboardHandlers {
   onOpenDialog: (dialog: ResourceDialog) => void;
   onSearch: () => void;
+  onExport: () => void;
+  onToggleView: () => void;
+  onStepSize: (step: -1 | 1) => void;
 }
 
 const NUDGE_DIRECTIONS: Record<string, { x: number; y: number }> = {
@@ -62,6 +69,7 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
   const modifier = input.metaKey || input.ctrlKey;
   if (modifier && !input.shiftKey && !input.altKey && !input.menuOpen) {
     if (key === "k") return "search";
+    if (key === "e") return "export";
   }
   if (modifier && key === "z") {
     if (input.shiftKey) return input.canRedo ? "redo" : null;
@@ -74,6 +82,11 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
   if (input.metaKey || input.ctrlKey || input.altKey) return null;
   if (input.key === "Delete" || input.key === "Backspace") return input.hasSelection ? "delete" : null;
   if (nudgeDelta(input.key, false)) return input.hasSelection && !input.menuOpen ? "nudge" : null;
+  if (!input.menuOpen) {
+    if (key === "o") return "toggle-view";
+    if (input.key === "[") return "prev-size";
+    if (input.key === "]") return "next-size";
+  }
   if (key === "t") return "add-text";
   if (key === "r") return "add-shape";
   return null;
@@ -124,6 +137,18 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
       return;
     case "search":
       handlers.onSearch();
+      return;
+    case "export":
+      handlers.onExport();
+      return;
+    case "toggle-view":
+      handlers.onToggleView();
+      return;
+    case "prev-size":
+      handlers.onStepSize(-1);
+      return;
+    case "next-size":
+      handlers.onStepSize(1);
       return;
     case "delete":
       mutateAndSave(() => editorStore.getState().removeSelected());

@@ -10,6 +10,7 @@ import {
   type StoreSize,
 } from "@screenshot-studio/core/export";
 import {
+  adjacentSizeScreenId,
   clampZoom,
   compactStoreSizeLabel,
   conciseStoreTargetLabel,
@@ -439,6 +440,25 @@ describe("editor workspace helpers", () => {
       .toEqual(["first", "second"]);
     expect(workspaceEditingScope(connected, firstVariant).map((screen) => screen.id))
       .toEqual(["first-65", "second-65"]);
+  });
+
+  it("steps through the Overview size rows, keeping the slot and stopping at the ends", () => {
+    const isolated = scopeProject("isolated");
+    isolated.screens.push({
+      ...structuredClone(isolated.screens[0]!),
+      id: "first-65",
+      variantOf: "first",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    });
+    const screen = (id: string) => isolated.screens.find((candidate) => candidate.id === id)!;
+
+    expect(adjacentSizeScreenId(isolated, screen("first"), 1)).toBe("first-65");
+    expect(adjacentSizeScreenId(isolated, screen("second"), 1)).toBe("first-65");
+    expect(adjacentSizeScreenId(isolated, screen("first-65"), -1)).toBe("first");
+    expect(adjacentSizeScreenId(isolated, screen("first-65"), 1)).toBe("unrelated");
+    expect(adjacentSizeScreenId(isolated, screen("first"), -1)).toBeNull();
+    expect(adjacentSizeScreenId(isolated, screen("unrelated"), 1)).toBeNull();
   });
 });
 

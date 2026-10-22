@@ -3,6 +3,7 @@ import {
   DEVICE_FRAME_PRESETS,
   deviceFramePreset,
   sameScreenGroup,
+  slotScreens,
   type DeviceFrameId,
   type DeviceFrameRecommendation,
   type DesignLayout,
@@ -424,6 +425,24 @@ export function workspaceOverviewRows(
       editing,
     };
   });
+}
+
+/**
+ * The screen `[` (-1) or `]` (+1) opens: the previous or next Overview size row, landing on the
+ * active screen's slot when that row holds it, else on the row's first screen. The ends clamp.
+ */
+export function adjacentSizeScreenId(
+  layout: DesignLayout,
+  activeScreen: Screen,
+  step: -1 | 1,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string | null {
+  const rows = workspaceOverviewRows(layout, activeScreen, specs);
+  const current = rows.findIndex((row) => row.editing);
+  const next = current < 0 ? undefined : rows[current + step];
+  if (!next) return null;
+  const slot = new Set(slotScreens(layout, activeScreen).map((screen) => screen.id));
+  return (next.screens.find((screen) => slot.has(screen.id)) ?? next.screens[0])?.id ?? null;
 }
 
 export function clampZoom(value: number): number {

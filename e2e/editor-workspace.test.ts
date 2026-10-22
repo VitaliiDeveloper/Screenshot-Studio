@@ -794,6 +794,122 @@ describe("editor workspace", () => {
 
   });
 
+  it("finds screens and layers with Ctrl+K and steps sizes, views, and Export from the keyboard", async () => {
+    // The shipped sample has iPhone and iPad rows, so `]` has a next size to reach.
+    writeFileSync(projectFile, readFileSync(sample, "utf8"));
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const statusBar = page.getByTestId("status-bar");
+    const trigger = page.getByRole("button", { name: "Find screen or layer", exact: true });
+    const search = page.getByRole("combobox", { name: "Find screen or layer", exact: true });
+    const focusedIs = (locator: typeof trigger) => locator.evaluate((node) => node === document.activeElement);
+    const blurToBody = () => page.evaluate(() => {
+      document.body.tabIndex = -1;
+      document.body.focus();
+    });
+    await page.evaluate(() => {
+      const prevented: Array<[string, boolean]> = [];
+      (window as unknown as { prevented: typeof prevented }).prevented = prevented;
+      // Registered after the app's own listener, so it sees whether the app took the chord.
+      window.addEventListener("keydown", (event) => {
+        if (event.ctrlKey) prevented.push([event.key, event.defaultPrevented]);
+      });
+    });
+
+    expect((await statusBar.boundingBox())!.height).toBeCloseTo(34, 0);
+    await statusBar.getByText("No unsaved changes").waitFor();
+    await statusBar.getByText("Hero · No layer selected").waitFor();
+    const heroLayers = project().screens[0]!.elements.length;
+
+    // Typing in the field never triggers a canvas shortcut (t adds text, o toggles the view).
+    await blurToBody();
+    await page.keyboard.press("Control+k");
+    await search.waitFor({ state: "visible" });
+    expect(await focusedIs(search)).toBe(true);
+    await page.keyboard.type("hero support");
+    const options = page.getByRole("option");
+    await expect.poll(() => options.count()).toBe(1);
+    expect(await page.getByRole("button", { name: "Overview", exact: true }).getAttribute("aria-pressed")).toBe("true");
+    await page.keyboard.press("Enter");
+    await search.waitFor({ state: "detached" });
+    await statusBar.getByText("Hero · Hero support (Text)").waitFor();
+    await expect.poll(() => focusedIs(trigger)).toBe(true);
+    expect(project().screens[0]!.elements.length).toBe(heroLayers);
+
+    // From the trigger the same chord reopens it; arrows move the active option; Esc closes it.
+    await page.keyboard.press("Control+k");
+    await search.waitFor({ state: "visible" });
+    await page.keyboard.type("headline");
+    await expect.poll(() => options.count()).toBe(3);
+    await page.keyboard.press("ArrowDown");
+    expect(await options.nth(1).getAttribute("aria-selected")).toBe("true");
+    expect(await search.getAttribute("aria-activedescendant")).toBe(await options.nth(1).getAttribute("id"));
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowUp");
+    expect(await options.nth(2).getAttribute("aria-selected")).toBe("true");
+    await page.keyboard.press("Escape");
+    await search.waitFor({ state: "detached" });
+    await expect.poll(() => focusedIs(trigger)).toBe(true);
+    expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
+    await statusBar.getByText("Hero · Hero support (Text)").waitFor();
+
+    // With the Layers panel closed, the chord opens the panel and the search together.
+    const layersToggle = page.getByRole("button", { name: "Layers panel", exact: true });
+    await layersToggle.click();
+    await expect.poll(() => layersToggle.getAttribute("aria-pressed")).toBe("false");
+    await blurToBody();
+    await page.keyboard.press("Control+k");
+    await search.waitFor({ state: "visible" });
+    await expect.poll(() => focusedIs(search)).toBe(true);
+    expect(await layersToggle.getAttribute("aria-pressed")).toBe("true");
+
+    // A pick can move to another screen of the same size.
+    await page.keyboard.type("save fast headline");
+    await page.keyboard.press("Enter");
+    await statusBar.getByText("Save Fast · Save fast headline (Text)").waitFor();
+
+    // Saving shows the time of the last successful save.
+    await blurToBody();
+    await page.keyboard.press("t");
+    await statusBar.locator("time").waitFor();
+    await statusBar.getByText("Saved", { exact: true }).waitFor();
+
+    // [ and ] walk the Overview sizes; the Screens list follows.
+    const iphoneList = page.getByRole("list", { name: "Screens for en · iPhone", exact: true });
+    const ipadList = page.getByRole("list", { name: "Screens for en · iPad", exact: true });
+    await iphoneList.waitFor({ state: "visible" });
+    await page.keyboard.press("]");
+    await ipadList.waitFor({ state: "visible" });
+    await page.keyboard.press("]");
+    expect(await ipadList.isVisible()).toBe(true);
+    await page.keyboard.press("[");
+    await iphoneList.waitFor({ state: "visible" });
+    await page.keyboard.press("[");
+    expect(await iphoneList.isVisible()).toBe(true);
+
+    // O toggles Focus and Overview.
+    const focus = page.getByRole("button", { name: "Focus", exact: true });
+    await page.keyboard.press("o");
+    await expect.poll(() => focus.getAttribute("aria-pressed")).toBe("true");
+    await page.keyboard.press("o");
+    await expect.poll(() => focus.getAttribute("aria-pressed")).toBe("false");
+
+    // Ctrl+E opens Export; nothing but Esc reaches the page behind the dialog.
+    await page.keyboard.press("Control+e");
+    const exportDialog = page.getByRole("dialog", { name: "Export" });
+    await exportDialog.waitFor({ state: "visible" });
+    await page.keyboard.press("o");
+    expect(await focus.getAttribute("aria-pressed")).toBe("false");
+    await page.keyboard.press("Escape");
+    await exportDialog.waitFor({ state: "detached" });
+
+    // Chrome would focus the address bar for Ctrl+K and Ctrl+E unless the app takes them.
+    const prevented = await page.evaluate(
+      () => (window as unknown as { prevented: Array<[string, boolean]> }).prevented,
+    );
+    expect(prevented.filter(([key]) => key === "k" || key === "e"))
+      .toEqual([["k", true], ["k", true], ["k", true], ["e", true]]);
+  });
+
   it("keeps the last successful save visible when a save fails", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
     const statusBar = page.getByTestId("status-bar");
