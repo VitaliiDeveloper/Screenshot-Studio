@@ -304,7 +304,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
             <EmptyResourceState
               icon={Type}
               title="No fonts registered"
-              description="Studio Sans is already available in the Inspector. Add a project font here only when you need another typeface."
+              description="Studio Sans and Studio Display are already available in the Inspector. Add a project font here only when you need another typeface."
               path="assets/fonts/"
             />
           ) : project.fonts.map((font) => {

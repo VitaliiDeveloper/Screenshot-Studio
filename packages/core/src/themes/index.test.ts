@@ -163,6 +163,20 @@ describe("built-in design packs", () => {
     }
   });
 
+  it("lets pack typography use built-in display weights without registering a project font", () => {
+    const source = project();
+    source.fonts = [];
+    const pack = listBuiltInDesignPacks()[0]!;
+    const heading = { ...pack.typography.heading, family: "Screenshot Studio Display", weight: 800 };
+    const next = applyDesignPack(source, "default", { ...pack, typography: { ...pack.typography, heading } });
+
+    expect(next.layouts[0]!.screens[0]!.elements[0]).toMatchObject({ fontFamily: "Screenshot Studio Display", weight: 800 });
+    expect(parseProject(next)).toEqual(next);
+    expect(() => applyDesignPack(source, "default", {
+      ...pack, typography: { ...pack.typography, heading: { ...heading, weight: 700 } },
+    })).toThrow(/unregistered font "Screenshot Studio Display" 700/);
+  });
+
   it("accepts only solid and gradient pack backgrounds", () => {
     const pack = listBuiltInDesignPacks()[0]!;
     expect(() => DesignPack.parse({
