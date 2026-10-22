@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
 import { editorStore } from "./editor-store.js";
 import { applyElementPatch, type ElementPatchFor } from "./editor-element-patch.js";
 import type {
@@ -70,6 +70,7 @@ describe("editorStore", () => {
     editorStore.getState().load(project());
     patchText("headline", { x: 123 });
     editorStore.getState().select("headline");
+    editorStore.getState().setSaveState("saved");
     editorStore.getState().setSaveState("error", "disk unavailable");
 
     (editorStore.getState() as unknown as { resetProjectState(): void }).resetProjectState();
@@ -85,6 +86,36 @@ describe("editorStore", () => {
       historyGroupKey: null,
       saveStatus: "idle",
       saveError: null,
+      lastSavedAt: null,
+    });
+  });
+
+  describe("last successful save", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("records the time of a saved state and keeps it through saving and error", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(1_000);
+      editorStore.getState().load(project());
+      expect(editorStore.getState().lastSavedAt).toBeNull();
+
+      editorStore.getState().setSaveState("saved");
+      vi.setSystemTime(5_000);
+      editorStore.getState().setSaveState("saving");
+      editorStore.getState().setSaveState("error", "disk unavailable");
+
+      expect(editorStore.getState()).toMatchObject({ saveStatus: "error", lastSavedAt: 1_000 });
+    });
+
+    it("forgets the time when a project loads or reloads", () => {
+      editorStore.getState().load(project());
+      editorStore.getState().setSaveState("saved");
+      editorStore.getState().reloadProject(project());
+      expect(editorStore.getState().lastSavedAt).toBeNull();
+
+      editorStore.getState().setSaveState("saved");
+      editorStore.getState().load(project());
+      expect(editorStore.getState().lastSavedAt).toBeNull();
     });
   });
 

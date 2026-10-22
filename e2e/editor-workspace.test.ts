@@ -760,7 +760,8 @@ describe("editor workspace", () => {
   });
 
   it("keeps compact Structure free of output navigation and opens outputs through Inspect", async () => {
-    const page = await openEditor({ width: 720, height: 900 });
+    // 900 px of workspace plus the 34 px status bar.
+    const page = await openEditor({ width: 720, height: 934 });
 
     const structure = page.getByRole("button", { name: "Layers panel", exact: true });
     const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
@@ -791,6 +792,35 @@ describe("editor workspace", () => {
         && storeOutputsBox.y + storeOutputsBox.height <= inspectorBox.y + inspectorBox.height;
     }, { timeout: 5_000 }).toBe(true);
 
+  });
+
+  it("keeps the last successful save visible when a save fails", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const statusBar = page.getByTestId("status-bar");
+    await page.evaluate(() => {
+      document.body.tabIndex = -1;
+      document.body.focus();
+    });
+
+    await page.keyboard.press("t");
+    await statusBar.locator("time").waitFor();
+    const savedAt = await statusBar.locator("time").innerText();
+
+    await page.route("**/api/project", async (route) => {
+      if (route.request().method() === "PUT") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "disk unavailable" }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.keyboard.press("t");
+    await statusBar.getByText("Save failed · last saved").waitFor();
+    expect(await statusBar.locator("time").innerText()).toBe(savedAt);
+    await page.getByRole("alert").filter({ hasText: "Save failed: disk unavailable" }).waitFor();
   });
 
   it("keeps canvas controls inside the available compact workspace", async () => {

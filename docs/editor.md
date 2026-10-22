@@ -288,6 +288,14 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
+A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state, the
+active screen with the current layer selection (`Hero · Hero headline (Text)`, or
+`No layer selected`), and the key hints `[ ] O ⌘K ⌘Z`, which hide below the medium width. The save
+state reads `Saving…`, `Saved` with the time of the last successful save, or `Save failed · last
+saved` with that time (`nothing saved yet` when no save has succeeded since the project opened), so
+a failure still says how far the work is durable. It is a polite status region; the
+`Save failed: …` alert keeps carrying the error text. The time is editor state, cleared when a
+project loads or reloads, and never part of the Project document.
 Play opens a full-screen, read-only scene in the editor's current appearance with the files that bundle writes for the active
 destination, size, and locale, in file order. The current screen is centered at full size with its
 neighbours smaller and dimmed beside it; connected layouts show each screen's exact export crop

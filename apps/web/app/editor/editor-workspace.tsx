@@ -25,6 +25,7 @@ import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImp
 import { ConfirmationDialog } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { StatusBar } from "@web/components/editor-shell/StatusBar";
 import { playEntries } from "@web/components/play-gallery-model";
 import {
   readWorkspaceNavigationState,
@@ -333,6 +334,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           />
         </EditorSidePanel>
       </div>
+      <StatusBar />
       {saveStatus === "error" && saveError && !projectNavigation.error ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
@@ -350,7 +352,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         />
       ) : null}
       {fontWarnings.length > 0 ? (
-        <div role="alert" className="absolute bottom-3 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
+        <div role="alert" className="absolute bottom-12 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
           <p className="font-semibold">Some project fonts could not be loaded.</p>
           <ul className="mt-1 list-disc pl-4">
             {fontWarnings.map(({ font, error: fontError }) => (
