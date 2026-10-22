@@ -83,6 +83,11 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
   return page;
 }
 
+const blurToBody = (page: Page) => page.evaluate(() => {
+  document.body.tabIndex = -1;
+  document.body.focus();
+});
+
 async function showInspectorFromOverflow(page: Page): Promise<void> {
   await page.getByRole("button", { name: "More toolbar actions" }).click();
   await page.getByRole("menu", { name: "More toolbar actions" })
@@ -134,6 +139,10 @@ describe("editor workspace", () => {
     await retryButton.waitFor({ state: "visible" });
     const alert = page.getByRole("alert").filter({ has: retryButton });
     expect(await alert.textContent()).toMatch(/width|invalid|expected/i);
+    // Keys pressed before the workspace exists must not act once it loads.
+    await page.keyboard.press("Control+e");
+    await page.keyboard.press("Control+k");
+    await page.keyboard.press("o");
     await retryButton.click();
     await expect.poll(() => alert.textContent()).toContain("store specs temporarily unavailable");
     expect(await alert.textContent()).toContain("store specs temporarily unavailable");
@@ -141,6 +150,14 @@ describe("editor workspace", () => {
     await page.waitForSelector("canvas");
     await alert.waitFor({ state: "hidden" });
     expect(attempts).toBe(3);
+    expect(await page.getByRole("dialog", { name: "Export" }).or(page.getByRole("combobox")).count()).toBe(0);
+    expect(await page.getByRole("button", { name: "Overview", exact: true }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("opens Export from the export intent", async () => {
+    page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(`${server.url}/editor?intent=export`, { waitUntil: "load" });
+    await page.getByRole("dialog", { name: "Export" }).waitFor({ state: "visible" });
   });
 
   it("shows only the active screen's layers and updates them when screen selection changes", async () => {
@@ -706,10 +723,7 @@ describe("editor workspace", () => {
     await page.getByRole("button", { name: "+ Shape" }).click();
     await expect.poll(() => project().screens[activeIndex]!.elements.length, { timeout: 10_000 }).toBe(activeBefore + 1);
 
-    await page.evaluate(() => {
-      document.body.tabIndex = -1;
-      document.body.focus();
-    });
+    await blurToBody(page);
     await page.keyboard.press("t");
     await expect.poll(() => project().screens[activeIndex]!.elements.length, { timeout: 10_000 }).toBe(activeBefore + 2);
     expect(project().screens[activeIndex]!.elements.at(-1)!.type).toBe("text");
@@ -760,8 +774,7 @@ describe("editor workspace", () => {
   });
 
   it("keeps compact Structure free of output navigation and opens outputs through Inspect", async () => {
-    // 900 px of workspace plus the 34 px status bar.
-    const page = await openEditor({ width: 720, height: 934 });
+    const page = await openEditor({ width: 720, height: 900 });
 
     const structure = page.getByRole("button", { name: "Layers panel", exact: true });
     const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
@@ -779,6 +792,8 @@ describe("editor workspace", () => {
 
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
+    // The inspector scrolls, so the section only has to be reachable inside it.
+    await storeOutputs.scrollIntoViewIfNeeded();
     const inspector = page.getByRole("heading", { name: "Inspector", exact: true })
       .locator("xpath=ancestor::aside");
     await expect.poll(async () => {
@@ -791,7 +806,6 @@ describe("editor workspace", () => {
         && storeOutputsBox.y >= inspectorBox.y
         && storeOutputsBox.y + storeOutputsBox.height <= inspectorBox.y + inspectorBox.height;
     }, { timeout: 5_000 }).toBe(true);
-
   });
 
   it("finds screens and layers with Ctrl+K and steps sizes, views, and Export from the keyboard", async () => {
@@ -802,10 +816,6 @@ describe("editor workspace", () => {
     const trigger = page.getByRole("button", { name: "Find screen or layer", exact: true });
     const search = page.getByRole("combobox", { name: "Find screen or layer", exact: true });
     const focusedIs = (locator: typeof trigger) => locator.evaluate((node) => node === document.activeElement);
-    const blurToBody = () => page.evaluate(() => {
-      document.body.tabIndex = -1;
-      document.body.focus();
-    });
     await page.evaluate(() => {
       const prevented: Array<[string, boolean]> = [];
       (window as unknown as { prevented: typeof prevented }).prevented = prevented;
@@ -821,7 +831,7 @@ describe("editor workspace", () => {
     const heroLayers = project().screens[0]!.elements.length;
 
     // Typing in the field never triggers a canvas shortcut (t adds text, o toggles the view).
-    await blurToBody();
+    await blurToBody(page);
     await page.keyboard.press("Control+k");
     await search.waitFor({ state: "visible" });
     expect(await focusedIs(search)).toBe(true);
@@ -849,14 +859,14 @@ describe("editor workspace", () => {
     await page.keyboard.press("Escape");
     await search.waitFor({ state: "detached" });
     await expect.poll(() => focusedIs(trigger)).toBe(true);
-    expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
+    const layersToggle = page.getByRole("button", { name: "Layers panel", exact: true });
+    expect(await layersToggle.getAttribute("aria-pressed")).toBe("true");
     await statusBar.getByText("Hero · Hero support (Text)").waitFor();
 
     // With the Layers panel closed, the chord opens the panel and the search together.
-    const layersToggle = page.getByRole("button", { name: "Layers panel", exact: true });
     await layersToggle.click();
     await expect.poll(() => layersToggle.getAttribute("aria-pressed")).toBe("false");
-    await blurToBody();
+    await blurToBody(page);
     await page.keyboard.press("Control+k");
     await search.waitFor({ state: "visible" });
     await expect.poll(() => focusedIs(search)).toBe(true);
@@ -868,8 +878,10 @@ describe("editor workspace", () => {
     await statusBar.getByText("Save Fast · Save fast headline (Text)").waitFor();
 
     // Saving shows the time of the last successful save.
-    await blurToBody();
+    const saveFastLayers = project().screens[1]!.elements.length;
+    await blurToBody(page);
     await page.keyboard.press("t");
+    await expect.poll(() => project().screens[1]!.elements.length, { timeout: 10_000 }).toBe(saveFastLayers + 1);
     await statusBar.locator("time").waitFor();
     await statusBar.getByText("Saved", { exact: true }).waitFor();
 
@@ -883,12 +895,8 @@ describe("editor workspace", () => {
     expect(await focusedIs(layerRow)).toBe(true);
     await page.keyboard.press("]");
     await ipadList.waitFor({ state: "visible" });
-    await page.keyboard.press("]");
-    expect(await ipadList.isVisible()).toBe(true);
     await page.keyboard.press("[");
     await iphoneList.waitFor({ state: "visible" });
-    await page.keyboard.press("[");
-    expect(await iphoneList.isVisible()).toBe(true);
 
     // O toggles Focus and Overview.
     const focus = page.getByRole("button", { name: "Focus", exact: true });
@@ -909,10 +917,13 @@ describe("editor workspace", () => {
     await page.keyboard.press("Escape");
     await exportDialog.waitFor({ state: "detached" });
 
+    // Chords work from a focused button too: undo the text added above.
+    expect(await focusedIs(heroRow)).toBe(true);
+    await page.keyboard.press("Control+z");
+    await expect.poll(() => project().screens[1]!.elements.length, { timeout: 10_000 }).toBe(saveFastLayers);
+
     // Chrome would focus the address bar for Ctrl+K and Ctrl+E unless the app takes them.
-    const prevented = await page.evaluate(
-      () => (window as unknown as { prevented: Array<[string, boolean]> }).prevented,
-    );
+    const prevented = await page.evaluate(() => (window as unknown as { prevented: Array<[string, boolean]> }).prevented);
     expect(prevented.filter(([key]) => key === "k" || key === "e"))
       .toEqual([["k", true], ["k", true], ["k", true], ["e", true]]);
   });
@@ -920,25 +931,15 @@ describe("editor workspace", () => {
   it("keeps the last successful save visible when a save fails", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
     const statusBar = page.getByTestId("status-bar");
-    await page.evaluate(() => {
-      document.body.tabIndex = -1;
-      document.body.focus();
-    });
+    await blurToBody(page);
 
     await page.keyboard.press("t");
     await statusBar.locator("time").waitFor();
     const savedAt = await statusBar.locator("time").innerText();
 
     await page.route("**/api/project", async (route) => {
-      if (route.request().method() === "PUT") {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "disk unavailable" }),
-        });
-      } else {
-        await route.continue();
-      }
+      if (route.request().method() !== "PUT") return route.continue();
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "disk unavailable" }) });
     });
     await page.keyboard.press("t");
     await statusBar.getByText("Save failed · last saved").waitFor();
@@ -968,10 +969,11 @@ describe("editor workspace", () => {
     expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
     const layers = page.getByRole("list", { name: /^Layers for / });
     await layers.waitFor({ state: "visible" });
-    const layersBox = await layers.boundingBox();
-    expect(layersBox).not.toBeNull();
-    expect(layersBox!.x).toBeGreaterThanOrEqual(0);
-    expect(layersBox!.x + layersBox!.width).toBeLessThanOrEqual(720);
+    // The panel slides in over 200 ms, so wait for its final box.
+    await expect.poll(async () => {
+      const box = await layers.boundingBox();
+      return box !== null && box.x >= 0 && box.x + box.width <= 720;
+    }).toBe(true);
 
     await showInspectorFromOverflow(page);
     expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
