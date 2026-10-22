@@ -177,7 +177,12 @@ export function useEditorResources(expectedProjectId: string) {
     {
       keepCurrent = false,
       shouldApply = () => true,
-    }: { keepCurrent?: boolean; shouldApply?: (resources: EditorResourceResult) => boolean } = {},
+      background = false,
+    }: {
+      keepCurrent?: boolean;
+      shouldApply?: (resources: EditorResourceResult) => boolean;
+      background?: boolean;
+    } = {},
   ) => {
     const generation = ++resourceGeneration.current;
     setError(null);
@@ -205,7 +210,7 @@ export function useEditorResources(expectedProjectId: string) {
         },
       });
     } catch (error: unknown) {
-      if (resourceGeneration.current === generation) setError((error as Error).message);
+      if (resourceGeneration.current === generation && !background) setError((error as Error).message);
       return false;
     } finally {
       if (resourceGeneration.current === generation) setReloading(false);
@@ -263,6 +268,8 @@ export function useEditorResources(expectedProjectId: string) {
   const reloadExternalChange = useCallback((seen: Project | null) => startReload(withDrainedProjectSaves, {
     keepCurrent: true,
     shouldApply: (resources) => shouldApplyExternalReload(seen, resources.revision),
+    // A file caught mid-write stays on the current project; the next check retries.
+    background: true,
   }), [startReload]);
 
   return {
