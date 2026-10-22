@@ -56,7 +56,7 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     id: "codex",
     name: "Codex",
     binary: "codex",
-    minVersion: "0.163.0",
+    minVersion: "0.162.1",
     // Runs read sign-in from this store too, because they ignore the user's config.toml.
     authStatusArgs: ["login", "status", "-c", 'cli_auth_credentials_store="file"'],
     // Codex has no stable model aliases and no model-list command; models were withdrawn before.
