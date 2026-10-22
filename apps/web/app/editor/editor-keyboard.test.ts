@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
-import { nudgeDelta, resolveEditorKeyboardCommand } from "./editor-keyboard";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  nudgeDelta,
+  resolveEditorKeyboardCommand,
+  routeEditorKeyDown,
+  type EditorKeyboardHandlers,
+} from "./editor-keyboard";
 
 const base = {
   key: "",
@@ -52,5 +57,71 @@ describe("editor keyboard routing", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "t", interactive: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...base, key: "t", modalOpen: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...base, key: "t", altKey: true })).toBeNull();
+  });
+});
+
+describe("editor navigation shortcuts", () => {
+  it("maps Search on either modifier, without Shift or Alt", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "k", metaKey: true })).toBe("search");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "K", ctrlKey: true })).toBe("search");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "k", ctrlKey: true, shiftKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "k", metaKey: true, altKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "k" })).toBeNull();
+  });
+
+  it("ignores Search in input fields, dialogs, open menus, and key repeats", () => {
+    const event = { ...base, key: "k", metaKey: true };
+    expect(resolveEditorKeyboardCommand(event)).toBe("search");
+    expect(resolveEditorKeyboardCommand({ ...event, interactive: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...event, modalOpen: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...event, menuOpen: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...event, repeat: true })).toBeNull();
+  });
+});
+
+describe("routeEditorKeyDown", () => {
+  const handlers = (): EditorKeyboardHandlers => ({
+    onOpenDialog: vi.fn(),
+    onSearch: vi.fn(),
+  });
+  const press = (key: string, modifiers: Partial<KeyboardEvent>, target: unknown = null) => {
+    const event = {
+      key,
+      repeat: false,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      target,
+      preventDefault: vi.fn(),
+      ...modifiers,
+    };
+    return event as typeof event & KeyboardEvent;
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("takes Ctrl+K from the browser, which uses it to focus the address bar", () => {
+    vi.stubGlobal("Element", class {});
+    vi.stubGlobal("document", { querySelector: () => null });
+    const wired = handlers();
+
+    const search = press("k", { ctrlKey: true });
+    routeEditorKeyDown(search, wired);
+
+    expect(search.preventDefault).toHaveBeenCalledOnce();
+    expect(wired.onSearch).toHaveBeenCalledOnce();
+  });
+
+  it("does not route while a menu is open", () => {
+    const wired = handlers();
+    vi.stubGlobal("Element", class {});
+    vi.stubGlobal("document", { querySelector: (selector: string) => (selector.includes("menu") ? {} : null) });
+
+    const withMenu = press("k", { metaKey: true });
+    routeEditorKeyDown(withMenu, wired);
+
+    expect(wired.onSearch).not.toHaveBeenCalled();
+    expect(withMenu.preventDefault).not.toHaveBeenCalled();
   });
 });

@@ -88,6 +88,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [exportRequestKey, setExportRequestKey] = useState(0);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [playOpen, setPlayOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
@@ -104,6 +105,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const setPanel = useCallback((next: WorkspacePanel | null) => {
     setPanelState(next);
     if (next) setLastPanel(next);
+    if (next !== "structure") setSearchOpen(false);
   }, []);
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   useEditorSaveGuards(saveStatus);
@@ -209,7 +211,15 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
-  useEditorKeyboardRouting(openDialog);
+  const keyboardHandlers = useMemo(() => ({
+    onOpenDialog: openDialog,
+    onSearch: () => {
+      if (layout.compact) setInspectorOpen(false);
+      setPanel("structure");
+      setSearchOpen(true);
+    },
+  }), [layout.compact, openDialog, setPanel]);
+  useEditorKeyboardRouting(keyboardHandlers);
   useEditorEscapeRouting({
     dialog,
     localeDialogOpen,
@@ -293,6 +303,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
             onImportCaptures={captureImport.open}
+            searchOpen={searchOpen}
+            onSearchOpenChange={setSearchOpen}
           />
         </EditorSidePanel>
         <div className="flex min-w-0 flex-1">

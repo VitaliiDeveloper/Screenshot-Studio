@@ -17,7 +17,13 @@ export type EditorKeyboardCommand =
   | "delete"
   | "add-text"
   | "add-shape"
-  | "nudge";
+  | "nudge"
+  | "search";
+
+export interface EditorKeyboardHandlers {
+  onOpenDialog: (dialog: ResourceDialog) => void;
+  onSearch: () => void;
+}
 
 const NUDGE_DIRECTIONS: Record<string, { x: number; y: number }> = {
   ArrowLeft: { x: -1, y: 0 },
@@ -54,6 +60,9 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
   if (input.repeat || input.interactive || input.modalOpen) return null;
   const key = input.key.toLowerCase();
   const modifier = input.metaKey || input.ctrlKey;
+  if (modifier && !input.shiftKey && !input.altKey && !input.menuOpen) {
+    if (key === "k") return "search";
+  }
   if (modifier && key === "z") {
     if (input.shiftKey) return input.canRedo ? "redo" : null;
     return input.canUndo ? "undo" : null;
@@ -75,72 +84,78 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest("input, textarea, select, button, a, [role='dialog'], [contenteditable='true']"));
 }
 
-export function useEditorKeyboardRouting(onOpenDialog: (dialog: ResourceDialog) => void) {
+export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboardHandlers) {
+  const state = editorStore.getState();
+  const command = resolveEditorKeyboardCommand({
+    key: event.key,
+    repeat: event.repeat,
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    shiftKey: event.shiftKey,
+    interactive: isInteractiveTarget(event.target),
+    modalOpen: Boolean(document.querySelector("[role='dialog'][aria-modal='true']")),
+    menuOpen: Boolean(document.querySelector("[role='menu']:not([hidden])")),
+    canUndo: state.historyPast.length > 0,
+    canRedo: state.historyFuture.length > 0,
+    hasSelection: state.selectedItems.length > 0,
+  });
+  if (!command) return;
+  // Ctrl+K and Ctrl+E focus the address bar in Chrome on Windows and Linux.
+  event.preventDefault();
+  switch (command) {
+    case "undo":
+      mutateAndSave(() => editorStore.getState().undo());
+      return;
+    case "redo":
+      mutateAndSave(() => editorStore.getState().redo());
+      return;
+    case "group":
+      mutateAndSave(() => editorStore.getState().groupSelected());
+      return;
+    case "ungroup":
+      mutateAndSave(() => editorStore.getState().ungroupSelected());
+      return;
+    case "duplicate":
+      mutateAndSave(() => editorStore.getState().duplicateSelected());
+      return;
+    case "templates":
+      handlers.onOpenDialog("templates");
+      return;
+    case "search":
+      handlers.onSearch();
+      return;
+    case "delete":
+      mutateAndSave(() => editorStore.getState().removeSelected());
+      return;
+    case "add-text": {
+      const current = editorStore.getState();
+      const font = current.project?.fonts[0];
+      const direction = current.project?.layouts
+        .find((layout) => layout.id === current.activeLayoutId)?.screens
+        .find((screen) => screen.id === current.activeScreenId)?.direction;
+      mutateAndSave(() => editorStore.getState().addElement(createTextElement({
+        font: preferredAuthoringFont(font ? [font] : []),
+        direction,
+      })));
+      return;
+    }
+    case "add-shape":
+      mutateAndSave(() => editorStore.getState().addElement(createShapeElement()));
+      return;
+    case "nudge": {
+      const delta = nudgeDelta(event.key, event.shiftKey);
+      if (delta) mutateAndSave(() => editorStore.getState().moveSelected(delta));
+    }
+  }
+}
+
+export function useEditorKeyboardRouting(handlers: EditorKeyboardHandlers) {
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const state = editorStore.getState();
-      const command = resolveEditorKeyboardCommand({
-        key: event.key,
-        repeat: event.repeat,
-        metaKey: event.metaKey,
-        ctrlKey: event.ctrlKey,
-        altKey: event.altKey,
-        shiftKey: event.shiftKey,
-        interactive: isInteractiveTarget(event.target),
-        modalOpen: Boolean(document.querySelector("[role='dialog'][aria-modal='true']")),
-        menuOpen: Boolean(document.querySelector("[role='menu']:not([hidden])")),
-        canUndo: state.historyPast.length > 0,
-        canRedo: state.historyFuture.length > 0,
-        hasSelection: state.selectedItems.length > 0,
-      });
-      if (!command) return;
-      event.preventDefault();
-      switch (command) {
-        case "undo":
-          mutateAndSave(() => editorStore.getState().undo());
-          return;
-        case "redo":
-          mutateAndSave(() => editorStore.getState().redo());
-          return;
-        case "group":
-          mutateAndSave(() => editorStore.getState().groupSelected());
-          return;
-        case "ungroup":
-          mutateAndSave(() => editorStore.getState().ungroupSelected());
-          return;
-        case "duplicate":
-          mutateAndSave(() => editorStore.getState().duplicateSelected());
-          return;
-        case "templates":
-          onOpenDialog("templates");
-          return;
-        case "delete":
-          mutateAndSave(() => editorStore.getState().removeSelected());
-          return;
-        case "add-text": {
-          const current = editorStore.getState();
-          const font = current.project?.fonts[0];
-          const direction = current.project?.layouts
-            .find((layout) => layout.id === current.activeLayoutId)?.screens
-            .find((screen) => screen.id === current.activeScreenId)?.direction;
-          mutateAndSave(() => editorStore.getState().addElement(createTextElement({
-            font: preferredAuthoringFont(font ? [font] : []),
-            direction,
-          })));
-          return;
-        }
-        case "add-shape":
-          mutateAndSave(() => editorStore.getState().addElement(createShapeElement()));
-          return;
-        case "nudge": {
-          const delta = nudgeDelta(event.key, event.shiftKey);
-          if (delta) mutateAndSave(() => editorStore.getState().moveSelected(delta));
-        }
-      }
-    };
+    const onKeyDown = (event: KeyboardEvent) => routeEditorKeyDown(event, handlers);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onOpenDialog]);
+  }, [handlers]);
 }
 
 export function useEditorEscapeRouting({

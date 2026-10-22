@@ -34,7 +34,9 @@ import {
 } from "@web/lib/editor/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
+import type { SearchResult } from "@web/lib/editor/editor-search";
 import { screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { AddMenu, ConfirmationDialog, cx, editorUi } from "./editor-ui";
@@ -213,6 +215,8 @@ export function ScreensSection({
   onOpenDialog,
   onImportCaptures,
   onOpenAdd,
+  searchOpen,
+  onSearchOpenChange,
 }: {
   images: ImageCache;
   view: WorkspaceView;
@@ -222,6 +226,8 @@ export function ScreensSection({
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
   onOpenAdd: () => void;
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const layout = useStore(editorStore, selectEditorLayout);
@@ -295,6 +301,11 @@ export function ScreensSection({
     editorStore.getState().selectScreen(id);
   };
 
+  const pickSearchResult = ({ screenId, elementId }: SearchResult) => {
+    selectScreen(screenId);
+    if (elementId) editorStore.getState().select(elementId, screenId);
+  };
+
   const onDelete = (id: string, name: string) => {
     const candidate = layout.screens.find((screen) => screen.id === id);
     if (!candidate) return;
@@ -349,6 +360,7 @@ export function ScreensSection({
             }}
           />
         </div>
+        <LayerSearch open={searchOpen} onOpenChange={onSearchOpenChange} screens={screens} onPick={pickSearchResult} />
       </header>
       <DndContext
         sensors={sensors}

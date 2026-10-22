@@ -112,7 +112,7 @@ describe("ScreensSection", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  const render = (view: WorkspaceView, issues: ProjectIssue[] = []) => renderToStaticMarkup(createElement(ScreensSection, {
+  const render = (view: WorkspaceView, issues: ProjectIssue[] = [], searchOpen = false) => renderToStaticMarkup(createElement(ScreensSection, {
     images: new Map(),
     view,
     specs,
@@ -120,6 +120,8 @@ describe("ScreensSection", () => {
     onOpenDialog: () => undefined,
     onImportCaptures: () => undefined,
     onOpenAdd: () => undefined,
+    searchOpen,
+    onSearchOpenChange: () => undefined,
   }));
 
   it("keeps the header and hover-or-focus row controls that touch reaches on the active row", () => {
@@ -127,7 +129,7 @@ describe("ScreensSection", () => {
 
     expect(markup).toContain(">Screens</h2>");
     expect(markup).toContain("· 3 · EN · iPhone Dynamic Island · Medium");
-    expect(markup).not.toContain("Find screen or layer");
+    expect(markup).toContain("Find screen or layer");
     expect(markup).toContain('aria-label="Delete Save Fast"');
     const handle = /<span[^>]*aria-label="Drag to reorder"[^>]*>/.exec(markup)?.[0];
     expect(handle).toContain("opacity-0 group-hover:opacity-100 group-focus-within:opacity-100");
@@ -152,5 +154,20 @@ describe("ScreensSection", () => {
     expect(markup).toContain(">1 size</span>");
     // The active row keeps its accent fill; only the inactive warning row turns amber.
     expect(markup.match(/border-dashed border-\[var\(--editor-color-warning-text\)\]/g)).toHaveLength(1);
+  });
+
+  it("offers the search field under the Screens row and opens it as a combobox over the screens and layers", () => {
+    const closed = render("focus");
+    expect(closed).toContain('aria-haspopup="listbox"');
+    expect(closed).toContain('aria-keyshortcuts="Meta+K Control+K"');
+    expect(closed).not.toContain('role="combobox"');
+
+    const open = render("focus", [], true);
+    expect(open).toContain('role="combobox"');
+    expect(open).toContain('aria-expanded="true"');
+    expect(open).toContain('role="listbox"');
+    expect(open).toContain('aria-selected="true"');
+    expect(open).toContain("Hero headline");
+    expect(open).toContain("Text · Hero");
   });
 });

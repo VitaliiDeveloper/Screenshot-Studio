@@ -99,6 +99,11 @@ layer row has a direct lock toggle. Layer rows are one line. A text layer is lab
 (about 30 characters, cut with `…`) unless it has been renamed, in which case the name wins; the
 full text is then the row's tooltip and accessible description. Built-in templates leave text
 layers unnamed, and Issues and the Inspector use the same label.
+Under the Screens row, **Find screen or layer ⌘K** searches the screens and top-level layers the panel
+lists, matching a screen's name and a layer's name, text, or type. The field opens a combobox: ↑ and
+↓ move the active result, Enter picks it through the ordinary screen and layer selection, and Esc
+closes only the search, not the panel. Esc and a pick return focus to the field. ⌘K opens the Layers
+panel first when it is closed.
 The Screens header names the scope as `Screens · count · locale · iPhone Dynamic Island · Large` in Focus and ends
 with the number of sizes in Overview. A screen row shows its thumbnail, name, and
 `N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
