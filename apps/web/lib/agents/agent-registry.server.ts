@@ -8,6 +8,7 @@ import {
   type AgentPolicy,
   type AgentProbeResult,
 } from "./agents.server.js";
+import { agentAdapter } from "./agent-adapters.server.js";
 import { codexAuthStoreOverride, readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
 /** Usage limits are not a registry state: only a real run can observe them (VTL-31). */
@@ -17,6 +18,8 @@ export type AgentState =
   | "not-signed-in"
   | "wrong-auth-mode"
   | "unavailable"
+  /** Listed with its policy, but the editor has no adapter to run it, so its binary is never probed. */
+  | "no-adapter"
   | "ready";
 
 export type AgentAuthMode = "subscription" | "api-key";
@@ -31,6 +34,8 @@ export interface AgentStatus {
   state: AgentState;
   authMode: AgentAuthMode | null;
   policy: AgentPolicy;
+  /** Whether stored consent covers the current policy; null unless the level is `at-own-risk`. */
+  consented: boolean | null;
   models: string[];
   setupUrl: string | null;
   signInCommand: string | null;
@@ -144,11 +149,13 @@ export async function detectAgent(
     state: "unavailable",
     authMode: null,
     policy: definition.policy,
+    consented: null,
     models: [...definition.models],
     setupUrl: definition.setupUrl ?? null,
     signInCommand: definition.signInCommand ?? null,
   };
   if (definition.policy.level === "unavailable") return status;
+  if (!agentAdapter(definition.id)) return { ...status, state: "no-adapter" };
 
   const probe = { env: agentEnv(options.env), timeoutMs: options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS };
   const versionResult = await runAgentProbe(definition.binary, ["--version"], probe);

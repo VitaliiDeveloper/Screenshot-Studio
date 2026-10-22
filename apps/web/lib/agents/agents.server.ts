@@ -77,6 +77,21 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     },
   },
   {
+    // No adapter yet: VTL-29 found no auth-status command and the stream was never run, because
+    // running `agy -p` from a coding agent is the case the account-ban risk applies to.
+    id: "agy",
+    name: "Antigravity",
+    binary: "agy",
+    models: [],
+    policy: {
+      level: "at-own-risk",
+      reason: "Google's terms do not allow third-party apps to run agy on consumer plans.",
+      consequences: "Using it here may get your Antigravity and Gemini CLI accounts restricted or banned.",
+      sourceUrl: "https://antigravity.google/terms",
+      checkedAt: "2026-10-15",
+    },
+  },
+  {
     id: "gemini-cli",
     name: "Gemini CLI",
     binary: "gemini",

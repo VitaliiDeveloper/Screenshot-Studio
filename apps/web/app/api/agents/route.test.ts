@@ -125,17 +125,22 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
 
     const { agents } = await detect();
 
-    expect(Object.keys(agents)).toEqual(["claude-code", "codex", "gemini-cli"]);
+    expect(Object.keys(agents)).toEqual(["claude-code", "codex", "agy", "gemini-cli"]);
     expect(agents["claude-code"]).toEqual({
       id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296",
       minVersion: "2.1.268", state: "ready", authMode: "subscription",
       policy: expect.objectContaining({ level: "supported", sourceUrl: expect.stringMatching(/^https:/) }),
+      consented: null,
       models: ["sonnet", "opus", "haiku"],
       setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     });
     expect(agents.codex).toMatchObject({
       installed: true, version: "0.162.1", minVersion: "0.162.1", state: "ready", authMode: "subscription",
       policy: { level: "supported", checkedAt: "2026-10-15" }, models: [],
+    });
+    expect(agents.agy).toMatchObject({
+      installed: null, state: "no-adapter", consented: false,
+      policy: { level: "at-own-risk", sourceUrl: "https://antigravity.google/terms", checkedAt: "2026-10-15" },
     });
     expect(agents["gemini-cli"]).toMatchObject({
       installed: null, version: null, state: "unavailable", authMode: null,
@@ -254,7 +259,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
     expect(response.status).toBe(200);
     const { agents } = await response.json() as { agents: AgentStatus[] };
     expect(agents.map(({ id, state }) => [id, state])).toEqual([
-      ["claude-code", "not-installed"], ["codex", "not-installed"], ["gemini-cli", "unavailable"],
+      ["claude-code", "not-installed"], ["codex", "not-installed"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
     ]);
   });
 });
