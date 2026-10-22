@@ -216,6 +216,35 @@ keeps each original as a `<previous-size>` variant.
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+## Design packs and screen packs
+
+| Pack | Kind | Id | What it gives you |
+|---|---|---|---|
+| Neutral default | Design pack | `neutral-default` | A light slate-to-blue gradient background, dark high-contrast type, a blue accent, and white surfaces. |
+| Neutral basics · iPhone | Screen pack (2 iPhone screens) | `neutral-iphone-basics` | A hero screen and a feature screen, each with a headline, a subline, and an empty mockup, styled with Neutral default. |
+
+`theme list` and `template list` print the catalog that your installed version ships.
+
+- A **Design pack** restyles screens you already have. **Apply pack** replaces the background of every
+  screen in the layout and bakes color, font, size, line height, and letter spacing into its
+  role-tagged text, shapes, and icons. It does not move or resize anything.
+- A **screen pack** adds finished screens. **Add screens from pack** appends each one as an ordinary
+  editable screen to the active layout and locale.
+
+To apply one manually, open the **Design packs** dialog (**Packs** in the editor tool rail), then use
+**Apply pack** or **Add screens from pack**. Screen packs are listed for the active screen's output
+family.
+
+From the CLI, or for an agent, list the packs, apply one, then edit the copy:
+
+```bash
+pnpm screenshots theme list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots theme set neutral-default --built-in --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots template list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots template add neutral-iphone-basics --pack --locale en --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
+```
+
 ## Project format and resources
 
 A portable screenshot project commonly has this shape:

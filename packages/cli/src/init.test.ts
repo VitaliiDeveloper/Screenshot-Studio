@@ -92,6 +92,10 @@ describe("runInit", () => {
     expect(agentGuide).toContain("## Recipe: import PNG captures");
     expect(agentGuide).toContain('screenshots import . --layout "Feature campaign"');
     expect(agentGuide).toMatch(/commits Project plus\s+copied resources atomically/);
+    expect(agentGuide).toContain("## Recipe: choose a style");
+    expect(agentGuide).toContain("screenshots template add <pack-id> --pack --locale <locale>");
+    expect(agentGuide).toContain("screenshots theme set <design-pack-id> --built-in");
+    expect(agentGuide).toContain("screenshots screen rm hero");
     expect(agentGuide).toContain("## Recipe: process a local asset");
     expect(agentGuide).toContain("screenshots asset auto-crop");
     expect(agentGuide).toContain("screenshots asset remove-background");
