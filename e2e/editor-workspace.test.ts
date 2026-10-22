@@ -83,6 +83,11 @@ async function openEditor(viewport: { width: number; height: number }): Promise<
   return page;
 }
 
+const blurToBody = (page: Page) => page.evaluate(() => {
+  document.body.tabIndex = -1;
+  document.body.focus();
+});
+
 async function showInspectorFromOverflow(page: Page): Promise<void> {
   await page.getByRole("button", { name: "More toolbar actions" }).click();
   await page.getByRole("menu", { name: "More toolbar actions" })
@@ -134,6 +139,10 @@ describe("editor workspace", () => {
     await retryButton.waitFor({ state: "visible" });
     const alert = page.getByRole("alert").filter({ has: retryButton });
     expect(await alert.textContent()).toMatch(/width|invalid|expected/i);
+    // Keys pressed before the workspace exists must not act once it loads.
+    await page.keyboard.press("Control+e");
+    await page.keyboard.press("Control+k");
+    await page.keyboard.press("o");
     await retryButton.click();
     await expect.poll(() => alert.textContent()).toContain("store specs temporarily unavailable");
     expect(await alert.textContent()).toContain("store specs temporarily unavailable");
@@ -141,6 +150,8 @@ describe("editor workspace", () => {
     await page.waitForSelector("canvas");
     await alert.waitFor({ state: "hidden" });
     expect(attempts).toBe(3);
+    expect(await page.getByRole("dialog", { name: "Export" }).or(page.getByRole("combobox")).count()).toBe(0);
+    expect(await page.getByRole("button", { name: "Overview", exact: true }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows only the active screen's layers and updates them when screen selection changes", async () => {
@@ -706,10 +717,7 @@ describe("editor workspace", () => {
     await page.getByRole("button", { name: "+ Shape" }).click();
     await expect.poll(() => project().screens[activeIndex]!.elements.length, { timeout: 10_000 }).toBe(activeBefore + 1);
 
-    await page.evaluate(() => {
-      document.body.tabIndex = -1;
-      document.body.focus();
-    });
+    await blurToBody(page);
     await page.keyboard.press("t");
     await expect.poll(() => project().screens[activeIndex]!.elements.length, { timeout: 10_000 }).toBe(activeBefore + 2);
     expect(project().screens[activeIndex]!.elements.at(-1)!.type).toBe("text");
@@ -778,6 +786,8 @@ describe("editor workspace", () => {
 
     const storeOutputs = page.getByTestId("store-outputs-section");
     await storeOutputs.waitFor({ state: "visible" });
+    // The inspector scrolls, so the section only has to be reachable inside it.
+    await storeOutputs.scrollIntoViewIfNeeded();
     const inspector = page.getByRole("heading", { name: "Inspector", exact: true })
       .locator("xpath=ancestor::aside");
     await expect.poll(async () => {
@@ -790,7 +800,6 @@ describe("editor workspace", () => {
         && storeOutputsBox.y >= inspectorBox.y
         && storeOutputsBox.y + storeOutputsBox.height <= inspectorBox.y + inspectorBox.height;
     }, { timeout: 5_000 }).toBe(true);
-
   });
 
   it("keeps canvas controls inside the available compact workspace", async () => {
@@ -815,10 +824,11 @@ describe("editor workspace", () => {
     expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
     const layers = page.getByRole("list", { name: /^Layers for / });
     await layers.waitFor({ state: "visible" });
-    const layersBox = await layers.boundingBox();
-    expect(layersBox).not.toBeNull();
-    expect(layersBox!.x).toBeGreaterThanOrEqual(0);
-    expect(layersBox!.x + layersBox!.width).toBeLessThanOrEqual(720);
+    // The panel slides in over 200 ms, so wait for its final box.
+    await expect.poll(async () => {
+      const box = await layers.boundingBox();
+      return box !== null && box.x >= 0 && box.x + box.width <= 720;
+    }).toBe(true);
 
     await showInspectorFromOverflow(page);
     expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");

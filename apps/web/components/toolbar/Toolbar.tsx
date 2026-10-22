@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useStore } from "zustand";
 import {
   Download,
@@ -40,7 +40,8 @@ export function Toolbar({
   onToggleInspector,
   onOpenProjects,
   projectsBusy = false,
-  exportRequestKey = 0,
+  exportOpen,
+  onExportOpenChange,
   specs = DEFAULT_STORE_SPECS,
   issueCounts = NO_ISSUES,
   issues,
@@ -52,13 +53,13 @@ export function Toolbar({
   onToggleInspector: () => void;
   onOpenProjects: () => void;
   projectsBusy?: boolean;
-  exportRequestKey?: number;
+  exportOpen: boolean;
+  onExportOpenChange: (open: boolean) => void;
   specs?: StoreSpecs;
   issueCounts?: IssueCounts;
   issues?: readonly ProjectIssue[];
   onOpenIssues?: () => void;
 }) {
-  const [exportOpen, setExportOpen] = useState(false);
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
   const activeLayout = useStore(editorStore, selectEditorLayout);
   const locales = activeLayout ? layoutLocales(activeLayout) : EMPTY_LOCALES;
@@ -100,12 +101,6 @@ export function Toolbar({
     overflowRef,
     overflowTriggerRef,
   } = useToolbarDensity(measurementContentKey);
-
-  useEffect(() => {
-    if (exportRequestKey <= 0) return;
-    const frame = requestAnimationFrame(() => setExportOpen(true));
-    return () => cancelAnimationFrame(frame);
-  }, [exportRequestKey]);
 
   const compactControls = density !== "full";
   const minimalControls = density === "minimal";
@@ -261,7 +256,7 @@ export function Toolbar({
             compactSharedButtonClassName,
             minimalControls && "!size-7 !min-h-7 !px-0",
           )}
-          onClick={() => setExportOpen(true)}
+          onClick={() => onExportOpenChange(true)}
         >
           <Download size={15} strokeWidth={2} /> <span data-toolbar-label className={toolbarLabelClassName}>Export</span>
           {exportCount !== null && !minimalControls ? (
@@ -298,7 +293,7 @@ export function Toolbar({
       <ExportDialog
         key={activeLayout?.id ?? "no-layout"}
         open={exportOpen}
-        onClose={() => setExportOpen(false)}
+        onClose={() => onExportOpenChange(false)}
         specs={specs}
         issues={issues}
         onGoToScreen={(screenId) => {

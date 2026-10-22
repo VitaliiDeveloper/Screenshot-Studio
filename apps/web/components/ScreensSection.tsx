@@ -13,7 +13,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { listOutputFamilies, listStoreTargets, type StoreSpecs } from "@screenshot-studio/core/export";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   assertNever,
   isPrimaryScreen,
@@ -25,7 +25,6 @@ import {
 } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import {
-  compactStoreSizeLabel,
   outputFamilyEditorLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
@@ -34,7 +33,9 @@ import {
 } from "@web/lib/editor/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import type { SearchResult } from "@web/lib/editor/editor-search";
+import { compactScreenSizeLabel, compactSizeLabel, screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { AddMenu, ConfirmationDialog, cx, editorUi } from "./editor-ui";
@@ -43,15 +44,6 @@ const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
   { ssr: false },
 );
-
-/** A screen's exact size without its family, e.g. `6.9"`; null when the store specs no longer list it. */
-function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | null {
-  const family = listOutputFamilies(specs).find(({ key }) => key === `${screen.platform}/${screen.device}`);
-  if (!family) return null;
-  const targetId = screen.storeTargetId ?? family.leadStoreSizeId;
-  const target = listStoreTargets(specs, screen.platform, screen.device).find(({ id }) => id === targetId);
-  return target ? compactStoreSizeLabel(target.label, screen.device) : null;
-}
 
 /** The Screens header scope: `3 · EN · iPhone 6.9"` in Focus, `3 · EN · 4 sizes` in Overview. */
 export function screensScopeLabel(
@@ -66,8 +58,7 @@ export function screensScopeLabel(
     ? []
     : view === "overview"
       ? [sizeCountLabel(workspaceOverviewRows(layout, scopeScreen, specs).length)]
-      : [[outputFamilyEditorLabel(scopeScreen.platform, scopeScreen.device, specs), compactSizeLabel(scopeScreen, specs)]
-        .filter(Boolean).join(" ")];
+      : [compactScreenSizeLabel(scopeScreen, specs)];
   return [String(screens.length), locale.toUpperCase(), ...scope].join(" · ");
 }
 
@@ -213,6 +204,8 @@ export function ScreensSection({
   onOpenDialog,
   onImportCaptures,
   onOpenAdd,
+  searchOpen,
+  onSearchOpenChange,
 }: {
   images: ImageCache;
   view: WorkspaceView;
@@ -222,6 +215,8 @@ export function ScreensSection({
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
   onOpenAdd: () => void;
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const layout = useStore(editorStore, selectEditorLayout);
@@ -231,9 +226,17 @@ export function ScreensSection({
   const [pendingDelete, setPendingDelete] = useState<{ id: string; description: string } | null>(null);
   // Keyed by screen: collapsing one never hides the layers of a screen activated from the canvas.
   const [collapsedScreenId, setCollapsedScreenId] = useState<string | null>(null);
+  // Any change of active screen (row, canvas, or [ ] keys) expands it again.
+  const [collapseScopeId, setCollapseScopeId] = useState(activeScreenId);
+  let collapsedId = collapsedScreenId;
+  if (collapseScopeId !== activeScreenId) {
+    setCollapseScopeId(activeScreenId);
+    setCollapsedScreenId(null);
+    collapsedId = null;
+  }
   const [draggingScreen, setDraggingScreen] = useState(false);
   // The previously expanded screen keeps its layers mounted while they collapse.
-  const expandedScreenId = activeScreenId !== null && collapsedScreenId !== activeScreenId ? activeScreenId : null;
+  const expandedScreenId = activeScreenId !== null && collapsedId !== activeScreenId ? activeScreenId : null;
   const [shownExpandedScreenId, setShownExpandedScreenId] = useState(expandedScreenId);
   const [closingScreenId, setClosingScreenId] = useState<string | null>(null);
   const [treeAnimates, setTreeAnimates] = useState(false);
@@ -295,6 +298,11 @@ export function ScreensSection({
     editorStore.getState().selectScreen(id);
   };
 
+  const pickSearchResult = ({ screenId, elementId }: SearchResult) => {
+    selectScreen(screenId);
+    if (elementId) editorStore.getState().select(elementId, screenId);
+  };
+
   const onDelete = (id: string, name: string) => {
     const candidate = layout.screens.find((screen) => screen.id === id);
     if (!candidate) return;
@@ -349,6 +357,7 @@ export function ScreensSection({
             }}
           />
         </div>
+        <LayerSearch open={searchOpen} onOpenChange={onSearchOpenChange} screens={screens} onPick={pickSearchResult} />
       </header>
       <DndContext
         sensors={sensors}
@@ -361,7 +370,7 @@ export function ScreensSection({
           <div ref={screenListRef} role="list" aria-label={listLabel} className="pt-2">
             {screens.map((s, index) => {
               const active = s.id === activeScreenId;
-              const expanded = active && collapsedScreenId !== s.id;
+              const expanded = active && collapsedId !== s.id;
               const selectedCount = selectedItems.filter((item) => item.screenId === s.id).length;
               const warning = screenRowWarning(layout, s, issues, specs);
               const deleteDisabled = isPrimaryScreen(deletionRootFor(s)) && localeRootScreenCount <= 1;

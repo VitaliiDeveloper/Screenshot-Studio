@@ -6,15 +6,16 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "zustand";
-import type {
-  CanvasPattern,
-  MediaAssetTarget,
-  ResourceDialog,
-  WorkspacePanel,
-  WorkspaceTool,
-  WorkspaceView,
+import {
+  adjacentSizeScreenId,
+  type CanvasPattern,
+  type MediaAssetTarget,
+  type ResourceDialog,
+  type WorkspacePanel,
+  type WorkspaceTool,
+  type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
-import { editorStore } from "@web/lib/editor/editor-store";
+import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
@@ -25,13 +26,14 @@ import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImp
 import { ConfirmationDialog } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { StatusBar } from "@web/components/editor-shell/StatusBar";
 import { playEntries } from "@web/components/play-gallery-model";
 import {
   readWorkspaceNavigationState,
   writeWorkspaceNavigationState,
 } from "@web/lib/editor/editor-workspace-navigation";
 import { EditorResourceDialogs } from "./editor-resource-dialogs";
-import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
+import { useEditorEscapeRouting, useEditorKeyboardRouting, type EditorKeyboardHandlers } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";
 import { useEditorProjectNavigation } from "./use-editor-project-navigation";
 import { useEditorResources } from "./editor-resources";
@@ -84,9 +86,10 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
-  const [exportRequestKey, setExportRequestKey] = useState(0);
+  const [exportOpen, setExportOpen] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [playOpen, setPlayOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
@@ -103,6 +106,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const setPanel = useCallback((next: WorkspacePanel | null) => {
     setPanelState(next);
     if (next) setLastPanel(next);
+    if (next !== "structure") setSearchOpen(false);
   }, []);
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   useEditorSaveGuards(saveStatus);
@@ -199,7 +203,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     const frame = requestAnimationFrame(() => {
       const intent = new URLSearchParams(window.location.search).get("intent");
       if (intent === "locales") setLocaleDialogOpen(true);
-      if (intent === "export") setExportRequestKey((current) => current + 1);
+      if (intent === "export") setExportOpen(true);
       if (intent === "add-screen" || intent === "layouts") setPanel("structure");
       if (intent) router.replace(pathname, { scroll: false });
     });
@@ -208,7 +212,33 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
-  useEditorKeyboardRouting(openDialog);
+  const keyboardHandlers = useMemo<EditorKeyboardHandlers>(() => {
+    // The loading and error screens have no panels or toolbar for a key to act on.
+    if (!images || !specs || error) {
+      const idle = () => undefined;
+      return { onOpenDialog: openDialog, onSearch: idle, onExport: idle, onToggleView: idle, onStepSize: idle };
+    }
+    return {
+      onOpenDialog: openDialog,
+      onSearch: () => {
+        if (layout.compact) setInspectorOpen(false);
+        setPanel("structure");
+        setSearchOpen(true);
+      },
+      onExport: () => setExportOpen(true),
+      onToggleView: () => setView((current) => (current === "focus" ? "overview" : "focus")),
+      onStepSize: (step) => {
+        const state = editorStore.getState();
+        const activeLayout = selectEditorLayout(state);
+        const activeScreen = activeLayout?.screens.find((screen) => screen.id === state.activeScreenId);
+        const next = activeLayout && activeScreen
+          ? adjacentSizeScreenId(activeLayout, activeScreen, step, specs)
+          : null;
+        if (next) state.selectScreen(next);
+      },
+    };
+  }, [error, images, layout.compact, openDialog, setPanel, specs]);
+  useEditorKeyboardRouting(keyboardHandlers);
   useEditorEscapeRouting({
     dialog,
     localeDialogOpen,
@@ -251,7 +281,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         view={view}
         specs={specs}
         inspectorOpen={inspectorOpen}
-        exportRequestKey={exportRequestKey}
+        exportOpen={exportOpen}
+        onExportOpenChange={setExportOpen}
         onViewChange={setView}
         onToggleInspector={() => {
           const opening = !inspectorOpen;
@@ -292,6 +323,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
             onOpenAdd={() => setPanel("add")}
             onOpenDialog={setDialog}
             onImportCaptures={captureImport.open}
+            searchOpen={searchOpen}
+            onSearchOpenChange={setSearchOpen}
           />
         </EditorSidePanel>
         <div className="flex min-w-0 flex-1">
@@ -333,6 +366,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           />
         </EditorSidePanel>
       </div>
+      <StatusBar specs={specs} />
       {saveStatus === "error" && saveError && !projectNavigation.error ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
@@ -350,7 +384,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         />
       ) : null}
       {fontWarnings.length > 0 ? (
-        <div role="alert" className="absolute bottom-3 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
+        <div role="alert" className="absolute bottom-12 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
           <p className="font-semibold">Some project fonts could not be loaded.</p>
           <ul className="mt-1 list-disc pl-4">
             {fontWarnings.map(({ font, error: fontError }) => (

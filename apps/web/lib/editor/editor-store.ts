@@ -45,6 +45,8 @@ export interface EditorState
   historyGroupKey: string | null;
   saveStatus: "idle" | "saving" | "saved" | "error";
   saveError: string | null;
+  /** Editor-only: when the project last reached disk. Never part of the Project document. */
+  lastSavedAt: number | null;
 }
 
 export type EditorSet = StoreApi<EditorState>["setState"];
@@ -60,6 +62,7 @@ export const editorStore = createStore<EditorState>((set) => ({
   historyGroupKey: null,
   saveStatus: "idle",
   saveError: null,
+  lastSavedAt: null,
   ...createEditorSessionActions(set),
   ...createEditorSelectionActions(set),
   ...createEditorLayoutActions(set),

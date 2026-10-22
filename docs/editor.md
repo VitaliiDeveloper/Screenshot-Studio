@@ -99,6 +99,11 @@ layer row has a direct lock toggle. Layer rows are one line. A text layer is lab
 (about 30 characters, cut with `…`) unless it has been renamed, in which case the name wins; the
 full text is then the row's tooltip and accessible description. Built-in templates leave text
 layers unnamed, and Issues and the Inspector use the same label.
+Under the Screens row, **Find screen or layer ⌘K** searches the screens and top-level layers the panel
+lists, matching a screen's name and a layer's name, text, or type. The field opens a combobox: ↑ and
+↓ move the active result, Enter picks it through the ordinary screen and layer selection, and Esc
+closes only the search, not the panel. Esc and a pick return focus to the field. ⌘K opens the Layers
+panel first when it is closed.
 The Screens header names the scope as `Screens · count · locale · iPhone Dynamic Island · Large` in Focus and ends
 with the number of sizes in Overview. A screen row shows its thumbnail, name, and
 `N layers` (Focus, with `· N selected` for a multi-selection) or `N sizes` (Overview). A screen
@@ -245,6 +250,17 @@ stay readable. With a selection, focus outside a control, and no menu open, arro
 and Shift+arrows 50 px, one undo step per press; locked layers stay put. ⌘D duplicates, ⌘G groups,
 and Delete removes the selection.
 
+The chords (⌘Z, ⇧⌘Z, Ctrl+Y, ⌘G, ⌘D, ⌘/) and the navigation keys work whenever focus is outside a
+text field, select, or dialog and no menu is open, so they still work right after a click leaves
+focus on a button, link, or layer row. Arrows, Delete, Backspace, T, and R also wait for focus
+outside buttons and links, which use those keys themselves. `[` and `]` open the previous or next
+size, the Overview rows in order, landing on the same slot when the row has it and stopping at the
+first and last row; `O` switches between Focus and Overview; ⌘E (Ctrl+E) opens Export; ⌘K (Ctrl+K)
+opens the search. The app cancels the browser default so Ctrl+K and Ctrl+E do not move focus to
+Chrome's address bar. Letter shortcuts match the typed character, so AZERTY keeps Z on its Z key;
+where the layout has no Latin letter (Cyrillic), they use the physical key instead, with the same
+result for the bracket keys. `[` and `]` also work when Option or AltGr produces them.
+
 A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:
 an amber frame on the layer box, which stays the box the layer is moved and resized by, and a dashed
 amber outline over the height the text would take without the box limit. The canvas reads the same
@@ -288,6 +304,16 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
+A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
+the active screen, the current layer selection, and that screen's size, as in
+`Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or
+`3 layers (2 text · 1 shape)` take the layer's place), then the key hints `[ ] Size`,
+`O Focus/Overview`, `⌘K Find`, and `⌘Z Undo`, which hide below the medium width. The save state
+reads `Saving…`, `Saved ·` with the time of the last successful save, or `Save failed · last saved`
+with that time (`nothing saved yet` when no save has succeeded since the project opened), so a
+failure still says how far the work is durable. The save cell is plain text, not a live region, so
+autosaves are not announced; the `Save failed: …` alert keeps announcing the error. The time is
+editor state, cleared when another project loads, and never part of the Project document.
 Play opens a full-screen, read-only scene in the editor's current appearance with the files that bundle writes for the active
 destination, size, and locale, in file order. The current screen is centered at full size with its
 neighbours smaller and dimmed beside it; connected layouts show each screen's exact export crop
