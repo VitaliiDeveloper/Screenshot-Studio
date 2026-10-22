@@ -46,6 +46,7 @@ export function Toolbar({
   issueCounts = NO_ISSUES,
   issues,
   onOpenIssues,
+  editingLocked = false,
 }: {
   view: WorkspaceView;
   inspectorOpen: boolean;
@@ -59,6 +60,8 @@ export function Toolbar({
   issueCounts?: IssueCounts;
   issues?: readonly ProjectIssue[];
   onOpenIssues?: () => void;
+  /** An agent run owns the project: Undo, Redo, Export, and leaving for Projects wait for it. */
+  editingLocked?: boolean;
 }) {
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
   const activeLayout = useStore(editorStore, selectEditorLayout);
@@ -69,8 +72,8 @@ export function Toolbar({
       ?? state.project?.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens[0]?.locale
       ?? "",
   );
-  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0);
-  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0);
+  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0) && !editingLocked;
+  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0) && !editingLocked;
   const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
   const exportLabel = exportButtonLabel(exportCount);
   const issueTotal = issueCounts.blockers + issueCounts.warnings;
@@ -128,7 +131,7 @@ export function Toolbar({
             type="button"
             aria-label="Screenshot Studio, back to Projects"
             title="Back to Projects"
-            disabled={projectsBusy}
+            disabled={projectsBusy || editingLocked}
             className="hidden shrink-0 items-center gap-2.5 rounded-lg text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
             onClick={onOpenProjects}
           >
@@ -146,7 +149,10 @@ export function Toolbar({
           <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
           <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-slate-600 xl:inline">{projectName}</span>
           <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
-          <LayoutSelector />
+          {/* Its menu adds, renames, and removes layouts, which an agent run must not race. */}
+          <div className="contents" inert={editingLocked ? true : undefined}>
+            <LayoutSelector />
+          </div>
         </div>
       </div>
 
@@ -230,6 +236,7 @@ export function Toolbar({
                 compact={compactControls}
                 labelClassName={toolbarLabelClassName}
                 onOpen={onOpenIssues}
+                disabled={editingLocked}
               />
             ) : null}
             <button
@@ -251,6 +258,7 @@ export function Toolbar({
           type="button"
           aria-label={exportLabel}
           title={exportLabel}
+          disabled={editingLocked}
           className={cx(
             editorUi.buttonPrimary,
             compactSharedButtonClassName,
@@ -276,7 +284,7 @@ export function Toolbar({
               inspectorOpen={inspectorOpen}
               issuesLabel={onOpenIssues ? toolbarIssuesLabel(issueCounts) : undefined}
               issueCount={issueTotal}
-              onOpenIssues={onOpenIssues}
+              onOpenIssues={editingLocked ? undefined : onOpenIssues}
               activeLocale={activeLocale}
               localeOptions={localeOptions}
               onToggleInspector={onToggleInspector}

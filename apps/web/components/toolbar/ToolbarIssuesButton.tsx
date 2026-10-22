@@ -17,11 +17,13 @@ export function ToolbarIssuesButton({
   compact,
   labelClassName,
   onOpen,
+  disabled = false,
 }: {
   issueCounts: IssueCounts;
   compact: boolean;
   labelClassName: string;
   onOpen: () => void;
+  disabled?: boolean;
 }) {
   const issueTotal = issueCounts.blockers + issueCounts.warnings;
   const issuesLabel = toolbarIssuesLabel(issueCounts);
@@ -30,6 +32,7 @@ export function ToolbarIssuesButton({
       type="button"
       aria-label={issuesLabel}
       title={issuesLabel}
+      disabled={disabled}
       className={cx(
         editorUi.buttonGhost,
         compact && "!gap-0",

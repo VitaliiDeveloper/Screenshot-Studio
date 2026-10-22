@@ -131,6 +131,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
       minVersion: "2.1.268", state: "ready", authMode: "subscription",
       policy: expect.objectContaining({ level: "supported", sourceUrl: expect.stringMatching(/^https:/) }),
       models: ["sonnet", "opus", "haiku"],
+      setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     });
     expect(agents.codex).toMatchObject({
       installed: true, version: "0.162.1", minVersion: "0.162.1", state: "ready", authMode: "subscription",

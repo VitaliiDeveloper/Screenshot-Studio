@@ -19,11 +19,12 @@ import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { LeftPanel } from "@web/components/LeftPanel";
+import { AgentPanel, AgentRunBanner } from "@web/components/AgentPanel";
 import { Inspector } from "@web/components/inspector/Inspector";
 import { Toolbar } from "@web/components/toolbar/Toolbar";
 import { ToolRail } from "@web/components/ToolRail";
 import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImportDialog";
-import { ConfirmationDialog } from "@web/components/editor-ui";
+import { ConfirmationDialog, cx } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
 import { StatusBar } from "@web/components/editor-shell/StatusBar";
@@ -39,6 +40,7 @@ import { useEditorProjectNavigation } from "./use-editor-project-navigation";
 import { useEditorResources } from "./editor-resources";
 import { useEditorSaveGuards } from "./use-editor-save-guards";
 import { useEditorIssues } from "./use-editor-issues";
+import { useEditorAgentChat } from "./use-editor-agent-chat";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
@@ -68,6 +70,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     fontRetrying,
     activeProjectId,
     reload: reloadResources,
+    reloadFromDisk,
     cacheImage,
   } = useEditorResources(expectedProjectId);
   const [zoom, setZoom] = useState(0.5);
@@ -109,6 +112,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     if (next !== "structure") setSearchOpen(false);
   }, []);
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
+  const agentChat = useEditorAgentChat(panel === "agent", reloadFromDisk);
+  const agentLocked = agentChat.locked;
   useEditorSaveGuards(saveStatus);
   // Fallback-font metrics would report false overflow, so measure only with every project font loaded.
   const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
@@ -126,6 +131,10 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     }
     setView("focus");
     setIssuesOpen(false);
+  }, []);
+  const goToScreen = useCallback((screenId: string) => {
+    editorStore.getState().selectScreen(screenId);
+    setView("focus");
   }, []);
   const replaceMissingImage = useCallback((issue: Extract<ProjectIssue, { kind: "missing-image" }>) => {
     const current = editorStore.getState().project;
@@ -216,7 +225,14 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     // The loading and error screens have no panels or toolbar for a key to act on.
     if (!images || !specs || error) {
       const idle = () => undefined;
-      return { onOpenDialog: openDialog, onSearch: idle, onExport: idle, onToggleView: idle, onStepSize: idle };
+      return {
+        onOpenDialog: openDialog,
+        onSearch: idle,
+        onToggleAgent: idle,
+        onExport: idle,
+        onToggleView: idle,
+        onStepSize: idle,
+      };
     }
     return {
       onOpenDialog: openDialog,
@@ -224,6 +240,11 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         if (layout.compact) setInspectorOpen(false);
         setPanel("structure");
         setSearchOpen(true);
+      },
+      onToggleAgent: () => {
+        const opening = panel !== "agent";
+        if (opening && layout.compact) setInspectorOpen(false);
+        setPanel(opening ? "agent" : null);
       },
       onExport: () => setExportOpen(true),
       onToggleView: () => setView((current) => (current === "focus" ? "overview" : "focus")),
@@ -237,8 +258,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         if (next) state.selectScreen(next);
       },
     };
-  }, [error, images, layout.compact, openDialog, setPanel, specs]);
-  useEditorKeyboardRouting(keyboardHandlers);
+  }, [error, images, layout.compact, openDialog, panel, setPanel, specs]);
+  useEditorKeyboardRouting(keyboardHandlers, agentLocked);
   useEditorEscapeRouting({
     dialog,
     localeDialogOpen,
@@ -272,6 +293,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       </main>
     );
   }
+  const leftPanel = panel ?? lastPanel;
   if (!images || !specs) {
     return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;
   }
@@ -294,6 +316,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         issueCounts={issueCounts}
         issues={issues}
         onOpenIssues={() => setIssuesOpen(true)}
+        editingLocked={agentLocked}
       />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
@@ -311,59 +334,80 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           onOpenLocales={() => setLocaleDialogOpen(true)}
           onOpenPlay={() => setPlayOpen(true)}
           playDisabled={!canPlay}
+          editingLocked={agentLocked}
         />
         <EditorSidePanel side="left" open={panel !== null}>
-          <LeftPanel
-            panel={panel ?? lastPanel}
-            images={images}
-            view={view}
-            specs={specs}
-            issues={issues}
-            onClose={() => setPanel(panel === "add" ? "structure" : null)}
-            onOpenAdd={() => setPanel("add")}
-            onOpenDialog={setDialog}
-            onImportCaptures={captureImport.open}
-            searchOpen={searchOpen}
-            onSearchOpenChange={setSearchOpen}
-          />
+          {leftPanel === "agent" ? (
+            <AgentPanel
+              chat={agentChat}
+              open={panel === "agent"}
+              specs={specs}
+              issueCounts={issueCounts}
+              onClose={() => setPanel(null)}
+              onGoToScreen={goToScreen}
+              onOpenIssues={() => setIssuesOpen(true)}
+            />
+          ) : (
+            <div inert={agentLocked ? true : undefined} className="h-full">
+              <LeftPanel
+                panel={leftPanel}
+                images={images}
+                view={view}
+                specs={specs}
+                issues={issues}
+                onClose={() => setPanel(panel === "add" ? "structure" : null)}
+                onOpenAdd={() => setPanel("add")}
+                onOpenDialog={setDialog}
+                onImportCaptures={captureImport.open}
+                searchOpen={searchOpen}
+                onSearchOpenChange={setSearchOpen}
+              />
+            </div>
+          )}
         </EditorSidePanel>
-        <div className="flex min-w-0 flex-1">
-          <DynamicCanvasViewport
-            images={images}
-            specs={specs}
-            zoom={zoom}
-            view={view}
-            tool={tool}
-            pattern={pattern}
-            onZoomChange={setZoom}
-            onPatternChange={setPattern}
-            leftInset={layout.overlay && panel ? SIDE_PANEL_WIDTH : 0}
-            rightInset={layout.overlay && inspectorOpen ? SIDE_PANEL_WIDTH : 0}
-            controlsHidden={layout.phone && Boolean(panel || inspectorOpen)}
-            issues={issues}
-            onOpenAdd={() => {
-              if (layout.compact) setInspectorOpen(false);
-              setPanel("add");
-            }}
-          />
+        {/* isolate: the banner covers the canvas overlays without rising above the side panels. */}
+        <div className="relative isolate flex min-w-0 flex-1">
+          {agentLocked ? <AgentRunBanner chat={agentChat} /> : null}
+          <div inert={agentLocked ? true : undefined} className="flex min-w-0 flex-1">
+            <DynamicCanvasViewport
+              images={images}
+              specs={specs}
+              zoom={zoom}
+              view={view}
+              tool={tool}
+              pattern={pattern}
+              onZoomChange={setZoom}
+              onPatternChange={setPattern}
+              leftInset={layout.overlay && panel ? SIDE_PANEL_WIDTH : 0}
+              rightInset={layout.overlay && inspectorOpen ? SIDE_PANEL_WIDTH : 0}
+              controlsHidden={layout.phone && Boolean(panel || inspectorOpen)}
+              issues={issues}
+              onOpenAdd={() => {
+                if (layout.compact) setInspectorOpen(false);
+                setPanel("add");
+              }}
+            />
+          </div>
         </div>
         <EditorSidePanel side="right" open={inspectorOpen}>
-          <Inspector
-            specs={specs}
-            issues={issues}
-            textMeasured={textMeasured}
-            onOpenBackgroundAsset={() => setDialog("background-assets")}
-            onOpenDeviceFrameAsset={(target) => {
-              setDeviceFrameAssetTarget(target);
-              setDialog("mockup-screenshot-assets");
-            }}
-            onOpenMediaAsset={(target) => {
-              setMediaAssetTarget(target);
-              setDialog("replace-media-asset");
-            }}
-            onClose={() => setInspectorOpen(false)}
-            className="!w-full"
-          />
+          <div inert={agentLocked ? true : undefined} className={cx("h-full", agentLocked && "opacity-50")}>
+            <Inspector
+              specs={specs}
+              issues={issues}
+              textMeasured={textMeasured}
+              onOpenBackgroundAsset={() => setDialog("background-assets")}
+              onOpenDeviceFrameAsset={(target) => {
+                setDeviceFrameAssetTarget(target);
+                setDialog("mockup-screenshot-assets");
+              }}
+              onOpenMediaAsset={(target) => {
+                setMediaAssetTarget(target);
+                setDialog("replace-media-asset");
+              }}
+              onClose={() => setInspectorOpen(false)}
+              className="!w-full"
+            />
+          </div>
         </EditorSidePanel>
       </div>
       <StatusBar specs={specs} />

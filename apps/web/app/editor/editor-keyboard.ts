@@ -19,6 +19,7 @@ export type EditorKeyboardCommand =
   | "add-shape"
   | "nudge"
   | "search"
+  | "agent"
   | "export"
   | "toggle-view"
   | "prev-size"
@@ -27,6 +28,7 @@ export type EditorKeyboardCommand =
 export interface EditorKeyboardHandlers {
   onOpenDialog: (dialog: ResourceDialog) => void;
   onSearch: () => void;
+  onToggleAgent: () => void;
   onExport: () => void;
   onToggleView: () => void;
   onStepSize: (step: -1 | 1) => void;
@@ -66,6 +68,8 @@ export interface EditorKeyboardInput {
   canUndo: boolean;
   canRedo: boolean;
   hasSelection: boolean;
+  /** An agent run owns the project; only commands that change nothing still run. */
+  editingLocked?: boolean;
 }
 
 const isPrintableAscii = (key: string) => /^[\x21-\x7e]$/.test(key);
@@ -89,7 +93,15 @@ function shortcutBracket(input: EditorKeyboardInput): "[" | "]" | null {
   return input.code === "BracketRight" ? "]" : null;
 }
 
+// Search is left out: it opens the Layers panel, which is inert during a run.
+const READ_ONLY_COMMANDS = new Set<EditorKeyboardCommand>(["agent", "toggle-view", "prev-size", "next-size"]);
+
 export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): EditorKeyboardCommand | null {
+  const command = resolveCommand(input);
+  return command && input.editingLocked && !READ_ONLY_COMMANDS.has(command) ? null : command;
+}
+
+function resolveCommand(input: EditorKeyboardInput): EditorKeyboardCommand | null {
   if (input.repeat || input.modalOpen || input.ownsKeys || input.menuOpen) return null;
   const letter = shortcutLetter(input);
   const modifier = input.metaKey || input.ctrlKey;
@@ -104,6 +116,7 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
   if (modifier && input.key === "/") return "templates";
   if (modifier && !input.shiftKey && !input.altKey) {
     if (letter === "k") return "search";
+    if (letter === "j") return "agent";
     if (letter === "e") return "export";
   }
   const bracket = shortcutBracket(input);
@@ -125,7 +138,7 @@ function targetMatches(target: EventTarget | null, selector: string): boolean {
   return target instanceof Element && target.closest(selector) !== null;
 }
 
-export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboardHandlers) {
+export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboardHandlers, editingLocked = false) {
   const state = editorStore.getState();
   const command = resolveEditorKeyboardCommand({
     key: event.key,
@@ -142,6 +155,7 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
     canUndo: state.historyPast.length > 0,
     canRedo: state.historyFuture.length > 0,
     hasSelection: state.selectedItems.length > 0,
+    editingLocked,
   });
   if (!command) return;
   // Every routed command takes its key from the browser, e.g. Ctrl+K and Ctrl+E, which focus Chrome's
@@ -168,6 +182,9 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
       return;
     case "search":
       handlers.onSearch();
+      return;
+    case "agent":
+      handlers.onToggleAgent();
       return;
     case "export":
       handlers.onExport();
@@ -206,12 +223,12 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
   }
 }
 
-export function useEditorKeyboardRouting(handlers: EditorKeyboardHandlers) {
+export function useEditorKeyboardRouting(handlers: EditorKeyboardHandlers, editingLocked = false) {
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => routeEditorKeyDown(event, handlers);
+    const onKeyDown = (event: KeyboardEvent) => routeEditorKeyDown(event, handlers, editingLocked);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handlers]);
+  }, [editingLocked, handlers]);
 }
 
 export function useEditorEscapeRouting({
