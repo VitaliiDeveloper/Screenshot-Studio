@@ -309,11 +309,10 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
 2. Choose one path:
    - Restyle the screens you have with a Design pack:
      `screenshots theme set <design-pack-id> --built-in`. It replaces the background of every
-     screen in the layout, so it overwrites hand-set backgrounds.
+     screen in the layout.
    - Add finished screens from a screen pack:
      `screenshots template add <pack-id> --pack --locale <locale>`. It appends every pack screen to
-     the layout in one write and prints the new screen ids. It needs `--layout` when the project has
-     several layouts.
+     the layout in one write and prints the new screen ids.
      A fresh `screenshots init` project starts with a blank `hero` screen that stays first and would
      be exported, so remove it with `screenshots screen rm hero` when the pack screens replace it.
 3. Edit the copy. The screens carry placeholder text and an empty mockup, so list the leaves and
@@ -324,8 +323,7 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
    screenshots element text <screen-id> <element-id> --all-sizes "Track every run" --project ./app-store-screenshots.json
    ```
 
-After this the result is plain project JSON: add or remove layers freely. Screens added later are
-not restyled automatically, so re-run `theme set` to apply the same look again.
+After this the result is plain project JSON: add or remove layers freely.
 
 ## Recipe: apply a theme or design pack
 

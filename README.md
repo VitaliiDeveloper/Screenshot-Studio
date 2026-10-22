@@ -218,9 +218,6 @@ The full command and export reference lives in
 
 ## Design packs and screen packs
 
-Built-in packs are read-only application resources. Applying one writes ordinary editable project
-literals; the project never stores a pack id, and no pack becomes hidden renderer state.
-
 | Pack | Kind | Id | What it gives you |
 |---|---|---|---|
 | Neutral default | Design pack | `neutral-default` | A light slate-to-blue gradient background, dark high-contrast type, a blue accent, and white surfaces. |
@@ -247,10 +244,6 @@ pnpm screenshots template list --project ./my-app-screenshots/app-store-screensh
 pnpm screenshots template add neutral-iphone-basics --pack --locale en --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
 ```
-
-`theme set` and `template add --pack` need `--layout` when the project has several layouts. The
-generated project `AGENTS.md` and the optional skill describe the same "choose a style" flow, so an
-agent can pick a pack and rewrite the placeholder copy without editing JSON.
 
 ## Project format and resources
 

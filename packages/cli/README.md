@@ -48,12 +48,10 @@ Project before an atomic write:
 
 - `template list` and `template add <id> --locale <locale> [--built-in|--pack]` add one screen from
   a built-in starter or a project-local `templates/<id>.json`, or, with `--pack`, every screen of a
-  built-in screen pack. A missing project template never
-  falls back to a built-in one, or the other way round. `template list` also prints built-in screen
-  packs as `built-in-pack <id> <platform>/<device> <style> <screen count> <name>`; `--pack` appends
-  every screen of one to the layout in a single write and prints their ids. `--pack` and
-  `--built-in` are mutually exclusive, and the pack's style is the id of the Design pack it was
-  baked from.
+  built-in screen pack in a single write, printing their ids. A missing project template never falls
+  back to a built-in one, or the other way round. `template list` also prints built-in screen packs
+  as `built-in-pack <id> <platform>/<device> <style> <screen count> <name>`, where style is the id of
+  the Design pack the screens were baked from. `--pack` and `--built-in` are mutually exclusive.
 - `theme list` and `theme set <id> [--built-in]` apply a project-local `themes/<id>.json` theme or
   a built-in Design Pack. A Design Pack also replaces every screen background in the layout.
 - `element list [--screen <id>] [--locale <locale>]` prints every leaf with its id, type, role,
