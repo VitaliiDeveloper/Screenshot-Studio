@@ -54,12 +54,14 @@ export function hasPlaceableText(screen: Screen): boolean {
 
 /**
  * Text layers take the region's width and stack in their current top-to-bottom order, centered
- * vertically. Size and box height stay, so text reflows and Issues reports any overflow.
+ * vertically. Size and box height stay, so text reflows and Issues reports any overflow. A stack
+ * taller than its region grows past it but stays on the artboard where it fits.
  */
-function stackText(elements: readonly Element[], region: Region): Element[] {
+function stackText(elements: readonly Element[], region: Region, artboardHeight: number): Element[] {
   const ordered = [...elements].sort((first, second) => first.y - second.y);
   const stackHeight = ordered.reduce((sum, element) => sum + element.height, 0);
-  let y = region.y + Math.max(0, (region.height - stackHeight) / 2);
+  const start = region.y + Math.max(0, (region.height - stackHeight) / 2);
+  let y = Math.max(0, Math.min(start, artboardHeight - stackHeight));
   return ordered.map((element) => {
     const placed = { ...element, x: region.x, y, width: region.width };
     y += element.height;
@@ -121,7 +123,7 @@ export function placeScreenText(screen: Screen, placement: TextPlacement): Scree
   const regions = REGIONS[placement];
   const movable = screen.elements.filter(isMovable);
   const placed = new Map([
-    ...stackText(movable.filter(isText), region(regions.text)),
+    ...stackText(movable.filter(isText), region(regions.text), height),
     ...fitMedia(movable.filter(isMedia), region(regions.media)),
   ].map((element) => [element.id, element]));
   const elements = screen.elements.map((element) => placed.get(element.id) ?? element);

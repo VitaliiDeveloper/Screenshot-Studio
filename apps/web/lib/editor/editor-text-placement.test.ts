@@ -165,6 +165,18 @@ describe("text placement rules", () => {
     expect(byId(placed, "headline").y / screen.artboard.height).toBeCloseTo(0.04, 6);
   });
 
+  it("keeps a text stack taller than its region on the artboard", () => {
+    const screen = templateScreen("iphone-starter");
+    const { height } = screen.artboard;
+    const tall = screen.elements.map((element) => element.type === "text" ? { ...element, height: 0.4 * height } : element);
+
+    for (const placement of ["top", "bottom", "side"] as const) {
+      const texts = placeScreenText({ ...screen, elements: tall }, placement).elements.filter(isText);
+      expect(Math.min(...texts.map((element) => element.y))).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...texts.map((element) => element.y + element.height))).toBeLessThanOrEqual(height + 1e-6);
+    }
+  });
+
   it("keeps a media block's size when its blur cannot scale up to the region", () => {
     const screen = templateScreen("iphone-starter");
     const shot = { ...createScreenshotElement({ assetUrl: "assets/shot.png", x: 10, y: 20, width: 100, height: 200 }), id: "shot", blur: MEDIA_BLUR_MAX };
