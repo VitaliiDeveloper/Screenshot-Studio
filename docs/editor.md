@@ -126,8 +126,9 @@ A plain click on blank canvas clears the element selection; a modified blank cli
 selection so additive selection gestures remain predictable.
 
 Adding text is an authoring action and must never open resource management as a prerequisite. Empty
-projects use the renderer-owned built-in font, while the Inspector offers built-in and project fonts
-through the same semantic font field. Uploading, downloading, or importing custom fonts remains an
+projects use the renderer-owned built-in font, while the Inspector offers built-in fonts (Studio Sans,
+and Studio Display at Regular, SemiBold, and ExtraBold) and project fonts through the same semantic
+font field. Uploading, downloading, or importing custom fonts remains an
 explicit, separate Fonts action in the tool rail.
 
 **Import from system** in the Fonts dialog switches the dialog to a selective import view (its Back
