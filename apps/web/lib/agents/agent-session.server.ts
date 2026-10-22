@@ -22,6 +22,7 @@ import {
   type AgentDefinition,
 } from "./agents.server.js";
 import { claudeCodeAdapter } from "./claude-code-adapter.server.js";
+import { codexAdapter } from "./codex-adapter.server.js";
 
 export type AgentErrorCode = "usage-limit" | "not-authorized" | "timeout" | "failed";
 
@@ -123,7 +124,9 @@ interface SettledRun {
 
 export const PROJECT_FILE_NAME = "app-store-screenshots.json";
 
-const ADAPTERS: ReadonlyMap<string, AgentAdapter> = new Map([[claudeCodeAdapter.agentId, claudeCodeAdapter]]);
+const ADAPTERS: ReadonlyMap<string, AgentAdapter> = new Map(
+  [claudeCodeAdapter, codexAdapter].map((adapter) => [adapter.agentId, adapter]),
+);
 const DEFAULT_RUN_TIMEOUT_MS = 10 * 60_000;
 // An export holds an editor write for its whole render, so a run waits a while before giving up.
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;

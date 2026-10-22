@@ -60,7 +60,8 @@ async function writeFake(name: string, body: string): Promise<void> {
   await chmod(path, 0o755);
 }
 
-// A leaked API key or a dropped config-location variable both turn the fake away from `ready`.
+// A leaked API key, a dropped config-location variable, or a Codex probe of another credentials
+// store than runs use all turn the fake away from `ready`.
 async function fakeClaude({
   version = "echo '2.1.296 (Claude Code)'",
   auth = `echo '${CLAUDE_SUBSCRIPTION}'`,
@@ -78,7 +79,7 @@ esac`);
 }
 
 function fakeCodex({
-  version = "echo 'codex-cli 0.162.1'",
+  version = "echo 'codex-cli 0.163.0'",
   auth = "echo 'Logged in using ChatGPT' >&2",
 } = {}): Promise<void> {
   return writeFake("codex", `case "$1" in
@@ -86,6 +87,7 @@ function fakeCodex({
   login)
     if [ -n "$CODEX_API_KEY$OPENAI_API_KEY" ]; then echo 'Logged in using an API key - ${MASKED_KEY}'; exit 0; fi
     if [ "$CODEX_HOME" != "/codex-home" ]; then echo 'Not logged in' >&2; exit 1; fi
+    if [ "$4" != 'cli_auth_credentials_store="file"' ]; then echo 'Not logged in' >&2; exit 1; fi
     ${auth} ;;
 esac`);
 }
@@ -131,7 +133,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
       models: ["sonnet", "opus", "haiku"],
     });
     expect(agents.codex).toMatchObject({
-      installed: true, version: "0.162.1", minVersion: "0.162.1", state: "ready", authMode: "subscription",
+      installed: true, version: "0.163.0", minVersion: "0.163.0", state: "ready", authMode: "subscription",
       policy: { level: "supported", checkedAt: "2026-10-15" }, models: [],
     });
     expect(agents["gemini-cli"]).toMatchObject({
@@ -157,7 +159,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
     expect(agents["claude-code"]).toMatchObject({
       installed: true, version: "2.1.267", minVersion: "2.1.268", state: "unsupported-version",
     });
-    expect(agents.codex).toMatchObject({ installed: true, version: null, minVersion: "0.162.1", state: "unsupported-version" });
+    expect(agents.codex).toMatchObject({ installed: true, version: null, minVersion: "0.163.0", state: "unsupported-version" });
   });
 
   it("fails closed once a release makes --bare the default, whatever its version", async () => {
@@ -215,7 +217,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
 
     expect(Date.now() - started).toBeLessThan(10_000);
     expect(agents["claude-code"]).toMatchObject({ installed: true, version: null, state: "unsupported-version" });
-    expect(agents.codex).toMatchObject({ installed: true, version: "0.162.1", state: "not-signed-in" });
+    expect(agents.codex).toMatchObject({ installed: true, version: "0.163.0", state: "not-signed-in" });
     expect(await processGone(claudePid)).toBe(true);
     expect(await processGone(codexPid)).toBe(true);
   }, 15_000);

@@ -108,6 +108,13 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
     }));
     expect(unavailable.status).toBe(403);
     expect(await unavailable.json()).toMatchObject({ code: "unavailable" });
+
+    const unknownModel = await handleAgentSessionPost(projectPath, new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify({ agentId: "codex", message: "Hi", model: "gpt-5.5" }),
+    }));
+    expect(unknownModel.status).toBe(400);
+    expect(await unknownModel.json()).toMatchObject({ code: "unknown-model" });
+    expect(await started()).toBe(false);
   });
 
   it("cancels the run when the request is aborted", async () => {
