@@ -49,7 +49,7 @@ const catalogIcons = {
   components: Box,
 } as const;
 
-function PanelHeader({
+export function PanelHeader({
   title,
   onClose,
   backLabel,

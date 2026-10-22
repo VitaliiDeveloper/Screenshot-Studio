@@ -32,6 +32,8 @@ export interface AgentStatus {
   authMode: AgentAuthMode | null;
   policy: AgentPolicy;
   models: string[];
+  setupUrl: string | null;
+  signInCommand: string | null;
 }
 
 export interface AgentRegistryOptions {
@@ -143,6 +145,8 @@ export async function detectAgent(
     authMode: null,
     policy: definition.policy,
     models: [...definition.models],
+    setupUrl: definition.setupUrl ?? null,
+    signInCommand: definition.signInCommand ?? null,
   };
   if (definition.policy.level === "unavailable") return status;
 

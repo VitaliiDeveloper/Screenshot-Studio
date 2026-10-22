@@ -42,6 +42,25 @@ describe("editor keyboard routing", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "r" })).toBe("add-shape");
   });
 
+  it("toggles the Agent panel with ⌘J and keeps only view commands while an agent run owns the project", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "j", metaKey: true })).toBe("agent");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "о", ctrlKey: true, code: "KeyJ" })).toBe("agent");
+    const locked = { ...base, editingLocked: true };
+    for (const input of [
+      { key: "z", metaKey: true },
+      { key: "d", metaKey: true },
+      { key: "e", metaKey: true },
+      { key: "Backspace" },
+      { key: "ArrowLeft" },
+      { key: "t" },
+      { key: "/", metaKey: true },
+    ]) expect(resolveEditorKeyboardCommand({ ...locked, ...input })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...locked, key: "k", metaKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...locked, key: "j", metaKey: true })).toBe("agent");
+    expect(resolveEditorKeyboardCommand({ ...locked, key: "o" })).toBe("toggle-view");
+    expect(resolveEditorKeyboardCommand({ ...locked, key: "]" })).toBe("next-size");
+  });
+
   it("nudges the selection with arrows, 10 px or 50 px with Shift", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowLeft" })).toBe("nudge");
     expect(resolveEditorKeyboardCommand({ ...base, key: "ArrowDown", shiftKey: true })).toBe("nudge");
@@ -162,6 +181,7 @@ describe("routeEditorKeyDown", () => {
   const handlers = (): EditorKeyboardHandlers => ({
     onOpenDialog: vi.fn(),
     onSearch: vi.fn(),
+    onToggleAgent: vi.fn(),
     onExport: vi.fn(),
     onToggleView: vi.fn(),
     onStepSize: vi.fn(),

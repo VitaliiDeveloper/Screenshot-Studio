@@ -307,8 +307,8 @@ focus on a button, link, or layer row. Arrows, Delete, Backspace, T, and R also 
 outside buttons and links, which use those keys themselves. `[` and `]` open the previous or next
 size, the Overview rows in order, landing on the same slot when the row has it and stopping at the
 first and last row; `O` switches between Focus and Overview; ⌘E (Ctrl+E) opens Export; ⌘K (Ctrl+K)
-opens the search. The app cancels the browser default so Ctrl+K and Ctrl+E do not move focus to
-Chrome's address bar. Letter shortcuts match the typed character, so AZERTY keeps Z on its Z key;
+opens the search; ⌘J (Ctrl+J) toggles the Agent panel. The app cancels the browser default so Ctrl+K
+and Ctrl+E do not move focus to Chrome's address bar, and Ctrl+J does not open its downloads. Letter shortcuts match the typed character, so AZERTY keeps Z on its Z key;
 where the layout has no Latin letter (Cyrillic), they use the physical key instead, with the same
 result for the bracket keys. `[` and `]` also work when Option or AltGr produces them.
 
@@ -320,6 +320,50 @@ the editable artboard a **Fit text** hint at the box's bottom-left corner applie
 Issues, on that screen only, as one undo step; it is disabled when even 1 px does not fit. For the
 selected text layer the selection toolbar's Fit takes its place. The state steps aside while a layer
 is dragged, transformed, or edited inline.
+
+### Agent panel
+
+**Agent**, the rail item after Locales, opens a 288 px panel in place of the Screens → Layers tree.
+It runs an official agent CLI that the user installed and signed in to with their own subscription
+(server rules: [`docs/architecture.md`](architecture.md)). Its header picks the agent and model
+from `/api/agents`; each agent lists its sign-in state and version, and an agent without model
+aliases shows `CLI default model`. When the selected agent cannot run, the panel says why and what
+to do: **No agent found** when no CLI is installed (each links to its official setup page; the
+editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
+own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
+with the policy reason. **Check again** reads the registry again. Agent purple marks only what a run
+does; manual work keeps the blue accent.
+
+The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
+text, so the CLI does not remember earlier messages; the history is editor memory that **New chat**
+clears and is never written to the project. A pending edit is saved before the run starts. While
+the run lasts, its message shows the agent's plan as steps (`Running · step 2 of 3`), whether it is
+`Thinking` or `Changing the project`, the last command it ran, and **Stop**, and a canvas banner
+says `{agent} is editing this project`. Editing pauses for the run: the canvas, Layers, and
+Inspector are inert; Undo, Redo, Export, Issues, the layout menu, the resource dialogs, and Projects
+are disabled; only view keys (`[` `]`, `O`, ⌘J) work. The composer still takes the next request, and Send waits for the
+run to end. Esc keeps closing the panel and never stops a run. **Stop** ends the run and, if it had
+changed the project, undoes it, so the project is back at its pre-run state.
+
+A rejected result was already rolled back by the server: the panel says so, with the schema reason
+under **Show details** and **Ask agent to fix**, which prefills the composer. A usage limit names
+the reset time the CLI gives and says nothing changed only when the verdict says so, with **Switch
+agent** and **Retry**; other failures show the server's fixed message and **Retry**. After a run
+that changed or was rejected, and after Undo run, the Workspace reloads the project from disk
+through its usual resource load without saving the stale client copy, and keeps the current canvas
+visible until the new project is ready; the canvas therefore shows the agent's result through the
+renderer that export uses.
+
+An accepted run that changed the project turns the panel into **Review**: the agent's summary,
+**Changes** with each changed screen's locale and size and **Go to**, and **Checks** (schema
+validation passed, and the Issues count with **Issues**). **Keep changes** drops the pre-run
+snapshot; **Undo run** restores it as one write and is refused once the project changed after the
+run. Undo run covers only `app-store-screenshots.json`, and ⌘Z history starts fresh after the
+reload. A review survives an editor reload while the server still holds the snapshot.
+
+Opening the panel focuses the composer. When Stop, the review, or the composer disappears, focus
+moves to the composer or **Keep changes** instead of the page. The running status is a polite live
+region, and failures are alerts.
 
 ### Projects and Workspace navigation
 
@@ -340,11 +384,11 @@ URL in another browser activates the same Project Library entry before Workspace
 unavailable identities show a visible error and never fall back to another active project. `/editor`
 remains a compatibility route for sessions whose Project Library entry identity is not available.
 Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
-rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, and one
+rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, one
 entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
-dialog rather than an intermediate panel. Every item carries a short caption under its icon
-(Select, Hand, Layers, Templates, Packs, Fonts, Locales, Play, Projects) that its accessible name
-contains, and active items get the light accent fill. Its bottom group holds Play and the
+dialog rather than an intermediate panel, and the Agent panel toggle. Every item carries a short
+caption under its icon (Select, Hand, Layers, Templates, Packs, Fonts, Locales, Agent, Play,
+Projects) that its accessible name contains, and active items get the light accent fill. Its bottom group holds Play and the
 `Projects` home action, which drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`

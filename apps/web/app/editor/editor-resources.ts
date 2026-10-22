@@ -21,7 +21,11 @@ import {
   setProjectPersistenceIdentity,
   type ProjectAssetResolver,
 } from "@web/lib/clients/save-project";
-import { withFlushedProject } from "@web/lib/editor/debounced-save";
+import {
+  cancelScheduledSave,
+  withDrainedProjectSaves,
+  withFlushedProject,
+} from "@web/lib/editor/debounced-save";
 import {
   loadAllProjectImages,
   useEditorImageCache,
@@ -167,12 +171,17 @@ export function useEditorResources(expectedProjectId: string) {
     retryFonts,
   } = useEditorFontWarnings(setError);
 
-  const startReload = useCallback(async (serialize: EditorResourceSerializer) => {
+  const startReload = useCallback(async (
+    serialize: EditorResourceSerializer,
+    { keepCurrent = false }: { keepCurrent?: boolean } = {},
+  ) => {
     const generation = ++resourceGeneration.current;
     setError(null);
-    resetImages();
-    setSpecs(null);
-    resetFontWarnings();
+    if (!keepCurrent) {
+      resetImages();
+      setSpecs(null);
+      resetFontWarnings();
+    }
     setReloading(true);
     try {
       return await runEditorResourceReload({
@@ -237,6 +246,13 @@ export function useEditorResources(expectedProjectId: string) {
     selectEditorResourceSerializer(editorStore.getState().project !== null),
   ), [startReload]);
 
+  // After another writer (an agent run or its Undo) the client copy is stale: flushing it would
+  // fail its If-Match, so drain without saving and swap in the disk project while the old one stays visible.
+  const reloadFromDisk = useCallback(() => {
+    cancelScheduledSave();
+    return startReload(withDrainedProjectSaves, { keepCurrent: true });
+  }, [startReload]);
+
   return {
     error,
     images,
@@ -244,6 +260,7 @@ export function useEditorResources(expectedProjectId: string) {
     fontWarnings,
     retry,
     reload,
+    reloadFromDisk,
     cacheImage,
     reloading,
     retryFonts,
