@@ -533,7 +533,7 @@ export function AgentPanel({
               value={selected.id}
               options={agents.map((agent) => ({
                 value: agent.id,
-                label: [agent.name, agent.policy.level === "supported" ? null : policyLevelLabel(agent), agentStateLabel(agent)]
+                label: [agent.name, agent.policy.level === "at-own-risk" ? policyLevelLabel(agent) : null, agentStateLabel(agent)]
                   .filter(Boolean).join(" · "),
                 triggerLabel: agent.name,
               }))}
