@@ -59,6 +59,7 @@ export function LocaleMatrixTable({
                       type="button"
                       className={cx(editorUi.buttonGhostAccent, "h-6 font-semibold")}
                       aria-label={`Create ${screen.name} in ${issue.locale} from ${issue.sourceLocale}`}
+                      title={issue.allSizes ? "Adds the screen in every size" : "Adds the screen in this size only"}
                       onClick={() => onCreate(issue)}
                     >
                       + {issue.sourceLocale.toUpperCase()}

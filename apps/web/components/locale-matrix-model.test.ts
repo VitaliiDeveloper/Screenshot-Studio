@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { Project as ProjectSchema, type Project, type Screen, type ScreenSetPolicy } from "@screenshot-studio/core/model";
 import { collectLayoutIssues } from "@screenshot-studio/core/validation";
 import { editorStore } from "@web/lib/editor/editor-store";
-import { localeMatrix, type MissingLocaleIssue } from "./locale-matrix-model";
+import { localeMatrix, localeMatrixSummary, type MissingLocaleIssue } from "./locale-matrix-model";
 
 const ARTBOARD = { width: 660, height: 1434 };
 const VARIANT_ARTBOARD = { width: 642, height: 1389 };
@@ -43,12 +44,14 @@ function load(screens: Screen[], policies?: ScreenSetPolicy[]): void {
   editorStore.getState().load(project);
 }
 
-const synced = (locale: string): ScreenSetPolicy => ({
+const synced = (locale: string, device = "iphone"): ScreenSetPolicy => ({
   platform: "apple",
-  device: "iphone",
+  device,
   locale,
   mode: "synchronized",
-});
+}) as ScreenSetPolicy;
+
+const ipad = (id: string, name: string, locale: string) => screen(id, name, locale, { device: "ipad" });
 
 function matrixFor(activeScreenId: string) {
   const state = editorStore.getState();
@@ -58,6 +61,12 @@ function matrixFor(activeScreenId: string) {
     issues,
     matrix: localeMatrix(layout, layout.screens.find((candidate) => candidate.id === activeScreenId)!, issues),
   };
+}
+
+function summaryFor(activeScreenId: string): string {
+  const { matrix } = matrixFor(activeScreenId);
+  const layout = editorStore.getState().project!.layouts[0]!;
+  return localeMatrixSummary(layout, matrix, layout.screens.find((candidate) => candidate.id === activeScreenId)!, DEFAULT_STORE_SPECS);
 }
 
 function missingCells(activeScreenId: string): string[] {
@@ -155,6 +164,58 @@ describe("locale matrix", () => {
       editorStore.getState().undo();
 
       expect(localeNames("de")).toEqual(["Hero", "Hero@6.5"]);
+    });
+  });
+
+  describe("issues the shown size does not own", () => {
+    it("counts them apart under Separate and still names the shown size", () => {
+      load([
+        screen("hero", "Hero", "en"),
+        ipad("pad", "Pad", "en"),
+        ipad("pad-2", "Pad 2", "en"),
+        screen("hero-de", "Hero", "de"),
+        ipad("pad-de", "Pad", "de"),
+      ]);
+
+      expect(matrixFor("hero").matrix).toMatchObject({ missing: 0, elsewhere: 1 });
+      expect(summaryFor("hero")).toMatch(/^Default · Separate · iPhone .* · 1 screen × 2 locales · 0 missing · 1 in other sizes$/);
+      expect(summaryFor("pad")).toMatch(/^Default · Separate · iPad .* · 2 screens × 2 locales · 1 missing$/);
+    });
+
+    it("counts other destinations apart under Sync sizes and names the destination", () => {
+      load([
+        screen("hero", "Hero", "en"),
+        ipad("pad", "Pad", "en"),
+        ipad("pad-2", "Pad 2", "en"),
+        screen("hero-de", "Hero", "de"),
+        ipad("pad-de", "Pad", "de"),
+      ], [synced("en"), synced("de"), synced("en", "ipad"), synced("de", "ipad")]);
+
+      expect(matrixFor("hero").matrix).toMatchObject({ missing: 0, elsewhere: 1 });
+      expect(summaryFor("hero")).toBe("Default · Sync sizes · iPhone · 1 screen × 2 locales · 0 missing · 1 in other sizes");
+    });
+  });
+
+  describe("locales whose screen structure differs", () => {
+    beforeEach(() => load([
+      screen("hero", "Hero", "en"),
+      screen("details", "Details", "en"),
+      variant("hero-65", "Hero", "en", "hero"),
+      variant("details-65", "Details", "en", "details"),
+      screen("hero-de", "Hero", "de"),
+      variant("hero-de-65", "Hero", "de", "hero-de"),
+    ], [synced("de")]));
+
+    it("follows each issue, so a cell says what its own click will do", () => {
+      const cell = matrixFor("hero-65").matrix.rows[1]!.cells[1]!;
+
+      expect(matrixFor("hero-65").matrix.structure).toBe("independent");
+      expect(cell.allSizes).toBe(true);
+
+      create(cell);
+
+      expect(localeNames("de")).toEqual(["Hero", "Details", "Hero@6.5", "Details@6.5"]);
+      expect(missingCells("hero-65")).toEqual([]);
     });
   });
 });
