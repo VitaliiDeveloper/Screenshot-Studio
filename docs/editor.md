@@ -136,10 +136,10 @@ metadata, through the same registration path as Upload, so duplicates of an exis
 are disabled up front and reported by the server rather than overwritten. Fonts from machine-wide
 folders show a license warning (for example SF Pro is licensed only for UI mockups for Apple
 platforms); the user is responsible for checking it. Fonts with the "Restricted License embedding"
-flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, weights that are not a
-multiple of 100, and condensed or expanded faces that share a family and weight with another face
-are listed as disabled with the reason (a condensed family with no sibling at its weight stays
-usable); italic faces are skipped because a font identity has no style. Each row shows the face's
+flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, missing or out-of-range
+weights (outside 100 to 900), and condensed or expanded faces that share a family and weight with
+another face are listed as disabled with the reason (a condensed family with no sibling at its
+weight stays usable); italic faces are skipped because a font identity has no style. Each row shows the face's
 style name beside its weight. Copies of the same face (same PostScript name) collapse to one; different faces that declare
 the same family and weight (for example Black and Heavy at 900) are all listed and all disabled, naming
 each other, because a project font identity cannot tell them apart and choosing one would be arbitrary.
@@ -149,8 +149,7 @@ Add such a file with Upload and choose a weight. The server scans only the stand
 `~/.local/share/fonts`, `~/.fonts`), addresses files by opaque ids, and serves them only to loopback
 requests; the browser never sends a path. The scan is cached and repeats when the top level of a
 folder changes (a font installed through Font Book or a package manager); a font installed into a
-nested subfolder may need a restart of the editor server to appear. The Windows and Linux folder lists are covered by unit tests
-with injected environments and have not been verified on real machines.
+nested subfolder may need a restart of the editor server to appear.
 
 Blank project starters, blank screens, and the first screen in a newly added layout use a white solid
 background. Explicit duplication preserves the source screen exactly. Linear-gradient backgrounds
