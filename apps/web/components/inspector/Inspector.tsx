@@ -143,6 +143,18 @@ export function Inspector({
         }
       })()
     : undefined;
+  const transformSection = element ? (
+    <Section title="Transform">
+      <TransformInspectorFields
+        key={`${selectedItems[0]?.screenId ?? screen.id}:${element.id}`}
+        element={element}
+        artboard={screen.artboard}
+        effectiveLocked={effectiveLocked}
+        onChange={(change) => patch(element.id, element.type, change)}
+        onInteractionEnd={() => editorStore.getState().endHistoryGroup()}
+      />
+    </Section>
+  ) : null;
   return (
     <aside
       className={cx(
@@ -363,16 +375,8 @@ export function Inspector({
           </>
         ) : element ? (
           <>
-            <Section title="Transform">
-              <TransformInspectorFields
-                key={`${selectedItems[0]?.screenId ?? screen.id}:${element.id}`}
-                element={element}
-                artboard={screen.artboard}
-                effectiveLocked={effectiveLocked}
-                onChange={(change) => patch(element.id, element.type, change)}
-                onInteractionEnd={() => editorStore.getState().endHistoryGroup()}
-              />
-            </Section>
+            {/* A text layer is selected to edit its words, font and size, so Text leads. */}
+            {element.type === "text" ? null : transformSection}
             <ElementTypeInspectorSections
               element={element}
               fonts={project.fonts}
@@ -403,15 +407,18 @@ export function Inspector({
               ))}
             />
             {element.type === "text" ? (
-              <TextSizeStatusSection
-                project={project}
-                layoutId={activeLayoutId}
-                screenId={screen.id}
-                elementId={element.id}
-                issues={issues}
-                measured={textMeasured}
-                specs={specs ?? undefined}
-              />
+              <>
+                {transformSection}
+                <TextSizeStatusSection
+                  project={project}
+                  layoutId={activeLayoutId}
+                  screenId={screen.id}
+                  elementId={element.id}
+                  issues={issues}
+                  measured={textMeasured}
+                  specs={specs ?? undefined}
+                />
+              </>
             ) : null}
           </>
         ) : (

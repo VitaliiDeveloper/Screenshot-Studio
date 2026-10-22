@@ -59,8 +59,9 @@ The editor has five durable interaction roles even if their placement changes:
 - **Structure and resources** expose ordered screens/layers and reusable local fonts, project packs,
   templates, and assets. Their controls act on the explicit current scope.
 - **Authoring and inspection** add or edit strict project literals. The Inspector has **Layer** and
-  **Screen** tabs: Layer exposes only fields valid for the selected object, and Screen exposes the
-  artboard, output, structure, and background context of the screen the Inspector header names.
+  **Screen** tabs: Layer exposes only fields valid for the selected object (a text layer leads with
+  Text, then Transform), and Screen exposes the artboard, output, structure, and background context
+  of the screen the Inspector header names.
   Selecting a layer opens Layer and clearing the selection opens Screen; a tab the user picks holds
   until the selection changes. With nothing selected the Layer tab is dimmed but still reachable. A
   mixed multi-selection lists its layer types in the header; picking a type narrows the selection
@@ -204,10 +205,12 @@ selected screen's shows *no matching layer* rather than guessing; a hidden count
 *hidden*. **Fit** on a size sets the largest whole font size that fits that size's layer only, as
 one undo step.
 
-**Apply to** in the Inspector footer chooses which exact-size screens the next edit writes to:
-**Only {size}** (the default), **All {destination}** (every size of the screen's slot), or **All
-destinations** (that slot in every destination of the layout). The text Size field repeats the same
-picker. One edit writes literal values into each screen in scope as a single undo step; it is never
+**Apply to** in the Inspector footer is one picker row that chooses which exact-size screens the
+next edit writes to: **Only {size}** (the default), **All {destination}** (every size of the
+screen's slot), or **All destinations** (that slot in every destination of the layout). The size name
+drops Portrait, the default orientation, but keeps Landscape, Square, and qualifiers such as High-res;
+a size without a name of its own leads with its family (`Phone · Portrait`, `Phone · High-res`). Long
+names wrap between ` · ` parts instead of truncating. The text Size field repeats the same picker. One edit writes literal values into each screen in scope as a single undo step; it is never
 a per-size override inside a screen, and screens of other locales are never touched. Layer edits
 reach the matching layer on each size by the same structural match as Status by size and skip
 unmatched or locked layers. Pixel metrics (position, size, font size, spacing, shadow, radius) are
@@ -217,11 +220,11 @@ field, replacing it rather than applying a delta, so editing position on one siz
 manual placement on the others in scope. A size that cannot take the fitted value within its limits
 is skipped. In the Screen tab the scope applies to Background. Destinations keep no persisted slot
 link, so **All destinations** pairs a destination only when its master screen at the same position
-has the same name, and skips it otherwise. The footer counts only the screens the next edit will
-write and names how many sizes and destinations it skips. The scope is editor state only: it holds
-while the same layer (or, with nothing selected, the same screen) stays selected and resets to
-**Only {size}** on any other selection or reload; multi-selection keeps editing the selected screen
-only.
+has the same name, and skips it otherwise. Once the scope reaches past this screen, the footer counts
+only the screens the next edit will write and names how many sizes and destinations it skips. The
+scope is editor state only: it holds while the same layer (or, with nothing selected, the same
+screen) stays selected and resets to **Only {size}** on any other selection or reload;
+multi-selection keeps editing the selected screen only.
 
 **Stored on this screen** at the top of the Screen tab shows, read-only, the locale and its text
 direction, destination, exact store size with its export pixels, and layout that the screen
