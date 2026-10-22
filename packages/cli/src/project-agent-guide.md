@@ -158,7 +158,8 @@ screenshots layout list --project ./app-store-screenshots.json      # id, name, 
 screenshots screen list --project ./app-store-screenshots.json      # order, screen id, family, locale, name
 screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
 screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
-screenshots theme list --project ./app-store-screenshots.json       # source, id, name
+# screen packs: built-in-pack, id, family, style (a Design pack id), screen count, name
+screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
 ```
@@ -170,7 +171,8 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Change copy on every exact size of a slot | `element text <screen-id> <element-id> --all-sizes "<copy>"` |
 | Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
-| Recolor with a theme or pack | `theme set <id> [--built-in]` |
+| Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
+| Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
 | Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
@@ -290,6 +292,39 @@ pairing fields to the project.
    it. Screen backgrounds are JSON literals, not elements.
 3. Inspect the affected screen in the editor or with a targeted export.
 
+## Recipe: choose a style
+
+Use this when the user wants a ready-made look. Built-in packs are read-only application resources;
+applying one writes ordinary literals, and the pack id is not stored anywhere in the project.
+
+1. List what exists and offer only ids that appear. Design packs come from `theme list` (`built-in`
+   lines). Screen packs come from `template list` (`built-in-pack` lines); a screen pack's style is
+   the id of the Design pack its screens were baked from.
+
+   ```bash
+   screenshots theme list --project ./app-store-screenshots.json
+   screenshots template list --project ./app-store-screenshots.json
+   ```
+
+2. Choose one path:
+   - Restyle the screens you have with a Design pack:
+     `screenshots theme set <design-pack-id> --built-in`. It replaces the background of every
+     screen in the layout, so it overwrites hand-set backgrounds.
+   - Add finished screens from a screen pack:
+     `screenshots template add <pack-id> --pack --locale <locale>`. It appends every pack screen to
+     the layout in one write and prints the new screen ids. It needs `--layout` when the project has
+     several layouts.
+3. Edit the copy. The screens carry placeholder text and an empty mockup, so list the leaves and
+   replace each string and screenshot (see the copy and media recipes):
+
+   ```bash
+   screenshots element list --locale <locale> --project ./app-store-screenshots.json
+   screenshots element text <screen-id> <element-id> --all-sizes "Track every run" --project ./app-store-screenshots.json
+   ```
+
+After this the result is plain project JSON: add or remove layers freely. Screens added later are
+not restyled automatically, so re-run `theme set` to apply the same look again.
+
 ## Recipe: apply a theme or design pack
 
 ```bash
@@ -298,11 +333,12 @@ screenshots theme set neutral-default --built-in --project ./app-store-screensho
 screenshots theme set midnight --project ./app-store-screenshots.json
 ```
 
-Both bake literals into role-tagged leaves only (`role`: `heading`, `body`, `accent`, `surface`). A
-theme sets text color, swaps the text font when the theme names one, and sets shape fill. A design
-pack also sets text size, line height, and letter spacing, recolors icons, and snaps role-tagged
-positions to its spacing scale. Neither changes backgrounds, untagged elements, or media paths. No
-theme id is persisted, so re-apply after adding screens. A project theme is `themes/<id>.json`:
+Both bake literals into role-tagged leaves (`role`: `heading`, `body`, `accent`, `surface`). A
+theme sets text color, swaps the text font when the theme names one, and sets shape fill, and leaves
+backgrounds alone. A Design pack also sets the font, text size, line height, and letter spacing,
+recolors icons, and replaces the background of every screen in the layout. Neither moves or resizes
+elements, nor changes untagged elements or media paths. No theme or pack id is persisted, so
+re-apply after adding screens. A project theme is `themes/<id>.json`:
 
 ```json
 {

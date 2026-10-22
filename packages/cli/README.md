@@ -46,11 +46,15 @@ Templates, themes, copy, and media have their own commands, so an agent or scrip
 hand-editing the project JSON. Each mutation takes the project lock and validates the complete strict
 Project before an atomic write:
 
-- `template list` and `template add <id> --locale <locale> [--built-in]` add a screen from a
+- `template list` and `template add <id> --locale <locale> [--built-in|--pack]` add a screen from a
   built-in starter or a project-local `templates/<id>.json`. A missing project template never
-  falls back to a built-in one, or the other way round.
+  falls back to a built-in one, or the other way round. `template list` also prints built-in screen
+  packs as `built-in-pack <id> <platform>/<device> <style> <screen count> <name>`; `--pack` appends
+  every screen of one to the layout in a single write and prints their ids. `--pack` and
+  `--built-in` are mutually exclusive, and the pack's style is the id of the Design pack it was
+  baked from.
 - `theme list` and `theme set <id> [--built-in]` apply a project-local `themes/<id>.json` theme or
-  a built-in Design Pack.
+  a built-in Design Pack. A Design Pack also replaces every screen background in the layout.
 - `element list [--screen <id>] [--locale <locale>]` prints every leaf with its id, type, role,
   JSON-quoted text, or media path. It prints nothing when no screen matches.
 - `element text <screen> <element> [--all-sizes] [--] <content>` replaces one text leaf's content.

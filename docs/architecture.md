@@ -251,10 +251,18 @@ project, manages layouts/screens/locales/fonts/themes/imports, starts the editor
 bundles. Layout-aware mutations require an explicit layout when a project has more than one; export
 otherwise uses `preferredExportLayoutId`.
 
+`screenshots template list` also prints the built-in screen packs (`built-in-pack`, id,
+platform/device, style, screen count, name), and `screenshots template add <pack-id> --pack
+--locale <locale> [--layout <id>]` appends every pack screen in one locked project update through
+the shared `createBuiltInTemplatePackScreens`. `--pack` and `--built-in` select disjoint sources, so
+a pack id never resolves as a template id or the other way round. `screenshots theme set <id>
+--built-in` applies a built-in Design pack. Neither command stores a pack id.
+
 `screenshots init` creates the standard directories and a self-contained project-local `AGENTS.md`.
-That guide teaches literal layout, copy, localization, local asset processing, and schema guardrails
-without adding provider state or an AI dependency. The optional repository skill only discovers or
-initializes such a project, then defers to its generated guide.
+That guide teaches literal layout, copy, localization, local asset processing, a list-pick-edit
+"choose a style" flow over built-in packs, and schema guardrails without adding provider state or an
+AI dependency. The optional repository skill only discovers or initializes such a project (and
+summarizes the same flow), then defers to its generated guide.
 
 The editor may run an official agent CLI that the user installed and signed in to with their own
 subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
