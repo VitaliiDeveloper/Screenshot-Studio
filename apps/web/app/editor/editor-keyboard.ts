@@ -49,55 +49,76 @@ export function nudgeDelta(key: string, shiftKey: boolean): { x: number; y: numb
 
 export interface EditorKeyboardInput {
   key: string;
+  /** The physical key, e.g. `KeyZ`; it names a shortcut only where `key` has no Latin letter. */
+  code: string;
   repeat: boolean;
   metaKey: boolean;
   ctrlKey: boolean;
   altKey: boolean;
   shiftKey: boolean;
+  /** Focus is on a button, link, or field. */
   interactive: boolean;
-  /** Focus is in a field that types text; a focused button or link is interactive but not this. */
-  textEntry: boolean;
+  /** Focus is in a text field, select, or dialog, which own the keyboard. */
+  ownsKeys: boolean;
   modalOpen: boolean;
-  /** A non-modal menu is open; its arrow keys move between items. */
+  /** A non-modal menu is open and owns the keyboard (its arrows move between items). */
   menuOpen: boolean;
   canUndo: boolean;
   canRedo: boolean;
   hasSelection: boolean;
 }
 
+const isPrintableAscii = (key: string) => /^[\x21-\x7e]$/.test(key);
+
+/**
+ * The letter a shortcut names. `key` wins, so AZERTY keeps Z on the Z key; a key with no Latin
+ * letter (Cyrillic, "ü", "Dead") falls back to the physical key. Alt produces other characters
+ * (Option+O is "ø"), so it never falls back.
+ */
+export function shortcutLetter({ key, code, altKey }: Pick<EditorKeyboardInput, "key" | "code" | "altKey">): string {
+  if (altKey || isPrintableAscii(key)) return key.toLowerCase();
+  return /^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : key.toLowerCase();
+}
+
+/** `[` or `]`, typed directly, by Option / AltGr (Alt, plus Ctrl on Windows), or on a non-Latin layout. */
+function shortcutBracket(input: EditorKeyboardInput): "[" | "]" | null {
+  if (input.metaKey || (input.ctrlKey && !input.altKey)) return null;
+  if (input.key === "[" || input.key === "]") return input.key;
+  if (isPrintableAscii(input.key)) return null;
+  if (input.code === "BracketLeft") return "[";
+  return input.code === "BracketRight" ? "]" : null;
+}
+
 export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): EditorKeyboardCommand | null {
-  if (input.repeat || input.modalOpen) return null;
-  const key = input.key.toLowerCase();
+  if (input.repeat || input.modalOpen || input.ownsKeys || input.menuOpen) return null;
+  const letter = shortcutLetter(input);
   const modifier = input.metaKey || input.ctrlKey;
-  // Navigation keys also work right after a click leaves focus on a button or layer row.
-  if (!input.textEntry && !input.menuOpen && !input.altKey) {
-    if (modifier && !input.shiftKey) {
-      if (key === "k") return "search";
-      if (key === "e") return "export";
-    } else if (!modifier) {
-      if (key === "o") return "toggle-view";
-      if (input.key === "[") return "prev-size";
-      if (input.key === "]") return "next-size";
-    }
-  }
-  if (input.interactive) return null;
-  if (modifier && key === "z") {
+  // Chords and navigation keys also work while a button or link has focus.
+  if (modifier && letter === "z") {
     if (input.shiftKey) return input.canRedo ? "redo" : null;
     return input.canUndo ? "undo" : null;
   }
-  if (input.ctrlKey && key === "y") return input.canRedo ? "redo" : null;
-  if (modifier && key === "g") return input.shiftKey ? "ungroup" : "group";
-  if (modifier && key === "d") return input.hasSelection ? "duplicate" : null;
+  if (input.ctrlKey && letter === "y") return input.canRedo ? "redo" : null;
+  if (modifier && letter === "g") return input.shiftKey ? "ungroup" : "group";
+  if (modifier && letter === "d") return input.hasSelection ? "duplicate" : null;
   if (modifier && input.key === "/") return "templates";
-  if (input.metaKey || input.ctrlKey || input.altKey) return null;
+  if (modifier && !input.shiftKey && !input.altKey) {
+    if (letter === "k") return "search";
+    if (letter === "e") return "export";
+  }
+  const bracket = shortcutBracket(input);
+  if (bracket) return bracket === "[" ? "prev-size" : "next-size";
+  if (letter === "o" && !modifier && !input.altKey) return "toggle-view";
+  // Arrows and Delete belong to tabs, radio groups, and sortable handles; T and R stay with them.
+  if (input.interactive || modifier || input.altKey) return null;
   if (input.key === "Delete" || input.key === "Backspace") return input.hasSelection ? "delete" : null;
-  if (nudgeDelta(input.key, false)) return input.hasSelection && !input.menuOpen ? "nudge" : null;
-  if (key === "t") return "add-text";
-  if (key === "r") return "add-shape";
+  if (nudgeDelta(input.key, false)) return input.hasSelection ? "nudge" : null;
+  if (letter === "t") return "add-text";
+  if (letter === "r") return "add-shape";
   return null;
 }
 
-const TEXT_ENTRY_TARGETS = "input, textarea, select, [role='dialog'], [contenteditable='true']";
+const KEY_OWNING_TARGETS = "input, textarea, select, [role='dialog'], [contenteditable='true']";
 
 function targetMatches(target: EventTarget | null, selector: string): boolean {
   return target instanceof Element && target.closest(selector) !== null;
@@ -107,13 +128,14 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
   const state = editorStore.getState();
   const command = resolveEditorKeyboardCommand({
     key: event.key,
+    code: event.code,
     repeat: event.repeat,
     metaKey: event.metaKey,
     ctrlKey: event.ctrlKey,
     altKey: event.altKey,
     shiftKey: event.shiftKey,
-    interactive: targetMatches(event.target, `${TEXT_ENTRY_TARGETS}, button, a`),
-    textEntry: targetMatches(event.target, TEXT_ENTRY_TARGETS),
+    interactive: targetMatches(event.target, `${KEY_OWNING_TARGETS}, button, a`),
+    ownsKeys: targetMatches(event.target, KEY_OWNING_TARGETS),
     modalOpen: Boolean(document.querySelector("[role='dialog'][aria-modal='true']")),
     menuOpen: Boolean(document.querySelector("[role='menu']:not([hidden])")),
     canUndo: state.historyPast.length > 0,

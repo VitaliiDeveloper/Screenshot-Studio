@@ -9,13 +9,14 @@ import {
 
 const base = {
   key: "",
+  code: "",
   repeat: false,
   metaKey: false,
   ctrlKey: false,
   altKey: false,
   shiftKey: false,
   interactive: false,
-  textEntry: false,
+  ownsKeys: false,
   modalOpen: false,
   menuOpen: false,
   canUndo: true,
@@ -78,40 +79,82 @@ describe("editor navigation shortcuts", () => {
     expect(resolveEditorKeyboardCommand({ ...base, key: "o" })).toBe("toggle-view");
     expect(resolveEditorKeyboardCommand({ ...base, key: "O", shiftKey: true })).toBe("toggle-view");
     expect(resolveEditorKeyboardCommand({ ...base, key: "[", metaKey: true })).toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...base, key: "]", altKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "]", ctrlKey: true })).toBeNull();
     expect(resolveEditorKeyboardCommand({ ...base, key: "o", ctrlKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "o", altKey: true })).toBeNull();
   });
 
   it.each([
-    ["k", { metaKey: true }],
-    ["e", { ctrlKey: true }],
-    ["[", {}],
-    ["]", {}],
-    ["o", {}],
-  ])("ignores %s in input fields, dialogs, open menus, and key repeats", (key, modifiers) => {
-    const event = { ...base, key, ...modifiers };
-    expect(resolveEditorKeyboardCommand(event)).not.toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...event, interactive: true, textEntry: true })).toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...event, modalOpen: true })).toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...event, menuOpen: true })).toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...event, repeat: true })).toBeNull();
+    ["⌘Z", { key: "z", metaKey: true }],
+    ["⌘G", { key: "g", ctrlKey: true }],
+    ["⌘/", { key: "/", metaKey: true }],
+    ["⌘K", { key: "k", metaKey: true }],
+    ["⌘E", { key: "e", ctrlKey: true }],
+    ["[", { key: "[" }],
+    ["]", { key: "]" }],
+    ["O", { key: "o" }],
+  ])("%s works with a button focused, but not in a field, dialog, open menu, or key repeat", (_name, event) => {
+    const keys = { ...base, ...event };
+    expect(resolveEditorKeyboardCommand({ ...keys, interactive: true })).not.toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...keys, interactive: true, ownsKeys: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...keys, modalOpen: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...keys, menuOpen: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...keys, repeat: true })).toBeNull();
   });
 
-  it("still fires with a button or link focused, unlike the authoring keys", () => {
-    const onButton = { ...base, interactive: true };
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "k", ctrlKey: true })).toBe("search");
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "e", metaKey: true })).toBe("export");
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "[" })).toBe("prev-size");
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "]" })).toBe("next-size");
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "o" })).toBe("toggle-view");
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "t" })).toBeNull();
-    expect(resolveEditorKeyboardCommand({ ...onButton, key: "z", metaKey: true })).toBeNull();
+  it.each([
+    ["Delete", { key: "Delete" }],
+    ["Backspace", { key: "Backspace" }],
+    ["ArrowLeft", { key: "ArrowLeft" }],
+    ["T", { key: "t" }],
+    ["R", { key: "r" }],
+  ])("keeps %s behind the strict guard: a focused button or link owns it", (_name, event) => {
+    expect(resolveEditorKeyboardCommand({ ...base, ...event })).not.toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, ...event, interactive: true })).toBeNull();
   });
 
   it("works without a selection or history", () => {
     const idle = { ...base, hasSelection: false, canUndo: false, canRedo: false };
     expect(resolveEditorKeyboardCommand({ ...idle, key: "k", ctrlKey: true })).toBe("search");
     expect(resolveEditorKeyboardCommand({ ...idle, key: "]" })).toBe("next-size");
+  });
+});
+
+describe("keyboard layouts", () => {
+  it("falls back to the physical key where the layout has no Latin letter", () => {
+    const cyrillic = (key: string, code: string, modifiers: object = {}) => (
+      resolveEditorKeyboardCommand({ ...base, key, code, ...modifiers })
+    );
+
+    expect(cyrillic("л", "KeyK", { metaKey: true })).toBe("search");
+    expect(cyrillic("у", "KeyE", { ctrlKey: true })).toBe("export");
+    expect(cyrillic("я", "KeyZ", { metaKey: true })).toBe("undo");
+    expect(cyrillic("я", "KeyZ", { metaKey: true, shiftKey: true })).toBe("redo");
+    expect(cyrillic("щ", "KeyO")).toBe("toggle-view");
+    expect(cyrillic("е", "KeyT")).toBe("add-text");
+    expect(cyrillic("к", "KeyR")).toBe("add-shape");
+    expect(cyrillic("х", "BracketLeft")).toBe("prev-size");
+    expect(cyrillic("ї", "BracketRight")).toBe("next-size");
+    expect(cyrillic("Dead", "KeyO")).toBe("toggle-view");
+  });
+
+  it("keeps a Latin layout's own letters, so AZERTY's Z stays on the Z key", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "z", code: "KeyW", metaKey: true })).toBe("undo");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "w", code: "KeyZ", metaKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "a", code: "KeyQ", metaKey: true })).toBeNull();
+  });
+
+  it("does not turn Option-produced characters into letters", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "ø", code: "KeyO", altKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "˚", code: "KeyK", metaKey: true, altKey: true })).toBeNull();
+  });
+
+  it("accepts brackets typed with Option or AltGr, but not with ⌘ or Ctrl alone", () => {
+    expect(resolveEditorKeyboardCommand({ ...base, key: "[", code: "Digit5", altKey: true })).toBe("prev-size");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "]", code: "Digit9", ctrlKey: true, altKey: true }))
+      .toBe("next-size");
+    expect(resolveEditorKeyboardCommand({ ...base, key: "[", code: "BracketLeft", metaKey: true })).toBeNull();
+    expect(resolveEditorKeyboardCommand({ ...base, key: "]", code: "BracketRight", ctrlKey: true })).toBeNull();
   });
 });
 
@@ -126,6 +169,7 @@ describe("routeEditorKeyDown", () => {
   const press = (key: string, modifiers: Partial<KeyboardEvent>, target: unknown = null) => {
     const event = {
       key,
+      code: "",
       repeat: false,
       metaKey: false,
       ctrlKey: false,
@@ -149,14 +193,17 @@ describe("routeEditorKeyDown", () => {
     routeEditorKeyDown(search, wired);
     const exportEvent = press("e", { ctrlKey: true });
     routeEditorKeyDown(exportEvent, wired);
+    const cyrillicSearch = press("л", { ctrlKey: true, code: "KeyK" });
+    routeEditorKeyDown(cyrillicSearch, wired);
 
     expect(search.preventDefault).toHaveBeenCalledOnce();
     expect(exportEvent.preventDefault).toHaveBeenCalledOnce();
-    expect(wired.onSearch).toHaveBeenCalledOnce();
+    expect(cyrillicSearch.preventDefault).toHaveBeenCalledOnce();
+    expect(wired.onSearch).toHaveBeenCalledTimes(2);
     expect(wired.onExport).toHaveBeenCalledOnce();
   });
 
-  it("classifies the focused element: a button still routes, a text field does not", () => {
+  it("classifies the focused element: a button still routes chords and navigation, a field does not", () => {
     class FakeElement {
       constructor(private readonly tag: string) {}
       closest(selector: string) {

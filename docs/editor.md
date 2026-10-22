@@ -250,13 +250,16 @@ stay readable. With a selection, focus outside a control, and no menu open, arro
 and Shift+arrows 50 px, one undo step per press; locked layers stay put. ⌘D duplicates, ⌘G groups,
 and Delete removes the selection.
 
-The navigation keys work whenever focus is outside an input, text area, or select and no dialog or
-menu is open, so they still work right after a click leaves focus on a button or layer row, where
-the authoring keys above wait. `[` and `]` open the previous or next size, the Overview rows in
-order, landing on the same slot when the row has it and stopping at the first and last row; `O`
-switches between Focus and Overview; ⌘E (Ctrl+E) opens Export; ⌘K (Ctrl+K) opens the search. The
-app cancels the browser default so Ctrl+K and Ctrl+E do not move focus to Chrome's address bar.
-Keys match the typed character, so they follow the active keyboard layout.
+The chords (⌘Z, ⇧⌘Z, Ctrl+Y, ⌘G, ⌘D, ⌘/) and the navigation keys work whenever focus is outside a
+text field, select, or dialog and no menu is open, so they still work right after a click leaves
+focus on a button, link, or layer row. Arrows, Delete, Backspace, T, and R also wait for focus
+outside buttons and links, which use those keys themselves. `[` and `]` open the previous or next
+size, the Overview rows in order, landing on the same slot when the row has it and stopping at the
+first and last row; `O` switches between Focus and Overview; ⌘E (Ctrl+E) opens Export; ⌘K (Ctrl+K)
+opens the search. The app cancels the browser default so Ctrl+K and Ctrl+E do not move focus to
+Chrome's address bar. Letter shortcuts match the typed character, so AZERTY keeps Z on its Z key;
+where the layout has no Latin letter (Cyrillic), they use the physical key instead, with the same
+result for the bracket keys. `[` and `]` also work when Option or AltGr produces them.
 
 A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:
 an amber frame on the layer box, which stays the box the layer is moved and resized by, and a dashed
