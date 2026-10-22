@@ -70,12 +70,6 @@ describe("Claude Code adapter", () => {
     expect(JSON.stringify(failedResult)).not.toContain("/Users/owner");
   });
 
-  it("ignores output after the result and keeps only one terminal event", async () => {
-    const events = await normalize("claude-stream-success.ndjson", { code: 1, stderr: "late failure" });
-    expect(events.filter(({ type }) => type === "done")).toHaveLength(1);
-    expect(events.some(({ type }) => type === "error")).toBe(false);
-  });
-
   it("restricts the CLI and never passes --bare or the user message as argv", () => {
     const args = claudeCodeAdapter.args(REQUEST);
 

@@ -44,16 +44,21 @@ describe("Codex adapter", () => {
     }))).toEqual([{ type: "tool-use", tool: "file_change", command: null, path: "/project/app-store-screenshots.json" }]);
   });
 
-  it("reads the reset time of a usage limit and classifies an exit after a fatal error", async () => {
+  it("reads the reset time of a usage limit and classifies a failed turn or exit by the last error", async () => {
     expect((await normalize("codex-stream-usage-limit.jsonl"))[0])
       .toMatchObject({ type: "error", code: "usage-limit", resets: "3:15 PM" });
 
-    const normalizer = codexAdapter.normalizer();
-    normalizer.line(JSON.stringify({ type: "error", message: "Quota exceeded. Check your plan and billing details." }));
-    expect(normalizer.end({ code: 1, stderr: "" })).toEqual([
+    const quota = JSON.stringify({ type: "error", message: "Quota exceeded. Check your plan and billing details." });
+    const failed = [
       { type: "error", code: "usage-limit", message: expect.any(String), resets: null },
       { type: "done", status: "failed", summary: null, durationMs: null },
-    ]);
+    ];
+    const turnFailed = codexAdapter.normalizer();
+    turnFailed.line(quota);
+    expect(turnFailed.line(JSON.stringify({ type: "turn.failed" }))).toEqual(failed);
+    const exited = codexAdapter.normalizer();
+    exited.line(quota);
+    expect(exited.end({ code: 1, stderr: "" })).toEqual(failed);
     expect(codexAdapter.normalizer().end({ code: 1, stderr: "Error: ChatGPT login is required" }))
       .toMatchObject([{ type: "error", code: "not-authorized" }, { type: "done", status: "failed" }]);
   });
