@@ -314,6 +314,8 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
      `screenshots template add <pack-id> --pack --locale <locale>`. It appends every pack screen to
      the layout in one write and prints the new screen ids. It needs `--layout` when the project has
      several layouts.
+     A fresh `screenshots init` project starts with a blank `hero` screen that stays first and would
+     be exported, so remove it with `screenshots screen rm hero` when the pack screens replace it.
 3. Edit the copy. The screens carry placeholder text and an empty mockup, so list the leaves and
    replace each string and screenshot (see the copy and media recipes):
 

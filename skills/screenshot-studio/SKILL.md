@@ -37,6 +37,7 @@ When the user wants a ready-made look, follow the generated guide's "Recipe: cho
    `screenshots template add <pack-id> --pack --locale <locale>`.
 3. Edit the placeholder copy with `element list` and `element text`.
 
+Pass `--project <path>` to each command, and `--layout <id>` when the project has several layouts.
 The pack id is never stored in the project. The result is ordinary editable literals.
 
 ## Boundaries
