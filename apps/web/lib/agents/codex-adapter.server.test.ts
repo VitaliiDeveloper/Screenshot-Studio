@@ -58,6 +58,19 @@ describe("Codex adapter", () => {
       .toMatchObject([{ type: "error", code: "not-authorized" }, { type: "done", status: "failed" }]);
   });
 
+  it("reports a plan without Codex as a failure that names the plan, not a usage limit", () => {
+    expect(codexAdapter.normalizer().line(JSON.stringify({
+      type: "turn.failed",
+      error: { message: "To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus." },
+    }))).toEqual([
+      { type: "error", code: "failed", message: expect.stringMatching(/plan does not include Codex/), resets: null },
+      { type: "done", status: "failed", summary: null, durationMs: null },
+    ]);
+    expect(codexAdapter.normalizer().end({
+      code: 1, stderr: "You\u2019ve hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again later.",
+    })[0]).toMatchObject({ code: "usage-limit" });
+  });
+
   it("escapes the instructions as a TOML basic string", () => {
     expect(tomlString("a\u007fb\uD800c\uDC00d\uD83D\uDE00\n\""))
       .toBe('"a\\u007Fb\uFFFDc\uFFFDd\uD83D\uDE00\\n\\""');

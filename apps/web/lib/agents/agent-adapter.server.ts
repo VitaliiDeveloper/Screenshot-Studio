@@ -20,6 +20,8 @@ export interface CliFailure {
   /** The first group is the limit reset time as the CLI words it. */
   resets: RegExp;
   messages: Record<CliErrorCode, string>;
+  /** Known failures without a typed code; they stay `failed` but keep an accurate message. */
+  explained?: readonly { pattern: RegExp; message: string }[];
 }
 
 export function text(value: unknown): string | null {
@@ -54,8 +56,9 @@ export function failedRun(failure: CliFailure, output: string, durationMs: numbe
   const resets = code === "usage-limit"
     ? failure.resets.exec(output)?.[1]?.trim().slice(0, RESETS_LIMIT) ?? null
     : null;
+  const explained = code === "failed" ? failure.explained?.find(({ pattern }) => pattern.test(output)) : undefined;
   return [
-    { type: "error", code, message: failure.messages[code], resets },
+    { type: "error", code, message: explained?.message ?? failure.messages[code], resets },
     { type: "done", status: "failed", summary: null, durationMs },
   ];
 }

@@ -15,7 +15,7 @@ import { codexAuthStoreOverride } from "./codex-auth-store.server.js";
 // Wording from codex-rs: usage limits in protocol/src/error.rs, sign-in loss in
 // login/src/auth/manager.rs (refresh-token failures) and HTTP 401s.
 const FAILURE: CliFailure = {
-  usageLimit: /hit your (?:usage limit|spend cap)|out of credits|quota exceeded|to use codex with your chatgpt plan/i,
+  usageLimit: /hit your (?:usage limit|spend cap)|out of credits|quota exceeded/i,
   notAuthorized: /access token could not be refreshed|sign in again|\b401 unauthorized\b|login is required|not logged in/i,
   resets: /\btry again at ([^.\n]+)/i,
   messages: {
@@ -23,6 +23,11 @@ const FAILURE: CliFailure = {
     "not-authorized": "Codex is not signed in with your ChatGPT subscription. Sign in from Terminal with `codex login`",
     failed: "Codex stopped with an error",
   },
+  // UsageNotIncluded: the sign-in works, but the plan has no Codex, so no limit will reset.
+  explained: [{
+    pattern: /to use codex with your chatgpt plan/i,
+    message: "Your ChatGPT plan does not include Codex. Upgrade the plan to use Codex",
+  }],
 };
 
 // Default-on features whose tools reach past the shell, patch and plan tools: connectors, plugins,
