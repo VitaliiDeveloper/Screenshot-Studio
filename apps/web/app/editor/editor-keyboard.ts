@@ -55,6 +55,8 @@ export interface EditorKeyboardInput {
   altKey: boolean;
   shiftKey: boolean;
   interactive: boolean;
+  /** Focus is in a field that types text; a focused button or link is interactive but not this. */
+  textEntry: boolean;
   modalOpen: boolean;
   /** A non-modal menu is open; its arrow keys move between items. */
   menuOpen: boolean;
@@ -64,13 +66,21 @@ export interface EditorKeyboardInput {
 }
 
 export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): EditorKeyboardCommand | null {
-  if (input.repeat || input.interactive || input.modalOpen) return null;
+  if (input.repeat || input.modalOpen) return null;
   const key = input.key.toLowerCase();
   const modifier = input.metaKey || input.ctrlKey;
-  if (modifier && !input.shiftKey && !input.altKey && !input.menuOpen) {
-    if (key === "k") return "search";
-    if (key === "e") return "export";
+  // Navigation keys also work right after a click leaves focus on a button or layer row.
+  if (!input.textEntry && !input.menuOpen && !input.altKey) {
+    if (modifier && !input.shiftKey) {
+      if (key === "k") return "search";
+      if (key === "e") return "export";
+    } else if (!modifier) {
+      if (key === "o") return "toggle-view";
+      if (input.key === "[") return "prev-size";
+      if (input.key === "]") return "next-size";
+    }
   }
+  if (input.interactive) return null;
   if (modifier && key === "z") {
     if (input.shiftKey) return input.canRedo ? "redo" : null;
     return input.canUndo ? "undo" : null;
@@ -82,19 +92,15 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
   if (input.metaKey || input.ctrlKey || input.altKey) return null;
   if (input.key === "Delete" || input.key === "Backspace") return input.hasSelection ? "delete" : null;
   if (nudgeDelta(input.key, false)) return input.hasSelection && !input.menuOpen ? "nudge" : null;
-  if (!input.menuOpen) {
-    if (key === "o") return "toggle-view";
-    if (input.key === "[") return "prev-size";
-    if (input.key === "]") return "next-size";
-  }
   if (key === "t") return "add-text";
   if (key === "r") return "add-shape";
   return null;
 }
 
-function isInteractiveTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return Boolean(target.closest("input, textarea, select, button, a, [role='dialog'], [contenteditable='true']"));
+const TEXT_ENTRY_TARGETS = "input, textarea, select, [role='dialog'], [contenteditable='true']";
+
+function targetMatches(target: EventTarget | null, selector: string): boolean {
+  return target instanceof Element && target.closest(selector) !== null;
 }
 
 export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboardHandlers) {
@@ -106,7 +112,8 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
     ctrlKey: event.ctrlKey,
     altKey: event.altKey,
     shiftKey: event.shiftKey,
-    interactive: isInteractiveTarget(event.target),
+    interactive: targetMatches(event.target, `${TEXT_ENTRY_TARGETS}, button, a`),
+    textEntry: targetMatches(event.target, TEXT_ENTRY_TARGETS),
     modalOpen: Boolean(document.querySelector("[role='dialog'][aria-modal='true']")),
     menuOpen: Boolean(document.querySelector("[role='menu']:not([hidden])")),
     canUndo: state.historyPast.length > 0,

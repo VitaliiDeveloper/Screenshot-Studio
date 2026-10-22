@@ -873,10 +873,14 @@ describe("editor workspace", () => {
     await statusBar.locator("time").waitFor();
     await statusBar.getByText("Saved", { exact: true }).waitFor();
 
-    // [ and ] walk the Overview sizes; the Screens list follows.
+    // [ and ] walk the Overview sizes; the Screens list follows. A click on a layer row leaves
+    // focus on its button, which must not stop the keys.
     const iphoneList = page.getByRole("list", { name: "Screens for en · iPhone", exact: true });
     const ipadList = page.getByRole("list", { name: "Screens for en · iPad", exact: true });
     await iphoneList.waitFor({ state: "visible" });
+    const layerRow = page.getByRole("button", { name: "Save fast support", exact: true });
+    await layerRow.click();
+    expect(await focusedIs(layerRow)).toBe(true);
     await page.keyboard.press("]");
     await ipadList.waitFor({ state: "visible" });
     await page.keyboard.press("]");
@@ -893,7 +897,10 @@ describe("editor workspace", () => {
     await page.keyboard.press("o");
     await expect.poll(() => focus.getAttribute("aria-pressed")).toBe("false");
 
-    // Ctrl+E opens Export; nothing but Esc reaches the page behind the dialog.
+    // Ctrl+E opens Export, also from a focused layer row; nothing but Esc reaches the page behind it.
+    const heroRow = page.getByRole("button", { name: "Hero support", exact: true });
+    await heroRow.click();
+    expect(await focusedIs(heroRow)).toBe(true);
     await page.keyboard.press("Control+e");
     const exportDialog = page.getByRole("dialog", { name: "Export" });
     await exportDialog.waitFor({ state: "visible" });

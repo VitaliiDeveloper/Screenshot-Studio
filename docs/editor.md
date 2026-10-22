@@ -250,11 +250,12 @@ stay readable. With a selection, focus outside a control, and no menu open, arro
 and Shift+arrows 50 px, one undo step per press; locked layers stay put. ⌘D duplicates, ⌘G groups,
 and Delete removes the selection.
 
-Workspace keys follow the same rule: they fire only while focus is outside form controls, buttons,
-and links, and no dialog or menu is open. `[` and `]` open the previous or next size, the Overview
-rows in order, landing on the same slot when the row has it and stopping at the first and last row;
-`O` switches between Focus and Overview; ⌘E (Ctrl+E) opens Export; ⌘K (Ctrl+K) opens the search.
-The app cancels the browser default so Ctrl+K and Ctrl+E do not move focus to Chrome's address bar.
+The navigation keys work whenever focus is outside an input, text area, or select and no dialog or
+menu is open, so they still work right after a click leaves focus on a button or layer row, where
+the authoring keys above wait. `[` and `]` open the previous or next size, the Overview rows in
+order, landing on the same slot when the row has it and stopping at the first and last row; `O`
+switches between Focus and Overview; ⌘E (Ctrl+E) opens Export; ⌘K (Ctrl+K) opens the search. The
+app cancels the browser default so Ctrl+K and Ctrl+E do not move focus to Chrome's address bar.
 Keys match the typed character, so they follow the active keyboard layout.
 
 A text layer that Issues reports as overflowing gets an amber state on every artboard that shows it:

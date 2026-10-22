@@ -179,13 +179,6 @@ export function LayerSearch({
       aria-keyshortcuts="Meta+K Control+K"
       className={cx(editorUi.field, "flex items-center gap-2 text-left")}
       onClick={() => onOpenChange(true)}
-      // A focused button is an interactive target, so the global shortcut skips it.
-      onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "k") {
-          event.preventDefault();
-          onOpenChange(true);
-        }
-      }}
     >
       <Search aria-hidden="true" size={13} strokeWidth={1.9} className={cx("shrink-0", secondary)} />
       <span className={cx("min-w-0 flex-1 truncate", secondary)}>{LABEL}</span>
