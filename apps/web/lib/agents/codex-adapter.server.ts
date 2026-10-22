@@ -98,7 +98,6 @@ export const codexAdapter: AgentAdapter = {
         request,
         "Plan the work as a short checklist with the update_plan tool and keep each step's status current.",
       ))}`,
-      ...(request.model ? ["--model", request.model] : []),
       "-",
     ];
   },

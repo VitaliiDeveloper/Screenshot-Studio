@@ -14,7 +14,7 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 
 const REQUEST: AgentRunRequest = {
   message: "Add German",
-  model: "gpt-5.5",
+  model: null,
   context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
 };
 
@@ -93,7 +93,6 @@ describe("Codex adapter", () => {
       .toEqual(expect.arrayContaining(["apps", "plugins", "browser_use", "computer_use", "multi_agent", "hooks"]));
     const instructions = overrides.find((override) => override.startsWith("developer_instructions="));
     expect(JSON.parse(instructions!.slice("developer_instructions=".length))).toContain("/project/AGENTS.md");
-    expect(args.slice(-3)).toEqual(["--model", "gpt-5.5", "-"]);
-    expect(codexAdapter.args({ ...REQUEST, model: null })).not.toContain("--model");
+    expect(args.at(-1)).toBe("-");
   });
 });
