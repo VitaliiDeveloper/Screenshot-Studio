@@ -3,11 +3,15 @@
 
 import { useState, type FormEvent } from "react";
 import { useStore } from "zustand";
-import { ArrowLeftRight, Languages, Trash2 } from "lucide-react";
-import { layoutLocales, type DesignLayout, type LayoutDirection } from "@screenshot-studio/core/model";
+import { ArrowLeft, ArrowLeftRight, Languages, Table2, Trash2 } from "lucide-react";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
+import { layoutLocales, type DesignLayout, type LayoutDirection, type Screen } from "@screenshot-studio/core/model";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ConfirmationDialog, DialogShell, MenuSelect, SegmentedControl, cx, editorUi } from "./editor-ui";
+import { LocaleMatrixTable } from "./LocaleMatrixTable";
+import { localeMatrix, localeMatrixSummary } from "./locale-matrix-model";
 
 type PendingLocaleAction =
   | { kind: "direction"; locale: string; next: LayoutDirection }
@@ -20,7 +24,16 @@ function localeDirection(
   return layout.screens.find((screen) => screen.locale === locale)?.direction ?? "ltr";
 }
 
-export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
+export function LocaleManagerDialog({
+  issues,
+  specs,
+  onClose,
+}: {
+  /** The editor's live Issues; each matrix cell matches their missing-locale entries. */
+  issues: readonly ProjectIssue[];
+  specs: StoreSpecs;
+  onClose: () => void;
+}) {
   const project = useStore(editorStore, (state) => state.project);
   const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
@@ -34,6 +47,8 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingLocaleAction | null>(null);
+  // The matrix keeps the size it was opened on, even when "+ EN" moves the active screen.
+  const [matrixScreen, setMatrixScreen] = useState<Screen | null>(null);
 
   if (!project || !layout) return null;
   const locales = layoutLocales(layout);
@@ -111,6 +126,41 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
     );
   }
 
+  const errorAlert = error
+    ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+    : null;
+
+  if (matrixScreen) {
+    const matrix = localeMatrix(layout, matrixScreen, issues);
+    const source = matrix.locales[0]!.toUpperCase();
+    return (
+      <DialogShell
+        title="Locale matrix"
+        description={localeMatrixSummary(layout, matrix, matrixScreen, specs)}
+        ariaLabel="Locale manager"
+        closeLabel="Close locale manager"
+        widthClass="max-w-3xl"
+        focusResetKey={matrix.missing}
+        onClose={onClose}
+      >
+        <div className="space-y-4">
+          <button type="button" className={editorUi.buttonGhost} onClick={() => setMatrixScreen(null)}>
+            <ArrowLeft size={14} strokeWidth={1.9} /> Locales
+          </button>
+          {errorAlert}
+          <LocaleMatrixTable
+            matrix={matrix}
+            onCreate={(issue) => mutate(() => editorStore.getState().createScreenFromLocale(issue.sourceScreenId, issue.locale))}
+          />
+          <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">
+            A cell shows whether the screen exists in that locale. + {source} copies the {source} screen: into every size
+            under Sync sizes, into the shown size under Separate.
+          </p>
+        </div>
+      </DialogShell>
+    );
+  }
+
   return (
     <DialogShell
       title="Locales"
@@ -165,7 +215,7 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
           </p>
         </form>
 
-        {error ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
+        {errorAlert}
 
         <section aria-label="Project locales">
           <h3 className={`mb-2 ${editorUi.sectionLabel}`}>Current locales</h3>
@@ -218,6 +268,13 @@ export function LocaleManagerDialog({ onClose }: { onClose: () => void }) {
             })}
           </div>
         </section>
+        <button
+          type="button"
+          className={editorUi.buttonSecondary}
+          onClick={() => setMatrixScreen(layout.screens.find((screen) => screen.id === activeScreenId) ?? layout.screens[0]!)}
+        >
+          <Table2 size={14} strokeWidth={1.9} /> Locale matrix
+        </button>
       </div>
     </DialogShell>
   );

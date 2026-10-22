@@ -10,6 +10,7 @@ import {
 } from "@screenshot-studio/core/export";
 import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { editorStore } from "@web/lib/editor/editor-store";
+import { hasPlaceableText, type TextPlacement } from "@web/lib/editor/editor-text-placement";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { ArtboardTargets } from "@web/components/ArtboardTargets";
 import { editorUi, SegmentedControl } from "@web/components/editor-ui";
@@ -17,6 +18,12 @@ import { NumberField } from "@web/components/inspector/inspector-fields";
 import { BackgroundInspectorFields } from "./BackgroundInspectorFields";
 import { InspectorSection as Section } from "./InspectorSection";
 import { StoredOnThisScreenSection } from "./StoredOnThisScreenSection";
+
+const TEXT_PLACEMENTS: readonly { value: TextPlacement; label: string }[] = [
+  { value: "top", label: "Top" },
+  { value: "bottom", label: "Bottom" },
+  { value: "side", label: "Side" },
+];
 
 const STORE_AUTHORING_SCALES = ["1", "2", "3"] as const;
 export type StoreAuthoringScale = (typeof STORE_AUTHORING_SCALES)[number];
@@ -223,6 +230,27 @@ export function ScreenInspectorSections({
           )}
           onChooseImage={onOpenBackgroundAsset}
         />
+      </Section>
+      <Section title="Text placement">
+        <div role="group" aria-label="Text placement" className="grid grid-cols-3 gap-2">
+          {TEXT_PLACEMENTS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={editorUi.buttonSecondary}
+              aria-label={`Text placement ${label}`}
+              disabled={!hasPlaceableText(screen)}
+              onClick={() => mutateAndSave(() => editorStore.getState().placeText(value, applyScope))}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[length:var(--editor-font-label-size)] leading-4 text-[color:var(--editor-color-text-secondary)]">
+          {hasPlaceableText(screen)
+            ? "One-shot preset: writes positions once and isn't stored on the screen."
+            : "This screen has no visible, unlocked text layer to place."}
+        </p>
       </Section>
     </>
   );

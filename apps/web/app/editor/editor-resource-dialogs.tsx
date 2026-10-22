@@ -3,6 +3,7 @@
 
 import type { MediaAssetTarget, ResourceDialog } from "@web/lib/editor/editor-workspace";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { AssetPickerDialog } from "@web/components/AssetPickerDialog";
 import { FontManagerDialog } from "@web/components/FontManagerDialog";
 import { LocaleManagerDialog } from "@web/components/LocaleManagerDialog";
@@ -14,6 +15,7 @@ interface EditorResourceDialogsProps {
   dialog: ResourceDialog | null;
   localeDialogOpen: boolean;
   specs: StoreSpecs;
+  issues: readonly ProjectIssue[];
   deviceFrameAssetTarget: { elementId: string; screenId: string } | null;
   mediaAssetTarget: MediaAssetTarget | null;
   cacheImage(assetUrl: string): Promise<CachedAssetDimensions | null>;
@@ -27,6 +29,7 @@ export function EditorResourceDialogs({
   dialog,
   localeDialogOpen,
   specs,
+  issues,
   deviceFrameAssetTarget,
   mediaAssetTarget,
   cacheImage,
@@ -74,7 +77,7 @@ export function EditorResourceDialogs({
           }}
         />
       ) : null}
-      {localeDialogOpen ? <LocaleManagerDialog onClose={closeLocaleDialog} /> : null}
+      {localeDialogOpen ? <LocaleManagerDialog issues={issues} specs={specs} onClose={closeLocaleDialog} /> : null}
     </>
   );
 }
