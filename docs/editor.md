@@ -218,17 +218,36 @@ written through the same fit used when a size is created, so they scale with eac
 other field is copied. Each counterpart takes the edited layer's fitted value for every changed
 field, replacing it rather than applying a delta, so editing position on one size also replaces
 manual placement on the others in scope. A size that cannot take the fitted value within its limits
-is skipped. In the Screen tab the scope applies to Background. Destinations keep no persisted slot
-link, so **All destinations** pairs a destination only when its master screen at the same position
-has the same name, and skips it otherwise. Once the scope reaches past this screen, the footer counts
-only the screens the next edit will write and names how many sizes and destinations it skips. The
-scope is editor state only: it holds while the same layer (or, with nothing selected, the same
-screen) stays selected and resets to **Only {size}** on any other selection or reload;
+is skipped. In the Screen tab the scope applies to Background and Text placement. Destinations keep
+no persisted slot link, so **All destinations** pairs a destination only when its master screen at
+the same position has the same name, and skips it otherwise. Once the scope reaches past this screen,
+the footer counts only the screens the next edit will write and names how many sizes and destinations
+it skips. The scope is editor state only: it holds while the same layer (or, with nothing selected,
+the same screen) stays selected and resets to **Only {size}** on any other selection or reload;
 multi-selection keeps editing the selected screen only.
 
 **Stored on this screen** at the top of the Screen tab shows, read-only, the locale and its text
 direction, destination, exact store size with its export pixels, and layout that the screen
 persists. Another locale or size is another screen, so none of these change in place.
+
+**Text placement** in the Screen tab (**Top**, **Bottom**, **Side**) is a one-time preset: it writes
+literal positions, stores nothing on the screen, and leaves later edits free. The screen's visible,
+unlocked text layers move as one block and its screenshot, image, and device-frame layers as another
+into regions of the artboard, so the text sits above, below, or beside the media; Side puts the text
+on the start edge of a right-to-left screen. Each block keeps its internal arrangement and is
+centered in its region. It is scaled down uniformly, never up, only when it is larger than the region,
+so Side on a narrow artboard also shrinks the text. Locked and hidden layers, shapes, and groups stay
+put. The preset follows **Apply to**, is one undo step, and is disabled without an unlocked text
+layer.
+
+**Locale matrix**, opened from **Locales**, lists the first locale's screens as rows against every
+locale as columns, for the exact size the active screen shows. A cell says whether the screen exists
+in that locale. It reads the missing-locale entries of Issues, so the matrix and Issues cannot
+disagree. A missing cell offers **+ {first locale}**, the same fix as Issues: it copies the screen
+with the target locale's text direction, into every size of a Sync sizes family and into the shown
+size only under Separate, as one undo step through the usual save path. Under Sync sizes a size's row
+is missing together with its slot. The header names the layout, the structure (and the size under
+Separate), the screen and locale counts, and how many cells are missing.
 
 ### Canvas
 
