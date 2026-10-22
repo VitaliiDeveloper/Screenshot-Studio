@@ -387,6 +387,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       <EditorResourceDialogs
         dialog={dialog}
         specs={specs}
+        issues={issues}
         localeDialogOpen={localeDialogOpen}
         deviceFrameAssetTarget={deviceFrameAssetTarget}
         mediaAssetTarget={mediaAssetTarget}
