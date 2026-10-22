@@ -122,8 +122,28 @@ selection so additive selection gestures remain predictable.
 
 Adding text is an authoring action and must never open resource management as a prerequisite. Empty
 projects use the renderer-owned built-in font, while the Inspector offers built-in and project fonts
-through the same semantic font field. Uploading or downloading custom fonts remains an explicit,
-separate Fonts action in the tool rail.
+through the same semantic font field. Uploading, downloading, or importing custom fonts remains an
+explicit, separate Fonts action in the tool rail.
+
+**Import from system** in the Fonts dialog switches the dialog to a selective import view (its Back
+button returns to the font list and restores focus to the entry button). A search field filters the
+installed families, each showing coverage badges for Latin, Latin Ext-A, Cyrillic, and Greek. Choosing
+a family previews Latin and Cyrillic sample text for every weight, drawn with a `FontFace` built from
+the file's bytes under a private preview family, never `local()` and never the project family name, and
+removed when the selection changes or the view closes. Each importable weight has a checkbox; **Import**
+copies the ticked weights one at a time into the project as `uploaded` fonts named from the file's
+metadata, through the same registration path as Upload, so duplicates of an existing family and weight
+are disabled up front and reported by the server rather than overwritten. Fonts from machine-wide
+folders show a license warning (for example SF Pro is licensed only for UI mockups for Apple
+platforms); the user is responsible for checking it. Fonts with the "Restricted License embedding"
+flag, collections (TTC, OTC, DFont), variable fonts, files over 20 MB, and weights that are not a
+multiple of 100 are listed as disabled with the reason; italic faces are skipped because a font
+identity has no style. The server scans only the standard font folders of the current OS (macOS:
+`/System/Library/Fonts`, `/Library/Fonts`, `~/Library/Fonts`; Windows: `%WINDIR%\Fonts`,
+`%LOCALAPPDATA%\Microsoft\Windows\Fonts`; Linux: `/usr/share/fonts`, `/usr/local/share/fonts`,
+`~/.local/share/fonts`, `~/.fonts`), addresses files by opaque ids, and serves them only to loopback
+requests; the browser never sends a path. The Windows and Linux folder lists are covered by unit tests
+with injected environments and have not been verified on real machines.
 
 Blank project starters, blank screens, and the first screen in a newly added layout use a white solid
 background. Explicit duplication preserves the source screen exactly. Linear-gradient backgrounds
@@ -339,7 +359,8 @@ an arbitrary local filesystem path.
 
 - Do not add UI-only fields, prompt history, translation databases, or server metadata to the Project
   document.
-- Do not offer generic remote asset fetching, system-font fallback, hidden filesystem mutation, or a
+- Do not offer generic remote asset fetching, system-font fallback (Import from system copies a chosen
+  file into the project and is not a fallback), hidden filesystem mutation, or a
   second rendering/export path.
 - Do not turn templates, themes, or starter content into hidden runtime state; persisted results remain
   ordinary strict Project literals.

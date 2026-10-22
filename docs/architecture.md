@@ -228,6 +228,8 @@ small versioned built-in font catalog so text authoring works before a project a
 Built-in identities resolve to local renderer-owned bytes in both editor and CLI export. Operating
 system fallbacks remain rejected because they make output depend on a machine. Google-font requests
 may occur only at add time; later editor rendering and CLI export use local bytes.
+Importing an installed font copies the chosen file into the project as an ordinary `uploaded` font,
+so it does not make the operating system a dependency of the project.
 
 Themes and project templates are project-local inputs that produce ordinary strict Project literals.
 The application also ships global read-only built-in template, screen pack, and Design Packs
