@@ -26,6 +26,7 @@ import {
   withDrainedProjectSaves,
   withFlushedProject,
 } from "@web/lib/editor/debounced-save";
+import { shouldApplyExternalReload } from "@web/lib/editor/external-project-changes";
 import {
   loadAllProjectImages,
   useEditorImageCache,
@@ -173,7 +174,10 @@ export function useEditorResources(expectedProjectId: string) {
 
   const startReload = useCallback(async (
     serialize: EditorResourceSerializer,
-    { keepCurrent = false }: { keepCurrent?: boolean } = {},
+    {
+      keepCurrent = false,
+      shouldApply = () => true,
+    }: { keepCurrent?: boolean; shouldApply?: (resources: EditorResourceResult) => boolean } = {},
   ) => {
     const generation = ++resourceGeneration.current;
     setError(null);
@@ -189,6 +193,7 @@ export function useEditorResources(expectedProjectId: string) {
         load: () => loadEditorResources({ expectedProjectId }),
         isCurrent: () => resourceGeneration.current === generation,
         apply: (resources) => {
+          if (!shouldApply(resources)) return;
           // A revision becomes globally usable only after every required resource validated and this
           // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
           applyEditorResourceResult(resources);
@@ -253,6 +258,13 @@ export function useEditorResources(expectedProjectId: string) {
     return startReload(withDrainedProjectSaves, { keepCurrent: true });
   }, [startReload]);
 
+  // A background pickup must not cancel or overwrite an edit made meanwhile: that edit saves, gets
+  // rejected by If-Match, and the user resolves the conflict instead.
+  const reloadExternalChange = useCallback((seen: Project | null) => startReload(withDrainedProjectSaves, {
+    keepCurrent: true,
+    shouldApply: (resources) => shouldApplyExternalReload(seen, resources.revision),
+  }), [startReload]);
+
   return {
     error,
     images,
@@ -261,6 +273,7 @@ export function useEditorResources(expectedProjectId: string) {
     retry,
     reload,
     reloadFromDisk,
+    reloadExternalChange,
     cacheImage,
     reloading,
     retryFonts,

@@ -252,4 +252,46 @@ describe("editor round-trip", () => {
     expect(Math.abs(element("contain-shot").y - start.y)).toBeGreaterThan(5);
     await page.close();
   });
+
+  it("shows an external write without a restart and never saves over it", async () => {
+    const renameHero = (name: string) => {
+      const persisted = JSON.parse(readFileSync(projectFile, "utf8"));
+      persisted.layouts[0].screens.find((screen: { id: string }) => screen.id === "hero").name = name;
+      writeFileSync(projectFile, JSON.stringify(persisted, null, 2));
+    };
+    const page = await browser.newPage({ viewport: { width: 1400, height: 1600 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    const canvas = await activeHeroCanvas(page);
+
+    renameHero("Agent Hero");
+    await page.getByText("Agent Hero", { exact: true }).first().waitFor({ timeout: 10_000 });
+
+    // Hold back change detection so the editor saves on top of a write it has not seen yet.
+    const blockProbe = (route: import("playwright").Route) =>
+      route.request().headers()["if-none-match"] ? route.abort() : route.continue();
+    await page.route("**/api/project", blockProbe);
+    renameHero("Second agent pass");
+    const start = headline();
+    const box = (await canvas.boundingBox())!;
+    const scale = box.width / heroScreen().artboard.width;
+    const cx = box.x + (start.x + start.width / 2) * scale;
+    const cy = box.y + (start.y + start.height / 2) * scale;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx + 30, cy, { steps: 5 });
+    await page.mouse.up();
+    await page.getByText(/Save failed/).first().waitFor({ timeout: 10_000 });
+    await page.unroute("**/api/project", blockProbe);
+
+    const conflict = page.getByRole("alert").filter({ hasText: "This project changed outside the editor." });
+    await conflict.waitFor({ timeout: 10_000 });
+    expect(heroScreen().name).toBe("Second agent pass");
+    expect(headline().x).toBe(start.x);
+
+    await conflict.getByRole("button", { name: "Load latest version" }).click();
+    await page.getByText("Second agent pass", { exact: true }).first().waitFor({ timeout: 10_000 });
+    await conflict.waitFor({ state: "detached" });
+    expect(heroScreen().name).toBe("Second agent pass");
+    await page.close();
+  });
 });

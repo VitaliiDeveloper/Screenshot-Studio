@@ -37,6 +37,7 @@ import { EditorResourceDialogs } from "./editor-resource-dialogs";
 import { useEditorEscapeRouting, useEditorKeyboardRouting, type EditorKeyboardHandlers } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";
 import { useEditorProjectNavigation } from "./use-editor-project-navigation";
+import { useExternalProjectChanges } from "./use-external-project-changes";
 import { useEditorResources } from "./editor-resources";
 import { useEditorSaveGuards } from "./use-editor-save-guards";
 import { useEditorIssues } from "./use-editor-issues";
@@ -71,6 +72,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     activeProjectId,
     reload: reloadResources,
     reloadFromDisk,
+    reloadExternalChange,
     cacheImage,
   } = useEditorResources(expectedProjectId);
   const [zoom, setZoom] = useState(0.5);
@@ -115,6 +117,11 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const agentChat = useEditorAgentChat(panel === "agent", reloadFromDisk);
   const agentLocked = agentChat.locked;
   useEditorSaveGuards(saveStatus);
+  // An in-app agent run reloads itself when it ends; poll only while the user can edit.
+  const externalConflict = useExternalProjectChanges(
+    Boolean(images && specs) && !error && !agentLocked,
+    reloadExternalChange,
+  );
   // Fallback-font metrics would report false overflow, so measure only with every project font loaded.
   const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
   const issues = useEditorIssues(textMeasured, images);
@@ -411,7 +418,23 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         </EditorSidePanel>
       </div>
       <StatusBar specs={specs} />
-      {saveStatus === "error" && saveError && !projectNavigation.error ? (
+      {externalConflict && !projectNavigation.error ? (
+        <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+          <p className="font-semibold">This project changed outside the editor.</p>
+          <p className="mt-1">
+            Your latest edits were not saved, so they did not overwrite that change. Loading the latest
+            version discards them.
+          </p>
+          <button
+            type="button"
+            className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+            disabled={reloading}
+            onClick={() => { void reloadFromDisk(); }}
+          >
+            {reloading ? "Loading latest version…" : "Load latest version"}
+          </button>
+        </div>
+      ) : saveStatus === "error" && saveError && !projectNavigation.error ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
         </div>

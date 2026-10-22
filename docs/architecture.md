@@ -197,6 +197,17 @@ with the current ETag. Routes use request-fence helpers or equivalent direct val
 lifecycle operations, such as Close project, require the project identity but not a revision. A failed
 open or save preserves the last known-good active state rather than silently targeting another project.
 
+Other writers, such as the CLI or an agent the user runs in the project folder, change the file
+without telling the editor. While its Workspace is visible, the editor sends `GET /api/project` with
+`If-None-Match` set to its revision every 2 seconds and on window focus. These checks wait for the
+editor's own queued saves to finish first, so its own write is never mistaken for an external one. The
+route answers `304` while the revision is unchanged. A `200` for the same `X-Project-Id` at another
+revision reloads the project through the normal resource load, the only render path. A `422`
+half-written file is ignored until it validates. A save the user started is never cancelled for an
+external change: it fails its `If-Match` with `412`, the bytes on disk stay untouched, and the user
+resolves the conflict ([`docs/editor.md`](editor.md)). Only `app-store-screenshots.json`
+is compared, so a change to an asset file alone is not detected.
+
 The core `StorageAdapter` owns loading/saving the Project document and explicitly submitted asset
 bytes. Resource services own fonts, templates, themes, imports, processed assets, and export
 artifacts. This separation keeps storage extensions from accidentally claiming ownership of every
