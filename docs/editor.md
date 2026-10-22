@@ -309,8 +309,8 @@ active screen with the current layer selection (`Hero · Hero headline (Text)`, 
 `No layer selected`), and the key hints `[ ] O ⌘K ⌘Z`, which hide below the medium width. The save
 state reads `Saving…`, `Saved` with the time of the last successful save, or `Save failed · last
 saved` with that time (`nothing saved yet` when no save has succeeded since the project opened), so
-a failure still says how far the work is durable. It is a polite status region; the
-`Save failed: …` alert keeps carrying the error text. The time is editor state, cleared when another
+a failure still says how far the work is durable. The save cell is plain text, not a live region,
+so autosaves are not announced; the `Save failed: …` alert keeps announcing the error. The time is editor state, cleared when another
 project loads, and never part of the Project document.
 Play opens a full-screen, read-only scene in the editor's current appearance with the files that bundle writes for the active
 destination, size, and locale, in file order. The current screen is centered at full size with its

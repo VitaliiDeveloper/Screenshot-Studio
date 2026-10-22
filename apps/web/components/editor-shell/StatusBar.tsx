@@ -11,7 +11,7 @@ export type SaveTone = "idle" | "busy" | "error";
 
 /** `14:02` in the viewer's locale; the zone and locale are parameters only so tests are stable. */
 export function savedTimeLabel(savedAt: number, locale?: string, timeZone?: string): string {
-  return new Date(savedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", timeZone });
+  return new Date(savedAt).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", timeZone });
 }
 
 /** The save cell's words; after a failure it still names the last time the project reached disk. */
@@ -80,7 +80,6 @@ export function StatusBar() {
       className="flex h-[34px] shrink-0 items-center gap-4 border-t border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3 text-[11px] text-[color:var(--editor-color-text-muted)]"
     >
       <p
-        role="status"
         data-save-status={saveStatus}
         className={cx(
           "flex shrink-0 items-center gap-1.5",

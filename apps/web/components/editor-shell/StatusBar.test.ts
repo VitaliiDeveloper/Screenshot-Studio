@@ -51,13 +51,14 @@ describe("StatusBar", () => {
     for (const keys of ["[ ]", "O", "⌘K", "⌘Z"]) expect(markup).toContain(`>${keys}</kbd>`);
   });
 
-  it("announces saving and saved with the time, without an alert role", () => {
+  it("shows saving and saved with the time, without announcing every autosave", () => {
     editorStore.getState().setSaveState("saving");
     expect(render()).toContain("Saving…");
 
     editorStore.setState({ saveStatus: "saved", lastSavedAt: savedAt });
     const markup = render();
-    expect(markup).toContain('role="status"');
+    expect(markup).not.toContain("role=");
+    expect(markup).not.toContain("aria-live");
     expect(markup).toContain(`<time dateTime="2026-10-22T14:02:30.000Z">${savedTimeLabel(savedAt)}</time>`);
     expect(markup).not.toContain('role="alert"');
   });
@@ -69,7 +70,7 @@ describe("StatusBar", () => {
     expect(markup).toContain("Save failed · last saved");
     expect(markup).toContain(`>${savedTimeLabel(savedAt)}</time>`);
     expect(markup).not.toContain("disk unavailable");
-    expect(markup).not.toContain('role="alert"');
+    expect(markup).not.toContain("role=");
   });
 
   it("shows the active screen and the current selection", () => {
