@@ -87,6 +87,8 @@ describe("runTemplateCommand", () => {
       .rejects.toThrow(/Built-in template pack "no-such-pack" not found/);
     await expect(runTemplateCommand(projectPath, specsPath, ["add", "iphone-starter"], { locale: "en", pack: "true", layout: "campaign" }))
       .rejects.toThrow(/Built-in template pack "iphone-starter" not found/);
+    await expect(runTemplateCommand(projectPath, specsPath, ["add", "neutral-iphone-basics"], { locale: "en", "built-in": "true", layout: "campaign" }))
+      .rejects.toThrow(/Built-in template "neutral-iphone-basics" not found/);
     expect(await readFile(projectPath, "utf8")).toBe(before);
   });
 
