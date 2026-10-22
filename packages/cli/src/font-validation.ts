@@ -2,6 +2,9 @@
 import { extname } from "node:path";
 import { create, type Font, type FontCollection } from "fontkit";
 
+/** Largest font file the project accepts, whether uploaded or imported from the system. */
+export const MAX_FONT_BYTES = 20 * 1024 * 1024;
+
 export type SupportedFontFormat = "ttf" | "otf" | "woff" | "woff2";
 
 export interface ParsedFontIdentity {

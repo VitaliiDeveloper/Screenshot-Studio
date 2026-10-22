@@ -4,12 +4,8 @@ import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, extname, isAbsolute, join, posix, relative, sep, win32 } from "node:path";
 import { create, type Font } from "fontkit";
-import {
-  FONT_WEIGHT_MAX,
-  FONT_WEIGHT_MIN,
-  FONT_WEIGHT_STEP,
-} from "@screenshot-studio/core/model";
-import { inspectSupportedFont, type SupportedFontFormat } from "./font-validation.js";
+import { FONT_WEIGHT_MAX, FONT_WEIGHT_MIN } from "@screenshot-studio/core/model";
+import { inspectSupportedFont, MAX_FONT_BYTES, type SupportedFontFormat } from "./font-validation.js";
 
 export type SystemFontSource = "user" | "system";
 export type SystemFontFormat = SupportedFontFormat | "ttc" | "otc" | "dfont";
@@ -47,7 +43,7 @@ export interface SystemFontMetadata {
   italic: boolean;
   variable: boolean;
   collection: boolean;
-  fsType: number;
+  restrictedEmbedding: boolean;
   coverage: SystemFontCoverage;
 }
 
@@ -72,9 +68,6 @@ export class SystemFontUnavailableError extends Error {
   override name = "SystemFontUnavailableError";
 }
 
-/** Matches the 20 MB limit the font upload endpoint applies to every registered font. */
-export const SYSTEM_FONT_MAX_BYTES = 20 * 1024 * 1024;
-
 const SCANNED_EXTENSIONS = new Set(["ttf", "otf", "woff", "woff2", "ttc", "otc", "dfont"]);
 const COLLECTION_EXTENSIONS = new Set(["ttc", "otc", "dfont"]);
 const NO_COVERAGE: SystemFontCoverage = {
@@ -92,8 +85,6 @@ const COVERAGE_SAMPLES: Record<keyof SystemFontCoverage, string> = {
 };
 
 const NORMAL_WIDTH_CLASS = 5;
-const FS_TYPE_RESTRICTED = 0x0002;
-const FS_TYPE_LESS_RESTRICTIVE = 0x0004 | 0x0008;
 
 interface SystemFontRootEnvironment {
   platform?: NodeJS.Platform;
@@ -154,9 +145,7 @@ function metadataOf(font: Font, collection: boolean): SystemFontMetadata {
     italic: Boolean(os2?.fsSelection.italic || os2?.fsSelection.oblique || macStyle?.italic),
     variable: Object.keys(font.variationAxes).length > 0,
     collection,
-    fsType: (fsType?.noEmbedding ? 0x0002 : 0)
-      | (fsType?.viewOnly ? 0x0004 : 0)
-      | (fsType?.editable ? 0x0008 : 0),
+    restrictedEmbedding: Boolean(fsType?.noEmbedding && !fsType.viewOnly && !fsType.editable),
     coverage: {
       latin: covers(font, COVERAGE_SAMPLES.latin),
       latinExtA: covers(font, COVERAGE_SAMPLES.latinExtA),
@@ -166,7 +155,6 @@ function metadataOf(font: Font, collection: boolean): SystemFontMetadata {
   };
 }
 
-/** Reads faces with the same fontkit validation the project font registration path applies. */
 export function readFontkitMetadata(bytes: Buffer, fileName: string): SystemFontMetadata[] {
   const extension = extname(fileName).slice(1).toLowerCase();
   if (COLLECTION_EXTENSIONS.has(extension) || bytes.toString("ascii", 0, 4) === "ttcf") {
@@ -180,21 +168,20 @@ function validWeight(weight: number | undefined): weight is number {
   return weight !== undefined
     && Number.isInteger(weight)
     && weight >= FONT_WEIGHT_MIN
-    && weight <= FONT_WEIGHT_MAX
-    && weight % FONT_WEIGHT_STEP === 0;
+    && weight <= FONT_WEIGHT_MAX;
 }
 
 function unavailableReason(metadata: SystemFontMetadata): string | undefined {
   if (metadata.collection) return "Font collections (TTC, OTC, DFont) are not supported yet";
   if (metadata.variable) return "Variable fonts are not supported yet";
-  if (
-    (metadata.fsType & FS_TYPE_RESTRICTED) !== 0
-    && (metadata.fsType & FS_TYPE_LESS_RESTRICTIVE) === 0
-  ) {
+  if (metadata.restrictedEmbedding) {
     return "The font license (Restricted License embedding) does not allow embedding";
   }
   if (!validWeight(metadata.weight)) {
-    return `Weight ${metadata.weight ?? "(missing)"} is not a multiple of ${FONT_WEIGHT_STEP} from ${FONT_WEIGHT_MIN} to ${FONT_WEIGHT_MAX}; add the file with Upload and choose a weight`;
+    const problem = metadata.weight === undefined
+      ? "Weight is missing"
+      : `Weight ${metadata.weight} is outside ${FONT_WEIGHT_MIN} to ${FONT_WEIGHT_MAX}`;
+    return `${problem}; add the file with Upload and choose a weight`;
   }
   return undefined;
 }
@@ -214,7 +201,6 @@ interface ScanEntry {
   face: SystemFontFace;
   path: string;
   fileName: string;
-  root: string;
   index: number;
   postscriptName: string;
   width: number | undefined;
@@ -251,7 +237,6 @@ function faceId(path: string, index: number): string {
 async function describeFile(
   file: ScannedFile,
   root: SystemFontRoot,
-  realRoot: string,
   readMetadata: ReadSystemFontMetadata,
 ): Promise<ScanEntry[]> {
   const format = extname(file.name).slice(1).toLowerCase() as SystemFontFormat;
@@ -263,7 +248,6 @@ async function describeFile(
     face: { id: faceId(file.path, index), source: root.source, format, ...face },
     path: file.path,
     fileName: file.name,
-    root: realRoot,
     index,
     ...identity,
   });
@@ -275,7 +259,7 @@ async function describeFile(
     unavailable: reason,
   })];
 
-  if (file.size > SYSTEM_FONT_MAX_BYTES) return unreadable("Larger than 20 MB, the project font size limit");
+  if (file.size > MAX_FONT_BYTES) return unreadable("Larger than 20 MB, the project font size limit");
   let bytes: Buffer;
   try {
     bytes = await readFile(file.path);
@@ -360,7 +344,7 @@ async function scanSystemFonts(
     const realRoot = await realpath(root.dir).catch(() => undefined);
     if (!realRoot) continue;
     for await (const file of fontFiles(realRoot)) {
-      entries.push(...await describeFile(file, root, realRoot, readMetadata));
+      entries.push(...await describeFile(file, root, readMetadata));
     }
   }
   return new Map(resolveFaces(entries).map((entry) => [entry.face.id, entry]));
@@ -420,9 +404,9 @@ export function createSystemFontScanner({
       const gone = new SystemFontNotFoundError("The font file changed or was removed since it was scanned");
       // The path was contained when scanned; anything that now resolves elsewhere is rejected.
       const path = await realpath(entry.path).catch(() => undefined);
-      if (path !== entry.path || !isInside(entry.root, path)) throw gone;
+      if (path !== entry.path) throw gone;
       const info = await stat(path).catch(() => undefined);
-      if (!info?.isFile() || info.size > SYSTEM_FONT_MAX_BYTES) throw gone;
+      if (!info?.isFile() || info.size > MAX_FONT_BYTES) throw gone;
       const bytes = await readFile(path).catch(() => undefined);
       if (!bytes || !unchanged(entry, bytes, readMetadata)) throw gone;
       return { face: entry.face, fileName: entry.fileName, bytes };

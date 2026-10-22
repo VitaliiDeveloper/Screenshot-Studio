@@ -75,7 +75,7 @@ beforeEach(async () => {
   scanner = createSystemFontScanner({
     roots: [{ dir: fontDir, source: "system" }],
     readMetadata: (bytes, fileName) => readFontkitMetadata(bytes, fileName).map((face) => (
-      fileName.startsWith("Locked") ? { ...face, fsType: 0x0002 } : face
+      fileName.startsWith("Locked") ? { ...face, restrictedEmbedding: true } : face
     )),
   });
   shared.scanner = scanner;
@@ -109,7 +109,7 @@ function importRequest(body: unknown, init: RequestInit = {}): Request {
 
 describe("system font handlers", () => {
   it("lists faces by opaque id with their policy and never exposes a path", async () => {
-    const response = await handleSystemFontsGet(scanner);
+    const response = await handleSystemFontsGet();
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -127,7 +127,7 @@ describe("system font handlers", () => {
 
   it("streams preview bytes for a scanner id and answers unknown ids with 404", async () => {
     const id = await idOf("Pacifico");
-    const response = await handleSystemFontPreview(previewRequest(`?id=${id}`), scanner);
+    const response = await handleSystemFontPreview(previewRequest(`?id=${id}`));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/octet-stream");
@@ -135,7 +135,7 @@ describe("system font handlers", () => {
     expect(Buffer.from(await response.arrayBuffer())).toEqual(pacificoBytes);
 
     for (const unknown of [`sf_${"0".repeat(32)}`, encodeURIComponent(join(fontDir, "Pacifico-Regular.ttf")), "..%2F..%2Fetc%2Fpasswd"]) {
-      expect((await handleSystemFontPreview(previewRequest(`?id=${unknown}`), scanner)).status).toBe(404);
+      expect((await handleSystemFontPreview(previewRequest(`?id=${unknown}`))).status).toBe(404);
     }
   });
 
@@ -144,21 +144,21 @@ describe("system font handlers", () => {
     const outside = encodeURIComponent(join(dir, "app-store-screenshots.json"));
 
     for (const query of ["", `?path=${outside}`, `?id=${id}&path=${outside}`, `?id=${id}&id=${id}`, "?id="]) {
-      expect((await handleSystemFontPreview(previewRequest(query), scanner)).status).toBe(400);
+      expect((await handleSystemFontPreview(previewRequest(query))).status).toBe(400);
     }
     for (const body of [{ id, path: outside }, { path: outside }, { id: 7 }, [], null]) {
-      const response = await handleSystemFontImport(projectPath, importRequest(body), scanner);
+      const response = await handleSystemFontImport(projectPath, importRequest(body));
       expect(response.status).toBe(400);
     }
-    expect((await handleSystemFontImport(projectPath, new Request("http://localhost/x", { method: "POST", body: "{" }), scanner)).status).toBe(400);
+    expect((await handleSystemFontImport(projectPath, new Request("http://localhost/x", { method: "POST", body: "{" }))).status).toBe(400);
     expect(JSON.parse(await readFile(projectPath, "utf8")).fonts).toEqual([]);
   });
 
   it("refuses to serve or import a disabled font", async () => {
     const id = await idOf("Noto Sans Arabic");
 
-    expect((await handleSystemFontPreview(previewRequest(`?id=${id}`), scanner)).status).toBe(422);
-    const response = await handleSystemFontImport(projectPath, importRequest({ id }), scanner);
+    expect((await handleSystemFontPreview(previewRequest(`?id=${id}`))).status).toBe(422);
+    const response = await handleSystemFontImport(projectPath, importRequest({ id }));
 
     expect(response.status).toBe(422);
     expect((await response.json()).error).toMatch(/Restricted License embedding/);
@@ -166,7 +166,7 @@ describe("system font handlers", () => {
   });
 
   it("imports a face as an uploaded font named from its metadata", async () => {
-    const response = await handleSystemFontImport(projectPath, importRequest({ id: await idOf("Pacifico") }), scanner);
+    const response = await handleSystemFontImport(projectPath, importRequest({ id: await idOf("Pacifico") }));
 
     expect(response.status).toBe(201);
     expect(response.headers.get("etag")).toBe(`"${projectRevision(await readFile(projectPath))}"`);
@@ -179,7 +179,7 @@ describe("system font handlers", () => {
   it("answers an unknown import id with 404 and leaves the project untouched", async () => {
     const before = await readFile(projectPath);
 
-    const response = await handleSystemFontImport(projectPath, importRequest({ id: `sf_${"1".repeat(32)}` }), scanner);
+    const response = await handleSystemFontImport(projectPath, importRequest({ id: `sf_${"1".repeat(32)}` }));
 
     expect(response.status).toBe(404);
     expect(await readFile(projectPath)).toEqual(before);
@@ -187,10 +187,10 @@ describe("system font handlers", () => {
 
   it("reports a duplicate family and weight with 409 instead of overwriting", async () => {
     const id = await idOf("Pacifico");
-    expect((await handleSystemFontImport(projectPath, importRequest({ id }), scanner)).status).toBe(201);
+    expect((await handleSystemFontImport(projectPath, importRequest({ id }))).status).toBe(201);
     const registered = await readFile(projectPath);
 
-    const duplicate = await handleSystemFontImport(projectPath, importRequest({ id }), scanner);
+    const duplicate = await handleSystemFontImport(projectPath, importRequest({ id }));
 
     expect(duplicate.status).toBe(409);
     expect((await duplicate.json()).error).toMatch(/already registered/);
@@ -215,7 +215,7 @@ describe("system font handlers", () => {
     await writeFile(outside, "secret");
     await symlink(outside, join(fontDir, "Escape.ttf"));
 
-    const faces = (await (await handleSystemFontsGet(scanner)).json()).fonts as Array<{ family: string }>;
+    const faces = (await (await handleSystemFontsGet()).json()).fonts as Array<{ family: string }>;
 
     expect(faces.map(({ family }) => family)).not.toContain("Escape");
   });

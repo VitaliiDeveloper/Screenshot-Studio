@@ -32,6 +32,17 @@ import { SystemFontImport } from "./SystemFontImport";
 
 type PendingAction = "upload" | "google" | "remove" | "system" | null;
 
+function postFontJson(url: string, body: unknown): Promise<Response> {
+  return fetch(url, {
+    method: "POST",
+    headers: projectRequestHeaders({
+      conditional: true,
+      headers: { "content-type": "application/json" },
+    }),
+    body: JSON.stringify(body),
+  });
+}
+
 export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
   const activeLayoutId = useStore(editorStore, (state) => state.activeLayoutId);
@@ -134,13 +145,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     try {
       await withFlushedProject(async () => {
         const previousProject = editorStore.getState().project!;
-        const response = await fetch("/api/fonts", {
-          method: "POST",
-          headers: projectRequestHeaders({
-            conditional: true,
-            headers: { "content-type": "application/json" },
-          }),
-          body: JSON.stringify({ source: "google", family: googleFamily, weight: googleWeight }),
+        const response = await postFontJson("/api/fonts", {
+          source: "google",
+          family: googleFamily,
+          weight: googleWeight,
         });
         await reconcileAdd(response, previousProject);
       });
@@ -155,14 +163,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const importSystemFont = async (id: string) => {
     await withFlushedProject(async () => {
       const previousProject = editorStore.getState().project!;
-      const response = await fetch("/api/system-fonts/import", {
-        method: "POST",
-        headers: projectRequestHeaders({
-          conditional: true,
-          headers: { "content-type": "application/json" },
-        }),
-        body: JSON.stringify({ id }),
-      });
+      const response = await postFontJson("/api/system-fonts/import", { id });
       await reconcileAdd(response, previousProject);
     });
   };

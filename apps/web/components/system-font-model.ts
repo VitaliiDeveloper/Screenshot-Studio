@@ -69,18 +69,14 @@ export function filterSystemFontFamilies(
   return needle ? families.filter((family) => family.name.toLowerCase().includes(needle)) : [...families];
 }
 
-export function isRegisteredSystemFace(face: SystemFontFace, registered: readonly FontAsset[]): boolean {
-  return face.weight !== null
-    && registered.some((font) => fontIdentityKey(font) === fontIdentityKey({ family: face.family, weight: face.weight! }));
-}
-
 /** Why a face cannot be ticked, or undefined when it can be imported. */
 export function systemFaceDisabledReason(
   face: SystemFontFace,
   registered: readonly FontAsset[],
 ): string | undefined {
   if (face.unavailable) return face.unavailable;
-  return isRegisteredSystemFace(face, registered)
+  const key = fontIdentityKey({ family: face.family, weight: face.weight! });
+  return registered.some((font) => fontIdentityKey(font) === key)
     ? `Already in the project as "${face.family}" ${face.weight}`
     : undefined;
 }

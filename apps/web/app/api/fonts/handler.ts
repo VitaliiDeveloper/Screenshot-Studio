@@ -10,12 +10,11 @@ import {
   fontFamily,
   fontWeight,
   loadFontProject,
+  MAX_FONT_BYTES,
   removeFontMutation,
   type FontServiceDependencies,
 } from "@screenshot-studio/cli/font-service";
 import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
-
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 type UploadFile = {
   name: string;
@@ -49,7 +48,7 @@ export function mutationResponse(
   });
 }
 
-async function jsonBody(req: Request): Promise<Record<string, unknown>> {
+export async function jsonBody(req: Request): Promise<Record<string, unknown>> {
   try {
     const body: unknown = await req.json();
     if (typeof body !== "object" || body === null || Array.isArray(body)) {
@@ -83,7 +82,7 @@ export async function handleFontPost(
       const file = form.get("file");
       if (!isUploadFile(file)) throw new FontValidationError("missing font file");
       if (file.size === 0) throw new FontValidationError("font file must not be empty");
-      if (file.size > MAX_UPLOAD_BYTES) throw new FontValidationError("font file must be 20 MB or smaller");
+      if (file.size > MAX_FONT_BYTES) throw new FontValidationError("font file must be 20 MB or smaller");
       const result = await addUploadedFontMutation(projectPath, {
         family: fontFamily(form.get("family")),
         weight: fontWeight(form.get("weight")),

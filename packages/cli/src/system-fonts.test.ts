@@ -3,11 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, symlink, truncate, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FontValidationError } from "./font-validation.js";
+import { FontValidationError, MAX_FONT_BYTES } from "./font-validation.js";
 import {
   createSystemFontScanner,
   readFontkitMetadata,
-  SYSTEM_FONT_MAX_BYTES,
   SystemFontNotFoundError,
   SystemFontUnavailableError,
   systemFontRoots,
@@ -35,7 +34,7 @@ function face(overrides: Partial<SystemFontMetadata> = {}): SystemFontMetadata {
     italic: false,
     variable: false,
     collection: false,
-    fsType: 0,
+    restrictedEmbedding: false,
     coverage: latinOnly,
     ...overrides,
   };
@@ -137,21 +136,20 @@ describe("system font scanner policy", () => {
     expect(readMetadata).toHaveBeenCalledTimes(2);
   });
 
-  it.each([
-    ["restricted license embedding", 0x0002, true],
-    ["restricted plus no-subsetting", 0x0102, true],
-    ["preview and print", 0x0004, false],
-    ["editable", 0x0008, false],
-    ["restricted with a less restrictive bit", 0x000a, false],
-    ["installable", 0x0000, false],
-  ])("fsType: %s", async (_name, fsType, disabled) => {
-    await stub(user, "Fake.ttf");
-    const { scanner } = scannerFor({ "Fake.ttf": [face({ fsType })] });
+  it("disables a face whose license restricts embedding and names the reason", async () => {
+    await stub(user, "Locked.ttf");
+    await stub(user, "Open.ttf");
+    const { scanner } = scannerFor({
+      "Locked.ttf": [face({ family: "Locked", restrictedEmbedding: true })],
+      "Open.ttf": [face({ family: "Open" })],
+    });
 
-    const [listed] = await scanner.list();
+    const faces = await scanner.list();
 
-    expect(listed!.unavailable !== undefined).toBe(disabled);
-    if (disabled) expect(listed!.unavailable).toMatch(/Restricted License embedding/);
+    expect(faces.map(({ family, unavailable }) => [family, unavailable])).toEqual([
+      ["Locked", expect.stringMatching(/Restricted License embedding/)],
+      ["Open", undefined],
+    ]);
   });
 
   it("lists collections and variable fonts as disabled with a reason", async () => {
@@ -174,26 +172,29 @@ describe("system font scanner policy", () => {
     ]);
   });
 
-  it("disables weights that the project schema cannot store instead of rounding them", async () => {
+  it("keeps any integer weight the schema stores and disables missing or out-of-range ones", async () => {
     await stub(user, "Semilight.ttf");
-    await stub(user, "Regular.ttf");
+    await stub(user, "Huge.ttf");
+    await stub(user, "None.ttf");
     const { scanner } = scannerFor({
       "Semilight.ttf": [face({ family: "Segoe", weight: 350 })],
-      "Regular.ttf": [face({ family: "Segoe", weight: 400 })],
+      "Huge.ttf": [face({ family: "Segoe", weight: 1000, style: "Ultra" })],
+      "None.ttf": [face({ family: "Segoe", weight: undefined, style: "Bare" })],
     });
 
     const faces = await scanner.list();
 
     expect(faces.map(({ weight, unavailable }) => [weight, unavailable])).toEqual([
-      [350, expect.stringMatching(/Weight 350/)],
-      [400, undefined],
+      [null, "Weight is missing; add the file with Upload and choose a weight"],
+      [350, undefined],
+      [1000, "Weight 1000 is outside 100 to 900; add the file with Upload and choose a weight"],
     ]);
   });
 
   it("disables oversize files without parsing them and unreadable files with the parser message", async () => {
     await stub(user, "Broken.ttf");
     await stub(user, "Huge.otf");
-    await truncate(join(user, "Huge.otf"), SYSTEM_FONT_MAX_BYTES + 1);
+    await truncate(join(user, "Huge.otf"), MAX_FONT_BYTES + 1);
     const { scanner, readMetadata } = scannerFor({
       "Broken.ttf": new FontValidationError("Broken.ttf", "the bytes are not a supported font container"),
     });
@@ -216,7 +217,7 @@ describe("system font scanner policy", () => {
     const { scanner } = scannerFor({
       "Mine.ttf": [face({ family: "Same", postscriptName: "Same-Regular" })],
       "Theirs.ttf": [face({ family: "Same", postscriptName: "Same-Regular" })],
-      "Locked.ttf": [face({ family: "Other", postscriptName: "Other-Regular", fsType: 0x0002 })],
+      "Locked.ttf": [face({ family: "Other", postscriptName: "Other-Regular", restrictedEmbedding: true })],
       "Restricted.ttf": [face({ family: "Other", postscriptName: "Other-Regular" })],
     });
 
@@ -403,7 +404,7 @@ describe("system font scanner freshness and re-validation", () => {
   });
 });
 
-describe("readFontkitMetadata italic detection", () => {
+describe("readFontkitMetadata on patched fixture bytes", () => {
   function patched(tag: string, patch: (bytes: Buffer, tableOffset: number) => void): Promise<Buffer> {
     return readFile(pacifico).then((bytes) => {
       const tableCount = bytes.readUInt16BE(4);
@@ -417,6 +418,19 @@ describe("readFontkitMetadata italic detection", () => {
       throw new Error(`fixture has no ${tag} table`);
     });
   }
+
+  it.each([
+    ["restricted license embedding", 0x0002, true],
+    ["restricted plus no-subsetting", 0x0102, true],
+    ["preview and print", 0x0004, false],
+    ["editable", 0x0008, false],
+    ["restricted with a less restrictive bit", 0x000a, false],
+    ["installable", 0x0000, false],
+  ])("fsType %s", async (_name, fsType, restricted) => {
+    const bytes = await patched("OS/2", (table, offset) => table.writeUInt16BE(fsType, offset + 8));
+
+    expect(readFontkitMetadata(bytes, "Pacifico.ttf")[0]!.restrictedEmbedding).toBe(restricted);
+  });
 
   it("flags a face whose head.macStyle has the italic bit", async () => {
     const italic = await patched("head", (bytes, offset) => bytes.writeUInt16BE(0x0002, offset + 44));
