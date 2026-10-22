@@ -85,7 +85,8 @@ export function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | nu
 
 /**
  * A screen's family and exact size, e.g. `iPhone Dynamic Island · Medium`. Unlike editor-issues'
- * `screenSizeLabel`, it drops orientation and other qualifiers to fit one-line chrome.
+ * `screenSizeLabel`, it keeps the store's compact size name and adds no orientation, High-res, or
+ * Frameless qualifiers, so it fits one-line chrome.
  */
 export function compactScreenSizeLabel(screen: Screen, specs: StoreSpecs): string {
   return [outputFamilyEditorLabel(screen.platform, screen.device, specs), compactSizeLabel(screen, specs)]
