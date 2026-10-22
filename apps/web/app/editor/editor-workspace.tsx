@@ -33,7 +33,7 @@ import {
   writeWorkspaceNavigationState,
 } from "@web/lib/editor/editor-workspace-navigation";
 import { EditorResourceDialogs } from "./editor-resource-dialogs";
-import { useEditorEscapeRouting, useEditorKeyboardRouting } from "./editor-keyboard";
+import { useEditorEscapeRouting, useEditorKeyboardRouting, type EditorKeyboardHandlers } from "./editor-keyboard";
 import { useEditorCaptureImport } from "./use-editor-capture-import";
 import { useEditorProjectNavigation } from "./use-editor-project-navigation";
 import { useEditorResources } from "./editor-resources";
@@ -212,31 +212,32 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
-  // The loading and error screens have no panels or toolbar for a key to act on.
-  const workspaceReady = Boolean(images && specs && !error);
-  const keyboardHandlers = useMemo(() => ({
-    onOpenDialog: openDialog,
-    onSearch: () => {
-      if (!workspaceReady) return;
-      if (layout.compact) setInspectorOpen(false);
-      setPanel("structure");
-      setSearchOpen(true);
-    },
-    onExport: () => {
-      if (workspaceReady) setExportOpen(true);
-    },
-    onToggleView: () => {
-      if (workspaceReady) setView((current) => (current === "focus" ? "overview" : "focus"));
-    },
-    onStepSize: (step: -1 | 1) => {
-      const state = editorStore.getState();
-      const activeLayout = selectEditorLayout(state);
-      const activeScreen = activeLayout?.screens.find((screen) => screen.id === state.activeScreenId);
-      if (!specs || !activeLayout || !activeScreen) return;
-      const next = adjacentSizeScreenId(activeLayout, activeScreen, step, specs);
-      if (next) state.selectScreen(next);
-    },
-  }), [layout.compact, openDialog, setPanel, specs, workspaceReady]);
+  const keyboardHandlers = useMemo<EditorKeyboardHandlers>(() => {
+    // The loading and error screens have no panels or toolbar for a key to act on.
+    if (!images || !specs || error) {
+      const idle = () => undefined;
+      return { onOpenDialog: openDialog, onSearch: idle, onExport: idle, onToggleView: idle, onStepSize: idle };
+    }
+    return {
+      onOpenDialog: openDialog,
+      onSearch: () => {
+        if (layout.compact) setInspectorOpen(false);
+        setPanel("structure");
+        setSearchOpen(true);
+      },
+      onExport: () => setExportOpen(true),
+      onToggleView: () => setView((current) => (current === "focus" ? "overview" : "focus")),
+      onStepSize: (step) => {
+        const state = editorStore.getState();
+        const activeLayout = selectEditorLayout(state);
+        const activeScreen = activeLayout?.screens.find((screen) => screen.id === state.activeScreenId);
+        const next = activeLayout && activeScreen
+          ? adjacentSizeScreenId(activeLayout, activeScreen, step, specs)
+          : null;
+        if (next) state.selectScreen(next);
+      },
+    };
+  }, [error, images, layout.compact, openDialog, setPanel, specs]);
   useEditorKeyboardRouting(keyboardHandlers);
   useEditorEscapeRouting({
     dialog,

@@ -56,7 +56,7 @@ export interface EditorKeyboardInput {
   ctrlKey: boolean;
   altKey: boolean;
   shiftKey: boolean;
-  /** Focus is on a button, link, or field. */
+  /** Focus is on a button or link, including dnd-kit's `role="button"` drag handles. */
   interactive: boolean;
   /** Focus is in a text field, select, or dialog, which own the keyboard. */
   ownsKeys: boolean;
@@ -75,7 +75,7 @@ const isPrintableAscii = (key: string) => /^[\x21-\x7e]$/.test(key);
  * letter (Cyrillic, "ü", "Dead") falls back to the physical key. Alt produces other characters
  * (Option+O is "ø"), so it never falls back.
  */
-export function shortcutLetter({ key, code, altKey }: Pick<EditorKeyboardInput, "key" | "code" | "altKey">): string {
+function shortcutLetter({ key, code, altKey }: Pick<EditorKeyboardInput, "key" | "code" | "altKey">): string {
   if (altKey || isPrintableAscii(key)) return key.toLowerCase();
   return /^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : key.toLowerCase();
 }
@@ -119,6 +119,7 @@ export function resolveEditorKeyboardCommand(input: EditorKeyboardInput): Editor
 }
 
 const KEY_OWNING_TARGETS = "input, textarea, select, [role='dialog'], [contenteditable='true']";
+const INTERACTIVE_TARGETS = "button, a, [role='button']";
 
 function targetMatches(target: EventTarget | null, selector: string): boolean {
   return target instanceof Element && target.closest(selector) !== null;
@@ -134,7 +135,7 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
     ctrlKey: event.ctrlKey,
     altKey: event.altKey,
     shiftKey: event.shiftKey,
-    interactive: targetMatches(event.target, `${KEY_OWNING_TARGETS}, button, a`),
+    interactive: targetMatches(event.target, INTERACTIVE_TARGETS),
     ownsKeys: targetMatches(event.target, KEY_OWNING_TARGETS),
     modalOpen: Boolean(document.querySelector("[role='dialog'][aria-modal='true']")),
     menuOpen: Boolean(document.querySelector("[role='menu']:not([hidden])")),
@@ -143,7 +144,8 @@ export function routeEditorKeyDown(event: KeyboardEvent, handlers: EditorKeyboar
     hasSelection: state.selectedItems.length > 0,
   });
   if (!command) return;
-  // Ctrl+K and Ctrl+E focus the address bar in Chrome on Windows and Linux.
+  // Every routed command takes its key from the browser, e.g. Ctrl+K and Ctrl+E, which focus Chrome's
+  // address bar on Windows and Linux.
   event.preventDefault();
   switch (command) {
     case "undo":

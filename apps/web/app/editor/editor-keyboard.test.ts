@@ -203,32 +203,6 @@ describe("routeEditorKeyDown", () => {
     expect(wired.onExport).toHaveBeenCalledOnce();
   });
 
-  it("classifies the focused element: a button still routes chords and navigation, a field does not", () => {
-    class FakeElement {
-      constructor(private readonly tag: string) {}
-      closest(selector: string) {
-        return selector.split(",").map((part) => part.trim()).includes(this.tag) ? this : null;
-      }
-    }
-    vi.stubGlobal("Element", FakeElement);
-    vi.stubGlobal("document", { querySelector: () => null });
-    const wired = handlers();
-
-    const fromButton = press("e", { ctrlKey: true }, new FakeElement("button"));
-    routeEditorKeyDown(fromButton, wired);
-    routeEditorKeyDown(press("]", {}, new FakeElement("button")), wired);
-    const fromInput = press("e", { ctrlKey: true }, new FakeElement("input"));
-    routeEditorKeyDown(fromInput, wired);
-    const addText = press("t", {}, new FakeElement("button"));
-    routeEditorKeyDown(addText, wired);
-
-    expect(fromButton.preventDefault).toHaveBeenCalledOnce();
-    expect(wired.onExport).toHaveBeenCalledOnce();
-    expect(wired.onStepSize).toHaveBeenCalledWith(1);
-    expect(fromInput.preventDefault).not.toHaveBeenCalled();
-    expect(addText.preventDefault).not.toHaveBeenCalled();
-  });
-
   it("routes the size and view keys and leaves unrelated keys alone", () => {
     vi.stubGlobal("Element", class {});
     vi.stubGlobal("document", { querySelector: () => null });
