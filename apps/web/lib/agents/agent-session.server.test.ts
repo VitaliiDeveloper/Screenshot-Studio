@@ -37,7 +37,7 @@ const ACCEPTED = { type: "result", status: "accepted", reason: null, changed: fa
 // The fake `claude` answers the registry probes like a signed-in subscription and, for `-p`, records
 // its argv, cwd, env and stdin before running the scenario. PATH holds only the fake directory.
 const SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/claude-stream-success.ndjson", import.meta.url));
-const CODEX_SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/codex-stream-success.jsonl", import.meta.url));
+const CODEX_SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/codex-stream-success.ndjson", import.meta.url));
 
 let root: string;
 let binDir: string;

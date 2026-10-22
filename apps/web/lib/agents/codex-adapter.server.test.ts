@@ -23,7 +23,7 @@ describe("Codex adapter", () => {
     const steps = (done: number) => ["Read project", "Add locale DE", "Validate project"].map((label, index) => ({
       label, status: index < done ? "completed" : "pending",
     }));
-    expect(await normalize("codex-stream-success.jsonl")).toEqual([
+    expect(await normalize("codex-stream-success.ndjson")).toEqual([
       { type: "progress", step: 2, total: 3, steps: steps(1) },
       { type: "text", text: "I'll add German to the project." },
       {
@@ -45,7 +45,7 @@ describe("Codex adapter", () => {
   });
 
   it("reads the reset time of a usage limit and classifies a failed turn or exit by the last error", async () => {
-    expect((await normalize("codex-stream-usage-limit.jsonl"))[0])
+    expect((await normalize("codex-stream-usage-limit.ndjson"))[0])
       .toMatchObject({ type: "error", code: "usage-limit", resets: "3:15 PM" });
 
     const quota = JSON.stringify({ type: "error", message: "Quota exceeded. Check your plan and billing details." });

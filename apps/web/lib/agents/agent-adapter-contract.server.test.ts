@@ -16,7 +16,7 @@ interface Scenario {
 
 const ADAPTERS: { adapter: AgentAdapter; fixture: (kind: string) => string }[] = [
   { adapter: claudeCodeAdapter, fixture: (kind) => `claude-stream-${kind}.ndjson` },
-  { adapter: codexAdapter, fixture: (kind) => `codex-stream-${kind}.jsonl` },
+  { adapter: codexAdapter, fixture: (kind) => `codex-stream-${kind}.ndjson` },
 ];
 
 const SECRET_STDERR = "Error: EACCES /Users/owner/secret-path token=abc";
