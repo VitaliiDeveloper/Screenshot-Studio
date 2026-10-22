@@ -228,6 +228,13 @@ small versioned built-in font catalog so text authoring works before a project a
 Built-in identities resolve to local renderer-owned bytes in both editor and CLI export. Operating
 system fallbacks remain rejected because they make output depend on a machine. Google-font requests
 may occur only at add time; later editor rendering and CLI export use local bytes.
+
+The catalog holds two families. Studio Sans (Noto Sans, Latin and Latin-1, weight 400) stays the
+default text font, so existing documents and new text keep their metrics. Studio Display (static
+Inter Display 4.1 at 400, 600, and 800, covering Latin Extended-A, Cyrillic, and Greek) gives built-in
+Design Packs and screen packs headline weights and those scripts. Built-in packs and templates cannot
+carry font files, and registering a font at apply time would need the network and copy files into the
+project, so the renderer ships these bytes instead. Hebrew, Arabic, and CJK still need a project font.
 Importing an installed font copies the chosen file into the project as an ordinary `uploaded` font,
 so it does not make the operating system a dependency of the project.
 
