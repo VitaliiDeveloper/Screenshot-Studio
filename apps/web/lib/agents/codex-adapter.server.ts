@@ -34,6 +34,15 @@ const DISABLED_FEATURES = [
 ];
 // Item types that start when the agent invokes a tool (exec_events.rs).
 const TOOL_ITEMS = new Set(["command_execution", "mcp_tool_call", "collab_tool_call", "web_search"]);
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * A TOML basic string, so `-c` never falls back to the raw literal. JSON escapes are TOML escapes,
+ * except that TOML rejects a raw U+007F and escaped lone surrogates.
+ */
+export function tomlString(value: string): string {
+  return JSON.stringify(value.replace(LONE_SURROGATE, "\uFFFD")).replaceAll("\u007f", "\\u007F");
+}
 
 function itemEvents(event: unknown, item: Record<string, unknown>): AgentEvent[] {
   if (item.type === "todo_list") {
@@ -80,8 +89,7 @@ export const codexAdapter: AgentAdapter = {
       ...codexAuthStoreOverride(request.context.codexAuthStore ?? "file"),
       "-c", "tools.update_plan.enabled=true",
       ...DISABLED_FEATURES.flatMap((feature) => ["--disable", feature]),
-      // A JSON string is a valid TOML basic string, so the value is never parsed as other TOML.
-      "-c", `developer_instructions=${JSON.stringify(projectInstructions(
+      "-c", `developer_instructions=${tomlString(projectInstructions(
         request,
         "Plan the work as a short checklist with the update_plan tool and keep each step's status current.",
       ))}`,

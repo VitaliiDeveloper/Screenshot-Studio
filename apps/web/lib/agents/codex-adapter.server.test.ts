@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
 import type { AgentEvent, AgentRunRequest } from "./agent-session.server.js";
-import { codexAdapter } from "./codex-adapter.server.js";
+import { codexAdapter, tomlString } from "./codex-adapter.server.js";
 
 // Fixtures follow ThreadEvent in codex-rs/exec/src/exec_events.rs at tag rust-v0.163.0; error texts
 // come from codex-rs/protocol/src/error.rs and codex-rs/login/src/auth/manager.rs at that tag.
@@ -56,6 +56,11 @@ describe("Codex adapter", () => {
     ]);
     expect(codexAdapter.normalizer().end({ code: 1, stderr: "Error: ChatGPT login is required" }))
       .toMatchObject([{ type: "error", code: "not-authorized" }, { type: "done", status: "failed" }]);
+  });
+
+  it("escapes the instructions as a TOML basic string", () => {
+    expect(tomlString("a\u007fb\uD800c\uDC00d\uD83D\uDE00\n\""))
+      .toBe('"a\\u007Fb\uFFFDc\uFFFDd\uD83D\uDE00\\n\\""');
   });
 
   it("keeps the sandbox and approvals non-interactive and reads the message from stdin", () => {
