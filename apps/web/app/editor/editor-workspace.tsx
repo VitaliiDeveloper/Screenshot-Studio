@@ -86,7 +86,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const [localeDialogOpen, setLocaleDialogOpen] = useState(false);
   const [layout, setLayout] = useState({ overlay: false, compact: false, phone: false });
   const [workspaceRestoredFor, setWorkspaceRestoredFor] = useState<string | null>(null);
-  const [exportRequestKey, setExportRequestKey] = useState(0);
+  const [exportOpen, setExportOpen] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [playOpen, setPlayOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -203,7 +203,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     const frame = requestAnimationFrame(() => {
       const intent = new URLSearchParams(window.location.search).get("intent");
       if (intent === "locales") setLocaleDialogOpen(true);
-      if (intent === "export") setExportRequestKey((current) => current + 1);
+      if (intent === "export") setExportOpen(true);
       if (intent === "add-screen" || intent === "layouts") setPanel("structure");
       if (intent) router.replace(pathname, { scroll: false });
     });
@@ -212,15 +212,22 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
+  // The loading and error screens have no panels or toolbar for a key to act on.
+  const workspaceReady = Boolean(images && specs && !error);
   const keyboardHandlers = useMemo(() => ({
     onOpenDialog: openDialog,
     onSearch: () => {
+      if (!workspaceReady) return;
       if (layout.compact) setInspectorOpen(false);
       setPanel("structure");
       setSearchOpen(true);
     },
-    onExport: () => setExportRequestKey((current) => current + 1),
-    onToggleView: () => setView((current) => (current === "focus" ? "overview" : "focus")),
+    onExport: () => {
+      if (workspaceReady) setExportOpen(true);
+    },
+    onToggleView: () => {
+      if (workspaceReady) setView((current) => (current === "focus" ? "overview" : "focus"));
+    },
     onStepSize: (step: -1 | 1) => {
       const state = editorStore.getState();
       const activeLayout = selectEditorLayout(state);
@@ -229,7 +236,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       const next = adjacentSizeScreenId(activeLayout, activeScreen, step, specs);
       if (next) state.selectScreen(next);
     },
-  }), [layout.compact, openDialog, setPanel, specs]);
+  }), [layout.compact, openDialog, setPanel, specs, workspaceReady]);
   useEditorKeyboardRouting(keyboardHandlers);
   useEditorEscapeRouting({
     dialog,
@@ -273,7 +280,8 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         view={view}
         specs={specs}
         inspectorOpen={inspectorOpen}
-        exportRequestKey={exportRequestKey}
+        exportOpen={exportOpen}
+        onExportOpenChange={setExportOpen}
         onViewChange={setView}
         onToggleInspector={() => {
           const opening = !inspectorOpen;
