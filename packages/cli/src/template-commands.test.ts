@@ -43,13 +43,19 @@ describe("resolveTemplateAction", () => {
   it("parses list and add", () => {
     expect(resolveTemplateAction(["list"], {})).toEqual({ kind: "list" });
     expect(resolveTemplateAction(["add", "iphone-starter"], { locale: "uk", "built-in": "true" }))
-      .toEqual({ kind: "add", id: "iphone-starter", locale: "uk", builtIn: true });
+      .toEqual({ kind: "add", id: "iphone-starter", locale: "uk", source: "built-in" });
+    expect(resolveTemplateAction(["add", "neutral-iphone-basics"], { locale: "uk", pack: "true" }))
+      .toEqual({ kind: "add", id: "neutral-iphone-basics", locale: "uk", source: "pack" });
+    expect(resolveTemplateAction(["add", "accent-card"], { locale: "uk" }))
+      .toEqual({ kind: "add", id: "accent-card", locale: "uk", source: "project" });
   });
 
   it("rejects a missing locale, traversal, and unknown subcommands", () => {
     expect(() => resolveTemplateAction(["add", "iphone-starter"], {})).toThrow(/--locale/);
     expect(() => resolveTemplateAction(["add", "../bad"], { locale: "en" })).toThrow(/lowercase slug/);
     expect(() => resolveTemplateAction(["apply"], {})).toThrow(/Usage: screenshots template/);
+    expect(() => resolveTemplateAction(["add", "neutral-iphone-basics"], { locale: "en", pack: "true", "built-in": "true" }))
+      .toThrow(/either --built-in or --pack/);
   });
 });
 
@@ -58,7 +64,30 @@ describe("runTemplateCommand", () => {
     const { projectPath, specsPath } = await fixture();
     const lines = (await runTemplateCommand(projectPath, specsPath, ["list"], {})).split("\n");
     expect(lines).toContainEqual(expect.stringMatching(/^built-in iphone-starter apple\/iphone \S+ iPhone$/));
+    expect(lines).toContain("built-in-pack neutral-iphone-basics apple/iphone neutral-default 2 Neutral basics · iPhone");
     expect(lines.at(-1)).toBe("project accent-card apple/iphone - Accent card");
+  });
+
+  it("adds every screen of a built-in pack and reports their ids", async () => {
+    const { projectPath, specsPath } = await fixture();
+    const output = await runTemplateCommand(projectPath, specsPath, ["add", "neutral-iphone-basics"], { locale: "uk", pack: "true" });
+    expect(output).toBe("Added 2 screens (apple/iphone uk) from built-in pack neutral-iphone-basics: neutral-iphone-hero, neutral-iphone-feature");
+    expect(await screenIds(projectPath)).toEqual(["hero", "neutral-iphone-hero", "neutral-iphone-feature"]);
+  });
+
+  it("targets the requested layout for a pack and rejects an unknown pack id without writing", async () => {
+    const { projectPath, specsPath } = await fixture([layout("default", "Default"), layout("campaign", "Campaign")]);
+    await expect(runTemplateCommand(projectPath, specsPath, ["add", "neutral-iphone-basics"], { locale: "en", pack: "true" }))
+      .rejects.toThrow(/--layout/);
+    await runTemplateCommand(projectPath, specsPath, ["add", "neutral-iphone-basics"], { locale: "en", pack: "true", layout: "campaign" });
+    expect(await screenIds(projectPath, 0)).toEqual(["hero"]);
+    expect(await screenIds(projectPath, 1)).toEqual(["hero", "neutral-iphone-hero", "neutral-iphone-feature"]);
+    const before = await readFile(projectPath, "utf8");
+    await expect(runTemplateCommand(projectPath, specsPath, ["add", "no-such-pack"], { locale: "en", pack: "true", layout: "campaign" }))
+      .rejects.toThrow(/Built-in template pack "no-such-pack" not found/);
+    await expect(runTemplateCommand(projectPath, specsPath, ["add", "iphone-starter"], { locale: "en", pack: "true", layout: "campaign" }))
+      .rejects.toThrow(/Built-in template pack "iphone-starter" not found/);
+    expect(await readFile(projectPath, "utf8")).toBe(before);
   });
 
   it("adds the same built-in template repeatedly as distinct screens", async () => {
