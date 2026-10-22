@@ -60,8 +60,8 @@ async function writeFake(name: string, body: string): Promise<void> {
   await chmod(path, 0o755);
 }
 
-// A leaked API key, a dropped config-location variable, or a Codex probe of another credentials
-// store than runs use all turn the fake away from `ready`.
+// A leaked API key, a dropped config-location variable, or a Codex probe without the credentials
+// store its runs use all turn the fake away from `ready`.
 async function fakeClaude({
   version = "echo '2.1.296 (Claude Code)'",
   auth = `echo '${CLAUDE_SUBSCRIPTION}'`,
@@ -87,7 +87,7 @@ function fakeCodex({
   login)
     if [ -n "$CODEX_API_KEY$OPENAI_API_KEY" ]; then echo 'Logged in using an API key - ${MASKED_KEY}'; exit 0; fi
     if [ "$CODEX_HOME" != "/codex-home" ]; then echo 'Not logged in' >&2; exit 1; fi
-    if [ "$4" != 'cli_auth_credentials_store="file"' ]; then echo 'Not logged in' >&2; exit 1; fi
+    case "$*" in *'cli_auth_credentials_store="file"'*) ;; *) echo 'Not logged in' >&2; exit 1 ;; esac
     ${auth} ;;
 esac`);
 }

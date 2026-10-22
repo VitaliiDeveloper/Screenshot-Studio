@@ -85,7 +85,9 @@ esac`);
 function fakeCodex(scenario: string): Promise<void> {
   return writeFake("codex", `case "$1" in
   --version) echo 'codex-cli 0.163.0' ;;
-  login) echo 'Logged in using ChatGPT' >&2 ;;
+  login)
+    printf '%s\\n' "$@" > '${root}/login-argv'
+    echo 'Logged in using ChatGPT' >&2 ;;
   *)
     printf '%s\\n' "$@" > '${root}/argv'
     pwd -P > '${root}/cwd'
@@ -184,6 +186,26 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(argv.slice(0, 4)).toEqual(["exec", "--json", "--sandbox", "workspace-write"]);
     expect(argv.at(-2)).toBe("-");
     expect(await readFile(join(root, "env"), "utf8")).not.toMatch(/CODEX_API_KEY|OPENAI_API_KEY/);
+  });
+
+  it("probes Codex sign-in and runs Codex with the same credentials store", async () => {
+    const codexHome = join(root, "codex-home");
+    const store = 'cli_auth_credentials_store="keyring"';
+    await mkdir(codexHome);
+    await writeFile(join(codexHome, "config.toml"), 'cli_auth_credentials_store = "keyring"\n');
+    await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+    const env = { NODE_ENV: "test", PATH: binDir, HOME: root, CODEX_HOME: codexHome } as const;
+
+    expect((await collect(await start({ agentId: "codex", model: null, env }))).at(-1)).toMatchObject({ status: "completed" });
+    expect((await readFile(join(root, "login-argv"), "utf8")).split("\n")).toContain(store);
+    expect((await readFile(join(root, "argv"), "utf8")).split("\n")).toContain(store);
+
+    await writeFile(join(codexHome, "config.toml"), 'cli_auth_credentials_store = "ephemeral"\n');
+    await rm(join(root, "login-argv"));
+    await rm(join(root, "argv"));
+    expect(await rejection(start({ agentId: "codex", model: null, env }))).toMatchObject({ status: 409, code: "not-signed-in" });
+    expect(await exists(join(root, "login-argv"))).toBe(false);
+    expect(await exists(join(root, "argv"))).toBe(false);
   });
 
   it("allows one run per project and kills the whole process tree on cancel", async () => {

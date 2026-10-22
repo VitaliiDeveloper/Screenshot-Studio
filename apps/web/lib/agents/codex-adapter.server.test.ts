@@ -15,7 +15,7 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: "gpt-5.5",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md" },
+  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
 };
 
 describe("Codex adapter", () => {
@@ -69,7 +69,7 @@ describe("Codex adapter", () => {
     expect(args.join(" ")).not.toMatch(/dangerously|danger-full-access|--add-dir|--yolo/);
     expect(args).not.toContain(REQUEST.message);
     expect(overrides).toEqual(expect.arrayContaining([
-      'approval_policy="never"', 'web_search="disabled"', 'cli_auth_credentials_store="file"',
+      'approval_policy="never"', 'web_search="disabled"', 'cli_auth_credentials_store="keyring"',
     ]));
     expect(args.filter((_, index) => args[index - 1] === "--disable"))
       .toEqual(expect.arrayContaining(["apps", "plugins", "browser_use", "computer_use", "multi_agent", "hooks"]));

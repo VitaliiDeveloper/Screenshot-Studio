@@ -10,6 +10,7 @@ import {
   type CliFailure,
 } from "./agent-adapter.server.js";
 import type { AgentAdapter, AgentEvent, AgentStep } from "./agent-session.server.js";
+import { codexAuthStoreOverride } from "./codex-auth-store.server.js";
 
 // Wording from codex-rs: usage limits in protocol/src/error.rs, sign-in loss in
 // login/src/auth/manager.rs (refresh-token failures) and HTTP 401s.
@@ -76,8 +77,7 @@ export const codexAdapter: AgentAdapter = {
       "--skip-git-repo-check",
       "-c", 'approval_policy="never"',
       "-c", 'web_search="disabled"',
-      // The registry probes sign-in with the same store, since the user's own setting is ignored.
-      "-c", 'cli_auth_credentials_store="file"',
+      ...codexAuthStoreOverride(request.context.codexAuthStore ?? "file"),
       "-c", "tools.update_plan.enabled=true",
       ...DISABLED_FEATURES.flatMap((feature) => ["--disable", feature]),
       // A JSON string is a valid TOML basic string, so the value is never parsed as other TOML.

@@ -15,7 +15,7 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: "sonnet",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md" },
+  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
 };
 
 describe("Claude Code adapter", () => {
