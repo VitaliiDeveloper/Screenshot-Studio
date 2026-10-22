@@ -37,6 +37,7 @@ const ACCEPTED = { type: "result", status: "accepted", reason: null, changed: fa
 // The fake `claude` answers the registry probes like a signed-in subscription and, for `-p`, records
 // its argv, cwd, env and stdin before running the scenario. PATH holds only the fake directory.
 const SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/claude-stream-success.ndjson", import.meta.url));
+const CODEX_SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/codex-stream-success.ndjson", import.meta.url));
 
 let root: string;
 let binDir: string;
@@ -72,6 +73,21 @@ function fakeClaude(
   --version) ${version} ;;
   --help) echo '  --bare    Minimal mode' ;;
   auth) ${auth} ;;
+  *)
+    printf '%s\\n' "$@" > '${root}/argv'
+    pwd -P > '${root}/cwd'
+    /usr/bin/env > '${root}/env'
+    /bin/cat > '${root}/stdin'
+    ${scenario} ;;
+esac`);
+}
+
+function fakeCodex(scenario: string): Promise<void> {
+  return writeFake("codex", `case "$1" in
+  --version) echo 'codex-cli 0.163.0' ;;
+  login)
+    printf '%s\\n' "$@" > '${root}/login-argv'
+    echo 'Logged in using ChatGPT' >&2 ;;
   *)
     printf '%s\\n' "$@" > '${root}/argv'
     pwd -P > '${root}/cwd'
@@ -147,6 +163,49 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     const env = await readFile(join(root, "env"), "utf8");
     expect(env).not.toContain("ANTHROPIC_API_KEY");
     expect(env).toContain(`HOME=${root}`);
+  });
+
+  it("runs Codex through the same runner, so an invalid result is rolled back", async () => {
+    const projectFile = join(projectDir, "app-store-screenshots.json");
+    await fakeCodex(`printf '{"meta":' > app-store-screenshots.json; /bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+
+    const events = await collect(await start({
+      agentId: "codex",
+      model: null,
+      env: { NODE_ENV: "test", PATH: binDir, HOME: root, CODEX_API_KEY: "sk-codex-stripped", OPENAI_API_KEY: "sk-openai-stripped" },
+    }));
+
+    expect(events.slice(-2)).toEqual([
+      expect.objectContaining({ type: "result", status: "rejected", revision: projectRevision(await readFile(projectFile)) }),
+      { type: "done", status: "failed", summary: "Added DE to 4 screens.", durationMs: null },
+    ]);
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await readFile(join(root, "cwd"), "utf8")).toBe(`${await realpath(projectDir)}\n`);
+    expect(await readFile(join(root, "stdin"), "utf8")).toBe("--bare Add German");
+    const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+    expect(argv.slice(0, 4)).toEqual(["exec", "--json", "--sandbox", "workspace-write"]);
+    expect(argv.at(-2)).toBe("-");
+    expect(await readFile(join(root, "env"), "utf8")).not.toMatch(/CODEX_API_KEY|OPENAI_API_KEY/);
+  });
+
+  it("probes Codex sign-in and runs Codex with the same credentials store", async () => {
+    const codexHome = join(root, "codex-home");
+    const store = 'cli_auth_credentials_store="keyring"';
+    await mkdir(codexHome);
+    await writeFile(join(codexHome, "config.toml"), 'cli_auth_credentials_store = "keyring"\n');
+    await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+    const env = { NODE_ENV: "test", PATH: binDir, HOME: root, CODEX_HOME: codexHome } as const;
+
+    expect((await collect(await start({ agentId: "codex", model: null, env }))).at(-1)).toMatchObject({ status: "completed" });
+    expect((await readFile(join(root, "login-argv"), "utf8")).split("\n")).toContain(store);
+    expect((await readFile(join(root, "argv"), "utf8")).split("\n")).toContain(store);
+
+    await writeFile(join(codexHome, "config.toml"), 'cli_auth_credentials_store = "ephemeral"\n');
+    await rm(join(root, "login-argv"));
+    await rm(join(root, "argv"));
+    expect(await rejection(start({ agentId: "codex", model: null, env }))).toMatchObject({ status: 409, code: "not-signed-in" });
+    expect(await exists(join(root, "login-argv"))).toBe(false);
+    expect(await exists(join(root, "argv"))).toBe(false);
   });
 
   it("allows one run per project and kills the whole process tree on cancel", async () => {
@@ -348,7 +407,10 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
 
     expect(await rejection(start())).toMatchObject({ status: 409, code: "not-signed-in" });
     expect(await rejection(start({ model: "gpt-4" }))).toMatchObject({ status: 400, code: "unknown-model" });
-    expect(await rejection(start({ agentId: "codex", model: null }))).toMatchObject({ status: 409, code: "no-adapter" });
+    expect(await rejection(start({ agentId: "codex", model: "gpt-5.5" }))).toMatchObject({ status: 400, code: "unknown-model" });
+    const adapterless: AgentDefinition = { ...AGENT_DEFINITIONS[0]!, id: "adapterless", binary: "adapterless" };
+    expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless] })))
+      .toMatchObject({ status: 409, code: "no-adapter" });
     expect(await exists(join(root, "argv"))).toBe(false);
   });
 });

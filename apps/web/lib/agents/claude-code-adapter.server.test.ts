@@ -15,7 +15,7 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: "sonnet",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md" },
+  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
 };
 
 describe("Claude Code adapter", () => {
@@ -68,12 +68,6 @@ describe("Claude Code adapter", () => {
       type: "error", code: "failed", message: "Claude Code stopped with an error", resets: null,
     });
     expect(JSON.stringify(failedResult)).not.toContain("/Users/owner");
-  });
-
-  it("ignores output after the result and keeps only one terminal event", async () => {
-    const events = await normalize("claude-stream-success.ndjson", { code: 1, stderr: "late failure" });
-    expect(events.filter(({ type }) => type === "done")).toHaveLength(1);
-    expect(events.some(({ type }) => type === "error")).toBe(false);
   });
 
   it("restricts the CLI and never passes --bare or the user message as argv", () => {

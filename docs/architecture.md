@@ -277,6 +277,15 @@ consent storage exists. It runs in the project folder, at most one per project, 
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
 whole process tree.
 
+Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
+and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
+and the execpolicy rules, whose `allow` decisions bypass the sandbox. Web search and the connector,
+plugin, browser, computer-use, memory, hook, and sub-agent features are off. The server reads only
+`cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
+probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
+Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
+only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run.
+
 An agent changes the project only through the `screenshots` CLI, which takes the regular project
 mutation lock per write; the editor's own writers (`PUT /api/project`, every
 `withProjectMutationRequest` route, and Undo run) answer `423 agent-running` while a run is active
