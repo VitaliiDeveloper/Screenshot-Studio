@@ -83,8 +83,11 @@ export function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | nu
   return target ? compactStoreSizeLabel(target.label, screen.device) : null;
 }
 
-/** A screen's family and exact size, e.g. `iPhone Dynamic Island · Medium`. */
-export function screenSizeLabel(screen: Screen, specs: StoreSpecs): string {
+/**
+ * A screen's family and exact size, e.g. `iPhone Dynamic Island · Medium`. Unlike editor-issues'
+ * `screenSizeLabel`, it drops orientation and other qualifiers to fit one-line chrome.
+ */
+export function compactScreenSizeLabel(screen: Screen, specs: StoreSpecs): string {
   return [outputFamilyEditorLabel(screen.platform, screen.device, specs), compactSizeLabel(screen, specs)]
     .filter(Boolean).join(" ");
 }

@@ -34,7 +34,7 @@ import {
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import type { SearchResult } from "@web/lib/editor/editor-search";
-import { compactSizeLabel, screenSizeLabel, screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import { compactScreenSizeLabel, compactSizeLabel, screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
 import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
@@ -58,7 +58,7 @@ export function screensScopeLabel(
     ? []
     : view === "overview"
       ? [sizeCountLabel(workspaceOverviewRows(layout, scopeScreen, specs).length)]
-      : [screenSizeLabel(scopeScreen, specs)];
+      : [compactScreenSizeLabel(scopeScreen, specs)];
   return [String(screens.length), locale.toUpperCase(), ...scope].join(" · ");
 }
 

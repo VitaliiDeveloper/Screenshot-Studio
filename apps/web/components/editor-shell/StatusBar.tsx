@@ -5,7 +5,7 @@ import { useStore } from "zustand";
 import { findElementLocation } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, selectEditorLayout, type EditorState } from "@web/lib/editor/editor-store";
-import { elementLabel, screenSizeLabel, selectionTypeSummary } from "@web/lib/panel-helpers";
+import { elementLabel, compactScreenSizeLabel, selectionTypeSummary } from "@web/lib/panel-helpers";
 import { cx } from "@web/components/editor-ui";
 
 type SaveTone = "idle" | "busy" | "error";
@@ -52,7 +52,7 @@ export function selectionStatus(
     : elements.length === 1
       ? elementLabel(elements[0]!)
       : `${elements.length} layers (${selectionTypeSummary(elements)})`;
-  return [screen.name, selected, screenSizeLabel(screen, specs)].join(" · ");
+  return [screen.name, selected, compactScreenSizeLabel(screen, specs)].join(" · ");
 }
 
 const HINTS = [
