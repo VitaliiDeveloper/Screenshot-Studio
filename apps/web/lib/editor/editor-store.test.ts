@@ -107,13 +107,15 @@ describe("editorStore", () => {
       expect(editorStore.getState()).toMatchObject({ saveStatus: "error", lastSavedAt: 1_000 });
     });
 
-    it("forgets the time when a project loads or reloads", () => {
+    it("keeps the time through a same-project reload and forgets it when another project loads", () => {
       editorStore.getState().load(project());
       editorStore.getState().setSaveState("saved");
-      editorStore.getState().reloadProject(project());
-      expect(editorStore.getState().lastSavedAt).toBeNull();
+      const savedAt = editorStore.getState().lastSavedAt;
+      expect(savedAt).not.toBeNull();
 
-      editorStore.getState().setSaveState("saved");
+      editorStore.getState().reloadProject(project());
+      expect(editorStore.getState().lastSavedAt).toBe(savedAt);
+
       editorStore.getState().load(project());
       expect(editorStore.getState().lastSavedAt).toBeNull();
     });

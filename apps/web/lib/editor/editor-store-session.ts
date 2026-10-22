@@ -55,7 +55,6 @@ export function createEditorSessionActions(set: EditorSet): EditorSessionActions
         historyGroupKey: null,
         saveStatus: "idle",
         saveError: null,
-        lastSavedAt: null,
       };
     }),
     resetProjectState: () => set({
