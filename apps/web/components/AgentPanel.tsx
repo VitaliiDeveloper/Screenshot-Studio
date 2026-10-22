@@ -12,9 +12,11 @@ import type { EditorAgentChat } from "@web/app/editor/use-editor-agent-chat";
 import { cx, editorUi, MenuSelect, StatusMessage } from "./editor-ui";
 import { PanelHeader } from "./LeftPanel";
 import {
+  agentCanRun,
   agentNotice,
   agentStateLabel,
   changedScreenRows,
+  policyLevelLabel,
   turnActivity,
   turnOutcome,
   turnProgressLabel,
@@ -33,6 +35,23 @@ function AgentDot({ ready }: { ready: boolean }) {
       aria-hidden="true"
       className={cx(dot, ready ? "bg-[var(--editor-color-success)]" : "bg-[var(--editor-color-text-faint)]")}
     />
+  );
+}
+
+const BADGE_TONES = {
+  supported: "border-[var(--editor-color-border)] text-[color:var(--editor-color-text-muted)]",
+  "at-own-risk": "border-amber-500/60 bg-amber-500/10 text-[color:var(--editor-color-warning-text)]",
+  unavailable: "border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)]",
+} as const;
+
+function PolicyBadge({ agent }: { agent: AgentStatus }) {
+  return (
+    <span
+      title={agent.policy.reason}
+      className={cx("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none", BADGE_TONES[agent.policy.level])}
+    >
+      <span className="sr-only">Policy: </span>{policyLevelLabel(agent)}
+    </span>
   );
 }
 
@@ -73,6 +92,22 @@ function SetupLink({ agent }: { agent: AgentStatus }) {
   );
 }
 
+function SourceLink({ agent }: { agent: AgentStatus }) {
+  return (
+    <p className={hint}>
+      <a
+        href={agent.policy.sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-[color:var(--editor-color-accent)] hover:underline"
+      >
+        Read the terms
+      </a>
+      {" · "}checked {agent.policy.checkedAt}
+    </p>
+  );
+}
+
 function SignInCommand({ agent }: { agent: AgentStatus }) {
   return agent.signInCommand ? (
     <code className="rounded-[var(--editor-radius-control)] bg-[var(--editor-color-surface-muted)] px-2.5 py-1.5 font-mono text-[11px] text-[color:var(--editor-color-text)]">
@@ -101,8 +136,8 @@ function AgentNoticeView({ notice, chat }: { notice: AgentNotice; chat: EditorAg
             <li key={agent.id} className="flex items-center gap-2 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] px-2.5 py-1.5 text-xs">
               <AgentDot ready={false} />
               <span className="flex-1">{agent.name}</span>
-              {agent.policy.level === "unavailable"
-                ? <span className={hint} title={agent.policy.reason}>Unavailable</span>
+              {agent.state === "unavailable" || agent.state === "no-adapter"
+                ? <span className={hint} title={agent.policy.reason}>{agentStateLabel(agent)}</span>
                 : <SetupLink agent={agent} />}
             </li>
           ))}
@@ -152,6 +187,30 @@ function AgentNoticeView({ notice, chat }: { notice: AgentNotice; chat: EditorAg
       return (
         <NoticeCard label="Unavailable">
           <p className={text}>{agent.policy.reason} {agent.policy.consequences}</p>
+        </NoticeCard>
+      );
+    case "no-adapter":
+      return (
+        <NoticeCard label="Not supported in the editor yet">
+          <p className={text}>{agent.name} is listed with its policy, but the editor cannot run it yet. {agent.policy.reason}</p>
+          <SourceLink agent={agent} />
+        </NoticeCard>
+      );
+    case "consent-required":
+      return (
+        <NoticeCard label={`Use ${agent.name} at your own risk`}>
+          <p className={text}>{agent.policy.reason}</p>
+          <p className={text}>{agent.policy.consequences}</p>
+          <SourceLink agent={agent} />
+          {chat.consentError ? <StatusMessage tone="error">{chat.consentError}</StatusMessage> : null}
+          <button
+            type="button"
+            className={cx(agentButton, "self-start")}
+            onClick={() => void chat.setConsent(agent.id, "grant")}
+          >
+            I understand, enable {agent.name}
+          </button>
+          <p className={hint}>You can withdraw this consent at any time from the panel header.</p>
         </NoticeCard>
       );
   }
@@ -428,7 +487,7 @@ export function AgentPanel({
   const notice = agentNotice(agents, selected);
   const running = phase === "running";
   const reviewing = chat.outcome !== null && !running;
-  const canSend = phase === "idle" && selected?.state === "ready" && draft.trim().length > 0;
+  const canSend = phase === "idle" && agentCanRun(selected) && draft.trim().length > 0;
 
   useEffect(() => {
     if (open) composer.current?.focus();
@@ -474,7 +533,8 @@ export function AgentPanel({
               value={selected.id}
               options={agents.map((agent) => ({
                 value: agent.id,
-                label: `${agent.name} · ${agentStateLabel(agent)}`,
+                label: [agent.name, agent.policy.level === "supported" ? null : policyLevelLabel(agent), agentStateLabel(agent)]
+                  .filter(Boolean).join(" · "),
                 triggerLabel: agent.name,
               }))}
               onChange={chat.selectAgent}
@@ -494,6 +554,21 @@ export function AgentPanel({
                 className="w-24 shrink-0"
               />
             ) : <span className={hint}>CLI default model</span>}
+          </div>
+        ) : null}
+        {selected ? (
+          <div className="flex items-center gap-2">
+            <PolicyBadge agent={selected} />
+            {selected.policy.level === "at-own-risk" && selected.consented === true ? (
+              <button
+                type="button"
+                className={cx(editorUi.buttonGhost, "!min-h-6 !px-1.5 text-xs")}
+                disabled={phase !== "idle"}
+                onClick={() => void chat.setConsent(selected.id, "revoke")}
+              >
+                Revoke consent
+              </button>
+            ) : null}
           </div>
         ) : null}
         <p className={hint}>Your subscription · runs on this computer</p>

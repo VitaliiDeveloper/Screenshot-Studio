@@ -19,7 +19,7 @@ const sample = JSON.parse(readFileSync(
 const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "https://example.test", checkedAt: "2026-10-15" } as const;
 const claude: AgentStatus = {
   id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
-  state: "ready", authMode: "subscription", policy, models: ["sonnet", "opus", "haiku"],
+  state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
   setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
 };
 const codex: AgentStatus = {
@@ -40,6 +40,8 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     locked: false,
     outcome: null,
     outcomeError: null,
+    consentError: null,
+    setConsent: vi.fn(),
     refreshAgents: vi.fn(),
     selectAgent: vi.fn(),
     selectModel: vi.fn(),
@@ -120,6 +122,38 @@ describe("AgentPanel", () => {
     expect(rejected).toContain("<summary");
     expect(rejected).toContain("layouts: Required");
     expect(rejected).toContain("Ask agent to fix");
+  });
+
+  it("badges each policy level and asks for explicit consent before an at-own-risk agent", () => {
+    expect(render(chat())).toMatch(/Policy: <\/span>Supported/);
+    expect(render(chat({ selected: codex, selectedModel: null }))).not.toContain("Revoke consent");
+
+    const risky: AgentStatus = {
+      ...claude, id: "risky", name: "Risky", models: [], consented: false,
+      policy: { ...policy, level: "at-own-risk", reason: "Terms forbid wrappers.", consequences: "Your account can be banned.", sourceUrl: "https://example.test/terms" },
+    };
+    const warning = render(chat({ agents: [claude, risky], selected: risky, selectedModel: null }));
+    expect(warning).toContain("Use Risky at your own risk");
+    expect(warning).toContain("Terms forbid wrappers.");
+    expect(warning).toContain("Your account can be banned.");
+    expect(warning).toContain('href="https://example.test/terms"');
+    expect(warning).toContain("checked 2026-10-15");
+    expect(warning).toContain("I understand, enable Risky");
+    expect(warning).toMatch(/Policy: <\/span>At your own risk/);
+    expect(warning).not.toContain("Revoke consent");
+    expect(warning).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Send<\/button>/);
+
+    const consented = render(chat({ agents: [claude, { ...risky, consented: true }], selected: { ...risky, consented: true }, selectedModel: null }));
+    expect(consented).not.toContain("I understand, enable");
+    expect(consented).toContain("Revoke consent");
+
+    const unavailable = { ...risky, state: "unavailable" as const, policy: { ...risky.policy, level: "unavailable" as const } };
+    expect(render(chat({ agents: [claude, unavailable], selected: unavailable, selectedModel: null })))
+      .not.toContain("I understand, enable");
+    const noAdapter = { ...risky, state: "no-adapter" as const, installed: null, consented: true };
+    const unwired = render(chat({ agents: [claude, noAdapter], selected: noAdapter, selectedModel: null }));
+    expect(unwired).toContain("Not supported in the editor yet");
+    expect(unwired).not.toContain("I understand, enable");
   });
 
   it("announces a running step, shows the command, and offers Stop", () => {

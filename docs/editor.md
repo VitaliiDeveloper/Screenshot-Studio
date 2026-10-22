@@ -331,7 +331,12 @@ aliases shows `CLI default model`. When the selected agent cannot run, the panel
 to do: **No agent found** when no CLI is installed (each links to its official setup page; the
 editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
 own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
-with the policy reason. **Check again** reads the registry again. Agent purple marks only what a run
+with the policy reason. Every agent carries a policy badge (**Supported**, **At your own risk**,
+**Unavailable**). An agent at your own risk shows a warning card before anything else: the policy
+reason and consequences, **Read the terms** with the date the policy was checked, and **I understand,
+enable {agent}**; Send stays off until you consent, and **Revoke consent** under the picker takes it
+back. An agent the editor cannot run yet says **Not supported in the editor yet**. **Check again**
+reads the registry again. Agent purple marks only what a run
 does; manual work keeps the blue accent.
 
 The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
