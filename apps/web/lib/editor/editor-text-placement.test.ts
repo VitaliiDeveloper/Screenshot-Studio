@@ -2,6 +2,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_STORE_SPECS, findStoreTarget } from "@screenshot-studio/core/export";
 import {
+  MEDIA_BLUR_MAX,
+  createImageElement,
+  createScreenshotElement,
   createTextElement,
   rotatedElementBounds,
   type Element,
@@ -33,6 +36,12 @@ function templateScreen(templateId: string, direction: Screen["direction"] = "lt
     elements: [...template.elements, subtitle],
   } as Screen;
 }
+
+const rounded = (screen: Screen): Screen => JSON.parse(JSON.stringify(
+  screen,
+  (_key, value) => typeof value === "number" ? Math.round(value * 1e6) / 1e6 : value,
+));
+const byId = (screen: Screen, id: string) => screen.elements.find((element) => element.id === id)!;
 
 const isText = (element: Element) => element.type === "text";
 const isMockup = (element: Element) => element.type === "device-frame";
@@ -84,17 +93,42 @@ describe.each([
     expect(apart).toBe(true);
   });
 
-  it("scales a block down uniformly to fit its region and never enlarges it", () => {
-    const original = screen.elements.find((element) => element.id === "mockup")!;
-    const placed = placeScreenText(screen, "side").elements.find((element) => element.id === "mockup")!;
+  it.each(["top", "bottom", "side"] as const)("%s fits the media into its region and keeps text sizes", (placement) => {
+    const original = byId(screen, "mockup");
+    const placed = placeScreenText(screen, placement);
+    const mockup = byId(placed, "mockup");
+    const [regionWidth, regionHeight] = placement === "side"
+      ? [0.38 * width, 0.84 * height]
+      : [0.84 * width, 0.6 * height];
 
-    expect(placed.width).toBeLessThanOrEqual(original.width);
-    expect(placed.width / placed.height).toBeCloseTo(original.width / original.height, 6);
-    const small = placeScreenText(screen, "top").elements.find((element) => element.id === "headline")!;
-    expect(small).toMatchObject({
-      width: screen.elements.find((element) => element.id === "headline")!.width,
-      height: screen.elements.find((element) => element.id === "headline")!.height,
-    });
+    expect(mockup.width / mockup.height).toBeCloseTo(original.width / original.height, 6);
+    expect(Math.max(mockup.width / regionWidth, mockup.height / regionHeight)).toBeCloseTo(1, 6);
+    for (const id of ["headline", "subtitle"]) {
+      expect(byId(placed, id)).toMatchObject({
+        size: (byId(screen, id) as Extract<Element, { type: "text" }>).size,
+        height: byId(screen, id).height,
+      });
+    }
+  });
+
+  it("stacks the text layers at the region width in their current order", () => {
+    const placed = placeScreenText(screen, "top");
+
+    expect(byId(placed, "headline")).toMatchObject({ x: 0.08 * width, width: 0.84 * width });
+    expect(byId(placed, "subtitle")).toMatchObject({ x: 0.08 * width, width: 0.84 * width });
+    expect(byId(placed, "subtitle").y).toBeCloseTo(byId(placed, "headline").y + byId(placed, "headline").height, 6);
+  });
+
+  it("gives the same result whichever preset was applied before", () => {
+    const afterSide = placeScreenText(placeScreenText(screen, "side"), "top");
+
+    expect(rounded(afterSide)).toEqual(rounded(placeScreenText(screen, "top")));
+  });
+
+  it("returns the same screen when the preset is applied again", () => {
+    const placed = placeScreenText(screen, "bottom");
+
+    expect(placeScreenText(placed, "bottom")).toBe(placed);
   });
 });
 
@@ -107,18 +141,37 @@ describe("text placement rules", () => {
     expect(blockCenter(placed, isMockup).x / screen.artboard.width).toBeCloseTo(0.25, 6);
   });
 
-  it("leaves hidden, locked and other layers where they are", () => {
+  it("leaves hidden, locked, image and shape layers where they are", () => {
     const screen = templateScreen("iphone-starter");
-    const marked: Element[] = screen.elements.map((element) => element.id === "subtitle"
+    const logo = { ...createImageElement({ assetUrl: "assets/logo.png", x: 30, y: 40 }), id: "logo" };
+    const marked: Element[] = [...screen.elements, logo].map((element) => element.id === "subtitle"
       ? { ...element, locked: true }
       : element.id === "mockup" ? { ...element, visible: false } : element);
     const placed = placeScreenText({ ...screen, elements: marked }, "bottom");
 
-    for (const id of ["subtitle", "mockup", "accent"]) {
-      expect(placed.elements.find((element) => element.id === id)).toBe(marked.find((element) => element.id === id));
+    for (const id of ["subtitle", "mockup", "accent", "logo"]) {
+      expect(byId(placed, id)).toBe(marked.find((element) => element.id === id));
     }
-    expect(placed.elements.find((element) => element.id === "headline"))
-      .not.toBe(marked.find((element) => element.id === "headline"));
+    expect(byId(placed, "headline")).not.toBe(marked.find((element) => element.id === "headline"));
+  });
+
+  it("does not resize the headline because another text layer sits far from it", () => {
+    const screen = templateScreen("iphone-starter");
+    const caption = { ...createTextElement({ x: 100, y: screen.artboard.height - 200 }), id: "caption", width: 600, height: 80 };
+    const placed = placeScreenText({ ...screen, elements: [...screen.elements, caption] }, "top");
+
+    expect(byId(placed, "headline")).toMatchObject({ size: (byId(screen, "headline") as { size: number }).size });
+    expect(byId(placed, "caption").y).toBeGreaterThan(byId(placed, "subtitle").y);
+    expect(byId(placed, "headline").y / screen.artboard.height).toBeCloseTo(0.04, 6);
+  });
+
+  it("keeps a media block's size when its blur cannot scale up to the region", () => {
+    const screen = templateScreen("iphone-starter");
+    const shot = { ...createScreenshotElement({ assetUrl: "assets/shot.png", x: 10, y: 20, width: 100, height: 200 }), id: "shot", blur: MEDIA_BLUR_MAX };
+    const placed = placeScreenText({ ...screen, elements: [...screen.elements.filter((element) => element.id !== "mockup"), shot] }, "top");
+
+    expect(byId(placed, "shot")).toMatchObject({ width: 100, height: 200, blur: MEDIA_BLUR_MAX });
+    expect(blockCenter(placed, (element) => element.id === "shot").x / screen.artboard.width).toBeCloseTo(0.5, 6);
   });
 
   it("returns the same screen when there is no text layer to place", () => {
@@ -159,6 +212,15 @@ describe("text placement in the editor store", () => {
     editorStore.getState().undo();
 
     expect(screens()[0]).toEqual(before);
+  });
+
+  it("records no further step when the same preset is applied again", () => {
+    editorStore.getState().placeText("side");
+    const past = editorStore.getState().historyPast.length;
+
+    editorStore.getState().placeText("side");
+
+    expect(editorStore.getState().historyPast).toHaveLength(past);
   });
 
   it("records no step when the screen has no text layer", () => {

@@ -39,7 +39,7 @@ export interface EditorScreenActions {
   removeElement: (id: string, screenId?: string) => void;
   addElement: (element: Element) => void;
   setBackground: (background: Background, scope?: ApplyScope) => void;
-  /** Text placement preset: writes positions once into every screen in scope, as one undo step. */
+  /** Text placement preset: places text and fits media once in every screen in scope, as one undo step. */
   placeText: (placement: TextPlacement, scope?: ApplyScope) => void;
   resizeArtboard: (size: { width: number; height: number }) => void;
 }

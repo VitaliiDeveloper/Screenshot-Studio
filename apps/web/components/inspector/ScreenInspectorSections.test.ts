@@ -348,6 +348,6 @@ describe("Text placement", () => {
     const markup = render([]);
 
     expect(buttons(markup).every((attributes) => attributes !== undefined && attributes.includes("disabled"))).toBe(true);
-    expect(markup).toContain("This screen has no unlocked text layer to place.");
+    expect(markup).toContain("This screen has no visible, unlocked text layer to place.");
   });
 });

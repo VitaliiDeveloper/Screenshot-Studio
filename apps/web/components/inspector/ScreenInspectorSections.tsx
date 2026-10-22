@@ -249,7 +249,7 @@ export function ScreenInspectorSections({
         <p className="text-[length:var(--editor-font-label-size)] leading-4 text-[color:var(--editor-color-text-secondary)]">
           {hasPlaceableText(screen)
             ? "One-shot preset: writes positions once and isn't stored on the screen."
-            : "This screen has no unlocked text layer to place."}
+            : "This screen has no visible, unlocked text layer to place."}
         </p>
       </Section>
     </>
