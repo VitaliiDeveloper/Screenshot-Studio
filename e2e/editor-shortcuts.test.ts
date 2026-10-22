@@ -149,6 +149,16 @@ describe("status bar and keyboard shortcuts", () => {
     await page.keyboard.press("[");
     await iphoneList.waitFor({ state: "visible" });
 
+    // A screen collapsed before the keys moved away opens again when they return to it.
+    const hideActive = iphoneList.getByRole("button", { name: /^Hide layers of / });
+    const activeName = (await hideActive.getAttribute("aria-label"))!.replace("Hide layers of ", "");
+    await hideActive.click();
+    await iphoneList.getByRole("button", { name: `Show layers of ${activeName}`, exact: true }).waitFor();
+    await page.keyboard.press("]");
+    await ipadList.waitFor({ state: "visible" });
+    await page.keyboard.press("[");
+    await iphoneList.getByRole("button", { name: `Hide layers of ${activeName}`, exact: true }).waitFor();
+
     // O toggles Focus and Overview.
     const focus = page.getByRole("button", { name: "Focus", exact: true });
     await page.keyboard.press("o");

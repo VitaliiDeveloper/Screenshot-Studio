@@ -226,9 +226,17 @@ export function ScreensSection({
   const [pendingDelete, setPendingDelete] = useState<{ id: string; description: string } | null>(null);
   // Keyed by screen: collapsing one never hides the layers of a screen activated from the canvas.
   const [collapsedScreenId, setCollapsedScreenId] = useState<string | null>(null);
+  // Any change of active screen (row, canvas, or [ ] keys) expands it again.
+  const [collapseScopeId, setCollapseScopeId] = useState(activeScreenId);
+  let collapsedId = collapsedScreenId;
+  if (collapseScopeId !== activeScreenId) {
+    setCollapseScopeId(activeScreenId);
+    setCollapsedScreenId(null);
+    collapsedId = null;
+  }
   const [draggingScreen, setDraggingScreen] = useState(false);
   // The previously expanded screen keeps its layers mounted while they collapse.
-  const expandedScreenId = activeScreenId !== null && collapsedScreenId !== activeScreenId ? activeScreenId : null;
+  const expandedScreenId = activeScreenId !== null && collapsedId !== activeScreenId ? activeScreenId : null;
   const [shownExpandedScreenId, setShownExpandedScreenId] = useState(expandedScreenId);
   const [closingScreenId, setClosingScreenId] = useState<string | null>(null);
   const [treeAnimates, setTreeAnimates] = useState(false);
@@ -362,7 +370,7 @@ export function ScreensSection({
           <div ref={screenListRef} role="list" aria-label={listLabel} className="pt-2">
             {screens.map((s, index) => {
               const active = s.id === activeScreenId;
-              const expanded = active && collapsedScreenId !== s.id;
+              const expanded = active && collapsedId !== s.id;
               const selectedCount = selectedItems.filter((item) => item.screenId === s.id).length;
               const warning = screenRowWarning(layout, s, issues, specs);
               const deleteDisabled = isPrimaryScreen(deletionRootFor(s)) && localeRootScreenCount <= 1;
