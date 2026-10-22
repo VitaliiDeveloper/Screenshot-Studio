@@ -13,7 +13,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { listOutputFamilies, listStoreTargets, type StoreSpecs } from "@screenshot-studio/core/export";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   assertNever,
   isPrimaryScreen,
@@ -25,7 +25,6 @@ import {
 } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import {
-  compactStoreSizeLabel,
   outputFamilyEditorLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
@@ -35,7 +34,7 @@ import {
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import type { SearchResult } from "@web/lib/editor/editor-search";
-import { screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import { compactSizeLabel, screenSizeLabel, screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
 import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
@@ -45,15 +44,6 @@ const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
   { ssr: false },
 );
-
-/** A screen's exact size without its family, e.g. `6.9"`; null when the store specs no longer list it. */
-function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | null {
-  const family = listOutputFamilies(specs).find(({ key }) => key === `${screen.platform}/${screen.device}`);
-  if (!family) return null;
-  const targetId = screen.storeTargetId ?? family.leadStoreSizeId;
-  const target = listStoreTargets(specs, screen.platform, screen.device).find(({ id }) => id === targetId);
-  return target ? compactStoreSizeLabel(target.label, screen.device) : null;
-}
 
 /** The Screens header scope: `3 · EN · iPhone 6.9"` in Focus, `3 · EN · 4 sizes` in Overview. */
 export function screensScopeLabel(
@@ -68,8 +58,7 @@ export function screensScopeLabel(
     ? []
     : view === "overview"
       ? [sizeCountLabel(workspaceOverviewRows(layout, scopeScreen, specs).length)]
-      : [[outputFamilyEditorLabel(scopeScreen.platform, scopeScreen.device, specs), compactSizeLabel(scopeScreen, specs)]
-        .filter(Boolean).join(" ")];
+      : [screenSizeLabel(scopeScreen, specs)];
   return [String(screens.length), locale.toUpperCase(), ...scope].join(" · ");
 }
 

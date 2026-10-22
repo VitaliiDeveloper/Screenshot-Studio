@@ -365,7 +365,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           />
         </EditorSidePanel>
       </div>
-      <StatusBar />
+      <StatusBar specs={specs} />
       {saveStatus === "error" && saveError && !projectNavigation.error ? (
         <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}

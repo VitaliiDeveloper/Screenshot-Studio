@@ -3,15 +3,16 @@
 
 import { useStore } from "zustand";
 import { findElementLocation } from "@screenshot-studio/core/model";
-import { editorStore, type EditorState } from "@web/lib/editor/editor-store";
-import { elementLabel, elementTypeLabel, selectionTypeSummary } from "@web/lib/panel-helpers";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
+import { editorStore, selectEditorLayout, type EditorState } from "@web/lib/editor/editor-store";
+import { elementLabel, screenSizeLabel, selectionTypeSummary } from "@web/lib/panel-helpers";
 import { cx } from "@web/components/editor-ui";
 
-export type SaveTone = "idle" | "busy" | "error";
+type SaveTone = "idle" | "busy" | "error";
 
-/** `14:02` in the viewer's locale; the zone and locale are parameters only so tests are stable. */
-export function savedTimeLabel(savedAt: number, locale?: string, timeZone?: string): string {
-  return new Date(savedAt).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", timeZone });
+/** The time of a save in the viewer's locale, e.g. `12:04`. */
+export function savedTimeLabel(savedAt: number): string {
+  return new Date(savedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 /** The save cell's words; after a failure it still names the last time the project reached disk. */
@@ -23,7 +24,7 @@ export function saveStatusParts(
     case "saving":
       return { text: "Saving…", savedAt: null, tone: "busy" };
     case "saved":
-      return { text: "Saved", savedAt: lastSavedAt, tone: "idle" };
+      return { text: "Saved ·", savedAt: lastSavedAt, tone: "idle" };
     case "error":
       return lastSavedAt === null
         ? { text: "Save failed · nothing saved yet", savedAt: null, tone: "error" }
@@ -33,11 +34,12 @@ export function saveStatusParts(
   }
 }
 
-/** The active screen and what is selected on it, e.g. `Hero · Hero headline (Text)`. */
+/** Screen, selection, and size, e.g. `Save Fast · Save fast headline · iPhone Dynamic Island · Medium`. */
 export function selectionStatus(
   state: Pick<EditorState, "project" | "activeLayoutId" | "activeScreenId" | "selectedItems">,
+  specs: StoreSpecs,
 ): string {
-  const layout = state.project?.layouts.find((candidate) => candidate.id === state.activeLayoutId);
+  const layout = selectEditorLayout(state);
   const screen = layout?.screens.find((candidate) => candidate.id === state.activeScreenId);
   if (!layout || !screen) return "";
   const elements = state.selectedItems.flatMap((item) => {
@@ -45,18 +47,17 @@ export function selectionStatus(
     const location = owner ? findElementLocation(owner, item.elementId) : null;
     return location ? [location.element] : [];
   });
-  if (elements.length === 0) return `${screen.name} · No layer selected`;
-  if (elements.length > 1) {
-    return `${screen.name} · ${elements.length} layers (${selectionTypeSummary(elements)})`;
-  }
-  const label = elementLabel(elements[0]!);
-  const type = elementTypeLabel(elements[0]!.type);
-  return `${screen.name} · ${label === type ? label : `${label} (${type})`}`;
+  const selected = elements.length === 0
+    ? "No layer selected"
+    : elements.length === 1
+      ? elementLabel(elements[0]!)
+      : `${elements.length} layers (${selectionTypeSummary(elements)})`;
+  return [screen.name, selected, screenSizeLabel(screen, specs)].join(" · ");
 }
 
 const HINTS = [
   { keys: "[ ]", action: "Size" },
-  { keys: "O", action: "View" },
+  { keys: "O", action: "Focus/Overview" },
   { keys: "⌘K", action: "Find" },
   { keys: "⌘Z", action: "Undo" },
 ] as const;
@@ -68,16 +69,16 @@ const toneClass: Record<SaveTone, string> = {
 };
 
 /** The 34 px strip under the Workspace: save state, the current selection, and key hints. */
-export function StatusBar() {
+export function StatusBar({ specs }: { specs: StoreSpecs }) {
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const lastSavedAt = useStore(editorStore, (state) => state.lastSavedAt);
-  const selection = useStore(editorStore, selectionStatus);
+  const selection = useStore(editorStore, (state) => selectionStatus(state, specs));
   const save = saveStatusParts(saveStatus, lastSavedAt);
 
   return (
     <footer
       data-testid="status-bar"
-      className="flex h-[34px] shrink-0 items-center gap-4 border-t border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3 text-[11px] text-[color:var(--editor-color-text-muted)]"
+      className="flex h-[34px] shrink-0 items-center gap-4 border-t border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-3 text-[11px] text-[color:var(--editor-color-text-secondary)]"
     >
       <p
         data-save-status={saveStatus}
@@ -96,7 +97,7 @@ export function StatusBar() {
       <ul aria-label="Keyboard shortcuts" className="hidden shrink-0 items-center gap-3 md:flex">
         {HINTS.map(({ keys, action }) => (
           <li key={keys} className="flex items-center gap-1">
-            <kbd className="rounded border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-1 font-sans text-[10px] font-medium text-[color:var(--editor-color-text-default)]">
+            <kbd className="rounded border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-1 font-sans text-[10px] font-medium text-[color:var(--editor-color-text-default)]">
               {keys}
             </kbd>
             <span>{action}</span>

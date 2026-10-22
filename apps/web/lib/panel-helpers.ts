@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Element } from "@screenshot-studio/core/model";
+import type { Element, Screen } from "@screenshot-studio/core/model";
+import { listOutputFamilies, listStoreTargets, type StoreSpecs } from "@screenshot-studio/core/export";
+import { compactStoreSizeLabel, outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
 
 /** Human-readable fallback labels for the layers panel (name overrides these). */
 const TYPE_LABELS = {
@@ -70,6 +72,21 @@ export function selectionTypeSummary(elements: readonly Pick<Element, "type">[])
   const counts = new Map<Element["type"], number>();
   for (const { type } of elements) counts.set(type, (counts.get(type) ?? 0) + 1);
   return [...counts].map(([type, count]) => typeCountLabel(type, count)).join(" · ");
+}
+
+/** A screen's exact size without its family, e.g. `6.9"`; null when the store specs no longer list it. */
+export function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | null {
+  const family = listOutputFamilies(specs).find(({ key }) => key === `${screen.platform}/${screen.device}`);
+  if (!family) return null;
+  const targetId = screen.storeTargetId ?? family.leadStoreSizeId;
+  const target = listStoreTargets(specs, screen.platform, screen.device).find(({ id }) => id === targetId);
+  return target ? compactStoreSizeLabel(target.label, screen.device) : null;
+}
+
+/** A screen's family and exact size, e.g. `iPhone Dynamic Island · Medium`. */
+export function screenSizeLabel(screen: Screen, specs: StoreSpecs): string {
+  return [outputFamilyEditorLabel(screen.platform, screen.device, specs), compactSizeLabel(screen, specs)]
+    .filter(Boolean).join(" ");
 }
 
 /**
