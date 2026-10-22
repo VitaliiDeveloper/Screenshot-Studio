@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { CloudDownload, Type, Upload } from "lucide-react";
+import { CloudDownload, Monitor, Type, Upload } from "lucide-react";
 import {
   DEFAULT_FONT_WEIGHT,
   countProjectFontUsage,
@@ -27,9 +27,21 @@ import {
   setProjectRevision,
 } from "@web/lib/clients/save-project";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
-import { reconcileFontMutationResponse } from "./font-manager-model";
+import { appendWarning, reconcileFontMutationResponse } from "./font-manager-model";
+import { SystemFontImport } from "./SystemFontImport";
 
-type PendingAction = "upload" | "google" | "remove" | null;
+type PendingAction = "upload" | "google" | "remove" | "system" | null;
+
+function postFontJson(url: string, body: unknown): Promise<Response> {
+  return fetch(url, {
+    method: "POST",
+    headers: projectRequestHeaders({
+      conditional: true,
+      headers: { "content-type": "application/json" },
+    }),
+    body: JSON.stringify(body),
+  });
+}
 
 export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const project = useStore(editorStore, (state) => state.project);
@@ -44,7 +56,17 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
   const [pending, setPending] = useState<PendingAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [view, setView] = useState<"manage" | "system">("manage");
   const uploadInput = useRef<HTMLInputElement>(null);
+  const systemButton = useRef<HTMLButtonElement>(null);
+  const returnedFromSystem = useRef(false);
+
+  useEffect(() => {
+    if (view === "manage" && returnedFromSystem.current) {
+      returnedFromSystem.current = false;
+      systemButton.current?.focus();
+    }
+  }, [view]);
 
   if (!open || !project || !activeLayoutId || !activeScreenId) return null;
 
@@ -57,6 +79,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     if (pending !== null) return;
     setError(null);
     setWarning(null);
+    setView("manage");
     onClose();
   };
 
@@ -81,7 +104,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         resolveActiveProjectAssetUrl,
       ),
     });
-    setWarning(result.warning);
+    setWarning((current) => appendWarning(current, result.warning));
   };
 
   const addUpload = async () => {
@@ -122,13 +145,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     try {
       await withFlushedProject(async () => {
         const previousProject = editorStore.getState().project!;
-        const response = await fetch("/api/fonts", {
-          method: "POST",
-          headers: projectRequestHeaders({
-            conditional: true,
-            headers: { "content-type": "application/json" },
-          }),
-          body: JSON.stringify({ source: "google", family: googleFamily, weight: googleWeight }),
+        const response = await postFontJson("/api/fonts", {
+          source: "google",
+          family: googleFamily,
+          weight: googleWeight,
         });
         await reconcileAdd(response, previousProject);
       });
@@ -138,6 +158,14 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
     } finally {
       setPending(null);
     }
+  };
+
+  const importSystemFont = async (id: string) => {
+    await withFlushedProject(async () => {
+      const previousProject = editorStore.getState().project!;
+      const response = await postFontJson("/api/system-fonts/import", { id });
+      await reconcileAdd(response, previousProject);
+    });
   };
 
   const remove = async (font: FontAsset) => {
@@ -193,6 +221,36 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
       closeDisabled={pending !== null}
       widthClass="max-w-3xl"
     >
+      {view === "system" ? (
+        <>
+          <SystemFontImport
+            registered={project.fonts}
+            onImportFace={importSystemFont}
+            onBusyChange={(busy) => {
+              setPending(busy ? "system" : null);
+              if (busy) setWarning(null);
+            }}
+            onBack={() => {
+              returnedFromSystem.current = true;
+              setView("manage");
+            }}
+          />
+          {warning && <StatusMessage tone="warning" className="mt-4 whitespace-pre-wrap">{warning}</StatusMessage>}
+        </>
+      ) : (
+      <>
+        <section className={`${editorUi.formPanel} mb-4 sm:flex-row sm:items-center sm:justify-between`}>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Monitor size={15} className="text-slate-500" strokeWidth={1.8} />
+              <h3 className={editorUi.sectionLabel}>Installed fonts</h3>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Copy a font that is already installed on this computer into the project.</p>
+          </div>
+          <button ref={systemButton} type="button" className={`${editorUi.buttonSecondary} shrink-0`} disabled={pending !== null} onClick={() => setView("system")}>
+            Import from system
+          </button>
+        </section>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
@@ -272,6 +330,8 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
             );
           })}
         </section>
+      </>
+      )}
     </DialogShell>
   );
 }
