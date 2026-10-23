@@ -26,6 +26,7 @@ import {
   withDrainedProjectSaves,
   withFlushedProject,
 } from "@web/lib/editor/debounced-save";
+import { shouldApplyExternalReload } from "@web/lib/editor/external-project-changes";
 import {
   loadAllProjectImages,
   useEditorImageCache,
@@ -173,7 +174,15 @@ export function useEditorResources(expectedProjectId: string) {
 
   const startReload = useCallback(async (
     serialize: EditorResourceSerializer,
-    { keepCurrent = false }: { keepCurrent?: boolean } = {},
+    {
+      keepCurrent = false,
+      shouldApply = () => true,
+      background = false,
+    }: {
+      keepCurrent?: boolean;
+      shouldApply?: (resources: EditorResourceResult) => boolean;
+      background?: boolean;
+    } = {},
   ) => {
     const generation = ++resourceGeneration.current;
     setError(null);
@@ -189,6 +198,7 @@ export function useEditorResources(expectedProjectId: string) {
         load: () => loadEditorResources({ expectedProjectId }),
         isCurrent: () => resourceGeneration.current === generation,
         apply: (resources) => {
+          if (!shouldApply(resources)) return;
           // A revision becomes globally usable only after every required resource validated and this
           // generation won. Cancelled or delayed fetches cannot roll the save coordinator backwards.
           applyEditorResourceResult(resources);
@@ -200,7 +210,7 @@ export function useEditorResources(expectedProjectId: string) {
         },
       });
     } catch (error: unknown) {
-      if (resourceGeneration.current === generation) setError((error as Error).message);
+      if (resourceGeneration.current === generation && !background) setError((error as Error).message);
       return false;
     } finally {
       if (resourceGeneration.current === generation) setReloading(false);
@@ -253,6 +263,15 @@ export function useEditorResources(expectedProjectId: string) {
     return startReload(withDrainedProjectSaves, { keepCurrent: true });
   }, [startReload]);
 
+  // A background pickup must not cancel or overwrite an edit made meanwhile: that edit saves, gets
+  // rejected by If-Match, and the user resolves the conflict instead.
+  const reloadExternalChange = useCallback((seen: Project | null) => startReload(withDrainedProjectSaves, {
+    keepCurrent: true,
+    shouldApply: (resources) => shouldApplyExternalReload(seen, resources.revision),
+    // A file caught mid-write stays on the current project; the next check retries.
+    background: true,
+  }), [startReload]);
+
   return {
     error,
     images,
@@ -261,6 +280,7 @@ export function useEditorResources(expectedProjectId: string) {
     retry,
     reload,
     reloadFromDisk,
+    reloadExternalChange,
     cacheImage,
     reloading,
     retryFonts,

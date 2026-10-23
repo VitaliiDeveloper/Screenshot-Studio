@@ -58,12 +58,15 @@ export async function GET(req: Request): Promise<Response> {
     return withManagedProjectReadGuard(session, async () => {
       try {
         const snapshot = await readProjectSnapshot(session.projectPath);
-        return Response.json(snapshot.project, {
-          headers: {
-            etag: quotedRevision(snapshot.revision),
-            "x-project-id": session.projectId,
-          },
-        });
+        const headers = {
+          etag: quotedRevision(snapshot.revision),
+          "x-project-id": session.projectId,
+        };
+        // The open editor polls with its revision to notice writes made outside it.
+        if (req.headers.get("if-none-match") === headers.etag) {
+          return new Response(null, { status: 304, headers });
+        }
+        return Response.json(snapshot.project, { headers });
       } catch (err) {
         const status = err instanceof ProjectValidationError ? 422 : 404;
         return jsonError(status, (err as Error).message);

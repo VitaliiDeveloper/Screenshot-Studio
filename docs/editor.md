@@ -409,6 +409,17 @@ with that time (`nothing saved yet` when no save has succeeded since the project
 failure still says how far the work is durable. The save cell is plain text, not a live region, so
 autosaves are not announced; the `Save failed: …` alert keeps announcing the error. The time is
 editor state, cleared when another project loads, and never part of the Project document.
+
+The open Workspace picks up changes that the CLI or the user's own agent makes to the project file,
+without a restart. Detection works as described in [`docs/architecture.md`](architecture.md). With
+no unsaved edit, the canvas reloads in place through the usual resource load and keeps the current
+screen and selection where they still exist. ⌘Z history then starts fresh, as it does after an agent
+run. An edit made while the change is detected or loaded is never dropped or used to overwrite the
+file. Its save is rejected instead, and an alert says **This project changed outside the editor.**:
+the latest edits were not saved, so they did not overwrite that change. **Load latest version**
+loads the file from disk and discards those unsaved edits. There is no option to keep the editor's
+copy over the external change. The check pauses while an in-app agent run holds the project, because
+that run reloads the Workspace itself.
 Play opens a full-screen, read-only scene in the editor's current appearance with the files that bundle writes for the active
 destination, size, and locale, in file order. The current screen is centered at full size with its
 neighbours smaller and dimmed beside it; connected layouts show each screen's exact export crop

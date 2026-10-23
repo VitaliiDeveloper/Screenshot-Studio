@@ -216,6 +216,37 @@ keeps each original as a `<previous-size>` variant.
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+## Work with your own agent
+
+You can let any coding agent you already use (Claude Code, Codex, Antigravity, Cursor, Copilot, and
+others) change a project while the editor is open. Screenshot Studio does not start or wrap that
+agent: you run it yourself, with your own account, in the project folder.
+
+1. Create the project with `pnpm screenshots init --dir ./my-app-screenshots`. This writes the
+   project's `AGENTS.md`, which tells the agent how to use the `screenshots` CLI on this project.
+   Optionally install the [agent skill](skills/screenshot-studio/SKILL.md).
+2. Open the project in place with
+   `pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json`.
+3. In a separate terminal, `cd my-app-screenshots` and start your agent there, for example
+   `claude`, `codex`, or `agy`.
+4. Ask for changes in plain words, and ask the agent to make them with the `screenshots` CLI
+   rather than by editing the JSON by hand. The CLI validates every write and takes the project lock.
+
+Example requests:
+
+- "List the screens for the `en` locale and change the Hero headline to 'Track every run'."
+- "Apply the `neutral-default` design pack, then add the `neutral-iphone-basics` screens."
+- "Add a `de` locale and translate every headline and subline."
+- "Use `assets/captures/01.png` as the screenshot in the Hero mockup."
+- "Export the preferred layout and tell me where the PNGs were written."
+
+Each change appears in the open editor within a few seconds, with no restart. If you edit in the
+editor at the same moment, the editor never saves over the agent's change: it shows
+**This project changed outside the editor.**, and **Load latest version** loads the agent's result.
+Your unsaved edits from that moment are discarded. Projects imported in the browser from a folder,
+ZIP, or JSON are managed copies. An agent in your original folder changes the original, not the
+copy the editor shows, so open the project in place as in step 2.
+
 ## Design packs and screen packs
 
 | Pack | Kind | Id | What it gives you |
