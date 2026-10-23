@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { chromium, type Browser } from "playwright";
-import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ if (args[0] === "--help") {
 }
 if (args[0] === "auth") { out({ loggedIn: true, authMethod: "claude.ai" }); process.exit(0); }
 appendFileSync(join(__dirname, "runs.log"), JSON.stringify(args) + "\\n");
+appendFileSync(join(__dirname, "cwd.log"), process.cwd() + "\\n");
 const runDir = args.find((arg, index) => args[index - 1] === "--add-dir" && /run-/.test(arg));
 if (runDir) appendFileSync(join(__dirname, "attachments.log"), JSON.stringify(require("node:fs").readdirSync(runDir)) + "\\n");
 const todos = (status) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "TodoWrite", input: { todos: [
@@ -38,7 +39,9 @@ const started = Date.now();
 const wait = () => {
   if (!existsSync(join(__dirname, "release")) && Date.now() - started < 60000) return setTimeout(wait, 50);
   const project = JSON.parse(readFileSync("app-store-screenshots.json", "utf8"));
-  project.layouts[0].screens.find((screen) => screen.id === "hero").name = "Agent Hero";
+  const screens = project.layouts[0].screens;
+  const screen = screens.find(({ id }) => id === "hero") ?? screens[0];
+  if (screen) screen.name = "Agent Hero";
   writeFileSync("app-store-screenshots.json", JSON.stringify(project, null, 2));
   out(todos("completed"));
   out({ type: "result", subtype: "success", is_error: false, duration_ms: 1200, result: "Renamed the Hero screen." });
@@ -59,7 +62,9 @@ let browser: Browser;
 let dir: string;
 let binDir: string;
 let projectFile: string;
+let dataRoot: string;
 const originalPath = process.env.PATH;
+const originalDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
 // A run first re-probes the CLI and snapshots the project, so its first events take a moment.
 const poll = { timeout: 15_000 };
 
@@ -73,6 +78,7 @@ const heroName = () => (JSON.parse(readFileSync(projectFile, "utf8")) as {
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "agent-chat-e2e-"));
   binDir = mkdtempSync(join(tmpdir(), "agent-chat-bin-"));
+  dataRoot = mkdtempSync(join(tmpdir(), "agent-chat-data-"));
   projectFile = join(dir, "app-store-screenshots.json");
   cpSync(resolve(repoRoot, "fixtures/sample/assets"), join(dir, "assets"), { recursive: true });
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
@@ -82,6 +88,8 @@ beforeAll(async () => {
   }
   // The server inherits this PATH, and agent runs keep PATH, so the fake CLIs shadow real ones.
   process.env.PATH = `${binDir}${delimiter}${originalPath ?? ""}`;
+  // Start with agent creates a managed project; keep it out of the developer's own library.
+  process.env.SCREENSHOT_STUDIO_DATA_ROOT = dataRoot;
   server = await startWebServer(undefined, {
     projectPath: projectFile,
     storeSpecsPath: resolve(repoRoot, "store-specs.json"),
@@ -91,10 +99,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   process.env.PATH = originalPath;
+  if (originalDataRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+  else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalDataRoot;
   await browser?.close();
   await server?.stop();
   rmSync(dir, { recursive: true, force: true });
   rmSync(binDir, { recursive: true, force: true });
+  rmSync(dataRoot, { recursive: true, force: true });
 });
 
 describe("Agent panel", () => {
@@ -197,6 +208,42 @@ describe("Agent panel", () => {
     expect(readFileSync(projectFile, "utf8")).not.toMatch(/brand-reference|run-/);
     await review.getByRole("button", { name: "Undo run" }).click();
     await review.waitFor({ state: "detached" });
+    expect(heroName()).toBe("Hero");
+    await page.close();
+  });
+
+  it("starts a new project from Projects and runs the agent on it in the Workspace", async () => {
+    rmSync(join(binDir, "release"), { force: true });
+    const runs = () => (existsSync(join(binDir, "runs.log")) ? readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").length : 0);
+    const runsBefore = runs();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    // Opening the configured project first makes Projects show the gallery, where the card lives.
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await page.goto(server.url, { waitUntil: "load" });
+
+    const card = page.getByRole("region", { name: "Start with agent" });
+    await card.waitFor(poll);
+    await card.getByRole("textbox", { name: "Describe the app" }).fill("Habit tracker for runners. Calm, light look.");
+    await card.getByRole("textbox", { name: "Locales" }).fill("EN, DE");
+    await card.getByRole("textbox", { name: "Project name" }).fill("Run Habit");
+    await card.getByRole("button", { name: "Model", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "haiku" }).click();
+    await card.getByRole("button", { name: "Create with Claude Code" }).click();
+
+    await page.waitForURL(/\/editor\/project_[^/?]+$/, poll);
+    const panel = page.getByRole("complementary", { name: "Agent", exact: true });
+    await expect.poll(() => panel.getByRole("status").first().textContent(), poll).toContain("Running");
+    expect(await panel.textContent()).toContain("Habit tracker for runners. Calm, light look.");
+    expect(await panel.textContent()).toContain("Locales: EN, DE");
+    await expect.poll(runs, poll).toBe(runsBefore + 1);
+    const args = JSON.parse(readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").at(-1)!) as string[];
+    expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual(["--model", "haiku"]);
+    expect(readFileSync(join(binDir, "cwd.log"), "utf8").trim().split("\n").at(-1)!.startsWith(realpathSync(dataRoot))).toBe(true);
+
+    writeFileSync(join(binDir, "release"), "");
+    await page.getByText("Claude Code is editing this project").waitFor({ state: "detached", ...poll });
+    expect(runs()).toBe(runsBefore + 1);
     expect(heroName()).toBe("Hero");
     await page.close();
   });

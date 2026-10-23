@@ -11,6 +11,9 @@ import {
 } from "@web/lib/editor/debounced-save";
 import { clearWorkspaceNavigationState } from "@web/lib/editor/editor-workspace-navigation";
 import { editorProjectUrl, projectInfoUrl } from "@web/lib/editor/editor-route";
+import { queueAgentStart, type AgentStartRequest } from "@web/lib/editor/agent-start-request";
+import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
+import { readJsonBody } from "@web/lib/json-response";
 import { loadProjectHomeData } from "@web/lib/clients/project-home-client";
 import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
 import { fetchActiveProject } from "@web/lib/clients/project-session";
@@ -79,6 +82,8 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   const [visibleOpeningEntryId, setVisibleOpeningEntryId] = useState<string | null>(null);
   const [leavingEntryId, setLeavingEntryId] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<ProjectLibraryNotice | null>(null);
+  const [agents, setAgents] = useState<AgentStatus[]>([]);
+  const [agentStart, setAgentStart] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
@@ -179,6 +184,23 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   useEffect(() => {
     void settleProjects();
   }, [settleProjects]);
+
+  const gallery = projects.status === "ready" && projects.entries.length > 0;
+  // The registry probes each CLI, so first run (which never shows the card) skips it.
+  useEffect(() => {
+    if (!gallery) return;
+    let current = true;
+    void fetch("/api/agents", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await readJsonBody(response);
+        if (current && response.ok && Array.isArray(body.agents)) setAgents(body.agents as AgentStatus[]);
+      })
+      // Without the registry the card stays hidden; New project and Import never wait on it.
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [gallery]);
 
   useEffect(() => {
     if (!focusCreationWhenEmptyRef.current) return;
@@ -324,6 +346,18 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
       });
     });
   };
+  // The session route stops a run when its stream closes, so the new project's Workspace starts it.
+  const startWithAgent = (form: ProjectCreationForm, request: AgentStartRequest) => {
+    if (agentStart.busy) return;
+    setAgentStart({ busy: true, error: null });
+    void switchActiveProject(() => createProject(form)).then((result) => {
+      if (!mountedRef.current) return;
+      queueAgentStart(result.projectId, request);
+      router.push(editorProjectUrl(result.projectId, "agent"));
+    }).catch((caught: unknown) => {
+      if (mountedRef.current) setAgentStart({ busy: false, error: caught instanceof Error ? caught.message : String(caught) });
+    });
+  };
   const openProject = (entryId: string, destination: "workspace" | "details") => {
     if (projectAction) return;
     setProjectAction({ entryId, kind: destination === "workspace" ? "opening" : "details" });
@@ -425,6 +459,9 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
           onRecoverStale={captureImport.recoverStale}
         />
       )}
+      agents={agents}
+      agentStart={agentStart}
+      onStartWithAgent={startWithAgent}
       onOpenCreate={() => dispatchCreation({ type: "open" })}
       onCloseCreate={closeCreation}
       onChangeCreation={changeCreation}

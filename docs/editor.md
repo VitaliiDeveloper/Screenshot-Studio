@@ -339,6 +339,10 @@ back. An agent the editor cannot run yet says **Not supported in the editor yet*
 reads the registry again. Agent purple marks only what a run
 does; manual work keeps the blue accent.
 
+A project created by **Start with agent** on Projects opens with this panel and its first run
+already started. If that agent can no longer run when the Workspace opens, the message shows as a
+failed turn with **Retry** instead of being sent.
+
 The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
 text, so the CLI does not remember earlier messages; the history is editor memory that **New chat**
 clears and is never written to the project. A pending edit is saved before the run starts. While
@@ -405,6 +409,18 @@ a delayed, card-bounded `Opening workspace…` status without shifting card cont
 An unavailable local source remains visible because it may live on temporarily disconnected storage,
 but its card exposes a directly labelled destructive history icon beside the left-aligned recovery
 message and states that project files stay untouched.
+
+Above the gallery, **Start with agent** (agent purple) appears when `/api/agents` lists an agent
+that can run now: signed in with a subscription, at a verified version, and allowed by its policy
+(an agent at your own risk needs the consent given in the Agent panel). The first-run hero never
+shows it. The card takes a description of the app, one **Destination** from the creatable families
+in `store-specs.json`, free-text **Locales**, a **Project name**, and the agent and model. **Create
+with {agent}** creates a managed project through the same path as New project (blank starter,
+isolated layout), then opens its Workspace with the Agent panel, which sends the first message
+itself: a fixed line asking for the first screens, the destination and locales, then the
+description. The request stays in page memory, never in the URL or the project, so a reload
+cannot start a second run. More stores or sizes are requested in the description. A creation
+failure shows on the card.
 
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
 exact receiver before navigating to its canonical `/editor/[entryId]` Workspace URL. Opening that

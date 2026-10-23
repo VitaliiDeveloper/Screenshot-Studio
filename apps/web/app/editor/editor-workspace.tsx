@@ -42,6 +42,7 @@ import { useEditorResources } from "./editor-resources";
 import { useEditorSaveGuards } from "./use-editor-save-guards";
 import { useEditorIssues } from "./use-editor-issues";
 import { useEditorAgentChat } from "./use-editor-agent-chat";
+import { takeAgentStart } from "@web/lib/editor/agent-start-request";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
@@ -116,6 +117,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   const agentChat = useEditorAgentChat(panel === "agent", reloadFromDisk);
   const agentLocked = agentChat.locked;
+  const queueAgentStart = agentChat.queueStart;
   useEditorSaveGuards(saveStatus);
   // An in-app agent run reloads itself when it ends; poll only while the user can edit.
   const externalConflict = useExternalProjectChanges(
@@ -221,10 +223,15 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       if (intent === "locales") setLocaleDialogOpen(true);
       if (intent === "export") setExportOpen(true);
       if (intent === "add-screen" || intent === "layouts") setPanel("structure");
+      if (intent === "agent") {
+        setPanel("agent");
+        const request = takeAgentStart(activeProjectId);
+        if (request) queueAgentStart(request);
+      }
       if (intent) router.replace(pathname, { scroll: false });
     });
     return () => cancelAnimationFrame(frame);
-  }, [activeProjectId, pathname, router, setPanel, workspaceRestoredFor]);
+  }, [activeProjectId, pathname, queueAgentStart, router, setPanel, workspaceRestoredFor]);
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);

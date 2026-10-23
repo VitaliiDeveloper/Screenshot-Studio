@@ -46,6 +46,7 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     selectAgent: vi.fn(),
     selectModel: vi.fn(),
     send: vi.fn(),
+    queueStart: vi.fn(),
     stop: vi.fn(),
     keep: vi.fn(),
     undo: vi.fn(),

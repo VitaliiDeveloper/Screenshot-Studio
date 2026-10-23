@@ -7,6 +7,9 @@ import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { BrowserProjectImportSource } from "@web/lib/clients/project-import-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
+import { agentCanRun } from "@web/components/agent-panel-model";
+import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
+import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
 import { ProjectCreationDialog } from "./ProjectCreationDialog";
 import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";
@@ -17,6 +20,7 @@ import {
   type ProjectLibraryState,
 } from "./ProjectGallery";
 import type { ProjectLibraryNotice } from "./project-action-notice";
+import { StartWithAgentCard } from "./StartWithAgentCard";
 
 const launcherActionMotion = "transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
 const firstRunActionMotion = "shadow-sm transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] focus-visible:ring-offset-2 motion-reduce:transform-none disabled:cursor-not-allowed disabled:opacity-60";
@@ -38,6 +42,10 @@ export interface AppHomeShellProps {
   importButtonRef?: Ref<HTMLButtonElement>;
   creationButtonRef?: Ref<HTMLButtonElement>;
   captureDialog?: ReactNode;
+  /** From `/api/agents`; only agents that can run now offer Start with agent. */
+  agents?: readonly AgentStatus[];
+  agentStart?: { busy: boolean; error: string | null };
+  onStartWithAgent?(form: ProjectCreationForm, request: AgentStartRequest): void;
   onOpenCreate(): void;
   onCloseCreate(): void;
   onChangeCreation(patch: Partial<ProjectCreationForm>): void;
@@ -74,6 +82,9 @@ export function AppHomeShell({
   importButtonRef,
   creationButtonRef,
   captureDialog,
+  agents = [],
+  agentStart = { busy: false, error: null },
+  onStartWithAgent,
   onOpenCreate,
   onCloseCreate,
   onChangeCreation,
@@ -94,6 +105,7 @@ export function AppHomeShell({
 }: AppHomeShellProps) {
   const dialogState = state.status === "idle" || state.status === "cancelled" ? null : state;
   const firstRun = projects.status === "ready" && projects.entries.length === 0;
+  const [firstAgent, ...otherAgents] = agents.filter(agentCanRun);
   const dialogs = <>
     {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} specs={storeSpecs} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
     {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} onChooseCapture={onChooseCapture} /> : null}
@@ -175,6 +187,7 @@ export function AppHomeShell({
 
         {projects.status === "loading" ? <div role="status" className="flex min-h-[28rem] items-center justify-center gap-2 text-sm text-slate-500"><LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> Loading projects…</div> : null}
         {projects.status === "error" ? <div role="alert" className="mx-auto mt-20 max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center"><p className="font-semibold text-slate-950">Projects could not be loaded.</p><p className="mt-2 text-sm text-red-700">{projects.message}</p><button type="button" className={`mt-5 ${editorUi.buttonSecondary}`} onClick={onRetryProjects}><RotateCcw aria-hidden="true" className="size-4" /> Retry</button></div> : null}
+        {projects.status === "ready" && projects.entries.length > 0 && firstAgent && onStartWithAgent ? <StartWithAgentCard agents={[firstAgent, ...otherAgents]} specs={storeSpecs} busy={agentStart.busy} error={agentStart.error} onStart={onStartWithAgent} /> : null}
         {projects.status === "ready" && projects.entries.length > 0 ? <ProjectGallery entries={projects.entries} specs={storeSpecs} action={projectAction} actionError={projectActionError} actionNotice={projectActionNotice} leavingEntryId={leavingEntryId} visibleOpeningEntryId={visibleOpeningEntryId} onOpen={onOpenProject} onOpenDetails={onOpenProjectDetails} onExportArchive={onExportArchive} onDeleteProject={onDeleteProject} onRemoveRecent={onRemoveRecent} /> : null}
       </div>
 

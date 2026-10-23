@@ -28,8 +28,8 @@ import {
   type AgentTurn,
 } from "./agent-panel-model";
 
-const agentBox = "rounded-[10px] border border-[var(--editor-color-agent-border)] bg-[var(--editor-color-agent-surface)]";
-const agentButton = `${editorUi.buttonBase} bg-[var(--editor-color-agent)] font-semibold text-[color:var(--editor-color-on-accent)] hover:bg-[var(--editor-color-agent-text)]`;
+const agentBox = editorUi.agentBox;
+const agentButton = editorUi.buttonAgent;
 const hint = "text-[11px] leading-[1.45] text-[color:var(--editor-color-text-secondary)]";
 const dot = "size-[7px] shrink-0 rounded-full";
 
