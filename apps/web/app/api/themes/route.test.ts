@@ -41,11 +41,12 @@ afterEach(async () => {
 describe("/api/themes", () => {
   it("lists definitions and applies one durably", async () => {
     const listed = await handleThemeGet(projectPath);
-    expect(await listed.json()).toMatchObject({
-      builtIns: [{ id: "neutral-default", name: "Neutral default", background: { type: "linear-gradient" } }],
-      templatePacks: [{ id: "neutral-iphone-basics", style: "neutral-default", screenCount: 2 }],
-      themes: [{ id: "midnight", name: "Midnight" }],
-    });
+    const body = await listed.json();
+    expect(body).toMatchObject({ themes: [{ id: "midnight", name: "Midnight" }] });
+    expect(body.builtIns[0]).toMatchObject({ id: "neutral-default", name: "Neutral default", background: { type: "linear-gradient" } });
+    expect(body.builtIns).toHaveLength(6);
+    expect(body.templatePacks[0]).toMatchObject({ id: "neutral-iphone-basics", style: "neutral-default", screenCount: 2 });
+    expect(body.templatePacks).toContainEqual(expect.objectContaining({ id: "midnight-android-phone", style: "midnight", platform: "android", device: "phone", screenCount: 6 }));
 
     const response = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST",

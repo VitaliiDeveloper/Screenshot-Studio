@@ -137,10 +137,19 @@ function mix(from: string, to: string, t: number): string {
   }).join("")}`;
 }
 
+/** Contrast against the least favourable point of a solid or linear-gradient background. */
+function worstContrast(color: string, background: DesignPack["background"]): number {
+  const samples = background.type === "solid"
+    ? [background.color]
+    : Array.from({ length: 101 }, (_, step) => mix(background.from, background.to, step / 100));
+  return Math.min(...samples.map((sample) => contrast(color, sample)));
+}
+
 describe("built-in design packs", () => {
   it("exposes detached background, palette, and relative typography literals", () => {
     const first = listBuiltInDesignPacks();
-    expect(first).toMatchObject([{
+    expect(first.map((pack) => pack.id)).toEqual(["neutral-default", "clean", "aurora", "midnight", "poster", "sunrise"]);
+    expect(first.slice(0, 1)).toMatchObject([{
       id: "neutral-default",
       background: { type: "linear-gradient", from: "#F8FAFC", to: "#DBEAFE" },
       palette: { heading: "#0F172A", accent: "#1D4ED8" },
@@ -152,13 +161,25 @@ describe("built-in design packs", () => {
 
   it("keeps every text role readable at the worst point of its own background", () => {
     for (const pack of listBuiltInDesignPacks()) {
-      const background = pack.background;
-      const samples = background.type === "solid"
-        ? [background.color]
-        : Array.from({ length: 101 }, (_, step) => mix(background.from, background.to, step / 100));
       for (const role of ["heading", "body", "accent"] as const) {
-        const worst = Math.min(...samples.map((sample) => contrast(pack.palette[role], sample)));
-        expect(worst, `${pack.id} ${role}`).toBeGreaterThanOrEqual(4.5);
+        expect(worstContrast(pack.palette[role], pack.background), `${pack.id} ${role}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("keeps text readable on the card and button fills the styled screen packs draw under it", () => {
+    for (const pack of listBuiltInDesignPacks().filter((candidate) => candidate.id !== "neutral-default")) {
+      for (const role of ["heading", "body", "accent"] as const) {
+        expect(contrast(pack.palette[role], pack.palette.surface), `${pack.id} ${role} on surface`).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(contrast(pack.palette.surface, pack.palette.accent), `${pack.id} surface on accent`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("sets every styled pack in Studio Display, which covers Cyrillic and Latin Extended-A", () => {
+    for (const pack of listBuiltInDesignPacks().filter((candidate) => candidate.id !== "neutral-default")) {
+      for (const role of ["heading", "body", "accent", "surface"] as const) {
+        expect(pack.typography[role].family, `${pack.id} ${role}`).toBe("Screenshot Studio Display");
       }
     }
   });

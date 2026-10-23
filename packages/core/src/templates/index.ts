@@ -30,6 +30,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { findBuiltInDesignPack, type DesignPack } from "@screenshot-studio/core/themes";
+import { STYLE_COMPOSITIONS, STYLE_PACK_SCREENS, styledScreenElements, type StyleComposition } from "./style-packs.js";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -258,9 +259,41 @@ type BuiltInTemplatePackDefinition = {
   frame: DeviceFrameId;
   style: string;
   screens: readonly BuiltInTemplatePackScreen[];
+  composition?: StyleComposition;
 };
 
-// shortcut: one seed pack exercises the multi-screen path; real styles land with VTL-37.
+const STYLE_PACK_TARGETS = [
+  { slug: "iphone", label: "iPhone", platform: "apple", device: "iphone", targetId: "6.3" },
+  { slug: "android-phone", label: "Android phone", platform: "android", device: "phone", targetId: "phone-portrait" },
+] as const;
+
+const STYLE_PACK_FRAMES: Readonly<Record<string, Record<(typeof STYLE_PACK_TARGETS)[number]["slug"], DeviceFrameId>>> = {
+  clean: { iphone: "iphone", "android-phone": "android-phone" },
+  aurora: { iphone: "iphone", "android-phone": "phone-punch-hole-dark" },
+  midnight: { iphone: "phone-modern-light", "android-phone": "android-phone" },
+  poster: { iphone: "phone-modern-dark", "android-phone": "android-phone" },
+  sunrise: { iphone: "iphone", "android-phone": "phone-punch-hole-dark" },
+};
+
+const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = Object.entries(STYLE_COMPOSITIONS)
+  .flatMap(([style, composition]) => STYLE_PACK_TARGETS.map((target) => {
+    const pack = findBuiltInDesignPack(style)!;
+    const id = `${style}-${target.slug}`;
+    return {
+      id,
+      name: `${pack.name} · ${target.label}`,
+      description: `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
+      platform: target.platform,
+      device: target.device,
+      targetId: target.targetId,
+      frame: STYLE_PACK_FRAMES[style]![target.slug],
+      style,
+      screens: STYLE_PACK_SCREENS.map((screen) => ({ id: `${id}-${screen.key}`, name: screen.name, headline: screen.headline, subline: screen.subline })),
+      composition,
+    };
+  }));
+
+// The neutral seed predates the styled packs; CLI, API, and editor tests address it by id.
 const BUILT_IN_TEMPLATE_PACK_DEFINITIONS: readonly BuiltInTemplatePackDefinition[] = [{
   id: "neutral-iphone-basics",
   name: "Neutral basics · iPhone",
@@ -274,7 +307,7 @@ const BUILT_IN_TEMPLATE_PACK_DEFINITIONS: readonly BuiltInTemplatePackDefinition
     { id: "neutral-iphone-hero", name: "Hero", headline: "Your app, at a glance", subline: "Say what it does in one short line." },
     { id: "neutral-iphone-feature", name: "Feature", headline: "One idea per screen", subline: "Explain a single feature with a short supporting line.", card: true },
   ],
-}];
+}, ...STYLE_TEMPLATE_PACK_DEFINITIONS];
 
 export interface BuiltInTemplatePackMetadata {
   id: string;
@@ -362,7 +395,7 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
       platform: definition.platform,
       device: definition.device,
       style: definition.style,
-      screens: definition.screens.map((screen) => ({
+      screens: definition.screens.map((screen, index) => ({
         id: screen.id,
         name: screen.name,
         targetId: definition.targetId,
@@ -370,7 +403,9 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
         device: definition.device,
         artboard: { width: target.width, height: target.height },
         background: style.background,
-        elements: templatePackElements(definition, screen, style, target.width, target.height),
+        elements: definition.composition
+          ? styledScreenElements(definition.composition, STYLE_PACK_SCREENS[index]!, index, definition.frame, style, target.width, target.height)
+          : templatePackElements(definition, screen, style, target.width, target.height),
       })),
     });
   });
