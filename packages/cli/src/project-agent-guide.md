@@ -170,6 +170,7 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Blank screen | `screen add --platform <p> --device <d> --locale <locale>` |
 | Change copy on every exact size of a slot | `element text <screen-id> <element-id> --all-sizes "<copy>"` |
 | Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
+| Use an image from outside the project | `asset import <file>`, then `element media` with the printed path |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
 | Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
 | Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
@@ -276,7 +277,11 @@ pairing fields to the project.
 
 1. Put the file inside the project first, for example `assets/captures/uk/03.png`. The command
    accepts only an existing project-relative PNG, JPEG, or WebP file of 25 MB or less, and refuses
-   absolute paths, `..`, and symlinks that leave the project.
+   absolute paths, `..`, and symlinks that leave the project. For a file outside the project, such
+   as an image attached in the editor's agent chat, run
+   `screenshots asset import <file> --project ./app-store-screenshots.json` instead of copying it:
+   it validates the image, stores it under `assets/imported/`, and prints the path to assign.
+   Relative `<file>` paths resolve from the current directory.
 2. Find the target leaf and assign the path:
 
    ```bash

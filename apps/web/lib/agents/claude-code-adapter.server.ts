@@ -77,10 +77,8 @@ export const claudeCodeAdapter: AgentAdapter = {
           request,
           "Plan the work as a short todo list with TodoWrite and keep each item's status current.",
         ),
-        // Codex gets the same images through `--image`.
-        ...(request.attachments.length > 0 ? [
-          `The user attached reference images to this request; view them with the Read tool. They are context only: do not copy them into the project.\n${request.attachments.join("\n")}`,
-        ] : []),
+        // Codex sees the same images through `--image`.
+        ...(request.attachments.length > 0 ? ["View the attached images with the Read tool."] : []),
       ].join("\n"),
       // The skill and the images live outside the project; restricted file tools only read added directories.
       ...(request.context.skillPath ? ["--add-dir", dirname(request.context.skillPath)] : []),

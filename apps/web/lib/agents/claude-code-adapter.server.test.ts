@@ -97,6 +97,7 @@ describe("Claude Code adapter", () => {
       .toEqual(["/app/skills/screenshot-studio", "/tmp/runs/1/run-a"]);
     const prompt = args[args.indexOf("--append-system-prompt") + 1];
     expect(prompt).toContain("/tmp/runs/1/run-a/1.png\n/tmp/runs/1/run-a/2.jpg");
+    expect(prompt).toContain("screenshots asset import <path>");
     expect(args).not.toContain(REQUEST.message);
     expect(claudeCodeAdapter.args(REQUEST).join(" ")).not.toContain("run-a");
   });

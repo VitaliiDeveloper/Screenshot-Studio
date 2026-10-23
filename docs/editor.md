@@ -359,8 +359,10 @@ WebP are accepted, judged by the file's bytes rather than its name; the limits a
 10 MB each per message. The composer notes that attached images are sent to the agent's provider with
 the request, through the user's subscription. Images belong to one message and one run: the message
 shows its thumbnails from editor memory, **New chat** frees them, and **Retry** and **Ask agent to fix**
-send the same images again (the latter puts them back in the composer). They are never written to the
-project folder or `app-store-screenshots.json`; placing an image in the project is a separate step.
+send the same images again (the latter puts them back in the composer). An image reaches the project
+folder only when the user asks the agent to use it: the agent runs `screenshots asset import`, which
+stores a validated copy under `assets/imported/`, then assigns that path to an element. Undo run and
+Stop restore `app-store-screenshots.json` only, so an imported copy stays on disk, unreferenced.
 
 A rejected result was already rolled back by the server: the panel says so, with the schema reason
 under **Show details** and **Ask agent to fix**, which prefills the composer. A usage limit names

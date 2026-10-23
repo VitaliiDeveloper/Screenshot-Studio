@@ -311,6 +311,29 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await keepAgentOutcome(projectDir)).toBe(false);
   });
 
+  it("leaves an image the run imported on disk when the run is undone or stopped", async () => {
+    const projectFile = join(projectDir, "app-store-screenshots.json");
+    const imported = join(projectDir, "assets", "imported", "1.png");
+    const importAndChange = `/bin/mkdir -p assets/imported; echo png > assets/imported/1.png; /bin/cp '${root}/changed.json' app-store-screenshots.json`;
+
+    await fakeClaude(`${importAndChange}; /bin/cat '${SUCCESS_FIXTURE}'`);
+    await collect(await start());
+    await undoAgentOutcome(projectDir);
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await exists(imported)).toBe(true);
+
+    await rm(imported);
+    await fakeClaude(`${importAndChange}; ${hang()}`);
+    const run = await start();
+    await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+    expect(await cancelAgentRun(projectDir)).toBe(true);
+    await collect(run);
+    // The editor's Stop is a cancel followed by Undo run.
+    await undoAgentOutcome(projectDir);
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await exists(imported)).toBe(true);
+  }, 20_000);
+
   it("names the changed screens and refuses undo once the editor wrote past the run", async () => {
     const projectFile = join(projectDir, "app-store-screenshots.json");
     const renamed = { ...PROJECT, layouts: [{ ...PROJECT.layouts[0], screens: [{ ...PROJECT.layouts[0]!.screens[0], name: "Hero DE" }] }] };
