@@ -255,7 +255,11 @@ catalogs, defined in code and never read from disk. Selecting a built-in templat
 ordinary editable root or root/target-variant pair. A built-in screen pack (`TemplatePack`: id, name,
 platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends each of its screens the
 same way, in one project update; the style tag names the Design pack its literals were baked from and
-is not persisted. Applying a Design pack writes its solid or linear-gradient background to every
+is not persisted. Five styles (Clean, Aurora, Midnight, Poster, Sunrise) each pair a Design pack with
+a six-screen pack (hero, three features, social proof, call to action) for iPhone 6.3″ and Android
+phone portrait. Each pack derives its geometry from the exact store artboard, sets type in Studio
+Display, and draws generated art from shapes, because a global pack cannot carry image assets. The
+picker previews in `apps/web/public/template-previews/` come from the same renderer. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
 role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.

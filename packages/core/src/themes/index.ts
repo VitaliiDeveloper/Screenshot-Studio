@@ -71,6 +71,10 @@ export const DesignPack = z.object({
 }).strict();
 export type DesignPack = z.infer<typeof DesignPack>;
 
+const display = (weight: 400 | 600 | 800, sizeRatio: number, lineHeight: number, letterSpacingEm = 0) => ({
+  family: "Screenshot Studio Display", weight, sizeRatio, lineHeight, letterSpacingEm,
+});
+
 const BUILT_IN_DESIGN_PACKS: readonly DesignPack[] = [DesignPack.parse({
   id: "neutral-default",
   name: "Neutral default",
@@ -88,7 +92,73 @@ const BUILT_IN_DESIGN_PACKS: readonly DesignPack[] = [DesignPack.parse({
     accent: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, sizeRatio: 0.03, lineHeight: 1.2, letterSpacingEm: 0 },
     surface: { family: DEFAULT_TEXT_FONT.family, weight: DEFAULT_TEXT_FONT.weight, sizeRatio: 0.03, lineHeight: 1.2, letterSpacingEm: 0 },
   },
-})];
+}), ...[
+  {
+    id: "clean",
+    name: "Clean",
+    description: "White space, centered copy, and quiet semibold type.",
+    background: { type: "solid", color: "#FFFFFF" },
+    palette: { heading: "#111827", body: "#4B5563", accent: "#1D4ED8", surface: "#F3F4F6" },
+    typography: {
+      heading: display(600, 0.08, 1.1, -0.02),
+      body: display(400, 0.044, 1.4),
+      accent: display(600, 0.026, 1.2, 0.08),
+      surface: display(600, 0.04, 1.2),
+    },
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    description: "A violet-to-pink gradient with soft glows and extra-bold type.",
+    background: { type: "linear-gradient", from: "#3B0764", to: "#BE185D", angle: 160 },
+    palette: { heading: "#FFFFFF", body: "#FCE7F3", accent: "#FDE68A", surface: "#2E1065" },
+    typography: {
+      heading: display(800, 0.09, 1.04, -0.025),
+      body: display(400, 0.044, 1.4),
+      accent: display(600, 0.026, 1.2, 0.1),
+      surface: display(800, 0.04, 1.2),
+    },
+  },
+  {
+    id: "midnight",
+    name: "Midnight",
+    description: "Deep navy, a cyan glow behind the device, and copy that alternates top and bottom.",
+    background: { type: "linear-gradient", from: "#020617", to: "#1E293B", angle: 90 },
+    palette: { heading: "#F8FAFC", body: "#94A3B8", accent: "#22D3EE", surface: "#1E293B" },
+    typography: {
+      heading: display(600, 0.075, 1.12, -0.01),
+      body: display(400, 0.042, 1.45),
+      accent: display(600, 0.024, 1.2, 0.16),
+      surface: display(600, 0.04, 1.2),
+    },
+  },
+  {
+    id: "poster",
+    name: "Poster",
+    description: "Signal yellow, huge extra-bold headlines, and a device that runs off the bottom edge.",
+    background: { type: "solid", color: "#FACC15" },
+    palette: { heading: "#0A0A0A", body: "#292524", accent: "#0A0A0A", surface: "#FFFFFF" },
+    typography: {
+      heading: display(800, 0.105, 0.98, -0.035),
+      body: display(600, 0.046, 1.3),
+      accent: display(800, 0.028, 1.2, 0.04),
+      surface: display(800, 0.042, 1.2),
+    },
+  },
+  {
+    id: "sunrise",
+    name: "Sunrise",
+    description: "A warm peach gradient with a generated sun and light editorial type.",
+    background: { type: "linear-gradient", from: "#FFF7ED", to: "#FED7AA", angle: 90 },
+    palette: { heading: "#7C2D12", body: "#9A3412", accent: "#9F3A10", surface: "#FFFFFF" },
+    typography: {
+      heading: display(400, 0.085, 1.1, -0.02),
+      body: display(400, 0.044, 1.45),
+      accent: display(600, 0.026, 1.2, 0.12),
+      surface: display(600, 0.04, 1.2),
+    },
+  },
+].map((pack) => DesignPack.parse(pack))];
 
 /** Process-global, read-only catalog. Callers receive detached literals. */
 export function listBuiltInDesignPacks(): DesignPack[] {
