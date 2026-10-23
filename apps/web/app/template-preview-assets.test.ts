@@ -27,5 +27,6 @@ describe("template pack previews", () => {
         expect(info.hasAlpha, file).toBe(false);
       }
     }
-  });
+  // Decodes every shipped preview, which outlasts the 5 s default under coverage.
+  }, 30_000);
 });
