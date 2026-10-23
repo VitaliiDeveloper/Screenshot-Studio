@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-/** The first request for a project created by Start with agent; its Workspace starts the run. */
+/** The first request for a project created with the agent starting point; its Workspace starts the run. */
 export interface AgentStartRequest {
   agentId: string;
   model: string | null;
   message: string;
+}
+
+/** The first message, with the chosen destination, exactly as the chat shows it. */
+export function agentStartMessage({ description, destination }: { description: string; destination: string }): string {
+  return [
+    "Create the first screens for this new screenshot project.",
+    `Destination: ${destination}`,
+    "",
+    description.trim(),
+  ].join("\n");
 }
 
 // Memory only: the prompt stays out of the URL and storage, and a reload cannot start a second run.

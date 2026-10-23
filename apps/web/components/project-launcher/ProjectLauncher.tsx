@@ -83,7 +83,6 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   const [leavingEntryId, setLeavingEntryId] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<ProjectLibraryNotice | null>(null);
   const [agents, setAgents] = useState<AgentStatus[]>([]);
-  const [agentStart, setAgentStart] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
@@ -185,22 +184,20 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
     void settleProjects();
   }, [settleProjects]);
 
-  const gallery = projects.status === "ready" && projects.entries.length > 0;
-  // The registry probes each CLI, so first run (which never shows the card) skips it.
+  // Loaded with the page so New project can offer the agent starting point as soon as it opens.
   useEffect(() => {
-    if (!gallery) return;
     let current = true;
     void fetch("/api/agents", { cache: "no-store" })
       .then(async (response) => {
         const body = await readJsonBody(response);
         if (current && response.ok && Array.isArray(body.agents)) setAgents(body.agents as AgentStatus[]);
       })
-      // Without the registry the card stays hidden; New project and Import never wait on it.
+      // Without the registry New project has no agent starting point.
       .catch(() => undefined);
     return () => {
       current = false;
     };
-  }, [gallery]);
+  }, []);
 
   useEffect(() => {
     if (!focusCreationWhenEmptyRef.current) return;
@@ -321,18 +318,20 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   const changeCreation = useCallback((patch: Partial<ProjectCreationForm>) => {
     dispatchCreation({ type: "change", patch });
   }, []);
-  const submitCreation = () => {
+  // The session route stops a run when its stream closes, so the new project's Workspace starts it.
+  const submitCreation = (agent?: AgentStartRequest) => {
     if (creationState.status !== "editing" && creationState.status !== "error") return;
     const input = creationState.form;
     dispatchCreation({ type: "submit" });
     void switchActiveProject(() => createProject(input)).then((result) => {
       if (!mountedRef.current) return;
+      if (agent) queueAgentStart(result.projectId, agent);
       dispatchCreation({ type: "complete", projectId: result.projectId });
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const navigate = () => {
         creationExitTimerRef.current = null;
         if (mountedRef.current) {
-          router.push(editorProjectUrl(result.projectId));
+          router.push(editorProjectUrl(result.projectId, agent ? "agent" : undefined));
         }
       };
       const delay = launcherDialogExitDelay(reducedMotion);
@@ -344,18 +343,6 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
         type: "fail",
         message: caught instanceof Error ? caught.message : String(caught),
       });
-    });
-  };
-  // The session route stops a run when its stream closes, so the new project's Workspace starts it.
-  const startWithAgent = (form: ProjectCreationForm, request: AgentStartRequest) => {
-    if (agentStart.busy) return;
-    setAgentStart({ busy: true, error: null });
-    void switchActiveProject(() => createProject(form)).then((result) => {
-      if (!mountedRef.current) return;
-      queueAgentStart(result.projectId, request);
-      router.push(editorProjectUrl(result.projectId, "agent"));
-    }).catch((caught: unknown) => {
-      if (mountedRef.current) setAgentStart({ busy: false, error: caught instanceof Error ? caught.message : String(caught) });
     });
   };
   const openProject = (entryId: string, destination: "workspace" | "details") => {
@@ -460,8 +447,6 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
         />
       )}
       agents={agents}
-      agentStart={agentStart}
-      onStartWithAgent={startWithAgent}
       onOpenCreate={() => dispatchCreation({ type: "open" })}
       onCloseCreate={closeCreation}
       onChangeCreation={changeCreation}

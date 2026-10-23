@@ -217,25 +217,29 @@ describe("Agent panel", () => {
     const runs = () => (existsSync(join(binDir, "runs.log")) ? readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").length : 0);
     const runsBefore = runs();
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    // Opening the configured project first makes Projects show the gallery, where the card lives.
+    // Opening the configured project first makes Projects show the gallery and its New project button.
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
     await page.waitForSelector("canvas");
     await page.goto(server.url, { waitUntil: "load" });
 
-    const card = page.getByRole("region", { name: "Start with agent" });
-    await card.waitFor(poll);
-    await card.getByRole("textbox", { name: "Describe the app" }).fill("Habit tracker for runners. Calm, light look.");
-    await card.getByRole("textbox", { name: "Locales" }).fill("EN, DE");
-    await card.getByRole("textbox", { name: "Project name" }).fill("Run Habit");
-    await card.getByRole("button", { name: "Model", exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "haiku" }).click();
-    await card.getByRole("button", { name: "Create with Claude Code" }).click();
+    await page.getByRole("button", { name: "New project" }).click();
+    const dialog = page.getByRole("dialog", { name: "Create a managed project" });
+    await dialog.getByRole("radio", { name: /Start with agent/ }).check(poll);
+    await dialog.getByRole("textbox", { name: "Describe the app" }).fill("Habit tracker for runners. Calm, light look.");
+    await dialog.getByRole("textbox", { name: "Project name" }).fill("Run Habit");
+    await dialog.getByRole("button", { name: "Target platform" }).click();
+    await dialog.getByRole("menu", { name: "Target platform options" }).getByRole("menuitemradio", { name: "Google Play" }).click();
+    await dialog.getByRole("button", { name: "Device family" }).click();
+    await dialog.getByRole("menu", { name: "Device family options" }).getByRole("menuitemradio", { name: "Android tablet" }).click();
+    await dialog.getByRole("button", { name: "Model", exact: true }).click();
+    await dialog.getByRole("menu", { name: "Model options" }).getByRole("menuitemradio", { name: "haiku" }).click();
+    await dialog.getByRole("button", { name: "Create with Claude Code" }).click();
 
     await page.waitForURL(/\/editor\/project_[^/?]+$/, poll);
     const panel = page.getByRole("complementary", { name: "Agent", exact: true });
     await expect.poll(() => panel.getByRole("status").first().textContent(), poll).toContain("Running");
     expect(await panel.textContent()).toContain("Habit tracker for runners. Calm, light look.");
-    expect(await panel.textContent()).toContain("Locales: EN, DE");
+    expect(await panel.textContent()).toContain("Destination: Google Play · Android tablet");
     await expect.poll(runs, poll).toBe(runsBefore + 1);
     const args = JSON.parse(readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").at(-1)!) as string[];
     expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual(["--model", "haiku"]);

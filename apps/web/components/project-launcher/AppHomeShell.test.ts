@@ -8,7 +8,7 @@ import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
 import type { ProjectLibraryEntry } from "@web/lib/clients/project-library-client.js";
 import { AppHomeShell, type AppHomeShellProps } from "./AppHomeShell.js";
-import { agentStartMessage } from "./StartWithAgentCard.js";
+import { agentStartMessage } from "@web/lib/editor/agent-start-request";
 
 vi.mock("../ScreenThumbnail.js", () => ({
   ScreenThumbnail: () => createElement("img", { alt: "" }),
@@ -79,7 +79,13 @@ function render(
   }));
 }
 
-const gallery = { projects: { status: "ready", entries: [entry] }, onStartWithAgent: vi.fn() } as const;
+const gallery = { projects: { status: "ready", entries: [entry] } } as const;
+const creating = {
+  creationState: {
+    status: "editing",
+    form: { name: "Run Habit", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null },
+  },
+} as const;
 
 describe("AppHomeShell", () => {
   it("restores the original launcher composition with exactly New project and Import", () => {
@@ -99,48 +105,31 @@ describe("AppHomeShell", () => {
     expect(markup).not.toContain('type="text"');
   });
 
-  it("keeps first run to New project and Import even when an agent can run", () => {
-    const markup = render({ status: "idle" }, false, { agents: [claude], onStartWithAgent: vi.fn() });
+  it("offers an agent that can run only inside New project, on first run and beside the gallery", () => {
+    for (const projects of [{ projects: { status: "ready", entries: [] } } as const, gallery]) {
+      const page = render({ status: "idle" }, false, { ...projects, agents: [signedOut, claude] });
+      const dialog = render({ status: "idle" }, false, { ...projects, ...creating, agents: [signedOut, claude] });
 
-    expect(markup.match(/<button/g)).toHaveLength(2);
-    expect(markup).not.toContain("Start with agent");
+      expect(page).not.toContain("Start with agent");
+      expect(dialog).toMatch(/<input type="radio" class="mt-1 accent-\[var\(--editor-color-agent\)\]" name="starter"\/><span[^>]*><svg[^>]*>.*?<\/svg><\/span><span><span[^>]*>Start with agent<\/span>/);
+      expect(dialog).toContain("Claude Code creates the first screens on a blank project.");
+      expect(dialog).toMatch(/<input type="radio" name="starter" checked=""\/>.*?Blank/);
+      expect(dialog).not.toContain("<textarea");
+      expect(dialog).not.toContain("Codex");
+    }
   });
 
-  it("offers Start with agent beside the gallery for an agent that can run", () => {
-    const markup = render({ status: "idle" }, false, { ...gallery, agents: [signedOut, claude] });
-
-    expect(markup).toContain("Start with agent");
-    expect(markup).toContain('aria-label="Describe the app"');
-    expect(markup).toContain('aria-label="Destination"');
-    expect(markup).toContain("App Store · iPhone");
-    expect(markup).toContain("Project name");
-    expect(markup).toContain("Locales");
-    expect(markup).toContain('aria-label="Model"');
-    expect(markup).toMatch(/<button type="submit" disabled=""[^>]*>Create with Claude Code<\/button>/);
-    expect(markup).not.toContain("Codex");
-    expect(markup).toContain("New project");
-    expect(markup).toContain("Import");
+  it("hides the agent starting point without an agent that can run now", () => {
+    expect(render({ status: "idle" }, false, { ...gallery, ...creating, agents: [signedOut, ownRisk] })).not.toContain("Start with agent");
+    expect(render({ status: "idle" }, false, { ...gallery, ...creating, agents: [] })).not.toContain("Start with agent");
+    expect(render({ status: "idle" }, false, { ...gallery, ...creating, agents: [{ ...ownRisk, consented: true }] }))
+      .toContain("Antigravity creates the first screens on a blank project.");
   });
 
-  it("hides Start with agent without an agent that can run now", () => {
-    expect(render({ status: "idle" }, false, { ...gallery, agents: [signedOut, ownRisk] })).not.toContain("Start with agent");
-    expect(render({ status: "idle" }, false, { ...gallery, agents: [] })).not.toContain("Start with agent");
-    expect(render({ status: "idle" }, false, { ...gallery, agents: [{ ...ownRisk, consented: true }] })).toContain("Create with Antigravity");
-  });
-
-  it("shows creation progress and failures on the card", () => {
-    const busy = render({ status: "idle" }, false, { ...gallery, agents: [claude], agentStart: { busy: true, error: null } });
-    const failed = render({ status: "idle" }, false, { ...gallery, agents: [claude], agentStart: { busy: false, error: "Project creation failed" } });
-
-    expect(busy).toContain("Creating project…");
-    expect(failed).toMatch(/role="alert"[^>]*>Project creation failed/);
-  });
-
-  it("sends the destination and locales with the description as the first message", () => {
-    expect(agentStartMessage({ description: " Habit tracker \n", destination: "App Store · iPhone", locales: " EN, DE " })).toBe(
-      "Create the first screens for this new screenshot project.\nDestination: App Store · iPhone\nLocales: EN, DE\n\nHabit tracker",
+  it("sends the destination with the description as the first message", () => {
+    expect(agentStartMessage({ description: " Habit tracker \n", destination: "App Store · iPhone" })).toBe(
+      "Create the first screens for this new screenshot project.\nDestination: App Store · iPhone\n\nHabit tracker",
     );
-    expect(agentStartMessage({ description: "Habit tracker", destination: "Google Play · Phone", locales: "" })).not.toContain("Locales");
   });
 
   it("shows platform-aware starters with configuration and previews", () => {
