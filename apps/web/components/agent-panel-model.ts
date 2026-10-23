@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
+import { attachmentProblem, SNIFF_BYTES } from "@web/lib/agents/agent-attachments";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
 import type { AgentEvent, AgentStep } from "@web/lib/agents/agent-session.server";
 import { compactScreenSizeLabel } from "@web/lib/panel-helpers";
@@ -8,11 +9,19 @@ import { compactScreenSizeLabel } from "@web/lib/panel-helpers";
 export type AgentResult = Extract<AgentEvent, { type: "result" }>;
 export type AgentDone = Extract<AgentEvent, { type: "done" }>;
 
+/** An image sent with one request. The file stays in editor memory so Retry can send it again. */
+export interface AgentTurnAttachment {
+  file: File;
+  /** Object URL for the thumbnail; freed with the turn. */
+  url: string;
+}
+
 /** One request and the run it started. Chat history is editor memory, never project content. */
 export interface AgentTurn {
   id: number;
   agentName: string;
   message: string;
+  attachments: AgentTurnAttachment[];
   text: string[];
   steps: AgentStep[];
   /** The last shell command the agent ran. */
@@ -26,11 +35,21 @@ export interface AgentTurn {
   restored: boolean;
 }
 
-export function createAgentTurn(id: number, agentName: string, message: string): AgentTurn {
+export function createAgentTurn(
+  id: number,
+  agentName: string,
+  message: string,
+  attachments: AgentTurnAttachment[] = [],
+): AgentTurn {
   return {
-    id, agentName, message, text: [], steps: [], command: null,
+    id, agentName, message, attachments, text: [], steps: [], command: null,
     error: null, result: null, done: null, stopped: false, restored: false,
   };
+}
+
+/** Why a file cannot be attached (the server decides again from the same bytes), or null. */
+export async function attachmentFileProblem(file: Blob): Promise<string | null> {
+  return attachmentProblem(file.size, new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer()));
 }
 
 export function applyAgentEvent(turn: AgentTurn, event: AgentEvent): AgentTurn {

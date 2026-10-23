@@ -10,6 +10,7 @@ import {
   agentCanRun,
   createAgentTurn,
   defaultAgentId,
+  type AgentTurnAttachment,
   type AgentResult,
   type AgentTurn,
 } from "@web/components/agent-panel-model";
@@ -23,6 +24,14 @@ export type AgentChatPhase = "idle" | "running" | "syncing";
 const AGENT_STATES = new Set([
   "not-installed", "unsupported-version", "not-signed-in", "wrong-auth-mode", "unavailable", "no-adapter", "consent-required",
 ]);
+
+function attachmentsOf(files: readonly File[]): AgentTurnAttachment[] {
+  return files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+}
+
+function revokeAttachments(turns: readonly AgentTurn[]): void {
+  for (const turn of turns) for (const { url } of turn.attachments) URL.revokeObjectURL(url);
+}
 
 function jsonHeaders(): Headers {
   return projectRequestHeaders({ headers: { "content-type": "application/json" } });
@@ -54,6 +63,10 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
   const [consentError, setConsentError] = useState<string | null>(null);
+  const turnsRef = useRef<AgentTurn[]>([]);
+  useEffect(() => {
+    turnsRef.current = turns;
+  }, [turns]);
   const nextTurnId = useRef(1);
   const stopped = useRef(false);
   const abort = useRef<AbortController | null>(null);
@@ -107,10 +120,11 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     return () => {
       mounted.current = false;
       abort.current?.abort();
+      revokeAttachments(turnsRef.current);
     };
   }, []);
 
-  const send = useCallback(async (message: string): Promise<boolean> => {
+  const send = useCallback(async (message: string, files: readonly File[] = []): Promise<boolean> => {
     const agent = selected;
     if (!agentCanRun(agent) || phase !== "idle" || !message.trim()) return false;
     const id = nextTurnId.current++;
@@ -122,7 +136,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       error: { code, message: text, resets: null },
       done: turn.done ?? { type: "done", status: "failed", summary: null, durationMs: null },
     }));
-    setTurns((all) => [...all, createAgentTurn(id, agent.name, message)]);
+    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, attachmentsOf(files))]);
     setPhase("running");
     setOutcomeError(null);
     stopped.current = false;
@@ -134,10 +148,16 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     try {
       // A debounced edit that fired mid-run would be refused, so the run starts from saved work.
       await flushScheduledSave();
+      // Images go with the request in one multipart body; the browser sets its boundary header.
+      const form = new FormData();
+      form.set("agentId", agent.id);
+      form.set("message", message);
+      if (selectedModel) form.set("model", selectedModel);
+      for (const file of files) form.append("image", file);
       const response = await fetch("/api/agents/session", {
         method: "POST",
-        headers: jsonHeaders(),
-        body: JSON.stringify({ agentId: agent.id, message, model: selectedModel }),
+        headers: files.length > 0 ? projectRequestHeaders() : jsonHeaders(),
+        body: files.length > 0 ? form : JSON.stringify({ agentId: agent.id, message, model: selectedModel }),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
@@ -255,7 +275,9 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   }, []);
 
   const newChat = useCallback(() => {
-    if (phase === "idle") setTurns([]);
+    if (phase !== "idle") return;
+    revokeAttachments(turnsRef.current);
+    setTurns([]);
   }, [phase]);
 
   return {
