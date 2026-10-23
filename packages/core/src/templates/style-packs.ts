@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   deviceFramePreset,
+  elementLeaves,
   type DeviceFrameId,
   type Element,
   type ShapeElement,
@@ -199,4 +200,130 @@ export function styledScreenElements(
     rotation: 0, opacity: 1, locked: false, visible: true, deviceType: frame, fit: "cover",
   });
   return elements;
+}
+
+export interface SpanContext {
+  width: number;
+  height: number;
+  shortSide: number;
+  count: number;
+  /** First y the art may use: below every text block and card on every screen. */
+  top: number;
+  pack: DesignPack;
+}
+
+export interface PanoramaSpan {
+  summary: string;
+  /** Shapes in strip coordinates, inside `[0, count × width]`. */
+  draw: (context: SpanContext) => ShapeElement[];
+}
+
+/** Inner seams only: art past either strip end would land on a neighbouring, unrelated screen. */
+const seams = (count: number) => Array.from({ length: count - 1 }, (_, index) => index + 1);
+
+// Backgrounds still restart per screen in a connected layout, so only styles whose background is
+// solid or vertical can span.
+export const PANORAMA_SPANS: Readonly<Record<string, PanoramaSpan>> = {
+  clean: {
+    summary: "one stage and a timeline run under every device",
+    draw: ({ width, height, shortSide, count, top, pack }) => {
+      const margin = shortSide * 0.06;
+      const stageY = top + (height - top) * 0.3;
+      const track = shortSide * 0.01;
+      const trackY = stageY - shortSide * 0.08;
+      const dot = shortSide * 0.06;
+      return [
+        shape("stage", "Stage", { x: margin, y: stageY, width: count * width - margin * 2, height: height - stageY - margin }, {
+          kind: "rect", fill: pack.palette.surface, radius: Math.round(shortSide * 0.06), role: "surface",
+        }),
+        shape("track", "Timeline", { x: margin, y: trackY, width: count * width - margin * 2, height: track }, {
+          kind: "rect", fill: pack.palette.accent, opacity: 0.3, radius: Math.round(track / 2),
+        }),
+        ...seams(count).map((seam) => shape(`joint-${seam}`, `Joint (screens ${seam}–${seam + 1})`, {
+          x: seam * width - dot / 2, y: trackY + track / 2 - dot / 2, width: dot, height: dot,
+        }, { kind: "ellipse", fill: pack.palette.accent, role: "accent" })),
+      ];
+    },
+  },
+  midnight: {
+    summary: "glowing orbit rings link each pair of screens",
+    draw: ({ width, height, shortSide, count, top, pack }) => {
+      const room = height - top;
+      const radius = Math.min(width * 0.46, room * 0.4);
+      const stroke = Math.max(1, Math.round(shortSide * 0.006));
+      const center = (seam: number) => top + room * (seam % 2 === 0 ? 0.4 : 0.62);
+      const ring = (seam: number, scale: number, opacity: number, id: string) => shape(id, `Orbit ring (screens ${seam}–${seam + 1})`, {
+        x: seam * width - radius * scale, y: center(seam) - radius * scale, width: radius * scale * 2, height: radius * scale * 2,
+      }, { kind: "ellipse", fill: "#00000000", stroke: { color: pack.palette.accent, width: stroke }, opacity });
+      return seams(count).flatMap((seam) => [
+        shape(`glow-${seam}`, `Glow (screens ${seam}–${seam + 1})`, {
+          x: seam * width - radius * 1.3, y: center(seam) - radius, width: radius * 2.6, height: radius * 2,
+        }, { kind: "ellipse", fill: pack.palette.accent, opacity: 0.14 }),
+        ring(seam, 1, 0.6, `ring-${seam}`),
+        ring(seam, 0.7, 0.35, `ring-${seam}-inner`),
+      ]);
+    },
+  },
+  poster: {
+    summary: "a bold stripe and split discs cross every screen edge",
+    draw: ({ width, height, count, top, pack }) => {
+      const room = height - top;
+      const band = room * 0.14;
+      const bandY = top + room * 0.42;
+      const disc = Math.min(width * 0.62, room * 0.5);
+      return [
+        shape("stripe", "Stripe", { x: 0, y: bandY, width: count * width, height: band }, { kind: "rect", fill: pack.palette.accent, role: "accent" }),
+        shape("stripe-thin", "Thin stripe", { x: 0, y: bandY + band * 1.35, width: count * width, height: band * 0.25 }, {
+          kind: "rect", fill: pack.palette.accent, role: "accent",
+        }),
+        ...seams(count).map((seam) => shape(`disc-${seam}`, `Disc (screens ${seam}–${seam + 1})`, {
+          x: seam * width - disc / 2, y: seam % 2 === 0 ? bandY - disc * 0.6 : bandY + band - disc * 0.4, width: disc, height: disc,
+        }, { kind: "ellipse", fill: pack.palette.surface, role: "surface" })),
+      ];
+    },
+  },
+  sunrise: {
+    summary: "one horizon with rolling hills, and a sun rising between the first two screens",
+    draw: ({ width, height, count, top }) => {
+      const horizon = top + (height - top) * 0.58;
+      const sun = Math.min(width * 0.36, (horizon - top) / 1.5);
+      const hill = (height - horizon) * 1.2;
+      return [
+        shape("sun", "Sun (screens 1–2)", { x: width - sun, y: horizon - sun * 1.5, width: sun * 2, height: sun * 2 }, {
+          kind: "ellipse", fill: "#FB923C", gradient: { from: "#FDE68A", to: "#FB923C", angle: 90 },
+        }),
+        shape("horizon", "Horizon", { x: 0, y: horizon, width: count * width, height: height - horizon }, {
+          kind: "rect", fill: "#FDBA74", gradient: { from: "#FDBA74", to: "#F97316", angle: 90 },
+        }),
+        ...seams(count).map((seam) => shape(`hill-${seam}`, `Hill (screens ${seam}–${seam + 1})`, {
+          x: seam * width - width * 0.65, y: horizon - hill * 0.3, width: width * 1.3, height: hill,
+        }, seam % 2 === 0
+          ? { kind: "ellipse", fill: "#F97316", gradient: { from: "#FB923C", to: "#EA580C", angle: 90 } }
+          : { kind: "ellipse", fill: "#EA580C", gradient: { from: "#F97316", to: "#C2410C", angle: 90 } })),
+      ];
+    },
+  },
+};
+
+/**
+ * Draw the strip once below every screen's copy. A connected layout renders each element once from
+ * its owner across the gapless strip, so every shape belongs to the screen holding its left edge
+ * and comes first there: behind that screen's content and every later screen's.
+ */
+export function spanPanorama(span: PanoramaSpan, screens: readonly Element[][], pack: DesignPack, width: number, height: number): Element[][] {
+  const shortSide = Math.min(width, height);
+  const copyBottom = Math.max(...screens.flat().flatMap(elementLeaves)
+    .filter((leaf) => leaf.type !== "device-frame")
+    .map((leaf) => leaf.y + leaf.height));
+  const strip = span.draw({ width, height, shortSide, count: screens.length, top: copyBottom + Math.round(shortSide * 0.048), pack });
+  // shortcut: art is placed for LTR at the lead size; RTL mirroring and fitted store sizes misalign it, upgrade when connected layouts mirror the whole strip.
+  const owners = strip.map((art) => Math.min(screens.length - 1, Math.floor(art.x / width)));
+  // Rendering stacks art by owner first, so art drawn out of owner order would layer unlike its design.
+  if (owners.some((owner, index) => index > 0 && owner < owners[index - 1]!)) {
+    throw new Error("Panorama art must be drawn in owner-screen order");
+  }
+  return screens.map((elements, index) => [
+    ...strip.filter((_, art) => owners[art] === index).map((art) => ({ ...art, x: art.x - index * width })),
+    ...elements,
+  ]);
 }

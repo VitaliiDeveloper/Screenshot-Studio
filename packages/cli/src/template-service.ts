@@ -103,7 +103,8 @@ export async function createBuiltInTemplateScreen(
   const canonicalPath = await resolveExistingProjectPath(projectPath);
   const updated = await updateProjectFile(canonicalPath, (current) => {
     const template = findBuiltInTemplate(id, specs, current.fonts[0])
-      ?? listBuiltInTemplatePacks(specs).flatMap((pack) => pack.screens).find((screen) => screen.id === id);
+      ?? listBuiltInTemplatePacks(specs).filter((pack) => !pack.panorama)
+        .flatMap((pack) => pack.screens).find((screen) => screen.id === id);
     if (!template) throw new TemplateNotFoundError(`Built-in template "${id}" not found`);
     try {
       const layout = resolveMutationLayout(current, layoutReference);

@@ -32,6 +32,8 @@ const previewRoot = resolve(repoRoot, "apps/web/public/template-previews");
 const PREVIEW_WIDTH = 300;
 const MAX_MISMATCH_FRACTION = 0.001;
 const packs = listBuiltInTemplatePacks(storeSpecs).filter((pack) => pack.id !== "neutral-iphone-basics");
+// Panorama art crosses screen edges, which only a connected layout renders.
+const layoutOf = (pack: (typeof packs)[number]) => pack.panorama ? "panorama" : "default";
 
 const ARABIC: Record<NonNullable<TextElement["role"]>, string> = {
   heading: "كل ما تحتاجه في مكان واحد",
@@ -54,25 +56,28 @@ afterAll(async () => {
 });
 
 function writeProject(name: string, locale: string, direction: "ltr" | "rtl", text?: (leaf: TextElement) => Partial<TextElement>): string {
+  const seed: Project["layouts"][number]["screens"][number] = { id: "seed", name: "Seed", platform: "apple", device: "iphone", locale, direction, artboard: { width: 1206, height: 2622 }, background: { type: "solid", color: "#000000" }, elements: [] };
   let project: Project = {
     meta: { name, schemaVersion: 1 },
     fonts: [{ family: "Noto Sans Arabic", source: "google", path: "assets/fonts/noto-sans-arabic-700.ttf", weight: 700 }],
     preferredExportLayoutId: "default",
-    layouts: [{
-      id: "default", name: "Default", mode: "isolated",
-      screens: [{ id: "seed", name: "Seed", platform: "apple", device: "iphone", locale, direction, artboard: { width: 1206, height: 2622 }, background: { type: "solid", color: "#000000" }, elements: [] }],
-    }],
+    layouts: [
+      { id: "default", name: "Default", mode: "isolated", screens: [seed] },
+      { id: "panorama", name: "Panorama", mode: "connected", screens: [seed] },
+    ],
   };
-  for (const pack of packs) project = createScreensFromTemplatePack(project, "default", pack, locale, storeSpecs).project;
-  const layout = project.layouts[0]!;
-  layout.screens = layout.screens.filter((screen) => screen.id !== "seed").map((screen) => ({
-    ...screen,
-    elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => (
-      leaf.type === "text" && text ? { ...leaf, ...text(leaf) } : leaf
-    ))),
-  }));
-  expect(layout.screens.map((screen) => screen.id)).toEqual(packs.flatMap((pack) => pack.screens.map((screen) => screen.id)));
-  expect(layout.screens.every((screen) => screen.direction === direction)).toBe(true);
+  for (const pack of packs) project = createScreensFromTemplatePack(project, layoutOf(pack), pack, locale, storeSpecs).project;
+  for (const layout of project.layouts) {
+    layout.screens = layout.screens.filter((screen) => screen.id !== "seed").map((screen) => ({
+      ...screen,
+      elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => (
+        leaf.type === "text" && text ? { ...leaf, ...text(leaf) } : leaf
+      ))),
+    }));
+    expect(layout.screens.map((screen) => screen.id))
+      .toEqual(packs.filter((pack) => layoutOf(pack) === layout.id).flatMap((pack) => pack.screens.map((screen) => screen.id)));
+    expect(layout.screens.every((screen) => screen.direction === direction)).toBe(true);
+  }
   const dir = resolve(root, name);
   mkdirSync(resolve(dir, "assets/fonts"), { recursive: true });
   copyFileSync(arabicFont, resolve(dir, "assets/fonts/noto-sans-arabic-700.ttf"));
@@ -81,9 +86,9 @@ function writeProject(name: string, locale: string, direction: "ltr" | "rtl", te
   return path;
 }
 
-function render(renderer: ParityRenderHarness["headless"], projectPath: string, screenId: string, pixelRatio = 1): Promise<Buffer> {
+function render(renderer: ParityRenderHarness["headless"], projectPath: string, layoutId: string, screenId: string, pixelRatio = 1): Promise<Buffer> {
   return renderer.renderScreenToPng({
-    baseUrl: harness.server.url, projectPath, layoutId: "default", screenId, pixelRatio, timeoutMs: 60_000,
+    baseUrl: harness.server.url, projectPath, layoutId, screenId, pixelRatio, timeoutMs: 60_000,
   }).then(stripAlpha);
 }
 
@@ -96,10 +101,10 @@ function mismatchFraction(a: Buffer, b: Buffer): number {
 }
 
 /** Measures the stage's own Konva.Text nodes the same way the editor's text-overflow issue does. */
-async function overflowingText(projectPath: string, screenId: string): Promise<string[]> {
+async function overflowingText(projectPath: string, layoutId: string, screenId: string): Promise<string[]> {
   const page = await harness.interactive!.newPage();
   try {
-    const query = new URLSearchParams({ project: projectPath, layout: "default", screen: screenId });
+    const query = new URLSearchParams({ project: projectPath, layout: layoutId, screen: screenId });
     await page.goto(`${harness.server.url}/render?${query}`, { waitUntil: "load" });
     await page.waitForFunction(() => window.__stageReady === true || window.__renderError);
     expect(await page.evaluate(() => window.__renderError ?? null)).toBeNull();
@@ -123,15 +128,15 @@ describe("styled template pack rendering", () => {
     const projectPath = writeProject("en", "en", "ltr");
     for (const pack of packs) {
       for (const screen of pack.screens) {
-        const headed = await render(harness.headed, projectPath, screen.id);
-        const headless = await render(harness.headless, projectPath, screen.id);
+        const headed = await render(harness.headed, projectPath, layoutOf(pack), screen.id);
+        const headless = await render(harness.headless, projectPath, layoutOf(pack), screen.id);
         for (const png of [headed, headless]) {
           expect(inspectPng(png), screen.id).toMatchObject({ ...screen.artboard, hasAlpha: false });
         }
         expect(mismatchFraction(headed, headless), screen.id).toBeLessThan(MAX_MISMATCH_FRACTION);
 
         if (process.env.TEMPLATE_PREVIEWS_OUT === "1") {
-          const preview = await render(harness.headless, projectPath, screen.id, PREVIEW_WIDTH / screen.artboard.width);
+          const preview = await render(harness.headless, projectPath, layoutOf(pack), screen.id, PREVIEW_WIDTH / screen.artboard.width);
           const out = resolve(previewRoot, pack.id, `${screen.id.slice(pack.id.length + 1)}.png`);
           mkdirSync(dirname(out), { recursive: true });
           writeFileSync(out, preview);
@@ -146,7 +151,7 @@ describe("styled template pack rendering", () => {
     const overflows: string[] = [];
     for (const pack of packs) {
       for (const screen of pack.screens) {
-        overflows.push(...(await overflowingText(projectPath, screen.id)).map((text) => `${screen.id}: ${text}`));
+        overflows.push(...(await overflowingText(projectPath, layoutOf(pack), screen.id)).map((text) => `${screen.id}: ${text}`));
       }
     }
     expect(overflows).toEqual([]);
@@ -159,11 +164,11 @@ describe("styled template pack rendering", () => {
     const overflows: string[] = [];
     for (const pack of packs) {
       for (const screen of pack.screens) {
-        overflows.push(...(await overflowingText(projectPath, screen.id)).map((text) => `${screen.id}: ${text}`));
+        overflows.push(...(await overflowingText(projectPath, layoutOf(pack), screen.id)).map((text) => `${screen.id}: ${text}`));
       }
       const hero = pack.screens[0]!.id;
-      const headed = await render(harness.headed, projectPath, hero);
-      const headless = await render(harness.headless, projectPath, hero);
+      const headed = await render(harness.headed, projectPath, layoutOf(pack), hero);
+      const headless = await render(harness.headless, projectPath, layoutOf(pack), hero);
       expect(mismatchFraction(headed, headless), hero).toBeLessThan(MAX_MISMATCH_FRACTION);
     }
     expect(overflows).toEqual([]);

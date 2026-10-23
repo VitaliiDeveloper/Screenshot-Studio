@@ -44,10 +44,11 @@ describe("TemplateLibraryDialog catalog", () => {
       pack("clean-iphone", "clean", [template("clean-iphone-hero", "apple", "iphone")]),
       pack("poster-iphone", "poster", [template("poster-iphone-cta", "apple", "iphone")]),
       pack("neutral-iphone-basics", "neutral-default", [template("neutral-iphone-hero", "apple", "iphone")]),
+      { ...pack("clean-panorama-iphone", "clean", [template("clean-panorama-iphone-hero", "apple", "iphone")]), panorama: true },
     ],
   );
 
-  it("flattens starters and pack screens, attaching style and shipped previews", () => {
+  it("flattens starters and non-panorama pack screens, attaching style and shipped previews", () => {
     expect(entries.map(({ template: { id }, style, preview }) => ({ id, style, preview }))).toEqual([
       { id: "web-desktop", style: undefined, preview: null },
       { id: "iphone-starter", style: undefined, preview: null },

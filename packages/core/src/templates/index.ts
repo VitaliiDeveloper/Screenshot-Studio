@@ -30,7 +30,15 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { findBuiltInDesignPack, type DesignPack } from "@screenshot-studio/core/themes";
-import { STYLE_COMPOSITIONS, STYLE_PACK_SCREENS, styledScreenElements, type StyleComposition } from "./style-packs.js";
+import {
+  PANORAMA_SPANS,
+  STYLE_COMPOSITIONS,
+  STYLE_PACK_SCREENS,
+  spanPanorama,
+  styledScreenElements,
+  type PanoramaSpan,
+  type StyleComposition,
+} from "./style-packs.js";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -233,6 +241,8 @@ export const TemplatePack = z.object({
   device: z.string().min(1),
   /** Style tag for catalog filtering; matches the built-in Design pack the screens were baked from. */
   style: slug,
+  /** Art spans screen edges, which only a connected layout renders. */
+  panorama: z.literal(true).optional(),
   screens: z.array(ScreenTemplate).min(1),
 }).strict().superRefine((pack, context) => {
   pack.screens.forEach((screen, index) => {
@@ -260,6 +270,7 @@ type BuiltInTemplatePackDefinition = {
   style: string;
   screens: readonly BuiltInTemplatePackScreen[];
   composition?: StyleComposition;
+  span?: PanoramaSpan;
 };
 
 const STYLE_PACK_TARGETS = [
@@ -275,14 +286,26 @@ const STYLE_PACK_FRAMES: Readonly<Record<string, Record<(typeof STYLE_PACK_TARGE
   sunrise: { iphone: "iphone", "android-phone": "phone-punch-hole-dark" },
 };
 
-const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = Object.entries(STYLE_COMPOSITIONS)
-  .flatMap(([style, composition]) => STYLE_PACK_TARGETS.map((target) => {
+const STYLE_VARIANTS: { style: string; composition: StyleComposition; span?: PanoramaSpan }[] = [
+  ...Object.entries(STYLE_COMPOSITIONS).map(([style, composition]) => ({ style, composition })),
+  ...Object.entries(PANORAMA_SPANS).map(([style, span]) => ({
+    style,
+    span,
+    // Copy stays on top so the shared art below it can line up on every screen.
+    composition: { ...STYLE_COMPOSITIONS[style]!, textAt: () => "top" as const, decor: () => [] },
+  })),
+];
+
+const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = STYLE_VARIANTS
+  .flatMap(({ style, composition, span }) => STYLE_PACK_TARGETS.map((target) => {
     const pack = findBuiltInDesignPack(style)!;
-    const id = `${style}-${target.slug}`;
+    const id = span ? `${style}-panorama-${target.slug}` : `${style}-${target.slug}`;
     return {
       id,
-      name: `${pack.name} · ${target.label}`,
-      description: `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
+      name: `${pack.name}${span ? " panorama" : ""} · ${target.label}`,
+      description: span
+        ? `${STYLE_PACK_SCREENS.length} connected ${target.label} screens: ${span.summary}.`
+        : `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
       platform: target.platform,
       device: target.device,
       targetId: target.targetId,
@@ -290,6 +313,7 @@ const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = Object.
       style,
       screens: STYLE_PACK_SCREENS.map((screen) => ({ id: `${id}-${screen.key}`, name: screen.name, headline: screen.headline, subline: screen.subline })),
       composition,
+      span,
     };
   }));
 
@@ -316,6 +340,7 @@ export interface BuiltInTemplatePackMetadata {
   platform: ScreenTemplate["platform"];
   device: ScreenTemplate["device"];
   style: string;
+  panorama: boolean;
   screenCount: number;
 }
 
@@ -327,6 +352,7 @@ export function listBuiltInTemplatePackMetadata(): BuiltInTemplatePackMetadata[]
     platform: definition.platform,
     device: definition.device,
     style: definition.style,
+    panorama: definition.span !== undefined,
     screenCount: definition.screens.length,
   }));
 }
@@ -388,6 +414,12 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
     const style = findBuiltInDesignPack(definition.style);
     if (!style) throw new Error(`Template pack "${definition.id}" references unknown design pack "${definition.style}"`);
     const target = findStoreTarget(specs, definition.platform, definition.device, definition.targetId);
+    const screenElements = definition.screens.map((screen, index) => definition.composition
+      ? styledScreenElements(definition.composition, STYLE_PACK_SCREENS[index]!, index, definition.frame, style, target.width, target.height)
+      : templatePackElements(definition, screen, style, target.width, target.height));
+    const elements = definition.span
+      ? spanPanorama(definition.span, screenElements, style, target.width, target.height)
+      : screenElements;
     return TemplatePack.parse({
       id: definition.id,
       name: definition.name,
@@ -395,6 +427,7 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
       platform: definition.platform,
       device: definition.device,
       style: definition.style,
+      ...(definition.span ? { panorama: true } : {}),
       screens: definition.screens.map((screen, index) => ({
         id: screen.id,
         name: screen.name,
@@ -403,9 +436,7 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
         device: definition.device,
         artboard: { width: target.width, height: target.height },
         background: style.background,
-        elements: definition.composition
-          ? styledScreenElements(definition.composition, STYLE_PACK_SCREENS[index]!, index, definition.frame, style, target.width, target.height)
-          : templatePackElements(definition, screen, style, target.width, target.height),
+        elements: elements[index],
       })),
     });
   });
@@ -570,6 +601,9 @@ export function createScreensFromTemplatePack(
   specs: StoreSpecs,
 ): { project: ProjectModel; screens: Screen[] } {
   const pack = TemplatePack.parse(input);
+  if (pack.panorama && getLayout(project, layoutId).mode !== "connected") {
+    throw new Error(`Template pack "${pack.id}" spans screen edges; switch layout "${layoutId}" to Panorama first`);
+  }
   let next = project;
   const screens: Screen[] = [];
   for (const template of pack.screens) {

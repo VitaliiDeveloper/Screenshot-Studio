@@ -4,12 +4,13 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Palette } from "lucide-react";
-import { getScreen, parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
+import { getLayout, getScreen, parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
 import type { BuiltInTemplatePackMetadata } from "@screenshot-studio/core/templates";
 import type { DesignPack, Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { withFlushedProject } from "@web/lib/editor/debounced-save";
 import { projectJsonRequest } from "@web/lib/clients/project-api-client";
+import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { gradientStyle } from "./inspector/BackgroundInspectorFields";
 
@@ -80,6 +81,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
   const activeScreen = project && activeLayoutId && activeScreenId
     ? getScreen(project, activeLayoutId, activeScreenId)
     : null;
+  const connected = project && activeLayoutId ? getLayout(project, activeLayoutId).mode === "connected" : false;
   const designPackNames = new Map(builtIns.map((pack) => [pack.id, pack.name]));
   const compatiblePacks = activeScreen
     ? templatePacks.filter((pack) => pack.platform === activeScreen.platform && pack.device === activeScreen.device)
@@ -183,9 +185,13 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
                   ) : null}
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
-                <p className="mt-1 text-xs text-slate-500">Adds {pack.screenCount} editable screens in locale {activeScreen?.locale}.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {pack.panorama && !connected
+                    ? `Switch this layout to ${LAYOUT_MODE_LABELS.connected} to add these connected screens.`
+                    : `Adds ${pack.screenCount} editable screens in locale ${activeScreen?.locale}.`}
+                </p>
               </div>
-              <button className={`${editorUi.buttonSecondary} w-full sm:w-auto`} disabled={applying !== null} onClick={() => addScreens(pack.id)}>
+              <button className={`${editorUi.buttonSecondary} w-full sm:w-auto`} disabled={applying !== null || (pack.panorama && !connected)} onClick={() => addScreens(pack.id)}>
                 {applying === `template-pack:${pack.id}` ? "Adding…" : "Add screens from pack"}
               </button>
             </div>

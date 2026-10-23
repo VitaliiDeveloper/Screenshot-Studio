@@ -97,6 +97,8 @@ describe("runTemplateCommand", () => {
     await expect(runTemplateCommand(projectPath, specsPath, ["add", "clean-iphone-hero"], { locale: "en", "built-in": "true" }))
       .resolves.toBe("Added screen clean-iphone-hero (apple/iphone en) from built-in template clean-iphone-hero");
     expect(await screenIds(projectPath)).toEqual(["hero", "clean-iphone-hero"]);
+    await expect(runTemplateCommand(projectPath, specsPath, ["add", "clean-panorama-iphone-hero"], { locale: "en", "built-in": "true" }))
+      .rejects.toThrow(/Built-in template "clean-panorama-iphone-hero" not found/);
   });
 
   it("adds the same built-in template repeatedly as distinct screens", async () => {
