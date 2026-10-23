@@ -11,7 +11,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import type { ScreenTemplate, TemplatePack } from "@screenshot-studio/core/templates";
-import { findBuiltInDesignPack } from "@screenshot-studio/core/themes";
+import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { withFlushedProject } from "@web/lib/editor/debounced-save";
 import { projectJsonRequest } from "@web/lib/clients/project-api-client";
@@ -83,8 +83,10 @@ export function templateOutputFamilyLabel(
   return outputFamilyLabel(template.platform, template.device, specs);
 }
 
+const DESIGN_PACK_NAMES = new Map(listBuiltInDesignPacks().map((pack) => [pack.id, pack.name]));
+
 export function templateStyleLabel(style: string): string {
-  return findBuiltInDesignPack(style)?.name ?? style;
+  return DESIGN_PACK_NAMES.get(style) ?? style;
 }
 
 export function filterTemplateEntries(
