@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
 import { listBuiltInTemplatePacks } from "@screenshot-studio/core/templates";
+import { templatePreviewPath } from "@web/components/TemplateLibraryDialog";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const previewRoot = resolve(appRoot, "../public/template-previews");
@@ -17,7 +18,9 @@ describe("template pack previews", () => {
     expect(packs.length).toBeGreaterThan(0);
     for (const pack of packs) {
       for (const screen of pack.screens) {
-        const file = resolve(previewRoot, pack.id, `${screen.id.slice(pack.id.length + 1)}.png`);
+        const path = templatePreviewPath(pack.id, screen.id);
+        expect(path, screen.id).not.toBeNull();
+        const file = resolve(previewRoot, path!.slice("/template-previews/".length));
         const info = inspectPng(readFileSync(file));
         expect(info.width, file).toBe(300);
         expect(info.height, file).toBe(Math.round(300 * screen.artboard.height / screen.artboard.width));

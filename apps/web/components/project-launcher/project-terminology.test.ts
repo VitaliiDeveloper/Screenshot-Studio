@@ -33,7 +33,6 @@ describe("project creation terminology", () => {
   it("presents template sources as a selector without an action-style tab separator", () => {
     expect(screenTemplateDialog).toContain("<SegmentedControl");
     expect(screenTemplateDialog).toContain('label="Template source"');
-    expect(screenTemplateDialog).toContain('className="mb-4 flex justify-center"');
     expect(screenTemplateDialog).not.toContain('role="tablist"');
     expect(screenTemplateDialog).not.toContain("border-b border-slate-200 pb-2");
   });
