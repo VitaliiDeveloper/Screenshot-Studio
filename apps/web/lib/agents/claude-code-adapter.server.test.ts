@@ -16,6 +16,7 @@ const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: "sonnet",
   context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  attachments: [],
 };
 
 describe("Claude Code adapter", () => {
@@ -87,5 +88,16 @@ describe("Claude Code adapter", () => {
     });
     expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/project/AGENTS.md");
     expect(args.slice(-4)).toEqual(["--add-dir", "/app/skills/screenshot-studio", "--model", "sonnet"]);
+  });
+
+  it("adds the run folder and lists the images in the prompt, not in the user message", () => {
+    const args = claudeCodeAdapter.args({ ...REQUEST, attachments: ["/tmp/runs/1/run-a/1.png", "/tmp/runs/1/run-a/2.jpg"] });
+
+    expect(args.filter((_, index) => args[index - 1] === "--add-dir"))
+      .toEqual(["/app/skills/screenshot-studio", "/tmp/runs/1/run-a"]);
+    const prompt = args[args.indexOf("--append-system-prompt") + 1];
+    expect(prompt).toContain("/tmp/runs/1/run-a/1.png\n/tmp/runs/1/run-a/2.jpg");
+    expect(args).not.toContain(REQUEST.message);
+    expect(claudeCodeAdapter.args(REQUEST).join(" ")).not.toContain("run-a");
   });
 });

@@ -10,7 +10,7 @@ import type { AgentEvent } from "@web/lib/agents/agent-session.server";
 import { editorStore } from "@web/lib/editor/editor-store";
 import type { EditorAgentChat } from "@web/app/editor/use-editor-agent-chat";
 import { AgentPanel, AgentRunBanner } from "./AgentPanel";
-import { applyAgentEvent, createAgentTurn } from "./agent-panel-model";
+import { applyAgentEvent, attachmentFileProblem, createAgentTurn } from "./agent-panel-model";
 
 const sample = JSON.parse(readFileSync(
   new URL("../../../fixtures/sample/app-store-screenshots.json", import.meta.url),
@@ -200,5 +200,24 @@ describe("AgentPanel", () => {
     expect(markup).toContain("Undo run");
     expect(markup).toContain("Keep changes");
     expect(markup).not.toContain("Message to Claude Code");
+  });
+
+  it("offers a labelled Attach button and shows a message's images with their file names", () => {
+    const image = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], "brand.png", { type: "image/png" });
+    const turn = createAgentTurn(1, "Claude Code", "Match this", [{ file: image, url: "blob:brand" }]);
+
+    const markup = render(chat({ turns: [turn] }));
+
+    expect(markup).toContain('aria-label="Attach images"');
+    expect(markup).toContain('accept="image/png,image/jpeg,image/webp"');
+    expect(markup).toMatch(/<ul aria-label="Attached images"[^>]*><li><img src="blob:brand" alt="brand.png"/);
+  });
+
+  it("checks a picked file by its bytes, not its name or type", async () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+    expect(await attachmentFileProblem(new File([png], "ref.png", { type: "image/png" }))).toBeNull();
+    expect(await attachmentFileProblem(new File([png], "ref.txt", { type: "text/plain" }))).toBeNull();
+    expect(await attachmentFileProblem(new File(["<svg/>"], "ref.png", { type: "image/png" }))).toMatch(/PNG, JPEG and WebP/);
   });
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { chromium, type Browser } from "playwright";
-import { chmodSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,8 @@ if (args[0] === "--help") {
 }
 if (args[0] === "auth") { out({ loggedIn: true, authMethod: "claude.ai" }); process.exit(0); }
 appendFileSync(join(__dirname, "runs.log"), JSON.stringify(args) + "\\n");
+const runDir = args.find((arg, index) => args[index - 1] === "--add-dir" && /run-/.test(arg));
+if (runDir) appendFileSync(join(__dirname, "attachments.log"), JSON.stringify(require("node:fs").readdirSync(runDir)) + "\\n");
 const todos = (status) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "TodoWrite", input: { todos: [
   { content: "Read project", status: "completed" },
   { content: "Rename Hero", status },
@@ -60,6 +62,9 @@ let projectFile: string;
 const originalPath = process.env.PATH;
 // A run first re-probes the CLI and snapshots the project, so its first events take a moment.
 const poll = { timeout: 15_000 };
+
+// A 1x1 PNG, so the thumbnail decodes in the browser.
+const PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 const heroName = () => (JSON.parse(readFileSync(projectFile, "utf8")) as {
   layouts: Array<{ screens: Array<{ id: string; name: string }> }>;
@@ -137,6 +142,62 @@ describe("Agent panel", () => {
     expect(heroName()).toBe("Hero");
     await expect.poll(() => page.getByTestId("status-bar").textContent(), poll).not.toContain("Agent Hero");
     expect(await page.getByRole("button", { name: /^Export/ }).isDisabled()).toBe(false);
+    await page.close();
+  });
+
+  it("attaches an image by drag and drop, hands it to the agent for that run only, and keeps it out of the project", async () => {
+    rmSync(join(binDir, "release"), { force: true });
+    const runsBefore = readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").length;
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await page.getByRole("button", { name: "Agent panel", exact: true }).click();
+    const panel = page.getByRole("complementary", { name: "Agent", exact: true });
+    const composer = panel.getByRole("textbox", { name: "Message to Claude Code" });
+    await expect.poll(() => panel.getByRole("button", { name: "Agent", exact: true }).textContent(), poll).toContain("Claude Code");
+    expect(await panel.getByRole("button", { name: "Attach images" }).isEnabled()).toBe(true);
+
+    const transfer = await page.evaluateHandle((base64) => {
+      const data = new DataTransfer();
+      data.items.add(new File([Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))], "brand-reference.png", { type: "image/png" }));
+      return data;
+    }, PNG_BASE64);
+    await panel.dispatchEvent("dragenter", { dataTransfer: transfer });
+    await panel.dispatchEvent("dragover", { dataTransfer: transfer });
+    expect(await panel.locator("[data-agent-drop-zone]").isVisible()).toBe(true);
+    await panel.dispatchEvent("drop", { dataTransfer: transfer });
+
+    const pending = panel.getByRole("list", { name: "Attached images" });
+    await pending.getByRole("img", { name: "brand-reference.png" }).waitFor();
+    expect(await panel.locator("[data-agent-drop-zone]").count()).toBe(0);
+    expect(await pending.getByRole("button", { name: "Remove brand-reference.png" }).isVisible()).toBe(true);
+    expect(await panel.textContent()).toContain("sent to the agent's provider with your request, through your subscription");
+
+    await composer.fill("Make the hero look like the attached reference");
+    await composer.press("Enter");
+
+    const sent = panel.getByRole("list", { name: "Attached images" });
+    await sent.getByRole("img", { name: "brand-reference.png" }).waitFor();
+    expect(await sent.count()).toBe(1);
+    await expect.poll(() => panel.getByRole("status").first().textContent(), poll).toContain("Running");
+    const runArgs = () => readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as string[]);
+    await expect.poll(() => runArgs().length, poll).toBe(runsBefore + 1);
+    const args = runArgs().at(-1)!;
+    const runFolder = args.find((arg, index) => args[index - 1] === "--add-dir" && /run-/.test(arg))!;
+    expect(runFolder).toBeDefined();
+    expect(runFolder.startsWith(dir)).toBe(false);
+    expect(readFileSync(join(binDir, "attachments.log"), "utf8").trim().split("\n").at(-1)).toBe('["1.png"]');
+    expect(readdirSync(dir).sort()).toEqual(["app-store-screenshots.json", "assets"]);
+
+    writeFileSync(join(binDir, "release"), "");
+    const review = panel.getByRole("region", { name: "Agent run review" });
+    await review.waitFor();
+    await expect.poll(() => existsSync(runFolder), poll).toBe(false);
+    expect(readdirSync(dir).sort()).toEqual(["app-store-screenshots.json", "assets"]);
+    expect(readFileSync(projectFile, "utf8")).not.toMatch(/brand-reference|run-/);
+    await review.getByRole("button", { name: "Undo run" }).click();
+    await review.waitFor({ state: "detached" });
+    expect(heroName()).toBe("Hero");
     await page.close();
   });
 });

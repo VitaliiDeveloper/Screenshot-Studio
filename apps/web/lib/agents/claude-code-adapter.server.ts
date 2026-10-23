@@ -72,12 +72,19 @@ export const claudeCodeAdapter: AgentAdapter = {
       "--permission-mode", "dontAsk",
       "--permission-prompts", "none",
       "--settings", JSON.stringify({ sandbox: { enabled: true, failIfUnavailable: true } }),
-      "--append-system-prompt", projectInstructions(
-        request,
-        "Plan the work as a short todo list with TodoWrite and keep each item's status current.",
-      ),
-      // The skill lives outside the project; restricted file tools only read added directories.
+      "--append-system-prompt", [
+        projectInstructions(
+          request,
+          "Plan the work as a short todo list with TodoWrite and keep each item's status current.",
+        ),
+        // Codex gets the same images through `--image`.
+        ...(request.attachments.length > 0 ? [
+          `The user attached reference images to this request; view them with the Read tool. They are context only: do not copy them into the project.\n${request.attachments.join("\n")}`,
+        ] : []),
+      ].join("\n"),
+      // The skill and the images live outside the project; restricted file tools only read added directories.
       ...(request.context.skillPath ? ["--add-dir", dirname(request.context.skillPath)] : []),
+      ...(request.attachments[0] ? ["--add-dir", dirname(request.attachments[0])] : []),
       ...(request.model ? ["--model", request.model] : []),
     ];
   },
