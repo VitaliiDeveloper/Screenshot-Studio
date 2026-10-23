@@ -73,6 +73,24 @@ describe("/api/templates", () => {
     expect(missing.status).toBe(404);
   });
 
+  it("lists built-in screen packs and creates one styled pack screen", async () => {
+    const listed = await (await handleTemplateGet(projectPath)).json();
+    const poster = listed.packs.find((pack: { id: string }) => pack.id === "poster-iphone");
+    expect(poster).toMatchObject({ style: "poster", platform: "apple", device: "iphone" });
+    expect(poster.screens.map((screen: { id: string }) => screen.id)).toContain("poster-iphone-hero");
+
+    for (const id of ["poster-iphone-hero", "sunrise-android-phone-cta"]) {
+      const response = await handleTemplatePost(projectPath, new Request("http://localhost/api/templates", {
+        method: "POST", body: JSON.stringify({ id, source: "built-in", locale: "en" }),
+      }));
+      expect(response.status, id).toBe(200);
+      expect((await response.json()).screenId).toBe(id);
+    }
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.layouts[0].screens.map((screen: { id: string }) => screen.id))
+      .toEqual(["hero", "poster-iphone-hero", "sunrise-android-phone-cta"]);
+  });
+
   it("returns explicit errors for invalid input", async () => {
     const nullBody = await handleTemplatePost(projectPath, new Request("http://localhost/api/templates", {
       method: "POST", body: "null",
