@@ -120,7 +120,7 @@ describe("layout presentation", () => {
       canDelete: false,
       canPrefer: false,
       nextMode: "connected",
-      switchModeLabel: "Switch to connected",
+      switchModeLabel: "Switch to Panorama",
       modeWarning: null,
     });
   });
@@ -146,8 +146,8 @@ describe("layout presentation", () => {
 
     expect(layoutActionPresentation(fixture, connected, true)).toMatchObject({
       nextMode: "isolated",
-      switchModeLabel: "Switch to isolated",
-      modeWarning: "1 element extends outside its owner artboard and will be clipped while isolated. Layout data remains unchanged.",
+      switchModeLabel: "Switch to Separate images",
+      modeWarning: "1 element extends outside its owner artboard and will be clipped in Separate images mode. Layout data remains unchanged.",
     });
   });
 });

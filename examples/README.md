@@ -25,8 +25,8 @@ exact alpha-free store PNG from each, and edits a temporary RTL example copy thr
 locale, Layers, and keyboard group controls.
 
 App Home also presents four workflow-oriented starter routes without adding example-only Project
-fields: **Isolated feature project** and **Connected launch deck** use the current strict scaffold;
+fields: **Separate images feature project** and **Panorama launch deck** use the current strict scaffold;
 **RTL and multi-locale delivery** opens complete project import and is represented here by
 `rtl-delivery`; **Imported screenshot story** opens capture import for the documented PNG folder
-shape. `connected-launch` remains the editable living connected/screenshot reference. Focused launcher
+shape. `connected-launch` remains the editable living Panorama/screenshot reference. Focused launcher
 tests parse these living documents with the current strict schema and validate both scaffold inputs.

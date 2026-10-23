@@ -156,7 +156,7 @@ describe("export dialog store image selection", () => {
       const target = findStoreTarget(specs, platform, device, sizeId);
       expect([row.width, row.height]).toEqual([target.width, target.height]);
     }
-    expect(rows[1]).toMatchObject({ label: 'App Store · iPhone 6.9" · Portrait', width: 1320, height: 2868, files: 1 });
+    expect(rows[1]).toMatchObject({ label: 'App Store · iPhone Dynamic Island · Large · Portrait', width: 1320, height: 2868, files: 1 });
     expect(rows[0]!.files).toBe(2);
   });
 

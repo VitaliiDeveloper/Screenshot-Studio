@@ -9,7 +9,7 @@ export function EmptyResourceState({
 }: {
   title: string;
   description: string;
-  path: string;
+  path?: string;
   icon?: LucideIcon;
 }) {
   return (
@@ -19,7 +19,7 @@ export function EmptyResourceState({
       </span>
       <p className="text-sm font-medium text-[color:var(--editor-color-text-strong)]">{title}</p>
       <p className="mt-1 max-w-sm text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">{description}</p>
-      <code className="mt-3 rounded-[var(--editor-radius-compact)] bg-[var(--editor-color-surface-muted)] px-2 py-1 text-[11px] text-[color:var(--editor-color-text-muted)]">{path}</code>
+      {path ? <code className="mt-3 rounded-[var(--editor-radius-compact)] bg-[var(--editor-color-surface-muted)] px-2 py-1 text-[11px] text-[color:var(--editor-color-text-muted)]">{path}</code> : null}
     </div>
   );
 }

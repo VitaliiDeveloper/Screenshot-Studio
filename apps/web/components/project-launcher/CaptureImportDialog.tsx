@@ -17,6 +17,7 @@ import {
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { editorUi } from "@web/components/editor-ui/styles";
+import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import {
   canApplyCaptureImport,
   canPreviewCaptureImport,
@@ -30,8 +31,8 @@ export const captureImportPlatformOptions: readonly MenuSelectOption<Platform>[]
   listOutputDestinations(DEFAULT_STORE_SPECS).map(({ id, label }) => ({ value: id, label }));
 
 const LAYOUT_MODE_OPTIONS: readonly MenuSelectOption<CanvasMode>[] = [
-  { value: "isolated", label: "Isolated screens" },
-  { value: "connected", label: "Connected strip" },
+  { value: "isolated", label: LAYOUT_MODE_LABELS.isolated },
+  { value: "connected", label: LAYOUT_MODE_LABELS.connected },
 ];
 
 type OpenCaptureImportState = Exclude<CaptureImportState, { status: "closed" }>;

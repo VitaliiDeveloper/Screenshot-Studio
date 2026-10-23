@@ -8,6 +8,8 @@ import {
   type AgentPolicy,
   type AgentProbeResult,
 } from "./agents.server.js";
+import { agentAdapter } from "./agent-adapters.server.js";
+import { codexAuthStoreOverride, readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
 /** Usage limits are not a registry state: only a real run can observe them (VTL-31). */
 export type AgentState =
@@ -16,6 +18,8 @@ export type AgentState =
   | "not-signed-in"
   | "wrong-auth-mode"
   | "unavailable"
+  /** Listed with its policy, but the editor has no adapter to run it, so its binary is never probed. */
+  | "no-adapter"
   | "ready";
 
 export type AgentAuthMode = "subscription" | "api-key";
@@ -30,13 +34,19 @@ export interface AgentStatus {
   state: AgentState;
   authMode: AgentAuthMode | null;
   policy: AgentPolicy;
+  /** Whether stored consent covers the current policy; null unless the level is `at-own-risk`. */
+  consented: boolean | null;
   models: string[];
+  setupUrl: string | null;
+  signInCommand: string | null;
 }
 
 export interface AgentRegistryOptions {
   /** Source environment; it is always reduced by `agentEnv` before a probe runs. */
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
+  /** The store a Codex run will use; read from the probe environment when omitted. */
+  codexAuthStore?: CodexAuthStore | null;
 }
 
 const DEFAULT_PROBE_TIMEOUT_MS = 5_000;
@@ -113,6 +123,18 @@ function readAuth(definition: AgentDefinition, result: AgentProbeResult): AuthRe
   return NOT_SIGNED_IN;
 }
 
+// Codex probes sign-in from the store its runs use; an `ephemeral` store has nothing to share.
+async function authProbeArgs(
+  definition: AgentDefinition,
+  env: NodeJS.ProcessEnv,
+  options: AgentRegistryOptions,
+): Promise<string[] | null> {
+  if (definition.authStatusArgs === undefined) return null;
+  if (definition.id !== "codex") return [...definition.authStatusArgs];
+  const store = options.codexAuthStore === undefined ? await readCodexAuthStore(env) : options.codexAuthStore;
+  return store === null ? null : [...definition.authStatusArgs, ...codexAuthStoreOverride(store)];
+}
+
 /** Detects one agent; every probe failure fails closed to a non-ready state instead of throwing. */
 export async function detectAgent(
   definition: AgentDefinition,
@@ -127,9 +149,13 @@ export async function detectAgent(
     state: "unavailable",
     authMode: null,
     policy: definition.policy,
+    consented: null,
     models: [...definition.models],
+    setupUrl: definition.setupUrl ?? null,
+    signInCommand: definition.signInCommand ?? null,
   };
   if (definition.policy.level === "unavailable") return status;
+  if (!agentAdapter(definition.id)) return { ...status, state: "no-adapter" };
 
   const probe = { env: agentEnv(options.env), timeoutMs: options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS };
   const versionResult = await runAgentProbe(definition.binary, ["--version"], probe);
@@ -141,14 +167,13 @@ export async function detectAgent(
   const unsupported: AgentStatus = { ...status, installed: true, version, state: "unsupported-version" };
   if (version === null || !isSupportedVersion(version, definition)) return unsupported;
 
-  const { optInFlag, authStatusArgs } = definition;
+  const { optInFlag } = definition;
+  const authArgs = await authProbeArgs(definition, probe.env, options);
   const [flagStaysOptIn, authResult] = await Promise.all([
     optInFlag === undefined || runAgentProbe(definition.binary, ["--help"], probe).then((help) => (
       help.kind === "exited" && help.code === 0 && isOptInFlag(help.stdout, optInFlag)
     )),
-    authStatusArgs === undefined
-      ? { kind: "failed" as const }
-      : runAgentProbe(definition.binary, authStatusArgs, probe),
+    authArgs === null ? { kind: "failed" as const } : runAgentProbe(definition.binary, authArgs, probe),
   ]);
   if (!flagStaysOptIn) return unsupported;
   return { ...status, installed: true, version, ...readAuth(definition, authResult) };

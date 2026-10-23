@@ -2,7 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import {
@@ -13,7 +13,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { listOutputFamilies, listStoreTargets, type StoreSpecs } from "@screenshot-studio/core/export";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   assertNever,
   isPrimaryScreen,
@@ -25,7 +25,6 @@ import {
 } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import {
-  compactStoreSizeLabel,
   outputFamilyEditorLabel,
   workspaceEditingScope,
   workspaceOverviewRows,
@@ -34,7 +33,9 @@ import {
 } from "@web/lib/editor/editor-workspace";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import type { SearchResult } from "@web/lib/editor/editor-search";
+import { compactScreenSizeLabel, compactSizeLabel, screenTreeSummary, sizeCountLabel } from "@web/lib/panel-helpers";
+import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { AddMenu, ConfirmationDialog, cx, editorUi } from "./editor-ui";
@@ -43,15 +44,6 @@ const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
   { ssr: false },
 );
-
-/** A screen's exact size without its family, e.g. `6.9"`; null when the store specs no longer list it. */
-function compactSizeLabel(screen: Screen, specs: StoreSpecs): string | null {
-  const family = listOutputFamilies(specs).find(({ key }) => key === `${screen.platform}/${screen.device}`);
-  if (!family) return null;
-  const targetId = screen.storeTargetId ?? family.leadStoreSizeId;
-  const target = listStoreTargets(specs, screen.platform, screen.device).find(({ id }) => id === targetId);
-  return target ? compactStoreSizeLabel(target.label, screen.device) : null;
-}
 
 /** The Screens header scope: `3 · EN · iPhone 6.9"` in Focus, `3 · EN · 4 sizes` in Overview. */
 export function screensScopeLabel(
@@ -66,13 +58,12 @@ export function screensScopeLabel(
     ? []
     : view === "overview"
       ? [sizeCountLabel(workspaceOverviewRows(layout, scopeScreen, specs).length)]
-      : [[outputFamilyEditorLabel(scopeScreen.platform, scopeScreen.device, specs), compactSizeLabel(scopeScreen, specs)]
-        .filter(Boolean).join(" ")];
+      : [compactScreenSizeLabel(scopeScreen, specs)];
   return [String(screens.length), locale.toUpperCase(), ...scope].join(" · ");
 }
 
 /**
- * A screen row's warning: the first issue on any size of its slot, e.g. `6.3": text overflows`,
+ * A screen row's warning: the first issue on any size of its slot, e.g. `Dynamic Island · Medium: text overflows`,
  * with how many more there are; null when the slot has none.
  */
 export function screenRowWarning(
@@ -103,6 +94,46 @@ export function screenRowWarning(
   });
   if (lines.length === 0) return null;
   return lines.length === 1 ? lines[0]! : `${lines[0]} · ${lines.length - 1} more`;
+}
+
+/** Grows or shrinks a screen's nested layers; nothing animates until the expanded screen first changes. */
+function TreeCollapse({
+  id,
+  open,
+  animate,
+  onClosed,
+  children,
+}: {
+  id: string;
+  open: boolean;
+  animate: boolean;
+  onClosed: (id: string) => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || (open && !animate)) return;
+    const height = `${node.scrollHeight}px`;
+    const animation = node.animate(
+      [
+        { height: open ? "0px" : height, opacity: open ? 0 : 1, overflow: "hidden" },
+        { height: open ? height : "0px", opacity: open ? 1 : 0, overflow: "hidden" },
+      ],
+      {
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 200,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: open ? "none" : "forwards",
+      },
+    );
+    if (!open) animation.finished.then(() => onClosed(id), () => undefined);
+    return () => animation.cancel();
+  }, [animate, id, onClosed, open]);
+  return (
+    <div ref={ref} inert={!open} aria-hidden={open ? undefined : true}>
+      {children}
+    </div>
+  );
 }
 
 /** A screen row's select button: name over its caption, which the accessible name refers to. */
@@ -173,6 +204,8 @@ export function ScreensSection({
   onOpenDialog,
   onImportCaptures,
   onOpenAdd,
+  searchOpen,
+  onSearchOpenChange,
 }: {
   images: ImageCache;
   view: WorkspaceView;
@@ -182,6 +215,8 @@ export function ScreensSection({
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
   onOpenAdd: () => void;
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
 }) {
   const project = useStore(editorStore, (s) => s.project);
   const layout = useStore(editorStore, selectEditorLayout);
@@ -191,7 +226,28 @@ export function ScreensSection({
   const [pendingDelete, setPendingDelete] = useState<{ id: string; description: string } | null>(null);
   // Keyed by screen: collapsing one never hides the layers of a screen activated from the canvas.
   const [collapsedScreenId, setCollapsedScreenId] = useState<string | null>(null);
+  // Any change of active screen (row, canvas, or [ ] keys) expands it again.
+  const [collapseScopeId, setCollapseScopeId] = useState(activeScreenId);
+  let collapsedId = collapsedScreenId;
+  if (collapseScopeId !== activeScreenId) {
+    setCollapseScopeId(activeScreenId);
+    setCollapsedScreenId(null);
+    collapsedId = null;
+  }
   const [draggingScreen, setDraggingScreen] = useState(false);
+  // The previously expanded screen keeps its layers mounted while they collapse.
+  const expandedScreenId = activeScreenId !== null && collapsedId !== activeScreenId ? activeScreenId : null;
+  const [shownExpandedScreenId, setShownExpandedScreenId] = useState(expandedScreenId);
+  const [closingScreenId, setClosingScreenId] = useState<string | null>(null);
+  const [treeAnimates, setTreeAnimates] = useState(false);
+  if (shownExpandedScreenId !== expandedScreenId) {
+    setShownExpandedScreenId(expandedScreenId);
+    setClosingScreenId(shownExpandedScreenId);
+    setTreeAnimates(true);
+  }
+  const finishClosing = useCallback((id: string) => {
+    setClosingScreenId((current) => (current === id ? null : current));
+  }, []);
   const screenListRef = useRef<HTMLDivElement>(null);
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -218,7 +274,7 @@ export function ScreensSection({
     screen.locale === activeLocale && isPrimaryScreen(screen),
   ).length;
   const listLabel = activeScreen
-    ? `Screens for ${activeLocale} · ${activeScreen.device}`
+    ? `Screens for ${activeLocale} · ${outputFamilyEditorLabel(activeScreen.platform, activeScreen.device, specs)}`
     : `Screens for ${activeLocale}`;
   const scopeLabel = screensScopeLabel(layout, screens, activeScreen ?? screens[0], activeLocale, view, specs);
   const firstRunScreen = layout.screens.length === 1 && layout.screens[0]!.elements.length === 0
@@ -240,6 +296,11 @@ export function ScreensSection({
   const selectScreen = (id: string) => {
     setCollapsedScreenId(null);
     editorStore.getState().selectScreen(id);
+  };
+
+  const pickSearchResult = ({ screenId, elementId }: SearchResult) => {
+    selectScreen(screenId);
+    if (elementId) editorStore.getState().select(elementId, screenId);
   };
 
   const onDelete = (id: string, name: string) => {
@@ -296,6 +357,7 @@ export function ScreensSection({
             }}
           />
         </div>
+        <LayerSearch open={searchOpen} onOpenChange={onSearchOpenChange} screens={screens} onPick={pickSearchResult} />
       </header>
       <DndContext
         sensors={sensors}
@@ -308,7 +370,7 @@ export function ScreensSection({
           <div ref={screenListRef} role="list" aria-label={listLabel} className="pt-2">
             {screens.map((s, index) => {
               const active = s.id === activeScreenId;
-              const expanded = active && collapsedScreenId !== s.id;
+              const expanded = active && collapsedId !== s.id;
               const selectedCount = selectedItems.filter((item) => item.screenId === s.id).length;
               const warning = screenRowWarning(layout, s, issues, specs);
               const deleteDisabled = isPrimaryScreen(deletionRootFor(s)) && localeRootScreenCount <= 1;
@@ -321,15 +383,23 @@ export function ScreensSection({
                   id={s.id}
                   role="listitem"
                   selected={active}
+                  // The whole row selects its screen; its own controls keep their actions.
+                  onClick={(event) => {
+                    if (!(event.target as Element).closest("button, [role='button']")) selectScreen(s.id);
+                  }}
                   className={cx(
-                    "mx-2 my-px gap-[9px] rounded-[9px] border px-2 py-1.5",
+                    "mx-2 my-px cursor-pointer gap-[9px] rounded-[9px] border px-2 py-1.5",
                     active
                       ? "border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)]"
                       : warning
                         ? "border-[var(--editor-color-warning-border)] bg-[var(--editor-color-warning-surface)]"
                         : "border-transparent hover:bg-[var(--editor-color-surface-subtle)]",
                   )}
-                  nested={expanded && !draggingScreen ? <LayersSection onOpenAdd={onOpenAdd} /> : undefined}
+                  nested={(expanded || closingScreenId === s.id) && !draggingScreen ? (
+                    <TreeCollapse id={s.id} open={expanded} animate={treeAnimates} onClosed={finishClosing}>
+                      <LayersSection onOpenAdd={onOpenAdd} screenId={s.id} />
+                    </TreeCollapse>
+                  ) : undefined}
                 >
                   <button
                     type="button"
@@ -369,7 +439,7 @@ export function ScreensSection({
                     warning={warning !== null}
                     onClick={() => selectScreen(s.id)}
                     data-screen-id={s.id}
-                    aria-label={`${s.name} · ${s.device}`}
+                    aria-label={`${s.name} · ${outputFamilyEditorLabel(s.platform, s.device, specs)}`}
                   />
                   <button
                     type="button"

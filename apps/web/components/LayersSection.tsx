@@ -165,13 +165,13 @@ export function LayerNameButton({
 }
 
 /**
- * Layers of the active screen, nested under its row in the Screens → Layers tree. Rendered
- * reversed: top row = front-most = last in array.
+ * Layers of a screen (the active one by default), nested under its row in the Screens → Layers
+ * tree. Rendered reversed: top row = front-most = last in array.
  */
-export function LayersSection({ onOpenAdd }: { onOpenAdd: () => void }) {
+export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; screenId?: string }) {
   const project = useStore(editorStore, (s) => s.project);
   const layout = useStore(editorStore, selectEditorLayout);
-  const activeScreenId = useStore(editorStore, (s) => s.activeScreenId);
+  const activeScreenId = useStore(editorStore, (s) => screenId ?? s.activeScreenId);
   const selectedItems = useStore(editorStore, (s) => s.selectedItems);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);

@@ -216,6 +216,81 @@ keeps each original as a `<previous-size>` variant.
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+## Work with your own agent
+
+You can let any coding agent you already use (Claude Code, Codex, Antigravity, Cursor, Copilot, and
+others) change a project while the editor is open. Screenshot Studio does not start or wrap that
+agent: you run it yourself, with your own account, in the project folder.
+
+1. Create the project with `pnpm screenshots init --dir ./my-app-screenshots`. This writes the
+   project's `AGENTS.md`, which tells the agent how to use the `screenshots` CLI on this project.
+   Optionally install the [agent skill](skills/screenshot-studio/SKILL.md).
+2. Open the project in place with
+   `pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json`.
+3. In a separate terminal, `cd my-app-screenshots` and start your agent there, for example
+   `claude`, `codex`, or `agy`.
+4. Ask for changes in plain words, and ask the agent to make them with the `screenshots` CLI
+   rather than by editing the JSON by hand. The CLI validates every write and takes the project lock.
+
+Example requests:
+
+- "List the screens for the `en` locale and change the Hero headline to 'Track every run'."
+- "Apply the `neutral-default` design pack, then add the `neutral-iphone-basics` screens."
+- "Add a `de` locale and translate every headline and subline."
+- "Use `assets/captures/01.png` as the screenshot in the Hero mockup."
+- "Export the preferred layout and tell me where the PNGs were written."
+
+Each change appears in the open editor within a few seconds, with no restart. If you edit in the
+editor at the same moment, the editor never saves over the agent's change: it shows
+**This project changed outside the editor.**, and **Load latest version** loads the agent's result.
+Your unsaved edits from that moment are discarded. Projects imported in the browser from a folder,
+ZIP, or JSON are managed copies. An agent in your original folder changes the original, not the
+copy the editor shows, so open the project in place as in step 2.
+
+## Design packs and screen packs
+
+| Pack | Kind | Id | What it gives you |
+|---|---|---|---|
+| Neutral default | Design pack | `neutral-default` | A light slate-to-blue gradient background, dark high-contrast type, a blue accent, and white surfaces. |
+| Neutral basics · iPhone | Screen pack (2 iPhone screens) | `neutral-iphone-basics` | A hero screen and a feature screen, each with a headline, a subline, and an empty mockup, styled with Neutral default. |
+| Clean | Design pack | `clean` | White space, centered copy, and quiet semibold type. |
+| Aurora | Design pack | `aurora` | A violet-to-pink gradient with soft glows and extra-bold type. |
+| Midnight | Design pack | `midnight` | Deep navy, a cyan glow behind the device, and copy that alternates top and bottom. |
+| Poster | Design pack | `poster` | Signal yellow, huge extra-bold headlines, and a device that runs off the bottom edge. |
+| Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
+| `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
+| `<style>` panorama · iPhone, `<style>` panorama · Android phone | Panorama screen packs (6 connected screens each) | `<style>-panorama-iphone`, `<style>-panorama-android-phone` | The same six screens over art that crosses every screen edge: Clean (one stage and a timeline), Midnight (orbit rings on each seam), Poster (a bold stripe and split discs), and Sunrise (one horizon, rolling hills, and a sun between the first two screens). Panorama layouts only. |
+
+Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
+Arabic, Hebrew, and CJK copy needs a font registered in the project.
+
+`theme list` and `template list` print the catalog that your installed version ships.
+
+- A **Design pack** restyles screens you already have. **Apply pack** replaces the background of every
+  screen in the layout and bakes color, font, size, line height, and letter spacing into its
+  role-tagged text, shapes, and icons. It does not move or resize anything.
+- A **screen pack** adds finished screens. **Add screens from pack** appends each one as an ordinary
+  editable screen to the active layout and locale.
+- A **panorama pack** needs a Panorama (connected) layout, where art draws across screen edges. Each
+  shape belongs to the screen holding its left edge, so reordering or deleting screens shifts the art.
+  Applying a Design pack with a diagonal background (Neutral default, Aurora) shows a seam at every
+  screen edge. RTL locales are not supported yet: the strip always runs left to right, so mirroring
+  moves each shape toward the previous screen, where it covers that screen's device.
+
+To apply one manually, open the **Design packs** dialog (**Packs** in the editor tool rail), then use
+**Apply pack** or **Add screens from pack**. Screen packs are listed for the active screen's output
+family.
+
+From the CLI, or for an agent, list the packs, apply one, then edit the copy:
+
+```bash
+pnpm screenshots theme list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots theme set neutral-default --built-in --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots template list --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots template add neutral-iphone-basics --pack --locale en --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
+```
+
 ## Project format and resources
 
 A portable screenshot project commonly has this shape:
@@ -227,7 +302,7 @@ my-app-screenshots/
 ├── assets/                      # screenshots, images, fonts, and processed assets
 ├── screenshots/                 # organized PNG captures for import
 ├── templates/<id>.json          # project-local screen templates
-├── themes/<id>.json             # project-local themes
+├── themes/<id>.json             # project-local design packs
 └── export/                      # generated outputs
 ```
 

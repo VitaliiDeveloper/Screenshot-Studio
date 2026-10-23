@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser } from "playwright";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,14 +10,44 @@ import { startWebServer, type RunningServer } from "@screenshot-studio/cli/serve
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const sample = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 const sampleAssets = resolve(repoRoot, "fixtures/sample/assets");
+const arabicFixture = resolve(repoRoot, "fixtures/regressions/rtl-parity/assets/fonts/noto-sans-arabic-700.ttf");
+const studioSansFixture = resolve(repoRoot, "apps/web/public/fonts/screenshot-studio-sans-regular-v1.ttf");
+const SYSTEM_FONT_ROOTS_ENV = "SCREENSHOT_STUDIO_SYSTEM_FONT_ROOTS";
 
 let server: RunningServer;
 let browser: Browser;
 let dir: string;
 let projectFile: string;
+let installedDir: string;
+const originalSystemFontRoots = process.env[SYSTEM_FONT_ROOTS_ENV];
+
+/** Sets the OS/2 fsType to "Restricted License embedding" on a copy of a repo font. */
+function restrictedCopy(source: string, target: string): void {
+  const bytes = readFileSync(source);
+  const tableCount = bytes.readUInt16BE(4);
+  for (let index = 0; index < tableCount; index += 1) {
+    const entry = 12 + index * 16;
+    if (bytes.toString("ascii", entry, entry + 4) === "OS/2") {
+      bytes.writeUInt16BE(0x0002, bytes.readUInt32BE(entry + 8) + 8);
+      writeFileSync(target, bytes);
+      return;
+    }
+  }
+  throw new Error("fixture has no OS/2 table");
+}
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "font-management-e2e-"));
+  installedDir = mkdtempSync(join(tmpdir(), "installed-fonts-e2e-"));
+  mkdirSync(join(installedDir, "user"));
+  mkdirSync(join(installedDir, "system"));
+  copyFileSync(resolve(sampleAssets, "fonts/Pacifico-Regular.ttf"), join(installedDir, "user", "Pacifico-Regular.ttf"));
+  copyFileSync(arabicFixture, join(installedDir, "system", "noto-sans-arabic-700.ttf"));
+  restrictedCopy(studioSansFixture, join(installedDir, "system", "locked-sans.ttf"));
+  process.env[SYSTEM_FONT_ROOTS_ENV] = JSON.stringify([
+    { dir: join(installedDir, "user"), source: "user" },
+    { dir: join(installedDir, "system"), source: "system" },
+  ]);
   projectFile = join(dir, "app-store-screenshots.json");
   const project = JSON.parse(readFileSync(sample, "utf8"));
   const headline = project.layouts[0].screens[0].elements.find((element: { id: string }) => element.id === "headline");
@@ -34,7 +64,10 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
   await server?.stop();
+  if (originalSystemFontRoots === undefined) delete process.env[SYSTEM_FONT_ROOTS_ENV];
+  else process.env[SYSTEM_FONT_ROOTS_ENV] = originalSystemFontRoots;
   rmSync(dir, { recursive: true, force: true });
+  rmSync(installedDir, { recursive: true, force: true });
 });
 
 function project() {
@@ -154,6 +187,79 @@ describe("font management UI", () => {
       font.family === "Pacifico Alt" && font.weight === 700
     )).toBe(false);
 
+    await page.close();
+  });
+
+  it("imports an installed font after previewing it and renders it from the project copy", async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
+    const assetRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/asset?")) assetRequests.push(new URL(request.url()).searchParams.get("path") ?? "");
+    });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await waitForEditorCanvas(page);
+    await page.getByRole("button", { name: "Fonts", exact: true }).click();
+    await page.getByRole("button", { name: "Import from system" }).click();
+
+    const search = page.getByLabel("Search installed fonts");
+    await search.waitFor({ state: "visible" });
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Search installed fonts");
+    const families = page.getByTestId("system-font-families");
+    const family = (name: string) => families.getByRole("button").filter({ has: page.getByText(name, { exact: true }) });
+
+    await search.fill("noto");
+    await expect.poll(() => families.getByRole("button").count()).toBe(2);
+    await search.fill("zzz-no-such-font");
+    expect(await families.getByRole("button").count()).toBe(0);
+    await search.fill("noto");
+
+    await family("Noto Sans").click();
+    const locked = page.getByTestId("system-font-face-400");
+    expect(await locked.getByRole("checkbox").isDisabled()).toBe(true);
+    expect(await locked.textContent()).toContain("Restricted License embedding");
+
+    await search.fill("pacifico");
+    await family("Pacifico").click();
+    const duplicate = page.getByTestId("system-font-face-400");
+    expect(await duplicate.getByRole("checkbox").isDisabled()).toBe(true);
+    expect(await duplicate.textContent()).toContain("Already in the project");
+
+    await search.fill("arabic");
+    await family("Noto Sans Arabic").click();
+    expect(await page.getByRole("status").filter({ hasText: "responsible for checking" }).count()).toBe(1);
+    const preview = page.getByTestId("system-font-preview-700");
+    await preview.waitFor({ state: "visible" });
+    expect(await preview.locator("p").first().evaluate((element) => getComputedStyle(element).fontFamily))
+      .toContain("__system-preview-");
+    expect(await page.evaluate(() => Array.from(document.fonts).some((face) => face.family === "Noto Sans Arabic"))).toBe(false);
+
+    const importButton = page.getByRole("button", { name: /^Import/ }).last();
+    expect(await importButton.isDisabled()).toBe(true);
+    await page.getByTestId("system-font-face-700").getByRole("checkbox").focus();
+    await page.keyboard.press("Space");
+    expect(await importButton.textContent()).toBe("Import 1 weight");
+    await importButton.click();
+
+    await page.getByRole("status").filter({ hasText: "Imported Noto Sans Arabic 700." }).waitFor({ state: "visible" });
+    expect(project().fonts).toContainEqual({
+      family: "Noto Sans Arabic", weight: 700, source: "uploaded", path: "assets/fonts/noto-sans-arabic-700.ttf",
+    });
+    expect(readFileSync(join(dir, "assets/fonts/noto-sans-arabic-700.ttf"))).toEqual(readFileSync(arabicFixture));
+    await expect.poll(() => page.evaluate(() => Array.from(document.fonts).some(
+      (face) => face.family === "Noto Sans Arabic" && face.weight === "700" && face.status === "loaded",
+    ))).toBe(true);
+    expect(assetRequests).toContain("assets/fonts/noto-sans-arabic-700.ttf");
+    expect(await page.getByTestId("system-font-face-700").textContent()).toContain("Already in the project");
+
+    await page.getByRole("button", { name: "Back to fonts" }).click();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.textContent)).toBe("Import from system");
+    const row = page.getByTestId("font-row-Noto Sans Arabic-700");
+    await row.waitFor({ state: "visible" });
+    expect(await row.textContent()).toContain("uploaded");
+    expect(await page.evaluate(() => Array.from(document.fonts).some((face) => face.family.startsWith("__system-preview-")))).toBe(false);
+
+    await row.getByRole("button", { name: "Remove" }).click();
+    await row.waitFor({ state: "detached" });
     await page.close();
   });
 });

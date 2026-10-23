@@ -4,12 +4,13 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Palette } from "lucide-react";
-import { getScreen, parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
+import { getLayout, getScreen, parseProject, THEME_ROLES, type Project } from "@screenshot-studio/core/model";
 import type { BuiltInTemplatePackMetadata } from "@screenshot-studio/core/templates";
 import type { DesignPack, Theme } from "@screenshot-studio/core/themes";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { withFlushedProject } from "@web/lib/editor/debounced-save";
 import { projectJsonRequest } from "@web/lib/clients/project-api-client";
+import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import { DialogShell, EmptyResourceState, editorUi, StatusMessage } from "./editor-ui";
 import { gradientStyle } from "./inspector/BackgroundInspectorFields";
 
@@ -80,6 +81,8 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
   const activeScreen = project && activeLayoutId && activeScreenId
     ? getScreen(project, activeLayoutId, activeScreenId)
     : null;
+  const connected = project && activeLayoutId ? getLayout(project, activeLayoutId).mode === "connected" : false;
+  const designPackNames = new Map(builtIns.map((pack) => [pack.id, pack.name]));
   const compatiblePacks = activeScreen
     ? templatePacks.filter((pack) => pack.platform === activeScreen.platform && pack.device === activeScreen.device)
     : [];
@@ -129,7 +132,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
   return (
     <DialogShell
       title="Design packs"
-      description="Apply global read-only packs or project themes as ordinary editable literals."
+      description="Apply colors and fonts to every screen in this layout. Everything stays editable."
       ariaLabel="Design pack picker"
       closeLabel="Close design pack picker"
       onClose={close}
@@ -149,7 +152,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Built in · read only</span>
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Built-in</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
                   <p className="mt-3 text-xs text-slate-500">
@@ -177,12 +180,18 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
-                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Style · {pack.style}</span>
+                  {designPackNames.has(pack.style) ? (
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Style · {designPackNames.get(pack.style)}</span>
+                  ) : null}
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
-                <p className="mt-1 text-xs text-slate-500">Adds {pack.screenCount} editable screens in locale {activeScreen?.locale}.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {pack.panorama && !connected
+                    ? `Switch this layout to ${LAYOUT_MODE_LABELS.connected} to add these connected screens.`
+                    : `Adds ${pack.screenCount} editable screens in locale ${activeScreen?.locale}.`}
+                </p>
               </div>
-              <button className={`${editorUi.buttonSecondary} w-full sm:w-auto`} disabled={applying !== null} onClick={() => addScreens(pack.id)}>
+              <button className={`${editorUi.buttonSecondary} w-full sm:w-auto`} disabled={applying !== null || (pack.panorama && !connected)} onClick={() => addScreens(pack.id)}>
                 {applying === `template-pack:${pack.id}` ? "Adding…" : "Add screens from pack"}
               </button>
             </div>
@@ -190,13 +199,12 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Project themes</h3> : null}
+      {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Project packs</h3> : null}
       {!loading && themes.length === 0 ? (
         <EmptyResourceState
           icon={Palette}
-          title="No project themes yet"
-          description="Built-in packs above are always available. Add a strict theme definition for project-specific choices."
-          path="themes/<id>.json"
+          title="No project packs yet"
+          description="Built-in design packs above work in every project."
         />
       ) : null}
 
@@ -207,7 +215,6 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-sm font-semibold text-slate-900">{theme.name}</h3>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{theme.id}</span>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {THEME_ROLES.map((role) => (

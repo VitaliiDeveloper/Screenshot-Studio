@@ -31,7 +31,8 @@ describe("editor side-panel motion integration", () => {
     expect(pageSource).toContain("setPanelState(next);");
     expect(pageSource).toContain("if (next) setLastPanel(next);");
     expect(pageSource).not.toContain("if (panel) setLastPanel(panel);");
-    expect(pageSource).toContain("panel={panel ?? lastPanel}");
+    expect(pageSource).toContain("const leftPanel = panel ?? lastPanel;");
+    expect(pageSource).toContain("panel={leftPanel}");
   });
 
   it("lets the shared shell own width and positioning", () => {

@@ -44,6 +44,16 @@ describe("parseCommandFlags", () => {
     });
   });
 
+  it("parses template --pack as a boolean without consuming a positional id", () => {
+    expect(parseCommandFlags(
+      ["add", "neutral-iphone-basics", "--pack", "--locale", "en"],
+      COMMAND_FLAG_SPECS.template,
+    )).toEqual({
+      args: ["add", "neutral-iphone-basics"],
+      flags: { pack: "true", locale: "en" },
+    });
+  });
+
   it("parses screen --cascade as a boolean without consuming a positional id", () => {
     expect(parseCommandFlags(
       ["rm", "hero", "--cascade"],

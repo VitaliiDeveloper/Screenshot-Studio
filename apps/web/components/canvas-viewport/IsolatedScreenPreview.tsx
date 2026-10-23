@@ -2,6 +2,7 @@
 "use client";
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import type { Screen } from "@screenshot-studio/core/model";
 import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
@@ -14,19 +15,24 @@ import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels
 export function IsolatedScreenPreview({
   screen,
   active,
+  outgoing = false,
   connected,
   view,
   images,
   zoom,
   issues,
+  specs,
 }: {
   screen: Screen;
   active: boolean;
+  /** The Focus screen being replaced: shown under the incoming one, out of reach while it fades in. */
+  outgoing?: boolean;
   connected: boolean;
   view: WorkspaceView;
   images: ImageCache;
   zoom: number;
   issues?: readonly ProjectIssue[];
+  specs?: StoreSpecs;
 }) {
   const selectable = !active && view === "overview";
   const previewWidth = screen.artboard.width * zoom;
@@ -34,19 +40,22 @@ export function IsolatedScreenPreview({
     <div
       data-testid="artboard-preview-item"
       data-artboard-screen-id={screen.id}
+      inert={outgoing}
+      aria-hidden={outgoing || undefined}
       className="min-w-0 shrink-0"
       style={{ width: previewWidth }}
     >
-      <ScreenPreviewTitle screen={screen} active={active} />
+      {/* Labels are text on the bare canvas: the outgoing ones clear at once so they never overlap. */}
+      <ScreenPreviewTitle screen={screen} active={active} className={outgoing ? "invisible" : undefined} />
       <div
         role={selectable ? "button" : undefined}
         tabIndex={selectable ? 0 : undefined}
         aria-label={selectable ? `Edit ${screen.name}` : undefined}
         data-screen-id={screen.id}
         className={cx(
-          "relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)]",
+          "relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] transition-shadow duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none",
           active ? "ring-2 ring-blue-600 ring-offset-2 ring-offset-slate-50" : "ring-1 ring-slate-300",
-          selectable && "cursor-pointer transition-shadow hover:shadow-[0_12px_34px_rgba(15,23,42,0.16)]",
+          selectable && "cursor-pointer hover:shadow-[0_12px_34px_rgba(15,23,42,0.16)]",
         )}
         onClick={() => {
           if (selectable) editorStore.getState().selectScreen(screen.id);
@@ -66,7 +75,7 @@ export function IsolatedScreenPreview({
           interactive={connected ? false : active}
         />
       </div>
-      <ScreenPreviewMetadata screen={screen} />
+      <ScreenPreviewMetadata screen={screen} specs={specs} className={outgoing ? "invisible" : undefined} />
     </div>
   );
 }

@@ -62,11 +62,11 @@ describe("ElementTypeInspectorSections text semantics", () => {
     expect(markup).toContain("grid-rows-[0fr]");
     expect(markup).toContain("motion-reduce:transition-none");
     expect(markup).toContain('role="group" aria-label="Vertical align"');
-    expect(markup).toContain("Theme integration");
-    expect(markup).toContain("Applied on the next theme change");
-    expect(markup).toContain("Current styling stays unchanged");
+    expect(markup).toContain("Theme role");
+    expect(markup).toContain("Used the next time you apply a design pack");
+    expect(markup).toContain("Current style stays as is");
     expect(markup.indexOf("Content")).toBeLessThan(markup.indexOf("Font"));
-    expect(markup.indexOf("Font")).toBeLessThan(markup.indexOf("Theme integration"));
+    expect(markup.indexOf("Font")).toBeLessThan(markup.indexOf("Theme role"));
   });
 });
 

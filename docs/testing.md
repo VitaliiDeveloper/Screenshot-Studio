@@ -41,10 +41,10 @@ maintaining a second file list.
 | Leaf group | What it protects | Run when |
 |---|---|---|
 | `test:e2e:parity:foundation` | base renderer, fonts, screenshots, frames, RTL, connected crops | shared renderer, schema, fonts, core media |
-| `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering | one of those element contracts changes |
+| `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering, styled template packs (long text, RTL, previews) | one of those element contracts or a built-in pack changes |
 | `test:e2e:export` | CLI/UI bundles, dimensions, alpha, safe paths | export or render-host orchestration |
 | `test:e2e:editor:interaction` | canvas editing, panels, inspector, history, snapping | direct interaction behavior |
-| `test:e2e:editor:workspace` | launcher/import/archive round trip, isolated/connected workspace, locale scope, responsive state | launcher, workspace, or locale ownership |
+| `test:e2e:editor:workspace` | launcher/import/archive round trip, isolated/connected workspace, locale scope, responsive state, status bar and keyboard shortcuts, Agent panel run and Undo run with a fake CLI | launcher, workspace, locale, or Agent panel ownership |
 | `test:e2e:editor:authoring` | fonts, themes, templates, assets, selection, groups, icons, badges, styling/frame controls | authoring entry points |
 | `test:e2e:accessibility` | serious/critical Axe findings at desktop and compact widths | semantics, dialogs, menus, responsive UI |
 | `test:e2e:browsers` | Chromium, Firefox, and WebKit author/persist/reload smoke | browser-sensitive code or release readiness |

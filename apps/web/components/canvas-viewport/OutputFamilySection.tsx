@@ -52,7 +52,7 @@ export function OutputFamilySection({
       data-editing={editing ? "true" : "false"}
       style={artworkWidth === undefined ? undefined : { width: artworkWidth }}
       className={cx(
-        "w-fit shrink-0 self-start rounded-xl",
+        "w-fit shrink-0 self-start rounded-xl transition-shadow duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none",
         editing && "ring-2 ring-blue-500/30 ring-offset-8 ring-offset-slate-50",
         activatable && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
       )}

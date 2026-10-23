@@ -281,6 +281,12 @@ project (`apps/web/lib/agents/agent-run-guard.server.ts`). A run waits for admit
 before it snapshots under this lock, and the server restores that snapshot under this lock when the
 run leaves an invalid document or the user undoes the run (`docs/architecture.md`, § 6).
 
+An agent the user runs in the project folder is one more CLI writer when it uses `screenshots`. If
+it edits the JSON directly, it skips this lock. The editor still never overwrites that write: every
+editor save compares its `If-Match` revision inside this lock and answers `412` without writing when
+the file changed. The open editor notices the new revision and reloads it, or shows a conflict when
+the user's own save was the one rejected (`docs/editor.md`).
+
 ## Local filesystem boundary
 
 Screenshot Studio supports this coordinator for processes on one machine accessing one local project

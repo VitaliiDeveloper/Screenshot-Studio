@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ImageCache } from "@screenshot-studio/core/assets";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import type { WorkspaceOutputFamily } from "@web/lib/editor/editor-workspace";
 import { EditorStage } from "@web/components/EditorStage";
@@ -13,6 +14,7 @@ export function ConnectedOutputRow({
   images,
   zoom,
   issues,
+  specs,
   onActivate,
 }: {
   row: WorkspaceOutputFamily;
@@ -20,6 +22,7 @@ export function ConnectedOutputRow({
   images: ImageCache;
   zoom: number;
   issues?: readonly ProjectIssue[];
+  specs?: StoreSpecs;
   onActivate: (screenId: string) => void;
 }) {
   const stageScreenId = row.editing
@@ -70,6 +73,7 @@ export function ConnectedOutputRow({
             <ScreenPreviewMetadata
               key={screen.id}
               screen={screen}
+              specs={specs}
               width={screen.artboard.width * zoom}
             />
           ))}

@@ -12,6 +12,9 @@ export function isLoopbackRequest(req: Request): boolean {
   }
 }
 
-export function rejectNonLoopbackRequest(req: Request): Response | undefined {
-  return isLoopbackRequest(req) ? undefined : jsonError(403, "Agents are only available from localhost");
+export function rejectNonLoopbackRequest(
+  req: Request,
+  message = "Agents are only available from localhost",
+): Response | undefined {
+  return isLoopbackRequest(req) ? undefined : jsonError(403, message);
 }

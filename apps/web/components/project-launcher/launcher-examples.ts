@@ -24,18 +24,18 @@ type LauncherExampleCreation<Input = ProjectScaffoldInput> = Input extends Proje
 export const launcherExampleWorkflows: readonly LauncherExampleWorkflow[] = [
   {
     id: "isolated-project",
-    title: "Isolated feature project",
-    description: "Start with independent store images and a focused two-screen project template.",
+    title: "Separate images feature project",
+    description: "Start with separate store images and a focused two-screen project template.",
     action: "create-project",
-    actionLabel: "Create isolated example",
+    actionLabel: "Create separate images example",
     creation: { platform: "apple", device: "iphone", layoutMode: "isolated", templateId: "feature-focus" },
   },
   {
     id: "connected-deck",
-    title: "Connected launch deck",
+    title: "Panorama launch deck",
     description: "Build a continuous three-screen launch story that still exports exact store images.",
     action: "create-project",
-    actionLabel: "Create connected example",
+    actionLabel: "Create panorama example",
     creation: { platform: "apple", device: "iphone", layoutMode: "connected", templateId: "product-launch" },
   },
   {

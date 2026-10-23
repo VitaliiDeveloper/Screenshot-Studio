@@ -10,11 +10,13 @@ import {
   type StoreSize,
 } from "@screenshot-studio/core/export";
 import {
+  adjacentSizeScreenId,
   clampZoom,
   compactStoreSizeLabel,
   conciseStoreTargetLabel,
   defaultDeviceFrameInputForScreen,
   deviceFrameContextForScreen,
+  distinctSizeLabels,
   filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
@@ -22,6 +24,7 @@ import {
   OVERVIEW_GAP,
   outputFamilyEditorLabel,
   storeOutputLabel,
+  storeTargetDeviceCopy,
   workspaceEditingScope,
   workspaceOverviewRows,
 } from "./editor-workspace";
@@ -155,6 +158,8 @@ describe("editor workspace helpers", () => {
   it.each([
     ["apple", "iphone", "6.9", '6.9" iPhone (lead)', "portrait", '6.9" · Portrait'],
     ["apple", "iphone", "6.9-landscape", '6.9" iPhone landscape', "landscape", '6.9" · Landscape'],
+    ["apple", "iphone", "6.3", "iPhone Dynamic Island · Medium (lead)", "portrait", "Dynamic Island · Medium · Portrait"],
+    ["apple", "iphone", "6.1-landscape", "iPhone Face ID · Medium landscape", "landscape", "Face ID · Medium · Landscape"],
     ["apple", "ipad", "13", '13" iPad (lead)', "portrait", '13" · Portrait'],
     ["apple", "macos", "2880x1800", "Mac 2880×1800 (lead)", "landscape", "2880×1800 · Landscape"],
     ["apple", "tvos", "4k", "Apple TV 4K (lead)", "landscape", "4K · Landscape"],
@@ -162,7 +167,8 @@ describe("editor workspace helpers", () => {
     ["apple", "visionos", "vision-pro", "Apple Vision Pro (lead)", "landscape", "Landscape"],
     ["android", "phone", "phone-portrait", "Android phone portrait (lead)", "portrait", "Portrait"],
     ["android", "phone", "phone-portrait-high-res", "Android phone portrait high resolution", "portrait", "Portrait · High-res"],
-    ["android", "tablet-7", "tablet-7-portrait", "7-inch Android tablet portrait (lead)", "portrait", "7-inch · Portrait"],
+    ["android", "tablet-7", "tablet-portrait", "9:16 Android tablet portrait (lead)", "portrait", "9:16 · Portrait"],
+    ["android", "tablet-7", "tablet-7-portrait", "7-inch Android tablet portrait", "portrait", "7-inch · Portrait"],
     ["android", "wear", "wear-square", "Wear OS square (frameless)", "square", "Square · Frameless"],
     ["windows", "desktop", "4k", "Windows desktop 4K (lead)", "landscape", "4K · Landscape"],
     ["web", "tablet", "tablet-portrait", "Web tablet portrait (lead)", "portrait", "Portrait"],
@@ -181,6 +187,24 @@ describe("editor workspace helpers", () => {
       height: 100,
       orientation,
     } as StoreSize, platform, device)).toBe(expected);
+  });
+
+  it("titles sizes by the devices they reach and keeps the store slot as detail", () => {
+    const iphone = (id: string) => DEFAULT_STORE_SPECS.platforms.apple.families.iphone.targets.find((target) => target.id === id)!;
+    expect(storeTargetDeviceCopy(iphone("6.3"), "apple", "iphone")).toEqual({
+      title: "iPhone 18 Pro · 17 Pro · 17 +5",
+      detail: "Dynamic Island · Medium · 1206 × 2622 px",
+      devices: "iPhone 18 Pro, iPhone 17 Pro, iPhone 17, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 14 Pro",
+    });
+    expect(storeTargetDeviceCopy(iphone("6.1-landscape"), "apple", "iphone")).toMatchObject({
+      title: "iPhone 17e · 16e · 14 +9 · Landscape",
+      detail: "Face ID · Medium · 2436 × 1125 px",
+    });
+    expect(storeTargetDeviceCopy(iphone("duo-inner"), "apple", "iphone"))
+      .toEqual({ title: "Duo inner · Portrait", detail: "2007 × 2853 px", devices: null });
+    const ipad = DEFAULT_STORE_SPECS.platforms.apple.families.ipad.targets[0]!;
+    expect(storeTargetDeviceCopy(ipad, "apple", "ipad"))
+      .toEqual({ title: '13" · Portrait', detail: `${ipad.width} × ${ipad.height} px`, devices: null });
   });
 
   it("keeps promotional asset names separate from screenshot orientation", () => {
@@ -230,8 +254,12 @@ describe("editor workspace helpers", () => {
     expect(compactStoreSizeLabel("Windows desktop Full HD", "desktop")).toBe("Full HD");
   });
 
-  it("keeps the physical size visible for every canonical Android tablet row", () => {
-    expect(compactStoreSizeLabel("7-inch Android tablet portrait (lead)", "tablet-7"))
+  it("keeps the ratio or physical size visible for every canonical Android tablet row", () => {
+    expect(compactStoreSizeLabel("9:16 Android tablet portrait (lead)", "tablet-7"))
+      .toBe("9:16 portrait");
+    expect(compactStoreSizeLabel("16:9 Android tablet landscape", "tablet-7"))
+      .toBe("16:9 landscape");
+    expect(compactStoreSizeLabel("7-inch Android tablet portrait", "tablet-7"))
       .toBe("7-inch portrait");
     expect(compactStoreSizeLabel("7-inch Android tablet landscape", "tablet-7"))
       .toBe("7-inch landscape");
@@ -318,7 +346,7 @@ describe("editor workspace helpers", () => {
     const rows = workspaceOverviewRows(connected, firstVariant);
     expect(rows.map((row) => [row.label, row.screens.map((screen) => screen.id)]))
       .toEqual([
-        ["App Store · iPhone · 6.5", ["first-65", "second-65"]],
+        ["App Store · iPhone · Face ID · Large · Portrait", ["first-65", "second-65"]],
         ["Google Play · Android phone", ["unrelated"]],
       ]);
   });
@@ -336,7 +364,7 @@ describe("editor workspace helpers", () => {
     const rows = workspaceOverviewRows(connected, connected.screens[0]!);
     expect(rows[1]).toMatchObject({
       key: "android/phone",
-      label: "Google Play · Android phone · phone-lead",
+      label: "Google Play · Android phone",
       editing: false,
     });
     expect(rows[1]!.screens.map((screen) => screen.id)).toEqual(["android-target"]);
@@ -385,7 +413,7 @@ describe("editor workspace helpers", () => {
     expect(rows.map((row) => [row.label, row.editing, row.screens.map((screen) => screen.id)]))
       .toEqual([
         ["App Store · iPhone", true, ["first", "second"]],
-        ["App Store · iPhone · 6.5", false, ["first-65"]],
+        ["App Store · iPhone · Face ID · Large · Portrait", false, ["first-65"]],
         ["Google Play · Android phone", false, ["unrelated"]],
       ]);
   });
@@ -412,5 +440,35 @@ describe("editor workspace helpers", () => {
       .toEqual(["first", "second"]);
     expect(workspaceEditingScope(connected, firstVariant).map((screen) => screen.id))
       .toEqual(["first-65", "second-65"]);
+  });
+
+  it("steps through the Overview size rows, keeping the slot and stopping at the ends", () => {
+    const isolated = scopeProject("isolated");
+    isolated.screens.push({
+      ...structuredClone(isolated.screens[0]!),
+      id: "first-65",
+      variantOf: "first",
+      storeTargetId: "6.5",
+      artboard: { width: 1284, height: 2778 },
+    });
+    const screen = (id: string) => isolated.screens.find((candidate) => candidate.id === id)!;
+
+    expect(adjacentSizeScreenId(isolated, screen("first"), 1)).toBe("first-65");
+    expect(adjacentSizeScreenId(isolated, screen("second"), 1)).toBe("first-65");
+    expect(adjacentSizeScreenId(isolated, screen("first-65"), -1)).toBe("first");
+    expect(adjacentSizeScreenId(isolated, screen("first-65"), 1)).toBe("unrelated");
+    expect(adjacentSizeScreenId(isolated, screen("first"), -1)).toBeNull();
+    expect(adjacentSizeScreenId(isolated, screen("unrelated"), 1)).toBeNull();
+  });
+});
+
+describe("distinctSizeLabels", () => {
+  it("appends artboard px only to labels the list repeats", () => {
+    const artboard = (width: number, height: number) => ({ artboard: { width, height } });
+    expect(distinctSizeLabels([
+      { label: '6.3"', screen: artboard(603, 1311) },
+      { label: '6.3"', screen: artboard(1206, 2622) },
+      { label: '6.9"', screen: artboard(1320, 2868) },
+    ])).toEqual(['6.3" · 603 × 1311', '6.3" · 1206 × 2622', '6.9"']);
   });
 });

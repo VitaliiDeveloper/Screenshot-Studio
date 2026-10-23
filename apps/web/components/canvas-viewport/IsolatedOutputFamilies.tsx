@@ -2,11 +2,13 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
+import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
 import {
   compactStoreSizeLabel,
+  distinctSizeLabels,
   OVERVIEW_GAP,
+  screenStoreTarget,
   storeOutputLabel,
   type WorkspaceOutputFamily,
 } from "@web/lib/editor/editor-workspace";
@@ -47,25 +49,10 @@ function groupIsolatedOverviewRows(
 function outputSizeLabel(row: WorkspaceOutputFamily, specs: StoreSpecs | null): string {
   const screen = row.screens[0];
   if (!screen) return "Size";
-  let targetId = screen.storeTargetId;
-  if (targetId === undefined) {
-    try {
-      targetId = specs
-        ? leadStoreSizeId(specs, screen.platform, screen.device)
-        : leadStoreSizeId(screen.platform, screen.device);
-    } catch {
-      return "Master";
-    }
-  }
-  let label = targetId;
-  if (specs) {
-    try {
-      label = findStoreTarget(specs, screen.platform, screen.device, targetId).label;
-    } catch {
-      // Keep the persisted id visible when store specs cannot resolve it.
-    }
-  }
-  return compactStoreSizeLabel(label, screen.device);
+  const target = screenStoreTarget(screen, specs ?? undefined);
+  if (target) return compactStoreSizeLabel(target.label, screen.device);
+  // Keep the persisted id visible when store specs cannot resolve it.
+  return screen.storeTargetId ?? "Master";
 }
 
 export function IsolatedOutputFamilies({
@@ -83,6 +70,11 @@ export function IsolatedOutputFamilies({
   return families.map((family) => {
     const masterRow = family.rows.find((row) => row.screens[0]?.storeTargetId === undefined);
     const variantRows = family.rows.filter((row) => row !== masterRow);
+    const sizeLabels = distinctSizeLabels(family.rows.map((row) => ({
+      label: outputSizeLabel(row, specs),
+      screen: row.screens[0]!,
+    })));
+    const sizeLabel = (row: WorkspaceOutputFamily) => sizeLabels[family.rows.indexOf(row)]!;
     const artworkWidth = Math.max(...family.rows.map((row) =>
       row.screens.reduce((width, screen) => width + screen.artboard.width * zoom, 0)
       + OVERVIEW_GAP * Math.max(0, row.screens.length - 1)
@@ -94,7 +86,7 @@ export function IsolatedOutputFamilies({
         editing={family.editing}
         headerEditing={masterRow?.editing ?? false}
         artworkWidth={artworkWidth}
-        sizeLabel={masterRow ? outputSizeLabel(masterRow, specs) : undefined}
+        sizeLabel={masterRow ? sizeLabel(masterRow) : undefined}
         role={masterRow ? "master" : undefined}
         testId="overview-output-family"
         ariaLabel={`${family.label} output`}
@@ -120,7 +112,7 @@ export function IsolatedOutputFamilies({
             >
               <SizeRowHeader
                 label={family.label}
-                sizeLabel={outputSizeLabel(row, specs)}
+                sizeLabel={sizeLabel(row)}
                 editing={row.editing}
               />
               <div className="flex items-start gap-12">

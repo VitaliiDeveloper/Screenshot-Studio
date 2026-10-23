@@ -171,6 +171,50 @@
               "fit": "cover"
             }
           ]
+        },
+        {
+          "id": "foldable-tall",
+          "name": "Tall Foldable",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "tall-foldable-frame",
+              "type": "device-frame",
+              "x": 50,
+              "y": 325,
+              "width": 560,
+              "height": 784,
+              "deviceType": "foldable-tall",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
+        },
+        {
+          "id": "phone-flip",
+          "name": "Flip Phone",
+          "platform": "apple",
+          "device": "iphone",
+          "locale": "en",
+          "artboard": { "width": 660, "height": 1434 },
+          "background": { "type": "solid", "color": "#101010" },
+          "elements": [
+            {
+              "id": "flip-phone-frame",
+              "type": "device-frame",
+              "x": 44,
+              "y": 67,
+              "width": 572,
+              "height": 1300,
+              "deviceType": "phone-flip",
+              "assetUrl": "assets/shot.png",
+              "fit": "cover"
+            }
+          ]
         }
       ]
     }

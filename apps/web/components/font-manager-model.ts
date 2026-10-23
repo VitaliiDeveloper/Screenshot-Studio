@@ -59,3 +59,8 @@ export async function reconcileFontMutationResponse(
     : `Font was saved to the project, but its browser preview could not load: ${failures.join("; ")}`;
   return { project, warning };
 }
+
+/** Joins warnings from consecutive adds so a multi-font import keeps every earlier one. */
+export function appendWarning(current: string | null, next: string | null): string | null {
+  return [current, next].filter(Boolean).join("\n") || null;
+}

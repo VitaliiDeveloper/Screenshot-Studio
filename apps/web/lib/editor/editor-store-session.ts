@@ -35,6 +35,7 @@ export function createEditorSessionActions(set: EditorSet): EditorSessionActions
         historyGroupKey: null,
         saveStatus: "idle",
         saveError: null,
+        lastSavedAt: null,
       });
     },
     reloadProject: (project) => set((state) => {
@@ -67,8 +68,13 @@ export function createEditorSessionActions(set: EditorSet): EditorSessionActions
       historyGroupKey: null,
       saveStatus: "idle",
       saveError: null,
+      lastSavedAt: null,
     }),
-    setSaveState: (saveStatus, saveError = null) => set({ saveStatus, saveError }),
+    setSaveState: (saveStatus, saveError = null) => set((state) => ({
+      saveStatus,
+      saveError,
+      lastSavedAt: saveStatus === "saved" ? Date.now() : state.lastSavedAt,
+    })),
     replaceProject: (project) =>
       set((state) => {
         const activeLayoutId = project.layouts.some((layout) => layout.id === state.activeLayoutId)

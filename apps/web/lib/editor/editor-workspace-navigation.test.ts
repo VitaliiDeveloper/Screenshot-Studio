@@ -50,6 +50,10 @@ describe("workspace navigation state", () => {
       panel: "resources",
     }));
     expect(readWorkspaceNavigationState("project-c", storage)).toBeNull();
+
+    const agent = { ...state, panel: "agent", lastPanel: "agent" } satisfies WorkspaceNavigationState;
+    writeWorkspaceNavigationState("project-d", agent, storage);
+    expect(readWorkspaceNavigationState("project-d", storage)).toEqual(agent);
   });
 
   it("clears only the selected project's workspace state", () => {

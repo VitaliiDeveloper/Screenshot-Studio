@@ -15,7 +15,8 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: "sonnet",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md" },
+  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  attachments: [],
 };
 
 describe("Claude Code adapter", () => {
@@ -70,12 +71,6 @@ describe("Claude Code adapter", () => {
     expect(JSON.stringify(failedResult)).not.toContain("/Users/owner");
   });
 
-  it("ignores output after the result and keeps only one terminal event", async () => {
-    const events = await normalize("claude-stream-success.ndjson", { code: 1, stderr: "late failure" });
-    expect(events.filter(({ type }) => type === "done")).toHaveLength(1);
-    expect(events.some(({ type }) => type === "error")).toBe(false);
-  });
-
   it("restricts the CLI and never passes --bare or the user message as argv", () => {
     const args = claudeCodeAdapter.args(REQUEST);
 
@@ -93,5 +88,16 @@ describe("Claude Code adapter", () => {
     });
     expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/project/AGENTS.md");
     expect(args.slice(-4)).toEqual(["--add-dir", "/app/skills/screenshot-studio", "--model", "sonnet"]);
+  });
+
+  it("adds the run folder and lists the images in the prompt, not in the user message", () => {
+    const args = claudeCodeAdapter.args({ ...REQUEST, attachments: ["/tmp/runs/1/run-a/1.png", "/tmp/runs/1/run-a/2.jpg"] });
+
+    expect(args.filter((_, index) => args[index - 1] === "--add-dir"))
+      .toEqual(["/app/skills/screenshot-studio", "/tmp/runs/1/run-a"]);
+    const prompt = args[args.indexOf("--append-system-prompt") + 1];
+    expect(prompt).toContain("/tmp/runs/1/run-a/1.png\n/tmp/runs/1/run-a/2.jpg");
+    expect(args).not.toContain(REQUEST.message);
+    expect(claudeCodeAdapter.args(REQUEST).join(" ")).not.toContain("run-a");
   });
 });

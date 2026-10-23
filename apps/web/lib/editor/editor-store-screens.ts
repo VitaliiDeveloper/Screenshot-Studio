@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Background, Element, LayoutDirection } from "@screenshot-studio/core/model";
+import { replaceLayout, type Background, type Element, type LayoutDirection } from "@screenshot-studio/core/model";
 import { recordProjectChange } from "./editor-history.js";
 import { applyScopeScreens, type ApplyScope } from "./editor-apply-scope.js";
 import {
@@ -20,6 +20,7 @@ import {
   deleteProjectLocale,
 } from "./editor-project-actions.js";
 import { selectEditorLayout } from "./editor-store-layouts.js";
+import { placeScreenText, type TextPlacement } from "./editor-text-placement.js";
 import type { EditorSet } from "./editor-store.js";
 
 export interface EditorScreenActions {
@@ -38,6 +39,8 @@ export interface EditorScreenActions {
   removeElement: (id: string, screenId?: string) => void;
   addElement: (element: Element) => void;
   setBackground: (background: Background, scope?: ApplyScope) => void;
+  /** Text placement preset: places text and fits media once in every screen in scope, as one undo step. */
+  placeText: (placement: TextPlacement, scope?: ApplyScope) => void;
   resizeArtboard: (size: { width: number; height: number }) => void;
 }
 
@@ -167,6 +170,16 @@ export function createEditorScreenActions(set: EditorSet): EditorScreenActions {
           state.project,
         );
         return recordProjectChange(state, project, `background:${screen.id}:${scope}`);
+      }),
+    placeText: (placement, scope = "screen") =>
+      set((state) => {
+        const layout = selectEditorLayout(state);
+        const screen = layout?.screens.find((candidate) => candidate.id === state.activeScreenId);
+        if (!state.project || !layout || !screen) return state;
+        const targets = new Set(applyScopeScreens(layout, screen, scope).screens.map((target) => target.id));
+        const screens = layout.screens.map((target) => targets.has(target.id) ? placeScreenText(target, placement) : target);
+        if (screens.every((placed, index) => placed === layout.screens[index])) return state;
+        return recordProjectChange(state, replaceLayout(state.project, { ...layout, screens }));
       }),
     resizeArtboard: (size) =>
       set((state) => {

@@ -152,7 +152,7 @@ describe("Project Info and Workspace round trip", () => {
       await page.waitForSelector("canvas");
       await page.getByRole("button", { name: "Active layout: Default" }).click();
       await page.getByRole("menuitemradio", { name: /Secondary/ }).click();
-      await page.getByRole("button", { name: "Save Fast · iphone", exact: true }).click();
+      await page.getByRole("button", { name: "Save Fast · iPhone", exact: true }).click();
       const selectedLayer = page.getByRole("button", { name: "Save fast headline", exact: true });
       await selectedLayer.click();
       await page.getByRole("button", { name: "Focus", exact: true }).click();
@@ -191,7 +191,7 @@ describe("Project Info and Workspace round trip", () => {
       expect(await page.getByRole("button", { name: "Active layout: Secondary" }).count()).toBe(1);
       expect(await page.getByRole("button", { name: "Focus", exact: true }).getAttribute("aria-pressed"))
         .toBe("true");
-      const reopenedScreen = page.getByRole("button", { name: "Save Fast · iphone", exact: true });
+      const reopenedScreen = page.getByRole("button", { name: "Save Fast · iPhone", exact: true });
       expect(await reopenedScreen.count()).toBe(1);
       await reopenedScreen.click();
       const reopenedLayer = page.getByRole("button", { name: "Save fast headline", exact: true });

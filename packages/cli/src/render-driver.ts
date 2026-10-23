@@ -68,7 +68,9 @@ export async function createRenderBrowserSession({
   headless = true,
   launch = chromium.launch,
 }: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
-  const browser: Browser = await launch.call(chromium, { headless });
+  // Headless shell defaults to full hinting while headed Chrome on Linux follows fontconfig's
+  // hintslight, which shifts text in fonts without hinting instructions; pin both to slight.
+  const browser: Browser = await launch.call(chromium, { headless, args: ["--font-render-hinting=slight"] });
   let context: BrowserContext;
   try {
     context = await browser.newContext();

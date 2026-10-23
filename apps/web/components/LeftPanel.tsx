@@ -49,7 +49,7 @@ const catalogIcons = {
   components: Box,
 } as const;
 
-function PanelHeader({
+export function PanelHeader({
   title,
   onClose,
   backLabel,
@@ -199,6 +199,8 @@ export function LeftPanel({
   onOpenAdd,
   onOpenDialog,
   onImportCaptures,
+  searchOpen,
+  onSearchOpenChange,
 }: {
   panel: WorkspacePanel;
   images: ImageCache;
@@ -209,6 +211,8 @@ export function LeftPanel({
   onOpenAdd: () => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
   onImportCaptures: () => void;
+  searchOpen: boolean;
+  onSearchOpenChange: (open: boolean) => void;
 }) {
   const title = panel === "structure" ? "Layers" : "Add";
 
@@ -225,6 +229,8 @@ export function LeftPanel({
             onOpenDialog={onOpenDialog}
             onImportCaptures={onImportCaptures}
             onOpenAdd={onOpenAdd}
+            searchOpen={searchOpen}
+            onSearchOpenChange={onSearchOpenChange}
           />
         </div>
       ) : null}

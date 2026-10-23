@@ -74,7 +74,7 @@ export function applyScopeScreens(layout: DesignLayout, source: Screen, scope: A
 
 // Core throws plain Errors when a scaled value leaves its range (a bounded metric or the strict
 // schema); both messages start with this prefix. Anything else is a bug and must surface.
-function isScaleRangeError(error: unknown): boolean {
+export function isScaleRangeError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith("Cannot scale ");
 }
 

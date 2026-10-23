@@ -37,7 +37,7 @@ import {
   type ManagedResourceQuarantine,
 } from "./managed-resource-file.js";
 
-export { FontValidationError } from "./font-validation.js";
+export { FontValidationError, MAX_FONT_BYTES } from "./font-validation.js";
 
 const SUPPORTED_EXTENSIONS = new Set([".ttf", ".otf", ".woff", ".woff2"]);
 const GOOGLE_CSS_ENDPOINT = "https://fonts.googleapis.com/css2";

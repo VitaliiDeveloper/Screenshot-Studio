@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseProject } from "@screenshot-studio/core/model";
 import { projectRevision } from "@screenshot-studio/core/storage";
+import { createAgentConsentStore, sharedAgentConsentStore } from "./agent-consent.server.js";
+import { attachmentRoot } from "./agent-attachment-store.server.js";
+import type { AgentAttachment } from "./agent-attachments.js";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "./agents.server.js";
 import {
   AgentRunError,
@@ -37,6 +40,7 @@ const ACCEPTED = { type: "result", status: "accepted", reason: null, changed: fa
 // The fake `claude` answers the registry probes like a signed-in subscription and, for `-p`, records
 // its argv, cwd, env and stdin before running the scenario. PATH holds only the fake directory.
 const SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/claude-stream-success.ndjson", import.meta.url));
+const CODEX_SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/codex-stream-success.ndjson", import.meta.url));
 
 let root: string;
 let binDir: string;
@@ -81,6 +85,21 @@ function fakeClaude(
 esac`);
 }
 
+function fakeCodex(scenario: string): Promise<void> {
+  return writeFake("codex", `case "$1" in
+  --version) echo 'codex-cli 0.163.0' ;;
+  login)
+    printf '%s\\n' "$@" > '${root}/login-argv'
+    echo 'Logged in using ChatGPT' >&2 ;;
+  *)
+    printf '%s\\n' "$@" > '${root}/argv'
+    pwd -P > '${root}/cwd'
+    /usr/bin/env > '${root}/env'
+    /bin/cat > '${root}/stdin'
+    ${scenario} ;;
+esac`);
+}
+
 // No `exec`: the orphaned sleep only dies if the whole process group is killed.
 function hang(): string {
   return `/bin/sleep 30 & echo $! > '${root}/sleep.pid'; wait`;
@@ -92,7 +111,7 @@ function start(overrides: Partial<Parameters<typeof startAgentRun>[0]> = {}): Pr
     projectDir,
     message: "--bare Add German",
     model: "sonnet",
-    env: { PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root },
+    env: { NODE_ENV: "test", PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root },
     ...overrides,
   });
 }
@@ -147,6 +166,49 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     const env = await readFile(join(root, "env"), "utf8");
     expect(env).not.toContain("ANTHROPIC_API_KEY");
     expect(env).toContain(`HOME=${root}`);
+  });
+
+  it("runs Codex through the same runner, so an invalid result is rolled back", async () => {
+    const projectFile = join(projectDir, "app-store-screenshots.json");
+    await fakeCodex(`printf '{"meta":' > app-store-screenshots.json; /bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+
+    const events = await collect(await start({
+      agentId: "codex",
+      model: null,
+      env: { NODE_ENV: "test", PATH: binDir, HOME: root, CODEX_API_KEY: "sk-codex-stripped", OPENAI_API_KEY: "sk-openai-stripped" },
+    }));
+
+    expect(events.slice(-2)).toEqual([
+      expect.objectContaining({ type: "result", status: "rejected", revision: projectRevision(await readFile(projectFile)) }),
+      { type: "done", status: "failed", summary: "Added DE to 4 screens.", durationMs: null },
+    ]);
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await readFile(join(root, "cwd"), "utf8")).toBe(`${await realpath(projectDir)}\n`);
+    expect(await readFile(join(root, "stdin"), "utf8")).toBe("--bare Add German");
+    const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+    expect(argv.slice(0, 4)).toEqual(["exec", "--json", "--sandbox", "workspace-write"]);
+    expect(argv.at(-2)).toBe("-");
+    expect(await readFile(join(root, "env"), "utf8")).not.toMatch(/CODEX_API_KEY|OPENAI_API_KEY/);
+  });
+
+  it("probes Codex sign-in and runs Codex with the same credentials store", async () => {
+    const codexHome = join(root, "codex-home");
+    const store = 'cli_auth_credentials_store="keyring"';
+    await mkdir(codexHome);
+    await writeFile(join(codexHome, "config.toml"), 'cli_auth_credentials_store = "keyring"\n');
+    await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+    const env = { NODE_ENV: "test", PATH: binDir, HOME: root, CODEX_HOME: codexHome } as const;
+
+    expect((await collect(await start({ agentId: "codex", model: null, env }))).at(-1)).toMatchObject({ status: "completed" });
+    expect((await readFile(join(root, "login-argv"), "utf8")).split("\n")).toContain(store);
+    expect((await readFile(join(root, "argv"), "utf8")).split("\n")).toContain(store);
+
+    await writeFile(join(codexHome, "config.toml"), 'cli_auth_credentials_store = "ephemeral"\n');
+    await rm(join(root, "login-argv"));
+    await rm(join(root, "argv"));
+    expect(await rejection(start({ agentId: "codex", model: null, env }))).toMatchObject({ status: 409, code: "not-signed-in" });
+    expect(await exists(join(root, "login-argv"))).toBe(false);
+    expect(await exists(join(root, "argv"))).toBe(false);
   });
 
   it("allows one run per project and kills the whole process tree on cancel", async () => {
@@ -327,20 +389,100 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await exists(join(root, "argv"))).toBe(false);
   });
 
-  it("never runs unavailable or unconsented at-own-risk agents", async () => {
+  it("never runs an unavailable agent, even with a stored consent record for it", async () => {
     const marker = join(root, "spawned");
     await writeFake("gemini", `echo spawned > '${marker}'`);
-    await writeFake("risky", `echo spawned > '${marker}'`);
-    const risky: AgentDefinition = {
-      id: "risky", name: "Risky", binary: "risky", models: [],
-      policy: { ...AGENT_DEFINITIONS[0]!.policy, level: "at-own-risk" },
-    };
+    const consent = createAgentConsentStore(join(root, "data"));
+    const gemini = AGENT_DEFINITIONS.find(({ id }) => id === "gemini-cli")!;
+    await mkdir(join(root, "data"));
+    await writeFile(join(root, "data", "agent-consents.json"), JSON.stringify({
+      version: 1,
+      consents: { "gemini-cli": { policyCheckedAt: gemini.policy.checkedAt, grantedAt: "2026-10-16T00:00:00.000Z" } },
+    }));
 
-    expect(await rejection(start({ agentId: "gemini-cli", model: null })))
+    expect(await consent.isGranted(gemini)).toBe(true);
+    expect(await rejection(start({ agentId: "gemini-cli", model: null, consent })))
       .toMatchObject({ status: 403, code: "unavailable" });
-    expect(await rejection(start({ agentId: "risky", model: null, definitions: [risky] })))
-      .toMatchObject({ status: 403, code: "consent-required" });
     expect(await exists(marker)).toBe(false);
+  });
+
+  describe("at-own-risk agents", () => {
+    // The fake `claude` stands in for an at-own-risk agent, so a granted run exercises the real adapter.
+    const base = AGENT_DEFINITIONS.find(({ id }) => id === "claude-code")!;
+    const risky: AgentDefinition = { ...base, policy: { ...base.policy, level: "at-own-risk" } };
+    let consent: ReturnType<typeof createAgentConsentStore>;
+    const startRisky = () => start({ definitions: [risky], consent });
+
+    beforeEach(async () => {
+      consent = createAgentConsentStore(join(root, "data"));
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    });
+
+    it("refuses without consent, runs after consent, and refuses again after revoke", async () => {
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+
+      await consent.grant(risky);
+      expect((await collect(await startRisky())).at(-1)).toMatchObject({ type: "done", status: "completed" });
+      expect(await exists(join(root, "argv"))).toBe(true);
+      await rm(join(root, "argv"));
+
+      await consent.revoke(risky.id);
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+    });
+
+    it("honors a revoke that arrives while the readiness probe is still running", async () => {
+      await consent.grant(risky);
+      // The probe's `--version` is slow, so consent is revoked after the first check and before launch.
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 0.4; echo '2.1.296 (Claude Code)'");
+      const pending = startRisky();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await consent.revoke(risky.id);
+
+      expect(await rejection(pending)).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+    });
+
+    it("reads consent from the app data root when no store is injected", async () => {
+      const originalRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+      process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(root, "app-data");
+      try {
+        const shared = sharedAgentConsentStore();
+        expect(await rejection(start({ definitions: [risky] }))).toMatchObject({ status: 403, code: "consent-required" });
+        await shared.grant(risky);
+        expect((await collect(await start({ definitions: [risky] }))).at(-1)).toMatchObject({ type: "done", status: "completed" });
+      } finally {
+        if (originalRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+        else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalRoot;
+      }
+    });
+
+    it("asks again once the policy was re-verified after the consent", async () => {
+      await consent.grant({ ...risky, policy: { ...risky.policy, checkedAt: "2026-09-01" } });
+
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+    });
+
+    it("refuses consent that is unreadable, and consent for another agent", async () => {
+      await mkdir(join(root, "data"));
+      await writeFile(join(root, "data", "agent-consents.json"), "{not json");
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+
+      await consent.grant({ ...risky, id: "other" });
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+    });
+
+    it("checks consent before the missing adapter, so a refusal never reveals more than the policy", async () => {
+      const adapterless: AgentDefinition = { ...risky, id: "adapterless", binary: "adapterless" };
+      expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless], consent })))
+        .toMatchObject({ status: 403, code: "consent-required" });
+      await consent.grant(adapterless);
+      expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless], consent })))
+        .toMatchObject({ status: 409, code: "no-adapter" });
+    });
   });
 
   it("refuses agents that are not ready, unknown models, and agents without an adapter", async () => {
@@ -348,7 +490,155 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
 
     expect(await rejection(start())).toMatchObject({ status: 409, code: "not-signed-in" });
     expect(await rejection(start({ model: "gpt-4" }))).toMatchObject({ status: 400, code: "unknown-model" });
-    expect(await rejection(start({ agentId: "codex", model: null }))).toMatchObject({ status: 409, code: "no-adapter" });
+    expect(await rejection(start({ agentId: "codex", model: "gpt-5.5" }))).toMatchObject({ status: 400, code: "unknown-model" });
+    const adapterless: AgentDefinition = { ...AGENT_DEFINITIONS[0]!, id: "adapterless", binary: "adapterless" };
+    expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless] })))
+      .toMatchObject({ status: 409, code: "no-adapter" });
     expect(await exists(join(root, "argv"))).toBe(false);
+  });
+
+  describe("image attachments", () => {
+    const PNG: AgentAttachment = { type: "png", bytes: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2]) };
+    const JPEG: AgentAttachment = { type: "jpeg", bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]) };
+    const folders = () => readdir(join(attachmentRoot(), String(process.pid))).catch(() => []);
+
+    async function runFolder(): Promise<string> {
+      const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+      const dir = argv.filter((_, index) => argv[index - 1] === "--add-dir").find((value) => basename(value).startsWith("run-"));
+      expect(dir).toBeDefined();
+      return dir!;
+    }
+
+    it("gives the CLI a private folder outside the project and removes it when Stop ends the run", async () => {
+      await fakeClaude(hang());
+      const run = await start({ attachments: [PNG, JPEG] });
+      await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+
+      const dir = await runFolder();
+      expect((await readdir(dir)).sort()).toEqual(["1.png", "2.jpg"]);
+      expect([...await readFile(join(dir, "1.png"))]).toEqual([...PNG.bytes]);
+      expect((await stat(dir)).mode & 0o777).toBe(0o700);
+      expect(relative(await realpath(projectDir), dir).startsWith("..")).toBe(true);
+      expect((await readdir(projectDir)).sort()).toEqual(["AGENTS.md", "app-store-screenshots.json"]);
+      expect(await readFile(join(root, "argv"), "utf8")).toContain(`${join(dir, "1.png")}\n${join(dir, "2.jpg")}`);
+
+      expect(await cancelAgentRun(projectDir)).toBe(true);
+      await collect(run);
+      await expect.poll(() => exists(dir), { timeout: 5_000 }).toBe(false);
+    }, 20_000);
+
+    it.each([
+      ["accepted", `/bin/cat '${SUCCESS_FIXTURE}'`],
+      ["rejected", `printf '{"meta":' > app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`],
+      ["failed", "echo boom >&2; exit 1"],
+    ])("removes the run folder after a %s run", async (_outcome, scenario) => {
+      await fakeClaude(scenario);
+
+      await collect(await start({ attachments: [PNG] }));
+
+      await expect.poll(async () => exists(await runFolder()), { timeout: 5_000 }).toBe(false);
+    });
+
+    it("removes the run folder when the run times out or its stream is abandoned", async () => {
+      await fakeClaude(hang());
+      await collect(await start({ attachments: [PNG], timeoutMs: 1_000 }));
+      await expect.poll(async () => exists(await runFolder()), { timeout: 5_000 }).toBe(false);
+
+      await rm(join(root, "sleep.pid"));
+      const run = await start({ attachments: [JPEG] });
+      await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+      const dir = await runFolder();
+      await run.events.cancel();
+      await expect.poll(() => exists(dir), { timeout: 5_000 }).toBe(false);
+      await expect.poll(() => cancelAgentRun(projectDir), { timeout: 5_000 }).toBe(false);
+    }, 20_000);
+
+    it("keeps one run's folder apart from another's", async () => {
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+      await collect(await start({ attachments: [PNG] }));
+      const first = await runFolder();
+      await collect(await start({ attachments: [PNG] }));
+
+      expect(await runFolder()).not.toBe(first);
+    });
+
+    it("writes nothing for a request the gate refuses", async () => {
+      await fakeClaude(hang());
+      const before = await folders();
+
+      expect(await rejection(start({ agentId: "gemini-cli", model: null, attachments: [PNG] }))).toMatchObject({ code: "unavailable" });
+      expect(await rejection(start({ model: "no-such-model", attachments: [PNG] }))).toMatchObject({ code: "unknown-model" });
+      expect(await folders()).toEqual(before);
+      const run = await start({ attachments: [PNG] });
+      expect(await rejection(start({ attachments: [PNG] }))).toMatchObject({ code: "agent-busy" });
+
+      await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+      expect((await folders()).length).toBe(before.length + 1);
+      await cancelAgentRun(projectDir);
+      await collect(run);
+    }, 20_000);
+
+    it("does not touch the attachment folder for a text-only run, or for one stopped before launch", async () => {
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+      const before = await folders();
+
+      await collect(await start());
+      expect(await folders()).toEqual(before);
+
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 1; echo '2.1.296 (Claude Code)'");
+      await rm(join(root, "argv"), { force: true });
+      const pending = start({ attachments: [PNG] });
+      await expect.poll(() => cancelAgentRun(projectDir), { timeout: 5_000 }).toBe(true);
+      expect(await collect(await pending)).toEqual([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await folders()).toEqual(before);
+    }, 20_000);
+
+    it("never launches when Stop lands after the last readiness check, and keeps the pending Undo", async () => {
+      await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+      await collect(await start());
+      expect(await pendingAgentOutcome(projectDir)).not.toBeNull();
+      await rm(join(root, "argv"));
+
+      // The consent re-check right before the snapshot is the last await a Stop can slip into.
+      let checks = 0;
+      const consent = {
+        isGranted: async () => {
+          checks += 1;
+          if (checks === 2) await cancelAgentRun(projectDir);
+          return true;
+        },
+        grant: async () => undefined,
+        revoke: async () => undefined,
+      };
+      const definitions = AGENT_DEFINITIONS.map((definition) => (
+        definition.id === "claude-code" ? { ...definition, policy: { ...definition.policy, level: "at-own-risk" as const } } : definition
+      ));
+      const before = await folders();
+
+      const events = await collect(await start({ attachments: [PNG], definitions, consent }));
+
+      expect(events).toEqual([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await folders()).toEqual(before);
+      expect(await pendingAgentOutcome(projectDir)).not.toBeNull();
+    }, 20_000);
+
+    it("passes Codex one --image per file", async () => {
+      await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+
+      await collect(await start({
+        agentId: "codex",
+        model: null,
+        attachments: [PNG, JPEG],
+        env: { NODE_ENV: "test", PATH: binDir, HOME: root },
+      }));
+
+      const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+      const images = argv.filter((_, index) => argv[index - 1] === "--image");
+      expect(images.map((file) => basename(file))).toEqual(["1.png", "2.jpg"]);
+      expect(argv.at(-2)).toBe("-");
+      await expect.poll(() => exists(images[0]!), { timeout: 5_000 }).toBe(false);
+    });
   });
 });

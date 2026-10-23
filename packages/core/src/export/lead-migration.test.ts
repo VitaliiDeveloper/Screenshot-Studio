@@ -118,4 +118,20 @@ describe("migrateLeadTarget", () => {
     expect(() => migrateLeadTarget(project(screen("hero")), specs, "apple", "iphone", "6.3"))
       .toThrow(/already the apple\/iphone lead target/);
   });
+
+  it("moves Android tablet roots from the 10:16 lead to the 9:16 lead", () => {
+    const tablet = { ...screen("tablet", "en", 1200, 1920), platform: "android", device: "tablet-7" } as Screen;
+
+    const { project: migrated, migrated: report } = migrateLeadTarget(
+      project(tablet), specs, "android", "tablet-7", "tablet-7-portrait",
+    );
+
+    expect(report).toEqual([{ layoutId: "default", locale: "en", screens: 1 }]);
+    const [root, previous] = screens(migrated);
+    expect(root).toMatchObject({ id: "tablet", artboard: { width: 1440, height: 2560 } });
+    expect(previous).toMatchObject({
+      variantOf: "tablet", storeTargetId: "tablet-7-portrait", artboard: { width: 1200, height: 1920 },
+    });
+    expect(() => validateBundleArtboards(buildBundleEntries(migrated, "default", specs))).not.toThrow();
+  });
 });

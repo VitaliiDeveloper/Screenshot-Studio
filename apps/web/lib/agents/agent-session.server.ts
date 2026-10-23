@@ -21,7 +21,11 @@ import {
   spawnAgentProcess,
   type AgentDefinition,
 } from "./agents.server.js";
-import { claudeCodeAdapter } from "./claude-code-adapter.server.js";
+import { agentAdapter } from "./agent-adapters.server.js";
+import type { AgentAttachment } from "./agent-attachments.js";
+import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
+import { sharedAgentConsentStore, type AgentConsentStore } from "./agent-consent.server.js";
+import { readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
 export type AgentErrorCode = "usage-limit" | "not-authorized" | "timeout" | "failed";
 
@@ -58,12 +62,16 @@ export type AgentEvent =
 export interface AgentRunContext {
   agentGuidePath: string | null;
   skillPath: string | null;
+  /** The Codex credentials store the readiness probe used; null for other agents. */
+  codexAuthStore: CodexAuthStore | null;
 }
 
 export interface AgentRunRequest {
   message: string;
   model: string | null;
   context: AgentRunContext;
+  /** Absolute paths of this run's image attachments; they all live in one folder only this run knows. */
+  attachments: string[];
 }
 
 export interface AgentOutputNormalizer {
@@ -90,12 +98,16 @@ export interface AgentRunOptions {
   projectDir: string;
   message: string;
   model?: string | null;
+  /** Validated images for this request only; written to a temporary folder once the run is admitted. */
+  attachments?: readonly AgentAttachment[];
   /** Source environment; the CLI only ever receives its `agentEnv` reduction. */
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
   /** How long a run waits for editor writes already in flight before it gives up as `project-busy`. */
   drainTimeoutMs?: number;
   definitions?: readonly AgentDefinition[];
+  /** Where `at-own-risk` consent is stored; the app's own store when omitted. */
+  consent?: AgentConsentStore;
 }
 
 export interface AgentRun {
@@ -123,7 +135,6 @@ interface SettledRun {
 
 export const PROJECT_FILE_NAME = "app-store-screenshots.json";
 
-const ADAPTERS: ReadonlyMap<string, AgentAdapter> = new Map([[claudeCodeAdapter.agentId, claudeCodeAdapter]]);
 const DEFAULT_RUN_TIMEOUT_MS = 10 * 60_000;
 // An export holds an editor write for its whole render, so a run waits a while before giving up.
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
@@ -300,27 +311,34 @@ async function settleRun(
   };
 }
 
-function runContext(projectDir: string): AgentRunContext {
+function runContext(projectDir: string, codexAuthStore: CodexAuthStore | null): AgentRunContext {
   const agentGuidePath = join(projectDir, "AGENTS.md");
   const skillPath = join(dirname(resolveStoreSpecsPath()), "skills", "screenshot-studio", "SKILL.md");
   return {
     agentGuidePath: existsSync(agentGuidePath) ? agentGuidePath : null,
     skillPath: existsSync(skillPath) ? skillPath : null,
+    codexAuthStore,
   };
 }
 
-function runnableDefinition(options: AgentRunOptions): { definition: AgentDefinition; adapter: AgentAdapter } {
+async function requireConsent(definition: AgentDefinition, options: AgentRunOptions): Promise<void> {
+  if (definition.policy.level === "at-own-risk" && !await (options.consent ?? sharedAgentConsentStore()).isGranted(definition)) {
+    throw new AgentRunError(403, "consent-required", `${definition.name} needs your consent before it can run`);
+  }
+}
+
+/**
+ * The server-side policy gate. Nothing in a request can grant consent: it is read from the app's own
+ * store, and `unavailable` is refused before any consent or adapter lookup.
+ */
+async function runnableDefinition(options: AgentRunOptions): Promise<{ definition: AgentDefinition; adapter: AgentAdapter }> {
   const definition = (options.definitions ?? AGENT_DEFINITIONS).find(({ id }) => id === options.agentId);
   if (!definition) throw new AgentRunError(404, "unknown-agent", `Unknown agent: ${options.agentId}`);
   if (definition.policy.level === "unavailable") {
     throw new AgentRunError(403, "unavailable", definition.policy.reason);
   }
-  // shortcut: no at-own-risk agent ships and consent storage arrives with its UI (VTL-33), so these
-  // never run yet; add the local-settings consent check here when the first one is added.
-  if (definition.policy.level === "at-own-risk") {
-    throw new AgentRunError(403, "consent-required", `${definition.name} needs your consent before it can run`);
-  }
-  const adapter = ADAPTERS.get(definition.id);
+  await requireConsent(definition, options);
+  const adapter = agentAdapter(definition.id);
   if (!adapter) throw new AgentRunError(409, "no-adapter", `${definition.name} cannot run from the editor yet`);
   if (options.model != null && !definition.models.includes(options.model)) {
     throw new AgentRunError(400, "unknown-model", `${definition.name} has no model ${options.model}`);
@@ -336,18 +354,21 @@ function runnableDefinition(options: AgentRunOptions): { definition: AgentDefini
  * valid one undone without dropping an editor change.
  */
 export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun> {
-  const { definition, adapter } = runnableDefinition(options);
+  const { definition, adapter } = await runnableDefinition(options);
   const projectDir = await realpath(options.projectDir);
   const runs = activeRuns();
   if (runs.has(projectDir)) {
     throw new AgentRunError(409, "agent-busy", "An agent is already running in this project");
   }
   let cancelledBeforeLaunch = false;
+  let runFolder: string | null = null;
   runs.set(projectDir, () => {
     cancelledBeforeLaunch = true;
   });
   try {
-    const status = await detectAgent(definition, { env: options.env });
+    // Read once, so the readiness probe and the run use the same store.
+    const codexAuthStore = definition.id === "codex" ? await readCodexAuthStore(agentEnv(options.env)) : null;
+    const status = await detectAgent(definition, { env: options.env, codexAuthStore });
     if (!cancelledBeforeLaunch && status.state !== "ready") {
       throw new AgentRunError(409, status.state, `${definition.name} is not ready (${status.state})`);
     }
@@ -362,6 +383,8 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       runs.delete(projectDir);
       return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
     }
+    // The readiness probe and the drain wait can take a while; a consent revoked meanwhile still wins.
+    await requireConsent(definition, options);
     let snapshot: ProjectSnapshot;
     try {
       const projectFile = join(projectDir, PROJECT_FILE_NAME);
@@ -369,20 +392,40 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     } catch (error) {
       throw new AgentRunError(409, "project-invalid", `The project cannot be snapshotted before the run: ${errorText(error)}`);
     }
+    // Only an admitted run with images touches the file system, so a refused or text-only request
+    // never leaves a file behind or fails on the temp directory.
+    const folder = options.attachments?.length ? await createRunFolder(options.attachments) : { dir: null, files: [] };
+    runFolder = folder.dir;
+    // Stop can arrive during any await above; DELETE already answered it, so the run must not launch.
+    if (cancelledBeforeLaunch) {
+      runs.delete(projectDir);
+      if (folder.dir) await removeRunFolder(folder.dir);
+      return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
+    }
     // A new run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
     pendingOutcomes().delete(projectDir);
-    const request = { message: options.message, model: options.model ?? null, context: runContext(projectDir) };
+    const request: AgentRunRequest = {
+      message: options.message,
+      model: options.model ?? null,
+      context: runContext(projectDir, codexAuthStore),
+      attachments: folder.files,
+    };
     const run = launchRun(definition, adapter, request, {
       projectDir,
       env: agentEnv(options.env),
       timeoutMs: options.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
       settle: (doneStatus) => settleRun(projectDir, snapshot, doneStatus),
-      release: () => runs.delete(projectDir),
+      // The process tree is dead by now, so nothing still reads the images.
+      release: () => {
+        runs.delete(projectDir);
+        if (folder.dir) void removeRunFolder(folder.dir);
+      },
     });
     runs.set(projectDir, run.cancel);
     return run;
   } catch (error) {
     runs.delete(projectDir);
+    if (runFolder) await removeRunFolder(runFolder);
     throw error;
   }
 }

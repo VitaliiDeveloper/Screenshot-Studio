@@ -231,10 +231,10 @@ export function TextInspectorFields({
       <div className="flex items-start justify-between gap-3 border-t border-[var(--editor-color-border)] pt-3">
         <span className="min-w-0">
           <span className="block text-[length:var(--editor-font-control-size)] font-medium text-[color:var(--editor-color-text-default)]">
-            Theme integration
+            Theme role
           </span>
           <span className="mt-0.5 block text-[length:var(--editor-font-label-size)] leading-4 text-[color:var(--editor-color-text-secondary)]">
-            Applied on the next theme change. Current styling stays unchanged.
+            Used the next time you apply a design pack. Current style stays as is.
           </span>
         </span>
         <MenuSelect

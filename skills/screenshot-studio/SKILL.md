@@ -26,6 +26,10 @@ The script resolves the CLI from `--cli <executable>`, then `SCREENSHOT_STUDIO_C
 `@screenshot-studio/cli` artifact available. Do not fetch packages, invent project JSON, or replace
 the CLI initialization path.
 
+## Choose a style
+
+For a ready-made look, follow the generated guide's "Recipe: choose a style".
+
 ## Boundaries
 
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the

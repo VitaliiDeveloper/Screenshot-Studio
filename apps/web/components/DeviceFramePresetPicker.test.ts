@@ -64,7 +64,10 @@ describe("DeviceFramePresetPicker catalog", () => {
       },
       { label: "TV", presetIds: ["tv-flat", "display-minimal"] },
       { label: "Watch", presetIds: ["watch-rounded", "watch-square", "frameless-watch"] },
-      { label: "Special", presetIds: ["foldable", "automotive-display", "xr-viewport"] },
+      {
+        label: "Special",
+        presetIds: ["foldable", "foldable-tall", "phone-flip", "automotive-display", "xr-viewport"],
+      },
       {
         label: "Legacy",
         presetIds: ["iphone", "android-phone", "tablet", "desktop", "laptop", "browser", "tv", "watch"],

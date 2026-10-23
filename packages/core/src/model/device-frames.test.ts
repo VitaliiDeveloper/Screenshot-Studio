@@ -80,7 +80,7 @@ const INITIAL_BUNDLED_FRAME_SET = {
   Computer: ["laptop-silver", "laptop-dark", "display-stand", "display-minimal"],
   TV: ["tv-flat", "display-minimal"],
   Watch: ["watch-rounded", "watch-square", "frameless-watch"],
-  Special: ["foldable", "automotive-display", "xr-viewport"],
+  Special: ["foldable", "foldable-tall", "phone-flip", "automotive-display", "xr-viewport"],
 } as const satisfies Record<string, readonly DeviceFrameId[]>;
 
 const SEMANTIC_IDS = [...new Set(Object.values(INITIAL_BUNDLED_FRAME_SET).flat())];
@@ -98,8 +98,8 @@ describe("device frame preset catalog", () => {
     const semanticIds = DEVICE_FRAME_PRESETS.filter(({ legacy }) => !legacy).map(({ id }) => id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toEqual(DEVICE_FRAME_IDS);
-    expect(SEMANTIC_IDS).toHaveLength(24);
-    expect(semanticIds).toHaveLength(24);
+    expect(SEMANTIC_IDS).toHaveLength(26);
+    expect(semanticIds).toHaveLength(26);
     expect(new Set(semanticIds)).toEqual(new Set(SEMANTIC_IDS));
     expect(DEVICE_FRAME_PRESETS.filter(({ legacy }) => legacy).map(({ id }) => id))
       .toEqual(Object.keys(LEGACY_SPECS));
@@ -225,6 +225,17 @@ describe("device frame preset catalog", () => {
         expect(heightFrac).toBeLessThanOrEqual(recipe.spec.slotInset.top);
       }
     }
+  });
+
+  it("sizes the tall foldable and flip phone slots to their screenshot proportions", () => {
+    const slotAspect = (id: DeviceFrameId) => {
+      const { aspectRatio, slotInset } = deviceFramePreset(id).recipe.spec;
+      return aspectRatio * (1 - slotInset.left - slotInset.right)
+        / (1 - slotInset.top - slotInset.bottom);
+    };
+    expect(Math.abs(slotAspect("foldable-tall") / (2007 / 2853) - 1)).toBeLessThan(0.005);
+    expect(Math.abs(slotAspect("phone-flip") / (1080 / 2520) - 1)).toBeLessThan(0.005);
+    expect(deviceFramePreset("foldable").recipe.spec.aspectRatio).toBe(0.82);
   });
 
   it("keeps the spatial viewport truly frameless with no declared outline", () => {

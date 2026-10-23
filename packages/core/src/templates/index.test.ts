@@ -11,7 +11,10 @@ import {
 import {
   ensureStoreTargetVariant,
   elementLeaves,
+  isBuiltInFontIdentity,
+  setScreenDirection,
   parseProject,
+  projectScreenGroup,
   setLocaleDirection,
   setOutputFamilyScreenSetMode,
   type Project,
@@ -213,7 +216,7 @@ describe("built-in templates", () => {
 
   it.each([
     ["ipad-landscape-starter", "13-landscape", 2752, 2064],
-    ["android-tablet-landscape-starter", "tablet-10-landscape", 2560, 1600],
+    ["android-tablet-landscape-starter", "tablet-landscape", 2560, 1440],
     ["play-feature-graphic", "play-feature-graphic", 1024, 500],
   ] as const)("materializes %s as an exportable exact-target variant", (id, targetId, width, height) => {
     const builtIn = listBuiltInTemplates(storeSpecs).find((candidate) => candidate.id === id)!;
@@ -456,9 +459,9 @@ describe("built-in template packs", () => {
     const [pack] = listBuiltInTemplatePacks(storeSpecs);
     const style = findBuiltInDesignPack(pack!.style)!;
     const target = findStoreTarget(storeSpecs, "apple", "iphone", "6.3");
-    expect(listBuiltInTemplatePackMetadata()).toEqual([expect.objectContaining({
+    expect(listBuiltInTemplatePackMetadata()[0]).toEqual(expect.objectContaining({
       id: pack!.id, platform: "apple", device: "iphone", style: "neutral-default", screenCount: pack!.screens.length,
-    })]);
+    }));
     expect(pack!.screens.length).toBeGreaterThan(1);
     for (const screen of pack!.screens) {
       expect(screen.artboard).toEqual({ width: target.width, height: target.height });
@@ -491,5 +494,152 @@ describe("built-in template packs", () => {
     expect(screens).toHaveLength(1 + pack!.screens.length * 2);
     expect(new Set(screens.map((screen) => screen.id)).size).toBe(screens.length);
     expect(parseProject(twice.project)).toEqual(twice.project);
+  });
+});
+
+type Box = { x: number; y: number; width: number; height: number };
+const intersects = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+const STYLES = ["clean", "aurora", "midnight", "poster", "sunrise"];
+const styledPacks = () => listBuiltInTemplatePacks(storeSpecs).filter((pack) => STYLES.includes(pack.style));
+const isPanorama = (id: string) => id.includes("-panorama-");
+
+describe("styled template packs", () => {
+  it("ships every style for iPhone and Android phone with the full six-screen narrative", () => {
+    const packs = styledPacks().filter((pack) => !isPanorama(pack.id));
+    expect(packs.map((pack) => pack.id)).toEqual(STYLES.flatMap((style) => [`${style}-iphone`, `${style}-android-phone`]));
+    for (const pack of packs) {
+      expect(findBuiltInDesignPack(pack.style), pack.id).toBeDefined();
+      expect(pack.screens.map((screen) => screen.name)).toEqual(["Hero", "Feature 1", "Feature 2", "Feature 3", "Social proof", "Call to action"]);
+    }
+    expect(listBuiltInTemplatePackMetadata().filter((pack) => STYLES.includes(pack.style) && !isPanorama(pack.id)).map((pack) => [pack.platform, pack.device, pack.screenCount]))
+      .toEqual(STYLES.flatMap(() => [["apple", "iphone", 6], ["android", "phone", 6]]));
+  });
+
+  it.each(["ltr", "rtl"] as const)("keeps %s geometry exact, readable, and clear of the device", (direction) => {
+    for (const pack of styledPacks()) {
+      const style = findBuiltInDesignPack(pack.style)!;
+      const target = findStoreTarget(storeSpecs, pack.platform as "apple" | "android", pack.device, pack.screens[0]!.targetId!);
+      for (const template of pack.screens) {
+        const label = `${template.id} ${direction}`;
+        const screen = setScreenDirection({
+          id: template.id, name: template.name, platform: template.platform, device: template.device, locale: "en",
+          direction: "ltr", artboard: template.artboard, background: template.background, elements: template.elements,
+        } as Project["layouts"][number]["screens"][number], direction);
+        const { width, height } = screen.artboard;
+        expect(screen.artboard, label).toEqual({ width: target.width, height: target.height });
+        expect(screen.background, label).toEqual(style.background);
+        const leaves = screen.elements.flatMap(elementLeaves);
+        const device = leaves.find((leaf) => leaf.type === "device-frame")!;
+        expect(device.x, label).toBeGreaterThanOrEqual(0);
+        expect(device.y, label).toBeGreaterThanOrEqual(0);
+        expect(device.x + device.width, label).toBeLessThanOrEqual(width);
+        expect(device.y + device.height - height, label).toBeLessThanOrEqual(device.height * 0.15);
+        expect(device.width / width, label).toBeGreaterThan(0.35);
+
+        for (const text of leaves.filter((leaf) => leaf.type === "text")) {
+          const where = `${label} ${text.id}`;
+          expect(isBuiltInFontIdentity({ family: text.fontFamily, weight: text.weight }), where).toBe(true);
+          expect(text.color, where).toBe(style.palette[text.role!]);
+          expect(text.x, where).toBeGreaterThanOrEqual(0);
+          expect(text.x + text.width, where).toBeLessThanOrEqual(width);
+          expect(text.y + text.height, where).toBeLessThanOrEqual(height);
+          expect(intersects(text, device), where).toBe(false);
+          const minimumLines = text.role === "heading" || text.role === "body" ? 3 : 1;
+          expect(text.height, where).toBeGreaterThanOrEqual(Math.floor(text.size * text.lineHeight * minimumLines));
+          // The themes test proves these role pairs readable for every styled pack.
+          for (const shape of leaves.filter((leaf) => leaf.type === "shape" && intersects(leaf, text))) {
+            if (shape.type !== "shape") continue;
+            const pair = `${text.role} on ${shape.role}`;
+            expect(shape.opacity === 1 && !shape.gradient && shape.fill === style.palette[shape.role!], `${where} over ${shape.id}`).toBe(true);
+            expect(["heading on surface", "body on surface", "accent on surface", "surface on accent"], `${where} over ${shape.id}`).toContain(pair);
+          }
+        }
+        if (direction === "rtl") {
+          expect(leaves.filter((leaf) => leaf.type === "text").map((leaf) => leaf.type === "text" && leaf.align), label)
+            .not.toContain("left");
+        }
+      }
+    }
+  });
+
+  it("materializes each pack in an RTL locale as valid mirrored screens", () => {
+    for (const pack of styledPacks()) {
+      const source = project();
+      source.layouts[0]!.mode = isPanorama(pack.id) ? "connected" : "isolated";
+      const { project: next, screens } = createScreensFromTemplatePack(
+        setLocaleDirection(createScreensFromTemplatePack(source, "default", pack, "ar", storeSpecs).project, "default", "ar", "rtl"),
+        "default", pack, "ar", storeSpecs,
+      );
+      expect(screens.every((screen) => screen.direction === "rtl"), pack.id).toBe(true);
+      expect(parseProject(next)).toEqual(next);
+    }
+  });
+});
+
+describe("panorama template packs", () => {
+  const PANORAMA_STYLES = ["clean", "midnight", "poster", "sunrise"];
+  const panoramas = () => styledPacks().filter((pack) => isPanorama(pack.id));
+
+  it("ships the seam-safe styles for iPhone and Android phone with the six-screen narrative", () => {
+    expect(panoramas().map((pack) => pack.id))
+      .toEqual(PANORAMA_STYLES.flatMap((style) => [`${style}-panorama-iphone`, `${style}-panorama-android-phone`]));
+    expect(listBuiltInTemplatePackMetadata().filter((pack) => pack.panorama).map((pack) => pack.id))
+      .toEqual(panoramas().map((pack) => pack.id));
+    for (const pack of panoramas()) {
+      expect(pack.panorama, pack.id).toBe(true);
+      expect(pack.screens.map((screen) => screen.name)).toEqual(["Hero", "Feature 1", "Feature 2", "Feature 3", "Social proof", "Call to action"]);
+      // Every screen restarts its background, so only one without a horizontal component can span.
+      const background = pack.screens[0]!.background;
+      expect(background.type === "solid" || (background.type === "linear-gradient" && background.angle % 180 === 90), pack.id).toBe(true);
+    }
+  });
+
+  it("refuses an isolated layout, where art would stop at every screen edge", () => {
+    const source = project();
+    source.layouts[0]!.mode = "isolated";
+    expect(() => createScreensFromTemplatePack(source, "default", panoramas()[0]!, "en", storeSpecs))
+      .toThrow(/spans screen edges; switch layout "default" to Panorama first/);
+  });
+
+  it("draws each art shape once across the connected strip, behind every screen's copy and device", () => {
+    for (const pack of panoramas()) {
+      const source = project();
+      if (pack.platform !== "apple") source.layouts[0]!.screens[0] = { ...source.layouts[0]!.screens[0]!, platform: "android", device: "phone" };
+      const { project: next, screens } = createScreensFromTemplatePack(source, "default", pack, "en", storeSpecs);
+      const strip = projectScreenGroup(next, "default", screens[0]!.id);
+      const owned = strip.filter((entry) => screens.some((screen) => screen.id === entry.screen.id));
+      expect(owned.map((entry) => entry.screen.id), pack.id).toEqual(screens.map((screen) => screen.id));
+      const start = owned[0]!.x;
+      const { width } = screens[0]!.artboard;
+      const end = start + width * screens.length;
+
+      const art: Box[] = [];
+      const copy: Box[] = [];
+      for (const { screen, x } of owned) {
+        // Ids are fresh after materialization; the two copy-backing shapes keep their names.
+        const isArt = (element: (typeof screen.elements)[number]) => element.type === "shape"
+          && element.name !== "Quote card" && element.name !== "Action button";
+        const kinds = screen.elements.map((element) => isArt(element) ? "art" : "content");
+        // Art leads its owner's array, so the owner's copy and device draw over it.
+        expect(kinds.indexOf("content"), `${screen.id} order`).toBe(kinds.lastIndexOf("art") + 1);
+        for (const element of screen.elements) {
+          const box = { x: element.x + x, y: element.y, width: element.width, height: element.height };
+          if (isArt(element)) art.push(box);
+          else if (element.type === "text") copy.push(box);
+        }
+      }
+      const keys = art.map((box) => `${box.x},${box.y},${box.width},${box.height}`);
+      expect(new Set(keys).size, `${pack.id} drawn once`).toBe(keys.length);
+      for (const box of art) {
+        expect(box.x, pack.id).toBeGreaterThanOrEqual(start);
+        expect(box.x + box.width, pack.id).toBeLessThanOrEqual(end);
+        expect(copy.filter((text) => intersects(text, box)), `${pack.id} art over copy`).toEqual([]);
+      }
+      for (let seam = 1; seam < screens.length; seam += 1) {
+        const at = start + seam * width;
+        expect(art.some((box) => box.x < at && box.x + box.width > at), `${pack.id} seam ${seam}`).toBe(true);
+      }
+    }
   });
 });

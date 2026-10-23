@@ -50,7 +50,7 @@ export function ProjectDeletionDialog({
   return (
     <DialogShell
       title="Permanently delete project"
-      description="This deletes the managed project and all project-local resources. It cannot be recovered."
+      description="This permanently deletes this project and all its screenshots, fonts, and assets. It can't be recovered."
       closeLabel="Cancel permanent deletion"
       closeDisabled={busy}
       initialFocus="heading"
