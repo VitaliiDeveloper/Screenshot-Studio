@@ -327,7 +327,8 @@ plugin, browser, computer-use, memory, hook, and sub-agent features are off. The
 `cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
 Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
-only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run.
+only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
+result lists the other files it changed.
 
 A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
 They travel in the same `POST /api/agents/session` as a multipart body (`agentId`, `message`, `model`,
@@ -367,8 +368,17 @@ same lock. An invalid or deleted document is written back from the snapshot and 
 `result: rejected` with the reason and the restored revision before `done: failed`; a valid one
 carries `result: accepted` with the changed screen ids and the new revision, and the snapshot stays
 pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it (restore the snapshot
-as one locked write, refused once the editor has written past the run's revision). A run cancelled
-before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
+as one locked write, refused once the editor has written past the run's revision). Every `result`,
+accepted or rejected, also carries `otherFiles`: the files outside `app-store-screenshots.json` that
+were added, changed, or removed in the project folder during the run, as relative paths (the first 50,
+`AGENTS.md` and `CLAUDE.md` first, since later runs read them) with a total count. The server compares
+an `lstat` fingerprint (mode, size, mtime, ctime) of every entry taken right after the snapshot with
+one taken once the process tree is dead; symlinks are recorded, never followed, and the project
+file's own temp and lock files and `.DS_Store` are skipped. A folder of more than 5,000 entries, or
+one that cannot be read, gives `otherFiles: null`, never a partial list. Changes by the CLI's own
+commands (imported images, fonts, themes, templates, exports) are listed the same way. Neither a
+rejected verdict, Undo run, nor Stop restores these files; the pending outcome keeps the list for the
+review. A run cancelled before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
 per change; snapshots live in server memory, so a restart drops a pending undo.
 
 The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts

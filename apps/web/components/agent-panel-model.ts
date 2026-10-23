@@ -3,7 +3,7 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
 import { attachmentProblem, SNIFF_BYTES } from "@web/lib/agents/agent-attachments";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
-import type { AgentEvent, AgentStep } from "@web/lib/agents/agent-session.server";
+import type { AgentEvent, AgentOtherFiles, AgentStep } from "@web/lib/agents/agent-session.server";
 import { compactScreenSizeLabel } from "@web/lib/panel-helpers";
 
 export type AgentResult = Extract<AgentEvent, { type: "result" }>;
@@ -119,6 +119,11 @@ export function turnOutcome(turn: AgentTurn): TurnOutcome | null {
   if (error) return { kind: "error", message: error.message };
   if (result?.changed) return { kind: "changed", count: result.changedScreens.length };
   return { kind: "unchanged" };
+}
+
+/** True when a verdict must mention other files: some changed, or the folder could not be compared. */
+export function hasOtherFiles(otherFiles: AgentOtherFiles | null): boolean {
+  return otherFiles === null || otherFiles.count > 0;
 }
 
 export type AgentNotice =

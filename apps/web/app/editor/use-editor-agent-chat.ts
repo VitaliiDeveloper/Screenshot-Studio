@@ -198,7 +198,12 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setPhase("syncing");
     try {
       if (result?.status === "accepted" && result.changed) {
-        setOutcome({ revision: result.revision, changedScreens: result.changedScreens, finishedAt: new Date().toISOString() });
+        setOutcome({
+          revision: result.revision,
+          changedScreens: result.changedScreens,
+          otherFiles: result.otherFiles,
+          finishedAt: new Date().toISOString(),
+        });
         // Mockup 7a: Stop puts the project back where the run found it.
         if (stopped.current) {
           await postOutcome("undo");

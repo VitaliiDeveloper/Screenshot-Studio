@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { existsSync } from "node:fs";
-import { readFile, realpath } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import type { Project } from "@screenshot-studio/core/model";
@@ -36,6 +36,22 @@ export interface AgentStep {
 
 export type AgentDoneStatus = "completed" | "failed" | "cancelled";
 
+export interface AgentOtherFile {
+  /** Relative to the project folder, `/`-separated. */
+  path: string;
+  change: "added" | "modified" | "removed";
+}
+
+/**
+ * What changed in the project folder outside `app-store-screenshots.json` while a run held it.
+ * Neither a rejected verdict, Undo run, nor Stop restores these files.
+ */
+export interface AgentOtherFiles {
+  /** The first `OTHER_FILES_LIMIT` changes, the agent guides first. */
+  files: AgentOtherFile[];
+  count: number;
+}
+
 /**
  * The normalized stream of every adapter. A launched run always ends with one `result`, the verdict
  * on what the agent left on disk (mockup 7c: a rejected result is rolled back), then exactly one
@@ -56,6 +72,8 @@ export type AgentEvent =
     changedScreens: string[];
     /** Revision now on disk: the run's for accepted, the restored snapshot's for rejected. */
     revision: string;
+    /** Null when the folder was too large or could not be read to compare. */
+    otherFiles: AgentOtherFiles | null;
   }
   | { type: "done"; status: AgentDoneStatus; summary: string | null; durationMs: number | null };
 
@@ -120,6 +138,7 @@ export interface AgentRunOutcome {
   /** Revision the run left on disk; Undo refuses once the editor has written past it. */
   revision: string;
   changedScreens: string[];
+  otherFiles: AgentOtherFiles | null;
   finishedAt: string;
 }
 
@@ -142,6 +161,9 @@ const DRAIN_POLL_MS = 25;
 // Longer than the mutation lock's 30 s stale window, which bounds an abandoned lock's lifetime.
 const VERDICT_LOCK_TIMEOUT_MS = 45_000;
 const STDERR_LIMIT = 64 * 1024;
+const FOLDER_SCAN_LIMIT = 5_000;
+const OTHER_FILES_LIMIT = 50;
+const AGENT_GUIDES = ["AGENTS.md", "CLAUDE.md"];
 const ACTIVE_RUNS_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-runs");
 const EDITOR_WRITES_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-editor-writes");
 const OUTCOMES_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-outcomes");
@@ -261,21 +283,90 @@ function changedScreenIds(before: Project, after: Project): string[] {
   return [...ids];
 }
 
+/** Path → stat fingerprint of every entry in a project folder. */
+type FolderManifest = Map<string, string>;
+
+/** The project file and the lock and temp files its own writes leave beside it. */
+function projectFileOrSidecar(name: string): boolean {
+  return name === PROJECT_FILE_NAME
+    || (name.startsWith(`.${PROJECT_FILE_NAME}.`) && (name.endsWith(".tmp") || name.endsWith(".screenshot-studio.lock")));
+}
+
+function skipMissing<T>(fallback: T): (error: unknown) => T {
+  return (error) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return fallback;
+    throw error;
+  };
+}
+
+/** Null past `FOLDER_SCAN_LIMIT` entries or on a read error, so a partial scan never reports a guess. */
+async function folderManifest(projectDir: string): Promise<FolderManifest | null> {
+  const manifest: FolderManifest = new Map();
+  const folders = [""];
+  let visited = 0;
+  try {
+    for (let folder = folders.pop(); folder !== undefined; folder = folders.pop()) {
+      const entries = (await readdir(join(projectDir, folder), { withFileTypes: true }).catch(skipMissing([])))
+        .filter(({ name }) => name !== ".DS_Store" && !(folder === "" && projectFileOrSidecar(name)));
+      visited += entries.length;
+      if (visited > FOLDER_SCAN_LIMIT) return null;
+      const files: string[] = [];
+      for (const entry of entries) {
+        const path = folder ? `${folder}/${entry.name}` : entry.name;
+        // Dirent types are lstat's, so a symlinked folder is fingerprinted as a link, never followed.
+        (entry.isDirectory() ? folders : files).push(path);
+      }
+      await Promise.all(files.map(async (path) => {
+        const stat = await lstat(join(projectDir, path)).catch(skipMissing(null));
+        // ctime moves on every write and cannot be set back, unlike mtime.
+        if (stat) manifest.set(path, `${stat.mode}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`);
+      }));
+    }
+  } catch {
+    return null;
+  }
+  return manifest;
+}
+
+function comparePaths(a: AgentOtherFile, b: AgentOtherFile): number {
+  const rank = (path: string) => (AGENT_GUIDES.includes(path) ? AGENT_GUIDES.indexOf(path) : AGENT_GUIDES.length);
+  // Paths are unique, so two entries never compare equal.
+  return rank(a.path) - rank(b.path) || (a.path < b.path ? -1 : 1);
+}
+
+async function otherFileChanges(projectDir: string, before: FolderManifest | null): Promise<AgentOtherFiles | null> {
+  const after = before && await folderManifest(projectDir);
+  if (!before || !after) return null;
+  const files: AgentOtherFile[] = [];
+  for (const [path, fingerprint] of after) {
+    const previous = before.get(path);
+    if (previous !== fingerprint) files.push({ path, change: previous === undefined ? "added" : "modified" });
+  }
+  for (const path of before.keys()) if (!after.has(path)) files.push({ path, change: "removed" });
+  // The guides steer every later run of either agent, so their changes lead the list.
+  files.sort(comparePaths);
+  return { files: files.slice(0, OTHER_FILES_LIMIT), count: files.length };
+}
+
 /**
  * The verdict on the project file after the agent exited: a document the strict schema rejects
  * (or a missing one) is rolled back to the pre-run snapshot; a valid one becomes the pending outcome
- * the chat can keep or undo.
+ * the chat can keep or undo. Either way the result lists the other files the run left changed.
  */
 async function settleRun(
   projectDir: string,
   snapshot: ProjectSnapshot,
+  folderBefore: FolderManifest | null,
   status: AgentDoneStatus,
 ): Promise<SettledRun> {
   const projectFile = join(projectDir, PROJECT_FILE_NAME);
+  const otherFiles = await otherFileChanges(projectDir, folderBefore);
   const rejected = (reason: string, restored: ProjectSnapshot): SettledRun => {
     pendingOutcomes().delete(projectDir);
     return {
-      result: { type: "result", status: "rejected", reason, changed: false, changedScreens: [], revision: restored.revision },
+      result: {
+        type: "result", status: "rejected", reason, changed: false, changedScreens: [], revision: restored.revision, otherFiles,
+      },
       status: "failed",
     };
   };
@@ -300,13 +391,13 @@ async function settleRun(
   if (changed) {
     pendingOutcomes().set(projectDir, {
       snapshot: snapshot.project,
-      outcome: { revision: current.revision, changedScreens, finishedAt: new Date().toISOString() },
+      outcome: { revision: current.revision, changedScreens, otherFiles, finishedAt: new Date().toISOString() },
     });
   } else {
     pendingOutcomes().delete(projectDir);
   }
   return {
-    result: { type: "result", status: "accepted", reason: null, changed, changedScreens, revision: current.revision },
+    result: { type: "result", status: "accepted", reason: null, changed, changedScreens, revision: current.revision, otherFiles },
     status,
   };
 }
@@ -392,6 +483,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     } catch (error) {
       throw new AgentRunError(409, "project-invalid", `The project cannot be snapshotted before the run: ${errorText(error)}`);
     }
+    const folderBefore = await folderManifest(projectDir);
     // Only an admitted run with images touches the file system, so a refused or text-only request
     // never leaves a file behind or fails on the temp directory.
     const folder = options.attachments?.length ? await createRunFolder(options.attachments) : { dir: null, files: [] };
@@ -414,7 +506,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       projectDir,
       env: agentEnv(options.env),
       timeoutMs: options.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
-      settle: (doneStatus) => settleRun(projectDir, snapshot, doneStatus),
+      settle: (doneStatus) => settleRun(projectDir, snapshot, folderBefore, doneStatus),
       // The process tree is dead by now, so nothing still reads the images.
       release: () => {
         runs.delete(projectDir);

@@ -348,7 +348,8 @@ says `{agent} is editing this project`. Editing pauses for the run: the canvas, 
 Inspector are inert; Undo, Redo, Export, Issues, the layout menu, the resource dialogs, and Projects
 are disabled; only view keys (`[` `]`, `O`, ⌘J) work. The composer still takes the next request, and Send waits for the
 run to end. Esc keeps closing the panel and never stops a run. **Stop** ends the run and, if it had
-changed the project, undoes it, so the project is back at its pre-run state.
+changed the project, undoes it, so `app-store-screenshots.json` is back at its pre-run state; other
+files the run changed stay as it left them.
 
 **Attach images** gives the agent a reference, mockup, or screenshot as context for that one request.
 The paperclip button (keyboard reachable) opens the file picker, dropping files on the panel shows a
@@ -379,6 +380,14 @@ validation passed, and the Issues count with **Issues**). **Keep changes** drops
 snapshot; **Undo run** restores it as one write and is refused once the project changed after the
 run. Undo run covers only `app-store-screenshots.json`, and ⌘Z history starts fresh after the
 reload. A review survives an editor reload while the server still holds the snapshot.
+
+Whenever a run changed files in the project folder outside `app-store-screenshots.json` (an agent's
+own edits, or the CLI's imported images, fonts, themes, and templates), the finished message and the
+Review list them under **Other files · N** with each path and `added`, `changed`, or `removed`
+(`AGENTS.md` and `CLAUDE.md` first, the first 50 then `and N more`), and say that Undo run and Stop
+don't restore them. The message's own text then names "the project file" instead of "the project",
+for example `No changes to the project file.` When the folder was too large or unreadable to compare,
+the message says changes to other files are unknown.
 
 Opening the panel focuses the composer. When Stop, the review, or the composer disappears, focus
 moves to the composer or **Keep changes** instead of the page. The running status is a polite live

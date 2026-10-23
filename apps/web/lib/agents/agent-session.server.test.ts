@@ -35,7 +35,11 @@ const PROJECT = {
   }],
 };
 const CHANGED_PROJECT = { ...PROJECT, meta: { ...PROJECT.meta, name: "Agents DE" } };
-const ACCEPTED = { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: expect.any(String) };
+const NO_OTHER_FILES = { files: [], count: 0 };
+const ACCEPTED = {
+  type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: expect.any(String),
+  otherFiles: NO_OTHER_FILES,
+};
 
 // The fake `claude` answers the registry probes like a signed-in subscription and, for `-p`, records
 // its argv, cwd, env and stdin before running the scenario. PATH holds only the fake directory.
@@ -271,7 +275,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(events.slice(-2)).toEqual([
       {
         type: "result", status: "rejected", reason: expect.stringMatching(/JSON|token|parse/i),
-        changed: false, changedScreens: [], revision: projectRevision(await readFile(projectFile)),
+        changed: false, changedScreens: [], revision: projectRevision(await readFile(projectFile)), otherFiles: NO_OTHER_FILES,
       },
       { type: "done", status: "failed", summary: expect.any(String), durationMs: 100000 },
     ]);
@@ -288,6 +292,75 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(events.at(-2)).toMatchObject({ type: "result", status: "rejected", reason: expect.stringMatching(/removed/) });
     expect(events.at(-1)).toMatchObject({ type: "done", status: "failed" });
     expect(JSON.parse(await readFile(join(projectDir, "app-store-screenshots.json"), "utf8"))).toEqual(parseProject(PROJECT));
+  });
+
+  it("reports the files a run changed outside the project file, guides first, and Undo run leaves them", async () => {
+    await mkdir(join(projectDir, "themes"));
+    await mkdir(join(projectDir, "templates"));
+    await writeFile(join(projectDir, "themes", "brand.json"), "{}");
+    await writeFile(join(projectDir, "templates", "old.json"), "{}");
+    await fakeCodex([
+      `echo '# Rewritten' >> AGENTS.md`,
+      `printf '{"id":"brand"}' > themes/brand.json`,
+      "/bin/rm templates/old.json",
+      "/bin/mkdir -p assets/imported && echo png > assets/imported/new.png",
+      // A killed CLI's temp file and stale lock, and Finder's metadata, are not the agent's changes.
+      // The lock is backdated past its stale window, or the verdict would wait for it.
+      "echo tmp > .app-store-screenshots.json.abc123.tmp",
+      "/bin/mkdir .app-store-screenshots.json.screenshot-studio.lock",
+      "/usr/bin/touch -t 200001010000 .app-store-screenshots.json.screenshot-studio.lock",
+      "echo finder > .DS_Store",
+      `/bin/cp '${root}/changed.json' app-store-screenshots.json`,
+      `/bin/cat '${CODEX_SUCCESS_FIXTURE}'`,
+    ].join("; "));
+
+    const events = await collect(await start({ agentId: "codex", model: null }));
+
+    const otherFiles = {
+      files: [
+        { path: "AGENTS.md", change: "modified" },
+        { path: "assets/imported/new.png", change: "added" },
+        { path: "templates/old.json", change: "removed" },
+        { path: "themes/brand.json", change: "modified" },
+      ],
+      count: 4,
+    };
+    expect(events.at(-2)).toEqual({ ...ACCEPTED, changed: true, otherFiles });
+    expect(await pendingAgentOutcome(projectDir)).toMatchObject({ otherFiles });
+    await undoAgentOutcome(projectDir);
+    expect(JSON.parse(await readFile(join(projectDir, "app-store-screenshots.json"), "utf8"))).toEqual(parseProject(PROJECT));
+    expect(await readFile(join(projectDir, "AGENTS.md"), "utf8")).toContain("# Rewritten");
+    expect(await exists(join(projectDir, "assets", "imported", "new.png"))).toBe(true);
+  });
+
+  it("reports other files when the project file is unchanged, without following links or listing them all", async () => {
+    await fakeClaude([
+      "/bin/ln -s / linked",
+      "/bin/mkdir many && for i in $(/usr/bin/seq 1 60); do echo x > many/$i.txt; done",
+      `/bin/cat '${SUCCESS_FIXTURE}'`,
+    ].join("; "));
+
+    const result = (await collect(await start())).at(-2);
+
+    expect(result).toMatchObject({ type: "result", status: "accepted", changed: false });
+    const { otherFiles } = result as Extract<AgentEvent, { type: "result" }>;
+    expect(otherFiles?.count).toBe(61);
+    expect(otherFiles?.files).toHaveLength(50);
+    expect(otherFiles?.files.find(({ path }) => path === "linked")).toEqual({ path: "linked", change: "added" });
+    expect(otherFiles?.files.every(({ path }) => !path.startsWith("linked/"))).toBe(true);
+    expect(await pendingAgentOutcome(projectDir)).toBeNull();
+  });
+
+  // Thousands of files take seconds to create on some file systems.
+  it("reports a folder too large to compare instead of a partial list", { timeout: 30_000 }, async () => {
+    await mkdir(join(projectDir, "bulk"));
+    // Batched, so the test never hits the open-file limit.
+    for (let batch = 0; batch < 5_000; batch += 200) {
+      await Promise.all(Array.from({ length: 200 }, (_, index) => writeFile(join(projectDir, "bulk", `${batch + index}`), "")));
+    }
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+
+    expect((await collect(await start())).at(-2)).toMatchObject({ type: "result", status: "accepted", otherFiles: null });
   });
 
   it("keeps a pending outcome for an accepted change until it is kept or undone", async () => {
