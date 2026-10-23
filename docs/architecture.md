@@ -344,8 +344,15 @@ folder is deleted when the run ends with any outcome (accepted, rejected, failed
 after its process tree is dead. Another run never learns that folder's path. A server exit removes its
 own folders, and server start (`instrumentation.ts`) removes the numbered folders of servers that no
 longer exist, never a live server's. A text-only request never touches this folder. Codex receives one `--image <file>` per image; Claude Code receives
-`--add-dir <run folder>` and the file paths in its appended prompt, since its restricted file tools
-read only added directories. The images are never part of the project document or schema.
+`--add-dir <run folder>`, since its restricted file tools read only added directories. Both get the
+file paths in their instructions, which name `screenshots asset import <file>` as the only way to
+place an image in the project, and only when the user asks for it. That command reads one regular
+file from any path the CLI can read (rejecting non-files and files over 25 MB before reading), runs
+the same validation and safe publication as `POST /api/assets`, and stores a copy under
+`assets/imported/`. Like `font add`, it lets Claude Code bring in a local image
+from beyond its added directories. The images are never part of the project document or schema. Undo run and Stop
+leave an imported copy on disk, unreferenced, like any other file the run wrote outside the project
+document.
 
 An agent changes the project only through the `screenshots` CLI, which takes the regular project
 mutation lock per write; the editor's own writers (`PUT /api/project`, every
