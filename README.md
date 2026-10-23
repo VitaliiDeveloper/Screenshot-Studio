@@ -222,6 +222,15 @@ The full command and export reference lives in
 |---|---|---|---|
 | Neutral default | Design pack | `neutral-default` | A light slate-to-blue gradient background, dark high-contrast type, a blue accent, and white surfaces. |
 | Neutral basics · iPhone | Screen pack (2 iPhone screens) | `neutral-iphone-basics` | A hero screen and a feature screen, each with a headline, a subline, and an empty mockup, styled with Neutral default. |
+| Clean | Design pack | `clean` | White space, centered copy, and quiet semibold type. |
+| Aurora | Design pack | `aurora` | A violet-to-pink gradient with soft glows and extra-bold type. |
+| Midnight | Design pack | `midnight` | Deep navy, a cyan glow behind the device, and copy that alternates top and bottom. |
+| Poster | Design pack | `poster` | Signal yellow, huge extra-bold headlines, and a device that runs off the bottom edge. |
+| Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
+| `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
+
+Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
+Arabic, Hebrew, and CJK copy needs a font registered in the project.
 
 `theme list` and `template list` print the catalog that your installed version ships.
 
