@@ -110,6 +110,12 @@ describe("template library UI", () => {
     await page.getByRole("menuitemradio", { name: "Landscape", exact: true }).waitFor({ state: "hidden" });
     await templateDialog.getByRole("button", { name: /^Orientation filter/ }).click();
     await page.getByRole("menuitemradio", { name: "Any orientation", exact: true }).click();
+    const sourceGroup = page.getByRole("group", { name: "Template source", exact: true });
+    await sourceGroup.getByRole("button", { name: "Project", exact: true }).click();
+    await templateDialog.getByText("No matching templates", { exact: true }).waitFor();
+    expect(await templateDialog.getByRole("button", { name: /^Style filter/ }).count()).toBe(0);
+    await sourceGroup.getByRole("button", { name: "Built-in", exact: true }).click();
+    await posterCard.waitFor({ state: "visible" });
     await search.fill("macos");
     await builtInRow.click();
     await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 1);
