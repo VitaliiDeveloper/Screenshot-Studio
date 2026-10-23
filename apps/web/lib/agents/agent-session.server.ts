@@ -392,8 +392,6 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     } catch (error) {
       throw new AgentRunError(409, "project-invalid", `The project cannot be snapshotted before the run: ${errorText(error)}`);
     }
-    // A new run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
-    pendingOutcomes().delete(projectDir);
     // Only an admitted run with images touches the file system, so a refused or text-only request
     // never leaves a file behind or fails on the temp directory.
     const folder = options.attachments?.length ? await createRunFolder(options.attachments) : { dir: null, files: [] };
@@ -404,6 +402,8 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       if (folder.dir) await removeRunFolder(folder.dir);
       return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
     }
+    // A new run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
+    pendingOutcomes().delete(projectDir);
     const request: AgentRunRequest = {
       message: options.message,
       model: options.model ?? null,

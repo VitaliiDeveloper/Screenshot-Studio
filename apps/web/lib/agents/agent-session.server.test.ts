@@ -594,6 +594,36 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
       expect(await folders()).toEqual(before);
     }, 20_000);
 
+    it("never launches when Stop lands after the last readiness check, and keeps the pending Undo", async () => {
+      await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+      await collect(await start());
+      expect(await pendingAgentOutcome(projectDir)).not.toBeNull();
+      await rm(join(root, "argv"));
+
+      // The consent re-check right before the snapshot is the last await a Stop can slip into.
+      let checks = 0;
+      const consent = {
+        isGranted: async () => {
+          checks += 1;
+          if (checks === 2) await cancelAgentRun(projectDir);
+          return true;
+        },
+        grant: async () => undefined,
+        revoke: async () => undefined,
+      };
+      const definitions = AGENT_DEFINITIONS.map((definition) => (
+        definition.id === "claude-code" ? { ...definition, policy: { ...definition.policy, level: "at-own-risk" as const } } : definition
+      ));
+      const before = await folders();
+
+      const events = await collect(await start({ attachments: [PNG], definitions, consent }));
+
+      expect(events).toEqual([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await folders()).toEqual(before);
+      expect(await pendingAgentOutcome(projectDir)).not.toBeNull();
+    }, 20_000);
+
     it("passes Codex one --image per file", async () => {
       await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
 

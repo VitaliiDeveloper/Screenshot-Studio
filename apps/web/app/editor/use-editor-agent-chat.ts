@@ -221,11 +221,10 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setTurns((all) => all.map((turn, index) => (index === all.length - 1 ? { ...turn, stopped: true } : turn)));
     try {
       const response = await fetch("/api/agents/session", { method: "DELETE", headers: projectRequestHeaders() });
-      if (response.ok || response.status === 404) {
-        // Stop pressed while the images still upload finds no run yet; leaving the request cancels it.
-        if (!responded.current) abort.current?.abort();
-        return;
-      }
+      // A 404 before the session answered is Stop during the upload: no run exists yet, and
+      // leaving the request cancels the run the moment it starts.
+      if (response.status === 404 && !responded.current) abort.current?.abort();
+      if (response.ok || response.status === 404) return;
     } catch {
       // Fall through: closing the stream also stops the run, without a verdict on this page.
     }
