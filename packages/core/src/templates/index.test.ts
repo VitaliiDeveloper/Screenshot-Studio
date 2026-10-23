@@ -14,6 +14,7 @@ import {
   isBuiltInFontIdentity,
   setScreenDirection,
   parseProject,
+  projectScreenGroup,
   setLocaleDirection,
   setOutputFamilyScreenSetMode,
   type Project,
@@ -501,16 +502,17 @@ const intersects = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.widt
 
 const STYLES = ["clean", "aurora", "midnight", "poster", "sunrise"];
 const styledPacks = () => listBuiltInTemplatePacks(storeSpecs).filter((pack) => STYLES.includes(pack.style));
+const isPanorama = (id: string) => id.includes("-panorama-");
 
 describe("styled template packs", () => {
   it("ships every style for iPhone and Android phone with the full six-screen narrative", () => {
-    const packs = styledPacks();
+    const packs = styledPacks().filter((pack) => !isPanorama(pack.id));
     expect(packs.map((pack) => pack.id)).toEqual(STYLES.flatMap((style) => [`${style}-iphone`, `${style}-android-phone`]));
     for (const pack of packs) {
       expect(findBuiltInDesignPack(pack.style), pack.id).toBeDefined();
       expect(pack.screens.map((screen) => screen.name)).toEqual(["Hero", "Feature 1", "Feature 2", "Feature 3", "Social proof", "Call to action"]);
     }
-    expect(listBuiltInTemplatePackMetadata().filter((pack) => STYLES.includes(pack.style)).map((pack) => [pack.platform, pack.device, pack.screenCount]))
+    expect(listBuiltInTemplatePackMetadata().filter((pack) => STYLES.includes(pack.style) && !isPanorama(pack.id)).map((pack) => [pack.platform, pack.device, pack.screenCount]))
       .toEqual(STYLES.flatMap(() => [["apple", "iphone", 6], ["android", "phone", 6]]));
   });
 
@@ -564,13 +566,80 @@ describe("styled template packs", () => {
   it("materializes each pack in an RTL locale as valid mirrored screens", () => {
     for (const pack of styledPacks()) {
       const source = project();
-      source.layouts[0]!.mode = "isolated";
+      source.layouts[0]!.mode = isPanorama(pack.id) ? "connected" : "isolated";
       const { project: next, screens } = createScreensFromTemplatePack(
         setLocaleDirection(createScreensFromTemplatePack(source, "default", pack, "ar", storeSpecs).project, "default", "ar", "rtl"),
         "default", pack, "ar", storeSpecs,
       );
       expect(screens.every((screen) => screen.direction === "rtl"), pack.id).toBe(true);
       expect(parseProject(next)).toEqual(next);
+    }
+  });
+});
+
+describe("panorama template packs", () => {
+  const PANORAMA_STYLES = ["clean", "midnight", "poster", "sunrise"];
+  const panoramas = () => styledPacks().filter((pack) => isPanorama(pack.id));
+
+  it("ships the seam-safe styles for iPhone and Android phone with the six-screen narrative", () => {
+    expect(panoramas().map((pack) => pack.id))
+      .toEqual(PANORAMA_STYLES.flatMap((style) => [`${style}-panorama-iphone`, `${style}-panorama-android-phone`]));
+    expect(listBuiltInTemplatePackMetadata().filter((pack) => pack.panorama).map((pack) => pack.id))
+      .toEqual(panoramas().map((pack) => pack.id));
+    for (const pack of panoramas()) {
+      expect(pack.panorama, pack.id).toBe(true);
+      expect(pack.screens.map((screen) => screen.name)).toEqual(["Hero", "Feature 1", "Feature 2", "Feature 3", "Social proof", "Call to action"]);
+      // Every screen restarts its background, so only one without a horizontal component can span.
+      const background = pack.screens[0]!.background;
+      expect(background.type === "solid" || (background.type === "linear-gradient" && background.angle % 180 === 90), pack.id).toBe(true);
+    }
+  });
+
+  it("refuses an isolated layout, where art would stop at every screen edge", () => {
+    const source = project();
+    source.layouts[0]!.mode = "isolated";
+    expect(() => createScreensFromTemplatePack(source, "default", panoramas()[0]!, "en", storeSpecs))
+      .toThrow(/spans screen edges; switch layout "default" to Panorama first/);
+  });
+
+  it("draws each art shape once across the connected strip, behind every screen's copy and device", () => {
+    for (const pack of panoramas()) {
+      const source = project();
+      if (pack.platform !== "apple") source.layouts[0]!.screens[0] = { ...source.layouts[0]!.screens[0]!, platform: "android", device: "phone" };
+      const { project: next, screens } = createScreensFromTemplatePack(source, "default", pack, "en", storeSpecs);
+      const strip = projectScreenGroup(next, "default", screens[0]!.id);
+      const owned = strip.filter((entry) => screens.some((screen) => screen.id === entry.screen.id));
+      expect(owned.map((entry) => entry.screen.id), pack.id).toEqual(screens.map((screen) => screen.id));
+      const start = owned[0]!.x;
+      const { width } = screens[0]!.artboard;
+      const end = start + width * screens.length;
+
+      const art: Box[] = [];
+      const copy: Box[] = [];
+      for (const { screen, x } of owned) {
+        // Ids are fresh after materialization; the two copy-backing shapes keep their names.
+        const isArt = (element: (typeof screen.elements)[number]) => element.type === "shape"
+          && element.name !== "Quote card" && element.name !== "Action button";
+        const kinds = screen.elements.map((element) => isArt(element) ? "art" : "content");
+        // Art leads its owner's array, so the owner's copy and device draw over it.
+        expect(kinds.indexOf("content"), `${screen.id} order`).toBe(kinds.lastIndexOf("art") + 1);
+        for (const element of screen.elements) {
+          const box = { x: element.x + x, y: element.y, width: element.width, height: element.height };
+          if (isArt(element)) art.push(box);
+          else if (element.type === "text") copy.push(box);
+        }
+      }
+      const keys = art.map((box) => `${box.x},${box.y},${box.width},${box.height}`);
+      expect(new Set(keys).size, `${pack.id} drawn once`).toBe(keys.length);
+      for (const box of art) {
+        expect(box.x, pack.id).toBeGreaterThanOrEqual(start);
+        expect(box.x + box.width, pack.id).toBeLessThanOrEqual(end);
+        expect(copy.filter((text) => intersects(text, box)), `${pack.id} art over copy`).toEqual([]);
+      }
+      for (let seam = 1; seam < screens.length; seam += 1) {
+        const at = start + seam * width;
+        expect(art.some((box) => box.x < at && box.x + box.width > at), `${pack.id} seam ${seam}`).toBe(true);
+      }
     }
   });
 });

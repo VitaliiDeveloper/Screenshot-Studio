@@ -60,7 +60,8 @@ export function builtInTemplateEntries(
 ): TemplateEntry[] {
   return [
     ...builtIns.map((template) => ({ template, preview: null })),
-    ...packs.flatMap((pack) => pack.screens.map((template) => ({
+    // A panorama screen carries only its share of the strip's art, so it is added as a whole pack.
+    ...packs.filter((pack) => !pack.panorama).flatMap((pack) => pack.screens.map((template) => ({
       template,
       style: pack.style,
       preview: templatePreviewPath(pack.id, template.id),

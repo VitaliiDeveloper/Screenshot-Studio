@@ -264,7 +264,12 @@ and are static files; templates without one show a static placeholder, never a s
 `GET /api/templates` returns project `templates`, starter `builtIns`, and the full built-in `packs`.
 A single pack screen is a built-in template too: `POST /api/templates` with `source: "built-in"` and
 CLI `template add <id> --built-in` accept a pack screen id (`clean-iphone-hero`) and append only that
-screen, while `source: "built-in-pack"` / `--pack` still append the whole pack. Applying a Design pack writes its solid or linear-gradient background to every
+screen, while `source: "built-in-pack"` / `--pack` still append the whole pack. Panorama packs
+reuse those six screens for the four styles whose background has no horizontal component, and add
+shape art drawn once across the pack's strip. Each shape belongs to the screen holding its left edge
+and leads that screen's elements, so connected rendering draws it behind every later screen's copy
+and device. A panorama pack is added only whole and only to a connected layout; its screens are not
+single templates, because each carries just its share of the art. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
 role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.

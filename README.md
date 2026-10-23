@@ -259,6 +259,7 @@ copy the editor shows, so open the project in place as in step 2.
 | Poster | Design pack | `poster` | Signal yellow, huge extra-bold headlines, and a device that runs off the bottom edge. |
 | Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
 | `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
+| `<style>` panorama · iPhone, `<style>` panorama · Android phone | Panorama screen packs (6 connected screens each) | `<style>-panorama-iphone`, `<style>-panorama-android-phone` | The same six screens over art that crosses every screen edge: Clean (one stage and a timeline), Midnight (orbit rings on each seam), Poster (a bold stripe and split discs), and Sunrise (one horizon, rolling hills, and a sun between the first two screens). Panorama layouts only. |
 
 Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
 Arabic, Hebrew, and CJK copy needs a font registered in the project.
@@ -270,6 +271,11 @@ Arabic, Hebrew, and CJK copy needs a font registered in the project.
   role-tagged text, shapes, and icons. It does not move or resize anything.
 - A **screen pack** adds finished screens. **Add screens from pack** appends each one as an ordinary
   editable screen to the active layout and locale.
+- A **panorama pack** needs a Panorama (connected) layout, where art draws across screen edges. Each
+  shape belongs to the screen holding its left edge, so reordering or deleting screens shifts the art.
+  Applying a Design pack with a diagonal background (Neutral default, Aurora) shows a seam at every
+  screen edge. RTL locales are not supported yet: the strip always runs left to right, so mirroring
+  moves each shape toward the previous screen, where it covers that screen's device.
 
 To apply one manually, open the **Design packs** dialog (**Packs** in the editor tool rail), then use
 **Apply pack** or **Add screens from pack**. Screen packs are listed for the active screen's output
