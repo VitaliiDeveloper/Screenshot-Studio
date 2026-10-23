@@ -28,7 +28,7 @@
     "check:spdx": "node scripts/check-spdx.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "screenshots": "tsx packages/cli/src/index.ts",
+    "screenshots": "node packages/cli/bin/screenshots.mjs",
     "soak:export": "pnpm build:cli-package && node scripts/export-soak.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

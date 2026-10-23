@@ -364,6 +364,14 @@ as one locked write, refused once the editor has written past the run's revision
 before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
 per change; snapshots live in server memory, so a restart drops a pending undo.
 
+The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts
+`apps/web/node_modules/.bin` first, and its `screenshots` runs `packages/cli/bin/screenshots.mjs`. That
+launcher registers tsx's loader in-process with its disk cache off and the CLI's own `tsconfig.json`,
+so a run listens on no IPC pipe, writes nothing to the OS temp directory, and compiles the same way
+from any project folder. Agent sandboxes may deny both: the `tsx` CLI fails in Claude Code's sandbox with
+`listen EPERM`, and tsx's cache fails when the temp directory is not writable. The launcher needs the
+workspace dev dependencies (`pnpm install`); the installed package's bin is the bundled `dist/index.js`.
+
 ## 7. Change rules
 
 - Preserve one Project schema and one browser rendering path.
