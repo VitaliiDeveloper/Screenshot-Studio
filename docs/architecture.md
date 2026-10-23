@@ -319,6 +319,22 @@ probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Cod
 Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run.
 
+A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
+They travel in the same `POST /api/agents/session` as a multipart body (`agentId`, `message`, `model`,
+and `image` parts), so the upload has exactly the run's guards: loopback Host, the cookie session's
+`X-Project-Id`, and no client-supplied paths. The body is read through a size cap before it is parsed,
+and each image's type is decided from its leading bytes, never its file name or declared type (`413`
+for size, `400` for type and count; text-only requests stay JSON). Nothing is written until the run
+passes the policy, consent, and readiness gate and has its project slot: then the images are saved as
+`1.png`, `2.jpg`, ... (names chosen by the server) in a private folder under
+`<os tmpdir>/screenshot-studio-agent-attachments/<server pid>/run-*`, outside every project, and that
+folder is deleted when the run ends with any outcome (accepted, rejected, failed, timeout, or Stop),
+after its process tree is dead. Another run never learns that folder's path. A server exit removes its
+own folders, and server start (`instrumentation.ts`) removes the folders of servers that no longer
+exist, never a live server's. Codex receives one `--image <file>` per image; Claude Code receives
+`--add-dir <run folder>` and the file paths in its appended prompt, since its restricted file tools
+read only added directories. The images are never part of the project document or schema.
+
 An agent changes the project only through the `screenshots` CLI, which takes the regular project
 mutation lock per write; the editor's own writers (`PUT /api/project`, every
 `withProjectMutationRequest` route, and Undo run) answer `423 agent-running` while a run is active

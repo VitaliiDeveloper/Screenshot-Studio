@@ -350,6 +350,18 @@ are disabled; only view keys (`[` `]`, `O`, ⌘J) work. The composer still takes
 run to end. Esc keeps closing the panel and never stops a run. **Stop** ends the run and, if it had
 changed the project, undoes it, so the project is back at its pre-run state.
 
+**Attach images** gives the agent a reference, mockup, or screenshot as context for that one request.
+The paperclip button (keyboard reachable) opens the file picker, dropping files on the panel shows a
+dashed drop zone, and pasting an image into the composer (⌘V / Ctrl+V) attaches it. Thumbnails sit above
+the input, each with an accessible name and a **Remove** button; a file that is not an image or exceeds
+a limit shows its reason beside its name, and Send stays off until it is removed. Only PNG, JPEG, and
+WebP are accepted, judged by the file's bytes rather than its name; the limits are 5 images of at most
+10 MB each per message. The composer notes that attached images are sent to the agent's provider with
+the request, through the user's subscription. Images belong to one message and one run: the message
+shows its thumbnails from editor memory, **New chat** frees them, and **Retry** and **Ask agent to fix**
+send the same images again (the latter puts them back in the composer). They are never written to the
+project folder or `app-store-screenshots.json`; placing an image in the project is a separate step.
+
 A rejected result was already rolled back by the server: the panel says so, with the schema reason
 under **Show details** and **Ask agent to fix**, which prefills the composer. A usage limit names
 the reset time the CLI gives and says nothing changed only when the verdict says so, with **Switch
