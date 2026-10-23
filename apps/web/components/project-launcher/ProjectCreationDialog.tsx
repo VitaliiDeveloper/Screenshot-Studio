@@ -55,6 +55,31 @@ function platformList(template: ProjectTemplateSummary, specs: StoreSpecs): stri
   }).join(", ");
 }
 
+function AgentScreensPreview({ active }: { active: boolean }) {
+  return (
+    <span aria-hidden="true" className="hidden shrink-0 items-end pr-1 sm:flex">
+      {(["left", "center", "right"] as const).map((slot) => (
+        <span
+          key={slot}
+          className={cx(
+            "flex flex-col gap-1 rounded-[7px] border border-[var(--editor-color-agent-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-control)]",
+            slot === "center" ? "relative z-10 -mx-1.5 h-16 w-9" : "h-14 w-8",
+            slot === "left" && "-rotate-6",
+            slot === "right" && "rotate-6",
+          )}
+        >
+          <span className="h-1 w-3/4 rounded-full bg-[var(--editor-color-agent-border)]" />
+          <span className={cx(
+            "flex-1 rounded-[4px] transition-colors duration-300 motion-reduce:transition-none",
+            slot !== "center" ? (active ? "bg-[var(--editor-color-agent-border)]" : "bg-[var(--editor-color-agent-surface)]")
+              : active ? "bg-[var(--editor-color-agent)]" : "bg-[var(--editor-color-agent-border)]",
+          )} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function ProjectCreationDialog({
   state,
   templates,
@@ -65,6 +90,7 @@ export function ProjectCreationDialog({
   onSubmit,
 }: ProjectCreationDialogProps) {
   const agentHintId = useId();
+  const descriptionId = useId();
   const [agentChosen, setAgentChosen] = useState(false);
   const [description, setDescription] = useState("");
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -73,6 +99,10 @@ export function ProjectCreationDialog({
   const selectedModel = agent && model && agent.models.includes(model) ? model : agent?.models[0] ?? null;
   const destinations = listOutputDestinations(specs);
   const families = listOutputFamilies(specs);
+  const destinationLabel = [
+    destinations.find(({ id }) => id === state.form.platform)?.label ?? state.form.platform,
+    families.find(({ key }) => key === `${state.form.platform}/${state.form.device}`)?.label ?? state.form.device,
+  ].join(" · ");
   const platformOptions = destinations.map(({ id, label }) => ({ value: id, label }));
   const busy = state.status === "creating" || state.status === "completing";
   const statusMessage = state.status === "error"
@@ -89,12 +119,10 @@ export function ProjectCreationDialog({
       onSubmit();
       return;
     }
-    const store = destinations.find(({ id }) => id === state.form.platform)?.label ?? state.form.platform;
-    const family = families.find(({ key }) => key === `${state.form.platform}/${state.form.device}`)?.label ?? state.form.device;
     onSubmit({
       agentId: agent.id,
       model: selectedModel,
-      message: agentStartMessage({ description, destination: `${store} · ${family}` }),
+      message: agentStartMessage({ description, destination: destinationLabel }),
     });
   };
   const chooseStarter = (templateId: string | null) => {
@@ -205,42 +233,44 @@ export function ProjectCreationDialog({
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 {agents[0] ? (
                   <div className={cx(
-                    "rounded-2xl border transition-colors md:col-span-3",
+                    "rounded-2xl border p-4 transition-colors md:col-span-3",
                     agent
                       ? "border-[var(--editor-color-agent)] bg-[var(--editor-color-agent-surface)]"
-                      : "border-[var(--editor-color-agent-border)] bg-[var(--editor-color-surface)]",
+                      : "border-[var(--editor-color-agent-border)] bg-[var(--editor-color-surface)] hover:border-[var(--editor-color-agent)]",
                   )}>
-                    <label className="flex cursor-pointer items-start gap-3 p-4">
+                    <label className="flex cursor-pointer items-start gap-3">
                       <input type="radio" name="starter" className="mt-1 accent-[var(--editor-color-agent)]" checked={agent !== undefined} onChange={() => { setAgentChosen(true); onChange({ templateId: null }); }} />
                       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--editor-color-agent)] text-[color:var(--editor-color-on-accent)]"><Sparkles aria-hidden="true" className="size-5" /></span>
-                      <span>
+                      <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-[color:var(--editor-color-agent-text)]">Start with agent</span>
                         <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">Describe the app. {agents[0].name} creates the first screens on a blank project.</span>
                       </span>
+                      <AgentScreensPreview active={agent !== undefined} />
                     </label>
                     {agent ? (
-                      <div className="space-y-3 border-t border-[var(--editor-color-agent-border)] px-4 pb-4 pt-3">
-                        <label className="block text-sm font-semibold text-[color:var(--editor-color-text-default)]">
-                          Describe the app
+                      <div className="mt-4">
+                        <div className="rounded-xl border border-[var(--editor-color-agent-border)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-control)] transition-shadow has-[textarea:focus]:border-[var(--editor-color-focus-border)] has-[textarea:focus]:ring-[length:var(--editor-focus-width)] has-[textarea:focus]:ring-[var(--editor-color-focus-subtle)]">
+                          <label htmlFor={descriptionId} className="sr-only">Describe the app</label>
                           <textarea
+                            id={descriptionId}
                             required
                             rows={4}
                             maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
                             aria-describedby={agentHintId}
                             placeholder="Habit tracker for runners. Calm, light look. Five screens, English and German."
-                            className={cx("mt-2 resize-none font-normal", editorUi.textarea)}
+                            className="block w-full resize-none rounded-t-xl bg-transparent px-3.5 pb-2 pt-3 text-sm leading-6 text-[color:var(--editor-color-text)] placeholder:text-[color:var(--editor-color-text-subtle)] focus:outline-none"
                             value={description}
                             onChange={(event) => setDescription(event.currentTarget.value)}
                           />
-                        </label>
-                        <p id={agentHintId} className="text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">The project starts with the destination above. Ask for languages, other stores, or sizes here.</p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-[color:var(--editor-color-text-default)]">Agent</span>
-                          <MenuSelect ariaLabel="Agent" menuLabel="Agent options" value={agent.id} options={agents.map(({ id, name }) => ({ value: id, label: name }))} onChange={(id) => { setAgentId(id); setModel(null); }} className="w-48" />
-                          {selectedModel ? (
-                            <MenuSelect ariaLabel="Model" menuLabel="Model options" value={selectedModel} options={agent.models.map((value) => ({ value, label: value }))} onChange={setModel} className="w-28" />
-                          ) : <span className="text-xs text-[color:var(--editor-color-text-secondary)]">CLI default model</span>}
+                          <div className="flex flex-wrap items-center gap-2 border-t border-[var(--editor-color-border)] px-2.5 py-2">
+                            <MenuSelect ariaLabel="Agent" menuLabel="Agent options" value={agent.id} options={agents.map(({ id, name }) => ({ value: id, label: name }))} onChange={(id) => { setAgentId(id); setModel(null); }} className="w-40" />
+                            {selectedModel ? (
+                              <MenuSelect ariaLabel="Model" menuLabel="Model options" value={selectedModel} options={agent.models.map((value) => ({ value, label: value }))} onChange={setModel} className="w-28" />
+                            ) : <span className="text-xs text-[color:var(--editor-color-text-secondary)]">CLI default model</span>}
+                            <span className="ml-auto truncate rounded-full bg-[var(--editor-color-agent-surface)] px-2.5 py-1 text-xs font-medium text-[color:var(--editor-color-agent-text)]">For {destinationLabel}</span>
+                          </div>
                         </div>
+                        <p id={agentHintId} className="mt-2 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Ask for languages, other stores, or sizes in the description.</p>
                       </div>
                     ) : null}
                   </div>

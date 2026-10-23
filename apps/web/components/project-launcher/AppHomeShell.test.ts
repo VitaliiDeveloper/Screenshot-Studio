@@ -111,7 +111,7 @@ describe("AppHomeShell", () => {
       const dialog = render({ status: "idle" }, false, { ...projects, ...creating, agents: [signedOut, claude] });
 
       expect(page).not.toContain("Start with agent");
-      expect(dialog).toMatch(/<input type="radio" class="mt-1 accent-\[var\(--editor-color-agent\)\]" name="starter"\/><span[^>]*><svg[^>]*>.*?<\/svg><\/span><span><span[^>]*>Start with agent<\/span>/);
+      expect(dialog).toMatch(/<input type="radio" class="mt-1 accent-\[var\(--editor-color-agent\)\]" name="starter"\/><span[^>]*><svg[^>]*>.*?<\/svg><\/span><span class="min-w-0 flex-1"><span[^>]*>Start with agent<\/span>/);
       expect(dialog).toContain("Claude Code creates the first screens on a blank project.");
       expect(dialog).toMatch(/<input type="radio" name="starter" checked=""\/>.*?Blank/);
       expect(dialog).not.toContain("<textarea");
