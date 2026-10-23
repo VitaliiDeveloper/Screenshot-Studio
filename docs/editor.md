@@ -480,8 +480,15 @@ an arbitrary local filesystem path.
   second rendering/export path.
 - Do not turn templates, themes, or starter content into hidden runtime state; persisted results remain
   ordinary strict Project literals.
-- Templates expose a global read-only **Built-in templates** tab beside project-local templates.
-  Choosing either source creates an ordinary editable screen in the current project.
+- The **Templates** rail item opens a preview gallery with **Built-in** and **Project** tabs. Built-in
+  lists the output starters and every screen of the built-in screen packs. A search box matches
+  name, description, output, and style. The **Output** filter starts on the active screen's
+  destination and device family and can widen to all outputs. The **Style** filter (Built-in only)
+  narrows to one Design pack's screens, and the **Orientation** filter splits portrait from landscape.
+  Styled pack screens show their shipped static preview; other templates show a striped placeholder
+  in their artboard proportions. Each tile is a button: choosing one creates one ordinary editable
+  screen in the active layout and locale, selects it, and closes the gallery. Every tile is disabled
+  while a create is in flight, and the busy tile reads **Creating…**.
 - **Create a managed project** filters its starting points to the selected destination: iPhone and iPad
   portrait; Android phone, Android tablet portrait, and Play Feature Graphic; or Web desktop and Web
   mobile. **Blank** remains explicit, and the existing generic project starters remain available
