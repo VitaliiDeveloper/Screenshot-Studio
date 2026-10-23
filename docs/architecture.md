@@ -297,8 +297,16 @@ subscription, so any release whose `--help` no longer lists `--bare` as opt-in r
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
 environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
 CLI default. A run starts only from a loopback Host for the cookie-selected project session, after a
-server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run until
-consent storage exists. It runs in the project folder, at most one per project, receives the user
+server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run
+without the user's consent (`403 consent-required`). Consent is app-level local state in
+`agent-consents.json` under the data root, never in a project document, and is bound to the policy's
+`checkedAt`, so a re-verified policy asks again; a missing or unreadable file means no consent.
+`POST /api/agents/consent` grants or revokes it for `at-own-risk` agents only, behind the project
+session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/agents` reports each
+agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
+is checked again after the readiness probe, right before launch. Antigravity `agy` is listed with its
+`at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
+because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
 whole process tree.
 

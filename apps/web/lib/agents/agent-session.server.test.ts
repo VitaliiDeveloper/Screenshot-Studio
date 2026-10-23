@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseProject } from "@screenshot-studio/core/model";
 import { projectRevision } from "@screenshot-studio/core/storage";
+import { createAgentConsentStore, sharedAgentConsentStore } from "./agent-consent.server.js";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "./agents.server.js";
 import {
   AgentRunError,
@@ -386,20 +387,100 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await exists(join(root, "argv"))).toBe(false);
   });
 
-  it("never runs unavailable or unconsented at-own-risk agents", async () => {
+  it("never runs an unavailable agent, even with a stored consent record for it", async () => {
     const marker = join(root, "spawned");
     await writeFake("gemini", `echo spawned > '${marker}'`);
-    await writeFake("risky", `echo spawned > '${marker}'`);
-    const risky: AgentDefinition = {
-      id: "risky", name: "Risky", binary: "risky", models: [],
-      policy: { ...AGENT_DEFINITIONS[0]!.policy, level: "at-own-risk" },
-    };
+    const consent = createAgentConsentStore(join(root, "data"));
+    const gemini = AGENT_DEFINITIONS.find(({ id }) => id === "gemini-cli")!;
+    await mkdir(join(root, "data"));
+    await writeFile(join(root, "data", "agent-consents.json"), JSON.stringify({
+      version: 1,
+      consents: { "gemini-cli": { policyCheckedAt: gemini.policy.checkedAt, grantedAt: "2026-10-16T00:00:00.000Z" } },
+    }));
 
-    expect(await rejection(start({ agentId: "gemini-cli", model: null })))
+    expect(await consent.isGranted(gemini)).toBe(true);
+    expect(await rejection(start({ agentId: "gemini-cli", model: null, consent })))
       .toMatchObject({ status: 403, code: "unavailable" });
-    expect(await rejection(start({ agentId: "risky", model: null, definitions: [risky] })))
-      .toMatchObject({ status: 403, code: "consent-required" });
     expect(await exists(marker)).toBe(false);
+  });
+
+  describe("at-own-risk agents", () => {
+    // The fake `claude` stands in for an at-own-risk agent, so a granted run exercises the real adapter.
+    const base = AGENT_DEFINITIONS.find(({ id }) => id === "claude-code")!;
+    const risky: AgentDefinition = { ...base, policy: { ...base.policy, level: "at-own-risk" } };
+    let consent: ReturnType<typeof createAgentConsentStore>;
+    const startRisky = () => start({ definitions: [risky], consent });
+
+    beforeEach(async () => {
+      consent = createAgentConsentStore(join(root, "data"));
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    });
+
+    it("refuses without consent, runs after consent, and refuses again after revoke", async () => {
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+
+      await consent.grant(risky);
+      expect((await collect(await startRisky())).at(-1)).toMatchObject({ type: "done", status: "completed" });
+      expect(await exists(join(root, "argv"))).toBe(true);
+      await rm(join(root, "argv"));
+
+      await consent.revoke(risky.id);
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+    });
+
+    it("honors a revoke that arrives while the readiness probe is still running", async () => {
+      await consent.grant(risky);
+      // The probe's `--version` is slow, so consent is revoked after the first check and before launch.
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 0.4; echo '2.1.296 (Claude Code)'");
+      const pending = startRisky();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await consent.revoke(risky.id);
+
+      expect(await rejection(pending)).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+    });
+
+    it("reads consent from the app data root when no store is injected", async () => {
+      const originalRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+      process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(root, "app-data");
+      try {
+        const shared = sharedAgentConsentStore();
+        expect(await rejection(start({ definitions: [risky] }))).toMatchObject({ status: 403, code: "consent-required" });
+        await shared.grant(risky);
+        expect((await collect(await start({ definitions: [risky] }))).at(-1)).toMatchObject({ type: "done", status: "completed" });
+      } finally {
+        if (originalRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+        else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalRoot;
+      }
+    });
+
+    it("asks again once the policy was re-verified after the consent", async () => {
+      await consent.grant({ ...risky, policy: { ...risky.policy, checkedAt: "2026-09-01" } });
+
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+    });
+
+    it("refuses consent that is unreadable, and consent for another agent", async () => {
+      await mkdir(join(root, "data"));
+      await writeFile(join(root, "data", "agent-consents.json"), "{not json");
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+
+      await consent.grant({ ...risky, id: "other" });
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+    });
+
+    it("checks consent before the missing adapter, so a refusal never reveals more than the policy", async () => {
+      const adapterless: AgentDefinition = { ...risky, id: "adapterless", binary: "adapterless" };
+      expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless], consent })))
+        .toMatchObject({ status: 403, code: "consent-required" });
+      await consent.grant(adapterless);
+      expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless], consent })))
+        .toMatchObject({ status: 409, code: "no-adapter" });
+    });
   });
 
   it("refuses agents that are not ready, unknown models, and agents without an adapter", async () => {

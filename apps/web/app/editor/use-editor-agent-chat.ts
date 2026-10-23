@@ -7,6 +7,7 @@ import type { AgentRunOutcome } from "@web/lib/agents/agent-session.server";
 import {
   applyAgentEvent,
   createAgentEventParser,
+  agentCanRun,
   createAgentTurn,
   defaultAgentId,
   type AgentResult,
@@ -19,7 +20,9 @@ import { readJsonBody, responseErrorMessage } from "@web/lib/json-response";
 /** `running` and `syncing` (verdict reload, Undo run) own the project, so the editor pauses writes. */
 export type AgentChatPhase = "idle" | "running" | "syncing";
 
-const AGENT_STATES = new Set(["not-installed", "unsupported-version", "not-signed-in", "wrong-auth-mode", "unavailable"]);
+const AGENT_STATES = new Set([
+  "not-installed", "unsupported-version", "not-signed-in", "wrong-auth-mode", "unavailable", "no-adapter", "consent-required",
+]);
 
 function jsonHeaders(): Headers {
   return projectRequestHeaders({ headers: { "content-type": "application/json" } });
@@ -50,6 +53,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [phase, setPhase] = useState<AgentChatPhase>("idle");
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
+  const [consentError, setConsentError] = useState<string | null>(null);
   const nextTurnId = useRef(1);
   const stopped = useRef(false);
   const abort = useRef<AbortController | null>(null);
@@ -108,7 +112,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
 
   const send = useCallback(async (message: string): Promise<boolean> => {
     const agent = selected;
-    if (!agent || agent.state !== "ready" || phase !== "idle" || !message.trim()) return false;
+    if (!agentCanRun(agent) || phase !== "idle" || !message.trim()) return false;
     const id = nextTurnId.current++;
     const update = (change: (turn: AgentTurn) => AgentTurn) => {
       setTurns((all) => all.map((turn) => (turn.id === id ? change(turn) : turn)));
@@ -200,6 +204,23 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     abort.current?.abort();
   }, [phase]);
 
+  const setConsent = useCallback(async (agentId: string, action: "grant" | "revoke") => {
+    setConsentError(null);
+    try {
+      const response = await fetch("/api/agents/consent", {
+        method: "POST",
+        headers: jsonHeaders(),
+        body: JSON.stringify({ agentId, action }),
+      });
+      if (!response.ok) {
+        throw new Error(responseErrorMessage(await readJsonBody(response), `Consent could not be saved (${response.status})`));
+      }
+      await refreshAgents();
+    } catch (error) {
+      setConsentError((error as Error).message);
+    }
+  }, [refreshAgents]);
+
   const keep = useCallback(async () => {
     setOutcomeError(null);
     try {
@@ -230,6 +251,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const selectAgent = useCallback((id: string) => {
     setAgentId(id);
     setModel(null);
+    setConsentError(null);
   }, []);
 
   const newChat = useCallback(() => {
@@ -247,6 +269,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     locked: phase !== "idle",
     outcome,
     outcomeError,
+    consentError,
+    setConsent,
     refreshAgents,
     selectAgent,
     selectModel: setModel,

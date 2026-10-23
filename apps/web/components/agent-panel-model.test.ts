@@ -6,6 +6,7 @@ import { parseProject } from "@screenshot-studio/core/model";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
 import type { AgentEvent } from "@web/lib/agents/agent-session.server";
 import {
+  agentCanRun,
   agentNotice,
   agentStateLabel,
   applyAgentEvent,
@@ -28,7 +29,7 @@ const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "h
 function agentStatus(overrides: Partial<AgentStatus> = {}): AgentStatus {
   return {
     id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
-    state: "ready", authMode: "subscription", policy, models: ["sonnet", "opus", "haiku"],
+    state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
     setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     ...overrides,
   };
@@ -119,6 +120,37 @@ describe("agent notices and picker", () => {
     expect(defaultAgentId([codex, agentStatus(), gemini], null)).toBe("claude-code");
     expect(defaultAgentId([codex, agentStatus(), gemini], "codex")).toBe("codex");
     expect(defaultAgentId([gemini], null)).toBeNull();
+  });
+});
+
+describe("agent policy in the panel", () => {
+  const atOwnRisk = { ...policy, level: "at-own-risk", reason: "Terms forbid it.", consequences: "Account ban." } as const;
+  const risky = agentStatus({ id: "risky", name: "Risky", policy: atOwnRisk, consented: false });
+
+  it("shows the consent warning before any readiness notice and lets a message through only with consent", () => {
+    const signedOut = { ...risky, state: "not-signed-in", authMode: null } as const;
+    expect(agentNotice([agentStatus(), risky], risky)).toEqual({ kind: "consent-required", agent: risky });
+    expect(agentNotice([agentStatus(), signedOut], signedOut)).toEqual({ kind: "consent-required", agent: signedOut });
+    expect(agentCanRun(risky)).toBe(false);
+
+    const consented = { ...risky, consented: true };
+    expect(agentNotice([agentStatus(), consented], consented)).toBeNull();
+    expect(agentCanRun(consented)).toBe(true);
+    expect(agentNotice([agentStatus(), { ...consented, state: "not-signed-in" }], { ...consented, state: "not-signed-in" }))
+      .toMatchObject({ kind: "not-signed-in" });
+  });
+
+  it("never lets an unavailable agent or an agent without an adapter run, consent or not", () => {
+    expect(agentCanRun({ ...gemini, state: "ready" })).toBe(false);
+    const noAdapter = { ...risky, state: "no-adapter", installed: null, consented: true } as const;
+    expect(agentNotice([agentStatus(), noAdapter], noAdapter)).toEqual({ kind: "no-adapter", agent: noAdapter });
+    expect(agentCanRun(noAdapter)).toBe(false);
+    expect(agentStateLabel(noAdapter)).toBe("Not supported in the editor yet");
+  });
+
+  it("does not select an agent that still needs consent when a supported one exists", () => {
+    expect(defaultAgentId([risky, agentStatus()], null)).toBe("claude-code");
+    expect(defaultAgentId([{ ...risky, consented: true }, gemini], null)).toBe("risky");
   });
 });
 

@@ -105,15 +105,38 @@ export function turnOutcome(turn: AgentTurn): TurnOutcome | null {
 export type AgentNotice =
   | { kind: "loading" }
   | { kind: "no-agent" }
-  | { kind: "not-signed-in" | "wrong-auth-mode" | "unsupported-version" | "not-installed" | "unavailable"; agent: AgentStatus };
+  | {
+    kind: "not-signed-in" | "wrong-auth-mode" | "unsupported-version" | "not-installed" | "unavailable" | "no-adapter"
+      | "consent-required";
+    agent: AgentStatus;
+  };
+
+/** True once the agent's policy lets it run: `at-own-risk` needs stored consent, `unavailable` never. */
+export function policyAllowsRun(agent: AgentStatus): boolean {
+  return agent.policy.level === "supported" || (agent.policy.level === "at-own-risk" && agent.consented === true);
+}
+
+/** Whether a message to this agent can be sent; the server enforces the same policy again. */
+export function agentCanRun(agent: AgentStatus | undefined): agent is AgentStatus {
+  return agent !== undefined && agent.state === "ready" && policyAllowsRun(agent);
+}
+
+const POLICY_LEVEL_LABELS = { supported: "Supported", "at-own-risk": "At your own risk", unavailable: "Unavailable" } as const;
+
+export function policyLevelLabel(agent: AgentStatus): string {
+  return POLICY_LEVEL_LABELS[agent.policy.level];
+}
 
 /** Why the selected agent cannot run (mockup 7c); null when it is ready. */
 export function agentNotice(agents: AgentStatus[] | null, selected: AgentStatus | undefined): AgentNotice | null {
   if (agents === null) return { kind: "loading" };
-  // An `unavailable` policy never probes the binary, so `installed: null` does not count as installed.
+  // Agents that are never probed report `installed: null`, which does not count as installed.
   if (!agents.some((agent) => agent.installed === true)) return { kind: "no-agent" };
-  if (!selected || selected.state === "ready") return null;
-  return { kind: selected.state, agent: selected };
+  if (!selected) return null;
+  if (selected.state === "unavailable" || selected.state === "no-adapter") return { kind: selected.state, agent: selected };
+  // The warning comes before every readiness notice: consent is the first thing an at-own-risk agent needs.
+  if (selected.policy.level === "at-own-risk" && selected.consented !== true) return { kind: "consent-required", agent: selected };
+  return selected.state === "ready" ? null : { kind: selected.state, agent: selected };
 }
 
 /** The meta line of an agent in the picker (mockup 7d), e.g. `Signed in · subscription · v2.1.296`. */
@@ -131,15 +154,17 @@ export function agentStateLabel(agent: AgentStatus): string {
       return agent.minVersion ? `Needs v${agent.minVersion} or later` : "Unsupported version";
     case "unavailable":
       return "Unavailable";
+    case "no-adapter":
+      return "Not supported in the editor yet";
   }
 }
 
 /** The agent a fresh panel selects: the current one while it exists, else the first ready one. */
 export function defaultAgentId(agents: AgentStatus[], current: string | null): string | null {
   if (current && agents.some((agent) => agent.id === current)) return current;
-  return (agents.find((agent) => agent.state === "ready")
+  return (agents.find((agent) => agent.state === "ready" && policyAllowsRun(agent))
     ?? agents.find((agent) => agent.installed === true)
-    ?? agents.find((agent) => agent.policy.level !== "unavailable"))?.id ?? null;
+    ?? agents.find((agent) => agent.policy.level === "supported"))?.id ?? null;
 }
 
 export interface ChangedScreenRow {
