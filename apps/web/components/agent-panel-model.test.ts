@@ -14,6 +14,7 @@ import {
   createAgentEventParser,
   createAgentTurn,
   defaultAgentId,
+  hasOtherFiles,
   turnActivity,
   turnOutcome,
   turnProgressLabel,
@@ -42,6 +43,7 @@ const gemini = agentStatus({
 
 const accepted = (changedScreens: string[]): AgentEvent => ({
   type: "result", status: "accepted", reason: null, changed: changedScreens.length > 0, changedScreens, revision: "r2",
+  otherFiles: { files: [], count: 0 },
 });
 const done = (status: "completed" | "failed" | "cancelled" = "completed"): AgentEvent => ({
   type: "done", status, summary: status === "completed" ? "Added DE to 4 screens." : null, durationMs: 100,
@@ -87,7 +89,8 @@ describe("turn outcome (mockup 7c)", () => {
   });
 
   it("separates rejected, stopped, failed, changed, and unchanged runs", () => {
-    const rejected: AgentEvent = { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1" };
+    const rejected: AgentEvent = { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1",
+      otherFiles: { files: [], count: 0 } };
     expect(turnOutcome(play(rejected, done("failed")))).toEqual({ kind: "rejected", reason: "layouts: Required" });
 
     const stopped = { ...play(accepted(["hero"]), done("cancelled")), stopped: true };
@@ -99,6 +102,12 @@ describe("turn outcome (mockup 7c)", () => {
     expect(turnOutcome(play(failed, accepted([]), done("failed")))).toEqual({ kind: "error", message: "Sign in again." });
     expect(turnOutcome(play(accepted(["hero", "save-fast"]), done()))).toEqual({ kind: "changed", count: 2 });
     expect(turnOutcome(play(accepted([]), done()))).toEqual({ kind: "unchanged" });
+  });
+
+  it("mentions other files when some changed or the folder could not be compared", () => {
+    expect(hasOtherFiles({ files: [], count: 0 })).toBe(false);
+    expect(hasOtherFiles({ files: [{ path: "AGENTS.md", change: "modified" }], count: 1 })).toBe(true);
+    expect(hasOtherFiles(null)).toBe(true);
   });
 });
 

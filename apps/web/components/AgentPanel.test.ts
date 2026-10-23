@@ -104,7 +104,7 @@ describe("AgentPanel", () => {
 
     const limited: AgentEvent[] = [
       { type: "error", code: "usage-limit", message: "limit", resets: "3pm (Europe/Kyiv)" },
-      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1" },
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1", otherFiles: { files: [], count: 0 } },
       { type: "done", status: "failed", summary: null, durationMs: 10 },
     ];
     const limit = render(chat({ turns: [limited.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Add German"))] }));
@@ -114,7 +114,7 @@ describe("AgentPanel", () => {
     expect(limit).toContain("Retry");
 
     const rejectedEvents: AgentEvent[] = [
-      { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1" },
+      { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1", otherFiles: { files: [], count: 0 } },
       { type: "done", status: "failed", summary: null, durationMs: 10 },
     ];
     const rejected = render(chat({ turns: [rejectedEvents.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Add German"))] }));
@@ -189,7 +189,9 @@ describe("AgentPanel", () => {
 
   it("reviews an accepted run with Go to, checks, and Keep / Undo run (7b)", () => {
     const markup = render(chat({
-      outcome: { revision: "r2", changedScreens: ["save-fast", "hero"], finishedAt: "2026-10-22T12:06:00.000Z" },
+      outcome: {
+        revision: "r2", changedScreens: ["save-fast", "hero"], otherFiles: { files: [], count: 0 }, finishedAt: "2026-10-22T12:06:00.000Z",
+      },
     }));
 
     expect(markup).toContain('aria-label="Agent run review"');
@@ -200,6 +202,39 @@ describe("AgentPanel", () => {
     expect(markup).toContain("Undo run");
     expect(markup).toContain("Keep changes");
     expect(markup).not.toContain("Message to Claude Code");
+  });
+
+  it("lists the other files a run changed, which neither Undo run nor Stop restores", () => {
+    const otherFiles = {
+      files: [{ path: "AGENTS.md", change: "modified" as const }, { path: "themes/brand.json", change: "added" as const }],
+      count: 3,
+    };
+    const unchangedEvents: AgentEvent[] = [
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1", otherFiles },
+      { type: "done", status: "completed", summary: null, durationMs: 10 },
+    ];
+    const unchanged = render(chat({ turns: [unchangedEvents.reduce(applyAgentEvent, createAgentTurn(1, "Codex", "Tidy"))] }));
+    expect(unchanged).toContain("No changes to the project file.");
+    expect(unchanged).toContain("Other files · 3");
+    expect(unchanged).toMatch(/aria-label="Other files changed".*AGENTS\.md<\/span><span[^>]*>changed<\/span>/);
+    expect(unchanged).toContain("and 1 more");
+    expect(unchanged).toContain("Undo run and Stop don&#x27;t restore these files.");
+
+    const stoppedEvents: AgentEvent[] = [
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1", otherFiles: null },
+      { type: "done", status: "cancelled", summary: null, durationMs: 10 },
+    ];
+    const stopped = render(chat({ turns: [stoppedEvents.reduce(applyAgentEvent, createAgentTurn(1, "Codex", "Tidy"))] }));
+    expect(stopped).toContain("Stopped. The project file is back to its state before this run.");
+    expect(stopped).toContain("The project folder could not be compared, so changes to other files are unknown.");
+
+    const review = render(chat({
+      outcome: { revision: "r2", changedScreens: ["hero"], otherFiles, finishedAt: "2026-10-22T12:06:00.000Z" },
+    }));
+    expect(review).toContain('aria-label="Agent run review"');
+    expect(review).toContain("Other files · 3");
+    expect(review).toContain("themes/brand.json");
+    expect(review).toContain("Undo run restores the project file from the snapshot taken before the run.");
   });
 
   it("offers a labelled Attach button and shows a message's images with their file names", () => {

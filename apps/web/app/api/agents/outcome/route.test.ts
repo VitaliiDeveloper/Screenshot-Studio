@@ -74,7 +74,7 @@ describe.skipIf(process.platform === "win32")("/api/agents/outcome", () => {
     expect(await run.text()).toContain('"status":"accepted"');
     expect(JSON.parse(await readFile(projectPath, "utf8"))).toEqual(CHANGED);
     const pending = await (await GET(await request("/api/agents/outcome", "GET"))).json();
-    expect(pending.outcome).toMatchObject({ revision: expect.any(String), changedScreens: [] });
+    expect(pending.outcome).toMatchObject({ revision: expect.any(String), changedScreens: [], otherFiles: { files: [], count: 0 } });
 
     const undone = await POST(await request("/api/agents/outcome", "POST", { action: "undo" }));
     expect(undone.status).toBe(200);

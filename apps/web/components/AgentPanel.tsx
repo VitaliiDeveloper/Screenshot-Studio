@@ -7,6 +7,7 @@ import { Check, Circle, CircleDot, ImageOff, Paperclip, X } from "lucide-react";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { AGENT_ATTACHMENT_ACCEPT, MAX_AGENT_ATTACHMENTS } from "@web/lib/agents/agent-attachments";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
+import type { AgentOtherFiles } from "@web/lib/agents/agent-session.server";
 import type { IssueCounts } from "@web/lib/editor/editor-issues";
 import { editorStore } from "@web/lib/editor/editor-store";
 import type { EditorAgentChat } from "@web/app/editor/use-editor-agent-chat";
@@ -18,6 +19,7 @@ import {
   agentStateLabel,
   attachmentFileProblem,
   changedScreenRows,
+  hasOtherFiles,
   policyLevelLabel,
   turnActivity,
   turnOutcome,
@@ -283,6 +285,30 @@ function StepIcon({ status }: { status: AgentTurn["steps"][number]["status"] }) 
 }
 
 const STEP_STATUS = { completed: "done", in_progress: "in progress", pending: "to do" } as const;
+const OTHER_FILE_CHANGE = { added: "added", modified: "changed", removed: "removed" } as const;
+
+/** Files the run changed in the project folder outside the project file; nothing restores them. */
+function OtherFilesView({ otherFiles }: { otherFiles: AgentOtherFiles | null }) {
+  if (!otherFiles) {
+    return <p className={hint}>The project folder could not be compared, so changes to other files are unknown.</p>;
+  }
+  const more = otherFiles.count - otherFiles.files.length;
+  return (
+    <div className="flex flex-col gap-1">
+      <p className={editorUi.sectionLabel}>Other files · {otherFiles.count}</p>
+      <ul aria-label="Other files changed" className="flex flex-col gap-0.5">
+        {otherFiles.files.map((file) => (
+          <li key={file.path} className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate font-mono text-[10.5px]" title={file.path}>{file.path}</span>
+            <span className={hint}>{OTHER_FILE_CHANGE[file.change]}</span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 ? <p className={hint}>and {more} more</p> : null}
+      <p className={hint}>Undo run and Stop don&apos;t restore these files.</p>
+    </div>
+  );
+}
 
 function TurnOutcomeView({
   turn,
@@ -297,13 +323,15 @@ function TurnOutcomeView({
 }) {
   const outcome = turnOutcome(turn);
   if (!outcome) return null;
+  // Undo and the rollback restore only the project file; say so when other files changed too.
+  const project = turn.result && hasOtherFiles(turn.result.otherFiles) ? "project file" : "project";
   switch (outcome.kind) {
     case "limit":
       return (
         <div className="flex flex-col gap-2">
           <StatusMessage tone="warning" role="alert">
             Your {turn.agentName} subscription limit {outcome.resets ? `resets ${outcome.resets}` : "is reached"}.
-            {outcome.unchanged ? " Nothing in the project was changed." : ""}
+            {outcome.unchanged ? ` Nothing in the ${project} was changed.` : ""}
           </StatusMessage>
           <div className="flex gap-2">
             <button type="button" className={editorUi.buttonSecondary} onClick={onSwitchAgent}>Switch agent</button>
@@ -315,7 +343,7 @@ function TurnOutcomeView({
       return (
         <div className="flex flex-col gap-2">
           <StatusMessage tone="error">
-            The agent&apos;s changes didn&apos;t pass schema validation. The project is back to its state before the run.
+            The agent&apos;s changes didn&apos;t pass schema validation. The {project} is back to its state before the run.
           </StatusMessage>
           <details className="text-xs text-[color:var(--editor-color-text-muted)]">
             <summary className="cursor-pointer select-none">Show details</summary>
@@ -330,7 +358,7 @@ function TurnOutcomeView({
       return (
         <p role="status" className={hint}>
           {outcome.restored
-            ? "Stopped. The project is back to its state before this run."
+            ? `Stopped. The ${project} is back to its state before this run.`
             : "Stopped. The run's changes are still in the project."}
         </p>
       );
@@ -344,7 +372,7 @@ function TurnOutcomeView({
     case "changed":
       return <p role="status" className={hint}>Changed {outcome.count === 1 ? "1 screen" : `${outcome.count} screens`}.</p>;
     case "unchanged":
-      return <p role="status" className={hint}>No changes to the project.</p>;
+      return <p role="status" className={hint}>No changes to the {project}.</p>;
   }
 }
 
@@ -418,9 +446,10 @@ function TurnView({
             <button type="button" className={editorUi.buttonSecondary} disabled={turn.stopped} onClick={onStop}>
               {turn.stopped ? "Stopping…" : "Stop"}
             </button>
-            <span className={hint}>Stop restores the project to its state before this run.</span>
+            <span className={hint}>Stop restores the project file to its state before this run.</span>
           </div>
         ) : <TurnOutcomeView turn={turn} {...outcomeActions} />}
+        {!live && turn.result && hasOtherFiles(turn.result.otherFiles) ? <OtherFilesView otherFiles={turn.result.otherFiles} /> : null}
       </div>
     </li>
   );
@@ -485,6 +514,11 @@ function AgentReview({
             ))}
           </ul>
         </div>
+        {hasOtherFiles(outcome.otherFiles) ? (
+          <div className="border-b border-[var(--editor-color-border)] px-3.5 py-3 text-xs">
+            <OtherFilesView otherFiles={outcome.otherFiles} />
+          </div>
+        ) : null}
         <div className="flex flex-col gap-2 px-3.5 py-3 text-xs">
           <h3 className={editorUi.sectionLabel}>Checks</h3>
           <p className="flex items-center gap-2 text-[color:var(--editor-color-text-muted)]">
@@ -525,7 +559,7 @@ function AgentReview({
             Keep changes
           </button>
         </div>
-        <p className={hint}>Undo run restores the snapshot taken before the run.</p>
+        <p className={hint}>Undo run restores the project file from the snapshot taken before the run.</p>
       </div>
     </section>
   );
