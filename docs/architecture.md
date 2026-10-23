@@ -288,9 +288,10 @@ without the user's consent (`403 consent-required`). Consent is app-level local 
 `checkedAt`, so a re-verified policy asks again; a missing or unreadable file means no consent.
 `POST /api/agents/consent` grants or revokes it for `at-own-risk` agents only, behind the project
 session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/agents` reports each
-agent's `consented` outside its probe cache. Antigravity `agy` is listed with its `at-own-risk` policy but has no
-adapter (VTL-29 found no auth-status command, and its stream was never run because that is the
-account-ban case), so it reports `no-adapter` and never runs. It runs in the project folder, at most one per project, receives the user
+agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
+is checked again after the readiness probe, right before launch. Antigravity `agy` is listed with its
+`at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
+because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
 whole process tree.
 

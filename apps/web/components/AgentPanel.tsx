@@ -571,6 +571,7 @@ export function AgentPanel({
             ) : null}
           </div>
         ) : null}
+        {selected?.consented === true && chat.consentError ? <StatusMessage tone="error">{chat.consentError}</StatusMessage> : null}
         <p className={hint}>Your subscription · runs on this computer</p>
       </div>
       {reviewing ? (

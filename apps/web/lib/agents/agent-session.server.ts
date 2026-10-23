@@ -315,6 +315,12 @@ function runContext(projectDir: string, codexAuthStore: CodexAuthStore | null): 
   };
 }
 
+async function requireConsent(definition: AgentDefinition, options: AgentRunOptions): Promise<void> {
+  if (definition.policy.level === "at-own-risk" && !await (options.consent ?? sharedAgentConsentStore()).isGranted(definition)) {
+    throw new AgentRunError(403, "consent-required", `${definition.name} needs your consent before it can run`);
+  }
+}
+
 /**
  * The server-side policy gate. Nothing in a request can grant consent: it is read from the app's own
  * store, and `unavailable` is refused before any consent or adapter lookup.
@@ -325,9 +331,7 @@ async function runnableDefinition(options: AgentRunOptions): Promise<{ definitio
   if (definition.policy.level === "unavailable") {
     throw new AgentRunError(403, "unavailable", definition.policy.reason);
   }
-  if (definition.policy.level === "at-own-risk" && !await (options.consent ?? sharedAgentConsentStore()).isGranted(definition)) {
-    throw new AgentRunError(403, "consent-required", `${definition.name} needs your consent before it can run`);
-  }
+  await requireConsent(definition, options);
   const adapter = agentAdapter(definition.id);
   if (!adapter) throw new AgentRunError(409, "no-adapter", `${definition.name} cannot run from the editor yet`);
   if (options.model != null && !definition.models.includes(options.model)) {
@@ -372,6 +376,8 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       runs.delete(projectDir);
       return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
     }
+    // The readiness probe and the drain wait can take a while; a consent revoked meanwhile still wins.
+    await requireConsent(definition, options);
     let snapshot: ProjectSnapshot;
     try {
       const projectFile = join(projectDir, PROJECT_FILE_NAME);

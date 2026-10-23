@@ -146,6 +146,8 @@ describe("AgentPanel", () => {
     const consented = render(chat({ agents: [claude, { ...risky, consented: true }], selected: { ...risky, consented: true }, selectedModel: null }));
     expect(consented).not.toContain("I understand, enable");
     expect(consented).toContain("Revoke consent");
+    expect(render(chat({ agents: [claude, { ...risky, consented: true }], selected: { ...risky, consented: true }, selectedModel: null, consentError: "Consent could not be saved (500)" })))
+      .toContain("Consent could not be saved (500)");
 
     const unavailable = { ...risky, state: "unavailable" as const, policy: { ...risky.policy, level: "unavailable" as const } };
     expect(render(chat({ agents: [claude, unavailable], selected: unavailable, selectedModel: null })))

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseProject } from "@screenshot-studio/core/model";
 import { projectRevision } from "@screenshot-studio/core/storage";
-import { createAgentConsentStore } from "./agent-consent.server.js";
+import { createAgentConsentStore, sharedAgentConsentStore } from "./agent-consent.server.js";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "./agents.server.js";
 import {
   AgentRunError,
@@ -428,6 +428,33 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
       await consent.revoke(risky.id);
       expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
       expect(await exists(join(root, "argv"))).toBe(false);
+    });
+
+    it("honors a revoke that arrives while the readiness probe is still running", async () => {
+      await consent.grant(risky);
+      // The probe's `--version` is slow, so consent is revoked after the first check and before launch.
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 0.4; echo '2.1.296 (Claude Code)'");
+      const pending = startRisky();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await consent.revoke(risky.id);
+
+      expect(await rejection(pending)).toMatchObject({ status: 403, code: "consent-required" });
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await rejection(startRisky())).toMatchObject({ status: 403, code: "consent-required" });
+    });
+
+    it("reads consent from the app data root when no store is injected", async () => {
+      const originalRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+      process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(root, "app-data");
+      try {
+        const shared = sharedAgentConsentStore();
+        expect(await rejection(start({ definitions: [risky] }))).toMatchObject({ status: 403, code: "consent-required" });
+        await shared.grant(risky);
+        expect((await collect(await start({ definitions: [risky] }))).at(-1)).toMatchObject({ type: "done", status: "completed" });
+      } finally {
+        if (originalRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+        else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalRoot;
+      }
     });
 
     it("asks again once the policy was re-verified after the consent", async () => {

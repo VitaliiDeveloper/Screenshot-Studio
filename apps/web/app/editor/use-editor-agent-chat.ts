@@ -251,6 +251,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const selectAgent = useCallback((id: string) => {
     setAgentId(id);
     setModel(null);
+    setConsentError(null);
   }, []);
 
   const newChat = useCallback(() => {

@@ -43,13 +43,18 @@ const BASE_ENV = {
 
 let binDir: string;
 const originalPath = process.env.PATH;
+const originalDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
 
 beforeEach(async () => {
   binDir = await mkdtemp(join(tmpdir(), "agents-route-"));
+  // The route reads consent from the data root; keep a developer's real consent out of the tests.
+  process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(binDir, "data");
 });
 
 afterEach(async () => {
   process.env.PATH = originalPath;
+  if (originalDataRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+  else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalDataRoot;
   vi.restoreAllMocks();
   await rm(binDir, { recursive: true, force: true });
 });
