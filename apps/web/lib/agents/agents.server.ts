@@ -77,7 +77,7 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     },
   },
   {
-    // No adapter yet: VTL-29 found no auth-status command and the stream was never run, because
+    // No adapter yet: it has no auth-status command and its stream was never run, because
     // running `agy -p` from a coding agent is the case the account-ban risk applies to.
     id: "agy",
     name: "Antigravity",
