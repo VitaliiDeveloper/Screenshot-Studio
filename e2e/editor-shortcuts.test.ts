@@ -70,9 +70,9 @@ describe("status bar and keyboard shortcuts", () => {
     await page.evaluate(() => {
       const prevented: Array<[string, boolean]> = [];
       (window as unknown as { prevented: typeof prevented }).prevented = prevented;
-      // Registered after the app's own listener, so it sees whether the app took the chord.
+      // Read after dispatch ends: the app may re-register its listener behind this one.
       window.addEventListener("keydown", (event) => {
-        if (event.ctrlKey) prevented.push([event.key, event.defaultPrevented]);
+        if (event.ctrlKey) setTimeout(() => prevented.push([event.key, event.defaultPrevented]));
       });
     });
 
