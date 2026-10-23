@@ -259,7 +259,12 @@ is not persisted. Five styles (Clean, Aurora, Midnight, Poster, Sunrise) each pa
 a six-screen pack (hero, three features, social proof, call to action) for iPhone 6.3″ and Android
 phone portrait. Each pack derives its geometry from the exact store artboard, sets type in Studio
 Display, and draws generated art from shapes, because a global pack cannot carry image assets. The
-picker previews in `apps/web/public/template-previews/` come from the same renderer. Applying a Design pack writes its solid or linear-gradient background to every
+picker previews in `apps/web/public/template-previews/<pack>/<screen>.png` come from the same renderer
+and are static files; templates without one show a static placeholder, never a second render path.
+`GET /api/templates` returns project `templates`, starter `builtIns`, and the full built-in `packs`.
+A single pack screen is a built-in template too: `POST /api/templates` with `source: "built-in"` and
+CLI `template add <id> --built-in` accept a pack screen id (`clean-iphone-hero`) and append only that
+screen, while `source: "built-in-pack"` / `--pack` still append the whole pack. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
 role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.

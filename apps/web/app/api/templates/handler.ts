@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { listBuiltInTemplatePacks } from "@screenshot-studio/core/templates";
 import {
   createTemplateScreen,
   createBuiltInTemplateScreen,
@@ -44,7 +45,7 @@ export async function handleTemplateGet(projectPath: string): Promise<Response> 
       listTemplates(projectPath),
       listBuiltInTemplates(projectPath, specs),
     ]);
-    return Response.json({ templates, builtIns });
+    return Response.json({ templates, builtIns, packs: listBuiltInTemplatePacks(specs) });
   } catch (error) {
     return errorResponseByClass(error, ERROR_STATUSES);
   }

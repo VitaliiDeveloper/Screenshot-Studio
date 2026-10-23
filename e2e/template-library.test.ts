@@ -88,13 +88,36 @@ describe("template library UI", () => {
     await templateDialog.waitFor({ state: "hidden" });
     expect(await templatesButton.evaluate((node) => document.activeElement === node)).toBe(true);
     await templatesButton.click();
-    const builtInRow = page.getByTestId("template-row-macos-starter");
+    const builtInRow = page.getByTestId("template-card-macos-starter");
     await builtInRow.waitFor({ state: "visible" });
     expect(await builtInRow.textContent()).toContain("App Store · macOS");
-    expect(await page.getByTestId("template-row-tvos-starter").count()).toBe(0);
-    expect(await page.getByTestId("template-row-visionos-starter").count()).toBe(0);
-    expect(await page.getByTestId("template-row-wear-os-starter").count()).toBe(0);
-    await builtInRow.getByRole("button", { name: "Create screen", exact: true }).click();
+    expect(await page.getByTestId("template-card-tvos-starter").count()).toBe(0);
+    expect(await page.getByTestId("template-card-visionos-starter").count()).toBe(0);
+    expect(await page.getByTestId("template-card-wear-os-starter").count()).toBe(0);
+
+    // The output filter starts on the active family; widening it reveals styled packs with shipped previews.
+    await templateDialog.getByRole("button", { name: /^Output filter/ }).click();
+    await page.getByRole("menuitemradio", { name: "All outputs", exact: true }).click();
+    const search = templateDialog.getByRole("searchbox", { name: "Search templates" });
+    await search.fill("poster");
+    const posterCard = page.getByTestId("template-card-poster-iphone-hero");
+    await posterCard.waitFor({ state: "visible" });
+    expect(await builtInRow.count()).toBe(0);
+    await expect.poll(() => posterCard.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(300);
+    await templateDialog.getByRole("button", { name: /^Orientation filter/ }).click();
+    await page.getByRole("menuitemradio", { name: "Landscape", exact: true }).click();
+    expect(await posterCard.count()).toBe(0);
+    await page.getByRole("menuitemradio", { name: "Landscape", exact: true }).waitFor({ state: "hidden" });
+    await templateDialog.getByRole("button", { name: /^Orientation filter/ }).click();
+    await page.getByRole("menuitemradio", { name: "Any orientation", exact: true }).click();
+    const sourceGroup = page.getByRole("group", { name: "Template source", exact: true });
+    await sourceGroup.getByRole("button", { name: "Project", exact: true }).click();
+    await templateDialog.getByText("No matching templates", { exact: true }).waitFor();
+    expect(await templateDialog.getByRole("button", { name: /^Style filter/ }).count()).toBe(0);
+    await sourceGroup.getByRole("button", { name: "Built-in", exact: true }).click();
+    await posterCard.waitFor({ state: "visible" });
+    await search.fill("macos");
+    await builtInRow.click();
     await expect.poll(() => project().layouts[0].screens.length).toBe(initialScreenCount + 1);
     expect(project().layouts[0].screens.find((screen: { id: string }) => (
       screen.id === "macos-starter"
@@ -107,23 +130,24 @@ describe("template library UI", () => {
     await templateDialog.waitFor({ state: "hidden" });
     await templatesButton.click();
     await page.getByRole("group", { name: "Template source", exact: true })
-      .getByRole("button", { name: "Project templates", exact: true }).click();
-    const row = page.getByTestId("template-row-promo-card");
+      .getByRole("button", { name: "Project", exact: true }).click();
+    const row = page.getByTestId("template-card-promo-card");
     await row.waitFor({ state: "visible" });
-    expect(await page.getByTestId("template-row-windows-desktop").count()).toBe(0);
+    expect(await page.getByTestId("template-card-windows-desktop").count()).toBe(0);
     let releaseCreate!: () => void;
     const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
     await page.route("**/api/templates", async (route) => {
       if (route.request().method() === "POST") await createGate;
       await route.continue();
     });
-    await row.getByRole("button", { name: "Create screen", exact: true }).click();
+    await row.click();
     const closeButton = page.getByRole("button", { name: "Close screen template library", exact: true });
     const templateAssetLoaded = page.waitForResponse((response) =>
       response.url().includes("/api/asset?") && decodeURIComponent(response.url()).includes("assets/template-only.png"),
     );
     try {
-      await page.getByRole("button", { name: "Creating…", exact: true }).waitFor();
+      await page.locator('[data-testid="template-card-promo-card"][aria-busy="true"]').waitFor();
+      expect(await row.textContent()).toContain("Creating…");
       expect(await closeButton.isDisabled()).toBe(true);
       await page.getByRole("dialog", { name: "Screen template library" }).locator("..").click({ position: { x: 4, y: 4 } });
       expect(await page.getByRole("dialog", { name: "Screen template library" }).isVisible()).toBe(true);

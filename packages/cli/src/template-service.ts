@@ -4,6 +4,7 @@ import {
   createScreensFromTemplatePack,
   findBuiltInTemplate,
   findBuiltInTemplatePack,
+  listBuiltInTemplatePacks,
   listBuiltInTemplates as listCoreBuiltInTemplates,
   parseTemplateJson,
   type ScreenTemplate,
@@ -101,7 +102,8 @@ export async function createBuiltInTemplateScreen(
   const locale = templateLocale(rawLocale);
   const canonicalPath = await resolveExistingProjectPath(projectPath);
   const updated = await updateProjectFile(canonicalPath, (current) => {
-    const template = findBuiltInTemplate(id, specs, current.fonts[0]);
+    const template = findBuiltInTemplate(id, specs, current.fonts[0])
+      ?? listBuiltInTemplatePacks(specs).flatMap((pack) => pack.screens).find((screen) => screen.id === id);
     if (!template) throw new TemplateNotFoundError(`Built-in template "${id}" not found`);
     try {
       const layout = resolveMutationLayout(current, layoutReference);

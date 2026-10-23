@@ -92,6 +92,13 @@ describe("runTemplateCommand", () => {
     expect(await readFile(projectPath, "utf8")).toBe(before);
   });
 
+  it("adds one screen of a built-in pack by its screen id", async () => {
+    const { projectPath, specsPath } = await fixture();
+    await expect(runTemplateCommand(projectPath, specsPath, ["add", "clean-iphone-hero"], { locale: "en", "built-in": "true" }))
+      .resolves.toBe("Added screen clean-iphone-hero (apple/iphone en) from built-in template clean-iphone-hero");
+    expect(await screenIds(projectPath)).toEqual(["hero", "clean-iphone-hero"]);
+  });
+
   it("adds the same built-in template repeatedly as distinct screens", async () => {
     const { projectPath, specsPath } = await fixture();
     for (let index = 0; index < 3; index++) {
