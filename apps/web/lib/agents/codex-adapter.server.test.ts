@@ -16,6 +16,7 @@ const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: null,
   context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
+  attachments: [],
 };
 
 describe("Codex adapter", () => {
@@ -99,5 +100,16 @@ describe("Codex adapter", () => {
     const instructions = overrides.find((override) => override.startsWith("developer_instructions="));
     expect(JSON.parse(instructions!.slice("developer_instructions=".length))).toContain("/project/AGENTS.md");
     expect(args.at(-1)).toBe("-");
+  });
+
+  it("attaches each image with its own --image flag and keeps the stdin marker last", () => {
+    const files = ["/tmp/runs/1/run-a/1.png", "/tmp/runs/1/run-a/2.webp"];
+    const args = codexAdapter.args({ ...REQUEST, attachments: files });
+
+    expect(args.filter((_, index) => args[index - 1] === "--image")).toEqual(files);
+    expect(args.at(-1)).toBe("-");
+    expect(args[args.lastIndexOf("--image") + 2]).toMatch(/^--/);
+    expect(args).not.toContain("--add-dir");
+    expect(codexAdapter.args(REQUEST)).not.toContain("--image");
   });
 });

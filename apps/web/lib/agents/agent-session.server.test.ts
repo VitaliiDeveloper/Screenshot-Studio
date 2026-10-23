@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseProject } from "@screenshot-studio/core/model";
 import { projectRevision } from "@screenshot-studio/core/storage";
 import { createAgentConsentStore, sharedAgentConsentStore } from "./agent-consent.server.js";
+import type { AgentAttachment } from "./agent-attachments.js";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "./agents.server.js";
 import {
   AgentRunError,
@@ -493,5 +494,105 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless] })))
       .toMatchObject({ status: 409, code: "no-adapter" });
     expect(await exists(join(root, "argv"))).toBe(false);
+  });
+
+  describe("image attachments", () => {
+    const PNG: AgentAttachment = { type: "png", bytes: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2]) };
+    const JPEG: AgentAttachment = { type: "jpeg", bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]) };
+    const attachmentRoot = () => join(tmpdir(), "screenshot-studio-agent-attachments", String(process.pid));
+    const folders = () => readdir(attachmentRoot()).catch(() => []);
+
+    async function runFolder(): Promise<string> {
+      const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+      const dir = argv.filter((_, index) => argv[index - 1] === "--add-dir").find((value) => basename(value).startsWith("run-"));
+      expect(dir).toBeDefined();
+      return dir!;
+    }
+
+    it("gives the CLI a private folder outside the project and removes it when Stop ends the run", async () => {
+      await fakeClaude(hang());
+      const run = await start({ attachments: [PNG, JPEG] });
+      await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+
+      const dir = await runFolder();
+      expect((await readdir(dir)).sort()).toEqual(["1.png", "2.jpg"]);
+      expect([...await readFile(join(dir, "1.png"))]).toEqual([...PNG.bytes]);
+      expect((await stat(dir)).mode & 0o777).toBe(0o700);
+      expect(relative(await realpath(projectDir), dir).startsWith("..")).toBe(true);
+      expect((await readdir(projectDir)).sort()).toEqual(["AGENTS.md", "app-store-screenshots.json"]);
+      expect(await readFile(join(root, "argv"), "utf8")).toContain(`${join(dir, "1.png")}\n${join(dir, "2.jpg")}`);
+
+      expect(await cancelAgentRun(projectDir)).toBe(true);
+      await collect(run);
+      await expect.poll(() => exists(dir), { timeout: 5_000 }).toBe(false);
+    }, 20_000);
+
+    it.each([
+      ["accepted", `/bin/cat '${SUCCESS_FIXTURE}'`],
+      ["rejected", `printf '{"meta":' > app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`],
+      ["failed", "echo boom >&2; exit 1"],
+    ])("removes the run folder after a %s run", async (_outcome, scenario) => {
+      await fakeClaude(scenario);
+
+      await collect(await start({ attachments: [PNG] }));
+
+      await expect.poll(async () => exists(await runFolder()), { timeout: 5_000 }).toBe(false);
+    });
+
+    it("removes the run folder when the run times out or its stream is abandoned", async () => {
+      await fakeClaude(hang());
+      await collect(await start({ attachments: [PNG], timeoutMs: 1_000 }));
+      await expect.poll(async () => exists(await runFolder()), { timeout: 5_000 }).toBe(false);
+
+      await rm(join(root, "sleep.pid"));
+      const run = await start({ attachments: [JPEG] });
+      await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+      const dir = await runFolder();
+      await run.events.cancel();
+      await expect.poll(() => exists(dir), { timeout: 5_000 }).toBe(false);
+      await expect.poll(() => cancelAgentRun(projectDir), { timeout: 5_000 }).toBe(false);
+    }, 20_000);
+
+    it("keeps one run's folder apart from another's", async () => {
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+      await collect(await start({ attachments: [PNG] }));
+      const first = await runFolder();
+      await collect(await start({ attachments: [PNG] }));
+
+      expect(await runFolder()).not.toBe(first);
+    });
+
+    it("writes nothing for a request the gate refuses", async () => {
+      await fakeClaude(hang());
+      const before = await folders();
+
+      expect(await rejection(start({ agentId: "gemini-cli", model: null, attachments: [PNG] }))).toMatchObject({ code: "unavailable" });
+      expect(await rejection(start({ model: "no-such-model", attachments: [PNG] }))).toMatchObject({ code: "unknown-model" });
+      expect(await folders()).toEqual(before);
+      const run = await start({ attachments: [PNG] });
+      expect(await rejection(start({ attachments: [PNG] }))).toMatchObject({ code: "agent-busy" });
+
+      await expect.poll(() => exists(join(root, "sleep.pid")), { timeout: 5_000 }).toBe(true);
+      expect((await folders()).length).toBe(before.length + 1);
+      await cancelAgentRun(projectDir);
+      await collect(run);
+    }, 20_000);
+
+    it("passes Codex one --image per file", async () => {
+      await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+
+      await collect(await start({
+        agentId: "codex",
+        model: null,
+        attachments: [PNG, JPEG],
+        env: { NODE_ENV: "test", PATH: binDir, HOME: root },
+      }));
+
+      const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+      const images = argv.filter((_, index) => argv[index - 1] === "--image");
+      expect(images.map((file) => basename(file))).toEqual(["1.png", "2.jpg"]);
+      expect(argv.at(-2)).toBe("-");
+      await expect.poll(() => exists(images[0]!), { timeout: 5_000 }).toBe(false);
+    });
   });
 });
