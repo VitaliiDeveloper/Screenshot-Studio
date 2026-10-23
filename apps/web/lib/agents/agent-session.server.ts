@@ -22,6 +22,8 @@ import {
   type AgentDefinition,
 } from "./agents.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
+import type { AgentAttachment } from "./agent-attachments.js";
+import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
 import { sharedAgentConsentStore, type AgentConsentStore } from "./agent-consent.server.js";
 import { readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
@@ -68,6 +70,8 @@ export interface AgentRunRequest {
   message: string;
   model: string | null;
   context: AgentRunContext;
+  /** Absolute paths of this run's image attachments; they all live in one folder only this run knows. */
+  attachments: string[];
 }
 
 export interface AgentOutputNormalizer {
@@ -94,6 +98,8 @@ export interface AgentRunOptions {
   projectDir: string;
   message: string;
   model?: string | null;
+  /** Validated images for this request only; written to a temporary folder once the run is admitted. */
+  attachments?: readonly AgentAttachment[];
   /** Source environment; the CLI only ever receives its `agentEnv` reduction. */
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
@@ -355,6 +361,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     throw new AgentRunError(409, "agent-busy", "An agent is already running in this project");
   }
   let cancelledBeforeLaunch = false;
+  let runFolder: string | null = null;
   runs.set(projectDir, () => {
     cancelledBeforeLaunch = true;
   });
@@ -387,18 +394,31 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     }
     // A new run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
     pendingOutcomes().delete(projectDir);
-    const request = { message: options.message, model: options.model ?? null, context: runContext(projectDir, codexAuthStore) };
+    // Only an admitted run writes its images, so a refused request never leaves a file behind.
+    const folder = await createRunFolder(options.attachments ?? []);
+    runFolder = folder.dir;
+    const request: AgentRunRequest = {
+      message: options.message,
+      model: options.model ?? null,
+      context: runContext(projectDir, codexAuthStore),
+      attachments: folder.files,
+    };
     const run = launchRun(definition, adapter, request, {
       projectDir,
       env: agentEnv(options.env),
       timeoutMs: options.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
       settle: (doneStatus) => settleRun(projectDir, snapshot, doneStatus),
-      release: () => runs.delete(projectDir),
+      // The process tree is dead by now, so nothing still reads the images.
+      release: () => {
+        runs.delete(projectDir);
+        void removeRunFolder(folder.dir);
+      },
     });
     runs.set(projectDir, run.cancel);
     return run;
   } catch (error) {
     runs.delete(projectDir);
+    if (runFolder) await removeRunFolder(runFolder);
     throw error;
   }
 }

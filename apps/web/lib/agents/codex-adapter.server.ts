@@ -79,6 +79,9 @@ export const codexAdapter: AgentAdapter = {
     return [
       "exec",
       "--json",
+      // The flag takes several values, so each image is a value of its own flag and a later flag
+      // keeps the trailing `-` out of the list. The files are named by the server, never the client.
+      ...request.attachments.flatMap((file) => ["--image", file]),
       // Writes only to the project folder and temp directories, without network. Never
       // `--dangerously-bypass-approvals-and-sandbox`, and no `--add-dir`: it adds writable roots,
       // while the sandbox already reads the skill.
