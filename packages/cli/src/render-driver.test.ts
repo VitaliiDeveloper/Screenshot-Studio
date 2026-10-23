@@ -42,6 +42,22 @@ describe("RenderBrowserSession", () => {
     });
   });
 
+  it("launches headed and headless sessions with the same font render hinting", async () => {
+    const browser = {
+      newContext: vi.fn(async () => ({ close: vi.fn(async () => undefined) })),
+      close: vi.fn(async () => undefined),
+    };
+    const launch = vi.fn(async (_options?: unknown) => browser as never);
+
+    await (await createRenderBrowserSession({ launch })).close();
+    await (await createRenderBrowserSession({ headless: false, launch })).close();
+
+    expect(launch.mock.calls.map(([options]) => options)).toEqual([
+      { headless: true, args: ["--font-render-hinting=slight"] },
+      { headless: false, args: ["--font-render-hinting=slight"] },
+    ]);
+  });
+
   it("pins the render URL and fails fast on a server-rendered revision error", async () => {
     const errorNode: {
       count: ReturnType<typeof vi.fn>;

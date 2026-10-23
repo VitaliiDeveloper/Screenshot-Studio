@@ -12,13 +12,17 @@ import {
 } from "@screenshot-studio/core/model";
 import {
   DEFAULT_STORE_SPECS,
-  findStoreTarget,
-  leadStoreSizeId,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { collectLayoutIssues, visibleLeaves, type ProjectIssue } from "@screenshot-studio/core/validation";
-import { conciseStoreTargetLabel, outputFamilyEditorLabel } from "./editor-workspace.js";
+import {
+  conciseStoreTargetLabel,
+  distinctSizeLabels,
+  outputFamilyEditorLabel,
+  screenStoreTarget,
+  storeTargetDeviceCopy,
+} from "./editor-workspace.js";
 import { elementLabel } from "@web/lib/panel-helpers.js";
 
 export interface IssueCounts {
@@ -46,16 +50,11 @@ export function issueSummary({ blockers, warnings }: IssueCounts): string {
 
 /** A screen's exact size, e.g. `6.9"`; null when the store specs no longer list it. */
 export function screenTargetLabel(screen: Screen, specs: StoreSpecs): string | null {
-  try {
-    const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
-    const target = findStoreTarget(specs, screen.platform, screen.device, targetId);
-    return conciseStoreTargetLabel(target, screen.platform, screen.device, specs);
-  } catch {
-    return null;
-  }
+  const target = screenStoreTarget(screen, specs);
+  return target ? conciseStoreTargetLabel(target, screen.platform, screen.device, specs) : null;
 }
 
-function screenSizeLabel(screen: Screen, specs: StoreSpecs): string {
+export function screenSizeLabel(screen: Screen, specs: StoreSpecs = DEFAULT_STORE_SPECS): string {
   const family = outputFamilyEditorLabel(screen.platform, screen.device, specs);
   const target = screenTargetLabel(screen, specs);
   return target ? `${family} ${target}` : family;
@@ -195,7 +194,15 @@ export function textSizeStatus(
   const layout = getLayout(project, layoutId);
   const source = layout.screens.find((candidate) => candidate.id === screenId);
   if (!source) return [];
-  return slotScreens(layout, source).map((screen) => {
+  const screens = slotScreens(layout, source);
+  const labels = distinctSizeLabels(
+    screens.map((screen) => {
+      const target = screenStoreTarget(screen, specs);
+      const label = target ? storeTargetDeviceCopy(target, screen.platform, screen.device, specs).title : screen.name;
+      return { screen, label };
+    }),
+  );
+  return screens.map((screen, index) => {
     const counterpart = slotCounterpart(source, elementId, screen);
     const element = counterpart?.type === "text" ? counterpart : null;
     const state: TextSizeState = !element
@@ -211,7 +218,7 @@ export function textSizeStatus(
             : "fits";
     return {
       screen,
-      label: screenTargetLabel(screen, specs) ?? screen.name,
+      label: labels[index]!,
       current: screen.id === source.id,
       element,
       state,

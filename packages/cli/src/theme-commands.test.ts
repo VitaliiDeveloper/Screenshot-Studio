@@ -46,7 +46,15 @@ describe("runThemeCommand", () => {
   it("lists built-in design packs and project themes", async () => {
     const { projectPath } = await fixture();
     await expect(runThemeCommand(projectPath, ["list"]))
-      .resolves.toBe("built-in neutral-default Neutral default\nproject midnight Midnight");
+      .resolves.toBe([
+        "built-in neutral-default Neutral default",
+        "built-in clean Clean",
+        "built-in aurora Aurora",
+        "built-in midnight Midnight",
+        "built-in poster Poster",
+        "built-in sunrise Sunrise",
+        "project midnight Midnight",
+      ].join("\n"));
   });
 
   it("applies a built-in design pack only when --built-in is explicit", async () => {

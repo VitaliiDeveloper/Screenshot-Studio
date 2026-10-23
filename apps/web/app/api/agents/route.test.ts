@@ -33,22 +33,28 @@ const CLAUDE_HELP = [
 ].join("\n");
 
 const BASE_ENV = {
+  NODE_ENV: "test",
   CLAUDE_CONFIG_DIR: "/claude-config",
   CODEX_HOME: "/codex-home",
   ANTHROPIC_API_KEY: "sk-ant-should-be-stripped",
   CODEX_API_KEY: "sk-codex-should-be-stripped",
   OPENAI_API_KEY: "sk-openai-should-be-stripped",
-};
+} satisfies NodeJS.ProcessEnv;
 
 let binDir: string;
 const originalPath = process.env.PATH;
+const originalDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
 
 beforeEach(async () => {
   binDir = await mkdtemp(join(tmpdir(), "agents-route-"));
+  // The route reads consent from the data root; keep a developer's real consent out of the tests.
+  process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(binDir, "data");
 });
 
 afterEach(async () => {
   process.env.PATH = originalPath;
+  if (originalDataRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+  else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalDataRoot;
   vi.restoreAllMocks();
   await rm(binDir, { recursive: true, force: true });
 });
@@ -59,7 +65,8 @@ async function writeFake(name: string, body: string): Promise<void> {
   await chmod(path, 0o755);
 }
 
-// A leaked API key or a dropped config-location variable both turn the fake away from `ready`.
+// A leaked API key, a dropped config-location variable, or a Codex probe without the credentials
+// store its runs use all turn the fake away from `ready`.
 async function fakeClaude({
   version = "echo '2.1.296 (Claude Code)'",
   auth = `echo '${CLAUDE_SUBSCRIPTION}'`,
@@ -85,6 +92,7 @@ function fakeCodex({
   login)
     if [ -n "$CODEX_API_KEY$OPENAI_API_KEY" ]; then echo 'Logged in using an API key - ${MASKED_KEY}'; exit 0; fi
     if [ "$CODEX_HOME" != "/codex-home" ]; then echo 'Not logged in' >&2; exit 1; fi
+    case "$*" in *'cli_auth_credentials_store="file"'*) ;; *) echo 'Not logged in' >&2; exit 1 ;; esac
     ${auth} ;;
 esac`);
 }
@@ -122,16 +130,22 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
 
     const { agents } = await detect();
 
-    expect(Object.keys(agents)).toEqual(["claude-code", "codex", "gemini-cli"]);
+    expect(Object.keys(agents)).toEqual(["claude-code", "codex", "agy", "gemini-cli"]);
     expect(agents["claude-code"]).toEqual({
       id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296",
       minVersion: "2.1.268", state: "ready", authMode: "subscription",
       policy: expect.objectContaining({ level: "supported", sourceUrl: expect.stringMatching(/^https:/) }),
+      consented: null,
       models: ["sonnet", "opus", "haiku"],
+      setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     });
     expect(agents.codex).toMatchObject({
       installed: true, version: "0.162.1", minVersion: "0.162.1", state: "ready", authMode: "subscription",
       policy: { level: "supported", checkedAt: "2026-10-15" }, models: [],
+    });
+    expect(agents.agy).toMatchObject({
+      installed: null, state: "no-adapter", consented: false,
+      policy: { level: "at-own-risk", sourceUrl: "https://antigravity.google/terms", checkedAt: "2026-10-15" },
     });
     expect(agents["gemini-cli"]).toMatchObject({
       installed: null, version: null, state: "unavailable", authMode: null,
@@ -250,7 +264,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
     expect(response.status).toBe(200);
     const { agents } = await response.json() as { agents: AgentStatus[] };
     expect(agents.map(({ id, state }) => [id, state])).toEqual([
-      ["claude-code", "not-installed"], ["codex", "not-installed"], ["gemini-cli", "unavailable"],
+      ["claude-code", "not-installed"], ["codex", "not-installed"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
     ]);
   });
 });

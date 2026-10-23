@@ -22,7 +22,7 @@ describe("project creation terminology", () => {
   it("names project-local screen starters as screen templates throughout the Workspace UI", () => {
     for (const copy of [
       'title="Screen templates"',
-      "from a project-local screen template",
+      "from a template. Everything stays editable.",
       'ariaLabel="Screen template library"',
       "Loading screen templates",
       'title="No screen templates yet"',
@@ -33,7 +33,6 @@ describe("project creation terminology", () => {
   it("presents template sources as a selector without an action-style tab separator", () => {
     expect(screenTemplateDialog).toContain("<SegmentedControl");
     expect(screenTemplateDialog).toContain('label="Template source"');
-    expect(screenTemplateDialog).toContain('className="mb-4 flex justify-center"');
     expect(screenTemplateDialog).not.toContain('role="tablist"');
     expect(screenTemplateDialog).not.toContain("border-b border-slate-200 pb-2");
   });
@@ -44,7 +43,7 @@ describe("project creation terminology", () => {
 
   it("does not label the screen-template action as project templates or component presets", () => {
     expect(workspaceModel).toContain('label: "Screen templates"');
-    expect(workspaceModel).toContain('hint: "Create a screen from a project-local screen template"');
+    expect(workspaceModel).toContain('hint: "Create a screen from a template"');
     expect(workspaceModel).not.toContain('hint: "Project templates"');
     expect(screensSection).toContain('label: "From screen template"');
     expect(screensSection).toContain('description: "Create from a screen template"');

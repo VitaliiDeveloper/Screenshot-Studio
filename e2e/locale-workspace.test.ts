@@ -39,6 +39,16 @@ interface PersistedProject {
   layouts: Array<{ screens: PersistedScreen[] }>;
 }
 
+/** A copy of a persisted screen in another locale, with every id (screen and layers) made unique. */
+function inLocale<T>(value: T, locale: string): T {
+  if (Array.isArray(value)) return value.map((item) => inLocale(item, locale)) as T;
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key,
+    key === "id" ? `${String(entry)}-${locale}` : key === "locale" ? locale : inLocale(entry, locale),
+  ])) as T;
+}
+
 let server: RunningServer;
 let browser: Browser;
 let dir: string;
@@ -123,8 +133,9 @@ describe("locale workspace", () => {
     await page.getByRole("button", { name: "Locales", exact: true }).click();
     const manager = page.getByRole("dialog", { name: "Locale manager" });
     await manager.getByLabel("Target locale").fill("ar");
-    await manager.getByLabel("Copy from locale").selectOption("en");
-    await manager.getByLabel("Layout direction").selectOption("rtl");
+    await manager.getByRole("button", { name: "Copy from locale" }).click();
+    await manager.getByRole("menuitemradio", { name: "en", exact: true }).click();
+    await manager.getByRole("group", { name: "Layout direction" }).getByRole("button", { name: "RTL", exact: true }).click();
     await manager.getByRole("button", { name: "Create locale" }).click();
 
     await expect.poll(() => locales().join(","), { timeout: 10_000 }).toBe("en,ar");
@@ -238,6 +249,55 @@ describe("locale workspace", () => {
     expect(localeBounds!.x).toBeGreaterThanOrEqual(0);
     expect(localeBounds!.x + localeBounds!.width).toBeLessThanOrEqual(320);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    await page.close();
+  });
+
+  it("creates a missing screen from the locale matrix as one undo step", async () => {
+    const source = project();
+    const [layout] = source.layouts;
+    const english = layout!.screens.filter((screen) => screen.locale === "en");
+    const iphoneNames = english.filter((screen) => screen.device === "iphone").map((screen) => screen.name);
+    writeFileSync(projectFile, JSON.stringify({
+      ...source,
+      layouts: [{
+        ...layout,
+        screens: [
+          ...english,
+          ...english
+            .filter((screen) => !(screen.device === "iphone" && screen.name === "Stay Organized"))
+            .map((screen) => inLocale(screen, "de")),
+        ],
+      }],
+    }, null, 2));
+    const germanIphoneNames = () => localeScreens("de")
+      .filter((screen) => screen.device === "iphone")
+      .map((screen) => screen.name);
+    const germanIpadCount = () => localeScreens("de").filter((screen) => screen.device === "ipad").length;
+    expect(germanIphoneNames()).toEqual(iphoneNames.filter((name) => name !== "Stay Organized"));
+
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await page.getByRole("button", { name: "Issues: 1 blocker" }).waitFor({ state: "attached" });
+
+    await page.getByRole("button", { name: "Locales", exact: true }).click();
+    const manager = page.getByRole("dialog", { name: "Locale manager" });
+    await manager.getByRole("button", { name: "Locale matrix" }).click();
+    await manager.getByText(/Separate · .* · 3 screens × 2 locales · 1 missing$/).waitFor({ state: "visible" });
+    await manager.getByRole("button", { name: "Create Stay Organized in de from en" }).click();
+
+    await expect.poll(germanIphoneNames, { timeout: 10_000 }).toEqual(iphoneNames);
+    expect(germanIpadCount()).toBe(english.length - iphoneNames.length);
+    await manager.getByText(/3 screens × 2 locales · 0 missing$/).waitFor({ state: "visible" });
+    expect(await manager.getByRole("button", { name: /^Create .* from en$/ }).count()).toBe(0);
+
+    await manager.getByRole("button", { name: "Close locale manager" }).click();
+    await page.getByRole("button", { name: "Issues: none" }).waitFor({ state: "attached" });
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(germanIphoneNames, { timeout: 10_000 })
+      .toEqual(iphoneNames.filter((name) => name !== "Stay Organized"));
+    await page.getByRole("button", { name: "Issues: 1 blocker" }).waitFor({ state: "attached" });
 
     await page.close();
   });

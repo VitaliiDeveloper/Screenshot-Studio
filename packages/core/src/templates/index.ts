@@ -30,6 +30,15 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { findBuiltInDesignPack, type DesignPack } from "@screenshot-studio/core/themes";
+import {
+  PANORAMA_SPANS,
+  STYLE_COMPOSITIONS,
+  STYLE_PACK_SCREENS,
+  spanPanorama,
+  styledScreenElements,
+  type PanoramaSpan,
+  type StyleComposition,
+} from "./style-packs.js";
 
 const templateBase = {
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug"),
@@ -95,8 +104,8 @@ const BUILT_IN_DEFINITIONS: readonly BuiltInDefinition[] = [
   { id: "ipad-portrait-starter", name: "iPad portrait", description: "Spacious portrait composition for tablet storytelling.", platform: "apple", device: "ipad", targetId: "13", frame: "tablet" },
   { id: "ipad-landscape-starter", name: "iPad landscape", description: "Landscape tablet composition with safe edge spacing.", platform: "apple", device: "ipad", targetId: "13-landscape", frame: "tablet" },
   { id: "android-phone-starter", name: "Android phone", description: "Google Play phone starter with an empty assignable mockup.", platform: "android", device: "phone", targetId: "phone-portrait", frame: "android-phone" },
-  { id: "android-tablet-portrait-starter", name: "Android tablet portrait", description: "7-inch tablet portrait starter.", platform: "android", device: "tablet-7", targetId: "tablet-7-portrait", frame: "tablet" },
-  { id: "android-tablet-landscape-starter", name: "Android tablet landscape", description: "10-inch tablet landscape starter.", platform: "android", device: "tablet-7", targetId: "tablet-10-landscape", frame: "tablet" },
+  { id: "android-tablet-portrait-starter", name: "Android tablet portrait", description: "9:16 tablet portrait starter.", platform: "android", device: "tablet-7", targetId: "tablet-portrait", frame: "tablet" },
+  { id: "android-tablet-landscape-starter", name: "Android tablet landscape", description: "16:9 tablet landscape starter.", platform: "android", device: "tablet-7", targetId: "tablet-landscape", frame: "tablet" },
   { id: "web-desktop-starter", name: "Web desktop", description: "Responsive desktop review composition with a browser frame.", platform: "web", device: "desktop", targetId: "desktop-1920", frame: "browser" },
   { id: "web-mobile-starter", name: "Web mobile", description: "Responsive mobile composition with an editable browser mockup.", platform: "web", device: "mobile", targetId: "mobile-portrait", frame: "browser" },
   { id: "play-feature-graphic", name: "Play Feature Graphic", description: "Opaque promotion art with named safe and focal guides; no device frame.", platform: "android", device: "phone", targetId: "play-feature-graphic", promotion: true },
@@ -232,6 +241,8 @@ export const TemplatePack = z.object({
   device: z.string().min(1),
   /** Style tag for catalog filtering; matches the built-in Design pack the screens were baked from. */
   style: slug,
+  /** Art spans screen edges, which only a connected layout renders. */
+  panorama: z.literal(true).optional(),
   screens: z.array(ScreenTemplate).min(1),
 }).strict().superRefine((pack, context) => {
   pack.screens.forEach((screen, index) => {
@@ -258,9 +269,55 @@ type BuiltInTemplatePackDefinition = {
   frame: DeviceFrameId;
   style: string;
   screens: readonly BuiltInTemplatePackScreen[];
+  composition?: StyleComposition;
+  span?: PanoramaSpan;
 };
 
-// shortcut: one seed pack exercises the multi-screen path; real styles land with VTL-37.
+const STYLE_PACK_TARGETS = [
+  { slug: "iphone", label: "iPhone", platform: "apple", device: "iphone", targetId: "6.3" },
+  { slug: "android-phone", label: "Android phone", platform: "android", device: "phone", targetId: "phone-portrait" },
+] as const;
+
+const STYLE_PACK_FRAMES: Readonly<Record<string, Record<(typeof STYLE_PACK_TARGETS)[number]["slug"], DeviceFrameId>>> = {
+  clean: { iphone: "iphone", "android-phone": "android-phone" },
+  aurora: { iphone: "iphone", "android-phone": "phone-punch-hole-dark" },
+  midnight: { iphone: "phone-modern-light", "android-phone": "android-phone" },
+  poster: { iphone: "phone-modern-dark", "android-phone": "android-phone" },
+  sunrise: { iphone: "iphone", "android-phone": "phone-punch-hole-dark" },
+};
+
+const STYLE_VARIANTS: { style: string; composition: StyleComposition; span?: PanoramaSpan }[] = [
+  ...Object.entries(STYLE_COMPOSITIONS).map(([style, composition]) => ({ style, composition })),
+  ...Object.entries(PANORAMA_SPANS).map(([style, span]) => ({
+    style,
+    span,
+    // Copy stays on top so the shared art below it can line up on every screen.
+    composition: { ...STYLE_COMPOSITIONS[style]!, textAt: () => "top" as const, decor: () => [] },
+  })),
+];
+
+const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = STYLE_VARIANTS
+  .flatMap(({ style, composition, span }) => STYLE_PACK_TARGETS.map((target) => {
+    const pack = findBuiltInDesignPack(style)!;
+    const id = span ? `${style}-panorama-${target.slug}` : `${style}-${target.slug}`;
+    return {
+      id,
+      name: `${pack.name}${span ? " panorama" : ""} · ${target.label}`,
+      description: span
+        ? `${STYLE_PACK_SCREENS.length} connected ${target.label} screens: ${span.summary}.`
+        : `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
+      platform: target.platform,
+      device: target.device,
+      targetId: target.targetId,
+      frame: STYLE_PACK_FRAMES[style]![target.slug],
+      style,
+      screens: STYLE_PACK_SCREENS.map((screen) => ({ id: `${id}-${screen.key}`, name: screen.name, headline: screen.headline, subline: screen.subline })),
+      composition,
+      span,
+    };
+  }));
+
+// The neutral seed predates the styled packs; CLI, API, and editor tests address it by id.
 const BUILT_IN_TEMPLATE_PACK_DEFINITIONS: readonly BuiltInTemplatePackDefinition[] = [{
   id: "neutral-iphone-basics",
   name: "Neutral basics · iPhone",
@@ -274,7 +331,7 @@ const BUILT_IN_TEMPLATE_PACK_DEFINITIONS: readonly BuiltInTemplatePackDefinition
     { id: "neutral-iphone-hero", name: "Hero", headline: "Your app, at a glance", subline: "Say what it does in one short line." },
     { id: "neutral-iphone-feature", name: "Feature", headline: "One idea per screen", subline: "Explain a single feature with a short supporting line.", card: true },
   ],
-}];
+}, ...STYLE_TEMPLATE_PACK_DEFINITIONS];
 
 export interface BuiltInTemplatePackMetadata {
   id: string;
@@ -283,6 +340,7 @@ export interface BuiltInTemplatePackMetadata {
   platform: ScreenTemplate["platform"];
   device: ScreenTemplate["device"];
   style: string;
+  panorama: boolean;
   screenCount: number;
 }
 
@@ -294,6 +352,7 @@ export function listBuiltInTemplatePackMetadata(): BuiltInTemplatePackMetadata[]
     platform: definition.platform,
     device: definition.device,
     style: definition.style,
+    panorama: definition.span !== undefined,
     screenCount: definition.screens.length,
   }));
 }
@@ -355,6 +414,12 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
     const style = findBuiltInDesignPack(definition.style);
     if (!style) throw new Error(`Template pack "${definition.id}" references unknown design pack "${definition.style}"`);
     const target = findStoreTarget(specs, definition.platform, definition.device, definition.targetId);
+    const screenElements = definition.screens.map((screen, index) => definition.composition
+      ? styledScreenElements(definition.composition, STYLE_PACK_SCREENS[index]!, index, definition.frame, style, target.width, target.height)
+      : templatePackElements(definition, screen, style, target.width, target.height));
+    const elements = definition.span
+      ? spanPanorama(definition.span, screenElements, style, target.width, target.height)
+      : screenElements;
     return TemplatePack.parse({
       id: definition.id,
       name: definition.name,
@@ -362,7 +427,8 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
       platform: definition.platform,
       device: definition.device,
       style: definition.style,
-      screens: definition.screens.map((screen) => ({
+      ...(definition.span ? { panorama: true } : {}),
+      screens: definition.screens.map((screen, index) => ({
         id: screen.id,
         name: screen.name,
         targetId: definition.targetId,
@@ -370,7 +436,7 @@ export function listBuiltInTemplatePacks(specs: StoreSpecs): TemplatePack[] {
         device: definition.device,
         artboard: { width: target.width, height: target.height },
         background: style.background,
-        elements: templatePackElements(definition, screen, style, target.width, target.height),
+        elements: elements[index],
       })),
     });
   });
@@ -535,6 +601,9 @@ export function createScreensFromTemplatePack(
   specs: StoreSpecs,
 ): { project: ProjectModel; screens: Screen[] } {
   const pack = TemplatePack.parse(input);
+  if (pack.panorama && getLayout(project, layoutId).mode !== "connected") {
+    throw new Error(`Template pack "${pack.id}" spans screen edges; switch layout "${layoutId}" to Panorama first`);
+  }
   let next = project;
   const screens: Screen[] = [];
   for (const template of pack.screens) {

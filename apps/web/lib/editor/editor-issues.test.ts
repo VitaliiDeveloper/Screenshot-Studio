@@ -180,12 +180,12 @@ describe("textSizeStatus", () => {
 
   it("reads each exact size of the slot from the Issues list", () => {
     expect(rows("title")).toEqual([
-      { label: "6.3\" · Portrait", current: true, element: "title", state: "fits" },
-      { label: "6.9\" · Portrait", current: false, element: "title-69", state: "overflows" },
-      { label: "5.8\" · Portrait", current: false, element: "title-61", state: "fits" },
-      { label: "6.5\" · Portrait", current: false, element: null, state: "unmatched" },
+      { label: "iPhone 18 Pro · 17 Pro · 17 +5", current: true, element: "title", state: "fits" },
+      { label: "iPhone 18 Pro Max · Air · 17 Pro Max +5", current: false, element: "title-69", state: "overflows" },
+      { label: "iPhone 17e · 16e · 14 +9", current: false, element: "title-61", state: "fits" },
+      { label: "iPhone 14 Plus · 13 Pro Max · 12 Pro Max +4", current: false, element: null, state: "unmatched" },
     ]);
-    expect(rows("subtitle")[2]).toEqual({ label: "5.8\" · Portrait", current: false, element: "subtitle-61", state: "hidden" });
+    expect(rows("subtitle")[2]).toEqual({ label: "iPhone 17e · 16e · 14 +9", current: false, element: "subtitle-61", state: "hidden" });
   });
 
   it("never reports fits before text has been measured", () => {
@@ -196,5 +196,24 @@ describe("textSizeStatus", () => {
   // guessed match would let Fit resize the wrong layer.
   it("never matches a layer once a size's structure diverged", () => {
     expect(rows("title")[3]?.element).toBeNull();
+  });
+
+  it("tells sizes that share a label apart by artboard px", () => {
+    const lead = parseProject({
+      ...slot,
+      layouts: [{
+        ...slot.layouts[0]!,
+        screens: [
+          { ...screen("hero", "Hero", "en", [title("title")]), artboard: { width: 603, height: 1311 } },
+          { ...variant("hero-63", "6.3", [title("title-63")]), artboard: { width: 1206, height: 2622 } },
+          variant("hero-69", "6.9", [title("title-69")]),
+        ],
+      }],
+    });
+    expect(textSizeStatus(lead, "default", "hero", "title", [], true).map(({ label }) => label)).toEqual([
+      "iPhone 18 Pro · 17 Pro · 17 +5 · 603 × 1311",
+      "iPhone 18 Pro · 17 Pro · 17 +5 · 1206 × 2622",
+      "iPhone 18 Pro Max · Air · 17 Pro Max +5",
+    ]);
   });
 });

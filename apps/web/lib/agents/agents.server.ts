@@ -30,6 +30,10 @@ export interface AgentDefinition {
   authStatusArgs?: readonly string[];
   /** Model aliases the CLI accepts; empty means the CLI's own default model. */
   models: readonly string[];
+  /** Official install instructions, shown while the CLI is not installed. */
+  setupUrl?: string;
+  /** The Terminal command that starts the CLI's own subscription sign-in. */
+  signInCommand?: string;
   policy: AgentPolicy;
 }
 
@@ -44,6 +48,8 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     authStatusArgs: ["auth", "status"],
     // Family aliases always resolve to the CLI's current model, so no model version is pinned here.
     models: ["sonnet", "opus", "haiku"],
+    setupUrl: "https://code.claude.com/docs/en/setup",
+    signInCommand: "claude",
     policy: {
       level: "supported",
       reason: "Runs the official Claude Code CLI that you installed and signed in to with your own Claude subscription.",
@@ -60,11 +66,28 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     authStatusArgs: ["login", "status"],
     // Codex has no stable model aliases and no model-list command; models were withdrawn before.
     models: [],
+    setupUrl: "https://developers.openai.com/codex/quickstart",
+    signInCommand: "codex login",
     policy: {
       level: "supported",
       reason: "Runs the official Codex CLI that you installed and signed in to with ChatGPT; local open-source apps may use it.",
       consequences: "Runs count toward your ChatGPT plan's Codex usage limits.",
       sourceUrl: "https://learn.chatgpt.com/codex/app-server",
+      checkedAt: "2026-10-15",
+    },
+  },
+  {
+    // No adapter yet: it has no auth-status command and its stream was never run, because
+    // running `agy -p` from a coding agent is the case the account-ban risk applies to.
+    id: "agy",
+    name: "Antigravity",
+    binary: "agy",
+    models: [],
+    policy: {
+      level: "at-own-risk",
+      reason: "Google's terms do not allow third-party apps to run agy on consumer plans.",
+      consequences: "Using it here may get your Antigravity and Gemini CLI accounts restricted or banned.",
+      sourceUrl: "https://antigravity.google/terms",
       checkedAt: "2026-10-15",
     },
   },

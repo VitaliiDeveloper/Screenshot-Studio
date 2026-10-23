@@ -99,7 +99,7 @@ describe("bundlePreflightWarnings", () => {
       id: `tablet-${index}`,
       name: `Tablet ${index}`,
       device: "tablet-7",
-      artboard: { width: 1200, height: 1920 },
+      artboard: { width: 1440, height: 2560 },
     })) as DesignLayout["screens"];
     const entries = buildBundleEntries(source, "default", specs);
     expect(bundlePreflightWarnings(entries)).toEqual([expect.objectContaining({
@@ -221,6 +221,21 @@ describe("buildBundleEntries", () => {
       ["hero", "6.3", "apple/iphone/locale-en/size-6.3/01-hero-phone-6.3.png"],
       ["hero-65", "6.5", "apple/iphone/locale-en/size-6.5/01-hero-phone-6.5.png"],
     ]);
+    expect(() => validateBundleArtboards(entries)).not.toThrow();
+  });
+
+  it("plans an iPhone Duo inner-display variant at its exact catalog size", () => {
+    const source = project();
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
+      id: "hero-duo",
+      variantOf: "hero",
+      storeTargetId: "duo-inner",
+      artboard: { width: 2007, height: 2853 },
+    });
+    const entries = buildBundleEntries(source, "default", specs, { platform: "apple", device: "iphone" });
+    expect(entries.map((entry) => [entry.target.id, entry.target.width, entry.target.height, entry.relativePath]))
+      .toContainEqual(["duo-inner", 2007, 2853, "apple/iphone/locale-en/size-duo-inner/01-hero-phone-duo-inner.png"]);
     expect(() => validateBundleArtboards(entries)).not.toThrow();
   });
 

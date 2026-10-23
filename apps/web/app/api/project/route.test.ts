@@ -172,6 +172,25 @@ describe("GET /api/project", () => {
     });
   });
 
+  it("answers an unchanged If-None-Match revision with 304 and no body", async () => {
+    const revision = await currentRevision();
+
+    const unchanged = await GET(new Request("http://x/api/project", {
+      headers: { "if-none-match": revision },
+    }));
+    writeFileSync(file, `${JSON.stringify(validProject, null, 2)}\n`);
+    const changed = await GET(new Request("http://x/api/project", {
+      headers: { "if-none-match": revision },
+    }));
+
+    expect(unchanged.status).toBe(304);
+    expect(unchanged.headers.get("etag")).toBe(revision);
+    expect(unchanged.headers.get("x-project-id")).toBe(currentProjectId);
+    expect(await unchanged.text()).toBe("");
+    expect(changed.status).toBe(200);
+    expect(changed.headers.get("etag")).not.toBe(revision);
+  });
+
   it("returns the ETag for canonical target bytes through a symlink project path", async () => {
     const alias = join(dir, "project-alias.json");
     const bytes = `${JSON.stringify(validProject, null, 4)}\n`;

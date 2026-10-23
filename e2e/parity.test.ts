@@ -153,4 +153,54 @@ describe("render/export parity", () => {
       rmSync(fallbackRoot, { recursive: true, force: true });
     }
   });
+
+  it("renders the built-in display font live and alike headed and headless, Cyrillic included", async () => {
+    if (!harness.interactive) throw new Error("Interactive browser is unavailable");
+    const root = mkdtempSync(resolve(tmpdir(), "parity-display-"));
+    // Same fixture, built-in fonts only: nothing is registered, so only renderer-owned bytes can draw it.
+    const variant = (name: string, font: { family: string; weight: number }) => {
+      const project = JSON.parse(readFileSync(fixturePath, "utf8"));
+      for (const el of project.layouts[0].screens[0].elements) {
+        if (el.type !== "text") continue;
+        el.fontFamily = font.family;
+        el.weight = font.weight;
+        el.content = el.id === "headline" ? "Ґанок · Zażółć" : "Швидко, надійно — Fast shipping";
+      }
+      project.fonts = [];
+      const dir = resolve(root, name);
+      cpSync(fixtureRoot, dir, { recursive: true });
+      const path = resolve(dir, "app-store-screenshots.json");
+      writeFileSync(path, JSON.stringify(project));
+      return path;
+    };
+    try {
+      const displayPath = variant("display", { family: "Screenshot Studio Display", weight: 800 });
+      const sansPath = variant("sans", { family: "Screenshot Studio Sans", weight: 400 });
+
+      const page = await harness.interactive.newPage();
+      try {
+        await page.goto(`${harness.server.url}/render?${new URLSearchParams({ project: displayPath, screen: screenId })}`, { waitUntil: "load" });
+        await page.waitForFunction(() => window.__stageReady === true || window.__renderError);
+        expect(await page.evaluate(() => Array.from(document.fonts).some(
+          (font) => font.family === "Screenshot Studio Display" && font.weight === "800" && font.status === "loaded",
+        ))).toBe(true);
+      } finally {
+        await page.close();
+      }
+
+      const render = (renderer: ParityRenderHarness["headless"], projectPath: string) => renderer.renderScreenToPng({
+        baseUrl: harness.server.url, projectPath, layoutId: "default", screenId, pixelRatio, timeoutMs: 60_000,
+      }).then(stripAlpha);
+      const headed = await render(harness.headed, displayPath);
+      const headless = await render(harness.headless, displayPath);
+      const sans = await render(harness.headless, sansPath);
+
+      const { mismatch, total } = countMismatch(headed, headless);
+      console.log(`[parity] display font headed vs headless mismatch: ${mismatch}/${total} = ${(mismatch / total * 100).toFixed(4)}%`);
+      expect(mismatch / total).toBeLessThan(MAX_MISMATCH_FRACTION);
+      expect(countMismatch(headless, sans).mismatch).toBeGreaterThan(2000);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

@@ -86,11 +86,19 @@ than implementing their own platform- or size-specific rules. Removing an exact 
 the complete size row; it is distinct from deleting one independent screen slot.
 
 A primary-size screen persists no target and exports at its family's current catalog lead, so the
-lead implicitly binds every saved primary screen. The iPhone family leads with its 6.3" target
+lead implicitly binds every saved primary screen. The iPhone family leads with its Dynamic Island · Medium target (id `6.3`)
 because App Store Connect requires a screenshot in that display class, which makes a lead-only export
-submittable. Changing a family's lead is therefore a breaking catalog change that requires the
-explicit core `migrateLeadTarget` operation (CLI `screen migrate-lead`); projects are never migrated
-on load. Per layout and locale it moves a family whose primary screens all fit the previous lead:
+submittable. iPhone target labels name the App Store Connect display group (Dynamic Island or
+Face ID, Large or Medium) instead of inches, because one inch size spans several upload groups
+(6.1" is both iPhone 16 and 17e); the persisted ids keep their inch form. Each iPhone target also
+lists the `devices` whose store listing shows that upload, newest first, identically on its landscape
+twin. The list is display data only and is updated when Apple adds a phone to a group; the git
+history of `store-specs.json` is the record of past lineups. The Android tablet family leads with a 9:16 portrait target because Google Play's
+large-screen guidance and recommendation eligibility name only 16:9 and 9:16; its former 10:16 lead
+stays in the catalog as the migration source. Changing a family's lead is therefore a breaking
+catalog change that requires the explicit core `migrateLeadTarget` operation (CLI
+`screen migrate-lead`); projects are never migrated on load. Per layout and locale it moves a family
+whose primary screens all fit the previous lead:
 each root takes over its existing current-lead variant's content, or is fitted in place through
 `fitElementsToArtboard`, and its original content stays unchanged as a previous-lead variant. Screen
 ids, slot order, and other variants' pairing are preserved. Families already compatible with the lead
@@ -189,6 +197,17 @@ with the current ETag. Routes use request-fence helpers or equivalent direct val
 lifecycle operations, such as Close project, require the project identity but not a revision. A failed
 open or save preserves the last known-good active state rather than silently targeting another project.
 
+Other writers, such as the CLI or an agent the user runs in the project folder, change the file
+without telling the editor. While its Workspace is visible, the editor sends `GET /api/project` with
+`If-None-Match` set to its revision every 2 seconds and on window focus. These checks wait for the
+editor's own queued saves to finish first, so its own write is never mistaken for an external one. The
+route answers `304` while the revision is unchanged. A `200` for the same `X-Project-Id` at another
+revision reloads the project through the normal resource load, the only render path. A `422`
+half-written file is ignored until it validates. A save the user started is never cancelled for an
+external change: it fails its `If-Match` with `412`, the bytes on disk stay untouched, and the user
+resolves the conflict ([`docs/editor.md`](editor.md)). Only `app-store-screenshots.json`
+is compared, so a change to an asset file alone is not detected.
+
 The core `StorageAdapter` owns loading/saving the Project document and explicitly submitted asset
 bytes. Resource services own fonts, templates, themes, imports, processed assets, and export
 artifacts. This separation keeps storage extensions from accidentally claiming ownership of every
@@ -221,13 +240,36 @@ Built-in identities resolve to local renderer-owned bytes in both editor and CLI
 system fallbacks remain rejected because they make output depend on a machine. Google-font requests
 may occur only at add time; later editor rendering and CLI export use local bytes.
 
+The catalog holds two families. Studio Sans (Noto Sans, Latin and Latin-1, weight 400) stays the
+default text font, so existing documents and new text keep their metrics. Studio Display (static
+Inter Display 4.1 at 400, 600, and 800, covering Latin Extended-A, Cyrillic, and Greek) gives built-in
+Design Packs and screen packs headline weights and those scripts. Built-in packs and templates cannot
+carry font files, and registering a font at apply time would need the network and copy files into the
+project, so the renderer ships these bytes instead. Hebrew, Arabic, and CJK still need a project font.
+Importing an installed font copies the chosen file into the project as an ordinary `uploaded` font,
+so it does not make the operating system a dependency of the project.
+
 Themes and project templates are project-local inputs that produce ordinary strict Project literals.
 The application also ships global read-only built-in template, screen pack, and Design Packs
 catalogs, defined in code and never read from disk. Selecting a built-in template materializes an
 ordinary editable root or root/target-variant pair. A built-in screen pack (`TemplatePack`: id, name,
 platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends each of its screens the
 same way, in one project update; the style tag names the Design pack its literals were baked from and
-is not persisted. Applying a Design pack writes its solid or linear-gradient background to every
+is not persisted. Five styles (Clean, Aurora, Midnight, Poster, Sunrise) each pair a Design pack with
+a six-screen pack (hero, three features, social proof, call to action) for iPhone 6.3″ and Android
+phone portrait. Each pack derives its geometry from the exact store artboard, sets type in Studio
+Display, and draws generated art from shapes, because a global pack cannot carry image assets. The
+picker previews in `apps/web/public/template-previews/<pack>/<screen>.png` come from the same renderer
+and are static files; templates without one show a static placeholder, never a second render path.
+`GET /api/templates` returns project `templates`, starter `builtIns`, and the full built-in `packs`.
+A single pack screen is a built-in template too: `POST /api/templates` with `source: "built-in"` and
+CLI `template add <id> --built-in` accept a pack screen id (`clean-iphone-hero`) and append only that
+screen, while `source: "built-in-pack"` / `--pack` still append the whole pack. Panorama packs
+reuse those six screens for the four styles whose background has no horizontal component, and add
+shape art drawn once across the pack's strip. Each shape belongs to the screen holding its left edge
+and leads that screen's elements, so connected rendering draws it behind every later screen's copy
+and device. A panorama pack is added only whole and only to a connected layout; its screens are not
+single templates, because each carries just its share of the art. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
 role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
@@ -243,15 +285,19 @@ project, manages layouts/screens/locales/fonts/themes/imports, starts the editor
 bundles. Layout-aware mutations require an explicit layout when a project has more than one; export
 otherwise uses `preferredExportLayoutId`.
 
+`screenshots template add <pack-id> --pack` appends a built-in screen pack through the shared
+`createBuiltInTemplatePackScreens`, the same function the editor API uses.
+
 `screenshots init` creates the standard directories and a self-contained project-local `AGENTS.md`.
-That guide teaches literal layout, copy, localization, local asset processing, and schema guardrails
-without adding provider state or an AI dependency. The optional repository skill only discovers or
-initializes such a project, then defers to its generated guide.
+That guide teaches literal layout, copy, localization, local asset processing, a list-pick-edit
+"choose a style" flow over built-in packs, and schema guardrails without adding provider state or an
+AI dependency. The optional repository skill only discovers or initializes such a project, then defers to its generated guide.
 
 The editor may run an official agent CLI that the user installed and signed in to with their own
 subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
-verified version range, model aliases, and policy (`supported`, `at-own-risk`, or `unavailable`, with
-reason, consequences, source, and check date); there is no remote configuration. Detection runs only
+verified version range, model aliases, official setup page, Terminal sign-in command, and policy
+(`supported`, `at-own-risk`, or `unavailable`, with reason, consequences, source, and check date);
+there is no remote configuration. Detection runs only
 the CLI's own `--version`, `--help`, and auth-status commands under a timeout that kills the process
 tree, shares one probe round between reads for a few seconds, and answers loopback Hosts only. It
 never reads credential files and returns states, never account identity. Every agent process receives
@@ -261,10 +307,45 @@ subscription, so any release whose `--help` no longer lists `--bare` as opt-in r
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
 environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
 CLI default. A run starts only from a loopback Host for the cookie-selected project session, after a
-server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run until
-consent storage exists. It runs in the project folder, at most one per project, receives the user
+server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run
+without the user's consent (`403 consent-required`). Consent is app-level local state in
+`agent-consents.json` under the data root, never in a project document, and is bound to the policy's
+`checkedAt`, so a re-verified policy asks again; a missing or unreadable file means no consent.
+`POST /api/agents/consent` grants or revokes it for `at-own-risk` agents only, behind the project
+session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/agents` reports each
+agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
+is checked again after the readiness probe, right before launch. Antigravity `agy` is listed with its
+`at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
+because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
 whole process tree.
+
+Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
+and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
+and the execpolicy rules, whose `allow` decisions bypass the sandbox. Web search and the connector,
+plugin, browser, computer-use, memory, hook, and sub-agent features are off. The server reads only
+`cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
+probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
+Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
+only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run.
+
+A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
+They travel in the same `POST /api/agents/session` as a multipart body (`agentId`, `message`, `model`,
+and `image` parts), so the upload has exactly the run's guards: loopback Host, the cookie session's
+`X-Project-Id`, and no client-supplied paths. The body is read through a size cap before it is parsed,
+and each image's type is decided from its leading bytes, never its file name or declared type (`413`
+for size, `400` for type and count; text-only requests stay JSON). Nothing is written until the run
+passes the policy, consent, and readiness gate and has its project slot: then the images are saved as
+`1.png`, `2.jpg`, ... (names chosen by the server) in a private folder under
+`<os tmpdir>/screenshot-studio-agent-attachments-<uid>/<server pid>/run-*`, outside every project (the
+root and pid folders must be real directories owned by the user and closed to others, or the run
+fails instead of writing into a folder another user could have prepared), and that
+folder is deleted when the run ends with any outcome (accepted, rejected, failed, timeout, or Stop),
+after its process tree is dead. Another run never learns that folder's path. A server exit removes its
+own folders, and server start (`instrumentation.ts`) removes the numbered folders of servers that no
+longer exist, never a live server's. A text-only request never touches this folder. Codex receives one `--image <file>` per image; Claude Code receives
+`--add-dir <run folder>` and the file paths in its appended prompt, since its restricted file tools
+read only added directories. The images are never part of the project document or schema.
 
 An agent changes the project only through the `screenshots` CLI, which takes the regular project
 mutation lock per write; the editor's own writers (`PUT /api/project`, every

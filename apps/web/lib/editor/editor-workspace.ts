@@ -3,6 +3,7 @@ import {
   DEVICE_FRAME_PRESETS,
   deviceFramePreset,
   sameScreenGroup,
+  slotScreens,
   type DeviceFrameId,
   type DeviceFrameRecommendation,
   type DesignLayout,
@@ -11,6 +12,8 @@ import {
 import {
   DEFAULT_STORE_SPECS,
   destinationLabel,
+  findStoreTarget,
+  leadStoreSizeId,
   listOutputFamilies,
   outputFamilyLabel,
   type StoreSize,
@@ -28,7 +31,7 @@ export const OUTPUT_FAMILY_LABEL_HEIGHT = 28;
 
 export type WorkspaceView = "focus" | "overview";
 export type WorkspaceTool = "select" | "hand";
-export type WorkspacePanel = "structure" | "add";
+export type WorkspacePanel = "structure" | "add" | "agent";
 export type CanvasPattern = "dots" | "grid" | "none";
 export type ResourceDialog =
   | "fonts"
@@ -196,7 +199,7 @@ export function outputFamilyEditorLabel(
 export function compactStoreSizeLabel(label: string, device: string): string {
   const withoutLead = label.replace(/\s+\(lead\)$/i, "");
   if (device === "tablet-7") {
-    const canonicalTabletSize = /^(\d+-inch) Android tablet(?: (.+))?$/.exec(withoutLead);
+    const canonicalTabletSize = /^(\d+-inch|\d+:\d+) Android tablet(?: (.+))?$/.exec(withoutLead);
     if (canonicalTabletSize) {
       return [canonicalTabletSize[1], canonicalTabletSize[2]].filter(Boolean).join(" ");
     }
@@ -207,6 +210,27 @@ export function compactStoreSizeLabel(label: string, device: string): string {
     .replace(new RegExp(`(?:^|\\s)${escapeRegExp(deviceLabel)}(?=\\s|$)`, "i"), " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** The exact store target a screen exports to: its own target, or its family's lead for a master. */
+export function screenStoreTarget(screen: Screen, specs: StoreSpecs = DEFAULT_STORE_SPECS): StoreSize | null {
+  try {
+    const targetId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
+    return findStoreTarget(specs, screen.platform, screen.device, targetId);
+  } catch {
+    return null;
+  }
+}
+
+/** Append artboard px to any label its list repeats, so two exact sizes never read the same. */
+export function distinctSizeLabels(
+  entries: readonly { label: string; screen: Pick<Screen, "artboard"> }[],
+): string[] {
+  return entries.map(({ label, screen }) =>
+    entries.filter((entry) => entry.label === label).length > 1
+      ? `${label} · ${screen.artboard.width} × ${screen.artboard.height}`
+      : label
+  );
 }
 
 /**
@@ -259,6 +283,33 @@ export function conciseStoreTargetLabel(
   ].filter(Boolean).join(" · ");
 }
 
+const SHOWN_TARGET_DEVICES = 3;
+
+/**
+ * Size copy where people pick or edit a size: the devices the upload reaches as the title
+ * (`iPhone 18 Pro · 17 Pro · 17 +5`), and the store slot with its pixels as the detail. Targets the
+ * catalog lists no devices for keep the concise target label as the title.
+ */
+export function storeTargetDeviceCopy(
+  target: StoreSize,
+  platform: string,
+  device: string,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): { title: string; detail: string; devices: string | null } {
+  const slot = conciseStoreTargetLabel(target, platform, device, specs);
+  const pixels = `${target.width} × ${target.height} px`;
+  if (!target.devices) return { title: slot, detail: pixels, devices: null };
+  const [first, ...rest] = target.devices;
+  const shown = [first, ...rest.slice(0, SHOWN_TARGET_DEVICES - 1).map((name) => name.replace(/^iPhone /, ""))];
+  const more = target.devices.length - shown.length;
+  const orientation = target.orientation === "portrait" ? "" : ` · ${capitalizeDisplayLabel(target.orientation)}`;
+  return {
+    title: `${shown.join(" · ")}${more > 0 ? ` +${more}` : ""}${orientation}`,
+    detail: `${slot.replace(/ · (?:Portrait|Landscape)\b/, "")} · ${pixels}`,
+    devices: target.devices.join(", "),
+  };
+}
+
 export interface OutputFamily {
   key: string;
   label: string;
@@ -271,6 +322,13 @@ export interface WorkspaceOutputFamily extends OutputFamily {
 
 function outputFamilyKey(screen: Pick<Screen, "platform" | "device">): string {
   return `${screen.platform}/${screen.device}`;
+}
+
+function overviewRowLabel(familyLabel: string, screen: Screen, specs: StoreSpecs): string {
+  const target = screen.storeTargetId === undefined ? null : screenStoreTarget(screen, specs);
+  return target
+    ? `${familyLabel} · ${conciseStoreTargetLabel(target, screen.platform, screen.device, specs)}`
+    : familyLabel;
 }
 
 /** Preserve project order while separating independent output families into canvas rows. */
@@ -343,7 +401,7 @@ export function workspaceOverviewRows(
 
       return rows.map(({ targetId, screens }) => ({
         key: targetId === undefined ? key : `${key}/${targetId}`,
-        label: targetId === undefined ? familyLabel : `${familyLabel} · ${targetId}`,
+        label: overviewRowLabel(familyLabel, screens[0]!, specs),
         screens,
         editing: screens.some((screen) => screen.id === activeScreen.id),
       }));
@@ -358,16 +416,33 @@ export function workspaceOverviewRows(
     const screens = editing || roots.length === 0
       ? layout.screens.filter((screen) => sameScreenGroup(screen, anchor))
       : roots;
-    const targetId = screens[0]?.storeTargetId;
     const familyLabel = storeOutputLabel(anchor.platform, anchor.device, specs);
 
     return {
       key,
-      label: targetId ? `${familyLabel} · ${targetId}` : familyLabel,
+      label: overviewRowLabel(familyLabel, screens[0] ?? anchor, specs),
       screens,
       editing,
     };
   });
+}
+
+/**
+ * The screen `[` (-1) or `]` (+1) opens: the previous or next Overview size row, landing on the
+ * active screen's slot when that row holds it, else on the row's first screen. The ends clamp.
+ */
+export function adjacentSizeScreenId(
+  layout: DesignLayout,
+  activeScreen: Screen,
+  step: -1 | 1,
+  specs: StoreSpecs = DEFAULT_STORE_SPECS,
+): string | null {
+  const rows = workspaceOverviewRows(layout, activeScreen, specs);
+  const current = rows.findIndex((row) => row.editing);
+  const next = current < 0 ? undefined : rows[current + step];
+  if (!next) return null;
+  const slot = new Set(slotScreens(layout, activeScreen).map((screen) => screen.id));
+  return (next.screens.find((screen) => slot.has(screen.id)) ?? next.screens[0])?.id ?? null;
 }
 
 export function clampZoom(value: number): number {
@@ -502,7 +577,7 @@ export const ADD_CATALOG: readonly AddCatalogItem[] = [
     category: "Library",
     action: "open-templates",
     shortcut: "⌘/",
-    hint: "Create a screen from a project-local screen template",
+    hint: "Create a screen from a template",
   },
   {
     id: "rating-badge",

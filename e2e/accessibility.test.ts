@@ -120,6 +120,9 @@ describe("editor accessibility states", () => {
     await page.getByRole("button", { name: "Hero headline", exact: true }).click();
     await page.getByRole("spinbutton", { name: "Width", exact: true }).waitFor();
     await waitForElementAnimations(page.getByRole("tabpanel"));
+    const sectionTop = async (name: string) =>
+      (await page.getByRole("tabpanel").getByRole("heading", { name, exact: true }).boundingBox())!.y;
+    expect(await sectionTop("Text")).toBeLessThan(await sectionTop("Transform"));
     await expectNoSeriousOrCriticalViolations(page, "desktop inspector form");
 
     await page.route("**/api/project", async (route) => {

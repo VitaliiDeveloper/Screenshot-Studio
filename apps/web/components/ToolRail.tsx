@@ -10,10 +10,14 @@ import {
   LoaderCircle,
   MousePointer2,
   Palette,
+  Play,
+  Sparkles,
   Type,
 } from "lucide-react";
 import type { ResourceDialog, WorkspacePanel, WorkspaceTool } from "@web/lib/editor/editor-workspace";
 import { ToolButton } from "./editor-ui";
+
+const lockedClassName = "disabled:pointer-events-none disabled:opacity-40";
 
 export function ToolRail({
   tool,
@@ -22,8 +26,11 @@ export function ToolRail({
   onPanelToggle,
   onOpenDialog,
   onOpenLocales,
+  onOpenPlay,
+  playDisabled,
   onOpenProjects,
   projectsBusy,
+  editingLocked = false,
 }: {
   tool: WorkspaceTool;
   panel: WorkspacePanel | null;
@@ -31,8 +38,12 @@ export function ToolRail({
   onPanelToggle: (panel: WorkspacePanel) => void;
   onOpenDialog: (dialog: ResourceDialog) => void;
   onOpenLocales: () => void;
+  onOpenPlay: () => void;
+  playDisabled: boolean;
   onOpenProjects: () => void;
   projectsBusy: boolean;
+  /** An agent run owns the project, so resource dialogs and leaving for Projects wait for it. */
+  editingLocked?: boolean;
 }) {
   return (
     <nav
@@ -56,26 +67,43 @@ export function ToolRail({
       >
         <Layers3 size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Screen templates" caption="Templates" aria-haspopup="dialog" onClick={() => onOpenDialog("templates")}>
+      <ToolButton label="Screen templates" caption="Templates" aria-haspopup="dialog" disabled={editingLocked} onClick={() => onOpenDialog("templates")} className={lockedClassName}>
         <LayoutTemplate size={16} strokeWidth={1.9} />
       </ToolButton>
       {/* The caption must stay inside the accessible name (WCAG 2.5.3), so it is "Packs", not "Themes". */}
-      <ToolButton label="Design packs" caption="Packs" aria-haspopup="dialog" onClick={() => onOpenDialog("themes")}>
+      <ToolButton label="Design packs" caption="Packs" aria-haspopup="dialog" disabled={editingLocked} onClick={() => onOpenDialog("themes")} className={lockedClassName}>
         <Palette size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Fonts" caption="Fonts" aria-haspopup="dialog" onClick={() => onOpenDialog("fonts")}>
+      <ToolButton label="Fonts" caption="Fonts" aria-haspopup="dialog" disabled={editingLocked} onClick={() => onOpenDialog("fonts")} className={lockedClassName}>
         <Type size={16} strokeWidth={1.9} />
       </ToolButton>
-      <ToolButton label="Locales" caption="Locales" aria-haspopup="dialog" onClick={onOpenLocales}>
+      <ToolButton label="Locales" caption="Locales" aria-haspopup="dialog" disabled={editingLocked} onClick={onOpenLocales} className={lockedClassName}>
         <Languages size={16} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton label="Agent panel" caption="Agent" active={panel === "agent"} onClick={() => onPanelToggle("agent")}>
+        <Sparkles size={16} strokeWidth={1.9} />
       </ToolButton>
 
       <ToolButton
+        label="Play"
+        caption="Play"
+        aria-haspopup="dialog"
+        disabled={playDisabled}
+        onClick={(event) => {
+          // Safari does not focus a clicked button, and DialogShell returns focus to the opener.
+          event.currentTarget.focus();
+          onOpenPlay();
+        }}
+        className="mt-auto disabled:pointer-events-none disabled:opacity-40"
+      >
+        <Play size={16} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton
         label="Projects"
         caption="Projects"
-        disabled={projectsBusy}
+        disabled={projectsBusy || editingLocked}
         onClick={onOpenProjects}
-        className="mt-auto disabled:cursor-wait disabled:opacity-60"
+        className={projectsBusy ? "disabled:cursor-wait disabled:opacity-60" : lockedClassName}
       >
         {projectsBusy
           ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />

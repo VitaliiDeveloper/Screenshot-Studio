@@ -28,7 +28,7 @@ export const COMMAND_FLAG_SPECS = {
   asset: { value: ["project", "threshold", "background", "tolerance"], boolean: [] },
   layout: { value: ["project", "name", "mode"], boolean: [] },
   setup: { value: [], boolean: [] },
-  template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in"] },
+  template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in", "pack"] },
   element: { value: ["project", "layout", "screen", "locale"], boolean: ["all-sizes"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 

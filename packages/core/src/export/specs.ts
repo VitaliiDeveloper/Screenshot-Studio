@@ -21,6 +21,8 @@ const StoreSizeSchema = z
     width: z.number().int().positive(),
     height: z.number().int().positive(),
     orientation: z.enum(["portrait", "landscape", "square"]),
+    /** Devices whose store listing shows this upload, newest first. */
+    devices: z.array(z.string().trim().min(1)).min(1).optional(),
     kind: z.enum(["device", "promotion", "responsive"]).optional(),
     format: z.enum(["png", "jpeg", "png-or-jpeg"]).optional(),
     alpha: z.boolean().optional(),

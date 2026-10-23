@@ -14,7 +14,8 @@ describe("toolbar responsive labels", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
     expect(source).toContain('aria-label="Screenshot Studio, back to Projects"');
     expect(source).toContain("onClick={onOpenProjects}");
-    expect(source).toContain("disabled={projectsBusy}");
+    expect(source).toContain("disabled={projectsBusy || editingLocked}");
+    expect(source).toContain("disabled={editingLocked}");
     expect(source).toContain("aria-label={exportLabel}");
     expect(source).toContain("exportFileCount(state.project, state.activeLayoutId, specs)");
     expect(source).toContain("exportCount,");

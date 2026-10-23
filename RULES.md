@@ -50,8 +50,19 @@ of truth.
   branch such as `dev` when it does not exist.
 - Use `<agent>/<short-kebab-slug>` for agent branches. If Git has a real slash-namespace conflict,
   fall back to `<agent>-<short-kebab-slug>` and report it.
+- Keep the primary checkout on `dev` so the in-repo skills and CLI run from current `dev`; never
+  switch branches there. Do branch work in a git worktree: reuse the session's own worktree when it
+  already runs in one (for example `.claude/worktrees/<name>`), otherwise run plain
+  `git worktree add --no-track -b <agent>/<slug> .worktrees/<slug> <base>`. This is the repository's
+  declared worktree preference; it needs no separate approval or Superpowers workflow.
+- After the PR merges, remove its worktree with `git worktree remove` and delete the local branch.
 - Target `main` only for an explicitly requested integration/release PR. PR titles follow the commit
-  convention; bodies record scope, validation, and risks.
+  convention; bodies record scope, validation, and risks. Never open a PR with an empty body.
+- PRs that change visible UI add a `Screenshots` section that shows each changed surface. Host the
+  images outside code branches, link them pinned to a commit SHA, and never commit capture scripts.
+- The repository is public and the issue tracker is private. Keep tracker ids and links out of PR
+  titles, bodies, and commit messages; link the PR from the tracker issue instead. An issue id in the
+  branch name is fine because it drives automatic linking.
 
 ## Verification
 

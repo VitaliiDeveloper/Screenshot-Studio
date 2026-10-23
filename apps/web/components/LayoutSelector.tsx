@@ -6,8 +6,9 @@ import { useStore } from "zustand";
 import { ArrowLeftRight, Check, ChevronDown, Copy, LayoutTemplate, MoreVertical, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { findOwnerOverflows, type CanvasMode, type DesignLayout, type Project } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
+import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
-import { ConfirmationDialog, cx, DialogShell, editorUi } from "./editor-ui";
+import { ConfirmationDialog, cx, DialogShell, editorUi, SegmentedControl } from "./editor-ui";
 
 const actionMenuItem = "flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60 disabled:pointer-events-none disabled:opacity-45";
 
@@ -63,15 +64,15 @@ export function layoutActionPresentation(
     ? findOwnerOverflows(project, layout.id).length
     : 0;
   const modeWarning = overflowCount === 1
-    ? "1 element extends outside its owner artboard and will be clipped while isolated. Layout data remains unchanged."
+    ? "1 element extends outside its owner artboard and will be clipped in Separate images mode. Layout data remains unchanged."
     : overflowCount > 1
-      ? `${overflowCount} elements extend outside their owner artboards and will be clipped while isolated. Layout data remains unchanged.`
+      ? `${overflowCount} elements extend outside their owner artboards and will be clipped in Separate images mode. Layout data remains unchanged.`
       : null;
   return {
     canDelete: project.layouts.length > 1,
     canPrefer: project.preferredExportLayoutId !== layout.id,
     nextMode,
-    switchModeLabel: `Switch to ${nextMode}`,
+    switchModeLabel: `Switch to ${LAYOUT_MODE_LABELS[nextMode]}`,
     modeWarning,
   };
 }
@@ -154,10 +155,10 @@ export function LayoutSelector() {
           <span className="hidden min-w-0 flex-1 items-center gap-2 text-left sm:flex">
             <span className="truncate text-[13px] font-semibold">{activeLayout.name}</span>
             <span className={cx(
-              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
               activeLayout.mode === "connected" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600",
             )}>
-              {activeLayout.mode}
+              {LAYOUT_MODE_LABELS[activeLayout.mode]}
             </span>
           </span>
           <ChevronDown size={14} className={cx("hidden shrink-0 text-blue-600 transition-transform sm:block", open && "rotate-180")} aria-hidden="true" />
@@ -188,9 +189,9 @@ export function LayoutSelector() {
                         <span className="flex items-center gap-2">
                           <span className={cx("truncate text-sm text-slate-900", presentation.active ? "font-semibold" : "font-medium")}>{layout.name}</span>
                           <span className={cx(
-                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize",
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
                             layout.mode === "connected" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600",
-                          )}>{layout.mode}</span>
+                          )}>{LAYOUT_MODE_LABELS[layout.mode]}</span>
                         </span>
                         {presentation.subtitle ? (
                           <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
@@ -271,13 +272,19 @@ export function LayoutSelector() {
               <input className={editorUi.field} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
             </label>
             {dialog === "create" ? (
-              <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
-                Mode
-                <select className={editorUi.field} value={mode} onChange={(event) => setMode(event.target.value as CanvasMode)}>
-                  <option value="isolated">Isolated</option>
-                  <option value="connected">Connected</option>
-                </select>
-              </label>
+              <div className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+                <span>Mode</span>
+                <SegmentedControl<CanvasMode>
+                  label="Layout mode"
+                  value={mode}
+                  options={[
+                    { value: "isolated", label: LAYOUT_MODE_LABELS.isolated },
+                    { value: "connected", label: LAYOUT_MODE_LABELS.connected },
+                  ]}
+                  fill
+                  onChange={setMode}
+                />
+              </div>
             ) : null}
             {error ? <p role="alert" className={editorUi.statusError}>{error}</p> : null}
             <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">

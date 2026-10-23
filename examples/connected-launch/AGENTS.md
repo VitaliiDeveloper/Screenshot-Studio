@@ -53,6 +53,8 @@ watch-rounded
 watch-square
 frameless-watch
 foldable
+foldable-tall
+phone-flip
 automotive-display
 xr-viewport
 ```

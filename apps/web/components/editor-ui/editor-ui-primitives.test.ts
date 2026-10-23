@@ -11,6 +11,7 @@ import {
   SegmentedControl,
   StatusMessage,
   ToolButton,
+  WrapAtSeparators,
 } from "@web/components/editor-ui.js";
 
 const menuSelectSource = readFileSync(new URL("./MenuSelect.tsx", import.meta.url), "utf8");
@@ -102,6 +103,22 @@ describe("editor UI primitives", () => {
       expect(source).not.toMatch(/(?:slate|blue|red|amber)-\d/);
     }
     expect(menuSelectSource).not.toContain("fontSize");
+  });
+
+  it("wraps long labels between parts only when asked", () => {
+    const trigger = (wrapLabels: boolean) => renderToStaticMarkup(createElement(MenuSelect, {
+      ariaLabel: "Apply to",
+      value: "screen",
+      options: [{ value: "screen", label: "Only Dynamic Island · Medium · Landscape" }],
+      onChange: () => undefined,
+      wrapLabels,
+    }));
+
+    expect(trigger(true)).toContain('<span class="whitespace-nowrap">Landscape</span>');
+    expect(trigger(true)).toContain("min-h-8");
+    expect(trigger(true)).not.toContain("truncate");
+    expect(trigger(false)).toContain("truncate");
+    expect(trigger(false)).toContain("h-8");
   });
 
   it("leaves the control font reset to layered preflight so text utilities apply", () => {
@@ -202,5 +219,14 @@ describe("editor UI primitives", () => {
     expect(html).toContain(editorUi.insetPanel);
     expect(html).toContain("extra");
     expect(html).toContain("Inspector controls");
+  });
+});
+
+describe("WrapAtSeparators", () => {
+  it("keeps each part unbroken and shows a trailing device count as a chip", () => {
+    const markup = renderToStaticMarkup(createElement(WrapAtSeparators, { text: "iPhone 18 Pro · 17 Pro · 17 +5" }));
+    expect(markup.match(/whitespace-nowrap/g)).toHaveLength(3);
+    expect(markup).toMatch(/17 <span class="inline-block rounded-full[^"]*">\+5<\/span>/);
+    expect(renderToStaticMarkup(createElement(WrapAtSeparators, { text: "1206 × 2622 px" }))).not.toContain("rounded-full");
   });
 });

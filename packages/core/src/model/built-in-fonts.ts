@@ -5,11 +5,12 @@ import { fontIdentityKey, type FontIdentity } from "./font-identity.js";
  * Renderer-owned, file-backed fonts that are available to every project without becoming
  * project-local resources. Keep this catalog aligned with the browser renderer's @font-face rules.
  */
-export const BUILT_IN_FONT_IDENTITIES = [{
-  family: "Screenshot Studio Sans",
-  weight: 400,
-  label: "Studio Sans · Regular",
-}] as const satisfies readonly (FontIdentity & { label: string })[];
+export const BUILT_IN_FONT_IDENTITIES = [
+  { family: "Screenshot Studio Sans", weight: 400, label: "Studio Sans · Regular" },
+  { family: "Screenshot Studio Display", weight: 400, label: "Studio Display · Regular" },
+  { family: "Screenshot Studio Display", weight: 600, label: "Studio Display · SemiBold" },
+  { family: "Screenshot Studio Display", weight: 800, label: "Studio Display · ExtraBold" },
+] as const satisfies readonly (FontIdentity & { label: string })[];
 
 export const DEFAULT_TEXT_FONT: FontIdentity = BUILT_IN_FONT_IDENTITIES[0];
 

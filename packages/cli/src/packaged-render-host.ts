@@ -191,7 +191,7 @@ export async function prepareRenderHost(port: number): Promise<PreparedRenderHos
   const nextCli = createRequire(join(sourceWebDir, "package.json")).resolve("next/dist/bin/next");
   return {
     command: process.execPath,
-    args: [nextCli, "dev", "--webpack", "--port", String(port)],
+    args: [nextCli, "dev", "--webpack", "--hostname", "127.0.0.1", "--port", String(port)],
     cwd: sourceWebDir,
     env: { NODE_ENV: "development" },
     cleanup: async () => undefined,

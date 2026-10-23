@@ -30,6 +30,12 @@
   --editor-color-warning-text: #92400e;
   --editor-color-warning-surface: #fffbeb;
   --editor-color-warning-border: #fde68a;
+  /* Agent purple marks only what an agent run does; manual work keeps the blue accent. */
+  --editor-color-agent: #6e44e0;
+  --editor-color-agent-text: #5b34c9;
+  --editor-color-agent-surface: #f6f2ff;
+  --editor-color-agent-border: #dcd0fb;
+  --editor-color-success: #16a34a;
   --editor-color-focus: rgb(59 130 246 / 70%);
   --editor-color-focus-border: #60a5fa;
   --editor-color-focus-subtle: rgb(59 130 246 / 15%);

@@ -1,0 +1,415 @@
+// SPDX-License-Identifier: Apache-2.0
+import { createHash } from "node:crypto";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, extname, isAbsolute, join, posix, relative, sep, win32 } from "node:path";
+import { create, type Font } from "fontkit";
+import { FONT_WEIGHT_MAX, FONT_WEIGHT_MIN } from "@screenshot-studio/core/model";
+import { inspectSupportedFont, MAX_FONT_BYTES, type SupportedFontFormat } from "./font-validation.js";
+
+export type SystemFontSource = "user" | "system";
+export type SystemFontFormat = SupportedFontFormat | "ttc" | "otc" | "dfont";
+
+export interface SystemFontRoot {
+  dir: string;
+  source: SystemFontSource;
+}
+
+export interface SystemFontCoverage {
+  latin: boolean;
+  latinExtA: boolean;
+  cyrillic: boolean;
+  greek: boolean;
+}
+
+/** One scanned face. It deliberately carries no filesystem path; callers address it by `id`. */
+export interface SystemFontFace {
+  id: string;
+  family: string;
+  weight: number | null;
+  style: string;
+  source: SystemFontSource;
+  format: SystemFontFormat;
+  coverage: SystemFontCoverage;
+  unavailable?: string;
+}
+
+export interface SystemFontMetadata {
+  family: string;
+  style: string;
+  postscriptName: string;
+  weight: number | undefined;
+  width: number | undefined;
+  italic: boolean;
+  variable: boolean;
+  collection: boolean;
+  restrictedEmbedding: boolean;
+  coverage: SystemFontCoverage;
+}
+
+export type ReadSystemFontMetadata = (bytes: Buffer, fileName: string) => SystemFontMetadata[];
+
+export interface SystemFontFile {
+  face: SystemFontFace;
+  fileName: string;
+  bytes: Buffer;
+}
+
+export interface SystemFontScanner {
+  list(): Promise<SystemFontFace[]>;
+  read(id: string): Promise<SystemFontFile>;
+}
+
+export class SystemFontNotFoundError extends Error {
+  override name = "SystemFontNotFoundError";
+}
+
+export class SystemFontUnavailableError extends Error {
+  override name = "SystemFontUnavailableError";
+}
+
+const SCANNED_EXTENSIONS = new Set(["ttf", "otf", "woff", "woff2", "ttc", "otc", "dfont"]);
+const COLLECTION_EXTENSIONS = new Set(["ttc", "otc", "dfont"]);
+const NO_COVERAGE: SystemFontCoverage = {
+  latin: false,
+  latinExtA: false,
+  cyrillic: false,
+  greek: false,
+};
+
+const COVERAGE_SAMPLES: Record<keyof SystemFontCoverage, string> = {
+  latin: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  latinExtA: "ĀāĂăĄąĆćČčĎďĒēĘęĚěĞğĪīİıŁłŃńŇňŌōŐőŒœŘřŚśŞşŠšŤťŪūŮůŰűŹźŻżŽž",
+  cyrillic: "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюяЄєІіЇїҐґ",
+  greek: "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρςστυφχψω",
+};
+
+const NORMAL_WIDTH_CLASS = 5;
+
+interface SystemFontRootEnvironment {
+  platform?: NodeJS.Platform;
+  env?: Record<string, string | undefined>;
+  home?: string;
+}
+
+/**
+ * User roots are the current user's own font folders; machine-wide roots are `system` because their
+ * contents may be OS-bundled or licensed to the machine, not to this project.
+ */
+export function systemFontRoots({
+  platform = process.platform,
+  env = process.env,
+  home = homedir(),
+}: SystemFontRootEnvironment = {}): SystemFontRoot[] {
+  if (platform === "darwin") {
+    return [
+      { dir: "/System/Library/Fonts", source: "system" },
+      { dir: "/Library/Fonts", source: "system" },
+      { dir: posix.join(home, "Library", "Fonts"), source: "user" },
+    ];
+  }
+  if (platform === "win32") {
+    return [
+      ...(env.WINDIR ? [{ dir: win32.join(env.WINDIR, "Fonts"), source: "system" as const }] : []),
+      ...(env.LOCALAPPDATA
+        ? [{ dir: win32.join(env.LOCALAPPDATA, "Microsoft", "Windows", "Fonts"), source: "user" as const }]
+        : []),
+    ];
+  }
+  return [
+    { dir: "/usr/share/fonts", source: "system" },
+    { dir: "/usr/local/share/fonts", source: "system" },
+    { dir: posix.join(home, ".local", "share", "fonts"), source: "user" },
+    { dir: posix.join(home, ".fonts"), source: "user" },
+  ];
+}
+
+function covers(font: Font, sample: string): boolean {
+  try {
+    return [...sample].every((char) => font.hasGlyphForCodePoint(char.codePointAt(0)!));
+  } catch {
+    return false;
+  }
+}
+
+function metadataOf(font: Font, collection: boolean): SystemFontMetadata {
+  const os2 = font["OS/2"] as Font["OS/2"] | null | undefined;
+  const macStyle = (font as unknown as { head?: { macStyle?: { italic?: boolean } } }).head?.macStyle;
+  const fsType = os2?.fsType;
+  return {
+    family: (font.getName("preferredFamily", "en") ?? font.familyName).trim(),
+    style: (font.getName("preferredSubfamily", "en") ?? font.subfamilyName ?? "").trim(),
+    postscriptName: (font.postscriptName ?? "").trim(),
+    weight: os2?.usWeightClass,
+    width: os2?.usWidthClass,
+    italic: Boolean(os2?.fsSelection.italic || os2?.fsSelection.oblique || macStyle?.italic),
+    variable: Object.keys(font.variationAxes).length > 0,
+    collection,
+    restrictedEmbedding: Boolean(fsType?.noEmbedding && !fsType.viewOnly && !fsType.editable),
+    coverage: {
+      latin: covers(font, COVERAGE_SAMPLES.latin),
+      latinExtA: covers(font, COVERAGE_SAMPLES.latinExtA),
+      cyrillic: covers(font, COVERAGE_SAMPLES.cyrillic),
+      greek: covers(font, COVERAGE_SAMPLES.greek),
+    },
+  };
+}
+
+export function readFontkitMetadata(bytes: Buffer, fileName: string): SystemFontMetadata[] {
+  const extension = extname(fileName).slice(1).toLowerCase();
+  if (COLLECTION_EXTENSIONS.has(extension) || bytes.toString("ascii", 0, 4) === "ttcf") {
+    const collection = create(bytes);
+    return ("fonts" in collection ? collection.fonts : [collection]).map((font) => metadataOf(font, true));
+  }
+  return [metadataOf(inspectSupportedFont(bytes, fileName).font, false)];
+}
+
+function validWeight(weight: number | undefined): weight is number {
+  return weight !== undefined
+    && Number.isInteger(weight)
+    && weight >= FONT_WEIGHT_MIN
+    && weight <= FONT_WEIGHT_MAX;
+}
+
+function unavailableReason(metadata: SystemFontMetadata): string | undefined {
+  if (metadata.collection) return "Font collections (TTC, OTC, DFont) are not supported yet";
+  if (metadata.variable) return "Variable fonts are not supported yet";
+  if (metadata.restrictedEmbedding) {
+    return "The font license (Restricted License embedding) does not allow embedding";
+  }
+  if (!validWeight(metadata.weight)) {
+    const problem = metadata.weight === undefined
+      ? "Weight is missing"
+      : `Weight ${metadata.weight} is outside ${FONT_WEIGHT_MIN} to ${FONT_WEIGHT_MAX}`;
+    return `${problem}; add the file with Upload and choose a weight`;
+  }
+  return undefined;
+}
+
+function isInside(root: string, path: string): boolean {
+  const relation = relative(root, path);
+  return relation !== "" && relation !== ".." && !relation.startsWith(`..${sep}`) && !isAbsolute(relation);
+}
+
+interface ScannedFile {
+  name: string;
+  path: string;
+  size: number;
+}
+
+interface ScanEntry {
+  face: SystemFontFace;
+  path: string;
+  fileName: string;
+  index: number;
+  postscriptName: string;
+  width: number | undefined;
+}
+
+/** Symlinked directories are never followed; symlinked files must resolve inside their root. */
+async function* fontFiles(root: string): AsyncGenerator<ScannedFile> {
+  const pending = [root];
+  while (pending.length > 0) {
+    const directory = pending.pop()!;
+    const dirents = await readdir(directory, { withFileTypes: true }).catch(() => []);
+    for (const dirent of dirents.sort((a, b) => a.name.localeCompare(b.name))) {
+      const candidate = join(directory, dirent.name);
+      if (dirent.isDirectory()) {
+        pending.push(candidate);
+        continue;
+      }
+      if (
+        !SCANNED_EXTENSIONS.has(extname(dirent.name).slice(1).toLowerCase())
+        || !(dirent.isFile() || dirent.isSymbolicLink())
+      ) continue;
+      const path = await realpath(candidate).catch(() => undefined);
+      if (!path || !isInside(root, path)) continue;
+      const info = await stat(path).catch(() => undefined);
+      if (info?.isFile()) yield { name: dirent.name, path, size: info.size };
+    }
+  }
+}
+
+function faceId(path: string, index: number): string {
+  return `sf_${createHash("sha256").update(`${path}\0${index}`).digest("hex").slice(0, 32)}`;
+}
+
+async function describeFile(
+  file: ScannedFile,
+  root: SystemFontRoot,
+  readMetadata: ReadSystemFontMetadata,
+): Promise<ScanEntry[]> {
+  const format = extname(file.name).slice(1).toLowerCase() as SystemFontFormat;
+  const entry = (
+    index: number,
+    face: Omit<SystemFontFace, "id" | "source" | "format">,
+    identity: { postscriptName: string; width: number | undefined } = { postscriptName: "", width: undefined },
+  ): ScanEntry => ({
+    face: { id: faceId(file.path, index), source: root.source, format, ...face },
+    path: file.path,
+    fileName: file.name,
+    index,
+    ...identity,
+  });
+  const unreadable = (reason: string) => [entry(0, {
+    family: basename(file.name, extname(file.name)),
+    weight: null,
+    style: "",
+    coverage: NO_COVERAGE,
+    unavailable: reason,
+  })];
+
+  if (file.size > MAX_FONT_BYTES) return unreadable("Larger than 20 MB, the project font size limit");
+  let bytes: Buffer;
+  try {
+    bytes = await readFile(file.path);
+  } catch {
+    return unreadable("The file cannot be read");
+  }
+  let metadata: SystemFontMetadata[];
+  try {
+    metadata = readMetadata(bytes, file.name);
+  } catch (error) {
+    return unreadable(error instanceof Error ? error.message : "The font file is invalid");
+  }
+  return metadata.flatMap((face, index) => {
+    if (face.italic) return [];
+    const unavailable = unavailableReason(face);
+    return [entry(index, {
+      family: face.family,
+      weight: face.weight ?? null,
+      style: face.style,
+      coverage: face.coverage,
+      ...(unavailable ? { unavailable } : {}),
+    }, { postscriptName: face.postscriptName, width: face.width })];
+  });
+}
+
+const normalWidth = ({ width }: ScanEntry) => width === undefined || width === NORMAL_WIDTH_CLASS;
+
+/**
+ * Identical faces (same PostScript name) collapse to one copy: usable beats disabled, then the user's
+ * own folders beat machine-wide ones. Different usable faces that declare the same family and weight
+ * (Heavy vs Black, Regular vs Condensed) cannot be told apart by a project font identity, so they are
+ * kept but disabled; a lone normal-width face among condensed or expanded ones stays usable, and a
+ * condensed face with no sibling at its weight is unambiguous and also stays usable.
+ */
+function resolveFaces(entries: ScanEntry[]): ScanEntry[] {
+  const rank = (entry: ScanEntry) => (entry.face.unavailable ? 2 : 0) + (entry.face.source === "user" ? 0 : 1);
+  const seen = new Set<string>();
+  const unique = [...entries]
+    .sort((a, b) => rank(a) - rank(b) || a.path.localeCompare(b.path) || a.face.id.localeCompare(b.face.id))
+    .filter(({ postscriptName }) => {
+      if (!postscriptName) return true;
+      if (seen.has(postscriptName)) return false;
+      seen.add(postscriptName);
+      return true;
+    });
+
+  const groups = new Map<string, ScanEntry[]>();
+  for (const entry of unique) {
+    if (entry.face.unavailable || entry.face.weight === null) continue;
+    const key = JSON.stringify([entry.face.family, entry.face.weight]);
+    groups.set(key, [...(groups.get(key) ?? []), entry]);
+  }
+  const disabled = new Map<string, string>();
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    const normal = members.filter(normalWidth);
+    for (const member of members) {
+      const wide = !normalWidth(member);
+      if (!wide && normal.length === 1) continue;
+      const others = (wide ? members : normal)
+        .filter((other) => other !== member)
+        .map(({ face }) => face.style || "unnamed face");
+      const detail = `(${others.join(", ")}) also declares ${member.face.weight}; add the file with Upload and choose a weight`;
+      disabled.set(
+        member.face.id,
+        wide ? `Width class ${member.width} (condensed or expanded): another face ${detail}` : `Another face ${detail}`,
+      );
+    }
+  }
+  return unique.map((entry) => {
+    const unavailable = disabled.get(entry.face.id);
+    return unavailable ? { ...entry, face: { ...entry.face, unavailable } } : entry;
+  });
+}
+
+async function scanSystemFonts(
+  roots: SystemFontRoot[],
+  readMetadata: ReadSystemFontMetadata,
+): Promise<Map<string, ScanEntry>> {
+  const entries: ScanEntry[] = [];
+  for (const root of roots) {
+    const realRoot = await realpath(root.dir).catch(() => undefined);
+    if (!realRoot) continue;
+    for await (const file of fontFiles(realRoot)) {
+      entries.push(...await describeFile(file, root, readMetadata));
+    }
+  }
+  return new Map(resolveFaces(entries).map((entry) => [entry.face.id, entry]));
+}
+
+/** Installers (Font Book, apt) touch the top of a root; deeper changes need a restart. */
+async function rootsStamp(roots: SystemFontRoot[]): Promise<string> {
+  return (await Promise.all(roots.map(async ({ dir }) => (
+    `${dir}:${(await stat(dir).catch(() => undefined))?.mtimeMs ?? "missing"}`
+  )))).join("\n");
+}
+
+function unchanged(entry: ScanEntry, bytes: Buffer, readMetadata: ReadSystemFontMetadata): boolean {
+  try {
+    const current = readMetadata(bytes, entry.fileName)[entry.index];
+    return current !== undefined
+      && !current.italic
+      && unavailableReason(current) === undefined
+      && current.family === entry.face.family
+      && current.weight === entry.face.weight;
+  } catch {
+    return false;
+  }
+}
+
+export function createSystemFontScanner({
+  roots = systemFontRoots(),
+  readMetadata = readFontkitMetadata,
+}: {
+  roots?: SystemFontRoot[];
+  readMetadata?: ReadSystemFontMetadata;
+} = {}): SystemFontScanner {
+  let cache: { stamp: string; scan: Promise<Map<string, ScanEntry>> } | undefined;
+  const entries = async () => {
+    const stamp = await rootsStamp(roots);
+    if (cache?.stamp !== stamp) {
+      const scan: Promise<Map<string, ScanEntry>> = scanSystemFonts(roots, readMetadata).catch((error: unknown) => {
+        if (cache?.scan === scan) cache = undefined;
+        throw error;
+      });
+      cache = { stamp, scan };
+    }
+    return cache.scan;
+  };
+
+  return {
+    async list() {
+      return [...(await entries()).values()]
+        .map(({ face }) => face)
+        .sort((a, b) => a.family.localeCompare(b.family) || (a.weight ?? 0) - (b.weight ?? 0) || a.style.localeCompare(b.style) || a.id.localeCompare(b.id));
+    },
+
+    async read(id) {
+      const entry = (await entries()).get(id);
+      if (!entry) throw new SystemFontNotFoundError("Unknown system font id");
+      if (entry.face.unavailable) throw new SystemFontUnavailableError(entry.face.unavailable);
+      const gone = new SystemFontNotFoundError("The font file changed or was removed since it was scanned");
+      // The path was contained when scanned; anything that now resolves elsewhere is rejected.
+      const path = await realpath(entry.path).catch(() => undefined);
+      if (path !== entry.path) throw gone;
+      const info = await stat(path).catch(() => undefined);
+      if (!info?.isFile() || info.size > MAX_FONT_BYTES) throw gone;
+      const bytes = await readFile(path).catch(() => undefined);
+      if (!bytes || !unchanged(entry, bytes, readMetadata)) throw gone;
+      return { face: entry.face, fileName: entry.fileName, bytes };
+    },
+  };
+}

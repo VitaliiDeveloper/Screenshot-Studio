@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useStore } from "zustand";
 import {
   Download,
@@ -40,11 +40,13 @@ export function Toolbar({
   onToggleInspector,
   onOpenProjects,
   projectsBusy = false,
-  exportRequestKey = 0,
+  exportOpen,
+  onExportOpenChange,
   specs = DEFAULT_STORE_SPECS,
   issueCounts = NO_ISSUES,
   issues,
   onOpenIssues,
+  editingLocked = false,
 }: {
   view: WorkspaceView;
   inspectorOpen: boolean;
@@ -52,13 +54,15 @@ export function Toolbar({
   onToggleInspector: () => void;
   onOpenProjects: () => void;
   projectsBusy?: boolean;
-  exportRequestKey?: number;
+  exportOpen: boolean;
+  onExportOpenChange: (open: boolean) => void;
   specs?: StoreSpecs;
   issueCounts?: IssueCounts;
   issues?: readonly ProjectIssue[];
   onOpenIssues?: () => void;
+  /** An agent run owns the project: Undo, Redo, Export, and leaving for Projects wait for it. */
+  editingLocked?: boolean;
 }) {
-  const [exportOpen, setExportOpen] = useState(false);
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
   const activeLayout = useStore(editorStore, selectEditorLayout);
   const locales = activeLayout ? layoutLocales(activeLayout) : EMPTY_LOCALES;
@@ -68,8 +72,8 @@ export function Toolbar({
       ?? state.project?.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens[0]?.locale
       ?? "",
   );
-  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0);
-  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0);
+  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0) && !editingLocked;
+  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0) && !editingLocked;
   const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
   const exportLabel = exportButtonLabel(exportCount);
   const issueTotal = issueCounts.blockers + issueCounts.warnings;
@@ -101,12 +105,6 @@ export function Toolbar({
     overflowTriggerRef,
   } = useToolbarDensity(measurementContentKey);
 
-  useEffect(() => {
-    if (exportRequestKey <= 0) return;
-    const frame = requestAnimationFrame(() => setExportOpen(true));
-    return () => cancelAnimationFrame(frame);
-  }, [exportRequestKey]);
-
   const compactControls = density !== "full";
   const minimalControls = density === "minimal";
   const secondaryOverflowed = density === "overflow-secondary" || density === "overflow-locale" || minimalControls;
@@ -133,7 +131,7 @@ export function Toolbar({
             type="button"
             aria-label="Screenshot Studio, back to Projects"
             title="Back to Projects"
-            disabled={projectsBusy}
+            disabled={projectsBusy || editingLocked}
             className="hidden shrink-0 items-center gap-2.5 rounded-lg text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
             onClick={onOpenProjects}
           >
@@ -151,7 +149,10 @@ export function Toolbar({
           <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
           <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-slate-600 xl:inline">{projectName}</span>
           <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
-          <LayoutSelector />
+          {/* Its menu adds, renames, and removes layouts, which an agent run must not race. */}
+          <div className="contents" inert={editingLocked ? true : undefined}>
+            <LayoutSelector />
+          </div>
         </div>
       </div>
 
@@ -235,6 +236,7 @@ export function Toolbar({
                 compact={compactControls}
                 labelClassName={toolbarLabelClassName}
                 onOpen={onOpenIssues}
+                disabled={editingLocked}
               />
             ) : null}
             <button
@@ -256,12 +258,13 @@ export function Toolbar({
           type="button"
           aria-label={exportLabel}
           title={exportLabel}
+          disabled={editingLocked}
           className={cx(
             editorUi.buttonPrimary,
             compactSharedButtonClassName,
             minimalControls && "!size-7 !min-h-7 !px-0",
           )}
-          onClick={() => setExportOpen(true)}
+          onClick={() => onExportOpenChange(true)}
         >
           <Download size={15} strokeWidth={2} /> <span data-toolbar-label className={toolbarLabelClassName}>Export</span>
           {exportCount !== null && !minimalControls ? (
@@ -281,7 +284,7 @@ export function Toolbar({
               inspectorOpen={inspectorOpen}
               issuesLabel={onOpenIssues ? toolbarIssuesLabel(issueCounts) : undefined}
               issueCount={issueTotal}
-              onOpenIssues={onOpenIssues}
+              onOpenIssues={editingLocked ? undefined : onOpenIssues}
               activeLocale={activeLocale}
               localeOptions={localeOptions}
               onToggleInspector={onToggleInspector}
@@ -298,7 +301,7 @@ export function Toolbar({
       <ExportDialog
         key={activeLayout?.id ?? "no-layout"}
         open={exportOpen}
-        onClose={() => setExportOpen(false)}
+        onClose={() => onExportOpenChange(false)}
         specs={specs}
         issues={issues}
         onGoToScreen={(screenId) => {

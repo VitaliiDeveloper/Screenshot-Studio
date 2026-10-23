@@ -186,8 +186,8 @@ export const DEVICE_FRAME_IDS = [
   "frameless-phone", "tablet-rounded-dark", "tablet-rounded-light", "tablet-outline",
   "frameless-tablet", "browser-light", "browser-dark", "browser-minimal", "frameless-browser",
   "laptop-silver", "laptop-dark", "display-stand", "display-minimal", "tv-flat",
-  "watch-rounded", "watch-square", "frameless-watch", "foldable", "automotive-display",
-  "xr-viewport",
+  "watch-rounded", "watch-square", "frameless-watch", "foldable", "foldable-tall", "phone-flip",
+  "automotive-display", "xr-viewport",
 ] as const;
 export const DeviceFrameId = z.enum(DEVICE_FRAME_IDS);
 export type DeviceFrameId = z.infer<typeof DeviceFrameId>;
