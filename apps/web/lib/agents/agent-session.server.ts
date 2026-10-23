@@ -394,9 +394,16 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     }
     // A new run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
     pendingOutcomes().delete(projectDir);
-    // Only an admitted run writes its images, so a refused request never leaves a file behind.
-    const folder = await createRunFolder(options.attachments ?? []);
+    // Only an admitted run with images touches the file system, so a refused or text-only request
+    // never leaves a file behind or fails on the temp directory.
+    const folder = options.attachments?.length ? await createRunFolder(options.attachments) : { dir: null, files: [] };
     runFolder = folder.dir;
+    // Stop can arrive during any await above; DELETE already answered it, so the run must not launch.
+    if (cancelledBeforeLaunch) {
+      runs.delete(projectDir);
+      if (folder.dir) await removeRunFolder(folder.dir);
+      return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
+    }
     const request: AgentRunRequest = {
       message: options.message,
       model: options.model ?? null,
@@ -411,7 +418,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       // The process tree is dead by now, so nothing still reads the images.
       release: () => {
         runs.delete(projectDir);
-        void removeRunFolder(folder.dir);
+        if (folder.dir) void removeRunFolder(folder.dir);
       },
     });
     runs.set(projectDir, run.cancel);

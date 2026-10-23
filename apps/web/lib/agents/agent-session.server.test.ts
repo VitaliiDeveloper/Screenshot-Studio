@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseProject } from "@screenshot-studio/core/model";
 import { projectRevision } from "@screenshot-studio/core/storage";
 import { createAgentConsentStore, sharedAgentConsentStore } from "./agent-consent.server.js";
+import { attachmentRoot } from "./agent-attachment-store.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "./agents.server.js";
 import {
@@ -499,8 +500,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
   describe("image attachments", () => {
     const PNG: AgentAttachment = { type: "png", bytes: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2]) };
     const JPEG: AgentAttachment = { type: "jpeg", bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]) };
-    const attachmentRoot = () => join(tmpdir(), "screenshot-studio-agent-attachments", String(process.pid));
-    const folders = () => readdir(attachmentRoot()).catch(() => []);
+    const folders = () => readdir(join(attachmentRoot(), String(process.pid))).catch(() => []);
 
     async function runFolder(): Promise<string> {
       const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
@@ -576,6 +576,22 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
       expect((await folders()).length).toBe(before.length + 1);
       await cancelAgentRun(projectDir);
       await collect(run);
+    }, 20_000);
+
+    it("does not touch the attachment folder for a text-only run, or for one stopped before launch", async () => {
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+      const before = await folders();
+
+      await collect(await start());
+      expect(await folders()).toEqual(before);
+
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 1; echo '2.1.296 (Claude Code)'");
+      await rm(join(root, "argv"), { force: true });
+      const pending = start({ attachments: [PNG] });
+      await expect.poll(() => cancelAgentRun(projectDir), { timeout: 5_000 }).toBe(true);
+      expect(await collect(await pending)).toEqual([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
+      expect(await exists(join(root, "argv"))).toBe(false);
+      expect(await folders()).toEqual(before);
     }, 20_000);
 
     it("passes Codex one --image per file", async () => {

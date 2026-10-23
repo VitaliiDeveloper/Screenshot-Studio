@@ -558,6 +558,8 @@ export function AgentPanel({
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const nextAttachmentId = useRef(1);
+  const reserved = useRef(0);
+  const disposed = useRef(false);
   const attachmentsRef = useRef(attachments);
   useEffect(() => {
     attachmentsRef.current = attachments;
@@ -570,21 +572,31 @@ export function AgentPanel({
     && attachments.length <= MAX_AGENT_ATTACHMENTS && attachments.every(({ error }) => !error);
 
   // Thumbnails use object URLs; they are freed when the file leaves the composer or the panel goes.
-  useEffect(() => () => {
-    for (const { url } of attachmentsRef.current) if (url) URL.revokeObjectURL(url);
+  useEffect(() => {
+    disposed.current = false;
+    return () => {
+      disposed.current = true;
+      for (const { url } of attachmentsRef.current) if (url) URL.revokeObjectURL(url);
+    };
   }, []);
 
   const addFiles = async (files: File[]) => {
-    const room = Math.max(0, MAX_AGENT_ATTACHMENTS - attachmentsRef.current.length);
+    // Slots are reserved before the first await, so two quick drops cannot both claim the last one.
+    const room = Math.max(0, MAX_AGENT_ATTACHMENTS - attachmentsRef.current.length - reserved.current);
     const accepted = files.slice(0, room);
+    reserved.current += accepted.length;
     setAttachNotice(files.length > accepted.length
       ? `Up to ${MAX_AGENT_ATTACHMENTS} images per message; ${files.length - accepted.length} not added.`
       : null);
-    const items = await Promise.all(accepted.map(async (file): Promise<ComposerAttachment> => {
-      const error = await attachmentFileProblem(file);
-      return { id: nextAttachmentId.current++, file, error, url: error ? null : URL.createObjectURL(file) };
-    }));
-    setAttachments((current) => [...current, ...items]);
+    const checked = await Promise.all(accepted.map(async (file) => ({
+      file,
+      error: await attachmentFileProblem(file).catch(() => "This file cannot be read"),
+    })));
+    reserved.current -= accepted.length;
+    if (disposed.current) return;
+    setAttachments((current) => [...current, ...checked.map(({ file, error }): ComposerAttachment => ({
+      id: nextAttachmentId.current++, file, error, url: error ? null : URL.createObjectURL(file),
+    }))]);
   };
   const removeAttachment = (id: number) => {
     const removed = attachmentsRef.current.find((item) => item.id === id);

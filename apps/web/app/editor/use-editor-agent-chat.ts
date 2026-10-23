@@ -70,6 +70,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const nextTurnId = useRef(1);
   const stopped = useRef(false);
   const abort = useRef<AbortController | null>(null);
+  const responded = useRef(false);
   const mounted = useRef(true);
   const loaded = useRef(false);
 
@@ -136,10 +137,12 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       error: { code, message: text, resets: null },
       done: turn.done ?? { type: "done", status: "failed", summary: null, durationMs: null },
     }));
-    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, attachmentsOf(files))]);
+    const turnAttachments = attachmentsOf(files);
+    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, turnAttachments)]);
     setPhase("running");
     setOutcomeError(null);
     stopped.current = false;
+    responded.current = false;
     const controller = new AbortController();
     abort.current = controller;
     let result: AgentResult | null = null;
@@ -160,6 +163,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
         body: files.length > 0 ? form : JSON.stringify({ agentId: agent.id, message, model: selectedModel }),
         signal: controller.signal,
       });
+      responded.current = true;
       if (!response.ok || !response.body) {
         const body = await readJsonBody(response);
         const code = typeof body.code === "string" ? body.code : "failed";
@@ -217,7 +221,11 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setTurns((all) => all.map((turn, index) => (index === all.length - 1 ? { ...turn, stopped: true } : turn)));
     try {
       const response = await fetch("/api/agents/session", { method: "DELETE", headers: projectRequestHeaders() });
-      if (response.ok || response.status === 404) return;
+      if (response.ok || response.status === 404) {
+        // Stop pressed while the images still upload finds no run yet; leaving the request cancels it.
+        if (!responded.current) abort.current?.abort();
+        return;
+      }
     } catch {
       // Fall through: closing the stream also stops the run, without a verdict on this page.
     }

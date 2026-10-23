@@ -327,11 +327,13 @@ and each image's type is decided from its leading bytes, never its file name or 
 for size, `400` for type and count; text-only requests stay JSON). Nothing is written until the run
 passes the policy, consent, and readiness gate and has its project slot: then the images are saved as
 `1.png`, `2.jpg`, ... (names chosen by the server) in a private folder under
-`<os tmpdir>/screenshot-studio-agent-attachments/<server pid>/run-*`, outside every project, and that
+`<os tmpdir>/screenshot-studio-agent-attachments-<uid>/<server pid>/run-*`, outside every project (the
+root and pid folders must be real directories owned by the user and closed to others, or the run
+fails instead of writing into a folder another user could have prepared), and that
 folder is deleted when the run ends with any outcome (accepted, rejected, failed, timeout, or Stop),
 after its process tree is dead. Another run never learns that folder's path. A server exit removes its
-own folders, and server start (`instrumentation.ts`) removes the folders of servers that no longer
-exist, never a live server's. Codex receives one `--image <file>` per image; Claude Code receives
+own folders, and server start (`instrumentation.ts`) removes the numbered folders of servers that no
+longer exist, never a live server's. A text-only request never touches this folder. Codex receives one `--image <file>` per image; Claude Code receives
 `--add-dir <run folder>` and the file paths in its appended prompt, since its restricted file tools
 read only added directories. The images are never part of the project document or schema.
 

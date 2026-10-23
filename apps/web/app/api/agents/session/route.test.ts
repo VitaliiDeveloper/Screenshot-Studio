@@ -222,6 +222,26 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
       expect(await started()).toBe(false);
     });
 
+    it("refuses an empty image and an image part that is not a file", async () => {
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+
+      const empty = await POST(await attachedRequest([{ name: "empty.png", type: "image/png", bytes: new Uint8Array() }]));
+      expect(empty.status).toBe(400);
+      expect((await empty.json()).error).toMatch(/empty/);
+
+      const request = await attachedRequest([]);
+      const form = new FormData();
+      form.set("agentId", RUN.agentId);
+      form.set("message", RUN.message);
+      form.set("image", "not a file");
+      const encoded = new Response(form);
+      const headers = new Headers(request.headers);
+      headers.set("content-type", encoded.headers.get("content-type")!);
+      const text = await POST(new Request(request.url, { method: "POST", headers, body: await encoded.arrayBuffer() }));
+      expect(text.status).toBe(400);
+      expect(await started()).toBe(false);
+    });
+
     it("accepts a real image under a misleading name and type", async () => {
       await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
 
