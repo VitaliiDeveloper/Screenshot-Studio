@@ -2,7 +2,14 @@
 "use client";
 
 import { useState } from "react";
-import type { Background, DesignLayout, Screen } from "@screenshot-studio/core/model";
+import {
+  isPrimaryScreen,
+  sameOutputFamily,
+  screenSetModeFor,
+  type Background,
+  type DesignLayout,
+  type Screen,
+} from "@screenshot-studio/core/model";
 import {
   artboardTargetStatus,
   type StoreSize,
@@ -12,7 +19,6 @@ import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { hasPlaceableText, type TextPlacement } from "@web/lib/editor/editor-text-placement";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
-import { ArtboardTargets } from "@web/components/ArtboardTargets";
 import { editorUi, SegmentedControl } from "@web/components/editor-ui";
 import { NumberField } from "@web/components/inspector/inspector-fields";
 import { BackgroundInspectorFields } from "./BackgroundInspectorFields";
@@ -24,6 +30,36 @@ const TEXT_PLACEMENTS: readonly { value: TextPlacement; label: string }[] = [
   { value: "bottom", label: "Bottom" },
   { value: "side", label: "Side" },
 ];
+
+/** Separate or Sync sizes for the family the screen exports in; sizes themselves live in the sizes bar. */
+function ScreenStructureSection({ layout, screen }: { layout: DesignLayout; screen: Screen }) {
+  const root = screen.variantOf
+    ? layout.screens.find((candidate) => candidate.id === screen.variantOf)
+    : isPrimaryScreen(screen)
+      ? screen
+      : layout.screens.find((candidate) => sameOutputFamily(candidate, screen) && isPrimaryScreen(candidate));
+  if (!root) return null;
+  const mode = screenSetModeFor(layout, root);
+  return (
+    <Section title="Screen structure">
+      <SegmentedControl
+        label="Screen structure behavior"
+        value={mode}
+        fill
+        options={[
+          { value: "independent", label: "Separate" },
+          { value: "synchronized", label: "Sync sizes" },
+        ]}
+        onChange={(next) => mutateAndSave(() => editorStore.getState().setOutputFamilyScreenSetMode(next))}
+      />
+      <p className="text-[10px] leading-4 text-[color:var(--editor-color-text-secondary)]">
+        {mode === "synchronized"
+          ? "Adding, deleting, or reordering screens applies to every size. Each size keeps its own content."
+          : "Each size keeps its own screens and order."}
+      </p>
+    </Section>
+  );
+}
 
 const STORE_AUTHORING_SCALES = ["1", "2", "3"] as const;
 export type StoreAuthoringScale = (typeof STORE_AUTHORING_SCALES)[number];
@@ -201,27 +237,7 @@ export function ScreenInspectorSections({
           target={target}
         />
       </Section>
-      {specs && (
-        <ArtboardTargets
-          layout={layout}
-          screen={screen}
-          specs={specs}
-          onOpen={(screenId) => editorStore.getState().selectScreen(screenId)}
-          onCreateOutput={(platform, device, target) => mutateAndSave(
-            () => editorStore.getState().ensureStoreOutputFamily(platform, device, target),
-          )}
-          onRemoveOutput={(sourceScreenId) => mutateAndSave(
-            () => editorStore.getState().removeStoreOutputFamily(sourceScreenId),
-          )}
-          onCreate={(target) => mutateAndSave(() => editorStore.getState().ensureStoreTargetVariant(target))}
-          onRemove={(rootScreenId, targetId) => mutateAndSave(
-            () => editorStore.getState().removeStoreTargetVariant(rootScreenId, targetId),
-          )}
-          onScreenSetModeChange={(mode) => mutateAndSave(
-            () => editorStore.getState().setOutputFamilyScreenSetMode(mode),
-          )}
-        />
-      )}
+      <ScreenStructureSection layout={layout} screen={screen} />
       <Section title="Background">
         <BackgroundInspectorFields
           background={background}
