@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useId, useState, type FormEvent } from "react";
+import React, { useId, useState, type DragEvent, type FormEvent } from "react";
 import { Layers3, LoaderCircle, Plus, Sparkles } from "lucide-react";
 import {
   PROJECT_NAME_MAX_LENGTH,
@@ -15,6 +15,7 @@ import {
   listOutputFamilies,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
+import { ComposerAttachButton, ComposerAttachments, useComposerAttachments } from "@web/components/ComposerAttachments";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
@@ -95,6 +96,8 @@ export function ProjectCreationDialog({
   const [description, setDescription] = useState("");
   const [agentId, setAgentId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const attachments = useComposerAttachments();
+  const [dragging, setDragging] = useState(false);
   const agent = agentChosen ? agents.find(({ id }) => id === agentId) ?? agents[0] : undefined;
   const selectedModel = agent && model && agent.models.includes(model) ? model : agent?.models[0] ?? null;
   const destinations = listOutputDestinations(specs);
@@ -123,8 +126,10 @@ export function ProjectCreationDialog({
       agentId: agent.id,
       model: selectedModel,
       message: agentStartMessage({ description, destination: destinationLabel }),
+      files: attachments.files,
     });
   };
+  const dragHasFiles = (event: DragEvent<HTMLElement>) => !busy && event.dataTransfer.types.includes("Files");
   const chooseStarter = (templateId: string | null) => {
     setAgentChosen(false);
     onChange({ templateId });
@@ -249,7 +254,29 @@ export function ProjectCreationDialog({
                     </label>
                     {agent ? (
                       <div className="mt-4">
-                        <div className="rounded-xl border border-[var(--editor-color-agent-border)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-control)] transition-shadow has-[textarea:focus]:border-[var(--editor-color-focus-border)] has-[textarea:focus]:ring-[length:var(--editor-focus-width)] has-[textarea:focus]:ring-[var(--editor-color-focus-subtle)]">
+                        <div
+                          onDragEnter={(event) => {
+                            if (dragHasFiles(event)) setDragging(true);
+                          }}
+                          onDragOver={(event) => {
+                            if (!dragHasFiles(event)) return;
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "copy";
+                          }}
+                          onDragLeave={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+                          }}
+                          onDrop={(event) => {
+                            if (!dragHasFiles(event)) return;
+                            event.preventDefault();
+                            setDragging(false);
+                            void attachments.add([...event.dataTransfer.files]);
+                          }}
+                          className={cx(
+                            "rounded-xl border bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-control)] transition-shadow has-[textarea:focus]:border-[var(--editor-color-focus-border)] has-[textarea:focus]:ring-[length:var(--editor-focus-width)] has-[textarea:focus]:ring-[var(--editor-color-focus-subtle)]",
+                            dragging ? "border-dashed border-[var(--editor-color-agent)]" : "border-[var(--editor-color-agent-border)]",
+                          )}
+                        >
                           <label htmlFor={descriptionId} className="sr-only">Describe the app</label>
                           <textarea
                             id={descriptionId}
@@ -261,8 +288,15 @@ export function ProjectCreationDialog({
                             className="block w-full resize-none rounded-t-xl bg-transparent px-3.5 pb-2 pt-3 text-sm leading-6 text-[color:var(--editor-color-text)] placeholder:text-[color:var(--editor-color-text-subtle)] focus:outline-none"
                             value={description}
                             onChange={(event) => setDescription(event.currentTarget.value)}
+                            onPaste={attachments.paste}
                           />
+                          {attachments.items.length > 0 || attachments.notice ? (
+                            <div className="px-3.5 pb-3">
+                              <ComposerAttachments items={attachments.items} notice={attachments.notice} onRemove={attachments.remove} />
+                            </div>
+                          ) : null}
                           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--editor-color-border)] px-2.5 py-2">
+                            <ComposerAttachButton disabled={attachments.full} onFiles={(files) => void attachments.add(files)} />
                             <MenuSelect ariaLabel="Agent" menuLabel="Agent options" value={agent.id} options={agents.map(({ id, name }) => ({ value: id, label: name }))} onChange={(id) => { setAgentId(id); setModel(null); }} className="w-40" />
                             {selectedModel ? (
                               <MenuSelect ariaLabel="Model" menuLabel="Model options" value={selectedModel} options={agent.models.map((value) => ({ value, label: value }))} onChange={setModel} className="w-28" />
@@ -270,7 +304,7 @@ export function ProjectCreationDialog({
                             <span className="ml-auto truncate rounded-full bg-[var(--editor-color-agent-surface)] px-2.5 py-1 text-xs font-medium text-[color:var(--editor-color-agent-text)]">For {destinationLabel}</span>
                           </div>
                         </div>
-                        <p id={agentHintId} className="mt-2 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Ask for languages, other stores, or sizes in the description.</p>
+                        <p id={agentHintId} className="mt-2 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Ask for languages, other stores, or sizes in the description. Attach app screenshots or a logo for the agent to use.</p>
                       </div>
                     ) : null}
                   </div>
@@ -329,7 +363,7 @@ export function ProjectCreationDialog({
             <button
               type="submit"
               className={agent ? editorUi.buttonAgent : editorUi.buttonPrimary}
-              disabled={!busy && (!state.form.name.trim() || (agent !== undefined && !description.trim()))}
+              disabled={!busy && (!state.form.name.trim() || (agent !== undefined && (!description.trim() || !attachments.ready)))}
               aria-disabled={busy || undefined}
               tabIndex={busy ? -1 : undefined}
             >

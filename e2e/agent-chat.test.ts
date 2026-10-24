@@ -226,6 +226,8 @@ describe("Agent panel", () => {
     const dialog = page.getByRole("dialog", { name: "Create a managed project" });
     await dialog.getByRole("radio", { name: /Start with agent/ }).check(poll);
     await dialog.getByRole("textbox", { name: "Describe the app" }).fill("Habit tracker for runners. Calm, light look.");
+    await dialog.locator('input[type="file"]').setInputFiles({ name: "app-home.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") });
+    await dialog.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "app-home.png" }).waitFor();
     await dialog.getByRole("textbox", { name: "Project name" }).fill("Run Habit");
     await dialog.getByRole("button", { name: "Target platform" }).click();
     await dialog.getByRole("menu", { name: "Target platform options" }).getByRole("menuitemradio", { name: "Google Play" }).click();
@@ -240,9 +242,11 @@ describe("Agent panel", () => {
     await expect.poll(() => panel.getByRole("status").first().textContent(), poll).toContain("Running");
     expect(await panel.textContent()).toContain("Habit tracker for runners. Calm, light look.");
     expect(await panel.textContent()).toContain("Destination: Google Play · Android tablet");
+    expect(await panel.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "app-home.png" }).count()).toBe(1);
     await expect.poll(runs, poll).toBe(runsBefore + 1);
     const args = JSON.parse(readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").at(-1)!) as string[];
     expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual(["--model", "haiku"]);
+    expect(readFileSync(join(binDir, "attachments.log"), "utf8").trim().split("\n").at(-1)).toBe('["1.png"]');
     expect(readFileSync(join(binDir, "cwd.log"), "utf8").trim().split("\n").at(-1)!.startsWith(realpathSync(dataRoot))).toBe(true);
 
     writeFileSync(join(binDir, "release"), "");

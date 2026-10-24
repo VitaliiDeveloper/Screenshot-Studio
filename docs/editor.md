@@ -415,12 +415,14 @@ gallery alike, when `/api/agents` lists an agent that can run now: signed in wit
 at a verified version, and allowed by its policy (an agent at your own risk needs the consent given
 in the Agent panel). Projects loads the registry once with the page; without it the dialog has no
 agent starting point. Choosing it starts the project from the blank starter with the
-dialog's name, destination, and layout mode, and adds a **Describe the app** field and the agent and
-model pickers in agent purple. Languages, more stores, and sizes are requested in the description.
-**Create with {agent}** creates the project through the same path, then opens its Workspace with
-the Agent panel, which sends the first message itself: a fixed line asking for the first screens,
-the destination, then the description. The request stays in page memory, never in the URL or the
-project, so a reload cannot start a second run. A creation failure shows in the dialog like any
+dialog's name, destination, and layout mode, and expands the card into a composer in agent purple:
+the description, the agent and model pickers, and the destination the agent builds for. Languages,
+more stores, and sizes are requested in the description. Up to five images (app screenshots, a
+logo) attach the same way as in the Agent panel composer: the Attach button, drop, or paste, each
+checked by its bytes. **Create with {agent}** creates the project through the same path, then opens
+its Workspace with the Agent panel, which sends the first message itself with those images: a fixed
+line asking for the first screens, the destination, then the description. The request and its images
+stay in page memory, never in the URL or the project, so a reload cannot start a second run. A creation failure shows in the dialog like any
 other New project failure.
 
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the

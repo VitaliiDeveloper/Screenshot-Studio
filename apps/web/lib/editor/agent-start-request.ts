@@ -6,6 +6,7 @@ export interface AgentStartRequest {
   agentId: string;
   model: string | null;
   message: string;
+  files: readonly File[];
 }
 
 /** The first message, with the chosen destination, exactly as the chat shows it. */

@@ -235,12 +235,13 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     if (!request || phase !== "idle" || (agents === null && agentsError === null)) return;
     queued.current = null;
     if (selected?.id === request.agentId && agentCanRun(selected)) {
-      void send(request.message);
+      void send(request.message, request.files);
       return;
     }
-    // The agent stopped being runnable since Projects listed it; the turn keeps the text for Retry.
+    // The agent stopped being runnable since Projects listed it; the turn keeps the text and images for Retry.
+    const agentName = agents?.find(({ id }) => id === request.agentId)?.name ?? request.agentId;
     setTurns((all) => [...all, {
-      ...createAgentTurn(nextTurnId.current++, agents?.find(({ id }) => id === request.agentId)?.name ?? request.agentId, request.message),
+      ...createAgentTurn(nextTurnId.current++, agentName, request.message, attachmentsOf(request.files)),
       error: { code: "failed", message: "This agent cannot run right now. Fix what the panel shows, then Retry.", resets: null },
       done: { type: "done", status: "failed", summary: null, durationMs: null },
     }]);
