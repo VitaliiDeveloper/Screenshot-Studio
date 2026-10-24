@@ -1,23 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
-import { Check, Circle, CircleDot, ImageOff, Paperclip, X } from "lucide-react";
+import { Check, Circle, CircleDot } from "lucide-react";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
-import { AGENT_ATTACHMENT_ACCEPT, MAX_AGENT_ATTACHMENTS } from "@web/lib/agents/agent-attachments";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
 import type { AgentOtherFiles } from "@web/lib/agents/agent-session.server";
 import type { IssueCounts } from "@web/lib/editor/editor-issues";
 import { editorStore } from "@web/lib/editor/editor-store";
 import type { EditorAgentChat } from "@web/app/editor/use-editor-agent-chat";
+import { attachmentThumbnail, ComposerAttachButton, ComposerAttachments, useComposerAttachments } from "./ComposerAttachments";
 import { cx, editorUi, MenuSelect, StatusMessage } from "./editor-ui";
 import { PanelHeader } from "./LeftPanel";
 import {
   agentCanRun,
   agentNotice,
   agentStateLabel,
-  attachmentFileProblem,
   changedScreenRows,
   hasOtherFiles,
   policyLevelLabel,
@@ -28,68 +27,10 @@ import {
   type AgentTurn,
 } from "./agent-panel-model";
 
-const agentBox = "rounded-[10px] border border-[var(--editor-color-agent-border)] bg-[var(--editor-color-agent-surface)]";
-const agentButton = `${editorUi.buttonBase} bg-[var(--editor-color-agent)] font-semibold text-[color:var(--editor-color-on-accent)] hover:bg-[var(--editor-color-agent-text)]`;
+const agentBox = editorUi.agentBox;
+const agentButton = editorUi.buttonAgent;
 const hint = "text-[11px] leading-[1.45] text-[color:var(--editor-color-text-secondary)]";
 const dot = "size-[7px] shrink-0 rounded-full";
-
-/** A file waiting in the composer. A refused file has no thumbnail and says why next to its name. */
-interface ComposerAttachment {
-  id: number;
-  file: File;
-  url: string | null;
-  error: string | null;
-}
-
-const thumbnail = "size-10 shrink-0 rounded-md border border-[var(--editor-color-border)] object-cover";
-
-function ComposerAttachments({
-  items,
-  notice,
-  onRemove,
-}: {
-  items: ComposerAttachment[];
-  notice: string | null;
-  onRemove: (id: number) => void;
-}) {
-  if (items.length === 0 && !notice) return null;
-  return (
-    <div className="flex flex-col gap-1.5">
-      {items.length > 0 ? (
-        <ul aria-label="Attached images" className="flex flex-col gap-1.5">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-center gap-2">
-              {item.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt={item.file.name} className={thumbnail} />
-              ) : (
-                <span aria-hidden="true" className={cx(thumbnail, "flex items-center justify-center text-[color:var(--editor-color-text-faint)]")}>
-                  <ImageOff size={16} />
-                </span>
-              )}
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-xs">{item.file.name}</span>
-                {item.error ? <span role="alert" className="text-[11px] leading-[1.35] text-[color:var(--editor-color-danger-text)]">{item.error}</span> : null}
-              </span>
-              <button
-                type="button"
-                aria-label={`Remove ${item.file.name}`}
-                className={cx(editorUi.buttonGhost, "!min-h-6 !px-1.5")}
-                onClick={() => onRemove(item.id)}
-              >
-                <X aria-hidden="true" size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {notice ? <p role="status" className={hint}>{notice}</p> : null}
-      {items.length > 0 ? (
-        <p className={hint}>Attached images are sent to {`the agent's`} provider with your request, through your subscription.</p>
-      ) : null}
-    </div>
-  );
-}
 
 function AgentDot({ ready }: { ready: boolean }) {
   return (
@@ -399,7 +340,7 @@ function TurnView({
           {turn.attachments.map(({ file, url }, index) => (
             <li key={index}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={file.name} className={thumbnail} />
+              <img src={url} alt={file.name} className={attachmentThumbnail} />
             </li>
           ))}
         </ul>
@@ -587,64 +528,13 @@ export function AgentPanel({
   const composer = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
-  const [attachNotice, setAttachNotice] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const nextAttachmentId = useRef(1);
-  const reserved = useRef(0);
-  const disposed = useRef(false);
-  const attachmentsRef = useRef(attachments);
-  useEffect(() => {
-    attachmentsRef.current = attachments;
-  }, [attachments]);
+  const attachments = useComposerAttachments();
   const { agents, selected, phase, turns } = chat;
   const notice = agentNotice(agents, selected);
   const running = phase === "running";
   const reviewing = chat.outcome !== null && !running;
   const canSend = phase === "idle" && agentCanRun(selected) && draft.trim().length > 0
-    && attachments.length <= MAX_AGENT_ATTACHMENTS && attachments.every(({ error }) => !error);
-
-  // Thumbnails use object URLs; they are freed when the file leaves the composer or the panel goes.
-  useEffect(() => {
-    disposed.current = false;
-    return () => {
-      disposed.current = true;
-      for (const { url } of attachmentsRef.current) if (url) URL.revokeObjectURL(url);
-    };
-  }, []);
-
-  const addFiles = async (files: File[]) => {
-    // Slots are reserved before the first await, so two quick drops cannot both claim the last one.
-    const room = Math.max(0, MAX_AGENT_ATTACHMENTS - attachmentsRef.current.length - reserved.current);
-    const accepted = files.slice(0, room);
-    reserved.current += accepted.length;
-    setAttachNotice(files.length > accepted.length
-      ? `Up to ${MAX_AGENT_ATTACHMENTS} images per message; ${files.length - accepted.length} not added.`
-      : null);
-    const checked = await Promise.all(accepted.map(async (file) => ({
-      file,
-      error: await attachmentFileProblem(file).catch(() => "This file cannot be read"),
-    })));
-    reserved.current -= accepted.length;
-    if (disposed.current) return;
-    setAttachments((current) => [...current, ...checked.map(({ file, error }): ComposerAttachment => ({
-      id: nextAttachmentId.current++, file, error, url: error ? null : URL.createObjectURL(file),
-    }))]);
-  };
-  const removeAttachment = (id: number) => {
-    const removed = attachmentsRef.current.find((item) => item.id === id);
-    if (removed?.url) URL.revokeObjectURL(removed.url);
-    setAttachments((current) => current.filter((item) => item.id !== id));
-    setAttachNotice(null);
-    composer.current?.focus();
-  };
-  const replaceAttachments = (files: File[]) => {
-    for (const { url } of attachmentsRef.current) if (url) URL.revokeObjectURL(url);
-    setAttachments(files.map((file) => ({ id: nextAttachmentId.current++, file, error: null, url: URL.createObjectURL(file) })));
-    setAttachNotice(null);
-  };
-  const dragHasFiles = (event: DragEvent<HTMLElement>) => !reviewing && event.dataTransfer.types.includes("Files");
+    && attachments.ready;
 
   useEffect(() => {
     if (open) composer.current?.focus();
@@ -659,12 +549,10 @@ export function AgentPanel({
   const submit = () => {
     if (!canSend) return;
     const message = draft;
-    const files = attachments.map(({ file }) => file);
+    const { files } = attachments;
     setDraft("");
     // The turn keeps its own copies of the thumbnails, so the composer frees its URLs.
-    for (const { url } of attachments) if (url) URL.revokeObjectURL(url);
-    setAttachments([]);
-    setAttachNotice(null);
+    attachments.replace([]);
     void chat.send(message, files);
   };
   const focusPicker = () => picker.current?.querySelector("button")?.focus();
@@ -673,26 +561,10 @@ export function AgentPanel({
     <aside
       ref={panel}
       aria-label="Agent"
-      onDragEnter={(event) => {
-        if (dragHasFiles(event)) setDragging(true);
-      }}
-      onDragOver={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-      }}
-      onDrop={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        setDragging(false);
-        void addFiles([...event.dataTransfer.files]);
-      }}
+      {...attachments.dropTarget(!reviewing)}
       className="relative flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]"
     >
-      {dragging ? (
+      {attachments.dragging ? (
         <div
           data-agent-drop-zone
           className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--editor-color-agent)] bg-[var(--editor-color-agent-surface)]/90 p-4 text-center text-xs font-semibold text-[color:var(--editor-color-agent-text)]"
@@ -784,7 +656,7 @@ export function AgentPanel({
                     onSwitchAgent={focusPicker}
                     onAskToFix={(reason) => {
                       setDraft(`The last run's changes failed schema validation and were rolled back:\n${reason}\nPlease try again and keep the project valid.`);
-                      replaceAttachments(turn.attachments.map(({ file }) => file));
+                      attachments.replace(turn.attachments.map(({ file }) => file));
                       composer.current?.focus();
                     }}
                   />
@@ -799,7 +671,14 @@ export function AgentPanel({
               submit();
             }}
           >
-            <ComposerAttachments items={attachments} notice={attachNotice} onRemove={removeAttachment} />
+            <ComposerAttachments
+              items={attachments.items}
+              notice={attachments.notice}
+              onRemove={(id) => {
+                attachments.remove(id);
+                composer.current?.focus();
+              }}
+            />
             <label htmlFor={composerId} className="sr-only">Message to {selected?.name ?? "the agent"}</label>
             <textarea
               ref={composer}
@@ -807,13 +686,7 @@ export function AgentPanel({
               rows={3}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              onPaste={(event) => {
-                const images = [...event.clipboardData.files];
-                if (images.length === 0) return;
-                // Text that came along with the image still pastes.
-                if (!event.clipboardData.getData("text/plain")) event.preventDefault();
-                void addFiles(images);
-              }}
+              onPaste={attachments.paste}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
                 event.preventDefault();
@@ -822,28 +695,8 @@ export function AgentPanel({
               placeholder={running ? "The agent is working. You can type the next request." : "Describe a change to this project"}
               className={cx(editorUi.textarea, "resize-none text-xs")}
             />
-            <input
-              ref={fileInput}
-              type="file"
-              hidden
-              multiple
-              accept={AGENT_ATTACHMENT_ACCEPT}
-              onChange={(event) => {
-                void addFiles([...(event.target.files ?? [])]);
-                event.target.value = "";
-              }}
-            />
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Attach images"
-                title="Attach images (or drop or paste them)"
-                className={cx(editorUi.buttonGhost, "!min-h-7 !px-1.5")}
-                disabled={attachments.length >= MAX_AGENT_ATTACHMENTS}
-                onClick={() => fileInput.current?.click()}
-              >
-                <Paperclip aria-hidden="true" size={14} />
-              </button>
+              <ComposerAttachButton disabled={attachments.full} onFiles={(files) => void attachments.add(files)} />
               <span className={cx(hint, "flex-1")}>{running ? "Send when this run ends" : "Enter sends · Shift+Enter adds a line"}</span>
               <button type="submit" className={agentButton} disabled={!canSend}>Send</button>
             </div>

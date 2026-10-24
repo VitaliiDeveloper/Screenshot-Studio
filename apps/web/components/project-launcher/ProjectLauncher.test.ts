@@ -87,8 +87,9 @@ describe("ProjectLauncher import integration", () => {
     expect(successBranch).toContain(
       'dispatchCreation({ type: "complete", projectId: result.projectId })',
     );
+    expect(successBranch).toContain("if (agent) queueAgentStart(result.projectId, agent);");
     expect(successBranch).toContain(
-      "router.push(editorProjectUrl(result.projectId))",
+      'router.push(editorProjectUrl(result.projectId, agent ? "agent" : undefined))',
     );
     expect(successBranch).toContain("launcherDialogExitDelay(reducedMotion)");
     expect(successBranch).not.toContain("router.refresh()");

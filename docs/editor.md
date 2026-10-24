@@ -339,6 +339,10 @@ back. An agent the editor cannot run yet says **Not supported in the editor yet*
 reads the registry again. Agent purple marks only what a run
 does; manual work keeps the blue accent.
 
+A project created from the **Start with agent** starting point in New project opens with this
+panel and its first run already started. If that agent can no longer run when the Workspace opens,
+the message shows as a failed turn with **Retry** instead of being sent.
+
 The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
 text, so the CLI does not remember earlier messages; the history is editor memory that **New chat**
 clears and is never written to the project. A pending edit is saved before the run starts. While
@@ -405,6 +409,21 @@ a delayed, card-bounded `Opening workspace…` status without shifting card cont
 An unavailable local source remains visible because it may live on temporarily disconnected storage,
 but its card exposes a directly labelled destructive history icon beside the left-aligned recovery
 message and states that project files stay untouched.
+
+**New project** offers **Start with agent** as its first starting point, on first run and in the
+gallery alike, when `/api/agents` lists an agent that can run now: signed in with a subscription,
+at a verified version, and allowed by its policy (an agent at your own risk needs the consent given
+in the Agent panel). Projects loads the registry once with the page; without it the dialog has no
+agent starting point. Choosing it starts the project from the blank starter with the
+dialog's name, destination, and layout mode, and expands the card into a composer in agent purple:
+the description, the agent and model pickers, and the destination the agent builds for. Languages,
+more stores, and sizes are requested in the description. Up to five images (app screenshots, a
+logo) attach the same way as in the Agent panel composer: the Attach button, drop, or paste, each
+checked by its bytes. **Create with {agent}** creates the project through the same path, then opens
+its Workspace with the Agent panel, which sends the first message itself with those images: a fixed
+line asking for the first screens, the destination, then the description. The request and its images
+stay in page memory, never in the URL or the project, so a reload cannot start a second run. A creation failure shows in the dialog like any
+other New project failure.
 
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
 exact receiver before navigating to its canonical `/editor/[entryId]` Workspace URL. Opening that

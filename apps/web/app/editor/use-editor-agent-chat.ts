@@ -15,6 +15,7 @@ import {
   type AgentTurn,
 } from "@web/components/agent-panel-model";
 import { projectRequestHeaders } from "@web/lib/clients/save-project";
+import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { readJsonBody, responseErrorMessage } from "@web/lib/json-response";
 
@@ -63,6 +64,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
   const [consentError, setConsentError] = useState<string | null>(null);
+  // A ref, not state: re-renders while the run starts must not send the request twice.
+  const queued = useRef<AgentStartRequest | null>(null);
   const turnsRef = useRef<AgentTurn[]>([]);
   useEffect(() => {
     turnsRef.current = turns;
@@ -220,6 +223,30 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     return true;
   }, [loadOutcome, phase, refreshAgents, reloadFromDisk, selected, selectedModel]);
 
+  const queueStart = useCallback((request: AgentStartRequest) => {
+    queued.current = request;
+    setAgentId(request.agentId);
+    setModel(request.model);
+  }, []);
+
+  // `send` reads the selected agent, so the request waits until the registry has selected it.
+  useEffect(() => {
+    const request = queued.current;
+    if (!request || phase !== "idle" || (agents === null && agentsError === null)) return;
+    queued.current = null;
+    if (selected?.id === request.agentId && agentCanRun(selected)) {
+      void send(request.message, request.files);
+      return;
+    }
+    // The agent stopped being runnable since Projects listed it; the turn keeps the text and images for Retry.
+    const agentName = agents?.find(({ id }) => id === request.agentId)?.name ?? request.agentId;
+    setTurns((all) => [...all, {
+      ...createAgentTurn(nextTurnId.current++, agentName, request.message, attachmentsOf(request.files)),
+      error: { code: "failed", message: "This agent cannot run right now. Fix what the panel shows, then Retry.", resets: null },
+      done: { type: "done", status: "failed", summary: null, durationMs: null },
+    }]);
+  }, [agents, agentsError, phase, selected, send]);
+
   const stop = useCallback(async () => {
     if (phase !== "running" || stopped.current) return;
     stopped.current = true;
@@ -309,6 +336,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     selectAgent,
     selectModel: setModel,
     send,
+    queueStart,
     stop,
     keep,
     undo,

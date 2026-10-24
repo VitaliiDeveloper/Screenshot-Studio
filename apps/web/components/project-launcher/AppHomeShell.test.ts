@@ -3,8 +3,12 @@ import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { parseProject } from "@screenshot-studio/core/model";
 import { listStarterProjectTemplates } from "@screenshot-studio/core/scaffold";
-import { AppHomeShell } from "./AppHomeShell.js";
+import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
+import type { ProjectLibraryEntry } from "@web/lib/clients/project-library-client.js";
+import { AppHomeShell, type AppHomeShellProps } from "./AppHomeShell.js";
+import { agentStartMessage } from "@web/lib/editor/agent-start-request";
 
 vi.mock("../ScreenThumbnail.js", () => ({
   ScreenThumbnail: () => createElement("img", { alt: "" }),
@@ -15,9 +19,34 @@ const dialogShellSource = readFileSync(new URL("../editor-ui/DialogShell.tsx", i
 const appHomeSource = readFileSync(new URL("./AppHomeShell.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
+const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "https://example.test", checkedAt: "2026-10-15" } as const;
+const claude: AgentStatus = {
+  id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
+  state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
+  setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
+};
+const signedOut: AgentStatus = { ...claude, id: "codex", name: "Codex", state: "not-signed-in", models: [] };
+const ownRisk: AgentStatus = {
+  ...claude, id: "agy", name: "Antigravity", policy: { ...policy, level: "at-own-risk" }, consented: false,
+};
+const entry: ProjectLibraryEntry = {
+  entryId: "project_00000000000000000000000000000001",
+  sourceKind: "managed-project",
+  name: "Store Launch Demo",
+  lastOpenedAt: "2026-07-20T10:00:00.000Z",
+  availability: "available",
+  platforms: ["apple:iphone"],
+  screenCount: 1,
+  layoutCount: 1,
+  previewLayoutId: "default",
+  previewScreenIds: ["hero"],
+  previewProject: parseProject(JSON.parse(readFileSync("fixtures/sample/app-store-screenshots.json", "utf8"))),
+};
+
 function render(
   state: Parameters<typeof AppHomeShell>[0]["state"] = { status: "idle" },
   dialogClosing = false,
+  overrides: Partial<AppHomeShellProps> = {},
 ) {
   return renderToStaticMarkup(createElement(AppHomeShell, {
     state,
@@ -46,8 +75,17 @@ function render(
     onExportArchive: vi.fn(),
     onDeleteProject: vi.fn(),
     onRemoveRecent: vi.fn(),
+    ...overrides,
   }));
 }
+
+const gallery = { projects: { status: "ready", entries: [entry] } } as const;
+const creating = {
+  creationState: {
+    status: "editing",
+    form: { name: "Run Habit", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: null },
+  },
+} as const;
 
 describe("AppHomeShell", () => {
   it("restores the original launcher composition with exactly New project and Import", () => {
@@ -65,6 +103,33 @@ describe("AppHomeShell", () => {
     expect(markup).not.toContain("Capture import");
     expect(markup).not.toContain("Create your first screenshot project");
     expect(markup).not.toContain('type="text"');
+  });
+
+  it("offers an agent that can run only inside New project, on first run and beside the gallery", () => {
+    for (const projects of [{ projects: { status: "ready", entries: [] } } as const, gallery]) {
+      const page = render({ status: "idle" }, false, { ...projects, agents: [signedOut, claude] });
+      const dialog = render({ status: "idle" }, false, { ...projects, ...creating, agents: [signedOut, claude] });
+
+      expect(page).not.toContain("Start with agent");
+      expect(dialog).toMatch(/<input type="radio" class="mt-1 accent-\[var\(--editor-color-agent\)\]" name="starter"\/><span[^>]*><svg[^>]*>.*?<\/svg><\/span><span class="min-w-0 flex-1"><span[^>]*>Start with agent<\/span>/);
+      expect(dialog).toContain("Claude Code creates the first screens on a blank project.");
+      expect(dialog).toMatch(/<input type="radio" name="starter" checked=""\/>.*?Blank/);
+      expect(dialog).not.toContain("<textarea");
+      expect(dialog).not.toContain("Codex");
+    }
+  });
+
+  it("hides the agent starting point without an agent that can run now", () => {
+    expect(render({ status: "idle" }, false, { ...gallery, ...creating, agents: [signedOut, ownRisk] })).not.toContain("Start with agent");
+    expect(render({ status: "idle" }, false, { ...gallery, ...creating, agents: [] })).not.toContain("Start with agent");
+    expect(render({ status: "idle" }, false, { ...gallery, ...creating, agents: [{ ...ownRisk, consented: true }] }))
+      .toContain("Antigravity creates the first screens on a blank project.");
+  });
+
+  it("sends the destination with the description as the first message", () => {
+    expect(agentStartMessage({ description: " Habit tracker \n", destination: "App Store · iPhone" })).toBe(
+      "Create the first screens for this new screenshot project.\nDestination: App Store · iPhone\n\nHabit tracker",
+    );
   });
 
   it("shows platform-aware starters with configuration and previews", () => {
