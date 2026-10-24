@@ -192,8 +192,8 @@ reconciles unequal rows to the longest row and makes the resulting slot mapping 
 mutations follow it.
 The 44 px **sizes bar** under the top bar is the one place that lists, adds, and removes exact sizes.
 It shows every size of the layout for the active locale, grouped by output family
-(`App Store · iPhone`) in layout order with the master first, so its chips read left to right in the
-order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
+(`App Store · iPhone`) in layout order with the master first, so in isolated layouts its chips read
+left to right in the order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
 out as the default), its pixels when the slot does not already name them, and its **Master** or
 **Variant** role; its tooltip lists the devices. A family's sizes stay listed when another compatible
 master screen is selected. A chip opens the active slot's screen when that size holds one, else the
@@ -205,7 +205,8 @@ the whole family from the locale, and it is disabled for the last family and for
 exact-size screen. Both removals use the labelled app-owned confirmation, follow the visible
 Separate/Sync sizes scope, and undo as one step; deleting an individual screen changes only the slot
 scope described above. The Inspector's Screen tab keeps only **Screen structure** (Separate / Sync
-sizes) for the screen's family. The bar is inert while an agent run holds the project.
+sizes) for the screen's family. While an agent run holds the project, chips still switch sizes like
+`[` and `]`, and Add size and Remove size… are disabled.
 Where people pick a size to add (the Add size menu) or edit one (Status by size), a target the
 catalog lists devices for is titled by those devices, up to three and then `+N`
 (`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store

@@ -25,7 +25,10 @@ function removeSize(removal: SizeRemoval): void {
     : editorStore.getState().removeStoreOutputFamily(removal.sourceScreenId)));
 }
 
-/** The layout's exact sizes for the active locale: switch, add, and remove them. */
+/**
+ * The layout's exact sizes for the active locale: switch, add, and remove them. While an agent run
+ * holds the project only switching stays live, like the `[` and `]` view keys.
+ */
 export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?: boolean }) {
   const layout = useStore(editorStore, selectEditorLayout);
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
@@ -39,11 +42,7 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
     <section
       aria-label="Sizes"
       data-testid="sizes-bar"
-      inert={locked ? true : undefined}
-      className={cx(
-        "flex h-11 shrink-0 items-center gap-2 border-b border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-3.5 text-xs",
-        locked && "opacity-50",
-      )}
+      className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-3.5 text-xs"
     >
       <span className={cx(editorUi.sectionLabel, "shrink-0")}>Sizes</span>
       <div className="flex min-w-0 items-center gap-2 overflow-x-auto [scrollbar-width:none]">
@@ -87,7 +86,7 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
           triggerLabel="Add size"
           menuLabel="Available sizes"
           menuClassName="menu-select-surface left-0"
-          options={addOptions}
+          options={locked ? [] : addOptions}
           onSelect={(value) => {
             const option = addOptions.find((candidate) => candidate.value === value);
             if (option) addSize(option.action);
@@ -98,12 +97,12 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
       <button
         type="button"
         className={cx(editorUi.buttonGhost, "shrink-0")}
-        disabled={!removal}
+        disabled={locked || !removal}
         onClick={() => setPendingRemoval(removal)}
       >
         Remove size…
       </button>
-      {pendingRemoval ? (
+      {pendingRemoval && !locked ? (
         <ConfirmationDialog
           title={pendingRemoval.kind === "size" ? "Remove output size?" : "Remove output target?"}
           description={pendingRemoval.kind === "family"

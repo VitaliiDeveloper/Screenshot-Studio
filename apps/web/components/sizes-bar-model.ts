@@ -78,7 +78,8 @@ function familyLabel(platform: string, device: string, specs: StoreSpecs): strin
 
 /**
  * Every exact size of the active locale, grouped by output family in layout order with the master
- * first, so chips read left to right in the order `[` and `]` step through Overview rows. A chip
+ * first, so in isolated layouts chips read left to right in the order `[` and `]` step through
+ * Overview rows. A chip
  * opens the active slot's screen when its size holds one, else the size's first screen.
  */
 export function sizesBarModel(layout: DesignLayout, screen: Screen, specs: StoreSpecs): SizesBarModel {
