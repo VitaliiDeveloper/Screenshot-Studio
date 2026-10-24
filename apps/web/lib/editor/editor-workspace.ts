@@ -42,7 +42,8 @@ export type ResourceDialog =
   | "background-assets"
   | "store-badge-assets"
   | "mockup-screenshot-assets"
-  | "replace-media-asset";
+  | "replace-media-asset"
+  | "project-images";
 
 export type MediaAssetTarget = {
   elementId: string;
