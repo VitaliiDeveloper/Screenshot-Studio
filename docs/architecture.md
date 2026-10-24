@@ -257,7 +257,10 @@ platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends e
 same way, in one project update; the style tag names the Design pack its literals were baked from and
 is not persisted. Five styles (Clean, Aurora, Midnight, Poster, Sunrise) each pair a Design pack with
 a six-screen pack (hero, three features, social proof, call to action) for iPhone 6.3″ and Android
-phone portrait. Each pack derives its geometry from the exact store artboard, sets type in Studio
+phone portrait. iPad 13″ and Android tablet portrait carry Clean and Aurora, and macOS 2880×1800
+carries Clean and Poster. A landscape artboard keeps the copy in a phone-width column beside the
+device, so it wraps as on a phone, and draws no style art, which is laid out around a portrait stack.
+Each pack derives its geometry from the exact store artboard, sets type in Studio
 Display, and draws generated art from shapes, because a global pack cannot carry image assets. The
 picker previews in `apps/web/public/template-previews/<pack>/<screen>.png` come from the same renderer
 and are static files; templates without one show a static placeholder, never a second render path.
