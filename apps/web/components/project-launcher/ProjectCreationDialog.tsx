@@ -16,7 +16,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import { agentRunChoices } from "@web/components/agent-panel-model";
-import { AgentModelPicker } from "@web/components/AgentModelPicker";
+import { AgentPicker } from "@web/components/AgentPicker";
 import { ComposerAttachButton, ComposerAttachments, useComposerAttachments } from "@web/components/ComposerAttachments";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
@@ -290,8 +290,15 @@ export function ProjectCreationDialog({
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--editor-color-border)] px-2.5 py-2">
                             <ComposerAttachButton disabled={attachments.full} onFiles={(files) => void attachments.add(files)} />
-                            <MenuSelect ariaLabel="Agent" value={agent.id} options={agents.map(({ id, name }) => ({ value: id, label: name }))} onChange={(id) => { setAgentId(id); setModel(null); setEffort(null); }} triggerClassName="font-medium" />
-                            <AgentModelPicker agent={agent} model={selectedModel} effort={selectedEffort} onModelChange={setModel} onEffortChange={setEffort} />
+                            <AgentPicker
+                              agents={agents}
+                              agent={agent}
+                              model={selectedModel}
+                              effort={selectedEffort}
+                              onAgentChange={(id) => { setAgentId(id); setModel(null); setEffort(null); }}
+                              onModelChange={setModel}
+                              onEffortChange={setEffort}
+                            />
                             <span className="ml-auto truncate rounded-full bg-[var(--editor-color-agent-surface)] px-2.5 py-1 text-xs font-medium text-[color:var(--editor-color-agent-text)]">For {destinationLabel}</span>
                           </div>
                         </div>

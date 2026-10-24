@@ -418,7 +418,7 @@ at a verified version, and allowed by its policy (an agent at your own risk need
 in the Agent panel). Projects loads the registry once with the page; without it the dialog has no
 agent starting point. Choosing it starts the project from the blank starter with the
 dialog's name, destination, and layout mode, and expands the card into a composer in agent purple:
-the description, the agent picker with the same model and effort pickers as the Agent panel, and
+the description, the same agent, model and effort pickers as the Agent panel (inline here), and
 the destination the agent builds for; the first run uses the chosen model and effort. Languages,
 more stores, and sizes are requested in the description. Up to five images (app screenshots, a
 logo) attach the same way as in the Agent panel composer: the Attach button, drop, or paste, each

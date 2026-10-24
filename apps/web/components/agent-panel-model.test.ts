@@ -8,6 +8,7 @@ import type { AgentEvent } from "@web/lib/agents/agent-session.server";
 import {
   agentCanRun,
   agentNotice,
+  agentOptions,
   agentRunChoices,
   agentStateLabel,
   applyAgentEvent,
@@ -159,6 +160,13 @@ describe("agent policy in the panel", () => {
     expect(agentCanRun(consented)).toBe(true);
     expect(agentNotice([agentStatus(), { ...consented, state: "not-signed-in" }], { ...consented, state: "not-signed-in" }))
       .toMatchObject({ kind: "not-signed-in" });
+  });
+
+  it("labels picker options with the policy only for agents at your own risk, and names the agent in the trigger", () => {
+    expect(agentOptions([agentStatus(), { ...risky, consented: true }])).toEqual([
+      { value: "claude-code", label: "Claude Code · Signed in · subscription · v2.1.296", triggerLabel: "Claude Code" },
+      { value: "risky", label: "Risky · At your own risk · Signed in · subscription · v2.1.296", triggerLabel: "Risky" },
+    ]);
   });
 
   it("never lets an unavailable agent or an agent without an adapter run, consent or not", () => {
