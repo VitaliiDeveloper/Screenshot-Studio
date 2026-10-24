@@ -19,11 +19,13 @@ const sample = JSON.parse(readFileSync(
 const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "https://example.test", checkedAt: "2026-10-15" } as const;
 const claude: AgentStatus = {
   id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
-  state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
+  state: "ready", authMode: "subscription", policy, consented: null,
+  models: [{ id: "claude-sonnet-5-5", label: "Sonnet 5.5" }, { id: "claude-haiku-5-5", label: "Haiku 5.5" }],
+  efforts: [{ id: "medium", label: "Medium" }, { id: "high", label: "High" }], defaultEffort: "high",
   setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
 };
 const codex: AgentStatus = {
-  ...claude, id: "codex", name: "Codex", state: "not-signed-in", authMode: null, models: [],
+  ...claude, id: "codex", name: "Codex", state: "not-signed-in", authMode: null, models: [], efforts: [], defaultEffort: null,
   setupUrl: "https://developers.openai.com/codex/quickstart", signInCommand: "codex login",
 };
 
@@ -34,7 +36,8 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     agentsError: null,
     checking: false,
     selected: agents?.[0],
-    selectedModel: agents?.[0]?.models[0] ?? null,
+    selectedModel: agents?.[0]?.models[0]?.id ?? null,
+    selectedEffort: agents?.[0]?.defaultEffort ?? null,
     turns: [],
     phase: "idle",
     locked: false,
@@ -45,6 +48,7 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     refreshAgents: vi.fn(),
     selectAgent: vi.fn(),
     selectModel: vi.fn(),
+    selectEffort: vi.fn(),
     send: vi.fn(),
     queueStart: vi.fn(),
     stop: vi.fn(),
@@ -76,12 +80,16 @@ describe("AgentPanel", () => {
     editorStore.getState().resetProjectState();
   });
 
-  it("picks the agent and model with labelled controls and names the composer", () => {
+  it("picks the agent, model and effort with labelled controls and names the composer", () => {
     const markup = render(chat());
 
-    expect(markup.match(/aria-haspopup="menu"/g)).toHaveLength(2);
+    expect(markup.match(/aria-haspopup="menu"/g)).toHaveLength(3);
     expect(markup).toMatch(/aria-label="Agent" aria-haspopup="menu"/);
-    expect(markup).toMatch(/aria-label="Model" aria-haspopup="menu"/);
+    expect(markup).toMatch(/aria-label="Model" aria-haspopup="menu"[^]*?>Sonnet 5\.5<\/span>/);
+    expect(markup).toMatch(/aria-label="Effort" aria-haspopup="menu"[^]*?>High effort<\/span>/);
+    const codexMarkup = render(chat({ agents: [codex, claude], selected: { ...codex, state: "ready" }, selectedModel: null, selectedEffort: null }));
+    expect(codexMarkup).toContain("CLI default model");
+    expect(codexMarkup).not.toMatch(/aria-label="(?:Model|Effort)"/);
     expect(markup).toContain("Your subscription · runs on this computer");
     expect(markup).toMatch(/<label[^>]*class="sr-only"[^>]*>Message to Claude Code<\/label>/);
     expect(markup).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Send<\/button>/);

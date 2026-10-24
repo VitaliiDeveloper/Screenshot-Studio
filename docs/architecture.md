@@ -295,7 +295,7 @@ AI dependency. The optional repository skill only discovers or initializes such 
 
 The editor may run an official agent CLI that the user installed and signed in to with their own
 subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
-verified version range, model aliases, official setup page, Terminal sign-in command, and policy
+verified version range, models, effort levels, official setup page, Terminal sign-in command, and policy
 (`supported`, `at-own-risk`, or `unavailable`, with reason, consequences, source, and check date);
 there is no remote configuration. Detection runs only
 the CLI's own `--version`, `--help`, and auth-status commands under a timeout that kills the process
@@ -305,8 +305,12 @@ an allowlisted environment, so API keys and provider switches in the server envi
 CLI off the subscription. A future Claude Code release may default `-p` to `--bare`, which ignores the
 subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
-environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
-CLI default. A run starts only from a loopback Host for the cookie-selected project session, after a
+environment carries none. `models` lists exact model IDs with display labels, the default first, so the
+picker names the model that runs and a new model release needs a manual registry update; `efforts`
+lists the levels of the CLI's effort option with a `defaultEffort`. An empty list means the CLI's own
+default; Codex has neither, because its CLI default model is not pinned and its reasoning-effort levels
+depend on the model. A run with a model or effort its agent does not list is refused
+(`400 unknown-model`, `400 unknown-effort`). A run starts only from a loopback Host for the cookie-selected project session, after a
 server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run
 without the user's consent (`403 consent-required`). Consent is app-level local state in
 `agent-consents.json` under the data root, never in a project document, and is bound to the policy's
@@ -332,7 +336,7 @@ result lists the other files it changed.
 
 A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
 They travel in the same `POST /api/agents/session` as a multipart body (`agentId`, `message`, `model`,
-and `image` parts), so the upload has exactly the run's guards: loopback Host, the cookie session's
+`effort`, and `image` parts), so the upload has exactly the run's guards: loopback Host, the cookie session's
 `X-Project-Id`, and no client-supplied paths. The body is read through a size cap before it is parsed,
 and each image's type is decided from its leading bytes, never its file name or declared type (`413`
 for size, `400` for type and count; text-only requests stay JSON). Nothing is written until the run

@@ -15,6 +15,8 @@ import {
   listOutputFamilies,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
+import { agentRunChoices } from "@web/components/agent-panel-model";
+import { AgentModelPicker } from "@web/components/AgentModelPicker";
 import { ComposerAttachButton, ComposerAttachments, useComposerAttachments } from "@web/components/ComposerAttachments";
 import { DialogShell } from "@web/components/editor-ui/DialogShell";
 import { MenuSelect, type MenuSelectOption } from "@web/components/editor-ui/MenuSelect";
@@ -96,10 +98,11 @@ export function ProjectCreationDialog({
   const [description, setDescription] = useState("");
   const [agentId, setAgentId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [effort, setEffort] = useState<string | null>(null);
   const attachments = useComposerAttachments();
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const agent = agentChosen ? agents.find(({ id }) => id === agentId) ?? agents[0] : undefined;
-  const selectedModel = agent && model && agent.models.includes(model) ? model : agent?.models[0] ?? null;
+  const { model: selectedModel, effort: selectedEffort } = agentRunChoices(agent, model, effort);
   const destinations = listOutputDestinations(specs);
   const families = listOutputFamilies(specs);
   const destinationLabel = [
@@ -125,6 +128,7 @@ export function ProjectCreationDialog({
     onSubmit({
       agentId: agent.id,
       model: selectedModel,
+      effort: selectedEffort,
       message: agentStartMessage({ description, destination: destinationLabel }),
       files: attachments.files,
     });
@@ -286,10 +290,8 @@ export function ProjectCreationDialog({
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--editor-color-border)] px-2.5 py-2">
                             <ComposerAttachButton disabled={attachments.full} onFiles={(files) => void attachments.add(files)} />
-                            <MenuSelect ariaLabel="Agent" menuLabel="Agent options" value={agent.id} options={agents.map(({ id, name }) => ({ value: id, label: name }))} onChange={(id) => { setAgentId(id); setModel(null); }} className="w-40" />
-                            {selectedModel ? (
-                              <MenuSelect ariaLabel="Model" menuLabel="Model options" value={selectedModel} options={agent.models.map((value) => ({ value, label: value }))} onChange={setModel} className="w-28" />
-                            ) : <span className="text-xs text-[color:var(--editor-color-text-secondary)]">CLI default model</span>}
+                            <MenuSelect ariaLabel="Agent" value={agent.id} options={agents.map(({ id, name }) => ({ value: id, label: name }))} onChange={(id) => { setAgentId(id); setModel(null); setEffort(null); }} triggerClassName="font-medium" />
+                            <AgentModelPicker agent={agent} model={selectedModel} effort={selectedEffort} onModelChange={setModel} onEffortChange={setEffort} />
                             <span className="ml-auto truncate rounded-full bg-[var(--editor-color-agent-surface)] px-2.5 py-1 text-xs font-medium text-[color:var(--editor-color-agent-text)]">For {destinationLabel}</span>
                           </div>
                         </div>

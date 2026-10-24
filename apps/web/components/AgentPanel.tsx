@@ -10,6 +10,7 @@ import type { AgentOtherFiles } from "@web/lib/agents/agent-session.server";
 import type { IssueCounts } from "@web/lib/editor/editor-issues";
 import { editorStore } from "@web/lib/editor/editor-store";
 import type { EditorAgentChat } from "@web/app/editor/use-editor-agent-chat";
+import { AgentModelPicker } from "./AgentModelPicker";
 import { attachmentThumbnail, ComposerAttachButton, ComposerAttachments, useComposerAttachments } from "./ComposerAttachments";
 import { cx, editorUi, MenuSelect, StatusMessage } from "./editor-ui";
 import { PanelHeader } from "./LeftPanel";
@@ -586,7 +587,7 @@ export function AgentPanel({
           </button>
         </div>
         {agents && selected && notice?.kind !== "no-agent" ? (
-          <div ref={picker} className="flex items-center gap-2">
+          <div ref={picker} className="flex flex-col gap-2">
             <MenuSelect
               ariaLabel="Agent"
               value={selected.id}
@@ -597,22 +598,18 @@ export function AgentPanel({
                 triggerLabel: agent.name,
               }))}
               onChange={chat.selectAgent}
-              density="compact"
               wrapLabels
               // The panel clips overflow, so the menu opens from the trigger's start edge at panel width.
               menuClassName="!left-0 !right-auto w-[260px]"
-              className="min-w-0 flex-1"
+              triggerClassName="font-medium"
             />
-            {selected.models.length > 0 && chat.selectedModel ? (
-              <MenuSelect
-                ariaLabel="Model"
-                value={chat.selectedModel}
-                options={selected.models.map((model) => ({ value: model, label: model }))}
-                onChange={chat.selectModel}
-                density="compact"
-                className="w-24 shrink-0"
-              />
-            ) : <span className={hint}>CLI default model</span>}
+            <AgentModelPicker
+              agent={selected}
+              model={chat.selectedModel}
+              effort={chat.selectedEffort}
+              onModelChange={chat.selectModel}
+              onEffortChange={chat.selectEffort}
+            />
           </div>
         ) : null}
         {selected ? (

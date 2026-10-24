@@ -22,10 +22,14 @@ const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.u
 const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "https://example.test", checkedAt: "2026-10-15" } as const;
 const claude: AgentStatus = {
   id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
-  state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
+  state: "ready", authMode: "subscription", policy, consented: null,
+  models: [{ id: "claude-sonnet-5-5", label: "Sonnet 5.5" }, { id: "claude-haiku-5-5", label: "Haiku 5.5" }],
+  efforts: [{ id: "medium", label: "Medium" }, { id: "high", label: "High" }], defaultEffort: "high",
   setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
 };
-const signedOut: AgentStatus = { ...claude, id: "codex", name: "Codex", state: "not-signed-in", models: [] };
+const signedOut: AgentStatus = {
+  ...claude, id: "codex", name: "Codex", state: "not-signed-in", models: [], efforts: [], defaultEffort: null,
+};
 const ownRisk: AgentStatus = {
   ...claude, id: "agy", name: "Antigravity", policy: { ...policy, level: "at-own-risk" }, consented: false,
 };

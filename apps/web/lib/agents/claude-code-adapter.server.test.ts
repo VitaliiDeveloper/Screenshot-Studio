@@ -14,7 +14,8 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 
 const REQUEST: AgentRunRequest = {
   message: "Add German",
-  model: "sonnet",
+  model: "claude-sonnet-5-5",
+  effort: "high",
   context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
   attachments: [],
 };
@@ -87,7 +88,12 @@ describe("Claude Code adapter", () => {
       sandbox: { enabled: true, failIfUnavailable: true },
     });
     expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/project/AGENTS.md");
-    expect(args.slice(-4)).toEqual(["--add-dir", "/app/skills/screenshot-studio", "--model", "sonnet"]);
+    expect(args.slice(-6)).toEqual([
+      "--add-dir", "/app/skills/screenshot-studio", "--model", "claude-sonnet-5-5", "--effort", "high",
+    ]);
+    expect(claudeCodeAdapter.args({ ...REQUEST, model: null, effort: null })).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/^--(?:model|effort)$/)]),
+    );
   });
 
   it("adds the run folder and lists the images in the prompt, not in the user message", () => {

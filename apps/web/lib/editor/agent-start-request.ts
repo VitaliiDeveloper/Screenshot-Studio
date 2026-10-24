@@ -5,6 +5,7 @@
 export interface AgentStartRequest {
   agentId: string;
   model: string | null;
+  effort: string | null;
   message: string;
   files: readonly File[];
 }

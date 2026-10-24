@@ -191,6 +191,19 @@ export function defaultAgentId(agents: AgentStatus[], current: string | null): s
     ?? agents.find((agent) => agent.policy.level === "supported"))?.id ?? null;
 }
 
+/** The run's model and effort: the user's pick while the agent offers it, else the agent's default. */
+export function agentRunChoices(
+  agent: AgentStatus | undefined,
+  model: string | null,
+  effort: string | null,
+): { model: string | null; effort: string | null } {
+  if (!agent) return { model: null, effort: null };
+  return {
+    model: agent.models.some(({ id }) => id === model) ? model : agent.models[0]?.id ?? null,
+    effort: agent.efforts.some(({ id }) => id === effort) ? effort : agent.defaultEffort,
+  };
+}
+
 export interface ChangedScreenRow {
   id: string;
   name: string;

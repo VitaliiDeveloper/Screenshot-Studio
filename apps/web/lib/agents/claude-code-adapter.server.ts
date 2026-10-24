@@ -84,6 +84,7 @@ export const claudeCodeAdapter: AgentAdapter = {
       ...(request.context.skillPath ? ["--add-dir", dirname(request.context.skillPath)] : []),
       ...(request.attachments[0] ? ["--add-dir", dirname(request.attachments[0])] : []),
       ...(request.model ? ["--model", request.model] : []),
+      ...(request.effort ? ["--effort", request.effort] : []),
     ];
   },
   normalizer() {

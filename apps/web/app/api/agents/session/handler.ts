@@ -32,6 +32,7 @@ interface SessionInput {
   agentId: unknown;
   message: unknown;
   model: unknown;
+  effort: unknown;
   files: unknown[];
 }
 
@@ -67,11 +68,14 @@ async function readInput(req: Request): Promise<SessionInput | null> {
       agentId: form.get("agentId"),
       message: form.get("message"),
       model: form.get("model"),
+      effort: form.get("effort"),
       files: form.getAll("image"),
     };
   }
   const body: unknown = await req.json().catch(() => null);
-  return isRecord(body) ? { agentId: body.agentId, message: body.message, model: body.model, files: [] } : null;
+  return isRecord(body)
+    ? { agentId: body.agentId, message: body.message, model: body.model, effort: body.effort, files: [] }
+    : null;
 }
 
 /** The bytes decide the type; nothing the client names a file or declares it to be counts. */
@@ -136,6 +140,7 @@ export async function handleAgentSessionPost(
     return jsonError(400, `message must be non-empty text of at most ${MESSAGE_LIMIT} characters`);
   }
   if (input.model != null && typeof input.model !== "string") return jsonError(400, "model must be a string");
+  if (input.effort != null && typeof input.effort !== "string") return jsonError(400, "effort must be a string");
   const { heartbeatMs = HEARTBEAT_MS, ...runOptions } = dependencies;
   try {
     const run = await startAgentRun({
@@ -143,6 +148,7 @@ export async function handleAgentSessionPost(
       agentId: input.agentId,
       message: input.message,
       model: input.model ?? null,
+      effort: input.effort ?? null,
       attachments,
       projectDir: dirname(projectPath),
     });

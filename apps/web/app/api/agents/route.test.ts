@@ -136,12 +136,19 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
       minVersion: "2.1.268", state: "ready", authMode: "subscription",
       policy: expect.objectContaining({ level: "supported", sourceUrl: expect.stringMatching(/^https:/) }),
       consented: null,
-      models: ["sonnet", "opus", "haiku"],
+      models: [
+        { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+        { id: "claude-opus-5-5", label: "Opus 5.5" },
+        { id: "claude-fable-5-1", label: "Fable 5.1" },
+        { id: "claude-haiku-5-5", label: "Haiku 5.5" },
+      ],
+      efforts: expect.arrayContaining([{ id: "high", label: "High" }, { id: "xhigh", label: "Extra high" }]),
+      defaultEffort: "high",
       setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     });
     expect(agents.codex).toMatchObject({
       installed: true, version: "0.162.1", minVersion: "0.162.1", state: "ready", authMode: "subscription",
-      policy: { level: "supported", checkedAt: "2026-10-15" }, models: [],
+      policy: { level: "supported", checkedAt: "2026-10-15" }, models: [], efforts: [], defaultEffort: null,
     });
     expect(agents.agy).toMatchObject({
       installed: null, state: "no-adapter", consented: false,
