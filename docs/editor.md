@@ -435,9 +435,9 @@ unavailable identities show a visible error and never fall back to another activ
 remains a compatibility route for sessions whose Project Library entry identity is not available.
 Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
 rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, one
-entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
-dialog rather than an intermediate panel, and the Agent panel toggle. Every item carries a short
-caption under its icon (Select, Hand, Layers, Templates, Packs, Fonts, Locales, Agent, Play,
+entry per resource (Screen templates, Design packs, Fonts, Project images, Locales), each opening
+its dialog rather than an intermediate panel, and the Agent panel toggle. Every item carries a short
+caption under its icon (Select, Hand, Layers, Templates, Packs, Fonts, Images, Locales, Agent, Play,
 Projects) that its accessible name contains, and active items get the light accent fill. Its bottom group holds Play and the
 `Projects` home action, which drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
@@ -558,6 +558,11 @@ an arbitrary local filesystem path.
   file-picker import. A successful import copies the validated image into project-local `assets/`
   storage and immediately applies that resource to the current action; users never enter an asset URL
   or filesystem path by hand.
+- The **Images** rail item opens **Project images**, a library of the images the project already
+  owns (`assets/` and `screenshots/`) with search and **Import image…**. It has no target: import
+  copies the file into `assets/` through the same asset route and selects it without changing any
+  screen. **Insert as image** adds the selected image as an Image layer on the current screen and
+  closes the dialog. Replace… and **+ Add → Image** keep their own target pickers.
 - Do not make UI automation, provider-backed translation, cloud collaboration, or telemetry implicit
   product behavior.
 - New UI patterns should compose the shared primitives and tokens, preserve responsive/accessibility
