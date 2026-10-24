@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { Check, Circle, CircleDot } from "lucide-react";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
@@ -529,15 +529,12 @@ export function AgentPanel({
   const picker = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const attachments = useComposerAttachments();
-  const [dragging, setDragging] = useState(false);
   const { agents, selected, phase, turns } = chat;
   const notice = agentNotice(agents, selected);
   const running = phase === "running";
   const reviewing = chat.outcome !== null && !running;
   const canSend = phase === "idle" && agentCanRun(selected) && draft.trim().length > 0
     && attachments.ready;
-
-  const dragHasFiles = (event: DragEvent<HTMLElement>) => !reviewing && event.dataTransfer.types.includes("Files");
 
   useEffect(() => {
     if (open) composer.current?.focus();
@@ -564,26 +561,10 @@ export function AgentPanel({
     <aside
       ref={panel}
       aria-label="Agent"
-      onDragEnter={(event) => {
-        if (dragHasFiles(event)) setDragging(true);
-      }}
-      onDragOver={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-      }}
-      onDrop={(event) => {
-        if (!dragHasFiles(event)) return;
-        event.preventDefault();
-        setDragging(false);
-        void attachments.add([...event.dataTransfer.files]);
-      }}
+      {...attachments.dropTarget(!reviewing)}
       className="relative flex h-full w-full shrink-0 flex-col overflow-hidden border-r border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-xl shadow-slate-950/10 xl:shadow-[1px_0_0_rgba(15,23,42,0.02)]"
     >
-      {dragging ? (
+      {attachments.dragging ? (
         <div
           data-agent-drop-zone
           className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--editor-color-agent)] bg-[var(--editor-color-agent-surface)]/90 p-4 text-center text-xs font-semibold text-[color:var(--editor-color-agent-text)]"

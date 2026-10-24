@@ -228,6 +228,17 @@ describe("Agent panel", () => {
     await dialog.getByRole("textbox", { name: "Describe the app" }).fill("Habit tracker for runners. Calm, light look.");
     await dialog.locator('input[type="file"]').setInputFiles({ name: "app-home.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") });
     await dialog.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "app-home.png" }).waitFor();
+    // A drop anywhere on the expanded card attaches, not only on the description box.
+    const logo = await page.evaluateHandle((base64) => {
+      const data = new DataTransfer();
+      data.items.add(new File([Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))], "logo.png", { type: "image/png" }));
+      return data;
+    }, PNG_BASE64);
+    const cardTitle = dialog.getByText("Start with agent", { exact: true });
+    for (const type of ["dragenter", "dragover", "drop"]) await cardTitle.dispatchEvent(type, { dataTransfer: logo });
+    await dialog.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "logo.png" }).waitFor();
+    await dialog.getByRole("button", { name: "Remove logo.png" }).click();
+    expect(await dialog.getByRole("textbox", { name: "Describe the app" }).evaluate((node) => node === document.activeElement)).toBe(true);
     await dialog.getByRole("textbox", { name: "Project name" }).fill("Run Habit");
     await dialog.getByRole("button", { name: "Target platform" }).click();
     await dialog.getByRole("menu", { name: "Target platform options" }).getByRole("menuitemradio", { name: "Google Play" }).click();

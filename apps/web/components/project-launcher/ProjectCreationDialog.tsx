@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import React, { useId, useState, type DragEvent, type FormEvent } from "react";
+import React, { useId, useRef, useState, type FormEvent } from "react";
 import { Layers3, LoaderCircle, Plus, Sparkles } from "lucide-react";
 import {
   PROJECT_NAME_MAX_LENGTH,
@@ -97,7 +97,7 @@ export function ProjectCreationDialog({
   const [agentId, setAgentId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const attachments = useComposerAttachments();
-  const [dragging, setDragging] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const agent = agentChosen ? agents.find(({ id }) => id === agentId) ?? agents[0] : undefined;
   const selectedModel = agent && model && agent.models.includes(model) ? model : agent?.models[0] ?? null;
   const destinations = listOutputDestinations(specs);
@@ -129,7 +129,6 @@ export function ProjectCreationDialog({
       files: attachments.files,
     });
   };
-  const dragHasFiles = (event: DragEvent<HTMLElement>) => !busy && event.dataTransfer.types.includes("Files");
   const chooseStarter = (templateId: string | null) => {
     setAgentChosen(false);
     onChange({ templateId });
@@ -237,7 +236,7 @@ export function ProjectCreationDialog({
               <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Choose a starter. Specialized output families may follow different store artwork rules.</p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 {agents[0] ? (
-                  <div className={cx(
+                  <div {...attachments.dropTarget(!busy && agent !== undefined)} className={cx(
                     "rounded-2xl border p-4 transition-colors md:col-span-3",
                     agent
                       ? "border-[var(--editor-color-agent)] bg-[var(--editor-color-agent-surface)]"
@@ -254,31 +253,14 @@ export function ProjectCreationDialog({
                     </label>
                     {agent ? (
                       <div className="mt-4">
-                        <div
-                          onDragEnter={(event) => {
-                            if (dragHasFiles(event)) setDragging(true);
-                          }}
-                          onDragOver={(event) => {
-                            if (!dragHasFiles(event)) return;
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "copy";
-                          }}
-                          onDragLeave={(event) => {
-                            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
-                          }}
-                          onDrop={(event) => {
-                            if (!dragHasFiles(event)) return;
-                            event.preventDefault();
-                            setDragging(false);
-                            void attachments.add([...event.dataTransfer.files]);
-                          }}
-                          className={cx(
+                        <div className={cx(
                             "rounded-xl border bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-control)] transition-shadow has-[textarea:focus]:border-[var(--editor-color-focus-border)] has-[textarea:focus]:ring-[length:var(--editor-focus-width)] has-[textarea:focus]:ring-[var(--editor-color-focus-subtle)]",
-                            dragging ? "border-dashed border-[var(--editor-color-agent)]" : "border-[var(--editor-color-agent-border)]",
+                            attachments.dragging ? "border-dashed border-[var(--editor-color-agent)]" : "border-[var(--editor-color-agent-border)]",
                           )}
                         >
                           <label htmlFor={descriptionId} className="sr-only">Describe the app</label>
                           <textarea
+                            ref={descriptionRef}
                             id={descriptionId}
                             required
                             rows={4}
@@ -292,7 +274,14 @@ export function ProjectCreationDialog({
                           />
                           {attachments.items.length > 0 || attachments.notice ? (
                             <div className="px-3.5 pb-3">
-                              <ComposerAttachments items={attachments.items} notice={attachments.notice} onRemove={attachments.remove} />
+                              <ComposerAttachments
+                                items={attachments.items}
+                                notice={attachments.notice}
+                                onRemove={(id) => {
+                                  attachments.remove(id);
+                                  descriptionRef.current?.focus();
+                                }}
+                              />
                             </div>
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2 border-t border-[var(--editor-color-border)] px-2.5 py-2">

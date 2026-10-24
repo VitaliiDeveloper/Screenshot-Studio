@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useRef, useState, type ClipboardEvent } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from "react";
 import { ImageOff, Paperclip, X } from "lucide-react";
 import { AGENT_ATTACHMENT_ACCEPT, MAX_AGENT_ATTACHMENTS } from "@web/lib/agents/agent-attachments";
 import { attachmentFileProblem } from "./agent-panel-model";
@@ -21,6 +21,7 @@ export const attachmentThumbnail = "size-10 shrink-0 rounded-md border border-[v
 export function useComposerAttachments() {
   const [items, setItems] = useState<ComposerAttachment[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const nextId = useRef(1);
   const reserved = useRef(0);
   const disposed = useRef(false);
@@ -75,10 +76,31 @@ export function useComposerAttachments() {
     if (!event.clipboardData.getData("text/plain")) event.preventDefault();
     void add(images);
   };
+  const hasFiles = (event: DragEvent<HTMLElement>) => event.dataTransfer.types.includes("Files");
+  const dropTarget = (enabled: boolean) => ({
+    onDragEnter: (event: DragEvent<HTMLElement>) => {
+      if (enabled && hasFiles(event)) setDragging(true);
+    },
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (!enabled || !hasFiles(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      if (!enabled || !hasFiles(event)) return;
+      event.preventDefault();
+      setDragging(false);
+      void add([...event.dataTransfer.files]);
+    },
+  });
 
   return {
     items,
     notice,
+    dragging,
     files: items.map(({ file }) => file),
     full: items.length >= MAX_AGENT_ATTACHMENTS,
     ready: items.length <= MAX_AGENT_ATTACHMENTS && items.every(({ error }) => !error),
@@ -86,6 +108,7 @@ export function useComposerAttachments() {
     remove,
     replace,
     paste,
+    dropTarget,
   };
 }
 
