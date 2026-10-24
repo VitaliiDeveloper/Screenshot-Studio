@@ -167,7 +167,9 @@ export function agentNotice(agents: AgentStatus[] | null, selected: AgentStatus 
 export function agentStateLabel(agent: AgentStatus): string {
   switch (agent.state) {
     case "ready":
-      return ["Signed in", "subscription", agent.version ? `v${agent.version}` : null].filter(Boolean).join(" · ");
+      // A null auth mode means the CLI has no status command, so sign-in is first checked by a run.
+      return [...agent.authMode ? ["Signed in", "subscription"] : ["Installed"], agent.version ? `v${agent.version}` : null]
+        .filter(Boolean).join(" · ");
     case "not-installed":
       return "Not installed";
     case "not-signed-in":

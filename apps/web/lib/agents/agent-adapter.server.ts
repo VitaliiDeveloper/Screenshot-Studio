@@ -81,7 +81,7 @@ export function progressEvent(steps: AgentStep[]): AgentEvent[] {
  */
 export function jsonLineNormalizer(
   message: (message: Record<string, unknown>) => AgentEvent[],
-  unfinishedExit: (stderr: string) => AgentEvent[],
+  unfinishedExit: (stderr: string, code: number | null) => AgentEvent[],
 ): AgentOutputNormalizer {
   let finished = false;
   return {
@@ -98,8 +98,8 @@ export function jsonLineNormalizer(
       finished = events.some(({ type }) => type === "done");
       return events;
     },
-    end({ stderr }) {
-      return finished ? [] : unfinishedExit(stderr);
+    end({ stderr, code }) {
+      return finished ? [] : unfinishedExit(stderr, code);
     },
   };
 }
