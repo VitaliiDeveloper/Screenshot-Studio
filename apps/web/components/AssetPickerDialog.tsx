@@ -31,7 +31,7 @@ import { DIALOG_EXIT_DURATION_MS } from "./editor-ui/DialogShell";
 
 type AssetElementType = "screenshot" | "image" | "background" | "store-badge" | "device-frame";
 
-function actionableAssetError(message: string): string {
+export function actionableAssetError(message: string): string {
   if (/unable to reopen the managed project/i.test(message)) {
     return "This project session is no longer connected to its managed files. Reopen the project from Projects, then choose or import an image.";
   }

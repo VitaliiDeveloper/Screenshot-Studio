@@ -27,6 +27,7 @@ import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImp
 import { ConfirmationDialog, cx } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { SizesBar } from "@web/components/editor-shell/SizesBar";
 import { StatusBar } from "@web/components/editor-shell/StatusBar";
 import { playEntries } from "@web/components/play-gallery-model";
 import {
@@ -42,6 +43,7 @@ import { useEditorResources } from "./editor-resources";
 import { useEditorSaveGuards } from "./use-editor-save-guards";
 import { useEditorIssues } from "./use-editor-issues";
 import { useEditorAgentChat } from "./use-editor-agent-chat";
+import { takeAgentStart } from "@web/lib/editor/agent-start-request";
 
 // react-konva needs the DOM; load the complete viewport client-only (no SSR).
 const DynamicCanvasViewport = dynamic(
@@ -116,6 +118,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
   const agentChat = useEditorAgentChat(panel === "agent", reloadFromDisk);
   const agentLocked = agentChat.locked;
+  const queueAgentStart = agentChat.queueStart;
   useEditorSaveGuards(saveStatus);
   // An in-app agent run reloads itself when it ends; poll only while the user can edit.
   const externalConflict = useExternalProjectChanges(
@@ -221,10 +224,15 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       if (intent === "locales") setLocaleDialogOpen(true);
       if (intent === "export") setExportOpen(true);
       if (intent === "add-screen" || intent === "layouts") setPanel("structure");
+      if (intent === "agent") {
+        setPanel("agent");
+        const request = takeAgentStart(activeProjectId);
+        if (request) queueAgentStart(request);
+      }
       if (intent) router.replace(pathname, { scroll: false });
     });
     return () => cancelAnimationFrame(frame);
-  }, [activeProjectId, pathname, router, setPanel, workspaceRestoredFor]);
+  }, [activeProjectId, pathname, queueAgentStart, router, setPanel, workspaceRestoredFor]);
 
   const openDialog = useCallback((next: ResourceDialog) => setDialog(next), []);
   const closeInspector = useCallback(() => setInspectorOpen(false), []);
@@ -325,6 +333,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         onOpenIssues={() => setIssuesOpen(true)}
         editingLocked={agentLocked}
       />
+      <SizesBar specs={specs} locked={agentLocked} />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
           tool={tool}
@@ -419,7 +428,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       </div>
       <StatusBar specs={specs} />
       {externalConflict && !projectNavigation.error ? (
-        <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           <p className="font-semibold">This project changed outside the editor.</p>
           <p className="mt-1">
             Your latest edits were not saved, so they did not overwrite that change. Loading the latest
@@ -435,7 +444,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </button>
         </div>
       ) : saveStatus === "error" && saveError && !projectNavigation.error ? (
-        <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
         </div>
       ) : null}

@@ -505,15 +505,26 @@ const styledPacks = () => listBuiltInTemplatePacks(storeSpecs).filter((pack) => 
 const isPanorama = (id: string) => id.includes("-panorama-");
 
 describe("styled template packs", () => {
-  it("ships every style for iPhone and Android phone with the full six-screen narrative", () => {
+  it("ships every style for phones and two for tablets and Mac, each with the full six-screen narrative", () => {
     const packs = styledPacks().filter((pack) => !isPanorama(pack.id));
-    expect(packs.map((pack) => pack.id)).toEqual(STYLES.flatMap((style) => [`${style}-iphone`, `${style}-android-phone`]));
+    const largeScreens = [
+      ["ipad", "apple", "ipad", ["clean", "aurora"]],
+      ["android-tablet", "android", "tablet-7", ["clean", "aurora"]],
+      ["macos", "apple", "macos", ["clean", "poster"]],
+    ] as const;
+    expect(packs.map((pack) => pack.id)).toEqual([
+      ...STYLES.flatMap((style) => [`${style}-iphone`, `${style}-android-phone`]),
+      ...largeScreens.flatMap(([slug, , , styles]) => styles.map((style) => `${style}-${slug}`)),
+    ]);
     for (const pack of packs) {
       expect(findBuiltInDesignPack(pack.style), pack.id).toBeDefined();
       expect(pack.screens.map((screen) => screen.name)).toEqual(["Hero", "Feature 1", "Feature 2", "Feature 3", "Social proof", "Call to action"]);
     }
     expect(listBuiltInTemplatePackMetadata().filter((pack) => STYLES.includes(pack.style) && !isPanorama(pack.id)).map((pack) => [pack.platform, pack.device, pack.screenCount]))
-      .toEqual(STYLES.flatMap(() => [["apple", "iphone", 6], ["android", "phone", 6]]));
+      .toEqual([
+        ...STYLES.flatMap(() => [["apple", "iphone", 6], ["android", "phone", 6]]),
+        ...largeScreens.flatMap(([, platform, device, styles]) => styles.map(() => [platform, device, 6])),
+      ]);
   });
 
   it.each(["ltr", "rtl"] as const)("keeps %s geometry exact, readable, and clear of the device", (direction) => {

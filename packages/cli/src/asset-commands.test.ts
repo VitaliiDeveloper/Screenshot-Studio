@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import sharp from "sharp";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,6 +27,38 @@ afterEach(() => {
 });
 
 describe("runAssetCommand", () => {
+  it("imports an image from outside the project without touching the project file", async () => {
+    const projectPath = await projectWithSource("screenshot-studio-asset-command-import-");
+    const projectBefore = await readFile(projectPath);
+    const outside = await mkdtemp(join(tmpdir(), "screenshot-studio-asset-import-source-"));
+    const png = await readFile(join(dirname(projectPath), "assets", "icons", "source.png"));
+    await writeFile(join(outside, "1.png"), png);
+
+    await expect(runAssetCommand(projectPath, ["import", join(outside, "1.png")], {}))
+      .resolves.toBe("Imported assets/imported/1.png");
+    await expect(runAssetCommand(projectPath, ["import", join(outside, "1.png")], {}))
+      .resolves.toBe("Imported assets/imported/1.png");
+    await writeFile(join(outside, "1.png"), await sharp(png).png({ compressionLevel: 0 }).toBuffer());
+    await expect(runAssetCommand(projectPath, ["import", join(outside, "1.png")], {}))
+      .resolves.toBe("Imported assets/imported/1-2.png");
+    expect(await readFile(join(dirname(projectPath), "assets", "imported", "1.png"))).toEqual(png);
+    expect(await readFile(projectPath)).toEqual(projectBefore);
+  });
+
+  it("refuses an import that is not an image file", async () => {
+    const projectPath = await projectWithSource("screenshot-studio-asset-command-import-invalid-");
+    const outside = await mkdtemp(join(tmpdir(), "screenshot-studio-asset-import-invalid-"));
+    await writeFile(join(outside, "notes.png"), "not an image");
+
+    await expect(runAssetCommand(projectPath, ["import", join(outside, "notes.png")], {}))
+      .rejects.toThrow(/valid PNG, JPEG, or WebP/);
+    await expect(runAssetCommand(projectPath, ["import", outside], {})).rejects.toThrow(/not a file/);
+    await expect(runAssetCommand(projectPath, ["import", join(outside, "missing.png")], {}))
+      .rejects.toThrow(/not found/);
+    await expect(runAssetCommand(projectPath, ["import"], {})).rejects.toThrow(/asset import <file>/);
+    await expect(readdir(join(dirname(projectPath), "assets", "imported"))).rejects.toThrow(/ENOENT/);
+  });
+
   it("returns the persisted auto-crop path and dimensions", async () => {
     const projectPath = await projectWithSource("screenshot-studio-asset-command-crop-");
 

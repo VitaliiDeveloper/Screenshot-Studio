@@ -19,11 +19,13 @@ const sample = JSON.parse(readFileSync(
 const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "https://example.test", checkedAt: "2026-10-15" } as const;
 const claude: AgentStatus = {
   id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
-  state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
+  state: "ready", authMode: "subscription", policy, consented: null,
+  models: [{ id: "claude-sonnet-5-5", label: "Sonnet 5.5" }, { id: "claude-haiku-5-5", label: "Haiku 5.5" }],
+  efforts: [{ id: "medium", label: "Medium" }, { id: "high", label: "High" }], defaultEffort: "high",
   setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
 };
 const codex: AgentStatus = {
-  ...claude, id: "codex", name: "Codex", state: "not-signed-in", authMode: null, models: [],
+  ...claude, id: "codex", name: "Codex", state: "not-signed-in", authMode: null, models: [], efforts: [], defaultEffort: null,
   setupUrl: "https://developers.openai.com/codex/quickstart", signInCommand: "codex login",
 };
 
@@ -34,7 +36,8 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     agentsError: null,
     checking: false,
     selected: agents?.[0],
-    selectedModel: agents?.[0]?.models[0] ?? null,
+    selectedModel: agents?.[0]?.models[0]?.id ?? null,
+    selectedEffort: agents?.[0]?.defaultEffort ?? null,
     turns: [],
     phase: "idle",
     locked: false,
@@ -45,7 +48,9 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     refreshAgents: vi.fn(),
     selectAgent: vi.fn(),
     selectModel: vi.fn(),
+    selectEffort: vi.fn(),
     send: vi.fn(),
+    queueStart: vi.fn(),
     stop: vi.fn(),
     keep: vi.fn(),
     undo: vi.fn(),
@@ -75,12 +80,16 @@ describe("AgentPanel", () => {
     editorStore.getState().resetProjectState();
   });
 
-  it("picks the agent and model with labelled controls and names the composer", () => {
+  it("picks the agent, model and effort with labelled controls and names the composer", () => {
     const markup = render(chat());
 
-    expect(markup.match(/aria-haspopup="menu"/g)).toHaveLength(2);
+    expect(markup.match(/aria-haspopup="menu"/g)).toHaveLength(3);
     expect(markup).toMatch(/aria-label="Agent" aria-haspopup="menu"/);
-    expect(markup).toMatch(/aria-label="Model" aria-haspopup="menu"/);
+    expect(markup).toMatch(/aria-label="Model" aria-haspopup="menu"[^]*?>Sonnet 5\.5<\/span>/);
+    expect(markup).toMatch(/aria-label="Effort" aria-haspopup="menu"[^]*?>High effort<\/span>/);
+    const codexMarkup = render(chat({ agents: [codex, claude], selected: { ...codex, state: "ready" }, selectedModel: null, selectedEffort: null }));
+    expect(codexMarkup).toContain("CLI default model");
+    expect(codexMarkup).not.toMatch(/aria-label="(?:Model|Effort)"/);
     expect(markup).toContain("Your subscription · runs on this computer");
     expect(markup).toMatch(/<label[^>]*class="sr-only"[^>]*>Message to Claude Code<\/label>/);
     expect(markup).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Send<\/button>/);
@@ -104,7 +113,7 @@ describe("AgentPanel", () => {
 
     const limited: AgentEvent[] = [
       { type: "error", code: "usage-limit", message: "limit", resets: "3pm (Europe/Kyiv)" },
-      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1" },
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1", otherFiles: { files: [], count: 0 } },
       { type: "done", status: "failed", summary: null, durationMs: 10 },
     ];
     const limit = render(chat({ turns: [limited.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Add German"))] }));
@@ -114,7 +123,7 @@ describe("AgentPanel", () => {
     expect(limit).toContain("Retry");
 
     const rejectedEvents: AgentEvent[] = [
-      { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1" },
+      { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1", otherFiles: { files: [], count: 0 } },
       { type: "done", status: "failed", summary: null, durationMs: 10 },
     ];
     const rejected = render(chat({ turns: [rejectedEvents.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Add German"))] }));
@@ -189,7 +198,9 @@ describe("AgentPanel", () => {
 
   it("reviews an accepted run with Go to, checks, and Keep / Undo run (7b)", () => {
     const markup = render(chat({
-      outcome: { revision: "r2", changedScreens: ["save-fast", "hero"], finishedAt: "2026-10-22T12:06:00.000Z" },
+      outcome: {
+        revision: "r2", changedScreens: ["save-fast", "hero"], otherFiles: { files: [], count: 0 }, finishedAt: "2026-10-22T12:06:00.000Z",
+      },
     }));
 
     expect(markup).toContain('aria-label="Agent run review"');
@@ -200,6 +211,39 @@ describe("AgentPanel", () => {
     expect(markup).toContain("Undo run");
     expect(markup).toContain("Keep changes");
     expect(markup).not.toContain("Message to Claude Code");
+  });
+
+  it("lists the other files a run changed, which neither Undo run nor Stop restores", () => {
+    const otherFiles = {
+      files: [{ path: "AGENTS.md", change: "modified" as const }, { path: "themes/brand.json", change: "added" as const }],
+      count: 3,
+    };
+    const unchangedEvents: AgentEvent[] = [
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1", otherFiles },
+      { type: "done", status: "completed", summary: null, durationMs: 10 },
+    ];
+    const unchanged = render(chat({ turns: [unchangedEvents.reduce(applyAgentEvent, createAgentTurn(1, "Codex", "Tidy"))] }));
+    expect(unchanged).toContain("No changes to the project file.");
+    expect(unchanged).toContain("Other files · 3");
+    expect(unchanged).toMatch(/aria-label="Other files changed".*AGENTS\.md<\/span><span[^>]*>changed<\/span>/);
+    expect(unchanged).toContain("and 1 more");
+    expect(unchanged).toContain("Undo run and Stop don&#x27;t restore these files.");
+
+    const stoppedEvents: AgentEvent[] = [
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r1", otherFiles: null },
+      { type: "done", status: "cancelled", summary: null, durationMs: 10 },
+    ];
+    const stopped = render(chat({ turns: [stoppedEvents.reduce(applyAgentEvent, createAgentTurn(1, "Codex", "Tidy"))] }));
+    expect(stopped).toContain("Stopped. The project file is back to its state before this run.");
+    expect(stopped).toContain("The project folder could not be compared, so changes to other files are unknown.");
+
+    const review = render(chat({
+      outcome: { revision: "r2", changedScreens: ["hero"], otherFiles, finishedAt: "2026-10-22T12:06:00.000Z" },
+    }));
+    expect(review).toContain('aria-label="Agent run review"');
+    expect(review).toContain("Other files · 3");
+    expect(review).toContain("themes/brand.json");
+    expect(review).toContain("Undo run restores the project file from the snapshot taken before the run.");
   });
 
   it("offers a labelled Attach button and shows a message's images with their file names", () => {

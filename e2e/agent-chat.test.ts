@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { chromium, type Browser } from "playwright";
-import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ if (args[0] === "--help") {
 }
 if (args[0] === "auth") { out({ loggedIn: true, authMethod: "claude.ai" }); process.exit(0); }
 appendFileSync(join(__dirname, "runs.log"), JSON.stringify(args) + "\\n");
+appendFileSync(join(__dirname, "cwd.log"), process.cwd() + "\\n");
 const runDir = args.find((arg, index) => args[index - 1] === "--add-dir" && /run-/.test(arg));
 if (runDir) appendFileSync(join(__dirname, "attachments.log"), JSON.stringify(require("node:fs").readdirSync(runDir)) + "\\n");
 const todos = (status) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "TodoWrite", input: { todos: [
@@ -38,7 +39,9 @@ const started = Date.now();
 const wait = () => {
   if (!existsSync(join(__dirname, "release")) && Date.now() - started < 60000) return setTimeout(wait, 50);
   const project = JSON.parse(readFileSync("app-store-screenshots.json", "utf8"));
-  project.layouts[0].screens.find((screen) => screen.id === "hero").name = "Agent Hero";
+  const screens = project.layouts[0].screens;
+  const screen = screens.find(({ id }) => id === "hero") ?? screens[0];
+  if (screen) screen.name = "Agent Hero";
   writeFileSync("app-store-screenshots.json", JSON.stringify(project, null, 2));
   out(todos("completed"));
   out({ type: "result", subtype: "success", is_error: false, duration_ms: 1200, result: "Renamed the Hero screen." });
@@ -59,7 +62,9 @@ let browser: Browser;
 let dir: string;
 let binDir: string;
 let projectFile: string;
+let dataRoot: string;
 const originalPath = process.env.PATH;
+const originalDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
 // A run first re-probes the CLI and snapshots the project, so its first events take a moment.
 const poll = { timeout: 15_000 };
 
@@ -73,6 +78,7 @@ const heroName = () => (JSON.parse(readFileSync(projectFile, "utf8")) as {
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "agent-chat-e2e-"));
   binDir = mkdtempSync(join(tmpdir(), "agent-chat-bin-"));
+  dataRoot = mkdtempSync(join(tmpdir(), "agent-chat-data-"));
   projectFile = join(dir, "app-store-screenshots.json");
   cpSync(resolve(repoRoot, "fixtures/sample/assets"), join(dir, "assets"), { recursive: true });
   writeFileSync(projectFile, readFileSync(sample, "utf8"));
@@ -82,6 +88,8 @@ beforeAll(async () => {
   }
   // The server inherits this PATH, and agent runs keep PATH, so the fake CLIs shadow real ones.
   process.env.PATH = `${binDir}${delimiter}${originalPath ?? ""}`;
+  // Start with agent creates a managed project; keep it out of the developer's own library.
+  process.env.SCREENSHOT_STUDIO_DATA_ROOT = dataRoot;
   server = await startWebServer(undefined, {
     projectPath: projectFile,
     storeSpecsPath: resolve(repoRoot, "store-specs.json"),
@@ -91,10 +99,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   process.env.PATH = originalPath;
+  if (originalDataRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+  else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalDataRoot;
   await browser?.close();
   await server?.stop();
   rmSync(dir, { recursive: true, force: true });
   rmSync(binDir, { recursive: true, force: true });
+  rmSync(dataRoot, { recursive: true, force: true });
 });
 
 describe("Agent panel", () => {
@@ -110,7 +121,9 @@ describe("Agent panel", () => {
     await expect.poll(() => panel.getByRole("button", { name: "Agent", exact: true }).textContent(), poll).toContain("Claude Code");
 
     await panel.getByRole("button", { name: "Model", exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "haiku" }).click();
+    await page.getByRole("menuitemradio", { name: "Haiku 5.5" }).click();
+    await panel.getByRole("button", { name: "Effort", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Low" }).click();
     await composer.fill("Rename the hero screen");
     await composer.press("Enter");
 
@@ -131,7 +144,8 @@ describe("Agent panel", () => {
     expect(await review.textContent()).toContain("Changes · 1");
     const runArgs = readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as string[]);
     expect(runArgs).toHaveLength(1);
-    expect(runArgs[0]!.slice(runArgs[0]!.indexOf("--model"), runArgs[0]!.indexOf("--model") + 2)).toEqual(["--model", "haiku"]);
+    expect(runArgs[0]!.slice(runArgs[0]!.indexOf("--model"), runArgs[0]!.indexOf("--model") + 2)).toEqual(["--model", "claude-haiku-5-5"]);
+    expect(runArgs[0]!.slice(runArgs[0]!.indexOf("--effort"), runArgs[0]!.indexOf("--effort") + 2)).toEqual(["--effort", "low"]);
 
     // The Go to row comes from the reloaded store, so the canvas reads the agent's project.
     await review.getByRole("button", { name: "Go to Agent Hero" }).click();
@@ -197,6 +211,64 @@ describe("Agent panel", () => {
     expect(readFileSync(projectFile, "utf8")).not.toMatch(/brand-reference|run-/);
     await review.getByRole("button", { name: "Undo run" }).click();
     await review.waitFor({ state: "detached" });
+    expect(heroName()).toBe("Hero");
+    await page.close();
+  });
+
+  it("starts a new project from Projects and runs the agent on it in the Workspace", async () => {
+    rmSync(join(binDir, "release"), { force: true });
+    const runs = () => (existsSync(join(binDir, "runs.log")) ? readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").length : 0);
+    const runsBefore = runs();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    // Opening the configured project first makes Projects show the gallery and its New project button.
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await page.goto(server.url, { waitUntil: "load" });
+
+    await page.getByRole("button", { name: "New project" }).click();
+    const dialog = page.getByRole("dialog", { name: "Create a managed project" });
+    await dialog.getByRole("radio", { name: /Start with agent/ }).check(poll);
+    await dialog.getByRole("textbox", { name: "Describe the app" }).fill("Habit tracker for runners. Calm, light look.");
+    await dialog.locator('input[type="file"]').setInputFiles({ name: "app-home.png", mimeType: "image/png", buffer: Buffer.from(PNG_BASE64, "base64") });
+    await dialog.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "app-home.png" }).waitFor();
+    // A drop anywhere on the expanded card attaches, not only on the description box.
+    const logo = await page.evaluateHandle((base64) => {
+      const data = new DataTransfer();
+      data.items.add(new File([Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))], "logo.png", { type: "image/png" }));
+      return data;
+    }, PNG_BASE64);
+    const cardTitle = dialog.getByText("Start with agent", { exact: true });
+    for (const type of ["dragenter", "dragover", "drop"]) await cardTitle.dispatchEvent(type, { dataTransfer: logo });
+    await dialog.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "logo.png" }).waitFor();
+    await dialog.getByRole("button", { name: "Remove logo.png" }).click();
+    expect(await dialog.getByRole("textbox", { name: "Describe the app" }).evaluate((node) => node === document.activeElement)).toBe(true);
+    await dialog.getByRole("textbox", { name: "Project name" }).fill("Run Habit");
+    await dialog.getByRole("button", { name: "Target platform" }).click();
+    await dialog.getByRole("menu", { name: "Target platform options" }).getByRole("menuitemradio", { name: "Google Play" }).click();
+    await dialog.getByRole("button", { name: "Device family" }).click();
+    await dialog.getByRole("menu", { name: "Device family options" }).getByRole("menuitemradio", { name: "Android tablet" }).click();
+    await dialog.getByRole("button", { name: "Model", exact: true }).click();
+    await dialog.getByRole("menu", { name: "Model options" }).getByRole("menuitemradio", { name: "Haiku 5.5" }).click();
+    await dialog.getByRole("button", { name: "Effort", exact: true }).click();
+    await dialog.getByRole("menu", { name: "Effort options" }).getByRole("menuitemradio", { name: "Extra high" }).click();
+    await dialog.getByRole("button", { name: "Create with Claude Code" }).click();
+
+    await page.waitForURL(/\/editor\/project_[^/?]+$/, poll);
+    const panel = page.getByRole("complementary", { name: "Agent", exact: true });
+    await expect.poll(() => panel.getByRole("status").first().textContent(), poll).toContain("Running");
+    expect(await panel.textContent()).toContain("Habit tracker for runners. Calm, light look.");
+    expect(await panel.textContent()).toContain("Destination: Google Play · Android tablet");
+    expect(await panel.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "app-home.png" }).count()).toBe(1);
+    await expect.poll(runs, poll).toBe(runsBefore + 1);
+    const args = JSON.parse(readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").at(-1)!) as string[];
+    expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual(["--model", "claude-haiku-5-5"]);
+    expect(args.slice(args.indexOf("--effort"), args.indexOf("--effort") + 2)).toEqual(["--effort", "xhigh"]);
+    expect(readFileSync(join(binDir, "attachments.log"), "utf8").trim().split("\n").at(-1)).toBe('["1.png"]');
+    expect(readFileSync(join(binDir, "cwd.log"), "utf8").trim().split("\n").at(-1)!.startsWith(realpathSync(dataRoot))).toBe(true);
+
+    writeFileSync(join(binDir, "release"), "");
+    await page.getByText("Claude Code is editing this project").waitFor({ state: "detached", ...poll });
+    expect(runs()).toBe(runsBefore + 1);
     expect(heroName()).toBe("Hero");
     await page.close();
   });

@@ -178,7 +178,7 @@ Layouts, output families, locales, and Panorama composition may change how conte
 the interface must preserve scope: an action explains which layout, locale, output, screen, or element
 it affects and must not silently mutate a sibling scope.
 The Layers panel keeps the same `Add screen` action available in every exact-size editing scope. Moving
-between master and variant sizes uses the output targets themselves instead of a second navigation
+between master and variant sizes uses the sizes bar instead of a second navigation
 control in the Screens header. New projects and newly created output families explicitly default to
 **Sync sizes**. Existing documents without a persisted policy retain **Separate** behavior for
 backward compatibility: adding, deleting, or reordering in an exact size changes only that size. A
@@ -190,18 +190,29 @@ preserves paired exact-size composition by detaching it into an ordinary standal
 created exact size while each screen's layers and copy stay independently editable. Enabling it
 reconciles unequal rows to the longest row and makes the resulting slot mapping visible before later
 mutations follow it.
-The Inspector lists exact-size targets at the active destination/device/locale family scope, so a target
-does not disappear when another compatible master screen is selected. Selection styling identifies
-the current family and exact size without a redundant `Current` action. Removing a size or slot uses
-the same labelled app-owned confirmation pattern and follows the visible Separate/Sync sizes scope.
-Removing a size removes that complete exact-size row; deleting an individual screen changes only the
-slot scope described above.
-Where people pick or edit a size (the Add output size menu, the output size cards, and Status by
-size), a target the catalog lists devices for is titled by those devices, up to three and then
-`+N` (`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store
+The 44 px **sizes bar** under the top bar is the one place that lists, adds, and removes exact sizes.
+It shows every size of the layout for the active locale, grouped by output family
+(`App Store · iPhone`) in layout order with the master first, so in isolated layouts its chips read
+left to right in the order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
+out as the default), its pixels when the slot does not already name them, and its **Master** or
+**Variant** role; its tooltip lists the devices. A family's sizes stay listed when another compatible
+master screen is selected. A chip opens the active slot's screen when that size holds one, else the
+size's first screen, and the current size is marked without a redundant `Current` action.
+**Add size** lists each family's missing sizes under that family and the families the layout lacks
+under **New destination**; adding a size to another family first opens that family. **Remove size…**
+acts on the current size: on a variant it removes that complete exact-size row, on a master it removes
+the whole family from the locale, and it is disabled for the last family and for a standalone
+exact-size screen. Both removals use the labelled app-owned confirmation, follow the visible
+Separate/Sync sizes scope, and undo as one step; deleting an individual screen changes only the slot
+scope described above. The Inspector's Screen tab keeps only **Screen structure** (Separate / Sync
+sizes) for the screen's family. While an agent run holds the project, chips still switch sizes like
+`[` and `]`, and Add size and Remove size… are disabled.
+Where people pick a size to add (the Add size menu) or edit one (Status by size), a target the
+catalog lists devices for is titled by those devices, up to three and then `+N`
+(`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store
 slot and pixels follow as the detail (`Dynamic Island · Medium · 1206 × 2622 px`), and the full
-device list is the card's tooltip. Export, Overview rows, the Screens header, Apply to, and the
-artboard caption keep the slot name, because they describe what is exported and uploaded.
+device list is the tooltip. The sizes bar, Export, Overview rows, the Screens header, Apply to, and
+the artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
 (`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues
@@ -325,9 +336,11 @@ is dragged, transformed, or edited inline.
 
 **Agent**, the rail item after Locales, opens a 288 px panel in place of the Screens → Layers tree.
 It runs an official agent CLI that the user installed and signed in to with their own subscription
-(server rules: [`docs/architecture.md`](architecture.md)). Its header picks the agent and model
-from `/api/agents`; each agent lists its sign-in state and version, and an agent without model
-aliases shows `CLI default model`. When the selected agent cannot run, the panel says why and what
+(server rules: [`docs/architecture.md`](architecture.md)). Its header picks the agent on one row and
+the model and effort on the next, from `/api/agents`; each agent lists its sign-in state and version.
+The model trigger names the exact model (**Sonnet 5.5** by default) and the effort trigger the level
+(**High effort** by default, from Low to Max); an agent without listed models shows
+`CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. When the selected agent cannot run, the panel says why and what
 to do: **No agent found** when no CLI is installed (each links to its official setup page; the
 editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
 own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
@@ -339,6 +352,10 @@ back. An agent the editor cannot run yet says **Not supported in the editor yet*
 reads the registry again. Agent purple marks only what a run
 does; manual work keeps the blue accent.
 
+A project created from the **Start with agent** starting point in New project opens with this
+panel and its first run already started. If that agent can no longer run when the Workspace opens,
+the message shows as a failed turn with **Retry** instead of being sent.
+
 The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
 text, so the CLI does not remember earlier messages; the history is editor memory that **New chat**
 clears and is never written to the project. A pending edit is saved before the run starts. While
@@ -348,7 +365,8 @@ says `{agent} is editing this project`. Editing pauses for the run: the canvas, 
 Inspector are inert; Undo, Redo, Export, Issues, the layout menu, the resource dialogs, and Projects
 are disabled; only view keys (`[` `]`, `O`, ⌘J) work. The composer still takes the next request, and Send waits for the
 run to end. Esc keeps closing the panel and never stops a run. **Stop** ends the run and, if it had
-changed the project, undoes it, so the project is back at its pre-run state.
+changed the project, undoes it, so `app-store-screenshots.json` is back at its pre-run state; other
+files the run changed stay as it left them.
 
 **Attach images** gives the agent a reference, mockup, or screenshot as context for that one request.
 The paperclip button (keyboard reachable) opens the file picker, dropping files on the panel shows a
@@ -359,8 +377,10 @@ WebP are accepted, judged by the file's bytes rather than its name; the limits a
 10 MB each per message. The composer notes that attached images are sent to the agent's provider with
 the request, through the user's subscription. Images belong to one message and one run: the message
 shows its thumbnails from editor memory, **New chat** frees them, and **Retry** and **Ask agent to fix**
-send the same images again (the latter puts them back in the composer). They are never written to the
-project folder or `app-store-screenshots.json`; placing an image in the project is a separate step.
+send the same images again (the latter puts them back in the composer). An image reaches the project
+folder only when the user asks the agent to use it: the agent runs `screenshots asset import`, which
+stores a validated copy under `assets/imported/`, then assigns that path to an element. Undo run and
+Stop restore `app-store-screenshots.json` only, so an imported copy stays on disk, unreferenced.
 
 A rejected result was already rolled back by the server: the panel says so, with the schema reason
 under **Show details** and **Ask agent to fix**, which prefills the composer. A usage limit names
@@ -377,6 +397,14 @@ validation passed, and the Issues count with **Issues**). **Keep changes** drops
 snapshot; **Undo run** restores it as one write and is refused once the project changed after the
 run. Undo run covers only `app-store-screenshots.json`, and ⌘Z history starts fresh after the
 reload. A review survives an editor reload while the server still holds the snapshot.
+
+Whenever a run changed files in the project folder outside `app-store-screenshots.json` (an agent's
+own edits, or the CLI's imported images, fonts, themes, and templates), the finished message and the
+Review list them under **Other files · N** with each path and `added`, `changed`, or `removed`
+(`AGENTS.md` and `CLAUDE.md` first, the first 50 then `and N more`), and say that Undo run and Stop
+don't restore them. The message's own text then names "the project file" instead of "the project",
+for example `No changes to the project file.` When the folder was too large or unreadable to compare,
+the message says changes to other files are unknown.
 
 Opening the panel focuses the composer. When Stop, the review, or the composer disappears, focus
 moves to the composer or **Keep changes** instead of the page. The running status is a polite live
@@ -395,6 +423,22 @@ An unavailable local source remains visible because it may live on temporarily d
 but its card exposes a directly labelled destructive history icon beside the left-aligned recovery
 message and states that project files stay untouched.
 
+**New project** offers **Start with agent** as its first starting point, on first run and in the
+gallery alike, when `/api/agents` lists an agent that can run now: signed in with a subscription,
+at a verified version, and allowed by its policy (an agent at your own risk needs the consent given
+in the Agent panel). Projects loads the registry once with the page; without it the dialog has no
+agent starting point. Choosing it starts the project from the blank starter with the
+dialog's name, destination, and layout mode, and expands the card into a composer in agent purple:
+the description, the same agent, model and effort pickers as the Agent panel (inline here), and
+the destination the agent builds for; the first run uses the chosen model and effort. Languages,
+more stores, and sizes are requested in the description. Up to five images (app screenshots, a
+logo) attach the same way as in the Agent panel composer: the Attach button, drop, or paste, each
+checked by its bytes. **Create with {agent}** creates the project through the same path, then opens
+its Workspace with the Agent panel, which sends the first message itself with those images: a fixed
+line asking for the first screens, the destination, then the description. The request and its images
+stay in page memory, never in the URL or the project, so a reload cannot start a second run. A creation failure shows in the dialog like any
+other New project failure.
+
 New project, project folder/archive import, Capture folder import, and gallery reopen all activate the
 exact receiver before navigating to its canonical `/editor/[entryId]` Workspace URL. Opening that
 URL in another browser activates the same Project Library entry before Workspace loads; invalid or
@@ -402,9 +446,9 @@ unavailable identities show a visible error and never fall back to another activ
 remains a compatibility route for sessions whose Project Library entry identity is not available.
 Capture folder is a choice inside `Import`, not a third top-level first-run action. The editor tool
 rail exists only in Workspace. It holds the Select and Hand tools, the Layers panel toggle, one
-entry per resource (Screen templates, Design packs, Fonts, Locales), each opening its existing
-dialog rather than an intermediate panel, and the Agent panel toggle. Every item carries a short
-caption under its icon (Select, Hand, Layers, Templates, Packs, Fonts, Locales, Agent, Play,
+entry per resource (Screen templates, Design packs, Fonts, Project images, Locales), each opening
+its dialog rather than an intermediate panel, and the Agent panel toggle. Every item carries a short
+caption under its icon (Select, Hand, Layers, Templates, Packs, Fonts, Images, Locales, Agent, Play,
 Projects) that its accessible name contains, and active items get the light accent fill. Its bottom group holds Play and the
 `Projects` home action, which drains pending saves, preserves project-keyed workspace state, and returns to
 `/`; save failure blocks that navigation and leaves the current Workspace mounted. If the project
@@ -416,6 +460,7 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
+The 44 px sizes bar sits directly under the top bar and stays visible at every width (see §3).
 A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
 the active screen, the current layer selection, and that screen's size, as in
 `Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or
@@ -525,6 +570,11 @@ an arbitrary local filesystem path.
   file-picker import. A successful import copies the validated image into project-local `assets/`
   storage and immediately applies that resource to the current action; users never enter an asset URL
   or filesystem path by hand.
+- The **Images** rail item opens **Project images**, a library of the images the project already
+  owns (`assets/` and `screenshots/`) with search and **Import image…**. It has no target: import
+  copies the file into `assets/` through the same asset route and selects it without changing any
+  screen. **Insert as image** adds the selected image as an Image layer on the current screen and
+  closes the dialog. Replace… and **+ Add → Image** keep their own target pickers.
 - Do not make UI automation, provider-backed translation, cloud collaboration, or telemetry implicit
   product behavior.
 - New UI patterns should compose the shared primitives and tokens, preserve responsive/accessibility

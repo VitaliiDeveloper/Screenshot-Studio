@@ -68,7 +68,7 @@ async function sessionRequest(method: string, host = "localhost:3000", body?: un
   });
 }
 
-const RUN = { agentId: "claude-code", message: "Add German" };
+const RUN = { agentId: "claude-code", message: "Add German", model: "claude-haiku-5-5", effort: "low" };
 
 const PNG_BYTES = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 
@@ -99,7 +99,7 @@ function started(): Promise<boolean> {
 
 describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
   it("streams a run as server-sent events for the cookie-selected project", async () => {
-    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    await fakeClaude(`printf '%s\\n' "$@" > '${dir}/argv'; /bin/cat '${SUCCESS_FIXTURE}'`);
 
     const response = await POST(await sessionRequest("POST", undefined, RUN));
 
@@ -108,6 +108,8 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
     const frames = (await response.text()).split("\n\n").filter(Boolean);
     expect(frames.every((frame) => frame.startsWith("data: "))).toBe(true);
     expect(JSON.parse(frames.at(-1)!.slice(6))).toMatchObject({ type: "done", status: "completed" });
+    const argv = (await readFile(join(dir, "argv"), "utf8")).split("\n");
+    expect(argv).toEqual(expect.arrayContaining(["--model", "claude-haiku-5-5", "--effort", "low"]));
   });
 
   it("refuses a foreign Host before resolving the project or spawning anything", async () => {
@@ -137,6 +139,16 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
     }));
     expect(unknownModel.status).toBe(400);
     expect(await unknownModel.json()).toMatchObject({ code: "unknown-model" });
+
+    const effortType = await handleAgentSessionPost(projectPath, new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify({ agentId: "claude-code", message: "Hi", effort: 3 }),
+    }));
+    expect(effortType.status).toBe(400);
+    const unknownEffort = await handleAgentSessionPost(projectPath, new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify({ agentId: "codex", message: "Hi", effort: "high" }),
+    }));
+    expect(unknownEffort.status).toBe(400);
+    expect(await unknownEffort.json()).toMatchObject({ code: "unknown-effort" });
     expect(await started()).toBe(false);
   });
 
@@ -207,6 +219,7 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
       expect(await response.text()).toContain('"status":"completed"');
       const argv = (await readFile(join(dir, "argv"), "utf8")).split("\n");
       expect(argv.filter((_, index) => argv[index - 1] === "--add-dir").some((value) => /run-/.test(value))).toBe(true);
+      expect(argv).toEqual(expect.arrayContaining(["--model", "claude-haiku-5-5", "--effort", "low"]));
       expect((await readdir(dir)).sort()).toEqual(["app-store-screenshots.json", "argv", "bin", "started"]);
       expect(await readFile(projectPath, "utf8")).not.toMatch(/\.png|attachment/i);
     });
