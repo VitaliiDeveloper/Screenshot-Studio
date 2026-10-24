@@ -8,6 +8,7 @@ import {
   applyAgentEvent,
   createAgentEventParser,
   agentCanRun,
+  agentRunChoices,
   createAgentTurn,
   defaultAgentId,
   type AgentTurnAttachment,
@@ -59,6 +60,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [checking, setChecking] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [effort, setEffort] = useState<string | null>(null);
   const [turns, setTurns] = useState<AgentTurn[]>([]);
   const [phase, setPhase] = useState<AgentChatPhase>("idle");
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
@@ -78,7 +80,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const loaded = useRef(false);
 
   const selected = agents?.find((agent) => agent.id === agentId);
-  const selectedModel = selected && model && selected.models.includes(model) ? model : selected?.models[0] ?? null;
+  const { model: selectedModel, effort: selectedEffort } = agentRunChoices(selected, model, effort);
 
   const refreshAgents = useCallback(async () => {
     await Promise.resolve();
@@ -159,11 +161,14 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       form.set("agentId", agent.id);
       form.set("message", message);
       if (selectedModel) form.set("model", selectedModel);
+      if (selectedEffort) form.set("effort", selectedEffort);
       for (const file of files) form.append("image", file);
       const response = await fetch("/api/agents/session", {
         method: "POST",
         headers: files.length > 0 ? projectRequestHeaders() : jsonHeaders(),
-        body: files.length > 0 ? form : JSON.stringify({ agentId: agent.id, message, model: selectedModel }),
+        body: files.length > 0
+          ? form
+          : JSON.stringify({ agentId: agent.id, message, model: selectedModel, effort: selectedEffort }),
         signal: controller.signal,
       });
       responded.current = true;
@@ -221,12 +226,13 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     if (launched && !finished) await loadOutcome();
     setPhase("idle");
     return true;
-  }, [loadOutcome, phase, refreshAgents, reloadFromDisk, selected, selectedModel]);
+  }, [loadOutcome, phase, refreshAgents, reloadFromDisk, selected, selectedEffort, selectedModel]);
 
   const queueStart = useCallback((request: AgentStartRequest) => {
     queued.current = request;
     setAgentId(request.agentId);
     setModel(request.model);
+    setEffort(request.effort);
   }, []);
 
   // `send` reads the selected agent, so the request waits until the registry has selected it.
@@ -310,6 +316,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const selectAgent = useCallback((id: string) => {
     setAgentId(id);
     setModel(null);
+    setEffort(null);
     setConsentError(null);
   }, []);
 
@@ -325,6 +332,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     checking,
     selected,
     selectedModel,
+    selectedEffort,
     turns,
     phase,
     locked: phase !== "idle",
@@ -335,6 +343,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     refreshAgents,
     selectAgent,
     selectModel: setModel,
+    selectEffort: setEffort,
     send,
     queueStart,
     stop,

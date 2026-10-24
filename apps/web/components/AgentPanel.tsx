@@ -10,8 +10,9 @@ import type { AgentOtherFiles } from "@web/lib/agents/agent-session.server";
 import type { IssueCounts } from "@web/lib/editor/editor-issues";
 import { editorStore } from "@web/lib/editor/editor-store";
 import type { EditorAgentChat } from "@web/app/editor/use-editor-agent-chat";
+import { AgentPicker } from "./AgentPicker";
 import { attachmentThumbnail, ComposerAttachButton, ComposerAttachments, useComposerAttachments } from "./ComposerAttachments";
-import { cx, editorUi, MenuSelect, StatusMessage } from "./editor-ui";
+import { cx, editorUi, StatusMessage } from "./editor-ui";
 import { PanelHeader } from "./LeftPanel";
 import {
   agentCanRun,
@@ -586,33 +587,17 @@ export function AgentPanel({
           </button>
         </div>
         {agents && selected && notice?.kind !== "no-agent" ? (
-          <div ref={picker} className="flex items-center gap-2">
-            <MenuSelect
-              ariaLabel="Agent"
-              value={selected.id}
-              options={agents.map((agent) => ({
-                value: agent.id,
-                label: [agent.name, agent.policy.level === "at-own-risk" ? policyLevelLabel(agent) : null, agentStateLabel(agent)]
-                  .filter(Boolean).join(" · "),
-                triggerLabel: agent.name,
-              }))}
-              onChange={chat.selectAgent}
-              density="compact"
-              wrapLabels
-              // The panel clips overflow, so the menu opens from the trigger's start edge at panel width.
-              menuClassName="!left-0 !right-auto w-[260px]"
-              className="min-w-0 flex-1"
+          <div ref={picker}>
+            <AgentPicker
+              layout="stacked"
+              agents={agents}
+              agent={selected}
+              model={chat.selectedModel}
+              effort={chat.selectedEffort}
+              onAgentChange={chat.selectAgent}
+              onModelChange={chat.selectModel}
+              onEffortChange={chat.selectEffort}
             />
-            {selected.models.length > 0 && chat.selectedModel ? (
-              <MenuSelect
-                ariaLabel="Model"
-                value={chat.selectedModel}
-                options={selected.models.map((model) => ({ value: model, label: model }))}
-                onChange={chat.selectModel}
-                density="compact"
-                className="w-24 shrink-0"
-              />
-            ) : <span className={hint}>CLI default model</span>}
           </div>
         ) : null}
         {selected ? (

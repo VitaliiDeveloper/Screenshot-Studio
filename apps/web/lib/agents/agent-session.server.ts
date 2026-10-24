@@ -87,6 +87,7 @@ export interface AgentRunContext {
 export interface AgentRunRequest {
   message: string;
   model: string | null;
+  effort: string | null;
   context: AgentRunContext;
   /** Absolute paths of this run's image attachments; they all live in one folder only this run knows. */
   attachments: string[];
@@ -116,6 +117,7 @@ export interface AgentRunOptions {
   projectDir: string;
   message: string;
   model?: string | null;
+  effort?: string | null;
   /** Validated images for this request only; written to a temporary folder once the run is admitted. */
   attachments?: readonly AgentAttachment[];
   /** Source environment; the CLI only ever receives its `agentEnv` reduction. */
@@ -431,8 +433,11 @@ async function runnableDefinition(options: AgentRunOptions): Promise<{ definitio
   await requireConsent(definition, options);
   const adapter = agentAdapter(definition.id);
   if (!adapter) throw new AgentRunError(409, "no-adapter", `${definition.name} cannot run from the editor yet`);
-  if (options.model != null && !definition.models.includes(options.model)) {
+  if (options.model != null && !definition.models.some(({ id }) => id === options.model)) {
     throw new AgentRunError(400, "unknown-model", `${definition.name} has no model ${options.model}`);
+  }
+  if (options.effort != null && !definition.efforts.some(({ id }) => id === options.effort)) {
+    throw new AgentRunError(400, "unknown-effort", `${definition.name} has no effort ${options.effort}`);
   }
   return { definition, adapter };
 }
@@ -499,6 +504,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     const request: AgentRunRequest = {
       message: options.message,
       model: options.model ?? null,
+      effort: options.effort ?? null,
       context: runContext(projectDir, codexAuthStore),
       attachments: folder.files,
     };

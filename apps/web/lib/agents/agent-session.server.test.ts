@@ -114,7 +114,7 @@ function start(overrides: Partial<Parameters<typeof startAgentRun>[0]> = {}): Pr
     agentId: "claude-code",
     projectDir,
     message: "--bare Add German",
-    model: "sonnet",
+    model: "claude-sonnet-5-5",
     env: { NODE_ENV: "test", PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root },
     ...overrides,
   });
@@ -155,7 +155,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
   it("runs in the project folder with a sanitized env, the message on stdin, and streams events", async () => {
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
 
-    const events = await collect(await start());
+    const events = await collect(await start({ effort: "max" }));
 
     expect(events.map(({ type }) => type)).toEqual(["text", "progress", "tool-use", "tool-use", "result", "done"]);
     expect(events.at(-2)).toEqual(ACCEPTED);
@@ -165,7 +165,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await readFile(join(root, "stdin"), "utf8")).toBe("--bare Add German");
     const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
     expect(argv).not.toContain("--bare");
-    expect(argv).toEqual(expect.arrayContaining(["-p", "--restricted", "--model", "sonnet"]));
+    expect(argv).toEqual(expect.arrayContaining(["-p", "--restricted", "--model", "claude-sonnet-5-5", "--effort", "max"]));
     expect(argv.join("\n")).toContain(join(await realpath(projectDir), "AGENTS.md"));
     const env = await readFile(join(root, "env"), "utf8");
     expect(env).not.toContain("ANTHROPIC_API_KEY");
@@ -581,12 +581,16 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     });
   });
 
-  it("refuses agents that are not ready, unknown models, and agents without an adapter", async () => {
+  it("refuses agents that are not ready, unknown models and efforts, and agents without an adapter", async () => {
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, `echo '{"loggedIn":false}'; exit 1`);
 
     expect(await rejection(start())).toMatchObject({ status: 409, code: "not-signed-in" });
     expect(await rejection(start({ model: "gpt-4" }))).toMatchObject({ status: 400, code: "unknown-model" });
     expect(await rejection(start({ agentId: "codex", model: "gpt-5.5" }))).toMatchObject({ status: 400, code: "unknown-model" });
+    expect(await rejection(start({ model: "sonnet" }))).toMatchObject({ status: 400, code: "unknown-model" });
+    expect(await rejection(start({ effort: "ultra" }))).toMatchObject({ status: 400, code: "unknown-effort" });
+    expect(await rejection(start({ agentId: "codex", model: null, effort: "high" })))
+      .toMatchObject({ status: 400, code: "unknown-effort" });
     const adapterless: AgentDefinition = { ...AGENT_DEFINITIONS[0]!, id: "adapterless", binary: "adapterless" };
     expect(await rejection(start({ agentId: "adapterless", model: null, definitions: [adapterless] })))
       .toMatchObject({ status: 409, code: "no-adapter" });

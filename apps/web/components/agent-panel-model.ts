@@ -191,6 +191,29 @@ export function defaultAgentId(agents: AgentStatus[], current: string | null): s
     ?? agents.find((agent) => agent.policy.level === "supported"))?.id ?? null;
 }
 
+/** The agent picker's options: name, an at-own-risk policy, and state; the trigger shows the name. */
+export function agentOptions(agents: readonly AgentStatus[]): { value: string; label: string; triggerLabel: string }[] {
+  return agents.map((agent) => ({
+    value: agent.id,
+    label: [agent.name, agent.policy.level === "at-own-risk" ? policyLevelLabel(agent) : null, agentStateLabel(agent)]
+      .filter(Boolean).join(" · "),
+    triggerLabel: agent.name,
+  }));
+}
+
+/** The run's model and effort: the user's pick while the agent offers it, else the agent's default. */
+export function agentRunChoices(
+  agent: AgentStatus | undefined,
+  model: string | null,
+  effort: string | null,
+): { model: string | null; effort: string | null } {
+  if (!agent) return { model: null, effort: null };
+  return {
+    model: agent.models.some(({ id }) => id === model) ? model : agent.models[0]?.id ?? null,
+    effort: agent.efforts.some(({ id }) => id === effort) ? effort : agent.defaultEffort,
+  };
+}
+
 export interface ChangedScreenRow {
   id: string;
   name: string;

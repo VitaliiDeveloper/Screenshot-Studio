@@ -121,7 +121,9 @@ describe("Agent panel", () => {
     await expect.poll(() => panel.getByRole("button", { name: "Agent", exact: true }).textContent(), poll).toContain("Claude Code");
 
     await panel.getByRole("button", { name: "Model", exact: true }).click();
-    await page.getByRole("menuitemradio", { name: "haiku" }).click();
+    await page.getByRole("menuitemradio", { name: "Haiku 5.5" }).click();
+    await panel.getByRole("button", { name: "Effort", exact: true }).click();
+    await page.getByRole("menuitemradio", { name: "Low" }).click();
     await composer.fill("Rename the hero screen");
     await composer.press("Enter");
 
@@ -142,7 +144,8 @@ describe("Agent panel", () => {
     expect(await review.textContent()).toContain("Changes · 1");
     const runArgs = readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").map((line) => JSON.parse(line) as string[]);
     expect(runArgs).toHaveLength(1);
-    expect(runArgs[0]!.slice(runArgs[0]!.indexOf("--model"), runArgs[0]!.indexOf("--model") + 2)).toEqual(["--model", "haiku"]);
+    expect(runArgs[0]!.slice(runArgs[0]!.indexOf("--model"), runArgs[0]!.indexOf("--model") + 2)).toEqual(["--model", "claude-haiku-5-5"]);
+    expect(runArgs[0]!.slice(runArgs[0]!.indexOf("--effort"), runArgs[0]!.indexOf("--effort") + 2)).toEqual(["--effort", "low"]);
 
     // The Go to row comes from the reloaded store, so the canvas reads the agent's project.
     await review.getByRole("button", { name: "Go to Agent Hero" }).click();
@@ -245,7 +248,9 @@ describe("Agent panel", () => {
     await dialog.getByRole("button", { name: "Device family" }).click();
     await dialog.getByRole("menu", { name: "Device family options" }).getByRole("menuitemradio", { name: "Android tablet" }).click();
     await dialog.getByRole("button", { name: "Model", exact: true }).click();
-    await dialog.getByRole("menu", { name: "Model options" }).getByRole("menuitemradio", { name: "haiku" }).click();
+    await dialog.getByRole("menu", { name: "Model options" }).getByRole("menuitemradio", { name: "Haiku 5.5" }).click();
+    await dialog.getByRole("button", { name: "Effort", exact: true }).click();
+    await dialog.getByRole("menu", { name: "Effort options" }).getByRole("menuitemradio", { name: "Extra high" }).click();
     await dialog.getByRole("button", { name: "Create with Claude Code" }).click();
 
     await page.waitForURL(/\/editor\/project_[^/?]+$/, poll);
@@ -256,7 +261,8 @@ describe("Agent panel", () => {
     expect(await panel.getByRole("list", { name: "Attached images" }).getByRole("img", { name: "app-home.png" }).count()).toBe(1);
     await expect.poll(runs, poll).toBe(runsBefore + 1);
     const args = JSON.parse(readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").at(-1)!) as string[];
-    expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual(["--model", "haiku"]);
+    expect(args.slice(args.indexOf("--model"), args.indexOf("--model") + 2)).toEqual(["--model", "claude-haiku-5-5"]);
+    expect(args.slice(args.indexOf("--effort"), args.indexOf("--effort") + 2)).toEqual(["--effort", "xhigh"]);
     expect(readFileSync(join(binDir, "attachments.log"), "utf8").trim().split("\n").at(-1)).toBe('["1.png"]');
     expect(readFileSync(join(binDir, "cwd.log"), "utf8").trim().split("\n").at(-1)!.startsWith(realpathSync(dataRoot))).toBe(true);
 

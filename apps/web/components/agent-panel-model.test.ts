@@ -8,6 +8,8 @@ import type { AgentEvent } from "@web/lib/agents/agent-session.server";
 import {
   agentCanRun,
   agentNotice,
+  agentOptions,
+  agentRunChoices,
   agentStateLabel,
   applyAgentEvent,
   changedScreenRows,
@@ -30,7 +32,9 @@ const policy = { level: "supported", reason: "", consequences: "", sourceUrl: "h
 function agentStatus(overrides: Partial<AgentStatus> = {}): AgentStatus {
   return {
     id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296", minVersion: "2.1.268",
-    state: "ready", authMode: "subscription", policy, consented: null, models: ["sonnet", "opus", "haiku"],
+    state: "ready", authMode: "subscription", policy, consented: null,
+    models: [{ id: "claude-sonnet-5-5", label: "Sonnet 5.5" }, { id: "claude-haiku-5-5", label: "Haiku 5.5" }],
+    efforts: [{ id: "medium", label: "Medium" }, { id: "high", label: "High" }], defaultEffort: "high",
     setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     ...overrides,
   };
@@ -130,6 +134,15 @@ describe("agent notices and picker", () => {
     expect(defaultAgentId([codex, agentStatus(), gemini], "codex")).toBe("codex");
     expect(defaultAgentId([gemini], null)).toBeNull();
   });
+
+  it("keeps a model and effort the agent offers and falls back to its defaults", () => {
+    expect(agentRunChoices(agentStatus(), null, null)).toEqual({ model: "claude-sonnet-5-5", effort: "high" });
+    expect(agentRunChoices(agentStatus(), "claude-haiku-5-5", "medium")).toEqual({ model: "claude-haiku-5-5", effort: "medium" });
+    expect(agentRunChoices(agentStatus(), "gpt-5.5", "xhigh")).toEqual({ model: "claude-sonnet-5-5", effort: "high" });
+    expect(agentRunChoices({ ...codex, efforts: [], defaultEffort: null }, "claude-haiku-5-5", "high"))
+      .toEqual({ model: null, effort: null });
+    expect(agentRunChoices(undefined, "claude-haiku-5-5", "high")).toEqual({ model: null, effort: null });
+  });
 });
 
 describe("agent policy in the panel", () => {
@@ -147,6 +160,13 @@ describe("agent policy in the panel", () => {
     expect(agentCanRun(consented)).toBe(true);
     expect(agentNotice([agentStatus(), { ...consented, state: "not-signed-in" }], { ...consented, state: "not-signed-in" }))
       .toMatchObject({ kind: "not-signed-in" });
+  });
+
+  it("labels picker options with the policy only for agents at your own risk, and names the agent in the trigger", () => {
+    expect(agentOptions([agentStatus(), { ...risky, consented: true }])).toEqual([
+      { value: "claude-code", label: "Claude Code · Signed in · subscription · v2.1.296", triggerLabel: "Claude Code" },
+      { value: "risky", label: "Risky · At your own risk · Signed in · subscription · v2.1.296", triggerLabel: "Risky" },
+    ]);
   });
 
   it("never lets an unavailable agent or an agent without an adapter run, consent or not", () => {

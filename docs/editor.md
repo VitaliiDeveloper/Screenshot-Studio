@@ -325,9 +325,11 @@ is dragged, transformed, or edited inline.
 
 **Agent**, the rail item after Locales, opens a 288 px panel in place of the Screens → Layers tree.
 It runs an official agent CLI that the user installed and signed in to with their own subscription
-(server rules: [`docs/architecture.md`](architecture.md)). Its header picks the agent and model
-from `/api/agents`; each agent lists its sign-in state and version, and an agent without model
-aliases shows `CLI default model`. When the selected agent cannot run, the panel says why and what
+(server rules: [`docs/architecture.md`](architecture.md)). Its header picks the agent on one row and
+the model and effort on the next, from `/api/agents`; each agent lists its sign-in state and version.
+The model trigger names the exact model (**Sonnet 5.5** by default) and the effort trigger the level
+(**High effort** by default, from Low to Max); an agent without listed models shows
+`CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. When the selected agent cannot run, the panel says why and what
 to do: **No agent found** when no CLI is installed (each links to its official setup page; the
 editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
 own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
@@ -416,7 +418,8 @@ at a verified version, and allowed by its policy (an agent at your own risk need
 in the Agent panel). Projects loads the registry once with the page; without it the dialog has no
 agent starting point. Choosing it starts the project from the blank starter with the
 dialog's name, destination, and layout mode, and expands the card into a composer in agent purple:
-the description, the agent and model pickers, and the destination the agent builds for. Languages,
+the description, the same agent, model and effort pickers as the Agent panel (inline here), and
+the destination the agent builds for; the first run uses the chosen model and effort. Languages,
 more stores, and sizes are requested in the description. Up to five images (app screenshots, a
 logo) attach the same way as in the Agent panel composer: the Attach button, drop, or paste, each
 checked by its bytes. **Create with {agent}** creates the project through the same path, then opens
