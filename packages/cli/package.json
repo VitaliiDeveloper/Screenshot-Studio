@@ -26,7 +26,7 @@
     "access": "public"
   },
   "bin": {
-    "screenshots": "./src/index.ts"
+    "screenshots": "./bin/screenshots.mjs"
   },
   "exports": {
     "./export": "./src/export.ts",
@@ -49,5 +49,8 @@
     "jszip": "^3.10.1",
     "playwright": "1.62.0",
     "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.1"
   }
 }

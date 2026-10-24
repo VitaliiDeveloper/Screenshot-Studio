@@ -14,6 +14,12 @@ export interface AgentPolicy {
   checkedAt: string;
 }
 
+/** A value a CLI flag accepts, with the sentence-case label the pickers show. */
+export interface AgentChoice {
+  id: string;
+  label: string;
+}
+
 export interface AgentDefinition {
   id: string;
   name: string;
@@ -28,8 +34,12 @@ export interface AgentDefinition {
   optInFlag?: string;
   /** Arguments of the CLI's own auth-status command; it never reads credential files itself. */
   authStatusArgs?: readonly string[];
-  /** Model aliases the CLI accepts; empty means the CLI's own default model. */
-  models: readonly string[];
+  /** Exact model IDs for `--model`, the default first; empty means the CLI's own default model. */
+  models: readonly AgentChoice[];
+  /** Effort levels for the CLI's effort option; empty means the CLI's own default effort. */
+  efforts: readonly AgentChoice[];
+  /** The effort a run uses until the user picks another; one of `efforts`. */
+  defaultEffort?: string;
   /** Official install instructions, shown while the CLI is not installed. */
   setupUrl?: string;
   /** The Terminal command that starts the CLI's own subscription sign-in. */
@@ -46,8 +56,23 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     minVersion: "2.1.268",
     optInFlag: "--bare",
     authStatusArgs: ["auth", "status"],
-    // Family aliases always resolve to the CLI's current model, so no model version is pinned here.
-    models: ["sonnet", "opus", "haiku"],
+    // Exact IDs, so the picker names the model that runs; a new release needs a manual update here.
+    // Sonnet stays first, the default, so runs do not move to a pricier model on their own.
+    models: [
+      { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+      { id: "claude-opus-5-5", label: "Opus 5.5" },
+      { id: "claude-fable-5-1", label: "Fable 5.1" },
+      { id: "claude-haiku-5-5", label: "Haiku 5.5" },
+    ],
+    // `claude --help` 2.1.309; every model above accepts all five levels.
+    efforts: [
+      { id: "low", label: "Low" },
+      { id: "medium", label: "Medium" },
+      { id: "high", label: "High" },
+      { id: "xhigh", label: "Extra high" },
+      { id: "max", label: "Max" },
+    ],
+    defaultEffort: "high",
     setupUrl: "https://code.claude.com/docs/en/setup",
     signInCommand: "claude",
     policy: {
@@ -66,6 +91,8 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     authStatusArgs: ["login", "status"],
     // Codex has no stable model aliases and no model-list command; models were withdrawn before.
     models: [],
+    // `model_reasoning_effort` levels depend on the model, and the CLI default model is not pinned.
+    efforts: [],
     setupUrl: "https://developers.openai.com/codex/quickstart",
     signInCommand: "codex login",
     policy: {
@@ -83,6 +110,7 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     name: "Antigravity",
     binary: "agy",
     models: [],
+    efforts: [],
     policy: {
       level: "at-own-risk",
       reason: "Google's terms do not allow third-party apps to run agy on consumer plans.",
@@ -96,6 +124,7 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     name: "Gemini CLI",
     binary: "gemini",
     models: [],
+    efforts: [],
     policy: {
       level: "unavailable",
       reason: "Since 18 June 2026 Gemini CLI no longer serves individual subscriptions (free, Google AI Pro, Ultra).",

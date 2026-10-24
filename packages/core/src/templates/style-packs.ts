@@ -112,6 +112,9 @@ export function styledScreenElements(
   height: number,
 ): Element[] {
   const shortSide = Math.min(width, height);
+  // Landscape copy keeps a portrait-width column, so it wraps exactly as on a phone; the device takes the rest.
+  const landscape = width > height;
+  const column = landscape ? shortSide : width;
   const safe = Math.round(shortSide * 0.08);
   const gap = Math.round(shortSide * 0.024);
   const top = Math.round(shortSide * 0.12);
@@ -131,16 +134,16 @@ export function styledScreenElements(
   const proof = copy.slot === "proof";
   const pad = proof ? Math.round(shortSide * 0.05) : 0;
   const innerX = safe + pad;
-  const innerWidth = width - safe * 2 - pad * 2;
+  const innerWidth = column - safe * 2 - pad * 2;
   const iconSize = Math.round(size("accent") * 2.4);
   const pillHeight = lines("surface", 1) + Math.round(shortSide * 0.07);
-  const pillWidth = Math.round(width * 0.56);
+  const pillWidth = Math.round(column * 0.56);
   const rows: { height: number; build: (y: number) => Element[] }[] = [];
   if (proof) {
     rows.push({ height: iconSize, build: (y) => {
       const spacing = Math.round(iconSize * 0.25);
       const rowWidth = iconSize * 5 + spacing * 4;
-      const start = center ? Math.round((width - rowWidth) / 2) : innerX;
+      const start = center ? Math.round((column - rowWidth) / 2) : innerX;
       return Array.from({ length: 5 }, (_, star): Element => ({
         id: `star-${star + 1}`, type: "icon", role: "accent", name: "Rating star", x: start + star * (iconSize + spacing), y,
         width: iconSize, height: iconSize, rotation: 0, opacity: 1, locked: false, visible: true,
@@ -157,7 +160,7 @@ export function styledScreenElements(
   );
   if (copy.action) {
     rows.push({ height: pillHeight, build: (y) => {
-      const box = { x: center ? (width - pillWidth) / 2 : innerX, y, width: pillWidth, height: pillHeight };
+      const box = { x: center ? (column - pillWidth) / 2 : innerX, y, width: pillWidth, height: pillHeight };
       return [
         shape("action-pill", "Action button", box, { kind: "rect", fill: pack.palette.accent, radius: Math.round(pillHeight / 2), role: "accent" }),
         text("surface", "action", copy.action!, box, { align: "center", verticalAlign: "middle" }),
@@ -166,27 +169,40 @@ export function styledScreenElements(
   }
   const blockHeight = rows.reduce((sum, row) => sum + row.height, 0) + gap * (rows.length - 1) + pad * 2;
   const textAt = composition.textAt(screenIndex);
-  const blockY = textAt === "top" ? top : height - safe - blockHeight;
+  const blockY = landscape ? Math.round((height - blockHeight) / 2) : textAt === "top" ? top : height - safe - blockHeight;
 
   const aspectRatio = deviceFramePreset(frame).recipe.spec.aspectRatio;
-  const areaTop = textAt === "top" ? blockY + blockHeight + gap * 2 : top;
-  const areaBottom = textAt === "top" ? (composition.bleed > 0 ? height : height - safe) : blockY - gap * 2;
-  let deviceHeight = (areaBottom - areaTop) / (1 - composition.bleed);
-  let deviceWidth = deviceHeight * aspectRatio;
-  if (deviceWidth > width * composition.maxDeviceWidth) {
-    deviceWidth = width * composition.maxDeviceWidth;
-    deviceHeight = deviceWidth / aspectRatio;
+  let device: Box;
+  if (landscape) {
+    const deviceHeight = Math.min((width - column - gap) / aspectRatio, height - safe * 2);
+    const deviceWidth = deviceHeight * aspectRatio;
+    device = roundBox({
+      x: width - safe - deviceWidth,
+      y: composition.bleed > 0 ? height - deviceHeight * (1 - composition.bleed) : (height - deviceHeight) / 2,
+      width: deviceWidth,
+      height: deviceHeight,
+    });
+  } else {
+    const areaTop = textAt === "top" ? blockY + blockHeight + gap * 2 : top;
+    const areaBottom = textAt === "top" ? (composition.bleed > 0 ? height : height - safe) : blockY - gap * 2;
+    let deviceHeight = (areaBottom - areaTop) / (1 - composition.bleed);
+    let deviceWidth = deviceHeight * aspectRatio;
+    if (deviceWidth > width * composition.maxDeviceWidth) {
+      deviceWidth = width * composition.maxDeviceWidth;
+      deviceHeight = deviceWidth / aspectRatio;
+    }
+    device = roundBox({
+      x: composition.devicePosition === "center" ? (width - deviceWidth) / 2 : width - safe - deviceWidth,
+      y: textAt === "top" ? areaTop : areaBottom - deviceHeight,
+      width: deviceWidth,
+      height: deviceHeight,
+    });
   }
-  const device = roundBox({
-    x: composition.devicePosition === "center" ? (width - deviceWidth) / 2 : width - safe - deviceWidth,
-    y: textAt === "top" ? areaTop : areaBottom - deviceHeight,
-    width: deviceWidth,
-    height: deviceHeight,
-  });
 
-  const elements: Element[] = composition.decor({ width, height, shortSide, device, pack });
+  // Style art is laid out around a portrait stack and would cross the landscape copy column.
+  const elements: Element[] = landscape ? [] : composition.decor({ width, height, shortSide, device, pack });
   if (proof) {
-    elements.push(shape("card", "Quote card", { x: safe, y: blockY, width: width - safe * 2, height: blockHeight }, {
+    elements.push(shape("card", "Quote card", { x: safe, y: blockY, width: column - safe * 2, height: blockHeight }, {
       kind: "rect", fill: pack.palette.surface, radius: Math.round(shortSide * 0.04), role: "surface",
     }));
   }

@@ -8,6 +8,7 @@ import {
   applyAgentEvent,
   createAgentEventParser,
   agentCanRun,
+  agentRunChoices,
   createAgentTurn,
   defaultAgentId,
   type AgentTurnAttachment,
@@ -15,6 +16,7 @@ import {
   type AgentTurn,
 } from "@web/components/agent-panel-model";
 import { projectRequestHeaders } from "@web/lib/clients/save-project";
+import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { readJsonBody, responseErrorMessage } from "@web/lib/json-response";
 
@@ -58,11 +60,14 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [checking, setChecking] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [effort, setEffort] = useState<string | null>(null);
   const [turns, setTurns] = useState<AgentTurn[]>([]);
   const [phase, setPhase] = useState<AgentChatPhase>("idle");
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
   const [consentError, setConsentError] = useState<string | null>(null);
+  // A ref, not state: re-renders while the run starts must not send the request twice.
+  const queued = useRef<AgentStartRequest | null>(null);
   const turnsRef = useRef<AgentTurn[]>([]);
   useEffect(() => {
     turnsRef.current = turns;
@@ -75,7 +80,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const loaded = useRef(false);
 
   const selected = agents?.find((agent) => agent.id === agentId);
-  const selectedModel = selected && model && selected.models.includes(model) ? model : selected?.models[0] ?? null;
+  const { model: selectedModel, effort: selectedEffort } = agentRunChoices(selected, model, effort);
 
   const refreshAgents = useCallback(async () => {
     await Promise.resolve();
@@ -156,11 +161,14 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       form.set("agentId", agent.id);
       form.set("message", message);
       if (selectedModel) form.set("model", selectedModel);
+      if (selectedEffort) form.set("effort", selectedEffort);
       for (const file of files) form.append("image", file);
       const response = await fetch("/api/agents/session", {
         method: "POST",
         headers: files.length > 0 ? projectRequestHeaders() : jsonHeaders(),
-        body: files.length > 0 ? form : JSON.stringify({ agentId: agent.id, message, model: selectedModel }),
+        body: files.length > 0
+          ? form
+          : JSON.stringify({ agentId: agent.id, message, model: selectedModel, effort: selectedEffort }),
         signal: controller.signal,
       });
       responded.current = true;
@@ -198,7 +206,12 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setPhase("syncing");
     try {
       if (result?.status === "accepted" && result.changed) {
-        setOutcome({ revision: result.revision, changedScreens: result.changedScreens, finishedAt: new Date().toISOString() });
+        setOutcome({
+          revision: result.revision,
+          changedScreens: result.changedScreens,
+          otherFiles: result.otherFiles,
+          finishedAt: new Date().toISOString(),
+        });
         // Mockup 7a: Stop puts the project back where the run found it.
         if (stopped.current) {
           await postOutcome("undo");
@@ -213,7 +226,32 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     if (launched && !finished) await loadOutcome();
     setPhase("idle");
     return true;
-  }, [loadOutcome, phase, refreshAgents, reloadFromDisk, selected, selectedModel]);
+  }, [loadOutcome, phase, refreshAgents, reloadFromDisk, selected, selectedEffort, selectedModel]);
+
+  const queueStart = useCallback((request: AgentStartRequest) => {
+    queued.current = request;
+    setAgentId(request.agentId);
+    setModel(request.model);
+    setEffort(request.effort);
+  }, []);
+
+  // `send` reads the selected agent, so the request waits until the registry has selected it.
+  useEffect(() => {
+    const request = queued.current;
+    if (!request || phase !== "idle" || (agents === null && agentsError === null)) return;
+    queued.current = null;
+    if (selected?.id === request.agentId && agentCanRun(selected)) {
+      void send(request.message, request.files);
+      return;
+    }
+    // The agent stopped being runnable since Projects listed it; the turn keeps the text and images for Retry.
+    const agentName = agents?.find(({ id }) => id === request.agentId)?.name ?? request.agentId;
+    setTurns((all) => [...all, {
+      ...createAgentTurn(nextTurnId.current++, agentName, request.message, attachmentsOf(request.files)),
+      error: { code: "failed", message: "This agent cannot run right now. Fix what the panel shows, then Retry.", resets: null },
+      done: { type: "done", status: "failed", summary: null, durationMs: null },
+    }]);
+  }, [agents, agentsError, phase, selected, send]);
 
   const stop = useCallback(async () => {
     if (phase !== "running" || stopped.current) return;
@@ -278,6 +316,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const selectAgent = useCallback((id: string) => {
     setAgentId(id);
     setModel(null);
+    setEffort(null);
     setConsentError(null);
   }, []);
 
@@ -293,6 +332,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     checking,
     selected,
     selectedModel,
+    selectedEffort,
     turns,
     phase,
     locked: phase !== "idle",
@@ -303,7 +343,9 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     refreshAgents,
     selectAgent,
     selectModel: setModel,
+    selectEffort: setEffort,
     send,
+    queueStart,
     stop,
     keep,
     undo,

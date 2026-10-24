@@ -15,6 +15,7 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: null,
+  effort: null,
   context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
   attachments: [],
 };
@@ -110,6 +111,11 @@ describe("Codex adapter", () => {
     expect(args.at(-1)).toBe("-");
     expect(args[args.lastIndexOf("--image") + 2]).toMatch(/^--/);
     expect(args).not.toContain("--add-dir");
+    // `--image` shows the pixels but not the path that `asset import` needs.
+    const instructions = args.find((arg) => arg.startsWith("developer_instructions="))!;
+    expect(JSON.parse(instructions.slice("developer_instructions=".length)))
+      .toContain(`${files.join("\n")}\nThey are reference context.`);
     expect(codexAdapter.args(REQUEST)).not.toContain("--image");
+    expect(codexAdapter.args(REQUEST).join(" ")).not.toContain("asset import");
   });
 });

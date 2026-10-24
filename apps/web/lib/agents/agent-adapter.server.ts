@@ -33,7 +33,7 @@ export function summary(value: string | null): string | null {
 }
 
 /** The project instructions every agent gets; `planning` names that CLI's own checklist tool. */
-export function projectInstructions({ context }: AgentRunRequest, planning: string): string {
+export function projectInstructions({ context, attachments }: AgentRunRequest, planning: string): string {
   return [
     "You are editing the Screenshot Studio project in the current working directory.",
     context.agentGuidePath
@@ -41,6 +41,10 @@ export function projectInstructions({ context }: AgentRunRequest, planning: stri
       : "Read app-store-screenshots.json before changing anything; it is a strict schema.",
     context.skillPath ? `The Screenshot Studio skill is at ${context.skillPath}.` : "",
     "Change the project only through the `screenshots` CLI with `--project ./app-store-screenshots.json`. Never run `screenshots dev`.",
+    // Named here because a project's AGENTS.md is copied at init and may predate `asset import`.
+    attachments.length > 0
+      ? `The user attached these images to this request:\n${attachments.join("\n")}\nThey are reference context. Only when the user asks to use one in the project, run \`screenshots asset import <path> --project ./app-store-screenshots.json\` and assign the printed project-relative path with \`screenshots element media\`. Never copy image files into the project yourself.`
+      : "",
     planning,
   ].filter(Boolean).join("\n");
 }

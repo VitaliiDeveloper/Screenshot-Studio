@@ -7,6 +7,9 @@ import type { ProjectTemplateSummary } from "@screenshot-studio/core/scaffold";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { BrowserProjectImportSource } from "@web/lib/clients/project-import-client";
 import { cx, editorUi } from "@web/components/editor-ui/styles";
+import { agentCanRun } from "@web/components/agent-panel-model";
+import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
+import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
 import { launcherActions, type LauncherImportState } from "./project-launcher-model";
 import { ProjectCreationDialog } from "./ProjectCreationDialog";
 import type { ProjectCreationForm, ProjectCreationState } from "./project-creation-model";
@@ -41,7 +44,9 @@ export interface AppHomeShellProps {
   onOpenCreate(): void;
   onCloseCreate(): void;
   onChangeCreation(patch: Partial<ProjectCreationForm>): void;
-  onSubmitCreation(): void;
+  /** From `/api/agents`; agents that can run now are offered as a New project starting point. */
+  agents?: readonly AgentStatus[];
+  onSubmitCreation(agent?: AgentStartRequest): void;
   onOpenImport(): void;
   onCloseImport(): void;
   onCancelImport(): void;
@@ -78,6 +83,7 @@ export function AppHomeShell({
   onCloseCreate,
   onChangeCreation,
   onSubmitCreation,
+  agents = [],
   onOpenImport,
   onCloseImport,
   onCancelImport,
@@ -95,7 +101,7 @@ export function AppHomeShell({
   const dialogState = state.status === "idle" || state.status === "cancelled" ? null : state;
   const firstRun = projects.status === "ready" && projects.entries.length === 0;
   const dialogs = <>
-    {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} specs={storeSpecs} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
+    {creationState.status !== "closed" ? <ProjectCreationDialog state={creationState} templates={projectTemplates} specs={storeSpecs} agents={agents.filter(agentCanRun)} onClose={onCloseCreate} onChange={onChangeCreation} onSubmit={onSubmitCreation} /> : null}
     {dialogState ? <ProjectImportDialog state={dialogState} closing={dialogClosing} onClose={onCloseImport} onCancel={onCancelImport} onConfirm={onConfirmImport} onRetry={onRetryImport} onSelectSource={onSelectSource} onChooseCapture={onChooseCapture} /> : null}
     {captureDialog}
     {deletionDialog}

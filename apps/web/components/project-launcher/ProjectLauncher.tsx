@@ -11,6 +11,9 @@ import {
 } from "@web/lib/editor/debounced-save";
 import { clearWorkspaceNavigationState } from "@web/lib/editor/editor-workspace-navigation";
 import { editorProjectUrl, projectInfoUrl } from "@web/lib/editor/editor-route";
+import { queueAgentStart, type AgentStartRequest } from "@web/lib/editor/agent-start-request";
+import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
+import { readJsonBody } from "@web/lib/json-response";
 import { loadProjectHomeData } from "@web/lib/clients/project-home-client";
 import { downloadProjectArchive, requestProjectArchive } from "@web/lib/clients/project-archive-client";
 import { fetchActiveProject } from "@web/lib/clients/project-session";
@@ -79,6 +82,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   const [visibleOpeningEntryId, setVisibleOpeningEntryId] = useState<string | null>(null);
   const [leavingEntryId, setLeavingEntryId] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<ProjectLibraryNotice | null>(null);
+  const [agents, setAgents] = useState<AgentStatus[]>([]);
   const importButtonRef = useRef<HTMLButtonElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
   const importControllerRef = useRef<AbortController | null>(null);
@@ -179,6 +183,21 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   useEffect(() => {
     void settleProjects();
   }, [settleProjects]);
+
+  // Loaded with the page so New project can offer the agent starting point as soon as it opens.
+  useEffect(() => {
+    let current = true;
+    void fetch("/api/agents", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await readJsonBody(response);
+        if (current && response.ok && Array.isArray(body.agents)) setAgents(body.agents as AgentStatus[]);
+      })
+      // Without the registry New project has no agent starting point.
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!focusCreationWhenEmptyRef.current) return;
@@ -299,18 +318,20 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
   const changeCreation = useCallback((patch: Partial<ProjectCreationForm>) => {
     dispatchCreation({ type: "change", patch });
   }, []);
-  const submitCreation = () => {
+  // The session route stops a run when its stream closes, so the new project's Workspace starts it.
+  const submitCreation = (agent?: AgentStartRequest) => {
     if (creationState.status !== "editing" && creationState.status !== "error") return;
     const input = creationState.form;
     dispatchCreation({ type: "submit" });
     void switchActiveProject(() => createProject(input)).then((result) => {
       if (!mountedRef.current) return;
+      if (agent) queueAgentStart(result.projectId, agent);
       dispatchCreation({ type: "complete", projectId: result.projectId });
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const navigate = () => {
         creationExitTimerRef.current = null;
         if (mountedRef.current) {
-          router.push(editorProjectUrl(result.projectId));
+          router.push(editorProjectUrl(result.projectId, agent ? "agent" : undefined));
         }
       };
       const delay = launcherDialogExitDelay(reducedMotion);
@@ -425,6 +446,7 @@ export function ProjectLauncher({ projectTemplates, initialProjects, storeSpecs 
           onRecoverStale={captureImport.recoverStale}
         />
       )}
+      agents={agents}
       onOpenCreate={() => dispatchCreation({ type: "open" })}
       onCloseCreate={closeCreation}
       onChangeCreation={changeCreation}

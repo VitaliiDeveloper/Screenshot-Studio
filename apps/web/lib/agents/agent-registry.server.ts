@@ -4,6 +4,7 @@ import {
   AGENT_DEFINITIONS,
   agentEnv,
   runAgentProbe,
+  type AgentChoice,
   type AgentDefinition,
   type AgentPolicy,
   type AgentProbeResult,
@@ -36,7 +37,9 @@ export interface AgentStatus {
   policy: AgentPolicy;
   /** Whether stored consent covers the current policy; null unless the level is `at-own-risk`. */
   consented: boolean | null;
-  models: string[];
+  models: AgentChoice[];
+  efforts: AgentChoice[];
+  defaultEffort: string | null;
   setupUrl: string | null;
   signInCommand: string | null;
 }
@@ -151,6 +154,8 @@ export async function detectAgent(
     policy: definition.policy,
     consented: null,
     models: [...definition.models],
+    efforts: [...definition.efforts],
+    defaultEffort: definition.defaultEffort ?? null,
     setupUrl: definition.setupUrl ?? null,
     signInCommand: definition.signInCommand ?? null,
   };

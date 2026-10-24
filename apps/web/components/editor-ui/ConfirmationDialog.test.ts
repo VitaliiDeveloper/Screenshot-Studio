@@ -33,7 +33,7 @@ describe("ConfirmationDialog", () => {
 
   it("keeps native blocking dialogs out of editor actions", () => {
     const sources = [
-      "../ArtboardTargets.tsx",
+      "../editor-shell/SizesBar.tsx",
       "../ScreensSection.tsx",
       "../LayoutSelector.tsx",
       "../LocaleManagerDialog.tsx",

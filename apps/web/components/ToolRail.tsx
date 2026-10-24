@@ -4,6 +4,7 @@
 import {
   Hand,
   House,
+  Images,
   Languages,
   Layers3,
   LayoutTemplate,
@@ -76,6 +77,9 @@ export function ToolRail({
       </ToolButton>
       <ToolButton label="Fonts" caption="Fonts" aria-haspopup="dialog" disabled={editingLocked} onClick={() => onOpenDialog("fonts")} className={lockedClassName}>
         <Type size={16} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton label="Project images" caption="Images" aria-haspopup="dialog" disabled={editingLocked} onClick={() => onOpenDialog("project-images")} className={lockedClassName}>
+        <Images size={16} strokeWidth={1.9} />
       </ToolButton>
       <ToolButton label="Locales" caption="Locales" aria-haspopup="dialog" disabled={editingLocked} onClick={onOpenLocales} className={lockedClassName}>
         <Languages size={16} strokeWidth={1.9} />

@@ -11,7 +11,21 @@ export type AddMenuOption<T extends string> = {
   value: T;
   label: string;
   description?: string;
+  /** Consecutive options with the same group render under one labelled menu group. */
+  group?: string;
 };
+
+function groupOptions<T extends string>(
+  options: readonly AddMenuOption<T>[],
+): { group: string | undefined; items: AddMenuOption<T>[] }[] {
+  const sections: { group: string | undefined; items: AddMenuOption<T>[] }[] = [];
+  for (const option of options) {
+    const last = sections.at(-1);
+    if (last && last.group === option.group) last.items.push(option);
+    else sections.push({ group: option.group, items: [option] });
+  }
+  return sections;
+}
 
 /** Shared compact add menu for section-level creation actions. */
 export function AddMenu<T extends string>({
@@ -20,12 +34,15 @@ export function AddMenu<T extends string>({
   options,
   onSelect,
   menuClassName,
+  triggerLabel,
 }: {
   ariaLabel: string;
   menuLabel?: string;
   options: readonly AddMenuOption<T>[];
   onSelect: (value: T) => void;
   menuClassName?: string;
+  /** Visible trigger text; without it the trigger is the compact icon button. */
+  triggerLabel?: string;
 }) {
   const menuId = useId();
   const controlRef = useRef<HTMLDivElement>(null);
@@ -68,6 +85,24 @@ export function AddMenu<T extends string>({
     };
   }, [open, options.length]);
 
+  const renderOption = (option: AddMenuOption<T>) => (
+    <button
+      key={option.value}
+      type="button"
+      role="menuitem"
+      aria-label={option.label}
+      className="flex min-h-11 w-full flex-col justify-center border-b border-[var(--editor-color-surface-muted)] px-2.5 py-1.5 text-left font-normal leading-4 text-[color:var(--editor-color-text-muted)] transition-colors last:border-b-0 hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:relative focus-visible:z-10 focus-visible:rounded-[var(--editor-radius-compact)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
+      onClick={() => {
+        onSelect(option.value);
+        setOpen(false);
+        requestAnimationFrame(() => triggerRef.current?.focus());
+      }}
+    >
+      <span className="break-words text-[11px] font-normal leading-4"><WrapAtSeparators text={option.label} /></span>
+      {option.description ? <span className="break-words text-[10px] font-normal leading-4 text-[color:var(--editor-color-text-subtle)]"><WrapAtSeparators text={option.description} /></span> : null}
+    </button>
+  );
+
   return (
     <div
       ref={controlRef}
@@ -85,7 +120,7 @@ export function AddMenu<T extends string>({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         disabled={options.length === 0}
-        className={editorUi.compactAddButton}
+        className={triggerLabel ? cx(editorUi.buttonSecondary, "whitespace-nowrap border-dashed") : editorUi.compactAddButton}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -102,6 +137,7 @@ export function AddMenu<T extends string>({
             open && "rotate-45",
           )}
         />
+        {triggerLabel ? <span>{triggerLabel}</span> : null}
       </button>
 
       {open ? (
@@ -120,23 +156,19 @@ export function AddMenu<T extends string>({
             handleMenuKeyboardNavigation(event, "[role='menuitem']");
           }}
         >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="menuitem"
-              aria-label={option.label}
-              className="flex min-h-11 w-full flex-col justify-center border-b border-[var(--editor-color-surface-muted)] px-2.5 py-1.5 text-left font-normal leading-4 text-[color:var(--editor-color-text-muted)] transition-colors last:border-b-0 hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:relative focus-visible:z-10 focus-visible:rounded-[var(--editor-radius-compact)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
-              onClick={() => {
-                onSelect(option.value);
-                setOpen(false);
-                requestAnimationFrame(() => triggerRef.current?.focus());
-              }}
-            >
-              <span className="break-words text-[11px] font-normal leading-4"><WrapAtSeparators text={option.label} /></span>
-              {option.description ? <span className="break-words text-[10px] font-normal leading-4 text-[color:var(--editor-color-text-subtle)]"><WrapAtSeparators text={option.description} /></span> : null}
-            </button>
-          ))}
+          {groupOptions(options).map(({ group, items }, index) => (group === undefined
+            ? items.map(renderOption)
+            : (
+              <div key={`${group}-${index}`} role="group" aria-labelledby={`${menuId}-group-${index}`}>
+                <div
+                  id={`${menuId}-group-${index}`}
+                  className="px-2.5 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-subtle)]"
+                >
+                  {group}
+                </div>
+                {items.map(renderOption)}
+              </div>
+            )))}
         </div>
       ) : null}
     </div>

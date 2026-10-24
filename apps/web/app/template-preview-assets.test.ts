@@ -23,7 +23,8 @@ describe("template pack previews", () => {
         const file = resolve(previewRoot, path!.slice("/template-previews/".length));
         const info = inspectPng(readFileSync(file));
         expect(info.width, file).toBe(300);
-        expect(info.height, file).toBe(Math.round(300 * screen.artboard.height / screen.artboard.width));
+        // The canvas truncates height × pixelRatio, computed as the generator passes it; 2880×1800 lands on .5.
+        expect(info.height, file).toBe(Math.trunc(screen.artboard.height * (300 / screen.artboard.width)));
         expect(info.hasAlpha, file).toBe(false);
       }
     }

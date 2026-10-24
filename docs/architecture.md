@@ -257,7 +257,10 @@ platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends e
 same way, in one project update; the style tag names the Design pack its literals were baked from and
 is not persisted. Five styles (Clean, Aurora, Midnight, Poster, Sunrise) each pair a Design pack with
 a six-screen pack (hero, three features, social proof, call to action) for iPhone 6.3″ and Android
-phone portrait. Each pack derives its geometry from the exact store artboard, sets type in Studio
+phone portrait. iPad 13″ and Android tablet portrait carry Clean and Aurora, and macOS 2880×1800
+carries Clean and Poster. A landscape artboard keeps the copy in a phone-width column beside the
+device, so it wraps as on a phone, and draws no style art, which is laid out around a portrait stack.
+Each pack derives its geometry from the exact store artboard, sets type in Studio
 Display, and draws generated art from shapes, because a global pack cannot carry image assets. The
 picker previews in `apps/web/public/template-previews/<pack>/<screen>.png` come from the same renderer
 and are static files; templates without one show a static placeholder, never a second render path.
@@ -295,7 +298,7 @@ AI dependency. The optional repository skill only discovers or initializes such 
 
 The editor may run an official agent CLI that the user installed and signed in to with their own
 subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
-verified version range, model aliases, official setup page, Terminal sign-in command, and policy
+verified version range, models, effort levels, official setup page, Terminal sign-in command, and policy
 (`supported`, `at-own-risk`, or `unavailable`, with reason, consequences, source, and check date);
 there is no remote configuration. Detection runs only
 the CLI's own `--version`, `--help`, and auth-status commands under a timeout that kills the process
@@ -305,8 +308,12 @@ an allowlisted environment, so API keys and provider switches in the server envi
 CLI off the subscription. A future Claude Code release may default `-p` to `--bare`, which ignores the
 subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
-environment carries none. `models` lists only aliases the CLI resolves itself; an empty list means the
-CLI default. A run starts only from a loopback Host for the cookie-selected project session, after a
+environment carries none. `models` lists exact model IDs with display labels, the default first, so the
+picker names the model that runs and a new model release needs a manual registry update; `efforts`
+lists the levels of the CLI's effort option with a `defaultEffort`. An empty list means the CLI's own
+default; Codex has neither, because its CLI default model is not pinned and its reasoning-effort levels
+depend on the model. A run with a model or effort its agent does not list is refused
+(`400 unknown-model`, `400 unknown-effort`). A run starts only from a loopback Host for the cookie-selected project session, after a
 server-side policy and readiness check: `unavailable` never runs, and `at-own-risk` does not run
 without the user's consent (`403 consent-required`). Consent is app-level local state in
 `agent-consents.json` under the data root, never in a project document, and is bound to the policy's
@@ -327,11 +334,12 @@ plugin, browser, computer-use, memory, hook, and sub-agent features are off. The
 `cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
 Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
-only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run.
+only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
+result lists the other files it changed.
 
 A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
 They travel in the same `POST /api/agents/session` as a multipart body (`agentId`, `message`, `model`,
-and `image` parts), so the upload has exactly the run's guards: loopback Host, the cookie session's
+`effort`, and `image` parts), so the upload has exactly the run's guards: loopback Host, the cookie session's
 `X-Project-Id`, and no client-supplied paths. The body is read through a size cap before it is parsed,
 and each image's type is decided from its leading bytes, never its file name or declared type (`413`
 for size, `400` for type and count; text-only requests stay JSON). Nothing is written until the run
@@ -344,8 +352,15 @@ folder is deleted when the run ends with any outcome (accepted, rejected, failed
 after its process tree is dead. Another run never learns that folder's path. A server exit removes its
 own folders, and server start (`instrumentation.ts`) removes the numbered folders of servers that no
 longer exist, never a live server's. A text-only request never touches this folder. Codex receives one `--image <file>` per image; Claude Code receives
-`--add-dir <run folder>` and the file paths in its appended prompt, since its restricted file tools
-read only added directories. The images are never part of the project document or schema.
+`--add-dir <run folder>`, since its restricted file tools read only added directories. Both get the
+file paths in their instructions, which name `screenshots asset import <file>` as the only way to
+place an image in the project, and only when the user asks for it. That command reads one regular
+file from any path the CLI can read (rejecting non-files and files over 25 MB before reading), runs
+the same validation and safe publication as `POST /api/assets`, and stores a copy under
+`assets/imported/`. Like `font add`, it lets Claude Code bring in a local image
+from beyond its added directories. The images are never part of the project document or schema. Undo run and Stop
+leave an imported copy on disk, unreferenced, like any other file the run wrote outside the project
+document.
 
 An agent changes the project only through the `screenshots` CLI, which takes the regular project
 mutation lock per write; the editor's own writers (`PUT /api/project`, every
@@ -360,9 +375,26 @@ same lock. An invalid or deleted document is written back from the snapshot and 
 `result: rejected` with the reason and the restored revision before `done: failed`; a valid one
 carries `result: accepted` with the changed screen ids and the new revision, and the snapshot stays
 pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it (restore the snapshot
-as one locked write, refused once the editor has written past the run's revision). A run cancelled
-before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
+as one locked write, refused once the editor has written past the run's revision). Every `result`,
+accepted or rejected, also carries `otherFiles`: the files outside `app-store-screenshots.json` that
+were added, changed, or removed in the project folder during the run, as relative paths (the first 50,
+`AGENTS.md` and `CLAUDE.md` first, since later runs read them) with a total count. The server compares
+an `lstat` fingerprint (mode, size, mtime, ctime) of every entry taken right after the snapshot with
+one taken once the process tree is dead; symlinks are recorded, never followed, and the project
+file's own temp and lock files and `.DS_Store` are skipped. A folder of more than 5,000 entries, or
+one that cannot be read, gives `otherFiles: null`, never a partial list. Changes by the CLI's own
+commands (imported images, fonts, themes, templates, exports) are listed the same way. Neither a
+rejected verdict, Undo run, nor Stop restores these files; the pending outcome keeps the list for the
+review. A run cancelled before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
 per change; snapshots live in server memory, so a restart drops a pending undo.
+
+The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts
+`apps/web/node_modules/.bin` first, and its `screenshots` runs `packages/cli/bin/screenshots.mjs`. That
+launcher registers tsx's loader in-process with its disk cache off and the CLI's own `tsconfig.json`,
+so a run listens on no IPC pipe, writes nothing to the OS temp directory, and compiles the same way
+from any project folder. Agent sandboxes may deny both: the `tsx` CLI fails in Claude Code's sandbox with
+`listen EPERM`, and tsx's cache fails when the temp directory is not writable. The launcher needs the
+workspace dev dependencies (`pnpm install`); the installed package's bin is the bundled `dist/index.js`.
 
 ## 7. Change rules
 

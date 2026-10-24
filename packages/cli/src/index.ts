@@ -37,7 +37,8 @@ const invokedDirectly = invokedPath
   ? realpathSync(invokedPath) === realpathSync(fileURLToPath(import.meta.url))
   : false;
 
-if (invokedDirectly) {
+/** Runs the command in `process.argv`; the source-checkout launcher calls it after registering tsx. */
+export function runCli(): void {
   const [command, ...argv] = process.argv.slice(2);
   const updateNotice = startUpdateCheck();
   dispatchCommand(command, argv, { storeSpecsPath: DEFAULT_STORE_SPECS })
@@ -50,3 +51,5 @@ if (invokedDirectly) {
       process.exit(1);
     });
 }
+
+if (invokedDirectly) runCli();

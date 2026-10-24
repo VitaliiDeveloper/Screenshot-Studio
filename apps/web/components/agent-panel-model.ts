@@ -3,7 +3,7 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
 import { attachmentProblem, SNIFF_BYTES } from "@web/lib/agents/agent-attachments";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
-import type { AgentEvent, AgentStep } from "@web/lib/agents/agent-session.server";
+import type { AgentEvent, AgentOtherFiles, AgentStep } from "@web/lib/agents/agent-session.server";
 import { compactScreenSizeLabel } from "@web/lib/panel-helpers";
 
 export type AgentResult = Extract<AgentEvent, { type: "result" }>;
@@ -121,6 +121,11 @@ export function turnOutcome(turn: AgentTurn): TurnOutcome | null {
   return { kind: "unchanged" };
 }
 
+/** True when a verdict must mention other files: some changed, or the folder could not be compared. */
+export function hasOtherFiles(otherFiles: AgentOtherFiles | null): boolean {
+  return otherFiles === null || otherFiles.count > 0;
+}
+
 export type AgentNotice =
   | { kind: "loading" }
   | { kind: "no-agent" }
@@ -184,6 +189,29 @@ export function defaultAgentId(agents: AgentStatus[], current: string | null): s
   return (agents.find((agent) => agent.state === "ready" && policyAllowsRun(agent))
     ?? agents.find((agent) => agent.installed === true)
     ?? agents.find((agent) => agent.policy.level === "supported"))?.id ?? null;
+}
+
+/** The agent picker's options: name, an at-own-risk policy, and state; the trigger shows the name. */
+export function agentOptions(agents: readonly AgentStatus[]): { value: string; label: string; triggerLabel: string }[] {
+  return agents.map((agent) => ({
+    value: agent.id,
+    label: [agent.name, agent.policy.level === "at-own-risk" ? policyLevelLabel(agent) : null, agentStateLabel(agent)]
+      .filter(Boolean).join(" · "),
+    triggerLabel: agent.name,
+  }));
+}
+
+/** The run's model and effort: the user's pick while the agent offers it, else the agent's default. */
+export function agentRunChoices(
+  agent: AgentStatus | undefined,
+  model: string | null,
+  effort: string | null,
+): { model: string | null; effort: string | null } {
+  if (!agent) return { model: null, effort: null };
+  return {
+    model: agent.models.some(({ id }) => id === model) ? model : agent.models[0]?.id ?? null,
+    effort: agent.efforts.some(({ id }) => id === effort) ? effort : agent.defaultEffort,
+  };
 }
 
 export interface ChangedScreenRow {
