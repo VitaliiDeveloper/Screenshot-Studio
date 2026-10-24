@@ -296,26 +296,55 @@ const STYLE_VARIANTS: { style: string; composition: StyleComposition; span?: Pan
   })),
 ];
 
-const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = STYLE_VARIANTS
-  .flatMap(({ style, composition, span }) => STYLE_PACK_TARGETS.map((target) => {
-    const pack = findBuiltInDesignPack(style)!;
-    const id = span ? `${style}-panorama-${target.slug}` : `${style}-${target.slug}`;
-    return {
-      id,
-      name: `${pack.name}${span ? " panorama" : ""} · ${target.label}`,
-      description: span
-        ? `${STYLE_PACK_SCREENS.length} connected ${target.label} screens: ${span.summary}.`
-        : `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
-      platform: target.platform,
-      device: target.device,
-      targetId: target.targetId,
-      frame: STYLE_PACK_FRAMES[style]![target.slug],
-      style,
-      screens: STYLE_PACK_SCREENS.map((screen) => ({ id: `${id}-${screen.key}`, name: screen.name, headline: screen.headline, subline: screen.subline })),
-      composition,
-      span,
-    };
-  }));
+type StylePackTarget = { slug: string; label: string; platform: ScreenTemplate["platform"]; device: ScreenTemplate["device"]; targetId: string };
+
+/**
+ * Clean everywhere, plus Aurora on tablets. Mac draws no style art beside its copy column, so it pairs
+ * Clean with Poster, the other style that is all palette and type. Panoramas stay phone-only.
+ */
+const LARGE_SCREEN_STYLE_PACK_TARGETS: readonly (StylePackTarget & { frames: Readonly<Record<string, DeviceFrameId>>; bleed?: number })[] = [
+  // 3:4 leaves too little height under the copy, so the device runs off the bottom edge.
+  { slug: "ipad", label: "iPad", platform: "apple", device: "ipad", targetId: "13", frames: { clean: "tablet", aurora: "tablet-rounded-dark" }, bleed: 0.12 },
+  { slug: "android-tablet", label: "Android tablet", platform: "android", device: "tablet-7", targetId: "tablet-portrait", frames: { clean: "tablet-rounded-dark", aurora: "tablet" } },
+  { slug: "macos", label: "macOS", platform: "apple", device: "macos", targetId: "2880x1800", frames: { clean: "laptop-dark", poster: "laptop-silver" } },
+];
+
+function styleTemplatePackDefinition(
+  style: string,
+  composition: StyleComposition,
+  span: PanoramaSpan | undefined,
+  target: StylePackTarget,
+  frame: DeviceFrameId,
+): BuiltInTemplatePackDefinition {
+  const pack = findBuiltInDesignPack(style)!;
+  const id = span ? `${style}-panorama-${target.slug}` : `${style}-${target.slug}`;
+  return {
+    id,
+    name: `${pack.name}${span ? " panorama" : ""} · ${target.label}`,
+    description: span
+      ? `${STYLE_PACK_SCREENS.length} connected ${target.label} screens: ${span.summary}.`
+      : `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
+    platform: target.platform,
+    device: target.device,
+    targetId: target.targetId,
+    frame,
+    style,
+    screens: STYLE_PACK_SCREENS.map((screen) => ({ id: `${id}-${screen.key}`, name: screen.name, headline: screen.headline, subline: screen.subline })),
+    composition,
+    span,
+  };
+}
+
+const STYLE_TEMPLATE_PACK_DEFINITIONS: BuiltInTemplatePackDefinition[] = [
+  ...STYLE_VARIANTS.flatMap(({ style, composition, span }) => STYLE_PACK_TARGETS.map((target) => (
+    styleTemplatePackDefinition(style, composition, span, target, STYLE_PACK_FRAMES[style]![target.slug])
+  ))),
+  ...LARGE_SCREEN_STYLE_PACK_TARGETS.flatMap((target) => Object.entries(target.frames).map(([style, frame]) => {
+    const composition = STYLE_COMPOSITIONS[style]!;
+    const bleed = Math.max(composition.bleed, target.bleed ?? 0);
+    return styleTemplatePackDefinition(style, { ...composition, bleed }, undefined, target, frame);
+  })),
+];
 
 // The neutral seed predates the styled packs; CLI, API, and editor tests address it by id.
 const BUILT_IN_TEMPLATE_PACK_DEFINITIONS: readonly BuiltInTemplatePackDefinition[] = [{
