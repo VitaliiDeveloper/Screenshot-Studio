@@ -27,6 +27,7 @@ import { CaptureImportDialog } from "@web/components/project-launcher/CaptureImp
 import { ConfirmationDialog, cx } from "@web/components/editor-ui";
 import { IssuesDialog } from "@web/components/IssuesDialog";
 import { EditorSidePanel } from "@web/components/editor-shell/EditorSidePanel";
+import { SizesBar } from "@web/components/editor-shell/SizesBar";
 import { StatusBar } from "@web/components/editor-shell/StatusBar";
 import { playEntries } from "@web/components/play-gallery-model";
 import {
@@ -332,6 +333,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         onOpenIssues={() => setIssuesOpen(true)}
         editingLocked={agentLocked}
       />
+      <SizesBar specs={specs} locked={agentLocked} />
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <ToolRail
           tool={tool}
@@ -426,7 +428,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
       </div>
       <StatusBar specs={specs} />
       {externalConflict && !projectNavigation.error ? (
-        <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           <p className="font-semibold">This project changed outside the editor.</p>
           <p className="mt-1">
             Your latest edits were not saved, so they did not overwrite that change. Loading the latest
@@ -442,7 +444,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </button>
         </div>
       ) : saveStatus === "error" && saveError && !projectNavigation.error ? (
-        <div role="alert" className="absolute right-3 top-16 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
           Save failed: {saveError}
         </div>
       ) : null}

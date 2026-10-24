@@ -178,7 +178,7 @@ Layouts, output families, locales, and Panorama composition may change how conte
 the interface must preserve scope: an action explains which layout, locale, output, screen, or element
 it affects and must not silently mutate a sibling scope.
 The Layers panel keeps the same `Add screen` action available in every exact-size editing scope. Moving
-between master and variant sizes uses the output targets themselves instead of a second navigation
+between master and variant sizes uses the sizes bar instead of a second navigation
 control in the Screens header. New projects and newly created output families explicitly default to
 **Sync sizes**. Existing documents without a persisted policy retain **Separate** behavior for
 backward compatibility: adding, deleting, or reordering in an exact size changes only that size. A
@@ -190,18 +190,29 @@ preserves paired exact-size composition by detaching it into an ordinary standal
 created exact size while each screen's layers and copy stay independently editable. Enabling it
 reconciles unequal rows to the longest row and makes the resulting slot mapping visible before later
 mutations follow it.
-The Inspector lists exact-size targets at the active destination/device/locale family scope, so a target
-does not disappear when another compatible master screen is selected. Selection styling identifies
-the current family and exact size without a redundant `Current` action. Removing a size or slot uses
-the same labelled app-owned confirmation pattern and follows the visible Separate/Sync sizes scope.
-Removing a size removes that complete exact-size row; deleting an individual screen changes only the
-slot scope described above.
-Where people pick or edit a size (the Add output size menu, the output size cards, and Status by
-size), a target the catalog lists devices for is titled by those devices, up to three and then
-`+N` (`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store
+The 44 px **sizes bar** under the top bar is the one place that lists, adds, and removes exact sizes.
+It shows every size of the layout for the active locale, grouped by output family
+(`App Store · iPhone`) in layout order with the master first, so in isolated layouts its chips read
+left to right in the order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
+out as the default), its pixels when the slot does not already name them, and its **Master** or
+**Variant** role; its tooltip lists the devices. A family's sizes stay listed when another compatible
+master screen is selected. A chip opens the active slot's screen when that size holds one, else the
+size's first screen, and the current size is marked without a redundant `Current` action.
+**Add size** lists each family's missing sizes under that family and the families the layout lacks
+under **New destination**; adding a size to another family first opens that family. **Remove size…**
+acts on the current size: on a variant it removes that complete exact-size row, on a master it removes
+the whole family from the locale, and it is disabled for the last family and for a standalone
+exact-size screen. Both removals use the labelled app-owned confirmation, follow the visible
+Separate/Sync sizes scope, and undo as one step; deleting an individual screen changes only the slot
+scope described above. The Inspector's Screen tab keeps only **Screen structure** (Separate / Sync
+sizes) for the screen's family. While an agent run holds the project, chips still switch sizes like
+`[` and `]`, and Add size and Remove size… are disabled.
+Where people pick a size to add (the Add size menu) or edit one (Status by size), a target the
+catalog lists devices for is titled by those devices, up to three and then `+N`
+(`iPhone 18 Pro · 17 Pro · 17 +5`), with ` · Landscape` only for landscape targets. The App Store
 slot and pixels follow as the detail (`Dynamic Island · Medium · 1206 × 2622 px`), and the full
-device list is the card's tooltip. Export, Overview rows, the Screens header, Apply to, and the
-artboard caption keep the slot name, because they describe what is exported and uploaded.
+device list is the tooltip. The sizes bar, Export, Overview rows, the Screens header, Apply to, and
+the artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
 (`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues
@@ -449,6 +460,7 @@ Issues with its count, Inspect, and Export sit on the right; Issues moves into t
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
+The 44 px sizes bar sits directly under the top bar and stays visible at every width (see §3).
 A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
 the active screen, the current layer selection, and that screen's size, as in
 `Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or

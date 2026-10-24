@@ -203,6 +203,10 @@ describe("editorStore screens (slice 4)", () => {
     editorStore.getState().removeStoreTargetVariant("hero", "6.5");
     expect(editorStore.getState().project!.layouts[0]!.screens).toHaveLength(2);
     expect(editorStore.getState().activeScreenId).toBe("hero");
+
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.layouts[0]!.screens.filter((screen) => screen.storeTargetId === "6.5"))
+      .toEqual([variant]);
   });
 
   it("creates and selects an independent store-output family without changing the source", () => {
@@ -225,6 +229,12 @@ describe("editorStore screens (slice 4)", () => {
       id: "4k", label: "Windows desktop 4K", width: 3840, height: 2160, orientation: "landscape",
     });
     expect(editorStore.getState().project!.layouts[0]!.screens.filter((screen) => screen.platform === "windows")).toHaveLength(2);
+
+    editorStore.getState().removeStoreOutputFamily(windowsRoots[0]!.id);
+    expect(editorStore.getState().project!.layouts[0]!.screens.some((screen) => screen.platform === "windows")).toBe(false);
+    editorStore.getState().undo();
+    expect(editorStore.getState().project!.layouts[0]!.screens.filter((screen) => screen.platform === "windows"))
+      .toEqual(windowsRoots);
   });
 
   it("creates and selects a watchOS family with 3.5x custom masters", () => {
