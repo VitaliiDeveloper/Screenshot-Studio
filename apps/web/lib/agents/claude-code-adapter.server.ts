@@ -80,8 +80,9 @@ export const claudeCodeAdapter: AgentAdapter = {
         // Codex sees the same images through `--image`.
         ...(request.attachments.length > 0 ? ["View the attached images with the Read tool."] : []),
       ].join("\n"),
-      // The skill and the images live outside the project; restricted file tools only read added directories.
+      // The skill, the bundled guide and the images live outside the project; restricted file tools only read added directories.
       ...(request.context.skillPath ? ["--add-dir", dirname(request.context.skillPath)] : []),
+      ...(request.context.bundledGuidePath ? ["--add-dir", dirname(request.context.bundledGuidePath)] : []),
       ...(request.attachments[0] ? ["--add-dir", dirname(request.attachments[0])] : []),
       ...(request.model ? ["--model", request.model] : []),
       ...(request.effort ? ["--effort", request.effort] : []),
