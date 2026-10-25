@@ -91,7 +91,7 @@ describe("screen row button", () => {
 
     expect(markup).toContain('aria-current="true"');
     expect(markup).toContain(`id="${describedBy}"`);
-    expect(markup).toContain("text-[color:var(--editor-color-accent-hover)]");
+    expect(markup).toContain("text-[color:var(--editor-color-accent-text-strong)]");
   });
 
   it("shows the warning text in the warning color instead of the layer count", () => {
