@@ -26,13 +26,34 @@ export type SizeRemoval =
   | { kind: "size"; rootScreenId: string; targetId: string; label: string; synchronized: boolean }
   | { kind: "family"; sourceScreenId: string; label: string };
 
+// Catalog iPhone labels abbreviate App Store Connect groups: `iPhone Dynamic Island · Medium`.
+const STORE_GROUP_LABEL = /^iPhone (Dynamic Island|Face ID|Home Button) · (Large|Medium)\b/;
+
+/** Devices are listed newest first, so the range runs from the last to the first. */
+export function sizeChipTooltip(target: StoreSize): string {
+  const pixels = `${target.width}×${target.height}`;
+  const devices = target.devices;
+  if (!devices) return pixels;
+  const group = STORE_GROUP_LABEL.exec(target.label);
+  const newest = devices[0]!;
+  const oldest = devices[devices.length - 1]!;
+  const range = devices.length === 1 ? newest : `${oldest} – ${newest.replace(/^iPhone /, "")}`;
+  return [
+    group ? `iPhone with ${group[1]} (${group[2]!.toLowerCase()} display)` : null,
+    `${range} · ${devices.length} ${devices.length === 1 ? "model" : "models"}`,
+    devices.join(", "),
+    pixels,
+  ].filter(Boolean).join("\n");
+}
+
 export interface SizeChip {
   key: string;
   role: "master" | "variant";
   label: string;
   /** Omitted when the label already names the pixels. */
   pixels: string | null;
-  devices: string | null;
+  /** App Store Connect group, device range and list, and pixels, one per line. */
+  tooltip: string | null;
   screenId: string;
   current: boolean;
   removal: SizeRemoval | null;
@@ -126,7 +147,7 @@ export function sizesBarModel(layout: DesignLayout, screen: Screen, specs: Store
         role,
         label: chipLabel,
         pixels: pixels && !chipLabel.includes(pixels) ? pixels : null,
-        devices: target?.devices?.join(", ") ?? null,
+        tooltip: target ? sizeChipTooltip(target) : null,
         screenId: opened.id,
         current: screens.some(({ id }) => id === screen.id),
         removal: removal(opened, chipLabel),

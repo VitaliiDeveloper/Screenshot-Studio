@@ -21,9 +21,10 @@ owe it no defence.
 - Every finding names a slide (order and screen id), what is wrong, why it costs installs, and one
   concrete fix in this project's terms (an element, a value, a pattern from
   [`art-direction.md`](art-direction.md)). No vague taste notes ("could be more modern").
-- Prefer fixes the `screenshots` CLI can apply: copy, media, screen order, a Design pack, or a built-in
-  screen pack. When a fix needs geometry, rotation, new elements, or effects, end it with
-  `(manual in editor)` so an agent limited to the CLI hands it to the user instead of attempting it.
+- Write fixes the `screenshots` CLI can apply (`element text`, `element media`, `element set`,
+  `element add`, `screen set`, a Design pack, or a built-in screen pack). When a fix needs something
+  the schema cannot express (perspective, masks, mixed-colour text, radial gradients), say so and
+  name the closest pattern that it can.
 - Do not invent problems to fill the list. A short report on a strong set is a good report.
 - Never ask for fake ratings, reviews, awards, or press quotes.
 

@@ -18,7 +18,7 @@ export {
   type ElementPatch,
   type ElementPatchFor,
   type ElementPatchRequest,
-} from "./editor-element-patch.js";
+} from "@screenshot-studio/core/model";
 export { selectEditorLayout } from "./editor-store-layouts.js";
 export type { PatchElementRequest } from "./editor-store-selection.js";
 

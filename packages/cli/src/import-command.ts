@@ -28,11 +28,21 @@ export interface ImportCapturesOptions {
   projectPath: string;
   inputDir: string;
   layout?: string;
+  /** Repoint existing references to re-captured bytes instead of adding screens. */
+  refresh?: boolean;
+}
+
+export interface CaptureRefreshSummary {
+  captures: number;
+  references: number;
+  unchanged: number;
+  unmatched: number;
 }
 
 export interface ImportCapturesResult {
   imported: number;
   warnings: string[];
+  refresh?: CaptureRefreshSummary;
 }
 
 interface ImportCapturesDependencies {
@@ -206,10 +216,20 @@ async function captureDiscovery(inputDir: string, specs: StoreSpecs): Promise<Ca
   return discoverCaptureImport({ files: await collectCaptureImportDirectory(inputDir), specs });
 }
 
+function refreshSummary(plan: CaptureImportPlan): CaptureRefreshSummary {
+  return {
+    captures: plan.refreshes.length,
+    references: plan.refreshes.reduce((total, refresh) => total + refresh.references.length, 0),
+    unchanged: plan.unchanged.length,
+    unmatched: plan.warnings.filter(({ code }) => code === "unmatched-capture").length,
+  };
+}
+
 export async function previewCaptures({
   projectPath,
   inputDir,
   layout: layoutReference,
+  refresh,
 }: ImportCapturesOptions, {
   storeSpecs = DEFAULT_STORE_SPECS,
 }: Pick<ImportCapturesDependencies, "storeSpecs"> = {}): Promise<CaptureImportPlan> {
@@ -224,6 +244,7 @@ export async function previewCaptures({
     layoutId,
     destinationKind: "current-project",
     discovery,
+    mode: refresh ? "refresh" : "add",
     specs: storeSpecs,
   }));
 }
@@ -232,6 +253,7 @@ export async function importCaptures({
   projectPath,
   inputDir,
   layout: layoutReference,
+  refresh,
 }: ImportCapturesOptions, {
   projectFileDependencies = {},
   storeSpecs = DEFAULT_STORE_SPECS,
@@ -240,15 +262,38 @@ export async function importCaptures({
   const discovery = await captureDiscovery(inputDir, storeSpecs);
   const warnings = discovery.warnings.map(({ message }) => message);
   if (discovery.captures.length === 0 && discovery.invalidEntries.length === 0) {
-    return { imported: 0, warnings };
+    return refresh
+      ? { imported: 0, warnings, refresh: { captures: 0, references: 0, unchanged: 0, unmatched: 0 } }
+      : { imported: 0, warnings };
   }
   const { project } = await loadProjectSnapshot(canonicalProjectPath);
   const layoutId = resolveMutationLayout(project, layoutReference).id;
+  if (refresh) {
+    const preview = planCaptureImport({
+      project,
+      layoutId,
+      destinationKind: "current-project",
+      discovery,
+      mode: "refresh",
+      specs: storeSpecs,
+    });
+    if (preview.refreshes.length === 0 && preview.invalidEntries.length === 0) {
+      return { imported: 0, warnings: preview.warnings.map(({ message }) => message), refresh: refreshSummary(preview) };
+    }
+  }
   const applied = await applyCaptureImportToProject({
     projectPath: canonicalProjectPath,
     discovery,
     layoutId,
+    mode: refresh ? "refresh" : "add",
     specs: storeSpecs,
   }, { fileDependencies: projectFileDependencies });
+  if (refresh) {
+    return {
+      imported: 0,
+      warnings: applied.plan.warnings.map(({ message }) => message),
+      refresh: refreshSummary(applied.plan),
+    };
+  }
   return { imported: applied.imported, warnings };
 }

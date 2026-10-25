@@ -12,7 +12,7 @@ gradients, or a two-colour headline, say so and offer the closest pattern here i
 
 1. Read the product brief, every capture in `assets/`, and the current screens of the target locale.
 2. Write a slide outline, one line per slide: the user outcome, the capture that proves it, and the
-   pattern from section 4 (or the screen pack, with CLI-only tools) you will use.
+   pattern from section 4 or the screen pack you will use.
 3. Order it for the store shelf. Search results show only the first two or three slides, so they
    carry the decision:
    - Slide 1: the main outcome, in the user's words ("Fall asleep in 10 minutes", not "Sleep
@@ -34,30 +34,27 @@ gradients, or a two-colour headline, say so and offer the closest pattern here i
 - Numbers beat adjectives: "3× faster" over "blazing fast", when the brief supports the number.
 - Keep the deck's voice consistent; vary composition, not tone.
 
-## 3. Know what your tools can change
+## 3. Build it through the CLI
 
-The `screenshots` CLI changes copy (`element text`), media (`element media`), screens (`template
-add`, `screen reorder`, `screen rm`), and styles (`theme set`). It cannot add elements or change
-geometry, rotation, or effects; those are JSON literals.
+Every pattern below can be built with `screenshots` commands, which lock and validate each write:
+`element get` prints an element's fields, `element set <screen-id> <element-id> --json '{…}'` moves,
+resizes, rotates, or restyles it, `element add <screen-id> --type <type> --json '{…}'` adds a leaf,
+`element rm` removes one, and `screen set <screen-id> --background '{…}'` changes a background. Copy
+and media keep their own commands (`element text`, `element media`). `element set` edits one screen,
+so repeat it on each exact size and locale that should change.
 
-- **You can edit files** (for example a file-edit tool, or shell access beyond `screenshots`): use
-  the pattern catalog in section 4 and edit geometry in `app-store-screenshots.json` as `AGENTS.md`
-  allows, then validate with `screenshots screen list`.
-- **You can only run `screenshots` commands** (the editor's built-in Claude Code runs this way): do
-  not attempt section 4 by hand. Get composition variety from built-in screen packs instead: run
-  `template list`, prefer `built-in-pack` lines whose name or description promises varied layouts
-  (tilted or paired devices, a stat slide, a panorama), add one with `template add <pack-id> --pack`,
-  then fill its copy and media and remove the screens it replaces. Use `theme set` for colour and
-  type, and `screen reorder` for the story order. For any pattern the CLI cannot build, end your
-  summary with short manual steps for the editor, such as "Slide 2: select the device and set
-  Rotation to −6 in the Inspector".
+For a fast start, built-in screen packs already vary their compositions: run `template list`, prefer
+`built-in-pack` lines whose name or description promises varied layouts (tilted or paired devices, a
+stat slide, a panorama), add one with `template add <pack-id> --pack`, fill its copy and media, and
+remove the screens it replaces. `theme set` restyles colour and type; `screen reorder` sets the story
+order.
 
 ## 4. Pattern catalog
 
 Pick a pattern per slide so that adjacent slides differ visibly. Coordinates are artboard pixels.
 `rotation` is in degrees and pivots on the element's top-left corner (`x`, `y`), so after rotating,
-check the export and shift `x`/`y` to recentre. Edit geometry as JSON literals, as `AGENTS.md`
-allows; use the CLI for copy and media.
+check the export and shift `x`/`y` to recentre. Set geometry with `element set` and add leaves with
+`element add` (section 3).
 
 | Pattern | Build it with | Use for |
 |---|---|---|
@@ -91,9 +88,7 @@ When the user attaches a competitor or inspiration screenshot:
    photos the project lacks) and the substitute you will use.
 3. Map it onto the project: keep the user's captures, copy, and fonts; take only composition, scale,
    and colour. Never copy the reference's brand, logo, illustrations, or text.
-4. Apply to one slide, export it, review (section 6), then roll the treatment out to the rest. With
-   CLI-only tools, pick the closest built-in pack and Design pack instead, and list the remaining
-   differences as manual steps.
+4. Apply to one slide, export it, review (section 6), then roll the treatment out to the rest.
 
 The reference image is context only. Do not import it into the project unless the user asks.
 

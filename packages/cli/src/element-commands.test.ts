@@ -185,3 +185,64 @@ describe("runElementCommand", () => {
     expect(saved.layouts[1].screens[0].elements[0].content).toBe("Campaign copy");
   });
 });
+
+describe("element get/set/add/rm", () => {
+  it("prints the full element JSON", async () => {
+    const { projectPath } = await fixture();
+    const output = await runElementCommand(projectPath, ["get", "hero", "badge-label"], {});
+    expect(JSON.parse(output)).toMatchObject({ id: "badge-label", type: "text", content: "4.9 ★" });
+  });
+
+  it("patches any settable field, removes optional fields with null, and edits group children", async () => {
+    const { projectPath } = await fixture();
+    await runElementCommand(projectPath, ["set", "hero", "title"], {
+      json: JSON.stringify({ x: 40, color: "#FF0000", size: 72, shadow: { color: "#000000", blur: 8, offsetX: 0, offsetY: 4 } }),
+    });
+    await runElementCommand(projectPath, ["set", "hero", "title"], { json: JSON.stringify({ role: null }) });
+    await runElementCommand(projectPath, ["set", "hero", "badge-label"], { json: JSON.stringify({ opacity: 0.5 }) });
+    const saved = await savedScreen(projectPath);
+    expect(saved.elements[0]).toMatchObject({ x: 40, color: "#FF0000", size: 72, shadow: { blur: 8 } });
+    expect(saved.elements[0].role).toBeUndefined();
+    expect(saved.elements[1].children[0].opacity).toBe(0.5);
+  });
+
+  it("rejects unknown fields, invalid values, unregistered fonts, and missing media without writing", async () => {
+    const { projectPath } = await fixture();
+    const before = await readFile(projectPath, "utf8");
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: '{"assetUrl":"assets/b.png"}' }))
+      .rejects.toThrow(/Cannot set assetUrl on text/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: '{"color":"red"}' }))
+      .rejects.toThrow(/Invalid project JSON[\s\S]*color/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: '{"fontFamily":"Nope"}' }))
+      .rejects.toThrow(/Font "Nope" 400 is not registered/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "shot"], { json: '{"assetUrl":"assets/missing.png"}' }))
+      .rejects.toThrow(/Media file not found/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: "[1]" }))
+      .rejects.toThrow(/--json must be a JSON object/);
+    expect(await readFile(projectPath, "utf8")).toBe(before);
+  });
+
+  it("adds core-default elements with optional overrides on top of the stack", async () => {
+    const { projectPath } = await fixture();
+    const output = await runElementCommand(projectPath, ["add", "hero"], {
+      type: "text", json: JSON.stringify({ content: "New", x: 12 }),
+    });
+    await runElementCommand(projectPath, ["add", "hero"], { type: "image", json: '{"assetUrl":"assets/b.png"}' });
+    const saved = await savedScreen(projectPath);
+    const added = saved.elements.at(-2);
+    expect(output).toBe(`Added text hero/${added.id}`);
+    expect(added).toMatchObject({ type: "text", content: "New", x: 12, fontFamily: "Screenshot Studio Sans" });
+    expect(saved.elements.at(-1)).toMatchObject({ type: "image", assetUrl: "assets/b.png" });
+    await expect(runElementCommand(projectPath, ["add", "hero"], { type: "image" })).rejects.toThrow(/requires "assetUrl"/);
+    expect(() => resolveElementAction(["add", "hero"], { type: "group" })).toThrow(/requires --type/);
+  });
+
+  it("removes top-level elements and group children, dropping emptied groups", async () => {
+    const { projectPath } = await fixture();
+    await runElementCommand(projectPath, ["rm", "hero", "shot"], {});
+    await runElementCommand(projectPath, ["rm", "hero", "badge-label"], {});
+    const saved = await savedScreen(projectPath);
+    expect(saved.elements.map((element: { id: string }) => element.id)).toEqual(["title", "mockup"]);
+    await expect(runElementCommand(projectPath, ["rm", "hero", "shot"], {})).rejects.toThrow(/Unknown element "shot"/);
+  });
+});

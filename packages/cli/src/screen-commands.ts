@@ -6,6 +6,7 @@ import {
   removeScreenFromProject,
   reorderScreenInProject,
   getLayout,
+  parseProject,
   type CreateScreenInput,
   type LayoutDirection,
   type Project as ProjectModel,
@@ -19,6 +20,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { assertProjectMediaFile, parseJsonObject } from "./element-commands.js";
 import { loadProjectFile, updateProjectFile } from "./project-io.js";
 import { parseLayoutDirection } from "./direction.js";
 import { resolveMutationLayout } from "./layout-commands.js";
@@ -35,6 +37,8 @@ export interface AddScreenOptions {
 
 export type ScreenAction =
   | { kind: "list" }
+  | { kind: "show"; id: string }
+  | { kind: "set"; id: string; background: Record<string, unknown> }
   | { kind: "add"; options: AddScreenOptions }
   | { kind: "rm"; id: string; cascadeVariants?: boolean }
   | { kind: "reorder"; id: string; to: number }
@@ -51,6 +55,13 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
   switch (subcommand) {
     case "list":
       return { kind: "list" };
+    case "show":
+      // Output is always JSON; --json is accepted so the explicit form also works.
+      if (!id) throw new Error("Usage: screenshots screen show <id> [--json]");
+      return { kind: "show", id };
+    case "set":
+      if (!id) throw new Error("Usage: screenshots screen set <id> --background '<json>'");
+      return { kind: "set", id, background: parseJsonObject(flags.background, "background") };
     case "add": {
       const platform = requireFlag(flags, "platform");
       const device = requireFlag(flags, "device");
@@ -95,7 +106,7 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
       return { kind: "migrate-lead", platform, device, from: requireFlag(flags, "from", subcommand) };
     }
     default:
-      throw new Error("Usage: screenshots screen <list|add|rm|reorder|migrate-lead>");
+      throw new Error("Usage: screenshots screen <list|show|set|add|rm|reorder|migrate-lead>");
   }
 }
 
@@ -160,6 +171,31 @@ export async function runScreenCommand(
     const project = await loadProjectFile(projectPath);
     const layout = resolveMutationLayout(project, flags.layout);
     return formatScreenList(project, layout.id);
+  }
+  if (action.kind === "show") {
+    const project = await loadProjectFile(projectPath);
+    const screen = getLayout(project, resolveMutationLayout(project, flags.layout).id).screens
+      .find((candidate) => candidate.id === action.id);
+    if (!screen) throw new Error(`Unknown screen "${action.id}"`);
+    return JSON.stringify(screen, null, 2);
+  }
+  if (action.kind === "set") {
+    if (action.background.type === "image" && typeof action.background.assetUrl === "string") {
+      await assertProjectMediaFile(projectPath, action.background.assetUrl);
+    }
+    await updateProjectFile(projectPath, (project) => {
+      const layout = resolveMutationLayout(project, flags.layout);
+      if (!layout.screens.some((screen) => screen.id === action.id)) throw new Error(`Unknown screen "${action.id}"`);
+      const layouts = project.layouts.map((candidate) => candidate.id !== layout.id ? candidate : {
+        ...candidate,
+        screens: candidate.screens.map((screen) => screen.id === action.id
+          ? { ...screen, background: action.background as Screen["background"] }
+          : screen),
+      });
+      // Not replaceLayout: parseProject applies defaults and reports violations by field path.
+      return { project: parseProject({ ...project, layouts }), value: undefined };
+    }, lockOptions);
+    return `Updated background of ${action.id}`;
   }
   if (action.kind === "migrate-lead") {
     const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));

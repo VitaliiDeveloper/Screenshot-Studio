@@ -49,8 +49,66 @@ export interface StyleComposition {
   bleed: number;
   maxDeviceWidth: number;
   headingLines: number;
+  /** Multiplies the heading size, for a stat that should read as one big number. */
+  headlineScale?: number;
   /** Generated art drawn behind everything; it must stay clear of text boxes. */
   decor: (context: DecorContext) => ShapeElement[];
+  /** Per-slot staging keyed by `StyleScreenCopy.key`, so adjacent screens differ in composition. */
+  slots?: Readonly<Record<string, ShowcaseSlot>>;
+}
+
+export interface ShowcaseSlot {
+  composition?: Partial<Pick<StyleComposition, "textAt" | "bleed" | "maxDeviceWidth" | "headingLines" | "headlineScale">>;
+  copy?: Partial<Pick<StyleScreenCopy, "headline" | "subline">>;
+  /** Degrees; the device turns about its own centre. */
+  tilt: number;
+  /** A second, smaller device behind the first, tilted the other way. */
+  pair?: boolean;
+}
+
+const PAIR_SCALE = 0.86;
+
+/** Tilted, paired, and stat-led screens over the shared narrative. */
+export const SHOWCASE_SLOTS: Readonly<Record<string, ShowcaseSlot>> = {
+  hero: { composition: { textAt: () => "top", maxDeviceWidth: 0.76, bleed: 0.12 }, tilt: -6 },
+  "feature-1": { composition: { textAt: () => "top", maxDeviceWidth: 0.52 }, tilt: 5, pair: true },
+  "feature-2": { composition: { textAt: () => "bottom", bleed: 0 }, tilt: 0 },
+  "feature-3": { composition: { textAt: () => "top", maxDeviceWidth: 0.7, bleed: 0.1 }, tilt: 5 },
+  proof: {
+    composition: { textAt: () => "top", headlineScale: 1.4, bleed: 0.14 },
+    copy: { headline: "4.9", subline: "Average rating from 12,000 reviews" },
+    tilt: 0,
+  },
+  cta: { composition: { textAt: () => "top" }, tilt: -4 },
+};
+
+// Konva turns an element about its top-left corner, so keeping the centre moves that corner.
+function tilt<T extends Element>(element: T, degrees: number): T {
+  if (!degrees) return element;
+  const radians = degrees * Math.PI / 180;
+  const halfWidth = element.width / 2;
+  const halfHeight = element.height / 2;
+  return {
+    ...element,
+    x: Math.round(element.x + halfWidth - halfWidth * Math.cos(radians) + halfHeight * Math.sin(radians)),
+    y: Math.round(element.y + halfHeight - halfWidth * Math.sin(radians) - halfHeight * Math.cos(radians)),
+    rotation: degrees,
+  };
+}
+
+function stageDevice(elements: Element[], slot: ShowcaseSlot, width: number, safe: number): Element[] {
+  const index = elements.findIndex((element) => element.type === "device-frame");
+  const device = elements[index]!;
+  const staged = slot.pair
+    ? [
+      tilt({
+        ...device, id: "mockup-back", name: "Drop second screenshot here",
+        ...roundBox({ x: safe, y: device.y + device.height * 0.08, width: device.width * PAIR_SCALE, height: device.height * PAIR_SCALE }),
+      }, Math.round(-slot.tilt * 1.4)),
+      tilt({ ...device, x: width - safe - device.width }, slot.tilt),
+    ]
+    : [tilt(device, slot.tilt)];
+  return [...elements.slice(0, index), ...staged, ...elements.slice(index + 1)];
 }
 
 const shape = (id: string, name: string, box: Box, fields: Partial<ShapeElement> & Pick<ShapeElement, "kind" | "fill">): ShapeElement => ({
@@ -112,13 +170,19 @@ export function styledScreenElements(
   height: number,
 ): Element[] {
   const shortSide = Math.min(width, height);
+  const slot = composition.slots?.[copy.key];
+  if (slot) {
+    const staged = { ...composition, ...slot.composition, slots: undefined };
+    const elements = styledScreenElements(staged, { ...copy, ...slot.copy }, screenIndex, frame, pack, width, height);
+    return stageDevice(elements, slot, width, Math.round(shortSide * 0.08));
+  }
   // Landscape copy keeps a portrait-width column, so it wraps exactly as on a phone; the device takes the rest.
   const landscape = width > height;
   const column = landscape ? shortSide : width;
   const safe = Math.round(shortSide * 0.08);
   const gap = Math.round(shortSide * 0.024);
   const top = Math.round(shortSide * 0.12);
-  const size = (role: ThemeRole) => Math.round(shortSide * pack.typography[role].sizeRatio);
+  const size = (role: ThemeRole) => Math.round(shortSide * pack.typography[role].sizeRatio * (role === "heading" ? composition.headlineScale ?? 1 : 1));
   const lines = (role: ThemeRole, count: number) => Math.ceil(size(role) * pack.typography[role].lineHeight * count);
   const center = composition.align === "center";
   const text = (role: ThemeRole, id: string, content: string, box: Box, fields: Partial<TextElement> = {}): TextElement => {

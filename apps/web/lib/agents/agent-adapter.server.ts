@@ -46,15 +46,15 @@ export function projectInstructions({ mode, context, attachments }: AgentRunRequ
     critic
       ? "You are reviewing the Screenshot Studio project in the current working directory as its critic."
       : "You are editing the Screenshot Studio project in the current working directory.",
-    context.agentGuidePath
-      ? `Before changing anything, read ${context.agentGuidePath} completely and follow it; it is the authoritative workflow and schema contract.`
+    context.agentGuidePath ?? context.bundledGuidePath
+      ? `Before changing anything, read ${context.agentGuidePath ?? context.bundledGuidePath} completely and follow it; it is the authoritative workflow and schema contract.`
       : "Read app-store-screenshots.json before changing anything; it is a strict schema.",
     skillPath ? `The Screenshot Studio skill is at ${skillPath}.` : "",
     critic
       ? `This run is read-only. Read ${skillPath ? skillReference(skillPath, "critic.md") : "the critic rules"} completely and follow it. Use only listing commands and \`screenshots export\` with \`--project ./app-store-screenshots.json\`; never change the project or run \`screenshots dev\`. A change to the project is rolled back.`
       : "Change the project only through the `screenshots` CLI with `--project ./app-store-screenshots.json`. Never run `screenshots dev`.",
     !critic && skillPath
-      ? `When the request is about store marketing, copy, a livelier or more premium look, or restyling from a reference image, read ${skillReference(skillPath, "art-direction.md")} first and follow it; if your tools only run \`screenshots\` commands, follow its CLI-only path.`
+      ? `When the request is about store marketing, copy, a livelier or more premium look, or restyling from a reference image, read ${skillReference(skillPath, "art-direction.md")} first and follow it.`
       : "",
     // Named here because a project's AGENTS.md is copied at init and may predate `asset import`.
     attachments.length > 0

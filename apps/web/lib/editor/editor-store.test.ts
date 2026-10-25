@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
 import { editorStore } from "./editor-store.js";
-import { applyElementPatch, type ElementPatchFor } from "./editor-element-patch.js";
-import type {
-  IconElement,
-  Project,
-  ShapeElement,
-  TextElement,
+import {
+  applyElementPatch,
+  type ElementPatchFor,
+  type IconElement,
+  type Project,
+  type ShapeElement,
+  type TextElement,
 } from "@screenshot-studio/core/model";
 import { patchText, project } from "./editor-store-test-fixtures.js";
 

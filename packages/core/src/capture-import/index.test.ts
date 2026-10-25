@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
@@ -7,6 +8,7 @@ import { Project, type Project as ProjectModel } from "@screenshot-studio/core/m
 import {
   applyCaptureImportPlan,
   assertCaptureImportConfirmation,
+  captureImportKey,
   discoverCaptureImport,
   planCaptureImport,
   type CaptureImportInputFile,
@@ -342,7 +344,7 @@ describe("planCaptureImport", () => {
         sourcePath: "apple/iphone/en/01.png",
         screenId: "apple-iphone-en-01-2",
         elementId: "apple-iphone-en-01-2-screenshot",
-        resourcePath: expect.stringMatching(/^assets\/imports\/apple-iphone-en-01-2-[0-9a-f]{12}\.png$/),
+        resourcePath: expect.stringMatching(/^assets\/imports\/apple-iphone-en-01-[0-9a-f]{12}\.png$/),
       },
       {
         sourcePath: "apple/iphone/fr/02.png",
@@ -500,5 +502,189 @@ describe("planCaptureImport", () => {
 
     expect(() => applyCaptureImportPlan(project, changedProject)).toThrow(/preview changed/i);
     expect(() => applyCaptureImportPlan(project, changedResource)).toThrow(/preview changed/i);
+  });
+});
+
+describe("planCaptureImport refresh mode", () => {
+  // Proportional to the iPhone lead size, so discovery adds no size warnings.
+  const shot = (fill: number) => {
+    const image = new PNG({ width: 201, height: 437 });
+    image.data.fill(fill);
+    return new Uint8Array(PNG.sync.write(image));
+  };
+  const importPath = (key: string, bytes: Uint8Array) =>
+    `assets/imports/${key}-${createHash("sha256").update(bytes).digest("hex").slice(0, 12)}.png`;
+
+  function imported(files: CaptureImportInputFile[], project = sampleProject()): ProjectModel {
+    const plan = planCaptureImport({
+      project,
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files }),
+    });
+    return applyCaptureImportPlan(project, plan).project;
+  }
+
+  function refresh(project: ProjectModel, files: CaptureImportInputFile[]) {
+    return planCaptureImport({
+      project,
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files }),
+      mode: "refresh",
+    });
+  }
+
+  const screen = (project: ProjectModel, id: string) =>
+    project.layouts[0]!.screens.find((candidate) => candidate.id === id)!;
+
+  it("pins the persisted capture key derivation", () => {
+    expect(captureImportKey({ platform: "apple", device: "iphone", locale: "en-US", filename: "01 Home Screen.PNG" }))
+      .toBe("apple-iphone-en-us-01-home-screen");
+    expect(captureImportKey({ platform: "android", device: "phone", locale: "ru", filename: "Главная.png" }))
+      .toBe("android-phone-ru");
+  });
+
+  it("names add-mode resources by capture key even when the screen id needs a suffix", () => {
+    const bytes = shot(10);
+    const project = imported([file("apple/iphone/en/01.png", bytes)]);
+
+    expect(screen(project, "apple-iphone-en-01-2").elements[0])
+      .toMatchObject({ assetUrl: importPath("apple-iphone-en-01", bytes) });
+  });
+
+  it("repoints an imported screenshot to re-captured bytes without touching screens", () => {
+    const first = shot(10);
+    const second = shot(20);
+    const key = "apple-iphone-en-01-home";
+    const project = imported([file("apple/iphone/en/01 Home.png", first)]);
+
+    const plan = refresh(project, [file("apple/iphone/en/01 Home.png", second)]);
+
+    expect(plan.mode).toBe("refresh");
+    expect(plan.screens).toEqual([]);
+    expect(plan.refreshes).toEqual([{
+      sourcePath: "apple/iphone/en/01 Home.png",
+      captureKey: key,
+      resourcePath: importPath(key, second),
+      previousPaths: [importPath(key, first)],
+      references: [{ screenId: key, elementId: `${key}-screenshot` }],
+    }]);
+    expect(plan.resources.map(({ destinationPath }) => destinationPath)).toEqual([importPath(key, second)]);
+    expect(plan.canApply).toBe(true);
+    const applied = applyCaptureImportPlan(project, plan).project;
+    expect(applied.layouts[0]!.screens.map(({ id }) => id)).toEqual(["apple-iphone-en-01", key]);
+    const expected = structuredClone(screen(project, key));
+    expected.elements[0] = { ...expected.elements[0]!, assetUrl: importPath(key, second) } as typeof expected.elements[0];
+    expect(screen(applied, key)).toEqual(expected);
+  });
+
+  it("refreshes backgrounds, images, device frames in groups, and duplicated screens", () => {
+    const first = shot(10);
+    const second = shot(20);
+    const key = "apple-iphone-en-01";
+    const base = imported([file("apple/iphone/en/01.png", first)]);
+    const oldPath = importPath(key, first);
+    const project = Project.parse({
+      ...base,
+      layouts: [{
+        ...base.layouts[0]!,
+        screens: [...base.layouts[0]!.screens, {
+          ...screen(base, `${key}-2`),
+          id: "designed",
+          background: { type: "image", assetUrl: oldPath, fit: "cover", color: "#000000" },
+          elements: [
+            { type: "image", id: "decor", x: 0, y: 0, width: 10, height: 10, assetUrl: oldPath },
+            {
+              type: "group", id: "group", x: 0, y: 0, width: 100, height: 100,
+              children: [
+                { type: "device-frame", id: "frame", x: 0, y: 0, width: 100, height: 100, deviceType: "iphone", assetUrl: oldPath },
+                { type: "screenshot", id: "kept", x: 0, y: 0, width: 10, height: 10, assetUrl: "assets/other.png" },
+              ],
+            },
+          ],
+        }],
+      }],
+    });
+
+    const plan = refresh(project, [file("apple/iphone/en/01.png", second)]);
+
+    expect(plan.refreshes[0]!.references).toEqual([
+      { screenId: `${key}-2`, elementId: `${key}-2-screenshot` },
+      { screenId: "designed", elementId: null },
+      { screenId: "designed", elementId: "decor" },
+      { screenId: "designed", elementId: "frame" },
+    ]);
+    const designed = screen(applyCaptureImportPlan(project, plan).project, "designed");
+    const newPath = importPath(key, second);
+    expect(designed.background).toMatchObject({ assetUrl: newPath });
+    expect(designed.elements[0]).toMatchObject({ assetUrl: newPath });
+    expect(designed.elements[1]).toMatchObject({
+      children: [{ assetUrl: newPath }, { assetUrl: "assets/other.png" }],
+    });
+  });
+
+  it("leaves references the user re-pointed alone and reports the capture as unmatched", () => {
+    const first = shot(10);
+    const base = imported([file("apple/iphone/en/02.png", first)]);
+    const project = Project.parse(structuredClone(base));
+    const element = screen(project, "apple-iphone-en-02").elements[0]!;
+    if (element.type === "screenshot") element.assetUrl = "assets/hero.png";
+
+    const plan = refresh(project, [file("apple/iphone/en/02.png", shot(20))]);
+
+    expect(plan.refreshes).toEqual([]);
+    expect(plan.resources).toEqual([]);
+    expect(plan.warnings.map(({ code, path }) => ({ code, path })))
+      .toEqual([{ code: "unmatched-capture", path: "apple/iphone/en/02.png" }]);
+    expect(plan.canApply).toBe(false);
+    expect(plan.project).toEqual(project);
+  });
+
+  it("treats identical bytes as unchanged and plans nothing", () => {
+    const bytes = shot(10);
+    const project = imported([file("apple/iphone/en/02.png", bytes)]);
+
+    const plan = refresh(project, [file("apple/iphone/en/02.png", bytes)]);
+
+    expect(plan.unchanged).toEqual(["apple/iphone/en/02.png"]);
+    expect(plan.refreshes).toEqual([]);
+    expect(plan.resources).toEqual([]);
+    expect(plan.canApply).toBe(false);
+  });
+
+  it("refuses two captures that share one capture key", () => {
+    const project = imported([file("apple/iphone/en/01 Home.png", shot(10))]);
+
+    const plan = refresh(project, [
+      file("apple/iphone/en/01 Home.png", shot(20)),
+      file("apple/iphone/en/01-home.png", shot(30)),
+    ]);
+
+    expect(plan.invalidEntries.map(({ code }) => code)).toEqual(["duplicate-capture-key"]);
+    expect(plan.canApply).toBe(false);
+    expect(plan.project).toEqual(project);
+  });
+
+  it("matches capture keys exactly, never a legacy suffixed resource", () => {
+    const legacy = importPath("apple-iphone-en-home-2", shot(10));
+    const base = imported([file("apple/iphone/en/home.png", shot(10))]);
+    const project = Project.parse(structuredClone(base));
+    const element = screen(project, "apple-iphone-en-home").elements[0]!;
+    if (element.type === "screenshot") element.assetUrl = legacy;
+
+    const plan = refresh(project, [file("apple/iphone/en/home.png", shot(20))]);
+
+    expect(plan.warnings.map(({ code }) => code)).toEqual(["unmatched-capture"]);
+  });
+
+  it("binds the confirmation fingerprint to the mode", () => {
+    const project = imported([file("apple/iphone/en/02.png", shot(10))]);
+    const discovery = discoverCaptureImport({ files: [file("apple/iphone/en/02.png", shot(20))] });
+    const plan = (mode: "add" | "refresh") => planCaptureImport({
+      project, layoutId: "default", destinationKind: "current-project", discovery, mode,
+    });
+
+    expect(plan("add").confirmationFingerprint).not.toBe(plan("refresh").confirmationFingerprint);
   });
 });

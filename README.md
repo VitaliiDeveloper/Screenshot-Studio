@@ -197,6 +197,11 @@ pnpm screenshots import ./my-app-screenshots/screenshots \
   --layout "Feature campaign" \
   --project ./my-app-screenshots/app-store-screenshots.json
 
+# After re-capturing, swap the new pixels into the screens that already use those captures
+pnpm screenshots import ./my-app-screenshots/screenshots --refresh \
+  --layout "Feature campaign" \
+  --project ./my-app-screenshots/app-store-screenshots.json
+
 # Add a starter screen, then change its copy and screenshot without editing JSON
 pnpm screenshots template add iphone-starter --built-in --locale en --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
@@ -260,6 +265,7 @@ copy the editor shows, so open the project in place as in step 2.
 | Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
 | `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
 | `<style>` panorama · iPhone, `<style>` panorama · Android phone | Panorama screen packs (6 connected screens each) | `<style>-panorama-iphone`, `<style>-panorama-android-phone` | The same six screens over art that crosses every screen edge: Clean (one stage and a timeline), Midnight (orbit rings on each seam), Poster (a bold stripe and split discs), and Sunrise (one horizon, rolling hills, and a sun between the first two screens). Panorama layouts only. |
+| `<style>` showcase · iPhone, `<style>` showcase · Android phone | Screen packs (6 screens each) | `midnight-showcase-iphone`, `midnight-showcase-android-phone`, `poster-showcase-iphone`, `poster-showcase-android-phone` | The same six screens with a different composition on each: a large tilted hero device, two overlapping devices, copy under the device, a big-number rating proof, and tilted devices on the rest. Midnight and Poster only. |
 
 Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
 Arabic, Hebrew, and CJK copy needs a font registered in the project.

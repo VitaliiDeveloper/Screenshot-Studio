@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Element } from "@screenshot-studio/core/model";
-import type { CommonElementPatch } from "@web/lib/editor/editor-element-patch";
+import type {
+  CommonElementPatch,
+  Element,
+} from "@screenshot-studio/core/model";
 
 type ElementType = Element["type"];
 

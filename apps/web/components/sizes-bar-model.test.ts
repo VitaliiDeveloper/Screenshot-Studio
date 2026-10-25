@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
 import { adjacentSizeScreenId } from "@web/lib/editor/editor-workspace";
-import { NEW_DESTINATION_GROUP, sizesBarModel } from "./sizes-bar-model.js";
+import { NEW_DESTINATION_GROUP, sizeChipTooltip, sizesBarModel } from "./sizes-bar-model.js";
 
 const specs = DEFAULT_STORE_SPECS;
 const desktop = {
@@ -167,7 +167,19 @@ describe("sizesBarModel", () => {
     const apple = sizesBarModel(layoutOf(iphone, mac), iphone, specs);
     expect(apple.groups.map(({ label }) => label)).toEqual(["App Store · iPhone", "App Store · macOS"]);
     expect(apple.groups[0]!.chips[0]).toMatchObject({ label: "Dynamic Island · Medium", pixels: "1206×2622" });
-    expect(apple.groups[0]!.chips[0]!.devices).toContain("iPhone 18 Pro");
+    expect(apple.groups[0]!.chips[0]!.tooltip).toBe([
+      "iPhone with Dynamic Island (medium display)",
+      "iPhone 14 Pro – 18 Pro · 8 models",
+      "iPhone 18 Pro, iPhone 17 Pro, iPhone 17, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 14 Pro",
+      "1206×2622",
+    ].join("\n"));
+    expect(apple.groups[1]!.chips[0]!.tooltip).toBe("2880×1800");
+  });
+
+  it("names the App Store Connect group of every iPhone target that lists devices", () => {
+    const listed = DEFAULT_STORE_SPECS.platforms.apple!.families.iphone!.targets.filter(({ devices }) => devices);
+    expect(listed.length).toBeGreaterThan(0);
+    for (const target of listed) expect(sizeChipTooltip(target), target.id).toMatch(/^iPhone with .+ \((?:large|medium) display\)\n/);
   });
 
   it("shows a standalone exact target without a removal or add options", () => {

@@ -17,7 +17,7 @@ const REQUEST: AgentRunRequest = {
   mode: "edit",
   model: "claude-sonnet-5-5",
   effort: "high",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  context: { agentGuidePath: "/project/AGENTS.md", bundledGuidePath: null, skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
   attachments: [],
 };
 
@@ -117,7 +117,6 @@ describe("Claude Code adapter", () => {
 
     const edit = prompt(REQUEST);
     expect(edit).toContain("/app/skills/screenshot-studio/references/art-direction.md");
-    expect(edit).toContain("follow its CLI-only path");
     expect(edit).not.toContain("critic.md");
 
     const critic = prompt({ ...REQUEST, mode: "critic" });
