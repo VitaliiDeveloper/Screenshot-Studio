@@ -197,6 +197,11 @@ pnpm screenshots import ./my-app-screenshots/screenshots \
   --layout "Feature campaign" \
   --project ./my-app-screenshots/app-store-screenshots.json
 
+# After re-capturing, swap the new pixels into the screens that already use those captures
+pnpm screenshots import ./my-app-screenshots/screenshots --refresh \
+  --layout "Feature campaign" \
+  --project ./my-app-screenshots/app-store-screenshots.json
+
 # Add a starter screen, then change its copy and screenshot without editing JSON
 pnpm screenshots template add iphone-starter --built-in --locale en --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json

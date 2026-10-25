@@ -11,6 +11,7 @@ import {
   outputFamilyLabel,
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
+import { collectImageUrlReferences, replaceImageUrls } from "@screenshot-studio/core/assets";
 import {
   Project,
   addScreenToProject,
@@ -49,6 +50,7 @@ export const DEFAULT_CAPTURE_IMPORT_LIMITS: Readonly<CaptureImportLimits> = Obje
 });
 
 export type CaptureImportIssueCode =
+  | "duplicate-capture-key"
   | "duplicate-path"
   | "destination-conflict"
   | "hidden-path"
@@ -64,6 +66,7 @@ export interface CaptureImportIssue {
 }
 
 export type CaptureImportWarningCode =
+  | "unmatched-capture"
   | "unexportable-capture-size"
   | "unsupported-capture-path"
   | "unsupported-input";
@@ -115,6 +118,9 @@ export interface CaptureImportDiscovery {
 
 export type CaptureImportDestinationKind = "current-project" | "new-project";
 
+/** `add` creates one screen per capture; `refresh` only repoints existing references to new bytes. */
+export type CaptureImportMode = "add" | "refresh";
+
 export interface CaptureImportPlannedScreen {
   sourcePath: string;
   screenId: string;
@@ -125,6 +131,14 @@ export interface CaptureImportPlannedScreen {
   locale: string;
   width: number;
   height: number;
+}
+
+export interface CaptureImportPlannedRefresh {
+  sourcePath: string;
+  captureKey: string;
+  resourcePath: string;
+  previousPaths: string[];
+  references: Array<{ screenId: string; elementId: string | null }>;
 }
 
 export interface CaptureImportPlannedResource {
@@ -141,8 +155,12 @@ export interface CaptureImportPlan {
     layoutId: string;
     layoutName: string;
   };
+  mode: CaptureImportMode;
   summary: CaptureImportDiscovery["summary"];
   screens: CaptureImportPlannedScreen[];
+  refreshes: CaptureImportPlannedRefresh[];
+  /** Refresh-mode captures whose references already point at identical bytes. */
+  unchanged: string[];
   resources: CaptureImportPlannedResource[];
   warnings: CaptureImportWarning[];
   invalidEntries: CaptureImportIssue[];
@@ -437,35 +455,58 @@ function baseProjectFingerprint(project: ProjectModel): string {
   return jsonDigest(Project.parse(project));
 }
 
-export function planCaptureImport(input: {
+/**
+ * Persisted refresh identity: add-mode names every capture resource
+ * `assets/imports/<captureKey>-<digest12>.png`, and refresh matches references by that name.
+ * Changing this derivation or the resource naming breaks refresh for existing projects.
+ */
+export function captureImportKey(
+  capture: Pick<DiscoveredCapture, "platform" | "device" | "locale" | "filename">,
+): string {
+  const stem = posix.parse(capture.filename).name;
+  return slugify(`${capture.platform}-${capture.device}-${capture.locale}-${stem}`);
+}
+
+function captureResourcePath(key: string, captureDigest: string): string {
+  return posix.join("assets", "imports", `${key}-${captureDigest.slice(0, IMPORT_DIGEST_LENGTH)}.png`);
+}
+
+function isCaptureResourceOf(assetUrl: string, key: string): boolean {
+  const prefix = `assets/imports/${key}-`;
+  return assetUrl.startsWith(prefix)
+    && new RegExp(`^[0-9a-f]{${IMPORT_DIGEST_LENGTH}}\\.png$`, "u").test(assetUrl.slice(prefix.length));
+}
+
+interface CaptureImportPlanParts {
   project: ProjectModel;
-  layoutId: string;
-  destinationKind: CaptureImportDestinationKind;
-  discovery: CaptureImportDiscovery;
-  specs?: StoreSpecs;
-}): CaptureImportPlan {
-  const specs = input.specs ?? DEFAULT_STORE_SPECS;
-  const base = Project.parse(structuredClone(input.project));
-  const layout = getLayout(base, input.layoutId);
+  screens: CaptureImportPlannedScreen[];
+  refreshes: CaptureImportPlannedRefresh[];
+  unchanged: string[];
+  captureResources: CaptureImportPlannedResource[];
+  warnings: CaptureImportWarning[];
+  invalidEntries: CaptureImportIssue[];
+}
+
+function planAddedScreens(
+  base: ProjectModel,
+  layoutId: string,
+  captures: readonly DiscoveredCapture[],
+  specs: StoreSpecs,
+): CaptureImportPlanParts {
   let project = base;
   const screens: CaptureImportPlannedScreen[] = [];
   const captureResources: CaptureImportPlannedResource[] = [];
 
-  for (const capture of input.discovery.captures) {
-    const currentLayout = getLayout(project, input.layoutId);
+  for (const capture of captures) {
+    const currentLayout = getLayout(project, layoutId);
     const stem = posix.parse(capture.filename).name;
-    const screenId = uniqueId(
-      slugify(`${capture.platform}-${capture.device}-${capture.locale}-${stem}`),
-      currentLayout.screens,
-    );
+    const captureKey = captureImportKey(capture);
+    const screenId = uniqueId(captureKey, currentLayout.screens);
     const elementId = `${screenId}-screenshot`;
-    const resourcePath = posix.join(
-      "assets",
-      "imports",
-      `${screenId}-${capture.digest.slice(0, IMPORT_DIGEST_LENGTH)}.png`,
-    );
+    // Named by capture key, not the possibly suffixed screen id, so refresh can find it.
+    const resourcePath = captureResourcePath(captureKey, capture.digest);
     const name = `${outputFamilyLabel(capture.platform, capture.device, specs)} · ${capture.locale} · ${stem}`;
-    project = addScreenToProject(project, input.layoutId, {
+    project = addScreenToProject(project, layoutId, {
       ...capture,
       id: screenId,
       name,
@@ -491,6 +532,72 @@ export function planCaptureImport(input: {
       width: capture.width,
       height: capture.height,
     });
+    if (!captureResources.some(({ destinationPath }) => destinationPath === resourcePath)) {
+      captureResources.push({
+        sourcePath: capture.sourcePath,
+        destinationPath: resourcePath,
+        digest: capture.digest,
+        bytes: new Uint8Array(capture.bytes),
+      });
+    }
+  }
+  return { project, screens, refreshes: [], unchanged: [], captureResources, warnings: [], invalidEntries: [] };
+}
+
+function planRefreshedReferences(
+  base: ProjectModel,
+  layoutId: string,
+  captures: readonly DiscoveredCapture[],
+): CaptureImportPlanParts {
+  const references = collectImageUrlReferences(base, layoutId);
+  const layoutName = getLayout(base, layoutId).name;
+  const replacements = new Map<string, string>();
+  const refreshes: CaptureImportPlannedRefresh[] = [];
+  const unchanged: string[] = [];
+  const captureResources: CaptureImportPlannedResource[] = [];
+  const warnings: CaptureImportWarning[] = [];
+  const invalidEntries: CaptureImportIssue[] = [];
+  const sourceByKey = new Map<string, string>();
+
+  for (const capture of captures) {
+    const captureKey = captureImportKey(capture);
+    const sameKey = sourceByKey.get(captureKey);
+    if (sameKey) {
+      invalidEntries.push(issue(
+        "duplicate-capture-key",
+        capture.sourcePath,
+        `Captures ${sameKey} and ${capture.sourcePath} refresh the same capture key "${captureKey}"`,
+      ));
+      continue;
+    }
+    sourceByKey.set(captureKey, capture.sourcePath);
+    const matches = references.filter(({ assetUrl }) => isCaptureResourceOf(assetUrl, captureKey));
+    if (matches.length === 0) {
+      warnings.push(warning(
+        "unmatched-capture",
+        capture.sourcePath,
+        `No screen in "${layoutName}" uses capture "${captureKey}"; import without --refresh to add it`,
+      ));
+      continue;
+    }
+    const resourcePath = captureResourcePath(captureKey, capture.digest);
+    const previousPaths = [...new Set(matches.map(({ assetUrl }) => assetUrl))]
+      .filter((path) => path !== resourcePath)
+      .sort(comparePortable);
+    if (previousPaths.length === 0) {
+      unchanged.push(capture.sourcePath);
+      continue;
+    }
+    for (const path of previousPaths) replacements.set(path, resourcePath);
+    refreshes.push({
+      sourcePath: capture.sourcePath,
+      captureKey,
+      resourcePath,
+      previousPaths,
+      references: matches
+        .filter(({ assetUrl }) => assetUrl !== resourcePath)
+        .map(({ screenId, elementId }) => ({ screenId, elementId })),
+    });
     captureResources.push({
       sourcePath: capture.sourcePath,
       destinationPath: resourcePath,
@@ -498,6 +605,29 @@ export function planCaptureImport(input: {
       bytes: new Uint8Array(capture.bytes),
     });
   }
+  const project = invalidEntries.length > 0 || replacements.size === 0
+    ? base
+    : replaceImageUrls(base, layoutId, replacements);
+  return { project, screens: [], refreshes, unchanged, captureResources, warnings, invalidEntries };
+}
+
+export function planCaptureImport(input: {
+  project: ProjectModel;
+  layoutId: string;
+  destinationKind: CaptureImportDestinationKind;
+  discovery: CaptureImportDiscovery;
+  mode?: CaptureImportMode;
+  specs?: StoreSpecs;
+}): CaptureImportPlan {
+  const specs = input.specs ?? DEFAULT_STORE_SPECS;
+  const mode = input.mode ?? "add";
+  const base = Project.parse(structuredClone(input.project));
+  const layout = getLayout(base, input.layoutId);
+  const parts = mode === "refresh"
+    ? planRefreshedReferences(base, input.layoutId, input.discovery.captures)
+    : planAddedScreens(base, input.layoutId, input.discovery.captures, specs);
+  const { screens, refreshes, unchanged, captureResources } = parts;
+  let project = parts.project;
 
   project = Project.parse(project);
   const resources = [
@@ -509,7 +639,7 @@ export function planCaptureImport(input: {
       bytes: new Uint8Array(asset.bytes),
     })),
   ];
-  const invalidEntries = structuredClone(input.discovery.invalidEntries);
+  const invalidEntries = [...structuredClone(input.discovery.invalidEntries), ...parts.invalidEntries];
   const destinations = new Map<string, CaptureImportPlannedResource>();
   for (const resource of resources) {
     const destinationKey = portablePathKey(resource.destinationPath);
@@ -533,13 +663,17 @@ export function planCaptureImport(input: {
       layoutId: layout.id,
       layoutName: layout.name,
     },
+    mode,
     summary: structuredClone(input.discovery.summary),
     screens,
+    refreshes,
+    unchanged,
     resources,
-    warnings: structuredClone(input.discovery.warnings),
+    warnings: [...structuredClone(input.discovery.warnings), ...parts.warnings]
+      .sort((left, right) => comparePortable(left.path, right.path)),
     invalidEntries,
     project,
-    canApply: screens.length > 0 && invalidEntries.length === 0,
+    canApply: (mode === "refresh" ? refreshes.length : screens.length) > 0 && invalidEntries.length === 0,
     baseProjectFingerprint: projectFingerprint,
   };
   return {
