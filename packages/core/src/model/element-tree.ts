@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Element, LeafElement } from "./schema.js";
+import type { Background, Element, LeafElement } from "./schema.js";
 
 /** Visit existing render-bearing leaves without exposing persistence consumers to tree shape. */
 export function elementLeaves(element: Element): LeafElement[] {
@@ -30,6 +30,13 @@ export function cloneElementWithFreshIds(
 /** Reflect a linear-gradient angle (0 = left-to-right, 90 = top-to-bottom) horizontally. */
 export function mirrorGradientAngle(angle: number): number {
   return (180 - angle + 360) % 360;
+}
+
+/** Screen backgrounds reflect only a gradient's direction; image pixels stay as they are. */
+export function mirrorBackground(background: Background): Background {
+  return background.type === "linear-gradient"
+    ? { ...background, angle: mirrorGradientAngle(background.angle) }
+    : background;
 }
 
 // Konva rotates around the top-left corner, so the mirrored box starts at the reflected top-right corner.
