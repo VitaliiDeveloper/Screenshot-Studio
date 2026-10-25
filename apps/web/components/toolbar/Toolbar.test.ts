@@ -147,7 +147,6 @@ describe("toolbar responsive labels", () => {
   it("keeps the centered grid gap and shrinkable priority groups", () => {
     const source = readFileSync(new URL("./Toolbar.tsx", import.meta.url), "utf8");
 
-    expect(source).toContain('<div className="contents">');
     expect(source).toContain("grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5");
     expect(source).toContain('className="flex w-full min-w-0 items-center justify-self-start"');
     expect(source).not.toContain("min-[1120px]:inline");
@@ -177,7 +176,6 @@ describe("toolbar responsive labels", () => {
     expect(source).toContain('const minimalControls = density === "minimal";');
     expect(source).toContain('minimalControls ? "p-0.5" : "p-1"');
     expect(source).toContain('minimalControls ? "gap-0.5" : "gap-1"');
-    expect(source.match(/minimalControls && "!size-7"/g)?.length).toBe(2);
     expect(source).toContain('minimalControls && "!size-7 !min-h-7 !px-0"');
     expect(source).toContain("items-center gap-5 border-b border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3");
     expect(source).not.toMatch(/data-density=\{density\}[\s\S]{0,200}minimalControls/);

@@ -40,14 +40,33 @@ describe("StatusBar", () => {
     editorStore.getState().resetProjectState();
   });
 
-  const render = () => renderToStaticMarkup(createElement(StatusBar, { specs: DEFAULT_STORE_SPECS }));
+  const render = (editingLocked = false) =>
+    renderToStaticMarkup(createElement(StatusBar, { specs: DEFAULT_STORE_SPECS, editingLocked }));
+  const disabled = (markup: string, name: string) => new RegExp(`aria-label="${name}"[^>]* disabled=""`).test(markup);
 
   it("is 34 px tall and lists the key hints", () => {
     const markup = render();
 
     expect(markup).toContain("h-[34px]");
-    for (const keys of ["[ ]", "O", "⌘K", "⌘Z"]) expect(markup).toContain(`>${keys}</kbd>`);
+    for (const keys of ["[ ]", "O", "⌘K", "⌘Z", "⇧⌘Z"]) expect(markup).toContain(`>${keys}</kbd>`);
     expect(markup).toContain("Focus/Overview");
+  });
+
+  it("enables Undo and Redo only with history and outside an agent run", () => {
+    let markup = render();
+    expect(disabled(markup, "Undo")).toBe(true);
+    expect(disabled(markup, "Redo")).toBe(true);
+
+    editorStore.setState({ historyPast: [{} as never], historyFuture: [{} as never] });
+    markup = render();
+    expect(markup).toContain('title="Undo (⌘Z)"');
+    expect(markup).toContain('title="Redo (⇧⌘Z)"');
+    expect(disabled(markup, "Undo")).toBe(false);
+    expect(disabled(markup, "Redo")).toBe(false);
+
+    markup = render(true);
+    expect(disabled(markup, "Undo")).toBe(true);
+    expect(disabled(markup, "Redo")).toBe(true);
   });
 
   it("shows saving and saved with the time, without announcing every autosave", () => {

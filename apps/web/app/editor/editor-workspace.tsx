@@ -426,7 +426,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </div>
         </EditorSidePanel>
       </div>
-      <StatusBar specs={specs} />
+      <StatusBar specs={specs} editingLocked={agentLocked} />
       {externalConflict && !projectNavigation.error ? (
         <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] px-3 py-2 text-xs text-[color:var(--editor-color-danger-text)] shadow-lg">
           <p className="font-semibold">This project changed outside the editor.</p>

@@ -26,10 +26,6 @@ function renderOverflow(
       ],
       onToggleInspector: () => {},
       onLocaleChange: () => {},
-      canUndo: true,
-      canRedo: false,
-      onUndo: () => {},
-      onRedo: () => {},
     }),
   );
 }
@@ -84,14 +80,5 @@ describe("ToolbarOverflowMenu", () => {
     expect(markup).toContain('role="menuitemradio" aria-checked="true"');
     expect(markup).toContain("h-7 w-7");
     expect(markup).not.toContain("h-8 w-8");
-  });
-
-  it("moves undo and redo into the minimal overflow without exposing them earlier", () => {
-    const minimal = renderOverflow("minimal", false);
-
-    expect(minimal).toContain(">Undo<");
-    expect(minimal).toContain(">Redo<");
-    expect(minimal).toContain('aria-disabled="true"');
-    expect(renderOverflow("overflow-locale", false)).not.toContain(">Undo<");
   });
 });

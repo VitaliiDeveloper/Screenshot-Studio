@@ -73,8 +73,10 @@ describe("inspector + toolbar", () => {
     expect(await focusLabel.isVisible()).toBe(false);
     expect(await overviewLabel.isVisible()).toBe(false);
     expect(await exportLabel.isVisible()).toBe(false);
-    expect(await page.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
-    expect(await page.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
+    const statusBar = page.getByTestId("status-bar");
+    expect(await toolbar.getByRole("button", { name: "Undo" }).count()).toBe(0);
+    expect(await statusBar.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
+    expect(await statusBar.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
 
     const measureToolbar = async () => {
       return page.locator("header", { has: page.getByLabel("Canvas view") }).evaluate((header) => {
@@ -107,9 +109,10 @@ describe("inspector + toolbar", () => {
     await expectNoOverlap(320);
     await page.getByRole("button", { name: "More toolbar actions" }).click();
     const overflowMenu = page.getByRole("menu", { name: "More toolbar actions" });
-    expect(await overflowMenu.getByRole("menuitem", { name: "Undo" }).isVisible()).toBe(true);
-    expect(await overflowMenu.getByRole("menuitem", { name: "Redo" }).isVisible()).toBe(true);
+    expect(await overflowMenu.getByRole("menuitem", { name: "Undo" }).count()).toBe(0);
     await page.keyboard.press("Escape");
+    expect(await statusBar.getByRole("button", { name: "Undo" }).isVisible()).toBe(true);
+    expect(await statusBar.getByRole("button", { name: "Redo" }).isVisible()).toBe(true);
     const layoutSelector = page.getByRole("button", { name: "Active layout: Default" });
     await layoutSelector.click();
     await page.getByRole("menu", { name: "Design layouts" }).waitFor({ state: "visible" });

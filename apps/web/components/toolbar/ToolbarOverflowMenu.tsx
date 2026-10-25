@@ -31,10 +31,6 @@ export interface ToolbarOverflowMenuProps {
   localeOptions: readonly { value: string; label: string }[];
   onToggleInspector: () => void;
   onLocaleChange: (locale: string) => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUndo: () => void;
-  onRedo: () => void;
 }
 
 export function ToolbarOverflowMenu({
@@ -50,10 +46,6 @@ export function ToolbarOverflowMenu({
   localeOptions,
   onToggleInspector,
   onLocaleChange,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
 }: ToolbarOverflowMenuProps) {
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -170,32 +162,6 @@ export function ToolbarOverflowMenu({
         >
           {inspectorOpen ? "Hide Inspector" : "Show Inspector"}
         </button>
-        {density === "minimal" ? (
-          <>
-            <button
-              type="button"
-              role="menuitem"
-              aria-disabled={!canUndo}
-              className={`flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)] ${canUndo ? "text-[color:var(--editor-color-text-default)] hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)]" : "text-[color:var(--editor-color-text-subtle)]"}`}
-              onClick={() => {
-                if (canUndo) select(onUndo);
-              }}
-            >
-              Undo
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              aria-disabled={!canRedo}
-              className={`flex min-h-9 w-full items-center rounded-md px-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)] ${canRedo ? "text-[color:var(--editor-color-text-default)] hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)]" : "text-[color:var(--editor-color-text-subtle)]"}`}
-              onClick={() => {
-                if (canRedo) select(onRedo);
-              }}
-            >
-              Redo
-            </button>
-          </>
-        ) : null}
         {density !== "overflow-secondary"
           ? localeOptions.map((option) => (
             <button
