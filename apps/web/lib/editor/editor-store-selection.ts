@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { produce } from "immer";
 import {
+  applyMatchingElementPatch,
   duplicateElement as duplicateElementCore,
+  type Element,
+  type ElementPatchRequest,
   findElementLocation,
   getLayout,
   groupElements as groupElementsCore,
   replaceLayout,
   ungroupElement as ungroupElementCore,
-  type Element,
 } from "@screenshot-studio/core/model";
 import {
   arrangeSelectionDeltas,
@@ -18,10 +20,6 @@ import {
   type ArrangeAction,
   type SelectionRef,
 } from "./editor-selection.js";
-import {
-  applyMatchingElementPatch,
-  type ElementPatchRequest,
-} from "./editor-element-patch.js";
 import { scopedElementPatches, type ApplyScope } from "./editor-apply-scope.js";
 import { forEachSelectedElement } from "./editor-selection-mutations.js";
 import { recordProjectChange } from "./editor-history.js";

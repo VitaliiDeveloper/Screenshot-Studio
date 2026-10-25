@@ -37,7 +37,19 @@ library. Reuse them before introducing one-off controls:
 `apps/web/components/editor-ui/tokens.css` is the token source for editor color roles, spacing,
 radii, control typography, shadows, focus treatment, and motion. Prefer semantic token names such as
 surface, text, accent, warning, danger, and focus over literal colors or ad-hoc spacing. Reuse
-`editorUi` styles so controls share disabled treatment, focus rings, and transition timing.
+`editorUi` styles so controls share disabled treatment, focus rings, and transition timing. The
+palette follows the Turn 6 handoff (accent `#2547F0`). The dark theme (mockup 6q) follows the system
+`prefers-color-scheme` with no in-app switch; it only overrides token values in `tokens.css`, so the
+canvas sits darker than the panels and artboards keep their ring. Artboard pixels and exports never
+change with the theme. Components use no raw Tailwind palette classes. A `*-text` token colors only
+text and icons, a `*-hover` token is only the hover fill of a filled button, and `badge`/`on-badge`
+invert together, because a theme gives these roles different values. `tokens-contrast.test.ts` holds
+body-text pairs at 4.5:1 and focus/selection lines at 3:1 in both themes; `text-subtle` hints and
+placeholders are a known exception held at 3:1. Konva cannot read CSS variables, so canvas
+overlays (selection, screen boundaries, snap guides, marquee, overflow marks) resolve their colors
+from the tokens through `useStageColors`. The interface font is Instrument Sans, loaded under the
+private family `Screenshot Studio UI` so a project font of the same name never restyles the UI; it is
+not a renderer font (`apps/web/public/fonts/ui/README.md`).
 Shared dialogs animate their backdrop and panel on entry and retain the panel through exit; reduced
 motion removes both transitions. Async resource pickers reserve their body geometry while loading so
 replacing progress with results does not move or resize the dialog.
@@ -195,7 +207,10 @@ It shows every size of the layout for the active locale, grouped by output famil
 (`App Store · iPhone`) in layout order with the master first, so in isolated layouts its chips read
 left to right in the order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
 out as the default), its pixels when the slot does not already name them, and its **Master** or
-**Variant** role; its tooltip lists the devices. A family's sizes stay listed when another compatible
+**Variant** role. Its tooltip spells out the App Store Connect group
+(`iPhone with Dynamic Island (medium display)`), the device range with its model count
+(`iPhone 14 Pro – 18 Pro · 8 models`), the full device list, and the pixels; a size the catalog lists
+no devices for shows only its pixels. A family's sizes stay listed when another compatible
 master screen is selected. A chip opens the active slot's screen when that size holds one, else the
 size's first screen, and the current size is marked without a redundant `Current` action.
 **Add size** lists each family's missing sizes under that family and the families the layout lacks
@@ -398,6 +413,16 @@ snapshot; **Undo run** restores it as one write and is refused once the project 
 run. Undo run covers only `app-store-screenshots.json`, and ⌘Z history starts fresh after the
 reload. A review survives an editor reload while the server still holds the snapshot.
 
+An empty chat shows **Suggestions**: **Make it sell**, **Write store copy**, and **Match a
+reference** prefill the composer with an editable request and never send it; **Critique my set**
+starts a critic run. After **Keep changes**, the chat asks once whether to get a second opinion:
+**Run critic** starts a critic run and **Not now** dismisses the offer; sending anything else, Undo
+run, or New chat drops it. A critic run uses the selected agent under read-only rules: it exports the
+set, reviews the PNGs, and reports findings in its message. Its message ends with **Apply findings**,
+which prefills the composer with the report as an ordinary edit request, so the user deletes the
+findings to skip before sending. A critic that changed the project is rolled back and its message
+says so with **Retry**.
+
 Whenever a run changed files in the project folder outside `app-store-screenshots.json` (an agent's
 own edits, or the CLI's imported images, fonts, themes, and templates), the finished message and the
 Review list them under **Other files · N** with each path and `added`, `changed`, or `removed`
@@ -455,17 +480,19 @@ Projects) that its accessible name contains, and active items get the light acce
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
 recovery action; Workspace must never discard the active client state automatically.
 The Workspace top bar starts with a `Screenshot Studio / project / layout` breadcrumb whose product-name
-button is the same Projects home action; Focus / Overview stay centered; undo, redo, the locale menu,
-Issues with its count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
+button is the same Projects home action; Focus / Overview stay centered; the locale menu, Issues with its
+count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
 The 44 px sizes bar sits directly under the top bar and stays visible at every width (see §3).
-A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
+A 34 px **status bar** closes the Workspace under the canvas and panels. It starts with the Undo
+and Redo buttons, visible at every width and disabled when there is nothing to undo or redo, then
+shows the save state,
 the active screen, the current layer selection, and that screen's size, as in
 `Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or
 `3 layers (2 text · 1 shape)` take the layer's place), then the key hints `[ ] Size`,
-`O Focus/Overview`, `⌘K Find`, and `⌘Z Undo`, which hide below the medium width. The save state
+`O Focus/Overview`, `⌘K Find`, `⌘Z Undo`, and `⇧⌘Z Redo`, which hide below the medium width. The save state
 reads `Saving…`, `Saved ·` with the time of the last successful save, or `Save failed · last saved`
 with that time (`nothing saved yet` when no save has succeeded since the project opened), so a
 failure still says how far the work is durable. The save cell is plain text, not a live region, so

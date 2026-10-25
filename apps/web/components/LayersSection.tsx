@@ -90,13 +90,13 @@ const layerTextTone: Record<LayerTone, string> = {
 };
 const layerIconTone: Record<LayerTone, string> = {
   idle: "text-[color:var(--editor-color-text-subtle)]",
-  soft: "text-[color:var(--editor-color-accent-hover)]",
+  soft: "text-[color:var(--editor-color-accent-text-strong)]",
   solid: "text-[color:var(--editor-color-on-accent)]",
 };
 /** Icon buttons in a layer row: color plus a focus ring that stays visible on the row fill. */
 const layerButtonTone: Record<LayerTone, string> = {
   idle: "text-[color:var(--editor-color-text-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:ring-[var(--editor-color-focus)]",
-  soft: "text-[color:var(--editor-color-accent-hover)] hover:text-[color:var(--editor-color-accent-strong)] focus-visible:ring-[var(--editor-color-focus)]",
+  soft: "text-[color:var(--editor-color-accent-text-strong)] hover:text-[color:var(--editor-color-accent-strong)] focus-visible:ring-[var(--editor-color-focus)]",
   solid: "text-[color:var(--editor-color-on-media-muted)] hover:text-[color:var(--editor-color-on-accent)] focus-visible:ring-[var(--editor-color-on-accent)]",
 };
 const lockedButtonTone: Record<LayerTone, string> = {
@@ -117,7 +117,7 @@ const overlayNearLock = "absolute right-[30px] top-1/2 -translate-y-1/2 bg-inher
 const overlayBeforeThat = "absolute right-[56px] top-1/2 -translate-y-1/2 bg-inherit";
 const menuItemBase = "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
 const menuItem = `${menuItemBase} text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`;
-const menuItemDanger = `${menuItemBase} text-[color:var(--editor-color-danger)] hover:bg-[var(--editor-color-danger-surface)]`;
+const menuItemDanger = `${menuItemBase} text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)]`;
 
 function layerNameClass(element: Element, tone: LayerTone): string {
   return cx(
@@ -478,7 +478,7 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                         overlayNearLock,
                         childTone === "solid"
                           ? layerButtonTone.solid
-                          : "text-[color:var(--editor-color-danger)] hover:bg-[var(--editor-color-danger-surface)] focus-visible:ring-[var(--editor-color-focus)]",
+                          : "text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] focus-visible:ring-[var(--editor-color-focus)]",
                       )}
                       aria-label={`Delete ${elementLabel(child)}`}
                       onClick={() => mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId))}

@@ -287,12 +287,12 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
 
   if (error) {
     return (
-      <main className="grid h-dvh place-items-center bg-slate-50 p-6">
-        <div role="alert" className="max-w-lg rounded-xl border border-red-200 bg-white p-5 text-sm text-red-700 shadow-sm">
+      <main className="grid h-dvh place-items-center bg-[var(--editor-color-surface-subtle)] p-6">
+        <div role="alert" className="max-w-lg rounded-xl border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] p-5 text-sm text-[color:var(--editor-color-danger-text)] shadow-sm">
           <p className="whitespace-pre-wrap">{error}</p>
           <button
             type="button"
-            className="mt-4 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+            className="mt-4 rounded-lg bg-[var(--editor-color-danger)] px-3 py-2 text-xs font-semibold text-[color:var(--editor-color-on-accent)] hover:bg-[var(--editor-color-danger-hover)]"
             disabled={reloading}
             onClick={retry}
           >
@@ -300,7 +300,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </button>
           <Link
             href="/"
-            className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-red-700 underline hover:bg-red-50"
+            className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-[color:var(--editor-color-danger-text)] underline hover:bg-[var(--editor-color-danger-surface)]"
           >
             Return to project launcher
           </Link>
@@ -310,10 +310,10 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   }
   const leftPanel = panel ?? lastPanel;
   if (!images || !specs) {
-    return <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">Loading workspace…</main>;
+    return <main className="grid h-dvh place-items-center bg-[var(--editor-color-surface-subtle)] text-sm text-[color:var(--editor-color-text-secondary)]">Loading workspace…</main>;
   }
   return (
-    <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-white">
+    <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-[var(--editor-color-surface)]">
       <Toolbar
         view={view}
         specs={specs}
@@ -426,9 +426,9 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </div>
         </EditorSidePanel>
       </div>
-      <StatusBar specs={specs} />
+      <StatusBar specs={specs} editingLocked={agentLocked} />
       {externalConflict && !projectNavigation.error ? (
-        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] px-3 py-2 text-xs text-[color:var(--editor-color-danger-text)] shadow-lg">
           <p className="font-semibold">This project changed outside the editor.</p>
           <p className="mt-1">
             Your latest edits were not saved, so they did not overwrite that change. Loading the latest
@@ -436,7 +436,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </p>
           <button
             type="button"
-            className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+            className="mt-2 rounded-lg bg-[var(--editor-color-danger)] px-3 py-1.5 text-xs font-semibold text-[color:var(--editor-color-on-accent)] hover:bg-[var(--editor-color-danger-hover)] disabled:opacity-60"
             disabled={reloading}
             onClick={() => { void reloadFromDisk(); }}
           >
@@ -444,7 +444,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </button>
         </div>
       ) : saveStatus === "error" && saveError && !projectNavigation.error ? (
-        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-lg">
+        <div role="alert" className="absolute right-3 top-26 z-40 max-w-sm rounded-xl border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] px-3 py-2 text-xs text-[color:var(--editor-color-danger-text)] shadow-lg">
           Save failed: {saveError}
         </div>
       ) : null}
@@ -460,7 +460,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
         />
       ) : null}
       {fontWarnings.length > 0 ? (
-        <div role="alert" className="absolute bottom-12 left-16 z-40 max-w-xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-lg">
+        <div role="alert" className="absolute bottom-12 left-16 z-40 max-w-xl rounded-xl border border-[var(--editor-color-warning-border-strong)] bg-[var(--editor-color-warning-surface)] px-3 py-2 text-xs text-[color:var(--editor-color-warning-text-strong)] shadow-lg">
           <p className="font-semibold">Some project fonts could not be loaded.</p>
           <ul className="mt-1 list-disc pl-4">
             {fontWarnings.map(({ font, error: fontError }) => (
@@ -474,7 +474,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
           </p>
           <button
             type="button"
-            className="mt-2 rounded-md border border-amber-400 bg-white px-2 py-1 font-semibold hover:bg-amber-100"
+            className="mt-2 rounded-md border border-[var(--editor-color-warning-border-strong)] bg-[var(--editor-color-surface)] px-2 py-1 font-semibold hover:bg-[var(--editor-color-warning-muted)]"
             disabled={fontRetrying}
             onClick={retryFonts}
           >

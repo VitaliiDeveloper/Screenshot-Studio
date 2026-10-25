@@ -121,7 +121,7 @@ function ArtboardSizeEditor({
           <NumberField label="H" value={height} min={1} integer layout="column" onChange={setHeight} />
           <span className="pb-2 text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-subtle)]">px</span>
         </div>
-        <p className={`text-[length:var(--editor-font-label-size)] leading-4 ${draftStatus?.kind === "invalid" ? "text-[color:var(--editor-color-danger)]" : "text-[color:var(--editor-color-text-secondary)]"}`}>
+        <p className={`text-[length:var(--editor-font-label-size)] leading-4 ${draftStatus?.kind === "invalid" ? "text-[color:var(--editor-color-danger-text)]" : "text-[color:var(--editor-color-text-secondary)]"}`}>
           {draftStatus?.kind === "invalid"
             ? "Custom dimensions must keep the export size's aspect ratio."
             : "Apply resizes every screen at this export size and fits each composition."}

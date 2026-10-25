@@ -149,6 +149,11 @@ describe.skipIf(process.platform === "win32")("/api/agents/session", () => {
     }));
     expect(unknownEffort.status).toBe(400);
     expect(await unknownEffort.json()).toMatchObject({ code: "unknown-effort" });
+    const unknownMode = await handleAgentSessionPost(projectPath, new Request("http://localhost/api/agents/session", {
+      method: "POST", body: JSON.stringify({ agentId: "claude-code", message: "Hi", mode: "admin" }),
+    }));
+    expect(unknownMode.status).toBe(400);
+    expect(await unknownMode.json()).toMatchObject({ error: expect.stringContaining("mode must be one of edit, critic") });
     expect(await started()).toBe(false);
   });
 

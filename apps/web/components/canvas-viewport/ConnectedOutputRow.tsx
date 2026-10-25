@@ -58,7 +58,7 @@ export function ConnectedOutputRow({
             </div>
           ))}
         </div>
-        <div className="relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
+        <div className="relative bg-[var(--editor-color-artboard)] shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-[var(--editor-color-border-strong)]">
           <EditorStage
             images={images}
             zoom={zoom}

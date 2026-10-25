@@ -127,7 +127,7 @@ export function ProjectImagesDialog({
     >
       <div className="mb-4 flex items-center gap-2">
         <label className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} strokeWidth={1.9} />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--editor-color-text-subtle)]" size={15} strokeWidth={1.9} />
           <input
             type="search"
             aria-label="Search project images"
@@ -164,7 +164,7 @@ export function ProjectImagesDialog({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {assets === null ? (
-          error ? null : <p role="status" className="grid h-full place-items-center text-center text-xs text-slate-500">Scanning project images…</p>
+          error ? null : <p role="status" className="grid h-full place-items-center text-center text-xs text-[color:var(--editor-color-text-secondary)]">Scanning project images…</p>
         ) : visibleAssets.length === 0 ? (
           <EmptyResourceState
             icon={FolderOpen}
@@ -185,10 +185,10 @@ export function ProjectImagesDialog({
                   aria-label={asset.path}
                   aria-pressed={selected}
                   disabled={busy !== null}
-                  className={`group overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${selected ? "border-blue-500 ring-2 ring-blue-500/40" : "border-slate-200 hover:border-blue-300"}`}
+                  className={`group overflow-hidden rounded-xl border bg-[var(--editor-color-surface)] text-left shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] ${selected ? "border-[var(--editor-color-selection)] ring-2 ring-[var(--editor-color-focus)]" : "border-[var(--editor-color-border)] hover:border-[var(--editor-color-accent-border-strong)]"}`}
                   onClick={() => setSelectedPath(asset.path)}
                 >
-                  <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,#f8fafc_25%,transparent_25%),linear-gradient(-45deg,#f8fafc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f8fafc_75%),linear-gradient(-45deg,transparent_75%,#f8fafc_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
+                  <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--editor-color-surface-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--editor-color-surface-muted)_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
                     <NextImage
                       src={resolveActiveProjectAssetUrl(asset.path)}
                       alt=""
@@ -201,8 +201,8 @@ export function ProjectImagesDialog({
                     />
                   </span>
                   <span className="block p-3">
-                    <span className="block truncate text-xs font-semibold text-slate-800">{asset.name}</span>
-                    <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">{asset.path}</span>
+                    <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text)]">{asset.name}</span>
+                    <span className="mt-1 block truncate font-mono text-[10px] text-[color:var(--editor-color-text-subtle)]">{asset.path}</span>
                   </span>
                 </button>
               );
@@ -211,8 +211,8 @@ export function ProjectImagesDialog({
         )}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 border-t border-slate-200 pt-4">
-        <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+      <div className="mt-4 flex items-center gap-3 border-t border-[var(--editor-color-border)] pt-4">
+        <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--editor-color-text-secondary)]">
           {selectedPath ?? "Select an image to insert it on the current screen."}
         </span>
         <button

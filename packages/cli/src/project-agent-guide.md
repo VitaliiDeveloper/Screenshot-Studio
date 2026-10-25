@@ -21,10 +21,9 @@ project's JSON with `--project`.
 - `app-store-screenshots.json` is the only persisted project state. It is strict v1 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to layouts, screens, templates, locales, fonts, themes,
-  and imports, and for copy and media (`element text`, `element media`). Each command takes the
-  project lock, validates the complete strict Project, and writes atomically. Directly edit JSON
-  only for literals the CLI does not manage, such as element geometry, typography, screen names,
-  and backgrounds.
+  and imports, and for element edits (`element text`, `element media`, `element set`, `element add`,
+  `element rm`). Each command takes the project lock, validates the complete strict Project, and
+  writes atomically. Directly edit JSON only for literals the CLI does not manage.
 - The visual editor may be open on this project. It refuses to save over a newer file ("Project
   changed on disk"), so reload it after CLI or JSON changes made outside it.
 - Preserve layout, screen, and element ids unless intentionally creating a new object. Layout ids
@@ -162,6 +161,8 @@ screenshots template list --project ./app-store-screenshots.json    # source, id
 screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
+screenshots screen show <screen-id> --json --project ./app-store-screenshots.json            # full screen JSON
+screenshots element get <screen-id> <element-id> --project ./app-store-screenshots.json  # full element JSON
 ```
 
 | Request | Commands |
@@ -171,21 +172,41 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Change copy on every exact size of a slot | `element text <screen-id> <element-id> --all-sizes "<copy>"` |
 | Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
 | Use an image from outside the project | `asset import <file>`, then `element media` with the printed path |
+| Same geometry on every exact size of a slot | `element set <screen-id> <element-id> --all-sizes --json '{"x":76,"rotation":-6}'` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
 | Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
 | Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
 | Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
+| Refresh re-captured screens | `import <dir> --refresh` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
+| Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
+| Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
+| Remove an element | `element rm <screen-id> <element-id>` |
+| Change a screen background | `screen set <screen-id> --background '{"type":"linear-gradient","from":"#101828","to":"#344054","angle":90}'` |
 
 Element ids are fresh UUIDs after a template add or locale clone, so list before every edit.
+`element set` takes the field names and values printed by `element get`: every schema field except
+`id`, `type`, and a group's `children`, and the error for an unknown field lists the settable ones.
+`null` removes `role`, `shadow`, `gradient`, `stroke`, `crop`, `blur`, or a device frame's `assetUrl`. It edits one element
+on one screen, so repeat it on each locale that should change; for geometry, `--all-sizes` covers
+the slot's other exact sizes. Render the screen with
+`export --screen <id>` and look at the PNG after layout or style edits: the schema accepts geometry
+that overlaps or leaves the artboard.
 Store target variants are separate screens with their own elements and ids. `element text
---all-sizes` also writes the same layer on every other exact size of that slot, matched by layer
-position like the editor's Status by size and Apply to, in one locked write. It reports each size it
-skips: a size whose layer structure has diverged, or whose matching layer or its group is locked.
-Edit those individually. Copy that starts with `--` goes after a `--` terminator:
+--all-sizes` and `element set --all-sizes` also write the same layer on every other exact size of
+that slot, matched by layer position like the editor's Status by size and Apply to, in one locked
+write. `element set --all-sizes` accepts only `x`, `y`, `width`, `height`, `rotation`, and
+`opacity`, and fits the edited layer into each size's artboard the way Apply to does, so
+pixel values scale with the artboard while rotation and opacity copy. Both report each size they
+skip: a size whose layer structure has diverged, whose matching layer or its group is locked, or
+(for `element set`) whose fitted layer would leave a schema range. Edit those individually.
+
+`element set` writes only the fields in the patch; the other fields keep their values. Values are
+artboard pixels and degrees, and a group child's `x`/`y` are relative to its group. With
+`--all-sizes` it targets leaf layers, so move a group by moving each child. Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
 
 ## Recipe: generate or refresh copy
@@ -230,9 +251,25 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
    ```
 2. Establish the hierarchy first: headline, proof/supporting copy, product media, then decoration.
    Keep required text and critical UI inside one artboard.
-3. Write final element geometry against that screen's exact artboard. Keep all finite dimensions
-   positive, preserve intentional aspect ratios for media, and remember that `elements` order is
-   back-to-front z-order.
+3. Write final element geometry against that screen's exact artboard with `element set`. Keep all
+   finite dimensions positive, scale media by multiplying `width` and `height` by the same factor to
+   preserve its aspect ratio, and remember that `elements` order is back-to-front z-order.
+
+   Rotation turns the element about its top-left corner (`x`, `y`), not its centre. To tilt an
+   upright element by `θ` degrees and keep its centre in place, start from its unrotated box
+   (`x0`, `y0`, `w`, `h` with `rotation` 0) and set:
+
+   ```text
+   x = x0 + w/2 − (w/2)·cos θ + (h/2)·sin θ
+   y = y0 + h/2 − (w/2)·sin θ − (h/2)·cos θ
+   ```
+
+   For an element that is already rotated, set `rotation` to 0 first or recompute from the
+   original upright `x`/`y`. For example, a 420×860 device at `x0` 120, `y0` 500 tilted −6°:
+
+   ```bash
+   screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x":76,"y":524}' --project ./app-store-screenshots.json
+   ```
 4. Vary device placement and negative space across adjacent slides. In `isolated` mode, never make
    one slide depend on a neighbouring crop. In `connected` mode, cross-screen decoration may span an
    exact platform/device/locale strip, but required text and critical UI must remain complete in
@@ -403,6 +440,19 @@ creates fresh screen/element ids, validates the complete strict Project, and com
 copied resources atomically. Warnings identify skipped unsupported inputs; invalid or colliding paths
 block apply. Do not use **Import project** Folder/ZIP/JSON terminology for this command, and do not
 manually copy captures into `assets/imports/` or precompute ids.
+
+After re-capturing the app, add `--refresh` to update designed screens instead of adding new ones:
+
+```bash
+screenshots import ./screenshots --refresh --layout "Feature campaign" --project ./app-store-screenshots.json
+```
+
+Refresh swaps the new bytes into every element or background in the layout that still uses the
+earlier import of the same `<platform>/<device>/<locale>/<file>.png` capture. It never adds, moves,
+or resizes screens. A capture no screen uses is reported as unmatched; run the import without
+`--refresh` to add it. Keep capture file names stable between runs, since the name is the match key.
+Point refresh at `screenshots/`, not the project root: replaced import files stay under `assets/` and
+a root input would re-read all of them on every run.
 
 ## Recipe: process a local asset
 

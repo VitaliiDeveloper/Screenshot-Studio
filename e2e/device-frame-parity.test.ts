@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ import { startWebServer } from "@screenshot-studio/cli/server";
 import { stripAlpha } from "@screenshot-studio/core/export";
 import {
   closeParityRenderHarness,
+  launchHeadedChromium,
   startParityRenderHarness,
   type ParityRenderHarness,
 } from "./support/parity-render-harness.js";
@@ -48,7 +49,7 @@ beforeAll(async () => {
   process.env.PROJECT_PATH = fixturePath;
   harness = await startParityRenderHarness(
     () => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }),
-    () => chromium.launch({ headless: false }),
+    () => launchHeadedChromium(),
   );
 }, 180_000);
 

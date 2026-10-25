@@ -4,6 +4,7 @@ import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
+import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import { inspectPng } from "@screenshot-studio/core/export";
@@ -32,6 +33,10 @@ function digest(bytes: Uint8Array): string {
 
 function importedCapturePath(screenId: string, bytes: Uint8Array): string {
   return `assets/imports/${screenId}-${digest(bytes).slice(0, 12)}.png`;
+}
+
+function recapturedPng(): Promise<Buffer> {
+  return sharp({ create: { width: 4, height: 4, channels: 4, background: "#336699" } }).png().toBuffer();
 }
 
 function sampleProject(): Project {
@@ -196,6 +201,32 @@ describe("importCaptures", () => {
     });
   });
 
+  it("re-imports and refreshes from the project root over its own earlier import resources", async () => {
+    const dir = await workspace("screenshot-studio-import-project-root-repeat-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const capturePath = join(dir, "screenshots", "apple", "iphone", "en", "01.png");
+    const first = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    const second = await recapturedPng();
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await mkdir(join(dir, "screenshots", "apple", "iphone", "en"), { recursive: true });
+    await writeFile(capturePath, first);
+    await importCaptures({ projectPath, inputDir: dir });
+
+    await expect(importCaptures({ projectPath, inputDir: dir })).resolves.toMatchObject({ imported: 1 });
+    await writeFile(capturePath, second);
+    await importCaptures({ projectPath, inputDir: dir, refresh: true });
+    await writeFile(capturePath, first);
+    const reverted = await importCaptures({ projectPath, inputDir: dir, refresh: true });
+
+    expect(reverted.refresh).toEqual({ captures: 1, references: 2, unchanged: 0, unmatched: 0 });
+    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    expect(written.layouts[0]!.screens.slice(1).map((screen) => screen.elements[0]))
+      .toMatchObject([
+        { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
+        { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
+      ]);
+  });
+
   it("marks a different existing receiver asset invalid during no-write preview", async () => {
     const receiver = await workspace("screenshot-studio-import-receiver-conflict-");
     const source = await workspace("screenshot-studio-import-source-conflict-");
@@ -276,6 +307,52 @@ describe("importCaptures", () => {
     await expect(collectCaptureImportDirectory(dir, {
       maxEntries: 2,
     })).rejects.toThrow(/entry limit/i);
+  });
+
+  it("refreshes an imported capture in place and keeps the previous file", async () => {
+    const dir = await workspace("screenshot-studio-import-refresh-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const inputDir = join(dir, "screenshots");
+    const capturePath = join(inputDir, "apple", "iphone", "en", "01.png");
+    const first = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    const second = await recapturedPng();
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
+    await writeFile(capturePath, first);
+    await importCaptures({ projectPath, inputDir });
+    const imported = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    await writeFile(capturePath, second);
+
+    const result = await importCaptures({ projectPath, inputDir, refresh: true });
+
+    expect(result.imported).toBe(0);
+    expect(result.refresh).toEqual({ captures: 1, references: 1, unchanged: 0, unmatched: 0 });
+    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    const expected = structuredClone(imported);
+    const element = expected.layouts[0]!.screens[1]!.elements[0]!;
+    if (element.type === "screenshot") element.assetUrl = importedCapturePath("apple-iphone-en-01", second);
+    expect(written).toEqual(expected);
+    await expect(readFile(join(dir, importedCapturePath("apple-iphone-en-01", second)))).resolves.toEqual(second);
+    await expect(readFile(join(dir, importedCapturePath("apple-iphone-en-01", first)))).resolves.toEqual(first);
+  });
+
+  it("does not rewrite the Project when a refresh finds nothing to change", async () => {
+    const dir = await workspace("screenshot-studio-import-refresh-noop-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    const inputDir = join(dir, "screenshots");
+    const png = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+    await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
+    await writeFile(join(inputDir, "apple", "iphone", "en", "01.png"), png);
+    await importCaptures({ projectPath, inputDir });
+    await writeFile(join(inputDir, "apple", "iphone", "en", "02.png"), png);
+    const before = await readFile(projectPath);
+
+    const result = await importCaptures({ projectPath, inputDir, refresh: true });
+
+    expect(result.refresh).toEqual({ captures: 0, references: 0, unchanged: 1, unmatched: 1 });
+    expect(result.warnings).toContainEqual(expect.stringContaining("import without --refresh to add it"));
+    expect(await readFile(projectPath)).toEqual(before);
   });
 
   it("uses a collision-resolved screen id for the screenshot element id", async () => {

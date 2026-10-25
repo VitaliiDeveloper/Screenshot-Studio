@@ -25,6 +25,7 @@ export interface ImportOptions {
   projectPath: string;
   inputDir: string;
   layout?: string;
+  refresh?: boolean;
 }
 
 export function resolveImportOptions(args: string[], flags: Record<string, string>): ImportOptions {
@@ -34,6 +35,7 @@ export function resolveImportOptions(args: string[], flags: Record<string, strin
     projectPath: resolveProjectPath(flags),
     inputDir: resolve(inputDir),
     ...(flags.layout ? { layout: flags.layout } : {}),
+    ...(flags.refresh === "true" ? { refresh: true } : {}),
   };
 }
 
@@ -66,5 +68,10 @@ export async function runImportCommand(
   const storeSpecs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   const result = await importCaptures(options, { storeSpecs });
   for (const warning of result.warnings) console.warn(warning);
-  console.log(`Imported ${result.imported} screenshots`);
+  if (result.refresh) {
+    const { captures, references, unchanged, unmatched } = result.refresh;
+    console.log(`Refreshed ${captures} captures (${references} references), ${unchanged} unchanged, ${unmatched} unmatched`);
+  } else {
+    console.log(`Imported ${result.imported} screenshots`);
+  }
 }

@@ -119,7 +119,7 @@ export function IssuesDialog({
           })}
         </ul>
       )}
-      <p className="border-t border-[var(--editor-color-surface-muted)] bg-[var(--editor-color-surface-subtle)] px-4 py-2.5 text-[11px] leading-[1.45] text-[color:var(--editor-color-text-faint)]">
+      <p className="border-t border-[var(--editor-color-surface-muted)] bg-[var(--editor-color-surface-subtle)] px-4 py-2.5 text-[11px] leading-[1.45] text-[color:var(--editor-color-text-secondary)]">
         Fit text sets the largest size that fits, on this screen only.
       </p>
     </DialogShell>

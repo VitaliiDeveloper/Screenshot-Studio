@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
+  applyMatchingElementPatch,
+  type DesignLayout,
+  type Element,
+  type ElementPatch,
+  type ElementPatchRequest,
   findElementLocation,
   fitElementsToArtboard,
   isPrimaryScreen,
+  type Screen,
   slotCounterpart,
   slotScreens,
-  type DesignLayout,
-  type Element,
-  type Screen,
 } from "@screenshot-studio/core/model";
-import {
-  applyMatchingElementPatch,
-  type ElementPatch,
-  type ElementPatchRequest,
-} from "./editor-element-patch.js";
 
 /**
  * Which exact-size screens one edit writes to (Apply to): this screen, every size of its slot in

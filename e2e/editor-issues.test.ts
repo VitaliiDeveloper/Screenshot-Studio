@@ -87,14 +87,16 @@ function textSize(id: string, screenId = "hero"): number {
   return savedElement(screenId, id).size;
 }
 
-/** Pixels in the canvas close to the overflow stroke color (#F59E0B). */
+/** Pixels in the canvas close to the overflow stroke, which draws in the `--editor-color-warning` token. */
 function amberPixels(canvas: Locator): Promise<number> {
   return canvas.evaluate((node: HTMLCanvasElement) => {
+    const warning = getComputedStyle(document.documentElement).getPropertyValue("--editor-color-warning").trim();
+    const target = [1, 3, 5].map((offset) => Number.parseInt(warning.slice(offset, offset + 2), 16));
     const data = node.getContext("2d")!.getImageData(0, 0, node.width, node.height).data;
     let count = 0;
     for (let index = 0; index < data.length; index += 4) {
-      const [red, green, blue, alpha] = [data[index]!, data[index + 1]!, data[index + 2]!, data[index + 3]!];
-      if (alpha > 200 && red > 200 && green > 120 && green < 190 && blue < 60) count += 1;
+      const near = target.every((channel, offset) => Math.abs(data[index + offset]! - channel) <= 24);
+      if (data[index + 3]! > 200 && near) count += 1;
     }
     return count;
   });

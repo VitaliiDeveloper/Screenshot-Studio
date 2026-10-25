@@ -3,10 +3,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
-import type { AgentRunOutcome } from "@web/lib/agents/agent-session.server";
+import type { AgentRunMode, AgentRunOutcome } from "@web/lib/agents/agent-session.server";
 import {
   applyAgentEvent,
   createAgentEventParser,
+  CRITIC_REQUEST,
   agentCanRun,
   agentRunChoices,
   createAgentTurn,
@@ -65,6 +66,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [phase, setPhase] = useState<AgentChatPhase>("idle");
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
+  // Offered once the user keeps a run's changes; never started without their click.
+  const [criticOffered, setCriticOffered] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
   // A ref, not state: re-renders while the run starts must not send the request twice.
   const queued = useRef<AgentStartRequest | null>(null);
@@ -130,7 +133,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     };
   }, []);
 
-  const send = useCallback(async (message: string, files: readonly File[] = []): Promise<boolean> => {
+  const send = useCallback(async (message: string, files: readonly File[] = [], mode: AgentRunMode = "edit"): Promise<boolean> => {
     const agent = selected;
     if (!agentCanRun(agent) || phase !== "idle" || !message.trim()) return false;
     const id = nextTurnId.current++;
@@ -143,8 +146,9 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       done: turn.done ?? { type: "done", status: "failed", summary: null, durationMs: null },
     }));
     const turnAttachments = attachmentsOf(files);
-    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, turnAttachments)]);
+    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, turnAttachments, mode)]);
     setPhase("running");
+    setCriticOffered(false);
     setOutcomeError(null);
     stopped.current = false;
     responded.current = false;
@@ -160,6 +164,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       const form = new FormData();
       form.set("agentId", agent.id);
       form.set("message", message);
+      form.set("mode", mode);
       if (selectedModel) form.set("model", selectedModel);
       if (selectedEffort) form.set("effort", selectedEffort);
       for (const file of files) form.append("image", file);
@@ -168,7 +173,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
         headers: files.length > 0 ? projectRequestHeaders() : jsonHeaders(),
         body: files.length > 0
           ? form
-          : JSON.stringify({ agentId: agent.id, message, model: selectedModel, effort: selectedEffort }),
+          : JSON.stringify({ agentId: agent.id, message, mode, model: selectedModel, effort: selectedEffort }),
         signal: controller.signal,
       });
       responded.current = true;
@@ -181,8 +186,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
         return false;
       }
       launched = true;
-      // The server drops the previous run's snapshot once this one starts.
-      setOutcome(null);
+      // The server drops the previous run's snapshot once an edit run starts; a critic run keeps it.
+      if (mode === "edit") setOutcome(null);
       const parse = createAgentEventParser();
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       for (let next = await reader.read(); !next.done; next = await reader.read()) {
@@ -291,6 +296,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     try {
       await postOutcome("keep");
       setOutcome(null);
+      setCriticOffered(true);
     } catch (error) {
       setOutcomeError((error as Error).message);
     }
@@ -305,6 +311,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       await flushScheduledSave();
       await postOutcome("undo");
       setOutcome(null);
+      setCriticOffered(false);
       await reloadFromDisk();
     } catch (error) {
       setOutcomeError((error as Error).message);
@@ -324,7 +331,11 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     if (phase !== "idle") return;
     revokeAttachments(turnsRef.current);
     setTurns([]);
+    setCriticOffered(false);
   }, [phase]);
+
+  const critique = useCallback(() => send(CRITIC_REQUEST, [], "critic"), [send]);
+  const dismissCritic = useCallback(() => setCriticOffered(false), []);
 
   return {
     agents,
@@ -338,6 +349,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     locked: phase !== "idle",
     outcome,
     outcomeError,
+    criticOffered,
     consentError,
     setConsent,
     refreshAgents,
@@ -345,6 +357,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     selectModel: setModel,
     selectEffort: setEffort,
     send,
+    critique,
+    dismissCritic,
     queueStart,
     stop,
     keep,

@@ -115,6 +115,12 @@ describe("resolveImportOptions", () => {
   it("resolves input and project paths", () => {
     expect(resolveImportOptions(["captures"], { project: "./deck.json" }).inputDir).toMatch(/captures$/);
   });
+
+  it("accepts --refresh as a boolean import flag", () => {
+    const { args, flags } = parseCommandFlags(["captures", "--refresh"], COMMAND_FLAG_SPECS.import);
+    expect(resolveImportOptions(args, flags).refresh).toBe(true);
+    expect(resolveImportOptions(["captures"], {}).refresh).toBeUndefined();
+  });
 });
 
 describe("resolveExportMode", () => {

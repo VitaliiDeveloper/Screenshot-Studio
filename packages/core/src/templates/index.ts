@@ -32,6 +32,7 @@ import {
 import { findBuiltInDesignPack, type DesignPack } from "@screenshot-studio/core/themes";
 import {
   PANORAMA_SPANS,
+  SHOWCASE_SLOTS,
   STYLE_COMPOSITIONS,
   STYLE_PACK_SCREENS,
   spanPanorama,
@@ -286,6 +287,8 @@ const STYLE_PACK_FRAMES: Readonly<Record<string, Record<(typeof STYLE_PACK_TARGE
   sunrise: { iphone: "iphone", "android-phone": "phone-punch-hole-dark" },
 };
 
+const SHOWCASE_STYLES = ["midnight", "poster"];
+
 const STYLE_VARIANTS: { style: string; composition: StyleComposition; span?: PanoramaSpan }[] = [
   ...Object.entries(STYLE_COMPOSITIONS).map(([style, composition]) => ({ style, composition })),
   ...Object.entries(PANORAMA_SPANS).map(([style, span]) => ({
@@ -294,6 +297,8 @@ const STYLE_VARIANTS: { style: string; composition: StyleComposition; span?: Pan
     // Copy stays on top so the shared art below it can line up on every screen.
     composition: { ...STYLE_COMPOSITIONS[style]!, textAt: () => "top" as const, decor: () => [] },
   })),
+  // Bold, centred-glow and poster type carry tilted devices best; the soft styles stay calm.
+  ...SHOWCASE_STYLES.map((style) => ({ style, composition: { ...STYLE_COMPOSITIONS[style]!, slots: SHOWCASE_SLOTS } })),
 ];
 
 type StylePackTarget = { slug: string; label: string; platform: ScreenTemplate["platform"]; device: ScreenTemplate["device"]; targetId: string };
@@ -317,13 +322,16 @@ function styleTemplatePackDefinition(
   frame: DeviceFrameId,
 ): BuiltInTemplatePackDefinition {
   const pack = findBuiltInDesignPack(style)!;
-  const id = span ? `${style}-panorama-${target.slug}` : `${style}-${target.slug}`;
+  const variant = span ? "panorama" : composition.slots ? "showcase" : null;
+  const id = variant ? `${style}-${variant}-${target.slug}` : `${style}-${target.slug}`;
   return {
     id,
-    name: `${pack.name}${span ? " panorama" : ""} · ${target.label}`,
+    name: `${pack.name}${variant ? ` ${variant}` : ""} · ${target.label}`,
     description: span
       ? `${STYLE_PACK_SCREENS.length} connected ${target.label} screens: ${span.summary}.`
-      : `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
+      : composition.slots
+        ? `${STYLE_PACK_SCREENS.length} ${target.label} screens with tilted and paired devices and a big-number proof: ${pack.description}`
+        : `${STYLE_PACK_SCREENS.length} ${target.label} screens: ${pack.description}`,
     platform: target.platform,
     device: target.device,
     targetId: target.targetId,

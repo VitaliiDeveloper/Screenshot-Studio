@@ -142,7 +142,7 @@ export function DialogShell({
         aria-busy={closeDisabled || undefined}
         tabIndex={-1}
         className={cx(
-          "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-[var(--editor-color-surface-translucent)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-dialog)]",
+          "flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-[var(--editor-shadow-dialog)]",
           widthClass,
           "launcher-dialog-panel",
         )}

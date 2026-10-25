@@ -14,9 +14,10 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 
 const REQUEST: AgentRunRequest = {
   message: "Add German",
+  mode: "edit",
   model: "claude-sonnet-5-5",
   effort: "high",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  context: { agentGuidePath: "/project/AGENTS.md", bundledGuidePath: null, skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
   attachments: [],
 };
 
@@ -106,5 +107,21 @@ describe("Claude Code adapter", () => {
     expect(prompt).toContain("screenshots asset import <path>");
     expect(args).not.toContain(REQUEST.message);
     expect(claudeCodeAdapter.args(REQUEST).join(" ")).not.toContain("run-a");
+  });
+
+  it("points edit runs at the art-direction guide and critic runs at the read-only critic rules", () => {
+    const prompt = (request: AgentRunRequest) => {
+      const args = claudeCodeAdapter.args(request);
+      return args[args.indexOf("--append-system-prompt") + 1];
+    };
+
+    const edit = prompt(REQUEST);
+    expect(edit).toContain("/app/skills/screenshot-studio/references/art-direction.md");
+    expect(edit).not.toContain("critic.md");
+
+    const critic = prompt({ ...REQUEST, mode: "critic" });
+    expect(critic).toContain("/app/skills/screenshot-studio/references/critic.md");
+    expect(critic).toContain("This run is read-only");
+    expect(critic).not.toContain("art-direction.md");
   });
 });

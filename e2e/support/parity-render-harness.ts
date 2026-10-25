@@ -4,7 +4,7 @@ import {
   type RenderBrowserSession,
 } from "@screenshot-studio/cli/render-driver";
 import type { RunningServer } from "@screenshot-studio/cli/server";
-import type { Browser } from "playwright";
+import { chromium, type Browser, type LaunchOptions } from "playwright";
 
 export interface ParityRenderHarness {
   server: RunningServer;
@@ -23,6 +23,14 @@ async function closeResources(resources: Array<(() => Promise<void>) | undefined
   if (errors.length > 1) throw new AggregateError(errors, "Parity harness cleanup failed");
 }
 
+// Headed stays headed for parity; on macOS park its window off-screen so it does not cover the desktop.
+export function launchHeadedChromium(options: LaunchOptions = {}): Promise<Browser> {
+  const args = process.platform === "darwin"
+    ? [...(options.args ?? []), "--window-position=-32000,-32000"]
+    : options.args;
+  return chromium.launch({ ...options, headless: false, args });
+}
+
 export async function startParityRenderHarness(
   startServer: () => Promise<RunningServer>,
   launchInteractiveBrowser?: () => Promise<Browser>,
@@ -32,7 +40,7 @@ export async function startParityRenderHarness(
   let headless: RenderBrowserSession | undefined;
   let interactive: Browser | undefined;
   try {
-    headed = await createRenderBrowserSession({ headless: false });
+    headed = await createRenderBrowserSession({ headless: false, launch: launchHeadedChromium });
     headless = await createRenderBrowserSession();
     interactive = await launchInteractiveBrowser?.();
     return { server, headed, headless, interactive };

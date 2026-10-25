@@ -277,7 +277,7 @@ export function BackgroundInspectorFields({
                         title={direction.label}
                         aria-pressed={selected}
                         className={`flex h-6 min-w-0 flex-1 items-center justify-center rounded-[var(--editor-radius-compact)] text-sm leading-none transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] ${selected
-                          ? "bg-[var(--editor-color-surface)] font-semibold text-[color:var(--editor-color-accent-hover)] shadow-[var(--editor-shadow-control)]"
+                          ? "bg-[var(--editor-color-surface)] font-semibold text-[color:var(--editor-color-accent-text-strong)] shadow-[var(--editor-shadow-control)]"
                           : "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]"
                         }`}
                         onClick={() => onChange({
@@ -296,7 +296,7 @@ export function BackgroundInspectorFields({
                     title="Reverse direction"
                     aria-pressed={gradientDirectionReversed}
                     className={`flex size-6 shrink-0 items-center justify-center rounded-[var(--editor-radius-compact)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] ${gradientDirectionReversed
-                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)]"
+                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]"
                       : "text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]"
                     }`}
                     onClick={() => onChange({
