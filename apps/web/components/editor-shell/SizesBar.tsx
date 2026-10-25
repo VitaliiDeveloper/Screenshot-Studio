@@ -56,7 +56,7 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
                 type="button"
                 aria-label={[chip.label, chip.pixels, chip.role === "master" ? "Master" : "Variant"].filter(Boolean).join(" ")}
                 aria-current={chip.current ? "true" : undefined}
-                title={[chip.devices, chip.pixels ?? undefined].filter(Boolean).join(" · ") || undefined}
+                title={chip.tooltip ?? undefined}
                 className={cx(
                   "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[var(--editor-radius-control)] border px-2 transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)]",
                   chip.current
