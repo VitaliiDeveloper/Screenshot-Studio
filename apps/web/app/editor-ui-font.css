@@ -1,0 +1,9 @@
+/* A private family name: project fonts load into document.fonts under their real names. */
+@font-face {
+  font-family: "Screenshot Studio UI";
+  src: url("/fonts/ui/screenshot-studio-ui-variable-v1.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-display: swap;
+}
