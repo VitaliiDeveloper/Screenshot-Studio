@@ -282,7 +282,11 @@ reuse those six screens for the four styles whose background has no horizontal c
 shape art drawn once across the pack's strip. Each shape belongs to the screen holding its left edge
 and leads that screen's elements, so connected rendering draws it behind every later screen's copy
 and device. A panorama pack is added only whole and only to a connected layout; its screens are not
-single templates, because each carries just its share of the art. Applying a Design pack writes its solid or linear-gradient background to every
+single templates, because each carries just its share of the art. Showcase packs (Midnight and Poster on both phones)
+reuse the same six-screen stack but stage each slot differently through `SHOWCASE_SLOTS`: text above
+or below, a device tilted about its centre (stored as a literal `rotation` with the top-left `x`/`y`
+Konva needs), a second smaller `device-frame` behind the first on Feature 1, and a stat headline on
+Social proof. Every device's rotated bounds stay inside the artboard width and clear of every text box. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
 role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
