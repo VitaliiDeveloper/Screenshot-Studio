@@ -127,7 +127,7 @@ export function LocaleManagerDialog({
   }
 
   const errorAlert = error
-    ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+    ? <p role="alert" className="rounded-lg border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-danger-surface)] px-3 py-2 text-xs text-[color:var(--editor-color-danger-text)]">{error}</p>
     : null;
 
   if (matrixScreen) {
@@ -171,13 +171,13 @@ export function LocaleManagerDialog({
       onClose={onClose}
     >
       <div className="space-y-5">
-        <form className="rounded-xl border border-slate-200 bg-slate-50 p-3" onSubmit={createLocale}>
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-800">
+        <form className="rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-3" onSubmit={createLocale}>
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-[color:var(--editor-color-text)]">
             <Languages size={15} strokeWidth={1.9} /> Create locale from an existing set
           </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_8rem_auto] sm:items-end">
             <label className="space-y-1">
-              <span className="block text-[11px] font-medium text-slate-600">Target locale</span>
+              <span className="block text-[11px] font-medium text-[color:var(--editor-color-text-muted)]">Target locale</span>
               <input
                 aria-label="Target locale"
                 className={editorUi.field}
@@ -187,7 +187,7 @@ export function LocaleManagerDialog({
               />
             </label>
             <div className="space-y-1">
-              <span className="block text-[11px] font-medium text-slate-600">Copy from</span>
+              <span className="block text-[11px] font-medium text-[color:var(--editor-color-text-muted)]">Copy from</span>
               <MenuSelect
                 ariaLabel="Copy from locale"
                 value={sourceLocale}
@@ -199,7 +199,7 @@ export function LocaleManagerDialog({
               />
             </div>
             <div className="space-y-1">
-              <span className="block text-[11px] font-medium text-slate-600">Direction</span>
+              <span className="block text-[11px] font-medium text-[color:var(--editor-color-text-muted)]">Direction</span>
               <SegmentedControl<LayoutDirection>
                 label="Layout direction"
                 value={targetDirection}
@@ -210,7 +210,7 @@ export function LocaleManagerDialog({
             </div>
             <button type="submit" className={cx(editorUi.buttonPrimary, "h-8")}>Create locale</button>
           </div>
-          <p className="mt-2 text-[11px] leading-4 text-slate-500">
+          <p className="mt-2 text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">
             Choosing a different direction mirrors placement once; screenshots and device content are never reflected.
           </p>
         </form>
@@ -219,7 +219,7 @@ export function LocaleManagerDialog({
 
         <section aria-label="Project locales">
           <h3 className={`mb-2 ${editorUi.sectionLabel}`}>Current locales</h3>
-          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+          <div className="divide-y divide-[var(--editor-color-border-subtle)] rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]">
             {locales.map((locale) => {
               const screens = layout.screens.filter((screen) => screen.locale === locale);
               const direction = screens[0]!.direction;
@@ -228,11 +228,11 @@ export function LocaleManagerDialog({
                 <div key={locale} data-locale={locale} className="flex flex-wrap items-center gap-2 px-3 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-slate-900">{locale}</span>
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-600">{direction}</span>
-                      {active ? <span className="text-[10px] font-medium text-blue-600">Active</span> : null}
+                      <span className="truncate text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{locale}</span>
+                      <span className="rounded-md bg-[var(--editor-color-surface-muted)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[color:var(--editor-color-text-muted)]">{direction}</span>
+                      {active ? <span className="text-[10px] font-medium text-[color:var(--editor-color-accent-text)]">Active</span> : null}
                     </div>
-                    <p className="mt-0.5 text-[11px] text-slate-500">{screens.length} {screens.length === 1 ? "screen" : "screens"}</p>
+                    <p className="mt-0.5 text-[11px] text-[color:var(--editor-color-text-secondary)]">{screens.length} {screens.length === 1 ? "screen" : "screens"}</p>
                   </div>
                   <button
                     type="button"

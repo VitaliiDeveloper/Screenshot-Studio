@@ -31,13 +31,13 @@ import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model"
 import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
 import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
 import { transformerAppearance } from "./editor-stage/transformer-appearance";
+import { useStageColors } from "./editor-stage/stage-colors";
 import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-transformer-selection";
 import { deriveTextOverflowMarks } from "./editor-stage/text-overflow-model";
 import { deriveSelectionOverlay } from "./editor-stage/selection-overlay-model";
 import { SelectionToolbar } from "./editor-stage/SelectionToolbar";
 
 const NO_ISSUES: readonly ProjectIssue[] = [];
-const OVERFLOW_STROKE = "#F59E0B";
 const TEXT_MEASURE = { contentHeight: textContentHeight, fitSize: fitTextSize };
 // Clears the Transformer's rotate anchor, which sits 16 px above the box.
 const TOOLBAR_GAP = 28;
@@ -115,6 +115,7 @@ export function EditorStage({
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const fonts = useStore(editorStore, (state) => state.project?.fonts);
   const requestedScreenId = screenId ?? activeScreenId;
+  const stageColors = useStageColors();
 
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
@@ -392,7 +393,7 @@ export function EditorStage({
                   y={y}
                   width={screen.artboard.width}
                   height={screen.artboard.height}
-                  stroke={screen.id === activeScreenId ? "#2563EB" : "#94A3B8"}
+                  stroke={screen.id === activeScreenId ? stageColors.selection : stageColors.boundary}
                   strokeWidth={(screen.id === activeScreenId ? 2 : 1) / zoom}
                   listening={false}
                 />
@@ -405,7 +406,7 @@ export function EditorStage({
                   ref={verticalGuideRef}
                   visible={false}
                   listening={false}
-                  stroke="#EC4899"
+                  stroke={stageColors.snapGuide}
                   strokeWidth={1 / zoom}
                   dash={[6 / zoom, 4 / zoom]}
                 />
@@ -413,7 +414,7 @@ export function EditorStage({
                   ref={horizontalGuideRef}
                   visible={false}
                   listening={false}
-                  stroke="#EC4899"
+                  stroke={stageColors.snapGuide}
                   strokeWidth={1 / zoom}
                   dash={[6 / zoom, 4 / zoom]}
                 />
@@ -424,6 +425,9 @@ export function EditorStage({
               <Transformer
                 ref={trRef}
                 {...transformerAppearance}
+                anchorFill={stageColors.handleFill}
+                anchorStroke={stageColors.selection}
+                borderStroke={stageColors.selection}
                 resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
                 rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
                 keepRatio={selectedKeepsAspectRatio}
@@ -445,8 +449,8 @@ export function EditorStage({
                   y={bounds.minY}
                   width={bounds.maxX - bounds.minX}
                   height={bounds.maxY - bounds.minY}
-                  fill="rgba(37, 99, 235, 0.12)"
-                  stroke="#2563EB"
+                  fill={stageColors.selectionFill}
+                  stroke={stageColors.selection}
                   strokeWidth={1 / zoom}
                   dash={[5 / zoom, 3 / zoom]}
                   listening={false}
@@ -464,13 +468,13 @@ export function EditorStage({
                       <Rect
                         width={mark.element.width}
                         height={mark.element.height}
-                        stroke={OVERFLOW_STROKE}
+                        stroke={stageColors.overflow}
                         strokeWidth={2 / zoom}
                       />
                       <Rect
                         width={mark.element.width}
                         height={mark.contentHeight}
-                        stroke={OVERFLOW_STROKE}
+                        stroke={stageColors.overflow}
                         strokeWidth={1 / zoom}
                         dash={[6 / zoom, 4 / zoom]}
                       />
@@ -502,7 +506,7 @@ export function EditorStage({
             }}
             spellCheck={false}
             style={editingStyle}
-            className="absolute z-10 resize-none overflow-hidden border border-blue-500 bg-transparent p-0 outline-none ring-2 ring-blue-500/20"
+            className="absolute z-10 resize-none overflow-hidden border border-[var(--editor-color-selection)] bg-transparent p-0 outline-none ring-2 ring-[var(--editor-color-focus-subtle)]"
           />
         ) : null}
 

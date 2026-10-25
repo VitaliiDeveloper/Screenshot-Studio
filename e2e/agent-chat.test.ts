@@ -12,6 +12,7 @@ const sample = resolve(repoRoot, "fixtures/sample/app-store-screenshots.json");
 
 // A stand-in for the Claude Code CLI: the registry probes pass, and a run waits for `release` so
 // the running state can be observed, renames the Hero screen, and reports success in stream-json.
+// A critic run, recognized by its read-only rules in the system prompt, only reports findings.
 const FAKE_CLAUDE = `#!${process.execPath}
 const { appendFileSync, existsSync, readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
@@ -25,6 +26,11 @@ if (args[0] === "--help") {
 if (args[0] === "auth") { out({ loggedIn: true, authMethod: "claude.ai" }); process.exit(0); }
 appendFileSync(join(__dirname, "runs.log"), JSON.stringify(args) + "\\n");
 appendFileSync(join(__dirname, "cwd.log"), process.cwd() + "\\n");
+if (args.some((arg) => arg.includes("references/critic.md"))) {
+  out({ type: "assistant", message: { content: [{ type: "text", text: "Score 6/10\\n[major] Slide 1 (hero): the headline names a feature, not an outcome." }] } });
+  out({ type: "result", subtype: "success", is_error: false, duration_ms: 900, result: "Score 6/10" });
+  process.exit(0);
+}
 const runDir = args.find((arg, index) => args[index - 1] === "--add-dir" && /run-/.test(arg));
 if (runDir) appendFileSync(join(__dirname, "attachments.log"), JSON.stringify(require("node:fs").readdirSync(runDir)) + "\\n");
 const todos = (status) => ({ type: "assistant", message: { content: [{ type: "tool_use", name: "TodoWrite", input: { todos: [
@@ -270,6 +276,40 @@ describe("Agent panel", () => {
     await page.getByText("Claude Code is editing this project").waitFor({ state: "detached", ...poll });
     expect(runs()).toBe(runsBefore + 1);
     expect(heroName()).toBe("Hero");
+    await page.close();
+  });
+
+  it("offers the critic after Keep changes, keeps the project untouched, and applies its findings through the composer", async () => {
+    writeFileSync(join(binDir, "release"), "");
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    await page.goto(`${server.url}/editor`, { waitUntil: "load" });
+    await page.waitForSelector("canvas");
+    await page.getByRole("button", { name: "Agent panel", exact: true }).click();
+    const panel = page.getByRole("complementary", { name: "Agent", exact: true });
+    const composer = panel.getByRole("textbox", { name: "Message to Claude Code" });
+    await expect.poll(() => panel.getByRole("button", { name: "Agent", exact: true }).textContent(), poll).toContain("Claude Code");
+
+    await panel.getByRole("group", { name: "Suggestions" }).getByRole("button", { name: "Make it sell" }).click();
+    expect(await composer.inputValue()).toContain("sells in the store");
+    await composer.press("Enter");
+    const review = panel.getByRole("region", { name: "Agent run review" });
+    await review.waitFor(poll);
+    await review.getByRole("button", { name: "Keep changes" }).click();
+
+    const offer = panel.getByRole("region", { name: "Critic review" });
+    await offer.waitFor(poll);
+    const kept = readFileSync(projectFile, "utf8");
+    await offer.getByRole("button", { name: "Run critic" }).click();
+    const apply = panel.getByRole("button", { name: "Apply findings" });
+    await apply.waitFor(poll);
+    expect(await offer.count()).toBe(0);
+    expect(readFileSync(projectFile, "utf8")).toBe(kept);
+    expect(await panel.getByRole("region", { name: "Agent run review" }).count()).toBe(0);
+    const args = JSON.parse(readFileSync(join(binDir, "runs.log"), "utf8").trim().split("\n").at(-1)!) as string[];
+    expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("This run is read-only");
+
+    await apply.click();
+    expect(await composer.inputValue()).toMatch(/^Apply these critic findings[^]*\[major\] Slide 1 \(hero\)/);
     await page.close();
   });
 });

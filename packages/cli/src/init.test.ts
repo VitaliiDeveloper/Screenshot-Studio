@@ -87,6 +87,7 @@ describe("runInit", () => {
     expect(agentGuide).toContain("RGB or alpha-bearing RGBA fallback/letterbox `color`");
     expect(agentGuide).toContain("## Recipe: generate or refresh copy");
     expect(agentGuide).toContain("## Recipe: lay out slides");
+    expect(agentGuide).toContain(`screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x":76,"y":524}'`);
     expect(agentGuide).toContain("## Recipe: translate a locale");
     expect(agentGuide).toContain("screenshots locale add ar --from en --direction rtl");
     expect(agentGuide).toContain("## Recipe: import PNG captures");

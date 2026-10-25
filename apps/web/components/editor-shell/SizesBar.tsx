@@ -56,11 +56,11 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
                 type="button"
                 aria-label={[chip.label, chip.pixels, chip.role === "master" ? "Master" : "Variant"].filter(Boolean).join(" ")}
                 aria-current={chip.current ? "true" : undefined}
-                title={[chip.devices, chip.pixels ?? undefined].filter(Boolean).join(" · ") || undefined}
+                title={chip.tooltip ?? undefined}
                 className={cx(
                   "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[var(--editor-radius-control)] border px-2 transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)]",
                   chip.current
-                    ? "border-[var(--editor-color-accent)] bg-[var(--editor-color-accent-subtle)] font-semibold text-[color:var(--editor-color-accent)]"
+                    ? "border-[var(--editor-color-accent)] bg-[var(--editor-color-accent-subtle)] font-semibold text-[color:var(--editor-color-accent-text)]"
                     : "border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-muted)] hover:border-[var(--editor-color-accent-muted)]",
                 )}
                 onClick={() => editorStore.getState().selectScreen(chip.screenId)}
@@ -70,7 +70,7 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
                 <span
                   data-size-role={chip.role}
                   className={chip.role === "master"
-                    ? "rounded bg-[var(--editor-color-text-strong)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-on-accent)]"
+                    ? "rounded bg-[var(--editor-color-badge)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-on-badge)]"
                     : "rounded border border-[var(--editor-color-border-strong)] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]"}
                 >
                   {chip.role === "master" ? "Master" : "Variant"}

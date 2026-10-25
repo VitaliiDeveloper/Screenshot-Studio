@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { parseProject, type Project } from "@screenshot-studio/core/model";
+import { mirrorGradientAngle, parseProject, setLocaleDirection, type Project } from "@screenshot-studio/core/model";
 import {
   applyDesignPack,
   applyTheme,
@@ -196,6 +196,23 @@ describe("built-in design packs", () => {
     expect(() => applyDesignPack(source, "default", {
       ...pack, typography: { ...pack.typography, heading: { ...heading, weight: 700 } },
     })).toThrow(/unregistered font "Screenshot Studio Display" 700/);
+  });
+
+  it("bakes the mirrored gradient on RTL screens whether the pack or the direction switch comes first", () => {
+    const pack = listBuiltInDesignPacks().find((candidate) => candidate.id === "aurora")!;
+    if (pack.background.type !== "linear-gradient") throw new Error("expected a gradient pack");
+    const source = project();
+    source.fonts = [];
+    source.layouts[0]!.screens.push({ ...structuredClone(source.layouts[0]!.screens[0]!), id: "hero-ar", locale: "ar" });
+    const backgrounds = (next: Project) => next.layouts[0]!.screens.map((screen) => screen.background);
+
+    const rtlThenPack = applyDesignPack(setLocaleDirection(source, "default", "ar", "rtl"), "default", pack);
+    const packThenRtl = setLocaleDirection(applyDesignPack(source, "default", pack), "default", "ar", "rtl");
+    expect(backgrounds(rtlThenPack)).toEqual([
+      pack.background,
+      { ...pack.background, angle: mirrorGradientAngle(pack.background.angle) },
+    ]);
+    expect(backgrounds(packThenRtl)).toEqual(backgrounds(rtlThenPack));
   });
 
   it("accepts only solid and gradient pack backgrounds", () => {

@@ -58,13 +58,13 @@ export function EditorRouteBootstrap({ entryId }: { entryId?: string }) {
   }
   if (status === "error") {
     return (
-      <main className="grid h-dvh place-items-center bg-slate-50 p-6">
-        <div role="alert" className="max-w-lg rounded-xl border border-red-200 bg-white p-5 text-sm text-red-700 shadow-sm">
+      <main className="grid h-dvh place-items-center bg-[var(--editor-color-surface-subtle)] p-6">
+        <div role="alert" className="max-w-lg rounded-xl border border-[var(--editor-color-danger-border)] bg-[var(--editor-color-surface)] p-5 text-sm text-[color:var(--editor-color-danger-text)] shadow-sm">
           <p className="whitespace-pre-wrap">{error}</p>
           {entryId !== undefined ? (
             <button
               type="button"
-              className="mt-4 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+              className="mt-4 rounded-lg bg-[var(--editor-color-danger)] px-3 py-2 text-xs font-semibold text-[color:var(--editor-color-on-accent)] hover:bg-[var(--editor-color-danger-hover)]"
               onClick={() => {
                 setStatus("loading");
                 setError(null);
@@ -77,7 +77,7 @@ export function EditorRouteBootstrap({ entryId }: { entryId?: string }) {
           ) : null}
           <Link
             href="/"
-            className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-red-700 underline hover:bg-red-50"
+            className="ml-3 inline-flex rounded-lg px-3 py-2 text-xs font-semibold text-[color:var(--editor-color-danger-text)] underline hover:bg-[var(--editor-color-danger-surface)]"
           >
             Return to Projects
           </Link>
@@ -86,7 +86,7 @@ export function EditorRouteBootstrap({ entryId }: { entryId?: string }) {
     );
   }
   return (
-    <main className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500">
+    <main className="grid h-dvh place-items-center bg-[var(--editor-color-surface-subtle)] text-sm text-[color:var(--editor-color-text-secondary)]">
       Opening workspace…
     </main>
   );

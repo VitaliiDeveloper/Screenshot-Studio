@@ -88,11 +88,8 @@ const blurToBody = (page: Page) => page.evaluate(() => {
   document.body.focus();
 });
 
-async function showInspectorFromOverflow(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "More toolbar actions" }).click();
-  await page.getByRole("menu", { name: "More toolbar actions" })
-    .getByRole("menuitemcheckbox", { name: "Show Inspector", exact: true })
-    .click();
+async function showInspector(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Inspect", exact: true }).click();
 }
 
 beforeEach(() => {
@@ -773,15 +770,13 @@ describe("editor workspace", () => {
 
     const structure = page.getByRole("button", { name: "Layers panel", exact: true });
     const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
-    // At this width the top bar moves Inspect into its overflow menu (docs/editor.md §3).
-    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     await structure.click();
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("true");
     expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
 
     expect(await page.getByRole("button", { name: /Open Store Outputs for/ }).count()).toBe(0);
-    await showInspectorFromOverflow(page);
+    await showInspector(page);
     await expect.poll(() => structure.getAttribute("aria-pressed")).toBe("false");
     await expect.poll(() => inspectorPanel.getAttribute("data-state")).toBe("open");
 
@@ -802,7 +797,6 @@ describe("editor workspace", () => {
     expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("true");
     await page.setViewportSize({ width: 720, height: 900 });
     const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
-    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     await expect.poll(() => inspectorPanel.getAttribute("data-state")).toBe("closed");
     await expect.poll(() => page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
 
@@ -823,7 +817,7 @@ describe("editor workspace", () => {
       return box !== null && box.x >= 0 && box.x + box.width <= 720;
     }).toBe(true);
 
-    await showInspectorFromOverflow(page);
+    await showInspector(page);
     expect(await page.getByRole("button", { name: "Layers panel", exact: true }).getAttribute("aria-pressed")).toBe("false");
     const shiftedControls = await page.getByLabel("Zoom controls").boundingBox();
     expect(shiftedControls).not.toBeNull();

@@ -91,7 +91,7 @@ describe("screen row button", () => {
 
     expect(markup).toContain('aria-current="true"');
     expect(markup).toContain(`id="${describedBy}"`);
-    expect(markup).toContain("text-[color:var(--editor-color-accent-hover)]");
+    expect(markup).toContain("text-[color:var(--editor-color-accent-text-strong)]");
   });
 
   it("shows the warning text in the warning color instead of the layer count", () => {
@@ -153,7 +153,7 @@ describe("ScreensSection", () => {
     expect(markup).toContain("Dynamic Island · Medium: text overflows");
     expect(markup).toContain(">1 size</span>");
     // The active row keeps its accent fill; only the inactive warning row turns amber.
-    expect(markup.match(/border-dashed border-\[var\(--editor-color-warning-text\)\]/g)).toHaveLength(1);
+    expect(markup.match(/border-dashed border-\[var\(--editor-color-warning-border-strong\)\]/g)).toHaveLength(1);
   });
 
   it("offers the search field under the Screens row and opens it as a combobox over the screens and layers", () => {

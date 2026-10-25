@@ -34,9 +34,9 @@ export function RecentProjectsPanel({
   onRemove(recentId: string): void;
 }) {
   return (
-    <section aria-labelledby="recent-projects-title" className="rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm sm:p-6">
+    <section aria-labelledby="recent-projects-title" className="rounded-3xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-translucent)] p-5 shadow-sm sm:p-6">
       <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><Clock3 aria-hidden="true" className="size-5" /></span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-muted)]"><Clock3 aria-hidden="true" className="size-5" /></span>
         <div>
           <h2 ref={headingRef} tabIndex={-1} id="recent-projects-title" className="font-semibold text-[color:var(--editor-color-text-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">Recent projects</h2>
           <p className="mt-1 text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">Application history only. Project files and managed storage keep their own lifecycle.</p>
@@ -55,9 +55,9 @@ export function RecentProjectsPanel({
       ) : null}
 
       {state.status === "ready" && state.entries.length === 0 ? (
-        <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-5">
-          <p className="text-sm font-semibold text-slate-900">No recent projects yet.</p>
-          <p className="mt-1 text-sm leading-6 text-slate-600">Create a project, import a managed copy, or open a configured local source. Successful opens appear here after restart.</p>
+        <div className="mt-5 rounded-2xl border border-dashed border-[var(--editor-color-border-strong)] bg-[var(--editor-color-surface-subtle-translucent)] px-4 py-5">
+          <p className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">No recent projects yet.</p>
+          <p className="mt-1 text-sm leading-6 text-[color:var(--editor-color-text-muted)]">Create a project, import a managed copy, or open a configured local source. Successful opens appear here after restart.</p>
         </div>
       ) : null}
 
@@ -67,12 +67,12 @@ export function RecentProjectsPanel({
             const pending = action?.recentId === entry.recentId;
             const unavailable = entry.availability === "unavailable";
             return (
-              <li key={entry.recentId} aria-busy={pending || undefined} className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4">
+              <li key={entry.recentId} aria-busy={pending || undefined} className="flex min-w-0 flex-col rounded-2xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-4">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-950">{entry.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">{entry.sourceKind === "managed-project" ? "Managed project" : "Local project"} · <time dateTime={entry.lastOpenedAt}>{entry.lastOpenedAt.slice(0, 10)}</time></p>
+                  <p className="truncate font-semibold text-[color:var(--editor-color-text-strong)]">{entry.name}</p>
+                  <p className="mt-1 text-xs text-[color:var(--editor-color-text-secondary)]">{entry.sourceKind === "managed-project" ? "Managed project" : "Local project"} · <time dateTime={entry.lastOpenedAt}>{entry.lastOpenedAt.slice(0, 10)}</time></p>
                 </div>
-                {unavailable ? <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950"><strong>Source unavailable.</strong> Reopen the source outside the browser or import it again to refresh this entry.</div> : null}
+                {unavailable ? <div className="mt-3 rounded-xl bg-[var(--editor-color-warning-surface)] px-3 py-2 text-xs leading-5 text-[color:var(--editor-color-warning-text-strong)]"><strong>Source unavailable.</strong> Reopen the source outside the browser or import it again to refresh this entry.</div> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" className={editorUi.buttonPrimary} disabled={Boolean(action) || unavailable} onClick={() => onOpen(entry.recentId)}>
                     {pending && action.kind === "opening" ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}

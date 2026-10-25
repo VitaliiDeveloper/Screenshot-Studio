@@ -43,6 +43,7 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     locked: false,
     outcome: null,
     outcomeError: null,
+    criticOffered: false,
     consentError: null,
     setConsent: vi.fn(),
     refreshAgents: vi.fn(),
@@ -50,6 +51,8 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     selectModel: vi.fn(),
     selectEffort: vi.fn(),
     send: vi.fn(),
+    critique: vi.fn(),
+    dismissCritic: vi.fn(),
     queueStart: vi.fn(),
     stop: vi.fn(),
     keep: vi.fn(),
@@ -93,6 +96,25 @@ describe("AgentPanel", () => {
     expect(markup).toContain("Your subscription · runs on this computer");
     expect(markup).toMatch(/<label[^>]*class="sr-only"[^>]*>Message to Claude Code<\/label>/);
     expect(markup).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Send<\/button>/);
+  });
+
+  it("suggests starting points, offers the critic only after a kept run, and applies a critique through the composer", () => {
+    const empty = render(chat());
+    expect(empty).toMatch(/role="group" aria-label="Suggestions"[^]*>Make it sell<[^]*>Write store copy<[^]*>Match a reference<[^]*>Critique my set</);
+    expect(empty).not.toContain("Run critic");
+
+    const kept = createAgentTurn(1, "Claude Code", "Make it sell");
+    expect(render(chat({ turns: [kept], criticOffered: true }))).toMatch(/aria-label="Critic review"[^]*>Run critic<[^]*>Not now</);
+    expect(render(chat({ turns: [kept], criticOffered: true, phase: "running" }))).not.toContain("Run critic");
+
+    const critique = ([
+      { type: "text", text: "[major] Slide 1: headline names a feature." },
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r", otherFiles: { files: [], count: 0 } },
+      { type: "done", status: "completed", summary: null, durationMs: 10 },
+    ] as AgentEvent[]).reduce(applyAgentEvent, createAgentTurn(2, "Claude Code", "Review", [], "critic"));
+    const reviewed = render(chat({ turns: [critique] }));
+    expect(reviewed).toContain(">Apply findings</button>");
+    expect(reviewed).not.toContain("No changes to the project");
   });
 
   it("explains every 7c state with its next action", () => {

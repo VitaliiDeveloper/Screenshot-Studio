@@ -60,13 +60,13 @@ export function ProjectDeletionDialog({
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <button type="button" className={`${editorUi.resourceCard} text-left`} onClick={onExportArchive}>
-              <Download aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent)]" />
+              <Download aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent-text)]" />
               <span className="mt-3 block text-sm font-semibold text-[color:var(--editor-color-text-strong)]">Export archive, then continue</span>
               <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Create the existing portable project archive before confirmation.</span>
             </button>
             <button type="button" className={`${editorUi.resourceCard} text-left`} onClick={onContinueWithoutArchive}>
-              <Trash2 aria-hidden="true" className="size-5 text-[color:var(--editor-color-danger)]" />
-              <span className="mt-3 block text-sm font-semibold text-[color:var(--editor-color-danger)]">Continue without an archive</span>
+              <Trash2 aria-hidden="true" className="size-5 text-[color:var(--editor-color-danger-text)]" />
+              <span className="mt-3 block text-sm font-semibold text-[color:var(--editor-color-danger-text)]">Continue without an archive</span>
               <span className="mt-1 block text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Proceed knowing there will be no recovery copy.</span>
             </button>
           </div>

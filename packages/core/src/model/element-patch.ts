@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { assertNever } from "./assert-never.js";
+import { resizeGroupUniform } from "./group-ops.js";
 import {
-  resizeGroupUniform,
   type DeviceFrameElement,
   type Element,
   type IconElement,
@@ -13,7 +14,7 @@ import {
   type TextElement,
   type TextShadow,
   type ThemeRole,
-} from "@screenshot-studio/core/model";
+} from "./schema.js";
 
 export type CommonElementPatch = Partial<
   Pick<Element, "x" | "y" | "width" | "height" | "rotation" | "opacity" | "locked" | "visible" | "name">
@@ -78,10 +79,6 @@ function applyCommonPatch(element: Element, patch: CommonElementPatch): void {
 function applyRolePatch(element: TextElement | ShapeElement, patch: RolePatch): void {
   if (patch.role === null) delete element.role;
   else if (patch.role !== undefined) element.role = patch.role;
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unsupported element type: ${String(value)}`);
 }
 
 export function applyElementPatch<T extends Element["type"]>(

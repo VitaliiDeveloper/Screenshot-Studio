@@ -352,4 +352,27 @@ describe("screen commands", () => {
     expect(written.meta.name).toBe("Held writer");
     expect(written.layouts[0]!.screens.some((screen) => screen.name === "Queued screen")).toBe(true);
   });
+
+  it("shows a screen as JSON and replaces its background", async () => {
+    const dir = await temporaryDirectory("screenshot-studio-screen-set-");
+    const projectPath = join(dir, "app-store-screenshots.json");
+    await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
+
+    const shown = JSON.parse(await runScreenCommand(projectPath, "", ["show", "hero"], {}));
+    expect(shown).toMatchObject({ id: "hero", platform: "apple", device: "iphone" });
+
+    await expect(runScreenCommand(projectPath, "", ["set", "hero"], {
+      background: JSON.stringify({ type: "linear-gradient", from: "#000000", to: "#FFFFFF" }),
+    })).resolves.toBe("Updated background of hero");
+    const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
+    expect(written.layouts[0]!.screens[0]!.background)
+      .toEqual({ type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 0 });
+
+    await expect(runScreenCommand(projectPath, "", ["set", "hero"], { background: '{"type":"solid","color":"blue"}' }))
+      .rejects.toThrow(/Invalid project JSON[\s\S]*background/);
+    await expect(runScreenCommand(projectPath, "", ["set", "hero"], {
+      background: '{"type":"image","assetUrl":"assets/missing.png"}',
+    })).rejects.toThrow(/Media file not found/);
+    await expect(runScreenCommand(projectPath, "", ["show", "nope"], {})).rejects.toThrow(/Unknown screen "nope"/);
+  });
 });

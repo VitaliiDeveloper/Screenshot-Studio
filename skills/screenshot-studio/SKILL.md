@@ -30,12 +30,21 @@ the CLI initialization path.
 
 For a ready-made look, follow the generated guide's "Recipe: choose a style".
 
+## Make it sell
+
+When the user wants marketing-grade screenshots, a livelier look, or a restyle from a reference
+image, read [`references/art-direction.md`](references/art-direction.md) before editing. It covers
+the slide story, copy rules, a pattern catalog built only from schema fields, and the export-and-look
+loop. When the set is done, offer the read-only critic in
+[`references/critic.md`](references/critic.md) and run it only if the user agrees.
+
 ## Boundaries
 
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the
   generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
   `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
-  validate the project.
+  validate the project. `element get|set|add|rm` and `screen show|set` cover element geometry, style,
+  and screen backgrounds.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.
 - Never overwrite an existing project file or project-local agent guide.
