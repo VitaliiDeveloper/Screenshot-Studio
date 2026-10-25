@@ -4,6 +4,7 @@ import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp } from "node:fs/promises";
+import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "@screenshot-studio/core/model";
 import { inspectPng } from "@screenshot-studio/core/export";
@@ -32,6 +33,10 @@ function digest(bytes: Uint8Array): string {
 
 function importedCapturePath(screenId: string, bytes: Uint8Array): string {
   return `assets/imports/${screenId}-${digest(bytes).slice(0, 12)}.png`;
+}
+
+function recapturedPng(): Promise<Buffer> {
+  return sharp({ create: { width: 4, height: 4, channels: 4, background: "#336699" } }).png().toBuffer();
 }
 
 function sampleProject(): Project {
@@ -201,7 +206,7 @@ describe("importCaptures", () => {
     const projectPath = join(dir, "app-store-screenshots.json");
     const capturePath = join(dir, "screenshots", "apple", "iphone", "en", "01.png");
     const first = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
-    const second = await readFile(new URL("../../../fixtures/sample/assets/demo-logistics-app.png", import.meta.url));
+    const second = await recapturedPng();
     await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
     await mkdir(join(dir, "screenshots", "apple", "iphone", "en"), { recursive: true });
     await writeFile(capturePath, first);
@@ -310,7 +315,7 @@ describe("importCaptures", () => {
     const inputDir = join(dir, "screenshots");
     const capturePath = join(inputDir, "apple", "iphone", "en", "01.png");
     const first = await readFile(new URL("../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
-    const second = await readFile(new URL("../../../fixtures/sample/assets/demo-logistics-app.png", import.meta.url));
+    const second = await recapturedPng();
     await writeFile(projectPath, `${JSON.stringify(sampleProject(), null, 2)}\n`, "utf8");
     await mkdir(join(inputDir, "apple", "iphone", "en"), { recursive: true });
     await writeFile(capturePath, first);
