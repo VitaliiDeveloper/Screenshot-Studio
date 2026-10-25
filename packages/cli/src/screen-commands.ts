@@ -56,7 +56,8 @@ export function resolveScreenAction(args: string[], flags: Record<string, string
     case "list":
       return { kind: "list" };
     case "show":
-      if (!id) throw new Error("Usage: screenshots screen show <id>");
+      // Output is always JSON; --json is accepted so the explicit form also works.
+      if (!id) throw new Error("Usage: screenshots screen show <id> [--json]");
       return { kind: "show", id };
     case "set":
       if (!id) throw new Error("Usage: screenshots screen set <id> --background '<json>'");
