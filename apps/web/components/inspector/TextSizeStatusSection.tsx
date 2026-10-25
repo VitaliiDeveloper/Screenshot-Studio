@@ -66,7 +66,7 @@ export function TextSizeStatusSection({
                       : current
                         ? "bg-[var(--editor-color-accent)]"
                         : state === "fits"
-                          ? "bg-emerald-500"
+                          ? "bg-[var(--editor-color-success)]"
                           : "bg-[var(--editor-color-border-strong)]",
                   )}
                 />

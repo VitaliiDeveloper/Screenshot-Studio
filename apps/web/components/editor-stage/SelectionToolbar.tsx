@@ -7,7 +7,7 @@ import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import { MenuSelect } from "@web/components/editor-ui";
 import { fontIdentityOptions } from "@web/lib/editor/font-identity-options";
 
-const item = "flex h-6 items-center gap-1.5 rounded-md px-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
+const item = "flex h-6 items-center gap-1.5 rounded-md px-2 hover:bg-[var(--editor-color-inverse-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
 
 /** Text layer actions above the selection (Handoff 6a), the same edits the Layer tab makes. */
 export function SelectionToolbar({
@@ -32,7 +32,7 @@ export function SelectionToolbar({
     <div
       role="toolbar"
       aria-label="Selection actions"
-      className="absolute z-20 flex items-center gap-0.5 whitespace-nowrap rounded-lg bg-slate-900 p-1 text-[11px] text-white shadow-lg shadow-slate-950/30"
+      className="absolute z-20 flex items-center gap-0.5 whitespace-nowrap rounded-lg bg-[var(--editor-color-surface-inverse)] p-1 text-[11px] text-[color:var(--editor-color-on-inverse)] shadow-lg shadow-slate-950/30"
       style={style}
       onClick={(event) => event.stopPropagation()}
     >
@@ -43,7 +43,7 @@ export function SelectionToolbar({
         options={fontOptions}
         appearance="breadcrumb"
         density="compact"
-        triggerClassName="!h-6 !min-h-6 !px-2 hover:!bg-white/10 [&>span]:!text-white"
+        triggerClassName="!h-6 !min-h-6 !px-2 hover:!bg-[var(--editor-color-inverse-hover)] [&>span]:!text-[color:var(--editor-color-on-inverse)]"
         menuClassName="!left-0 !right-auto w-56 text-[color:var(--editor-color-text)]"
         onChange={(value) => {
           const [fontFamily, weight] = JSON.parse(value) as [string, number];
