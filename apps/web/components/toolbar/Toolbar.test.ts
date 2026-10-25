@@ -179,7 +179,7 @@ describe("toolbar responsive labels", () => {
     expect(source).toContain('minimalControls ? "gap-0.5" : "gap-1"');
     expect(source.match(/minimalControls && "!size-7"/g)?.length).toBe(2);
     expect(source).toContain('minimalControls && "!size-7 !min-h-7 !px-0"');
-    expect(source).toContain("items-center gap-5 border-b border-slate-200 bg-white px-3");
+    expect(source).toContain("items-center gap-5 border-b border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3");
     expect(source).not.toMatch(/data-density=\{density\}[\s\S]{0,200}minimalControls/);
   });
 });

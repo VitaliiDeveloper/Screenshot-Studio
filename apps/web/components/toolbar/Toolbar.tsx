@@ -121,7 +121,7 @@ export function Toolbar({
       data-density={density}
       data-density-ready={densityReady}
       className={cx(
-        "relative grid min-h-13 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5 border-b border-slate-200 bg-white px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4",
+        "relative grid min-h-13 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-5 border-b border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3 shadow-[0_1px_0_rgba(15,23,42,0.02)] sm:px-4",
         !densityReady && "invisible",
       )}
     >
@@ -132,10 +132,10 @@ export function Toolbar({
             aria-label="Screenshot Studio, back to Projects"
             title="Back to Projects"
             disabled={projectsBusy || editingLocked}
-            className="hidden shrink-0 items-center gap-2.5 rounded-lg text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
+            className="hidden shrink-0 items-center gap-2.5 rounded-lg text-[color:var(--editor-color-text-strong)] transition-colors hover:text-[color:var(--editor-color-accent-text-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] disabled:cursor-wait disabled:opacity-60 sm:inline-flex"
             onClick={onOpenProjects}
           >
-            <span className="inline-flex size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+            <span className="inline-flex size-8 items-center justify-center rounded-lg bg-[var(--editor-color-accent)] text-[color:var(--editor-color-on-accent)] shadow-sm shadow-blue-600/20">
               <PanelsTopLeft size={16} strokeWidth={1.9} />
             </span>
             <span
@@ -146,9 +146,9 @@ export function Toolbar({
               )}
             >Screenshot Studio</span>
           </button>
-          <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
-          <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-slate-600 xl:inline">{projectName}</span>
-          <span className="hidden text-xs text-slate-300 xl:inline" aria-hidden="true">/</span>
+          <span className="hidden text-xs text-[color:var(--editor-color-text-faint)] xl:inline" aria-hidden="true">/</span>
+          <span className="hidden max-w-48 truncate whitespace-nowrap text-xs font-medium text-[color:var(--editor-color-text-muted)] xl:inline">{projectName}</span>
+          <span className="hidden text-xs text-[color:var(--editor-color-text-faint)] xl:inline" aria-hidden="true">/</span>
           {/* Its menu adds, renames, and removes layouts, which an agent run must not race. */}
           <div className="contents" inert={editingLocked ? true : undefined}>
             <LayoutSelector />
@@ -159,7 +159,7 @@ export function Toolbar({
       <div
         ref={viewSwitchRef}
         className={cx(
-          "flex items-center justify-self-center rounded-xl border border-slate-200 bg-slate-50",
+          "flex items-center justify-self-center rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)]",
           minimalControls ? "p-0.5" : "p-1",
         )}
         aria-label="Canvas view"
@@ -170,9 +170,9 @@ export function Toolbar({
           aria-pressed={view === "focus"}
           title="Focus"
           className={cx(
-            "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
+            "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] lg:px-3",
             compactControls ? "gap-0" : "gap-1.5",
-            view === "focus" ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+            view === "focus" ? "bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text-strong)] shadow-sm ring-1 ring-[var(--editor-color-border)]" : "text-[color:var(--editor-color-text-secondary)] hover:text-[color:var(--editor-color-text)]",
           )}
           onClick={() => onViewChange("focus")}
         >
@@ -184,9 +184,9 @@ export function Toolbar({
           aria-pressed={view === "overview"}
           title="Overview"
           className={cx(
-            "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 lg:px-3",
+            "inline-flex min-h-8 items-center rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] lg:px-3",
             compactControls ? "gap-0" : "gap-1.5",
-            view === "overview" ? "bg-white text-blue-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+            view === "overview" ? "bg-[var(--editor-color-surface)] text-[color:var(--editor-color-accent-text-strong)] shadow-sm ring-1 ring-[var(--editor-color-border)]" : "text-[color:var(--editor-color-text-secondary)] hover:text-[color:var(--editor-color-text)]",
           )}
           onClick={() => onViewChange("overview")}
         >
@@ -270,7 +270,7 @@ export function Toolbar({
           {exportCount !== null && !minimalControls ? (
             <span
               aria-hidden="true"
-              className={cx("rounded-md bg-white/20 px-1.5 text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
+              className={cx("rounded-md bg-[var(--editor-color-on-accent-subtle)] px-1.5 text-[11px] font-semibold tabular-nums", compactControls && "ml-1.5")}
             >{exportCount}</span>
           ) : null}
         </button>

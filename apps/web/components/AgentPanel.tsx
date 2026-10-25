@@ -44,7 +44,7 @@ function AgentDot({ ready }: { ready: boolean }) {
 
 const BADGE_TONES = {
   supported: "border-[var(--editor-color-border)] text-[color:var(--editor-color-text-muted)]",
-  "at-own-risk": "border-amber-500/60 bg-amber-500/10 text-[color:var(--editor-color-warning-text)]",
+  "at-own-risk": "border-[var(--editor-color-warning-border-strong)] bg-[var(--editor-color-warning-surface)] text-[color:var(--editor-color-warning-text)]",
   unavailable: "border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)]",
 } as const;
 
@@ -468,7 +468,7 @@ function AgentReview({
             Project passes schema validation
           </p>
           <p className={cx("flex items-center gap-2", issueTotal > 0 ? "text-[color:var(--editor-color-warning-text)]" : "text-[color:var(--editor-color-text-muted)]")}>
-            <span aria-hidden="true" className={cx(dot, issueTotal > 0 ? "bg-amber-500" : "bg-[var(--editor-color-success)]")} />
+            <span aria-hidden="true" className={cx(dot, issueTotal > 0 ? "bg-[var(--editor-color-warning)]" : "bg-[var(--editor-color-success)]")} />
             <span className="flex-1">
               {issueTotal === 0
                 ? "No issues"

@@ -502,7 +502,7 @@ export function EditorStage({
             }}
             spellCheck={false}
             style={editingStyle}
-            className="absolute z-10 resize-none overflow-hidden border border-blue-500 bg-transparent p-0 outline-none ring-2 ring-blue-500/20"
+            className="absolute z-10 resize-none overflow-hidden border border-[var(--editor-color-selection)] bg-transparent p-0 outline-none ring-2 ring-[var(--editor-color-focus-subtle)]"
           />
         ) : null}
 
