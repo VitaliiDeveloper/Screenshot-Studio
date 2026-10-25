@@ -23,7 +23,7 @@
   --editor-color-text-strong: #14161c;
   --editor-color-text-default: #40465a;
   --editor-color-text-muted: #4e5566;
-  --editor-color-text-secondary: #6b7280;
+  --editor-color-text-secondary: #656c7a;
   --editor-color-text-subtle: #8a90a0;
   --editor-color-text-faint: #c3c7d1;
   --editor-color-accent: #2547f0;
@@ -70,7 +70,7 @@
   --editor-color-focus: rgb(37 71 240 / 70%);
   --editor-color-focus-border: #6a82f5;
   --editor-color-focus-subtle: rgb(37 71 240 / 15%);
-  --editor-color-danger-focus: #f97066;
+  --editor-color-danger-focus: #f04438;
   --editor-color-danger-focus-subtle: rgb(217 45 32 / 15%);
   --editor-space-control-x: 0.75rem;
   --editor-space-control-compact-x: 0.625rem;

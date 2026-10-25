@@ -420,7 +420,7 @@ export function ScreensSection({
                       active
                         ? "border-[var(--editor-color-accent)]"
                         : warning
-                          ? "border-dashed border-[var(--editor-color-warning-text)]"
+                          ? "border-dashed border-[var(--editor-color-warning-border-strong)]"
                           : "border-[var(--editor-color-border-strong)]",
                     )}
                   >

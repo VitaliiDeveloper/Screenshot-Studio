@@ -115,7 +115,7 @@ export function AppHomeShell({
     return (<>
       {toastRegion}
       <main className="relative min-h-dvh overflow-hidden bg-[var(--editor-color-surface-subtle)] text-[color:var(--editor-color-text-default)]">
-        <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_48%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_42%)]" />
+        <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top_left,color-mix(in_srgb,var(--editor-color-accent)_14%,transparent),transparent_48%),radial-gradient(circle_at_top_right,color-mix(in_srgb,var(--editor-color-accent-gradient-end)_12%,transparent),transparent_42%)]" />
         <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
           <header className="flex items-center justify-between border-b border-[var(--editor-color-border)] pb-5">
             <div className="flex items-center gap-3">

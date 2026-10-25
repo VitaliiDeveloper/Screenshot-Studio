@@ -38,6 +38,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
     ["surface", "surface-subtle", "surface-muted"].map((surface) => [text, surface] as const)),
   ["text-secondary", "surface"],
   ["text-secondary", "surface-subtle"],
+  ["text-secondary", "surface-muted"],
   ["accent-text", "surface"],
   ["accent-text", "accent-subtle"],
   ["accent-text-strong", "surface"],
@@ -66,7 +67,17 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
 const NON_TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["focus", "surface"],
   ["focus", "surface-subtle"],
+  ["danger-focus", "surface"],
   ["selection", "canvas"],
+];
+
+/**
+ * Known deviation, kept from the Turn 6 design: `text-subtle` still labels small hints and
+ * placeholders. It is held to a 3:1 floor (it was 2.6:1 before Turn 6) instead of 4.5:1.
+ */
+const HINT_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["text-subtle", "surface"],
+  ["text-subtle", "surface-subtle"],
 ];
 
 async function themes(): Promise<Array<{ name: string; tokens: Map<string, string> }>> {
@@ -78,6 +89,7 @@ describe("editor color token contrast", () => {
   it.each([
     ["text", TEXT_PAIRS, 4.5],
     ["non-text", NON_TEXT_PAIRS, 3],
+    ["hint", HINT_PAIRS, 3],
   ] as const)("keeps %s pairs readable in every theme", async (_kind, pairs, minimum) => {
     const failures: string[] = [];
     for (const { name, tokens } of await themes()) {

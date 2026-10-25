@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
-const STAGE_COLOR_TOKENS = {
+export const STAGE_COLOR_TOKENS = {
   selection: "--editor-color-selection",
   selectionFill: "--editor-color-selection-fill",
   boundary: "--editor-color-canvas-boundary",
@@ -33,9 +33,13 @@ export function readStageColors(style: Pick<CSSStyleDeclaration, "getPropertyVal
 /** Konva paints on a canvas and cannot resolve CSS variables, so overlays read the tokens and follow the system theme. */
 export function useStageColors(): StageColors {
   const [colors, setColors] = useState(DEFAULT_STAGE_COLORS);
-  useEffect(() => {
+  // Before paint, so a dark-theme stage never flashes light overlays.
+  useLayoutEffect(() => {
     const scheme = window.matchMedia("(prefers-color-scheme: dark)");
-    const read = () => setColors(readStageColors(getComputedStyle(document.documentElement)));
+    const read = () => {
+      const next = readStageColors(getComputedStyle(document.documentElement));
+      setColors((current) => (Object.keys(next) as Array<keyof StageColors>).every((key) => current[key] === next[key]) ? current : next);
+    };
     read();
     scheme.addEventListener("change", read);
     return () => scheme.removeEventListener("change", read);
