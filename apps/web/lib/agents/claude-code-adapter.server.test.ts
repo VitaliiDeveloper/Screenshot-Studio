@@ -117,6 +117,7 @@ describe("Claude Code adapter", () => {
 
     const edit = prompt(REQUEST);
     expect(edit).toContain("/app/skills/screenshot-studio/references/art-direction.md");
+    expect(edit).toContain("follow its CLI-only path");
     expect(edit).not.toContain("critic.md");
 
     const critic = prompt({ ...REQUEST, mode: "critic" });

@@ -394,7 +394,11 @@ per change; snapshots live in server memory, so a restart drops a pending undo.
 A session request may set `mode: "critic"` (default `edit`; any other value is `400`). The critic
 gets the same agent, sandbox, and tool restrictions, but its instructions point at the skill's
 read-only `references/critic.md` instead of `references/art-direction.md`, and the run is refused
-with `409 critic-unavailable` when that file is missing. Read-only is enforced by the verdict, not by
+with `409 critic-unavailable` when that file is missing. The server looks for the skill beside the
+store specs, so the packed CLI ships `SKILL.md` and both references under `runtime/skills/` (a
+custom `--store-specs` path leaves them out). The art-direction guide gives agents that can only run
+`screenshots` commands a CLI-only path (screen packs, Design packs, copy, media, order) and has them
+list geometry changes as manual editor steps. Read-only is enforced by the verdict, not by
 the sandbox, because the critic must export to see the set: a critic run that changed or broke
 `app-store-screenshots.json` is restored from its snapshot as `result: rejected`. A critic run never
 drops or replaces the pending outcome of the run it reviews; after such a restore that outcome's

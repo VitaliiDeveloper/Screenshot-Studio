@@ -38,6 +38,10 @@ await build({
 await chmod(join(packageRoot, "dist", "index.js"), 0o755);
 await cp(join(cliRoot, "src", "project-agent-guide.md"), join(packageRoot, "dist", "project-agent-guide.md"));
 await cp(join(repoRoot, "store-specs.json"), join(packageRoot, "runtime", "store-specs.json"));
+// Editor agent runs find the skill beside the store specs; only its instructions ship, not the bootstrap.
+for (const file of ["SKILL.md", "references/art-direction.md", "references/critic.md"]) {
+  await cp(join(repoRoot, "skills", "screenshot-studio", file), join(packageRoot, "runtime", "skills", "screenshot-studio", file));
+}
 
 await readFile(expectedServer);
 

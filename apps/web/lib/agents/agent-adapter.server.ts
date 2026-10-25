@@ -54,7 +54,7 @@ export function projectInstructions({ mode, context, attachments }: AgentRunRequ
       ? `This run is read-only. Read ${skillPath ? skillReference(skillPath, "critic.md") : "the critic rules"} completely and follow it. Use only listing commands and \`screenshots export\` with \`--project ./app-store-screenshots.json\`; never change the project or run \`screenshots dev\`. A change to the project is rolled back.`
       : "Change the project only through the `screenshots` CLI with `--project ./app-store-screenshots.json`. Never run `screenshots dev`.",
     !critic && skillPath
-      ? `When the request is about store marketing, copy, a livelier or more premium look, or restyling from a reference image, read ${skillReference(skillPath, "art-direction.md")} first and follow it.`
+      ? `When the request is about store marketing, copy, a livelier or more premium look, or restyling from a reference image, read ${skillReference(skillPath, "art-direction.md")} first and follow it; if your tools only run \`screenshots\` commands, follow its CLI-only path.`
       : "",
     // Named here because a project's AGENTS.md is copied at init and may predate `asset import`.
     attachments.length > 0

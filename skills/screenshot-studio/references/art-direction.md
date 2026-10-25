@@ -12,7 +12,7 @@ gradients, or a two-colour headline, say so and offer the closest pattern here i
 
 1. Read the product brief, every capture in `assets/`, and the current screens of the target locale.
 2. Write a slide outline, one line per slide: the user outcome, the capture that proves it, and the
-   pattern from section 3 you will use.
+   pattern from section 4 (or the screen pack, with CLI-only tools) you will use.
 3. Order it for the store shelf. Search results show only the first two or three slides, so they
    carry the decision:
    - Slide 1: the main outcome, in the user's words ("Fall asleep in 10 minutes", not "Sleep
@@ -28,13 +28,31 @@ gradients, or a two-colour headline, say so and offer the closest pattern here i
 
 ## 2. Copy rules
 
-- Headline: 2–6 words, one idea, a verb or an outcome. It must read at thumbnail size (section 5).
+- Headline: 2–6 words, one idea, a verb or an outcome. It must read at thumbnail size (section 6).
 - Subline: optional, at most about ten words, adds proof or context, never repeats the headline.
 - One idea per slide. If a slide needs "and", split it.
 - Numbers beat adjectives: "3× faster" over "blazing fast", when the brief supports the number.
 - Keep the deck's voice consistent; vary composition, not tone.
 
-## 3. Pattern catalog
+## 3. Know what your tools can change
+
+The `screenshots` CLI changes copy (`element text`), media (`element media`), screens (`template
+add`, `screen reorder`, `screen rm`), and styles (`theme set`). It cannot add elements or change
+geometry, rotation, or effects; those are JSON literals.
+
+- **You can edit files** (for example a file-edit tool, or shell access beyond `screenshots`): use
+  the pattern catalog in section 4 and edit geometry in `app-store-screenshots.json` as `AGENTS.md`
+  allows, then validate with `screenshots screen list`.
+- **You can only run `screenshots` commands** (the editor's built-in Claude Code runs this way): do
+  not attempt section 4 by hand. Get composition variety from built-in screen packs instead: run
+  `template list`, prefer `built-in-pack` lines whose name or description promises varied layouts
+  (tilted or paired devices, a stat slide, a panorama), add one with `template add <pack-id> --pack`,
+  then fill its copy and media and remove the screens it replaces. Use `theme set` for colour and
+  type, and `screen reorder` for the story order. For any pattern the CLI cannot build, end your
+  summary with short manual steps for the editor, such as "Slide 2: select the device and set
+  Rotation to −6 in the Inspector".
+
+## 4. Pattern catalog
 
 Pick a pattern per slide so that adjacent slides differ visibly. Coordinates are artboard pixels.
 `rotation` is in degrees and pivots on the element's top-left corner (`x`, `y`), so after rotating,
@@ -62,22 +80,24 @@ Colour and type:
 - Gradients are two-stop linear (`background` or `shape.gradient`). Neighbouring hues read as
   premium; complementary hues read as loud.
 
-## 4. Restyle from a reference image
+## 5. Restyle from a reference image
 
 When the user attaches a competitor or inspiration screenshot:
 
 1. Describe it back in one short list: layout (where text, device, decoration sit), device treatment
    (size, tilt, bleed, frameless), colour (background, accent), type (weight, case, size relative to
-   width), and the pattern names from section 3 that match.
+   width), and the pattern names from section 4 that match.
 2. Name what the schema cannot reproduce (perspective, masks, mixed-colour text, radial gradients,
    photos the project lacks) and the substitute you will use.
 3. Map it onto the project: keep the user's captures, copy, and fonts; take only composition, scale,
    and colour. Never copy the reference's brand, logo, illustrations, or text.
-4. Apply to one slide, export it, review (section 5), then roll the treatment out to the rest.
+4. Apply to one slide, export it, review (section 6), then roll the treatment out to the rest. With
+   CLI-only tools, pick the closest built-in pack and Design pack instead, and list the remaining
+   differences as manual steps.
 
 The reference image is context only. Do not import it into the project unless the user asks.
 
-## 5. Export and look before you finish
+## 6. Export and look before you finish
 
 Layout JSON is not evidence. After changing a slide:
 
@@ -96,7 +116,7 @@ store thumbnail (imagine it about 20 % wide). Fix and re-export until:
 
 Export one screen at a time while iterating; export the locale once at the end.
 
-## 6. Offer the critic
+## 7. Offer the critic
 
 When the set is done, ask the user whether they want an independent critic pass. Do not start it
 without a yes. If they agree, follow [`critic.md`](critic.md) as a separate, read-only step: switch
