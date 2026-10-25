@@ -11,6 +11,7 @@ import {
   getLayout,
   isBuiltInFontIdentity,
   mapElementLeaves,
+  mirrorBackground,
   replaceLayout,
   type Project as ProjectModel,
 } from "@screenshot-studio/core/model";
@@ -240,7 +241,8 @@ export function applyTheme(project: ProjectModel, layoutId: string, input: Theme
 
 /**
  * Bake a global pack into the same render-bearing literals used by the editor and CLI: every screen
- * background plus role-tagged leaves. Geometry is left untouched. The pack id is never persisted;
+ * background plus role-tagged leaves. Geometry is left untouched; RTL screens get the mirrored
+ * gradient direction, as a direction switch would bake it. The pack id is never persisted;
  * role metadata remains only so another pack/theme can be intentionally baked.
  */
 export function applyDesignPack(
@@ -253,9 +255,10 @@ export function applyDesignPack(
   const layout = getLayout(project, layoutId);
   const screens = layout.screens.map((screen) => {
     const shortSide = Math.min(screen.artboard.width, screen.artboard.height);
+    const background = structuredClone(pack.background);
     return {
       ...screen,
-      background: structuredClone(pack.background),
+      background: screen.direction === "rtl" ? mirrorBackground(background) : background,
       elements: screen.elements.map((element) => mapElementLeaves(element, (leaf) => {
         if (!leaf.role) return leaf;
         if (leaf.type === "text") {
