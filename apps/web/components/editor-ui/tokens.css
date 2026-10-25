@@ -3,6 +3,7 @@
   --editor-color-surface-subtle: #fafafb;
   --editor-color-surface-subtle-translucent: rgb(250 250 251 / 60%);
   --editor-color-surface-muted: #f3f4f7;
+  --editor-color-surface-raised: #ffffff;
   --editor-color-surface-translucent: rgb(255 255 255 / 70%);
   --editor-color-surface-translucent-strong: rgb(255 255 255 / 90%);
   --editor-color-surface-inverse: #14161c;
@@ -43,7 +44,6 @@
   --editor-color-snap-guide: rgb(255 80 160 / 85%);
   --editor-color-on-accent: #ffffff;
   --editor-color-on-accent-subtle: rgb(255 255 255 / 22%);
-  --editor-color-on-accent-muted: #f5f7ff;
   --editor-color-on-media: #ffffff;
   --editor-color-on-media-muted: rgb(255 255 255 / 80%);
   --editor-color-swatch-outline: rgb(20 22 28 / 12%);
@@ -104,6 +104,7 @@
     --editor-color-surface-subtle: #14161b;
     --editor-color-surface-subtle-translucent: rgb(20 22 27 / 60%);
     --editor-color-surface-muted: #23262f;
+    --editor-color-surface-raised: #343846;
     --editor-color-surface-translucent: rgb(23 25 31 / 70%);
     --editor-color-surface-translucent-strong: rgb(23 25 31 / 90%);
     --editor-color-surface-inverse: #2b2f3a;
@@ -137,7 +138,6 @@
     --editor-color-accent-gradient-end: #5b4fe0;
     --editor-color-selection: #5b79ff;
     --editor-color-selection-fill: rgb(91 121 255 / 16%);
-    --editor-color-on-accent-muted: #e6ebff;
     --editor-color-swatch-outline: rgb(255 255 255 / 16%);
     --editor-color-danger-text: #ff8a80;
     --editor-color-danger-surface: #2a1517;
@@ -155,13 +155,12 @@
     --editor-color-success-text: #5ad68a;
     --editor-color-success-surface: #132a1c;
     --editor-color-success-border: #1f5234;
-    --editor-color-focus: rgb(91 121 255 / 75%);
+    --editor-color-focus: #5b79ff;
     --editor-color-focus-border: #5b79ff;
     --editor-color-focus-subtle: rgb(91 121 255 / 20%);
     --editor-color-danger-focus: #ff8a80;
     --editor-color-danger-focus-subtle: rgb(255 138 128 / 20%);
     --editor-shadow-dialog: 0 25px 50px -12px rgb(0 0 0 / 55%);
     --editor-shadow-menu: 0 14px 30px -10px rgb(0 0 0 / 50%);
-    --editor-shadow-media-outline: 0 0 0 1px rgb(255 255 255 / 14%);
   }
 }

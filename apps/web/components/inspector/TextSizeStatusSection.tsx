@@ -62,7 +62,7 @@ export function TextSizeStatusSection({
                   className={cx(
                     "size-[7px] shrink-0 rounded-full",
                     overflows
-                      ? "bg-[var(--editor-color-warning-border)]"
+                      ? "bg-[var(--editor-color-warning)]"
                       : current
                         ? "bg-[var(--editor-color-accent)]"
                         : state === "fits"

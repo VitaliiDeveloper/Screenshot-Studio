@@ -39,6 +39,8 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["text-secondary", "surface"],
   ["text-secondary", "surface-subtle"],
   ["text-secondary", "surface-muted"],
+  ["text", "surface-raised"],
+  ["text-muted", "surface-raised"],
   ["accent-text", "surface"],
   ["accent-text", "accent-subtle"],
   ["accent-text-strong", "surface"],
@@ -68,8 +70,12 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
 const NON_TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["focus", "surface"],
   ["focus", "surface-subtle"],
+  ["focus", "surface-muted"],
+  ["focus", "accent-subtle"],
+  ["focus", "canvas"],
   ["danger-focus", "surface"],
   ["selection", "canvas"],
+  ["selection", "artboard"],
 ];
 
 /**
