@@ -169,7 +169,7 @@ export function ScreenRowButton({
           warning
             ? "text-[color:var(--editor-color-warning-text)]"
             : active
-              ? "text-[color:var(--editor-color-accent-hover)]"
+              ? "text-[color:var(--editor-color-accent-text-strong)]"
               : "text-[color:var(--editor-color-text-strong)]",
         )}
       >
@@ -449,7 +449,7 @@ export function ScreensSection({
                     className={cx(
                       treeRowButton,
                       deleteDisabled ? "pointer-events-none opacity-0 group-hover:opacity-35" : rowHoverControl,
-                      "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger)] focus-visible:ring-[var(--editor-color-focus)]",
+                      "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger-text)] focus-visible:ring-[var(--editor-color-focus)]",
                     )}
                   >
                     <Trash2 size={14} strokeWidth={1.8} />

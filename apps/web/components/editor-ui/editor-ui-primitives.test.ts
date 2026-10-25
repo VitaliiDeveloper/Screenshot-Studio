@@ -66,7 +66,7 @@ describe("editor UI primitives", () => {
       expect(contracts[variant]).toContain("var(--editor-color-");
     }
     expect(contracts.rowIconButtonDanger)
-      .toContain("text-[color:var(--editor-color-danger)]");
+      .toContain("text-[color:var(--editor-color-danger-text)]");
   });
 
   it("keeps segmented choices visually compact", () => {

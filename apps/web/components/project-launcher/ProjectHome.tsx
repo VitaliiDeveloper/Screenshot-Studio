@@ -121,7 +121,7 @@ export function ProjectHome({ expectedProjectId, expectedEntryId }: {
   return (
     <main className="min-h-dvh bg-[var(--editor-color-surface-subtle)] px-4 py-7 sm:px-6 lg:px-10 lg:py-10">
       <div className="mx-auto max-w-[1440px]">
-        <Link href="/" className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-[color:var(--editor-color-accent)] transition hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
+        <Link href="/" className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-[color:var(--editor-color-accent-text)] transition hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
           <ArrowLeft aria-hidden="true" className="size-4" />
           Projects
         </Link>

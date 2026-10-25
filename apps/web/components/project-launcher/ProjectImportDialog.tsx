@@ -67,9 +67,9 @@ export function ProjectImportDialog({
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={() => folderInputRef.current?.click()} className="group flex h-full flex-col items-start justify-start rounded-2xl border-2 border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 text-left transition hover:border-[var(--editor-color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
               <span className="inline-flex items-center gap-2 text-base font-semibold text-[color:var(--editor-color-text-strong)]">
-                <FolderOpen aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent)]" /> Folder
+                <FolderOpen aria-hidden="true" className="size-5 text-[color:var(--editor-color-accent-text)]" /> Folder
               </span>
-              <span className="mt-3 block text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-accent)]">Recommended</span>
+              <span className="mt-3 block text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-accent-text)]">Recommended</span>
               <span className="mt-2 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Best for complete projects with screenshots, fonts, and assets.</span>
               <span className="mt-3 block text-xs leading-5 text-[color:var(--editor-color-text-muted)]">Your browser may ask you to confirm uploading the selected files.</span>
             </button>
@@ -84,7 +84,7 @@ export function ProjectImportDialog({
             </div>
             <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]"><span className="h-px flex-1 bg-[var(--editor-color-border)]" />or<span className="h-px flex-1 bg-[var(--editor-color-border)]" /></div>
             <button type="button" onClick={onChooseCapture} className="flex w-full items-start gap-4 rounded-2xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-5 text-left transition hover:border-[var(--editor-color-accent-muted)] hover:bg-[var(--editor-color-accent-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent)]"><Images aria-hidden="true" className="size-5" /></span>
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text)]"><Images aria-hidden="true" className="size-5" /></span>
               <span><span className="block text-base font-semibold text-[color:var(--editor-color-text-strong)]">Capture folder</span><span className="mt-1 block text-sm leading-5 text-[color:var(--editor-color-text-secondary)]">Create a project from a folder of screenshots and review the detected screens before importing.</span></span>
             </button>
             <input
@@ -106,7 +106,7 @@ export function ProjectImportDialog({
 
         {state.status === "confirming" ? (
           <div className="rounded-2xl border border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-5 sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-accent)]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--editor-color-accent-text)]">
               {state.kind === "folder" ? "Folder selected" : state.kind === "archive" ? "Project ZIP selected" : "Standalone JSON selected"}
             </p>
             <p className="mt-2 text-sm leading-6 text-[color:var(--editor-color-text-secondary)]">
@@ -130,7 +130,7 @@ export function ProjectImportDialog({
         {state.status === "uploading" || state.status === "publishing" ? (
           <div className="rounded-2xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-5" role="status" aria-live="polite">
             <div className="flex items-start gap-3">
-              <LoaderCircle aria-hidden="true" className="mt-0.5 size-5 animate-spin text-[color:var(--editor-color-accent)] motion-reduce:animate-none" />
+              <LoaderCircle aria-hidden="true" className="mt-0.5 size-5 animate-spin text-[color:var(--editor-color-accent-text)] motion-reduce:animate-none" />
               <div>
                 <p className="font-semibold text-[color:var(--editor-color-text-strong)]">
                   {state.status === "uploading" ? "Uploading your selection…" : "Validating and publishing your managed copy…"}

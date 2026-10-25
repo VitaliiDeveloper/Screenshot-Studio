@@ -89,7 +89,7 @@ function SetupLink({ agent }: { agent: AgentStatus }) {
       target="_blank"
       rel="noreferrer"
       aria-label={`Set up ${agent.name}`}
-      className="text-[11px] font-medium text-[color:var(--editor-color-accent)] hover:underline"
+      className="text-[11px] font-medium text-[color:var(--editor-color-accent-text)] hover:underline"
     >
       Setup
     </a>
@@ -103,7 +103,7 @@ function SourceLink({ agent }: { agent: AgentStatus }) {
         href={agent.policy.sourceUrl}
         target="_blank"
         rel="noreferrer"
-        className="font-medium text-[color:var(--editor-color-accent)] hover:underline"
+        className="font-medium text-[color:var(--editor-color-accent-text)] hover:underline"
       >
         Read the terms
       </a>
@@ -222,7 +222,7 @@ function AgentNoticeView({ notice, chat }: { notice: AgentNotice; chat: EditorAg
 
 function StepIcon({ status }: { status: AgentTurn["steps"][number]["status"] }) {
   if (status === "completed") return <Check aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-success)]" />;
-  if (status === "in_progress") return <CircleDot aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-agent)]" />;
+  if (status === "in_progress") return <CircleDot aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-agent-text)]" />;
   return <Circle aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-text-faint)]" />;
 }
 
