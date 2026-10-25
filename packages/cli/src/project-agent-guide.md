@@ -408,13 +408,15 @@ manually copy captures into `assets/imports/` or precompute ids.
 After re-capturing the app, add `--refresh` to update designed screens instead of adding new ones:
 
 ```bash
-screenshots import . --refresh --layout "Feature campaign" --project ./app-store-screenshots.json
+screenshots import ./screenshots --refresh --layout "Feature campaign" --project ./app-store-screenshots.json
 ```
 
 Refresh swaps the new bytes into every element or background in the layout that still uses the
 earlier import of the same `<platform>/<device>/<locale>/<file>.png` capture. It never adds, moves,
 or resizes screens. A capture no screen uses is reported as unmatched; run the import without
 `--refresh` to add it. Keep capture file names stable between runs, since the name is the match key.
+Point refresh at `screenshots/`, not the project root: replaced import files stay under `assets/` and
+a root input would re-read all of them on every run.
 
 ## Recipe: process a local asset
 

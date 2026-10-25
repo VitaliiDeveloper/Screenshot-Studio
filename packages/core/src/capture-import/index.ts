@@ -630,14 +630,19 @@ export function planCaptureImport(input: {
   let project = parts.project;
 
   project = Project.parse(project);
+  // A project-root input also lists the project's earlier import resources as related assets.
+  const plannedCaptureBytes = new Set(captureResources.map(({ destinationPath, digest: revision }) =>
+    `${portablePathKey(destinationPath)}\0${revision}`));
   const resources = [
     ...captureResources,
-    ...input.discovery.assets.map((asset) => ({
-      sourcePath: asset.sourcePath,
-      destinationPath: asset.destinationPath,
-      digest: asset.digest,
-      bytes: new Uint8Array(asset.bytes),
-    })),
+    ...input.discovery.assets
+      .filter((asset) => !plannedCaptureBytes.has(`${portablePathKey(asset.destinationPath)}\0${asset.digest}`))
+      .map((asset) => ({
+        sourcePath: asset.sourcePath,
+        destinationPath: asset.destinationPath,
+        digest: asset.digest,
+        bytes: new Uint8Array(asset.bytes),
+      })),
   ];
   const invalidEntries = [...structuredClone(input.discovery.invalidEntries), ...parts.invalidEntries];
   const destinations = new Map<string, CaptureImportPlannedResource>();
