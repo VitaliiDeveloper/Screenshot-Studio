@@ -21,10 +21,10 @@ project's JSON with `--project`.
 - `app-store-screenshots.json` is the only persisted project state. It is strict v1 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to layouts, screens, templates, locales, fonts, themes,
-  and imports, and for copy and media (`element text`, `element media`). Each command takes the
-  project lock, validates the complete strict Project, and writes atomically. Directly edit JSON
-  only for literals the CLI does not manage, such as element geometry, typography, screen names,
-  and backgrounds.
+  and imports, for copy and media (`element text`, `element media`), and for element position,
+  size, rotation, and opacity (`element set`). Each command takes the project lock, validates the
+  complete strict Project, and writes atomically. Directly edit JSON only for literals the CLI does
+  not manage, such as typography, effects, screen names, backgrounds, and new elements.
 - The visual editor may be open on this project. It refuses to save over a newer file ("Project
   changed on disk"), so reload it after CLI or JSON changes made outside it.
 - Preserve layout, screen, and element ids unless intentionally creating a new object. Layout ids
@@ -171,6 +171,8 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Change copy on every exact size of a slot | `element text <screen-id> <element-id> --all-sizes "<copy>"` |
 | Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
 | Use an image from outside the project | `asset import <file>`, then `element media` with the printed path |
+| Move, resize, tilt, or fade a layer | `element set <screen-id> <element-id> [--x <px>] [--y <px>] [--width <px>] [--height <px>] [--rotation <deg>] [--opacity <0..1>]` |
+| Same geometry on every exact size of a slot | `element set <screen-id> <element-id> --all-sizes <flags>` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
 | Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
 | Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
@@ -182,10 +184,17 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 
 Element ids are fresh UUIDs after a template add or locale clone, so list before every edit.
 Store target variants are separate screens with their own elements and ids. `element text
---all-sizes` also writes the same layer on every other exact size of that slot, matched by layer
-position like the editor's Status by size and Apply to, in one locked write. It reports each size it
-skips: a size whose layer structure has diverged, or whose matching layer or its group is locked.
-Edit those individually. Copy that starts with `--` goes after a `--` terminator:
+--all-sizes` and `element set --all-sizes` also write the same layer on every other exact size of
+that slot, matched by layer position like the editor's Status by size and Apply to, in one locked
+write. `element set` fits the edited layer into each size's artboard the way Apply to does, so
+pixel values scale with the artboard while rotation and opacity copy. Both report each size they
+skip: a size whose layer structure has diverged, whose matching layer or its group is locked, or
+(for `element set`) whose fitted layer would leave a schema range. Edit those individually.
+
+`element set` writes only the flags you pass; the other fields keep their values. Values are
+artboard pixels and degrees, and a group child's `x`/`y` are relative to its group. It targets leaf
+layers, so move a group by moving each child. Negative values follow the flag directly
+(`--rotation -6`). Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
 
 ## Recipe: generate or refresh copy
@@ -230,9 +239,25 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
    ```
 2. Establish the hierarchy first: headline, proof/supporting copy, product media, then decoration.
    Keep required text and critical UI inside one artboard.
-3. Write final element geometry against that screen's exact artboard. Keep all finite dimensions
-   positive, preserve intentional aspect ratios for media, and remember that `elements` order is
-   back-to-front z-order.
+3. Write final element geometry against that screen's exact artboard with `element set`. Keep all
+   finite dimensions positive, scale media by multiplying `width` and `height` by the same factor to
+   preserve its aspect ratio, and remember that `elements` order is back-to-front z-order.
+
+   Rotation turns the element about its top-left corner (`x`, `y`), not its centre. To tilt an
+   upright element by `θ` degrees and keep its centre in place, start from its unrotated box
+   (`x0`, `y0`, `w`, `h` with `rotation` 0) and set:
+
+   ```text
+   x = x0 + w/2 − (w/2)·cos θ + (h/2)·sin θ
+   y = y0 + h/2 − (w/2)·sin θ − (h/2)·cos θ
+   ```
+
+   For an element that is already rotated, set `--rotation 0` first or recompute from the
+   original upright `x`/`y`. For example, a 420×860 device at `x0` 120, `y0` 500 tilted −6°:
+
+   ```bash
+   screenshots element set <screen-id> <element-id> --rotation -6 --x 76 --y 524 --project ./app-store-screenshots.json
+   ```
 4. Vary device placement and negative space across adjacent slides. In `isolated` mode, never make
    one slide depend on a neighbouring crop. In `connected` mode, cross-screen decoration may span an
    exact platform/device/locale strip, but required text and critical UI must remain complete in
