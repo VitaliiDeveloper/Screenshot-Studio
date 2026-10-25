@@ -12,6 +12,7 @@ import {
   ensureStoreTargetVariant,
   elementLeaves,
   isBuiltInFontIdentity,
+  mirrorGradientAngle,
   setScreenDirection,
   parseProject,
   projectScreenGroup,
@@ -539,7 +540,11 @@ describe("styled template packs", () => {
         } as Project["layouts"][number]["screens"][number], direction);
         const { width, height } = screen.artboard;
         expect(screen.artboard, label).toEqual({ width: target.width, height: target.height });
-        expect(screen.background, label).toEqual(style.background);
+        expect(screen.background, label).toEqual(
+          direction === "rtl" && style.background.type === "linear-gradient"
+            ? { ...style.background, angle: mirrorGradientAngle(style.background.angle) }
+            : style.background,
+        );
         const leaves = screen.elements.flatMap(elementLeaves);
         const device = leaves.find((leaf) => leaf.type === "device-frame")!;
         expect(device.x, label).toBeGreaterThanOrEqual(0);
