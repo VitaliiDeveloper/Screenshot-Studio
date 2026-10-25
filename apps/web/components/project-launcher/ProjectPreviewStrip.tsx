@@ -82,14 +82,14 @@ export function ProjectPreviewStrip({ entry }: { entry: ProjectLibraryEntry }) {
     && entry.previewScreenIds.length > 0
     && entry.previewScreenIds.every((screenId) => readyScreens.screenIds.includes(screenId));
   return (
-    <div data-preview-state={allScreensReady ? "ready" : "loading"} className="grid h-56 grid-cols-3 items-end gap-3 overflow-hidden rounded-t-2xl bg-slate-50 px-5 pb-0 pt-5">
+    <div data-preview-state={allScreensReady ? "ready" : "loading"} className="grid h-56 grid-cols-3 items-end gap-3 overflow-hidden rounded-t-2xl bg-[var(--editor-color-surface-subtle)] px-5 pb-0 pt-5">
       {entry.previewScreenIds.length > 0 ? entry.previewScreenIds.map((screenId) => (
-        <div key={screenId} className="h-full min-w-0 overflow-hidden rounded-t-lg border border-slate-200 bg-slate-100 shadow-sm">
+        <div key={screenId} className="h-full min-w-0 overflow-hidden rounded-t-lg border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] shadow-sm">
           <div className={`size-full transition-opacity duration-300 ease-out motion-reduce:transition-none ${allScreensReady ? "opacity-100" : "opacity-0"}`}>
             {canRender ? <ScreenThumbnail project={entry.previewProject!} layoutId={entry.previewLayoutId!} screenId={screenId} images={preview!.images!} onReady={markScreenReady} /> : null}
           </div>
         </div>
-      )) : <div className="col-span-3 self-center text-center text-sm font-medium text-slate-400">Preview unavailable</div>}
+      )) : <div className="col-span-3 self-center text-center text-sm font-medium text-[color:var(--editor-color-text-subtle)]">Preview unavailable</div>}
     </div>
   );
 }

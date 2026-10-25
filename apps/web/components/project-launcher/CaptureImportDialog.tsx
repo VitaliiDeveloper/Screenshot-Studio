@@ -72,7 +72,7 @@ function CapturePreview({ state }: { state: Extract<OpenCaptureImportState, { st
   const invalidEntries = preview.invalidEntries.slice(0, PREVIEW_ITEM_LIMIT);
   return (
     <div className="space-y-5">
-      <section aria-labelledby="capture-receiver" className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 sm:p-5">
+      <section aria-labelledby="capture-receiver" className="rounded-2xl border border-[var(--editor-color-accent-border)] bg-[var(--editor-color-accent-subtle)] p-4 sm:p-5">
         <p className={editorUi.sectionLabel}>Planned receiver</p>
         <h3 id="capture-receiver" className="mt-2 font-semibold text-[color:var(--editor-color-text-strong)]">
           {preview.receiving.projectName}
@@ -81,28 +81,28 @@ function CapturePreview({ state }: { state: Extract<OpenCaptureImportState, { st
           {preview.receiving.kind === "new-project" ? "New managed project" : "Current project"}
           {" · Layout: "}{preview.receiving.layoutName}
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-700">
+        <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[color:var(--editor-color-text-default)]">
           {[plural(preview.summary.screenCount, "screen"), plural(preview.summary.assetCount, "related asset")]
-            .map((label) => <span key={label} className="rounded-full bg-white px-2.5 py-1 ring-1 ring-blue-100">{label}</span>)}
+            .map((label) => <span key={label} className="rounded-full bg-[var(--editor-color-surface)] px-2.5 py-1 ring-1 ring-[var(--editor-color-accent-muted)]">{label}</span>)}
         </div>
         <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-3">
-          <div><dt className="font-semibold text-slate-900">Platforms</dt><dd className="mt-1 text-slate-600">{preview.summary.platforms.map(({ id, count }) => `${id} (${count})`).join(", ") || "None"}</dd></div>
-          <div><dt className="font-semibold text-slate-900">Devices</dt><dd className="mt-1 text-slate-600">{preview.summary.devices.map(({ id, count }) => `${id} (${count})`).join(", ") || "None"}</dd></div>
-          <div><dt className="font-semibold text-slate-900">Locales</dt><dd className="mt-1 text-slate-600">{preview.summary.locales.map(({ id, count }) => `${id} (${count})`).join(", ") || "None"}</dd></div>
+          <div><dt className="font-semibold text-[color:var(--editor-color-text-strong)]">Platforms</dt><dd className="mt-1 text-[color:var(--editor-color-text-muted)]">{preview.summary.platforms.map(({ id, count }) => `${id} (${count})`).join(", ") || "None"}</dd></div>
+          <div><dt className="font-semibold text-[color:var(--editor-color-text-strong)]">Devices</dt><dd className="mt-1 text-[color:var(--editor-color-text-muted)]">{preview.summary.devices.map(({ id, count }) => `${id} (${count})`).join(", ") || "None"}</dd></div>
+          <div><dt className="font-semibold text-[color:var(--editor-color-text-strong)]">Locales</dt><dd className="mt-1 text-[color:var(--editor-color-text-muted)]">{preview.summary.locales.map(({ id, count }) => `${id} (${count})`).join(", ") || "None"}</dd></div>
         </dl>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section aria-labelledby="planned-screens" className="min-w-0 rounded-2xl border border-[var(--editor-color-border)] p-4">
           <h3 id="planned-screens" className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">Planned screens and IDs</h3>
-          {screens.length === 0 ? <p className="mt-3 text-sm text-slate-600">No valid capture screens were discovered.</p> : (
+          {screens.length === 0 ? <p className="mt-3 text-sm text-[color:var(--editor-color-text-muted)]">No valid capture screens were discovered.</p> : (
             <ul className="mt-3 space-y-3">
               {screens.map((screen) => (
-                <li key={`${screen.sourcePath}:${screen.screenId}`} className="min-w-0 rounded-xl bg-slate-50 p-3 text-xs">
-                  <p className="break-all font-semibold text-slate-900">{screen.screenId}</p>
-                  <p className="mt-1 break-all font-mono text-[10px] text-slate-500">Element: {screen.elementId}</p>
-                  <p className="mt-1 break-all text-slate-600">{screen.sourcePath}</p>
-                  <p className="mt-1 break-all font-mono text-[10px] text-slate-500">{screen.resourcePath}</p>
+                <li key={`${screen.sourcePath}:${screen.screenId}`} className="min-w-0 rounded-xl bg-[var(--editor-color-surface-subtle)] p-3 text-xs">
+                  <p className="break-all font-semibold text-[color:var(--editor-color-text-strong)]">{screen.screenId}</p>
+                  <p className="mt-1 break-all font-mono text-[10px] text-[color:var(--editor-color-text-secondary)]">Element: {screen.elementId}</p>
+                  <p className="mt-1 break-all text-[color:var(--editor-color-text-muted)]">{screen.sourcePath}</p>
+                  <p className="mt-1 break-all font-mono text-[10px] text-[color:var(--editor-color-text-secondary)]">{screen.resourcePath}</p>
                 </li>
               ))}
             </ul>
@@ -112,12 +112,12 @@ function CapturePreview({ state }: { state: Extract<OpenCaptureImportState, { st
 
         <section aria-labelledby="planned-resources" className="min-w-0 rounded-2xl border border-[var(--editor-color-border)] p-4">
           <h3 id="planned-resources" className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">Planned resource paths</h3>
-          {resources.length === 0 ? <p className="mt-3 text-sm text-slate-600">No related resources are planned.</p> : (
+          {resources.length === 0 ? <p className="mt-3 text-sm text-[color:var(--editor-color-text-muted)]">No related resources are planned.</p> : (
             <ul className="mt-3 space-y-2">
               {resources.map((resource) => (
-                <li key={`${resource.sourcePath}:${resource.destinationPath}`} className="rounded-xl bg-slate-50 p-3 text-xs">
-                  <p className="break-all text-slate-600">{resource.sourcePath}</p>
-                  <p className="mt-1 break-all font-mono text-[10px] text-slate-900">→ {resource.destinationPath}</p>
+                <li key={`${resource.sourcePath}:${resource.destinationPath}`} className="rounded-xl bg-[var(--editor-color-surface-subtle)] p-3 text-xs">
+                  <p className="break-all text-[color:var(--editor-color-text-muted)]">{resource.sourcePath}</p>
+                  <p className="mt-1 break-all font-mono text-[10px] text-[color:var(--editor-color-text-strong)]">→ {resource.destinationPath}</p>
                 </li>
               ))}
             </ul>
@@ -127,7 +127,7 @@ function CapturePreview({ state }: { state: Extract<OpenCaptureImportState, { st
       </div>
 
       {warnings.length > 0 ? (
-        <section aria-labelledby="capture-warnings" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+        <section aria-labelledby="capture-warnings" className="rounded-2xl border border-[var(--editor-color-warning-border)] bg-[var(--editor-color-warning-surface)] p-4 text-[color:var(--editor-color-warning-text-strong)]">
           <h3 id="capture-warnings" className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle aria-hidden="true" className="size-4" /> Warnings</h3>
           <ul className="mt-3 space-y-2 text-xs">{warnings.map((warning) => <li key={`${warning.code}:${warning.path}`}><span className="break-all font-semibold">{warning.path}</span><span className="block mt-0.5">{warning.message}</span></li>)}</ul>
           <MoreItems total={preview.warnings.length} shown={warnings.length} />
@@ -231,9 +231,9 @@ export function CaptureImportDialog({
             </div>
 
             {state.draft.destinationKind === "current-project" && state.draft.currentTarget ? (
-              <div className="mt-4 grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
-                <div><p className="text-xs font-semibold text-slate-500">Receiving project</p><p className="mt-1 text-sm font-semibold text-slate-950">{state.draft.currentTarget.projectName}</p></div>
-                <div className="text-xs font-semibold text-slate-700">
+              <div className="mt-4 grid gap-4 rounded-xl bg-[var(--editor-color-surface-subtle)] p-4 sm:grid-cols-2">
+                <div><p className="text-xs font-semibold text-[color:var(--editor-color-text-secondary)]">Receiving project</p><p className="mt-1 text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{state.draft.currentTarget.projectName}</p></div>
+                <div className="text-xs font-semibold text-[color:var(--editor-color-text-default)]">
                   <span>Receiving layout</span>
                   <MenuSelect
                     ariaLabel="Receiving layout"
@@ -248,13 +248,13 @@ export function CaptureImportDialog({
             ) : null}
 
             {state.draft.destinationKind === "new-project" ? (
-              <div className="mt-4 space-y-4 rounded-xl bg-slate-50 p-4">
-                <label className="block text-xs font-semibold text-slate-700">Project name<input className={`mt-2 ${editorUi.field}`} type="text" required autoComplete="off" value={state.draft.newProject.name} onChange={(event) => onChangeNewProject({ name: event.currentTarget.value })} /></label>
+              <div className="mt-4 space-y-4 rounded-xl bg-[var(--editor-color-surface-subtle)] p-4">
+                <label className="block text-xs font-semibold text-[color:var(--editor-color-text-default)]">Project name<input className={`mt-2 ${editorUi.field}`} type="text" required autoComplete="off" value={state.draft.newProject.name} onChange={(event) => onChangeNewProject({ name: event.currentTarget.value })} /></label>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="text-xs font-semibold text-slate-700"><span>Target platform</span><MenuSelect ariaLabel="Target platform" menuLabel="Target platform options" className="mt-2" value={state.draft.newProject.platform} options={platformOptions} onChange={(platform) => onChangeNewProject({ platform })} /></div>
-                  <div className="text-xs font-semibold text-slate-700"><span>Layout mode</span><MenuSelect ariaLabel="Layout mode" menuLabel="Layout mode options" className="mt-2" value={state.draft.newProject.layoutMode} options={LAYOUT_MODE_OPTIONS} onChange={(layoutMode) => onChangeNewProject({ layoutMode })} /></div>
+                  <div className="text-xs font-semibold text-[color:var(--editor-color-text-default)]"><span>Target platform</span><MenuSelect ariaLabel="Target platform" menuLabel="Target platform options" className="mt-2" value={state.draft.newProject.platform} options={platformOptions} onChange={(platform) => onChangeNewProject({ platform })} /></div>
+                  <div className="text-xs font-semibold text-[color:var(--editor-color-text-default)]"><span>Layout mode</span><MenuSelect ariaLabel="Layout mode" menuLabel="Layout mode options" className="mt-2" value={state.draft.newProject.layoutMode} options={LAYOUT_MODE_OPTIONS} onChange={(layoutMode) => onChangeNewProject({ layoutMode })} /></div>
                 </div>
-                <p className="text-xs leading-5 text-slate-600"><strong className="text-slate-900">Capture-ready empty project.</strong> The selected platform and layout mode define the validated scaffold; discovered captures replace its starter screen.</p>
+                <p className="text-xs leading-5 text-[color:var(--editor-color-text-muted)]"><strong className="text-[color:var(--editor-color-text-strong)]">Capture-ready empty project.</strong> The selected platform and layout mode define the validated scaffold; discovered captures replace its starter screen.</p>
               </div>
             ) : null}
           </fieldset>
@@ -268,8 +268,8 @@ export function CaptureImportDialog({
       ) : null}
 
       {state.status === "previewing" ? (
-        <div className="rounded-2xl border border-[var(--editor-color-border)] bg-slate-50 p-5" role="status" aria-live="polite">
-          <div className="flex gap-3"><LoaderCircle aria-hidden="true" className="mt-0.5 size-5 animate-spin text-blue-600 motion-reduce:animate-none" /><div><p className="font-semibold text-slate-950">Discovering captures and planning the receiver…</p><p className="mt-1 text-sm text-slate-600">Preview is read-only and safe to repeat.</p></div></div>
+        <div className="rounded-2xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] p-5" role="status" aria-live="polite">
+          <div className="flex gap-3"><LoaderCircle aria-hidden="true" className="mt-0.5 size-5 animate-spin text-[color:var(--editor-color-accent-text)] motion-reduce:animate-none" /><div><p className="font-semibold text-[color:var(--editor-color-text-strong)]">Discovering captures and planning the receiver…</p><p className="mt-1 text-sm text-[color:var(--editor-color-text-muted)]">Preview is read-only and safe to repeat.</p></div></div>
           <button type="button" className={`mt-4 ${editorUi.buttonSecondary}`} onClick={onCancel}>Cancel capture import</button>
         </div>
       ) : null}
@@ -287,8 +287,8 @@ export function CaptureImportDialog({
       {state.status === "applying" ? (
         <div className="space-y-5">
           <CapturePreview state={state} />
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5" role="status" aria-live="polite">
-            <div className="flex gap-3"><LoaderCircle aria-hidden="true" className="mt-0.5 size-5 animate-spin text-blue-600 motion-reduce:animate-none" /><div><p className="font-semibold text-slate-950">Applying capture import…</p><p className="mt-1 text-sm text-slate-600">The Project and managed resources will commit together or roll back completely.</p></div></div>
+          <div className="rounded-2xl border border-[var(--editor-color-accent-border)] bg-[var(--editor-color-accent-subtle)] p-5" role="status" aria-live="polite">
+            <div className="flex gap-3"><LoaderCircle aria-hidden="true" className="mt-0.5 size-5 animate-spin text-[color:var(--editor-color-accent-text)] motion-reduce:animate-none" /><div><p className="font-semibold text-[color:var(--editor-color-text-strong)]">Applying capture import…</p><p className="mt-1 text-sm text-[color:var(--editor-color-text-muted)]">The Project and managed resources will commit together or roll back completely.</p></div></div>
             <button type="button" className={`mt-4 ${editorUi.buttonSecondary}`} onClick={onCancel}>Cancel capture import</button>
           </div>
         </div>
