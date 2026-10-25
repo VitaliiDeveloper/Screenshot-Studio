@@ -37,7 +37,16 @@ library. Reuse them before introducing one-off controls:
 `apps/web/components/editor-ui/tokens.css` is the token source for editor color roles, spacing,
 radii, control typography, shadows, focus treatment, and motion. Prefer semantic token names such as
 surface, text, accent, warning, danger, and focus over literal colors or ad-hoc spacing. Reuse
-`editorUi` styles so controls share disabled treatment, focus rings, and transition timing.
+`editorUi` styles so controls share disabled treatment, focus rings, and transition timing. The
+palette follows the Turn 6 handoff (accent `#2547F0`). Components use no raw Tailwind palette
+classes. A `*-text` token colors only text and icons, and a `*-hover` token is only the hover fill of
+a filled button, because a theme gives the two roles different values. `tokens-contrast.test.ts`
+holds body-text pairs at 4.5:1 and focus/selection lines at 3:1; `text-subtle` hints and
+placeholders are a known exception held at 3:1. Konva cannot read CSS variables, so canvas
+overlays (selection, screen boundaries, snap guides, marquee, overflow marks) resolve their colors
+from the tokens through `useStageColors`. The interface font is Instrument Sans, loaded under the
+private family `Screenshot Studio UI` so a project font of the same name never restyles the UI; it is
+not a renderer font (`apps/web/public/fonts/ui/README.md`).
 Shared dialogs animate their backdrop and panel on entry and retain the panel through exit; reduced
 motion removes both transitions. Async resource pickers reserve their body geometry while loading so
 replacing progress with results does not move or resize the dialog.

@@ -1,13 +1,18 @@
 @import "tailwindcss";
 @import "../components/editor-ui/tokens.css";
 @import "./built-in-fonts.css";
+@import "./editor-ui-font.css";
+
+@theme {
+  /* Only the private UI family: project fonts load into document.fonts under their real names and would restyle the UI. */
+  --font-sans: "Screenshot Studio UI", ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
 
 :root {
   color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Project fonts load into document.fonts under their real names, so a named family here would restyle the UI. */
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-sans);
   color: var(--editor-color-text-strong);
   background: var(--editor-color-surface-subtle);
 }
