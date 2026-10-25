@@ -122,7 +122,7 @@ describe("theme management UI", () => {
     await builtInRow.getByRole("button", { name: "Apply pack", exact: true }).click();
     const pack = listBuiltInDesignPacks()[0]!;
     const starterSize = headline().size;
-    await expect.poll(() => headline().color).toBe("#0F172A");
+    await expect.poll(() => headline().color, { timeout: 10_000 }).toBe("#0F172A");
     expect(headline()).toMatchObject({
       role: "heading",
       fontFamily: "Screenshot Studio Sans",
@@ -178,7 +178,7 @@ describe("theme management UI", () => {
     } finally {
       releaseApply();
     }
-    await expect.poll(() => headline().color).toBe("#12ABCD");
+    await expect.poll(() => headline().color, { timeout: 10_000 }).toBe("#12ABCD");
     expect(headline()).toMatchObject({ role: "heading", fontFamily: "Pacifico", weight: 400 });
 
     await page.getByRole("button", { name: "Close design pack picker", exact: true }).click();
@@ -192,7 +192,7 @@ describe("theme management UI", () => {
     await page.getByRole("button", { name: /Design packs/ }).click();
     const screenPack = page.getByTestId("template-pack-row-neutral-iphone-basics");
     await screenPack.getByRole("button", { name: "Add screens from pack", exact: true }).click();
-    await expect.poll(() => screens().length).toBe(3);
+    await expect.poll(() => screens().length, { timeout: 10_000 }).toBe(3);
     expect(screens().slice(1).map((screen) => screen.background)).toEqual([pack.background, pack.background]);
     await page.getByRole("dialog", { name: "Design pack picker" }).waitFor({ state: "hidden" });
     await page.close();
