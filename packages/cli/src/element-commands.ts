@@ -11,6 +11,7 @@ import {
   createTextElement,
   elementLeaves,
   findElementLocation,
+  fitElementsToArtboard,
   fontIdentityKey,
   getLayout,
   isBuiltInFontIdentity,
@@ -30,7 +31,7 @@ import {
   type Project,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { resolveExistingProjectPath } from "@screenshot-studio/core/storage";
+import { resolveExistingProjectPath, type ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { assertInside } from "./asset-service.js";
 import { resolveMutationLayout } from "./layout-commands.js";
 import { assertProjectImageBytes, MAX_PROJECT_IMAGE_BYTES } from "./project-image-service.js";
@@ -41,11 +42,14 @@ export type ElementAction =
   | { kind: "text"; screen: string; element: string; content: string; allSizes: boolean }
   | { kind: "media"; screen: string; element: string; path: string }
   | { kind: "get"; screen: string; element: string }
-  | { kind: "set"; screen: string; element: string; patch: Record<string, unknown> }
+  | { kind: "set"; screen: string; element: string; patch: Record<string, unknown>; allSizes: boolean }
   | { kind: "add"; screen: string; type: AddableElementType; props: Record<string, unknown> }
   | { kind: "rm"; screen: string; element: string };
 
 type AddableElementType = Exclude<Element["type"], "group">;
+
+const GEOMETRY_FIELDS = ["x", "y", "width", "height", "rotation", "opacity"] as const;
+type GeometryPatch = Partial<Record<typeof GEOMETRY_FIELDS[number], number>>;
 
 const MEDIA_TYPES = new Set<LeafElement["type"]>(["screenshot", "image", "device-frame"]);
 const ADDABLE_TYPES: readonly AddableElementType[] = ["text", "shape", "screenshot", "image", "icon", "device-frame"];
@@ -72,7 +76,7 @@ const USAGE = [
   "  get <screen> <element>",
   "  text <screen> <element> [--all-sizes] [--] <content>",
   "  media <screen> <element> <path>",
-  "  set <screen> <element> --json '<patch>'   (null removes an optional field)",
+  "  set <screen> <element> [--all-sizes] --json '<patch>'   (null removes an optional field)",
   `  add <screen> --type <${ADDABLE_TYPES.join("|")}> [--json '<props>']`,
   "  rm <screen> <element>",
 ].join("\n");
@@ -91,10 +95,24 @@ export function parseJsonObject(value: string | undefined, flag: string): Record
   return parsed as Record<string, unknown>;
 }
 
+/** Only geometry can be fitted into another artboard, so --all-sizes accepts nothing else. */
+function assertGeometryPatch(patch: Record<string, unknown>): asserts patch is GeometryPatch {
+  const fields: readonly string[] = GEOMETRY_FIELDS;
+  const other = Object.keys(patch).filter((key) => !fields.includes(key));
+  if (other.length > 0) {
+    throw new Error(`element set --all-sizes accepts only ${GEOMETRY_FIELDS.join(", ")}; got ${other.join(", ")}`);
+  }
+  for (const [field, value] of Object.entries(patch)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`element set --all-sizes needs "${field}" to be a finite number`);
+    }
+  }
+}
+
 export function resolveElementAction(args: string[], flags: Record<string, string>): ElementAction {
   const [subcommand, screen, element, value, extra] = args;
-  if (flags["all-sizes"] === "true" && subcommand !== "text") {
-    throw new Error("--all-sizes applies only to element text");
+  if (flags["all-sizes"] === "true" && subcommand !== "text" && subcommand !== "set") {
+    throw new Error("--all-sizes applies only to element text and element set");
   }
   if (flags.json !== undefined && subcommand !== "set" && subcommand !== "add") {
     throw new Error("--json applies only to element set and element add");
@@ -113,7 +131,10 @@ export function resolveElementAction(args: string[], flags: Record<string, strin
     return { kind: subcommand, screen, element };
   }
   if (subcommand === "set" && screen && element && value === undefined) {
-    return { kind: "set", screen, element, patch: parseJsonObject(flags.json, "json") };
+    const patch = parseJsonObject(flags.json, "json");
+    const allSizes = flags["all-sizes"] === "true";
+    if (allSizes) assertGeometryPatch(patch);
+    return { kind: "set", screen, element, patch, allSizes };
   }
   if (subcommand === "add" && screen && element === undefined) {
     const type = flags.type as AddableElementType | undefined;
@@ -267,7 +288,7 @@ export function updateLeafInProject(
  * The edited layer plus its counterpart on every other exact size of the slot, matched like the
  * editor's Status by size and Apply to; unmatched and locked counterparts are skipped.
  */
-function slotTextTargets(layout: DesignLayout, screenId: string, elementId: string) {
+function slotTargets(layout: DesignLayout, screenId: string, elementId: string) {
   const targets = [{ screen: screenId, element: elementId }];
   const skipped: string[] = [];
   const source = layout.screens.find((candidate) => candidate.id === screenId);
@@ -283,6 +304,29 @@ function slotTextTargets(layout: DesignLayout, screenId: string, elementId: stri
     else targets.push({ screen: screen.id, element: counterpart.id });
   }
   return { targets, skipped };
+}
+
+/**
+ * The geometry a counterpart on another size takes: the edited layer with the patch applied, fitted
+ * into that artboard the way the editor's Apply to does, so pixel fields scale and the rest copy.
+ */
+function fittedGeometryPatch(
+  layout: DesignLayout,
+  sourceId: string,
+  elementId: string,
+  targetId: string,
+  patch: GeometryPatch,
+): GeometryPatch {
+  const source = layout.screens.find((screen) => screen.id === sourceId)!;
+  const target = layout.screens.find((screen) => screen.id === targetId)!;
+  const location = findElementLocation(source, elementId)!;
+  const pick = (top: Element) => location.parent && top.type === "group"
+    ? top.children.find((child) => child.id === elementId)!
+    : top;
+  const edited = structuredClone(location.parent ?? location.element);
+  Object.assign(pick(edited), patch);
+  const fitted = pick(fitElementsToArtboard([edited], source.artboard, target.artboard)[0]!);
+  return Object.fromEntries(Object.keys(patch).map((field) => [field, fitted[field as keyof GeometryPatch]]));
 }
 
 export async function assertProjectMediaFile(projectPath: string, assetPath: string): Promise<void> {
@@ -307,6 +351,7 @@ export async function runElementCommand(
   projectPath: string,
   args: string[],
   flags: Record<string, string>,
+  lockOptions: ProjectLockOptions = {},
 ): Promise<string> {
   const action = resolveElementAction(args, flags);
   if (action.kind === "list") {
@@ -319,23 +364,40 @@ export async function runElementCommand(
     return JSON.stringify(requireElement(screen, action.element), null, 2);
   }
   if (action.kind === "media") await assertProjectMediaFile(projectPath, action.path);
-  if (action.kind === "set" || action.kind === "add" || action.kind === "rm") {
+  if ((action.kind === "set" && !action.allSizes) || action.kind === "add" || action.kind === "rm") {
     const media = action.kind === "set" ? action.patch.assetUrl : action.kind === "add" ? action.props.assetUrl : undefined;
     if (typeof media === "string") await assertProjectMediaFile(projectPath, media);
     const { value } = await updateProjectFile(projectPath, (project) => {
       const result = editElementTree(project, flags.layout, action);
       return { project: result.project, value: result.message };
-    });
+    }, lockOptions);
     return value;
   }
 
   const { value } = await updateProjectFile(projectPath, (project) => {
     const layout = resolveMutationLayout(project, flags.layout);
-    const { targets, skipped } = action.kind === "text" && action.allSizes
-      ? slotTextTargets(layout, action.screen, action.element)
+    const { targets, skipped } = (action.kind === "text" || action.kind === "set") && action.allSizes
+      ? slotTargets(layout, action.screen, action.element)
       : { targets: [{ screen: action.screen, element: action.element }], skipped: [] };
-    const nextProject = targets.reduce((current, target) => updateLeafInProject(
-      current, layout.id, target.screen, target.element, (leaf) => {
+    const updated: typeof targets = [];
+    const nextProject = targets.reduce((current, target) => {
+      let patch: GeometryPatch | undefined;
+      if (action.kind === "set") {
+        patch = action.patch as GeometryPatch;
+        if (target.screen !== action.screen) {
+          try {
+            patch = fittedGeometryPatch(layout, action.screen, action.element, target.screen, patch);
+          } catch (error) {
+            // Core prefixes a fitted value that leaves its range; anything else is a bug.
+            if (!(error instanceof Error && error.message.startsWith("Cannot scale "))) throw error;
+            skipped.push(`Skipped ${target.screen}/${target.element}: ${error.message}`);
+            return current;
+          }
+        }
+      }
+      updated.push(target);
+      return updateLeafInProject(current, layout.id, target.screen, target.element, (leaf) => {
+        if (action.kind === "set") return { ...leaf, ...patch };
         if (action.kind === "text") {
           if (leaf.type !== "text") throw new Error(`Element "${leaf.id}" is ${leaf.type}, not text`);
           return { ...leaf, content: action.content };
@@ -344,12 +406,13 @@ export async function runElementCommand(
           throw new Error(`Element "${leaf.id}" is ${leaf.type}; media needs screenshot, image, or device-frame`);
         }
         return { ...leaf, assetUrl: action.path } as LeafElement;
-      },
-    ), project);
+      });
+    }, project);
+    const label = action.kind === "set" ? "geometry" : action.kind;
     return {
       project: nextProject,
-      value: [...targets.map((target) => `Updated ${action.kind} of ${target.screen}/${target.element}`), ...skipped],
+      value: [...updated.map((target) => `Updated ${label} of ${target.screen}/${target.element}`), ...skipped],
     };
-  });
+  }, lockOptions);
   return value.join("\n");
 }

@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
+import { COMMAND_FLAG_SPECS, parseCommandFlags } from "./command-flags.js";
 import { resolveElementAction, runElementCommand } from "./element-commands.js";
+import { updateProjectFile } from "./project-io.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -31,7 +33,7 @@ function screen(id: string, locale: string) {
   };
 }
 
-async function fixture(layouts = [{ id: "default", name: "Default", mode: "isolated", screens: [screen("hero", "en"), screen("hero-uk", "uk")] }]) {
+async function fixture(layouts: Array<{ id: string } & Record<string, unknown>> = [{ id: "default", name: "Default", mode: "isolated", screens: [screen("hero", "en"), screen("hero-uk", "uk")] }]) {
   const dir = await mkdtemp(join(tmpdir(), "element-command-"));
   roots.push(dir);
   const projectPath = join(dir, "app-store-screenshots.json");
@@ -44,6 +46,16 @@ async function fixture(layouts = [{ id: "default", name: "Default", mode: "isola
     meta: { name: "Elements", schemaVersion: 1 }, fonts: [], preferredExportLayoutId: layouts[0]!.id, layouts,
   }));
   return { dir, projectPath };
+}
+
+type Elements = ReturnType<typeof screen>["elements"];
+/** A 2x exact-size variant of hero; renaming top-level ids keeps the slot counterparts positional. */
+function variant(id: string, storeTargetId: string, mutate: (elements: Elements) => Elements = (elements) => elements) {
+  const root = screen("hero", "en");
+  return {
+    ...root, id, variantOf: "hero", storeTargetId, artboard: { width: 1320, height: 2868 },
+    elements: mutate(root.elements.map((element) => ({ ...element, id: `${id}-${element.id}` }))),
+  };
 }
 
 async function savedScreen(projectPath: string, id = "hero") {
@@ -65,7 +77,26 @@ describe("resolveElementAction", () => {
     expect(() => resolveElementAction(["media", "hero", "shot", "a.png", "b.png"], {})).toThrow(/Usage/);
     expect(() => resolveElementAction(["rm"], {})).toThrow(/Usage/);
     expect(() => resolveElementAction(["media", "hero", "shot", "a.png"], { "all-sizes": "true" }))
-      .toThrow(/--all-sizes applies only to element text/);
+      .toThrow(/--all-sizes applies only to element text and element set/);
+  });
+
+  it("parses set --all-sizes with a geometry-only --json patch", () => {
+    const { args, flags } = parseCommandFlags(
+      ["set", "hero", "shot", "--all-sizes", "--json", '{"x":-40,"rotation":-6,"opacity":0.9}'],
+      COMMAND_FLAG_SPECS.element,
+    );
+    expect(resolveElementAction(args, flags)).toEqual({
+      kind: "set", screen: "hero", element: "shot", allSizes: true, patch: { x: -40, rotation: -6, opacity: 0.9 },
+    });
+  });
+
+  it.each([
+    [{ color: "#FFFFFF", x: 1 }, /accepts only x, y, width, height, rotation, opacity; got color/],
+    [{ x: null }, /needs "x" to be a finite number/],
+    [{ x: "5" }, /needs "x" to be a finite number/],
+  ])("rejects set --all-sizes with %j", (patch, message) => {
+    expect(() => resolveElementAction(["set", "hero", "shot"], { json: JSON.stringify(patch), "all-sizes": "true" }))
+      .toThrow(message);
   });
 });
 
@@ -95,14 +126,6 @@ describe("runElementCommand", () => {
   });
 
   it("updates the counterpart layer on every matching exact size with --all-sizes", async () => {
-    type Elements = ReturnType<typeof screen>["elements"];
-    const variant = (id: string, storeTargetId: string, mutate: (elements: Elements) => Elements) => {
-      const root = screen("hero", "en");
-      return {
-        ...root, id, variantOf: "hero", storeTargetId, artboard: { width: 1320, height: 2868 },
-        elements: mutate(root.elements.map((element) => ({ ...element, id: `${id}-${element.id}` }))),
-      };
-    };
     const { projectPath } = await fixture([{ id: "default", name: "Default", mode: "isolated", screens: [
       screen("hero", "en"),
       variant("hero-69", "6.9", (elements) => elements),
@@ -171,6 +194,91 @@ describe("runElementCommand", () => {
     await symlink(join(outside, "secret.png"), join(dir, "assets/link.png"));
     await expect(runElementCommand(projectPath, ["media", "hero", "shot", "assets/link.png"], {}))
       .rejects.toThrow(/must stay inside project root/);
+  });
+
+  it.each([
+    [["set", "hero", "badge"], { x: 5 }, /is a group/],
+    [["set", "hero", "missing"], { x: 5 }, /Unknown element "missing"/],
+    [["set", "nope", "title"], { x: 5 }, /Unknown screen "nope"/],
+    [["set", "hero", "shot"], { opacity: 1.5 }, /opacity/],
+    [["set", "hero", "shot"], { width: 0 }, /width/],
+    [["set", "hero", "shot"], { height: -10 }, /height/],
+  ])("rejects set --all-sizes %j %j without writing", async (args, patch, message) => {
+    const { projectPath } = await fixture();
+    const before = await readFile(projectPath, "utf8");
+    await expect(runElementCommand(projectPath, args, { json: JSON.stringify(patch), "all-sizes": "true" }))
+      .rejects.toThrow(message);
+    expect(await readFile(projectPath, "utf8")).toBe(before);
+  });
+
+  it("fits set geometry into every matching exact size with --all-sizes and reports skips", async () => {
+    const { projectPath } = await fixture([{ id: "default", name: "Default", mode: "isolated", screens: [
+      screen("hero", "en"),
+      variant("hero-69", "6.9"),
+      variant("hero-65", "6.5", (elements) => elements.slice(1)),
+      variant("hero-61", "6.1", (elements) => elements.map((element, index) => index === 3 ? { ...element, locked: true } : element)),
+      variant("hero-55", "5.5", (elements) => elements.map((element, index) => index === 1 ? { ...element, locked: true } : element)),
+      screen("hero-uk", "uk"),
+    ] }]);
+    await expect(runElementCommand(projectPath, ["set", "hero", "mockup"], { json: '{"x":-40,"width":420,"rotation":-6,"opacity":0.9}', "all-sizes": "true" }))
+      .resolves.toBe([
+        "Updated geometry of hero/mockup",
+        "Updated geometry of hero-69/hero-69-mockup",
+        "Updated geometry of hero-55/hero-55-mockup",
+        "Skipped hero-65: layer structure differs from hero",
+        "Skipped hero-61/hero-61-mockup: layer is locked",
+      ].join("\n"));
+    await expect(runElementCommand(projectPath, ["set", "hero", "badge-label"], { json: '{"y":8}', "all-sizes": "true" }))
+      .resolves.toBe([
+        "Updated geometry of hero/badge-label",
+        "Updated geometry of hero-69/badge-label",
+        "Updated geometry of hero-61/badge-label",
+        "Skipped hero-65: layer structure differs from hero",
+        "Skipped hero-55/badge-label: group is locked",
+      ].join("\n"));
+    expect((await savedScreen(projectPath)).elements[3]).toMatchObject({ x: -40, y: 100, width: 420, height: 600, rotation: -6, opacity: 0.9 });
+    // The 2x artboard doubles pixel fields; untouched fields keep the counterpart's own values.
+    expect((await savedScreen(projectPath, "hero-69")).elements[3]).toMatchObject({ x: -80, y: 100, width: 840, height: 600, rotation: -6, opacity: 0.9 });
+    expect((await savedScreen(projectPath, "hero-69")).elements[1].children[0]).toMatchObject({ y: 16 });
+    expect((await savedScreen(projectPath, "hero-61")).elements[3]).toMatchObject({ x: 300, rotation: 0 });
+    expect((await savedScreen(projectPath, "hero-55")).elements[1].children[0]).toMatchObject({ y: 0 });
+    expect((await savedScreen(projectPath, "hero-uk")).elements[3]).toMatchObject({ x: 300, rotation: 0 });
+  });
+
+  it("skips a size whose fitted layer would leave the schema range", async () => {
+    const ring = { id: "ring", type: "shape", ...base, x: 0, y: 0, width: 100, height: 100, kind: "ellipse", fill: "#FFFFFF", radius: 0, stroke: { color: "#000000", width: 60 } };
+    const { projectPath } = await fixture([{ id: "default", name: "Default", mode: "isolated", screens: [
+      { ...screen("hero", "en"), elements: [ring] },
+      { ...variant("hero-69", "6.9"), elements: [{ ...ring, id: "hero-69-ring" }] },
+    ] }]);
+    await expect(runElementCommand(projectPath, ["set", "hero", "ring"], { json: '{"rotation":8}', "all-sizes": "true" }))
+      .resolves.toBe([
+        "Updated geometry of hero/ring",
+        'Skipped hero-69/hero-69-ring: Cannot scale shape stroke width above 100 for element "ring"',
+      ].join("\n"));
+    expect((await savedScreen(projectPath, "hero-69")).elements[0]).toMatchObject({ rotation: 0 });
+  });
+
+  it("waits for the project lock before writing and keeps the concurrent write", async () => {
+    const { projectPath } = await fixture();
+    let release!: () => void;
+    const mayFinish = new Promise<void>((resolve) => { release = resolve; });
+    let entered!: () => void;
+    const didEnter = new Promise<void>((resolve) => { entered = resolve; });
+    const held = updateProjectFile(projectPath, async (current) => {
+      entered();
+      await mayFinish;
+      return { project: { ...current, meta: { ...current.meta, name: "Held writer" } }, value: undefined };
+    });
+    await didEnter;
+    await expect(runElementCommand(projectPath, ["set", "hero", "shot"], { json: '{"x":5}' }, { timeoutMs: 0 }))
+      .rejects.toThrow(/Timed out.*project mutation lock/i);
+    release();
+    await held;
+    await runElementCommand(projectPath, ["set", "hero", "shot"], { json: '{"x":5}' });
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.meta.name).toBe("Held writer");
+    expect(saved.layouts[0].screens[0].elements[2].x).toBe(5);
   });
 
   it("requires --layout in a multi-layout project", async () => {
