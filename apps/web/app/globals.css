@@ -8,8 +8,8 @@
   -moz-osx-font-smoothing: grayscale;
   /* Project fonts load into document.fonts under their real names, so a named family here would restyle the UI. */
   font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  color: #0f172a;
-  background: #f8fafc;
+  color: var(--editor-color-text-strong);
+  background: var(--editor-color-surface-subtle);
 }
 
 * {
@@ -82,18 +82,18 @@ button:disabled {
 }
 
 .workspace-canvas {
-  background-color: #f8fafc;
+  background-color: var(--editor-color-canvas);
 }
 
 .workspace-canvas[data-pattern="dots"] {
-  background-image: radial-gradient(circle, rgb(148 163 184 / 32%) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--editor-color-canvas-pattern) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
 .workspace-canvas[data-pattern="grid"] {
   background-image:
-    linear-gradient(to right, rgb(148 163 184 / 12%) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(148 163 184 / 12%) 1px, transparent 1px);
+    linear-gradient(to right, var(--editor-color-canvas-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--editor-color-canvas-grid) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 
