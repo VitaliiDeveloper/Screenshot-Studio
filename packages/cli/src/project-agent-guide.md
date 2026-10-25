@@ -162,6 +162,8 @@ screenshots template list --project ./app-store-screenshots.json    # source, id
 screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
+screenshots screen show <screen-id> --json --project ./app-store-screenshots.json            # full screen JSON
+screenshots element get <screen-id> <element-id> --project ./app-store-screenshots.json  # full element JSON
 ```
 
 | Request | Commands |
@@ -179,8 +181,18 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Import raw captures | `import <dir>` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
+| Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
+| Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
+| Remove an element | `element rm <screen-id> <element-id>` |
+| Change a screen background | `screen set <screen-id> --background '{"type":"linear-gradient","from":"#101828","to":"#344054","angle":90}'` |
 
 Element ids are fresh UUIDs after a template add or locale clone, so list before every edit.
+`element set` takes the field names and values printed by `element get`: every schema field except
+`id`, `type`, and a group's `children`, and the error for an unknown field lists the settable ones.
+`null` removes `role`, `shadow`, `gradient`, `stroke`, `crop`, `blur`, or a device frame's `assetUrl`. It edits one element
+on one screen, so repeat it on each exact size and locale that should change. Render the screen with
+`export --screen <id>` and look at the PNG after layout or style edits: the schema accepts geometry
+that overlaps or leaves the artboard.
 Store target variants are separate screens with their own elements and ids. `element text
 --all-sizes` also writes the same layer on every other exact size of that slot, matched by layer
 position like the editor's Status by size and Apply to, in one locked write. It reports each size it

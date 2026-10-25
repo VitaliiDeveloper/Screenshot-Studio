@@ -17,8 +17,8 @@ export const COMMAND_FLAG_SPECS = {
     boolean: [],
   },
   screen: {
-    value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from"],
-    boolean: ["cascade"],
+    value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from", "background"],
+    boolean: ["cascade", "json"],
   },
   dev: { value: ["project", "store-specs", "port"], boolean: [] },
   import: { value: ["project", "store-specs", "layout"], boolean: [] },
@@ -29,7 +29,7 @@ export const COMMAND_FLAG_SPECS = {
   layout: { value: ["project", "name", "mode"], boolean: [] },
   setup: { value: [], boolean: [] },
   template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in", "pack"] },
-  element: { value: ["project", "layout", "screen", "locale"], boolean: ["all-sizes"] },
+  element: { value: ["project", "layout", "screen", "locale", "json", "type"], boolean: ["all-sizes"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;

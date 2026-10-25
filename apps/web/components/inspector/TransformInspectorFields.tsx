@@ -3,8 +3,11 @@
 
 import { useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Lock, LockOpen } from "lucide-react";
-import type { Element, Screen } from "@screenshot-studio/core/model";
-import type { CommonElementPatch } from "@web/lib/editor/editor-element-patch";
+import type {
+  CommonElementPatch,
+  Element,
+  Screen,
+} from "@screenshot-studio/core/model";
 import { editorUi } from "@web/components/editor-ui";
 import {
   NumberField,
