@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { access, chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseProject } from "@screenshot-studio/core/model";
 import { projectRevision } from "@screenshot-studio/core/storage";
@@ -170,6 +170,18 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     const env = await readFile(join(root, "env"), "utf8");
     expect(env).not.toContain("ANTHROPIC_API_KEY");
     expect(env).toContain(`HOME=${root}`);
+  });
+
+  it("points an editor-created project without AGENTS.md at the bundled guide", async () => {
+    await rm(join(projectDir, "AGENTS.md"));
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+
+    await collect(await start());
+
+    const bundledGuide = fileURLToPath(new URL("../../../../packages/cli/src/project-agent-guide.md", import.meta.url));
+    const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
+    expect(argv.join("\n")).toContain(`read ${bundledGuide} completely`);
+    expect(argv.filter((_, index) => argv[index - 1] === "--add-dir")).toContain(dirname(bundledGuide));
   });
 
   it("runs Codex through the same runner, so an invalid result is rolled back", async () => {
