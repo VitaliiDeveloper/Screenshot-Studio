@@ -234,6 +234,16 @@ the content, and publishes a collision-safe file under project-local `assets/imp
 the project mutation lease. Import itself does not rewrite the Project document; the ordinary editor
 mutation assigns the resulting project-relative path to a screen element or background.
 
+Capture import names every capture resource `assets/imports/<capture-key>-<digest12>.png`, where the
+capture key is `slugify(platform-device-locale-stem)` (`captureImportKey`) and the digest prefix is
+the SHA-256 of the bytes. That filename is the persisted refresh identity, so its derivation must not
+change: `import --refresh` repoints every raster reference in the selected layout (image backgrounds,
+screenshot, image, and device-frame leaves, including group children) whose `assetUrl` is exactly
+that key with any digest to the new bytes. Refresh never adds, removes, reorders, or resizes screens
+or elements; a capture nothing references is reported, not added. Replaced files stay on disk,
+unreferenced. Captures imported before the key naming (resources named after a suffixed screen id)
+are not matched.
+
 Custom fonts are registered project assets under `assets/fonts/`. The shared renderer also ships a
 small versioned built-in font catalog so text authoring works before a project adds font resources.
 Built-in identities resolve to local renderer-owned bytes in both editor and CLI export. Operating
@@ -272,7 +282,11 @@ reuse those six screens for the four styles whose background has no horizontal c
 shape art drawn once across the pack's strip. Each shape belongs to the screen holding its left edge
 and leads that screen's elements, so connected rendering draws it behind every later screen's copy
 and device. A panorama pack is added only whole and only to a connected layout; its screens are not
-single templates, because each carries just its share of the art. Applying a Design pack writes its solid or linear-gradient background to every
+single templates, because each carries just its share of the art. Showcase packs (Midnight and Poster on both phones)
+reuse the same six-screen stack but stage each slot differently through `SHOWCASE_SLOTS`: text above
+or below, a device tilted about its centre (stored as a literal `rotation` with the top-left `x`/`y`
+Konva needs), a second smaller `device-frame` behind the first on Feature 1, and a stat headline on
+Social proof. Every device's rotated bounds stay inside the artboard width and clear of every text box. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
 role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.

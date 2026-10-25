@@ -79,6 +79,8 @@ export type AgentEvent =
 
 export interface AgentRunContext {
   agentGuidePath: string | null;
+  /** The guide that ships with the app; set only when the project has no AGENTS.md of its own. */
+  bundledGuidePath: string | null;
   skillPath: string | null;
   /** The Codex credentials store the readiness probe used; null for other agents. */
   codexAuthStore: CodexAuthStore | null;
@@ -406,9 +408,18 @@ async function settleRun(
 
 function runContext(projectDir: string, codexAuthStore: CodexAuthStore | null): AgentRunContext {
   const agentGuidePath = join(projectDir, "AGENTS.md");
-  const skillPath = join(dirname(resolveStoreSpecsPath()), "skills", "screenshot-studio", "SKILL.md");
+  const hasAgentGuide = existsSync(agentGuidePath);
+  const appRoot = dirname(resolveStoreSpecsPath());
+  const skillPath = join(appRoot, "skills", "screenshot-studio", "SKILL.md");
+  // Editor-created projects have no AGENTS.md. A checkout keeps the guide in the CLI source; the
+  // packaged CLI copies it to dist/, beside the runtime/ folder that holds store-specs.json.
+  const bundledGuidePath = hasAgentGuide ? null : [
+    join(appRoot, "packages", "cli", "src", "project-agent-guide.md"),
+    join(appRoot, "..", "dist", "project-agent-guide.md"),
+  ].find((path) => existsSync(path)) ?? null;
   return {
-    agentGuidePath: existsSync(agentGuidePath) ? agentGuidePath : null,
+    agentGuidePath: hasAgentGuide ? agentGuidePath : null,
+    bundledGuidePath,
     skillPath: existsSync(skillPath) ? skillPath : null,
     codexAuthStore,
   };

@@ -36,8 +36,8 @@ export function summary(value: string | null): string | null {
 export function projectInstructions({ context, attachments }: AgentRunRequest, planning: string): string {
   return [
     "You are editing the Screenshot Studio project in the current working directory.",
-    context.agentGuidePath
-      ? `Before changing anything, read ${context.agentGuidePath} completely and follow it; it is the authoritative workflow and schema contract.`
+    context.agentGuidePath ?? context.bundledGuidePath
+      ? `Before changing anything, read ${context.agentGuidePath ?? context.bundledGuidePath} completely and follow it; it is the authoritative workflow and schema contract.`
       : "Read app-store-screenshots.json before changing anything; it is a strict schema.",
     context.skillPath ? `The Screenshot Studio skill is at ${context.skillPath}.` : "",
     "Change the project only through the `screenshots` CLI with `--project ./app-store-screenshots.json`. Never run `screenshots dev`.",

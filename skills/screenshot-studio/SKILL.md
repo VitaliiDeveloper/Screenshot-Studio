@@ -35,7 +35,8 @@ For a ready-made look, follow the generated guide's "Recipe: choose a style".
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the
   generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
   `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
-  validate the project.
+  validate the project. `element get|set|add|rm` and `screen show|set` cover element geometry, style,
+  and screen backgrounds.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.
 - Never overwrite an existing project file or project-local agent guide.

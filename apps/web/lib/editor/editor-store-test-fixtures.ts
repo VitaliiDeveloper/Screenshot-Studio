@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { editorStore } from "./editor-store.js";
-import type { ElementPatchFor } from "./editor-element-patch.js";
-import type { Project } from "@screenshot-studio/core/model";
+import type {
+  ElementPatchFor,
+  Project,
+} from "@screenshot-studio/core/model";
 
 export function patchText(id: string, patch: ElementPatchFor<"text">, screenId?: string) {
   editorStore.getState().patchElement({ id, type: "text", patch, screenId });

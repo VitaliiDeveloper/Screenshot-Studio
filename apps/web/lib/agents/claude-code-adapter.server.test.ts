@@ -16,7 +16,7 @@ const REQUEST: AgentRunRequest = {
   message: "Add German",
   model: "claude-sonnet-5-5",
   effort: "high",
-  context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  context: { agentGuidePath: "/project/AGENTS.md", bundledGuidePath: null, skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
   attachments: [],
 };
 

@@ -80,29 +80,23 @@ describe("resolveElementAction", () => {
       .toThrow(/--all-sizes applies only to element text and element set/);
   });
 
-  it("parses every geometry flag for set, including negative values after the flag", () => {
+  it("parses set --all-sizes with a geometry-only --json patch", () => {
     const { args, flags } = parseCommandFlags(
-      ["set", "hero", "shot", "--x", "-40", "--y", "12.5", "--width", "320", "--height", "640", "--rotation", "-6", "--opacity", "0.9", "--all-sizes"],
+      ["set", "hero", "shot", "--all-sizes", "--json", '{"x":-40,"rotation":-6,"opacity":0.9}'],
       COMMAND_FLAG_SPECS.element,
     );
     expect(resolveElementAction(args, flags)).toEqual({
-      kind: "set", screen: "hero", element: "shot", allSizes: true,
-      patch: { x: -40, y: 12.5, width: 320, height: 640, rotation: -6, opacity: 0.9 },
+      kind: "set", screen: "hero", element: "shot", allSizes: true, patch: { x: -40, rotation: -6, opacity: 0.9 },
     });
-    expect(resolveElementAction(["set", "hero", "shot"], { rotation: "0" }))
-      .toEqual({ kind: "set", screen: "hero", element: "shot", allSizes: false, patch: { rotation: 0 } });
   });
 
-  it.each(["", " ", "abc", "Infinity", "-Infinity", "NaN", "1e999"])("rejects --x %j", (value) => {
-    expect(() => resolveElementAction(["set", "hero", "shot"], { x: value })).toThrow("--x must be a finite number");
-  });
-
-  it("rejects set without a geometry flag, with an extra argument, and geometry flags on other subcommands", () => {
-    expect(() => resolveElementAction(["set", "hero", "shot"], {})).toThrow(/needs at least one of --x/);
-    expect(() => resolveElementAction(["set", "hero", "shot", "10"], { x: "1" })).toThrow(/Usage: .*set <screen> <element>/);
-    expect(() => resolveElementAction(["set", "hero"], { x: "1" })).toThrow(/Usage/);
-    expect(() => resolveElementAction(["text", "hero", "title", "Copy"], { rotation: "5" })).toThrow(/apply only to element set/);
-    expect(() => resolveElementAction(["list"], { opacity: "0.5" })).toThrow(/apply only to element set/);
+  it.each([
+    [{ color: "#FFFFFF", x: 1 }, /accepts only x, y, width, height, rotation, opacity; got color/],
+    [{ x: null }, /needs "x" to be a finite number/],
+    [{ x: "5" }, /needs "x" to be a finite number/],
+  ])("rejects set --all-sizes with %j", (patch, message) => {
+    expect(() => resolveElementAction(["set", "hero", "shot"], { json: JSON.stringify(patch), "all-sizes": "true" }))
+      .toThrow(message);
   });
 });
 
@@ -202,33 +196,18 @@ describe("runElementCommand", () => {
       .rejects.toThrow(/must stay inside project root/);
   });
 
-  it("sets only the given geometry fields on a top-level leaf and a group child", async () => {
-    const { projectPath } = await fixture();
-    await expect(runElementCommand(projectPath, ["set", "hero", "mockup"], {
-      x: "-40", y: "120", width: "420", height: "860", rotation: "-6", opacity: "0.9",
-    })).resolves.toBe("Updated geometry of hero/mockup");
-    await runElementCommand(projectPath, ["set", "hero", "badge-label"], { y: "8" });
-    const hero = await savedScreen(projectPath);
-    expect(hero.elements[3]).toMatchObject({
-      id: "mockup", x: -40, y: 120, width: 420, height: 860, rotation: -6, opacity: 0.9, deviceType: "iphone",
-    });
-    expect(hero.elements[1]).toMatchObject({ id: "badge", x: 10, y: 10 });
-    expect(hero.elements[1].children[0]).toMatchObject({ id: "badge-label", x: 0, y: 8, width: 100, rotation: 0 });
-    expect(hero.elements[2]).toMatchObject({ id: "shot", x: 0, y: 100, rotation: 0, opacity: 1 });
-    expect((await savedScreen(projectPath, "hero-uk")).elements[3]).toMatchObject({ x: 300, rotation: 0 });
-  });
-
   it.each([
-    [["set", "hero", "badge"], { x: "5" }, /is a group/],
-    [["set", "hero", "missing"], { x: "5" }, /Unknown element "missing"/],
-    [["set", "nope", "title"], { x: "5" }, /Unknown screen "nope"/],
-    [["set", "hero", "shot"], { opacity: "1.5" }, /opacity/],
-    [["set", "hero", "shot"], { width: "0" }, /width/],
-    [["set", "hero", "shot"], { height: "-10" }, /height/],
-  ])("rejects set %j %j without writing", async (args, flags, message) => {
+    [["set", "hero", "badge"], { x: 5 }, /is a group/],
+    [["set", "hero", "missing"], { x: 5 }, /Unknown element "missing"/],
+    [["set", "nope", "title"], { x: 5 }, /Unknown screen "nope"/],
+    [["set", "hero", "shot"], { opacity: 1.5 }, /opacity/],
+    [["set", "hero", "shot"], { width: 0 }, /width/],
+    [["set", "hero", "shot"], { height: -10 }, /height/],
+  ])("rejects set --all-sizes %j %j without writing", async (args, patch, message) => {
     const { projectPath } = await fixture();
     const before = await readFile(projectPath, "utf8");
-    await expect(runElementCommand(projectPath, args, flags)).rejects.toThrow(message);
+    await expect(runElementCommand(projectPath, args, { json: JSON.stringify(patch), "all-sizes": "true" }))
+      .rejects.toThrow(message);
     expect(await readFile(projectPath, "utf8")).toBe(before);
   });
 
@@ -241,7 +220,7 @@ describe("runElementCommand", () => {
       variant("hero-55", "5.5", (elements) => elements.map((element, index) => index === 1 ? { ...element, locked: true } : element)),
       screen("hero-uk", "uk"),
     ] }]);
-    await expect(runElementCommand(projectPath, ["set", "hero", "mockup"], { x: "-40", width: "420", rotation: "-6", opacity: "0.9", "all-sizes": "true" }))
+    await expect(runElementCommand(projectPath, ["set", "hero", "mockup"], { json: '{"x":-40,"width":420,"rotation":-6,"opacity":0.9}', "all-sizes": "true" }))
       .resolves.toBe([
         "Updated geometry of hero/mockup",
         "Updated geometry of hero-69/hero-69-mockup",
@@ -249,7 +228,7 @@ describe("runElementCommand", () => {
         "Skipped hero-65: layer structure differs from hero",
         "Skipped hero-61/hero-61-mockup: layer is locked",
       ].join("\n"));
-    await expect(runElementCommand(projectPath, ["set", "hero", "badge-label"], { y: "8", "all-sizes": "true" }))
+    await expect(runElementCommand(projectPath, ["set", "hero", "badge-label"], { json: '{"y":8}', "all-sizes": "true" }))
       .resolves.toBe([
         "Updated geometry of hero/badge-label",
         "Updated geometry of hero-69/badge-label",
@@ -272,7 +251,7 @@ describe("runElementCommand", () => {
       { ...screen("hero", "en"), elements: [ring] },
       { ...variant("hero-69", "6.9"), elements: [{ ...ring, id: "hero-69-ring" }] },
     ] }]);
-    await expect(runElementCommand(projectPath, ["set", "hero", "ring"], { rotation: "8", "all-sizes": "true" }))
+    await expect(runElementCommand(projectPath, ["set", "hero", "ring"], { json: '{"rotation":8}', "all-sizes": "true" }))
       .resolves.toBe([
         "Updated geometry of hero/ring",
         'Skipped hero-69/hero-69-ring: Cannot scale shape stroke width above 100 for element "ring"',
@@ -292,11 +271,11 @@ describe("runElementCommand", () => {
       return { project: { ...current, meta: { ...current.meta, name: "Held writer" } }, value: undefined };
     });
     await didEnter;
-    await expect(runElementCommand(projectPath, ["set", "hero", "shot"], { x: "5" }, { timeoutMs: 0 }))
+    await expect(runElementCommand(projectPath, ["set", "hero", "shot"], { json: '{"x":5}' }, { timeoutMs: 0 }))
       .rejects.toThrow(/Timed out.*project mutation lock/i);
     release();
     await held;
-    await runElementCommand(projectPath, ["set", "hero", "shot"], { x: "5" });
+    await runElementCommand(projectPath, ["set", "hero", "shot"], { json: '{"x":5}' });
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.meta.name).toBe("Held writer");
     expect(saved.layouts[0].screens[0].elements[2].x).toBe(5);
@@ -312,5 +291,66 @@ describe("runElementCommand", () => {
     const saved = JSON.parse(await readFile(projectPath, "utf8"));
     expect(saved.layouts[0].screens[0].elements[0].content).toBe("Track every run");
     expect(saved.layouts[1].screens[0].elements[0].content).toBe("Campaign copy");
+  });
+});
+
+describe("element get/set/add/rm", () => {
+  it("prints the full element JSON", async () => {
+    const { projectPath } = await fixture();
+    const output = await runElementCommand(projectPath, ["get", "hero", "badge-label"], {});
+    expect(JSON.parse(output)).toMatchObject({ id: "badge-label", type: "text", content: "4.9 ★" });
+  });
+
+  it("patches any settable field, removes optional fields with null, and edits group children", async () => {
+    const { projectPath } = await fixture();
+    await runElementCommand(projectPath, ["set", "hero", "title"], {
+      json: JSON.stringify({ x: 40, color: "#FF0000", size: 72, shadow: { color: "#000000", blur: 8, offsetX: 0, offsetY: 4 } }),
+    });
+    await runElementCommand(projectPath, ["set", "hero", "title"], { json: JSON.stringify({ role: null }) });
+    await runElementCommand(projectPath, ["set", "hero", "badge-label"], { json: JSON.stringify({ opacity: 0.5 }) });
+    const saved = await savedScreen(projectPath);
+    expect(saved.elements[0]).toMatchObject({ x: 40, color: "#FF0000", size: 72, shadow: { blur: 8 } });
+    expect(saved.elements[0].role).toBeUndefined();
+    expect(saved.elements[1].children[0].opacity).toBe(0.5);
+  });
+
+  it("rejects unknown fields, invalid values, unregistered fonts, and missing media without writing", async () => {
+    const { projectPath } = await fixture();
+    const before = await readFile(projectPath, "utf8");
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: '{"assetUrl":"assets/b.png"}' }))
+      .rejects.toThrow(/Cannot set assetUrl on text/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: '{"color":"red"}' }))
+      .rejects.toThrow(/Invalid project JSON[\s\S]*color/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: '{"fontFamily":"Nope"}' }))
+      .rejects.toThrow(/Font "Nope" 400 is not registered/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "shot"], { json: '{"assetUrl":"assets/missing.png"}' }))
+      .rejects.toThrow(/Media file not found/);
+    await expect(runElementCommand(projectPath, ["set", "hero", "title"], { json: "[1]" }))
+      .rejects.toThrow(/--json must be a JSON object/);
+    expect(await readFile(projectPath, "utf8")).toBe(before);
+  });
+
+  it("adds core-default elements with optional overrides on top of the stack", async () => {
+    const { projectPath } = await fixture();
+    const output = await runElementCommand(projectPath, ["add", "hero"], {
+      type: "text", json: JSON.stringify({ content: "New", x: 12 }),
+    });
+    await runElementCommand(projectPath, ["add", "hero"], { type: "image", json: '{"assetUrl":"assets/b.png"}' });
+    const saved = await savedScreen(projectPath);
+    const added = saved.elements.at(-2);
+    expect(output).toBe(`Added text hero/${added.id}`);
+    expect(added).toMatchObject({ type: "text", content: "New", x: 12, fontFamily: "Screenshot Studio Sans" });
+    expect(saved.elements.at(-1)).toMatchObject({ type: "image", assetUrl: "assets/b.png" });
+    await expect(runElementCommand(projectPath, ["add", "hero"], { type: "image" })).rejects.toThrow(/requires "assetUrl"/);
+    expect(() => resolveElementAction(["add", "hero"], { type: "group" })).toThrow(/requires --type/);
+  });
+
+  it("removes top-level elements and group children, dropping emptied groups", async () => {
+    const { projectPath } = await fixture();
+    await runElementCommand(projectPath, ["rm", "hero", "shot"], {});
+    await runElementCommand(projectPath, ["rm", "hero", "badge-label"], {});
+    const saved = await savedScreen(projectPath);
+    expect(saved.elements.map((element: { id: string }) => element.id)).toEqual(["title", "mockup"]);
+    await expect(runElementCommand(projectPath, ["rm", "hero", "shot"], {})).rejects.toThrow(/Unknown element "shot"/);
   });
 });
