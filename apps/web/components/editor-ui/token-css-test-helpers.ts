@@ -5,9 +5,9 @@ export function readTokensCss(): Promise<string> {
   return readFile(new URL("./tokens.css", import.meta.url), "utf8");
 }
 
-/** The custom properties declared directly inside the first block that starts with `selector`. */
-export function tokenBlock(css: string, selector: string): Map<string, string> {
-  const start = css.indexOf(`${selector} {`);
+/** The custom properties declared directly inside the first block that starts with `selector` at or after `from`. */
+export function tokenBlock(css: string, selector: string, from = 0): Map<string, string> {
+  const start = css.indexOf(`${selector} {`, from);
   if (start < 0) return new Map();
   const block = css.slice(start, css.indexOf("}", start));
   const tokens = new Map<string, string>();

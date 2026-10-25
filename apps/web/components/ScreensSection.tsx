@@ -416,7 +416,7 @@ export function ScreensSection({
                   <span
                     aria-hidden="true"
                     className={cx(
-                      "relative h-[46px] w-[22px] shrink-0 rounded border bg-[var(--editor-color-text-strong)]",
+                      "relative h-[46px] w-[22px] shrink-0 rounded border bg-[var(--editor-color-media-well)]",
                       active
                         ? "border-[var(--editor-color-accent)]"
                         : warning
@@ -428,7 +428,7 @@ export function ScreensSection({
                       <DynamicScreenThumbnail project={project} layoutId={layout.id} screenId={s.id} images={images} />
                     </span>
                     {/* Export file names are numbered in this order (`01-…`), so the row keeps the number. */}
-                    <span className="absolute -bottom-1 -right-1.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-[var(--editor-color-surface)] bg-[var(--editor-color-text-default)] px-0.5 text-[8px] font-semibold leading-none text-[color:var(--editor-color-on-accent)]">
+                    <span className="absolute -bottom-1 -right-1.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-[var(--editor-color-surface)] bg-[var(--editor-color-badge)] px-0.5 text-[8px] font-semibold leading-none text-[color:var(--editor-color-on-badge)]">
                       {index + 1}
                     </span>
                   </span>

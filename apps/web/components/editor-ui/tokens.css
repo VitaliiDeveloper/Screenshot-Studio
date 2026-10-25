@@ -19,6 +19,8 @@
   --editor-color-border: #e7e8ec;
   --editor-color-border-strong: #d6d9e0;
   --editor-color-track: #e7e8ec;
+  --editor-color-badge: #14161c;
+  --editor-color-on-badge: #ffffff;
   --editor-color-text: #14161c;
   --editor-color-text-strong: #14161c;
   --editor-color-text-default: #40465a;
@@ -94,4 +96,72 @@
   --editor-focus-offset: 2px;
   --editor-motion-fast: 150ms;
   --editor-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --editor-color-surface: #17191f;
+    --editor-color-surface-subtle: #14161b;
+    --editor-color-surface-subtle-translucent: rgb(20 22 27 / 60%);
+    --editor-color-surface-muted: #23262f;
+    --editor-color-surface-translucent: rgb(23 25 31 / 70%);
+    --editor-color-surface-translucent-strong: rgb(23 25 31 / 90%);
+    --editor-color-surface-inverse: #2b2f3a;
+    --editor-color-canvas: #0c0d10;
+    --editor-color-canvas-pattern: #23262e;
+    --editor-color-canvas-grid: #1b1d23;
+    --editor-color-canvas-boundary: #4a5060;
+    --editor-color-overlay: rgb(0 0 0 / 60%);
+    --editor-color-border-subtle: #23262f;
+    --editor-color-border: #2a2e38;
+    --editor-color-border-strong: #3a3f4c;
+    --editor-color-track: #2a2e38;
+    --editor-color-badge: #e8eaf0;
+    --editor-color-on-badge: #14161c;
+    --editor-color-text: #e8eaf0;
+    --editor-color-text-strong: #f2f3f7;
+    --editor-color-text-default: #c9cdd8;
+    --editor-color-text-muted: #b4b9c6;
+    --editor-color-text-secondary: #a3a9b8;
+    --editor-color-text-subtle: #8a93a6;
+    --editor-color-text-faint: #4a5060;
+    --editor-color-accent: #4563f7;
+    --editor-color-accent-hover: #3a57e8;
+    --editor-color-accent-strong: #dce3ff;
+    --editor-color-accent-text: #8ea2ff;
+    --editor-color-accent-text-strong: #c7d2ff;
+    --editor-color-accent-subtle: #1f2850;
+    --editor-color-accent-muted: #26306a;
+    --editor-color-accent-border: #34417a;
+    --editor-color-accent-border-strong: #4a5ba8;
+    --editor-color-accent-gradient-end: #5b4fe0;
+    --editor-color-selection: #5b79ff;
+    --editor-color-selection-fill: rgb(91 121 255 / 16%);
+    --editor-color-on-accent-muted: #e6ebff;
+    --editor-color-swatch-outline: rgb(255 255 255 / 16%);
+    --editor-color-danger-text: #ff8a80;
+    --editor-color-danger-surface: #2a1517;
+    --editor-color-danger-border: #5c2b2e;
+    --editor-color-warning-text: #f0b45c;
+    --editor-color-warning-text-strong: #f7c97e;
+    --editor-color-warning-surface: #2a2113;
+    --editor-color-warning-muted: #352915;
+    --editor-color-warning-border: #5c4320;
+    --editor-color-warning-border-strong: #7a5a2b;
+    --editor-color-agent-text: #b9a3ff;
+    --editor-color-agent-surface: #241b3d;
+    --editor-color-agent-border: #43347a;
+    --editor-color-success: #34c770;
+    --editor-color-success-text: #5ad68a;
+    --editor-color-success-surface: #132a1c;
+    --editor-color-success-border: #1f5234;
+    --editor-color-focus: rgb(91 121 255 / 75%);
+    --editor-color-focus-border: #5b79ff;
+    --editor-color-focus-subtle: rgb(91 121 255 / 20%);
+    --editor-color-danger-focus: #ff8a80;
+    --editor-color-danger-focus-subtle: rgb(255 138 128 / 20%);
+    --editor-shadow-dialog: 0 25px 50px -12px rgb(0 0 0 / 55%);
+    --editor-shadow-menu: 0 14px 30px -10px rgb(0 0 0 / 50%);
+    --editor-shadow-media-outline: 0 0 0 1px rgb(255 255 255 / 14%);
+  }
 }

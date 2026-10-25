@@ -38,10 +38,13 @@ library. Reuse them before introducing one-off controls:
 radii, control typography, shadows, focus treatment, and motion. Prefer semantic token names such as
 surface, text, accent, warning, danger, and focus over literal colors or ad-hoc spacing. Reuse
 `editorUi` styles so controls share disabled treatment, focus rings, and transition timing. The
-palette follows the Turn 6 handoff (accent `#2547F0`). Components use no raw Tailwind palette
-classes. A `*-text` token colors only text and icons, and a `*-hover` token is only the hover fill of
-a filled button, because a theme gives the two roles different values. `tokens-contrast.test.ts`
-holds body-text pairs at 4.5:1 and focus/selection lines at 3:1; `text-subtle` hints and
+palette follows the Turn 6 handoff (accent `#2547F0`). The dark theme (mockup 6q) follows the system
+`prefers-color-scheme` with no in-app switch; it only overrides token values in `tokens.css`, so the
+canvas sits darker than the panels and artboards keep their ring. Artboard pixels and exports never
+change with the theme. Components use no raw Tailwind palette classes. A `*-text` token colors only
+text and icons, a `*-hover` token is only the hover fill of a filled button, and `badge`/`on-badge`
+invert together, because a theme gives these roles different values. `tokens-contrast.test.ts` holds
+body-text pairs at 4.5:1 and focus/selection lines at 3:1 in both themes; `text-subtle` hints and
 placeholders are a known exception held at 3:1. Konva cannot read CSS variables, so canvas
 overlays (selection, screen boundaries, snap guides, marquee, overflow marks) resolve their colors
 from the tokens through `useStageColors`. The interface font is Instrument Sans, loaded under the
