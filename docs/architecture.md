@@ -234,6 +234,16 @@ the content, and publishes a collision-safe file under project-local `assets/imp
 the project mutation lease. Import itself does not rewrite the Project document; the ordinary editor
 mutation assigns the resulting project-relative path to a screen element or background.
 
+Capture import names every capture resource `assets/imports/<capture-key>-<digest12>.png`, where the
+capture key is `slugify(platform-device-locale-stem)` (`captureImportKey`) and the digest prefix is
+the SHA-256 of the bytes. That filename is the persisted refresh identity, so its derivation must not
+change: `import --refresh` repoints every raster reference in the selected layout (image backgrounds,
+screenshot, image, and device-frame leaves, including group children) whose `assetUrl` is exactly
+that key with any digest to the new bytes. Refresh never adds, removes, reorders, or resizes screens
+or elements; a capture nothing references is reported, not added. Replaced files stay on disk,
+unreferenced. Captures imported before the key naming (resources named after a suffixed screen id)
+are not matched.
+
 Custom fonts are registered project assets under `assets/fonts/`. The shared renderer also ships a
 small versioned built-in font catalog so text authoring works before a project adds font resources.
 Built-in identities resolve to local renderer-owned bytes in both editor and CLI export. Operating

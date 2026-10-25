@@ -179,6 +179,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
+| Refresh re-captured screens | `import <dir> --refresh` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
@@ -415,6 +416,19 @@ creates fresh screen/element ids, validates the complete strict Project, and com
 copied resources atomically. Warnings identify skipped unsupported inputs; invalid or colliding paths
 block apply. Do not use **Import project** Folder/ZIP/JSON terminology for this command, and do not
 manually copy captures into `assets/imports/` or precompute ids.
+
+After re-capturing the app, add `--refresh` to update designed screens instead of adding new ones:
+
+```bash
+screenshots import ./screenshots --refresh --layout "Feature campaign" --project ./app-store-screenshots.json
+```
+
+Refresh swaps the new bytes into every element or background in the layout that still uses the
+earlier import of the same `<platform>/<device>/<locale>/<file>.png` capture. It never adds, moves,
+or resizes screens. A capture no screen uses is reported as unmatched; run the import without
+`--refresh` to add it. Keep capture file names stable between runs, since the name is the match key.
+Point refresh at `screenshots/`, not the project root: replaced import files stay under `assets/` and
+a root input would re-read all of them on every run.
 
 ## Recipe: process a local asset
 
