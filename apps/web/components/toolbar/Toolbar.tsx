@@ -8,9 +8,7 @@ import {
   LayoutGrid,
   PanelsTopLeft,
   PanelRight,
-  Redo2,
   Scan,
-  Undo2,
 } from "lucide-react";
 import { layoutLocales } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
@@ -18,7 +16,6 @@ import type { WorkspaceView } from "@web/lib/editor/editor-workspace";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import type { IssueCounts } from "@web/lib/editor/editor-issues";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
-import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ExportDialog } from "@web/components/ExportDialog";
 import { exportButtonLabel, exportFileCount } from "@web/components/export-dialog-model";
 import { cx, editorUi } from "@web/components/editor-ui";
@@ -60,7 +57,7 @@ export function Toolbar({
   issueCounts?: IssueCounts;
   issues?: readonly ProjectIssue[];
   onOpenIssues?: () => void;
-  /** An agent run owns the project: Undo, Redo, Export, and leaving for Projects wait for it. */
+  /** An agent run owns the project: Export and leaving for Projects wait for it. */
   editingLocked?: boolean;
 }) {
   const projectName = useStore(editorStore, (state) => state.project?.meta.name ?? "Untitled project");
@@ -72,8 +69,6 @@ export function Toolbar({
       ?? state.project?.layouts.find((layout) => layout.id === state.activeLayoutId)?.screens[0]?.locale
       ?? "",
   );
-  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0) && !editingLocked;
-  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0) && !editingLocked;
   const exportCount = useStore(editorStore, (state) => exportFileCount(state.project, state.activeLayoutId, specs));
   const exportLabel = exportButtonLabel(exportCount);
   const issueTotal = issueCounts.blockers + issueCounts.warnings;
@@ -201,28 +196,6 @@ export function Toolbar({
           minimalControls ? "gap-0.5" : "gap-1",
         )}
       >
-        {!minimalControls ? <div className="contents">
-          <button
-            type="button"
-            aria-label="Undo"
-            title="Undo (⌘Z)"
-            disabled={!canUndo}
-            className={cx(editorUi.iconButton, minimalControls && "!size-7")}
-            onClick={() => mutateAndSave(() => editorStore.getState().undo())}
-          >
-            <Undo2 size={15} strokeWidth={1.9} />
-          </button>
-          <button
-            type="button"
-            aria-label="Redo"
-            title="Redo (⇧⌘Z)"
-            disabled={!canRedo}
-            className={cx(editorUi.iconButton, minimalControls && "!size-7")}
-            onClick={() => mutateAndSave(() => editorStore.getState().redo())}
-          >
-            <Redo2 size={15} strokeWidth={1.9} />
-          </button>
-        </div> : null}
         {!localeOverflowed && activeLocale && localeOptions.length > 0 ? (
           <div className={toolbarMotion}>
             <ToolbarLocaleSelect activeLocale={activeLocale} localeOptions={localeOptions} />
@@ -289,10 +262,6 @@ export function Toolbar({
               localeOptions={localeOptions}
               onToggleInspector={onToggleInspector}
               onLocaleChange={(locale) => editorStore.getState().selectLocale(locale)}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={() => mutateAndSave(() => editorStore.getState().undo())}
-              onRedo={() => mutateAndSave(() => editorStore.getState().redo())}
             />
           </div>
         ) : null}

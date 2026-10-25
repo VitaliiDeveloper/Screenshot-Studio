@@ -467,17 +467,19 @@ Projects) that its accessible name contains, and active items get the light acce
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
 recovery action; Workspace must never discard the active client state automatically.
 The Workspace top bar starts with a `Screenshot Studio / project / layout` breadcrumb whose product-name
-button is the same Projects home action; Focus / Overview stay centered; undo, redo, the locale menu,
-Issues with its count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
+button is the same Projects home action; Focus / Overview stay centered; the locale menu, Issues with its
+count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
 The 44 px sizes bar sits directly under the top bar and stays visible at every width (see §3).
-A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
+A 34 px **status bar** closes the Workspace under the canvas and panels. It starts with the Undo
+and Redo buttons, visible at every width and disabled when there is nothing to undo or redo, then
+shows the save state,
 the active screen, the current layer selection, and that screen's size, as in
 `Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or
 `3 layers (2 text · 1 shape)` take the layer's place), then the key hints `[ ] Size`,
-`O Focus/Overview`, `⌘K Find`, and `⌘Z Undo`, which hide below the medium width. The save state
+`O Focus/Overview`, `⌘K Find`, `⌘Z Undo`, and `⇧⌘Z Redo`, which hide below the medium width. The save state
 reads `Saving…`, `Saved ·` with the time of the last successful save, or `Save failed · last saved`
 with that time (`nothing saved yet` when no save has succeeded since the project opened), so a
 failure still says how far the work is durable. The save cell is plain text, not a live region, so
