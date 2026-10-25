@@ -10,7 +10,7 @@ import { LAYOUT_MODE_LABELS } from "@web/lib/layout-mode-labels";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ConfirmationDialog, cx, DialogShell, editorUi, SegmentedControl } from "./editor-ui";
 
-const actionMenuItem = "flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/60 disabled:pointer-events-none disabled:opacity-45";
+const actionMenuItem = "flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-medium text-[color:var(--editor-color-text-default)] transition-colors hover:bg-[var(--editor-color-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)] disabled:pointer-events-none disabled:opacity-45";
 
 function nextCopyName(project: Project, source: DesignLayout): string {
   const names = new Set(project.layouts.map((layout) => layout.name.toLocaleLowerCase()));
@@ -148,7 +148,7 @@ export function LayoutSelector() {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={`Active layout: ${activeLayout.name}`}
-          className="inline-flex size-9 items-center justify-center rounded-xl border border-slate-200 bg-white p-0 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 sm:h-10 sm:w-full sm:min-w-0 sm:justify-between sm:gap-3 sm:px-4"
+          className="inline-flex size-9 items-center justify-center rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-0 text-sm font-medium text-[color:var(--editor-color-text)] shadow-sm transition-colors hover:border-[var(--editor-color-border-strong)] hover:bg-[var(--editor-color-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] sm:h-10 sm:w-full sm:min-w-0 sm:justify-between sm:gap-3 sm:px-4"
           onClick={() => setMenuState(toggleLayoutMenuState)}
         >
           <LayoutTemplate size={14} className="sm:hidden" aria-hidden="true" />
@@ -156,29 +156,29 @@ export function LayoutSelector() {
             <span className="truncate text-[13px] font-semibold">{activeLayout.name}</span>
             <span className={cx(
               "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              activeLayout.mode === "connected" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600",
+              activeLayout.mode === "connected" ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]" : "bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-muted)]",
             )}>
               {LAYOUT_MODE_LABELS[activeLayout.mode]}
             </span>
           </span>
-          <ChevronDown size={14} className={cx("hidden shrink-0 text-blue-600 transition-transform sm:block", open && "rotate-180")} aria-hidden="true" />
+          <ChevronDown size={14} className={cx("hidden shrink-0 text-[color:var(--editor-color-accent-text)] transition-transform sm:block", open && "rotate-180")} aria-hidden="true" />
         </button>
 
         {open ? (
-          <div role="menu" aria-label="Design layouts" className="absolute left-0 top-[calc(100%+0.45rem)] z-50 w-[22rem] overflow-visible rounded-xl border border-slate-200 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
+          <div role="menu" aria-label="Design layouts" className="absolute left-0 top-[calc(100%+0.45rem)] z-50 w-[22rem] overflow-visible rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-4 shadow-[0_18px_45px_rgba(15,23,42,0.16)]">
             <div className="max-h-80 overflow-visible">
               {project.layouts.map((layout) => {
                 const presentation = layoutPresentation(project, layout, activeLayout.id);
                 const actions = layoutActionPresentation(project, layout, actionMenuId === layout.id);
                 return (
-                  <div key={layout.id} className="group relative flex items-center border-b border-slate-100 py-1.5 last:border-b-0">
+                  <div key={layout.id} className="group relative flex items-center border-b border-[var(--editor-color-border-subtle)] py-1.5 last:border-b-0">
                     <button
                       type="button"
                       role="menuitemradio"
                       aria-checked={presentation.active}
                       className={cx(
-                        "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60",
-                        presentation.active && "bg-blue-50/70",
+                        "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[var(--editor-color-surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]",
+                        presentation.active && "bg-[var(--editor-color-accent-subtle)]",
                       )}
                       onClick={() => {
                         editorStore.getState().selectLayout(layout.id);
@@ -187,21 +187,21 @@ export function LayoutSelector() {
                     >
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className={cx("truncate text-sm text-slate-900", presentation.active ? "font-semibold" : "font-medium")}>{layout.name}</span>
+                          <span className={cx("truncate text-sm text-[color:var(--editor-color-text-strong)]", presentation.active ? "font-semibold" : "font-medium")}>{layout.name}</span>
                           <span className={cx(
                             "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                            layout.mode === "connected" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600",
+                            layout.mode === "connected" ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]" : "bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-muted)]",
                           )}>{LAYOUT_MODE_LABELS[layout.mode]}</span>
                         </span>
                         {presentation.subtitle ? (
-                          <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                            {presentation.preferredIndicator === "subtitle" ? <Star size={11} className="fill-blue-600 text-blue-600" aria-hidden="true" /> : null}
+                          <span className="mt-0.5 flex items-center gap-1 text-xs text-[color:var(--editor-color-text-secondary)]">
+                            {presentation.preferredIndicator === "subtitle" ? <Star size={11} className="fill-[var(--editor-color-accent)] text-[color:var(--editor-color-accent-text)]" aria-hidden="true" /> : null}
                             {presentation.subtitle}
                           </span>
                         ) : null}
                       </span>
                       {presentation.active ? (
-                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white" aria-label="Selected layout">
+                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--editor-color-accent)] text-[color:var(--editor-color-on-accent)]" aria-label="Selected layout">
                           <Check size={14} strokeWidth={2.4} aria-hidden="true" />
                         </span>
                       ) : null}
@@ -218,7 +218,7 @@ export function LayoutSelector() {
                       }))}
                     ><MoreVertical size={15} /></button>
                     {actionMenuId === layout.id ? (
-                      <div role="menu" aria-label={`Actions for ${layout.name}`} className="absolute right-0 top-[calc(100%-0.25rem)] z-10 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                      <div role="menu" aria-label={`Actions for ${layout.name}`} className="absolute right-0 top-[calc(100%-0.25rem)] z-10 w-48 rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1.5 shadow-xl">
                         <button type="button" role="menuitem" className={actionMenuItem} onClick={() => beginRename(layout)}><Pencil size={13} /> Rename</button>
                         <button type="button" role="menuitem" className={actionMenuItem} onClick={() => {
                           mutateAndSave(() => editorStore.getState().duplicateLayout(layout.id, nextCopyName(project, layout)));
@@ -232,7 +232,7 @@ export function LayoutSelector() {
                           <span className="min-w-0 py-1">
                             <span className="block">{actions.switchModeLabel}</span>
                             {actions.modeWarning ? (
-                              <span className="mt-0.5 block text-[10px] font-normal leading-4 text-amber-700">
+                              <span className="mt-0.5 block text-[10px] font-normal leading-4 text-[color:var(--editor-color-warning-text)]">
                                 {actions.modeWarning}
                               </span>
                             ) : null}
@@ -242,7 +242,7 @@ export function LayoutSelector() {
                           mutateAndSave(() => editorStore.getState().preferLayout(layout.id));
                           setMenuState((current) => ({ ...current, actionMenuId: null }));
                         }}><Star size={13} /> Prefer for export</button>
-                        <button type="button" role="menuitem" disabled={!actions.canDelete} className={cx(actionMenuItem, "text-red-600 hover:bg-red-50 hover:text-red-700")} onClick={() => {
+                        <button type="button" role="menuitem" disabled={!actions.canDelete} className={cx(actionMenuItem, "text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger-text)]")} onClick={() => {
                           setMenuState(CLOSED_LAYOUT_MENU);
                           setPendingDeleteLayout(layout);
                         }}><Trash2 size={13} /> Delete</button>
@@ -252,8 +252,8 @@ export function LayoutSelector() {
                 );
               })}
             </div>
-            <button type="button" role="menuitem" className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={beginCreate}>
-              <Plus size={18} className="text-blue-600" /> Create layout
+            <button type="button" role="menuitem" className="mt-3 flex min-h-11 w-full items-center gap-3 rounded-xl border border-[var(--editor-color-border)] px-4 py-2 text-sm font-medium text-[color:var(--editor-color-text-default)] transition-colors hover:border-[var(--editor-color-accent-border)] hover:bg-[var(--editor-color-accent-subtle)] hover:text-[color:var(--editor-color-accent-text-strong)]" onClick={beginCreate}>
+              <Plus size={18} className="text-[color:var(--editor-color-accent-text)]" /> Create layout
             </button>
           </div>
         ) : null}
@@ -267,12 +267,12 @@ export function LayoutSelector() {
           onClose={() => setDialog(null)}
         >
           <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+            <label className="flex flex-col gap-1 text-xs font-medium text-[color:var(--editor-color-text-muted)]">
               Name
               <input className={editorUi.field} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
             </label>
             {dialog === "create" ? (
-              <div className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+              <div className="flex flex-col gap-1 text-xs font-medium text-[color:var(--editor-color-text-muted)]">
                 <span>Mode</span>
                 <SegmentedControl<CanvasMode>
                   label="Layout mode"
@@ -287,7 +287,7 @@ export function LayoutSelector() {
               </div>
             ) : null}
             {error ? <p role="alert" className={editorUi.statusError}>{error}</p> : null}
-            <div className="mt-2 flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <div className="mt-2 flex justify-end gap-2 border-t border-[var(--editor-color-border-subtle)] pt-4">
               <button type="button" className={editorUi.buttonSecondary} onClick={() => setDialog(null)}>Cancel</button>
               <button type="button" className={editorUi.buttonPrimary} disabled={!name.trim()} onClick={submit}>
                 {dialog === "create" ? "Create" : "Rename"}

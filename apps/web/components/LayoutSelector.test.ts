@@ -68,7 +68,7 @@ describe("layout presentation", () => {
     const source = readFileSync(new URL("./LayoutSelector.tsx", import.meta.url), "utf8");
 
     expect(source).toContain(
-      'className="group relative flex items-center border-b border-slate-100 py-1.5 last:border-b-0"',
+      'className="group relative flex items-center border-b border-[var(--editor-color-border-subtle)] py-1.5 last:border-b-0"',
     );
   });
 

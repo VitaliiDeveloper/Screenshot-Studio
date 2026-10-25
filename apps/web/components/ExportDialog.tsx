@@ -332,10 +332,10 @@ export function ExportDialog({
       <div className="flex flex-col gap-4">
         <section aria-labelledby="store-images-export-title" className={editorUi.insetPanel}>
           <div className="flex items-start gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700"><Images aria-hidden="true" className="size-4" /></span>
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]"><Images aria-hidden="true" className="size-4" /></span>
             <div className="min-w-0 flex-1">
-              <h3 id="store-images-export-title" className="text-sm font-semibold text-slate-950">Store images</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Render PNGs at exact store sizes and package them into one download.</p>
+              <h3 id="store-images-export-title" className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">Store images</h3>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Render PNGs at exact store sizes and package them into one download.</p>
             </div>
             <MenuSelect
               ariaLabel="Export profile"
@@ -417,10 +417,10 @@ export function ExportDialog({
 
         <section aria-labelledby="project-archive-export-title" className={editorUi.insetPanel}>
           <div className="flex items-start gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700"><Archive aria-hidden="true" className="size-4" /></span>
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]"><Archive aria-hidden="true" className="size-4" /></span>
             <div>
-              <h3 id="project-archive-export-title" className="text-sm font-semibold text-slate-950">Editable project</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Download the project document with its project-owned screenshots, assets, fonts, themes, and templates for later import.</p>
+              <h3 id="project-archive-export-title" className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">Editable project</h3>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Download the project document with its project-owned screenshots, assets, fonts, themes, and templates for later import.</p>
             </div>
           </div>
           {archiveAvailability.status === "checking" ? <p role="status" className={editorUi.statusProgress}>Checking project export availability…</p> : null}
@@ -439,7 +439,7 @@ export function ExportDialog({
           </div>
         </section>
 
-        <div className="flex justify-end border-t border-slate-100 pt-4">
+        <div className="flex justify-end border-t border-[var(--editor-color-border-subtle)] pt-4">
           <button className={editorUi.buttonSecondary} onClick={closeDialog} disabled={busy}>Close</button>
         </div>
       </div>
