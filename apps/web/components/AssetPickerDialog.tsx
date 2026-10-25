@@ -295,7 +295,7 @@ export function AssetPickerDialog({
               className="group overflow-hidden rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] text-left shadow-sm transition hover:border-[var(--editor-color-accent-border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]"
               onClick={() => { void cacheAndInsert(asset.path); }}
             >
-              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,#f8fafc_25%,transparent_25%),linear-gradient(-45deg,#f8fafc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f8fafc_75%),linear-gradient(-45deg,transparent_75%,#f8fafc_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
+              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--editor-color-surface-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--editor-color-surface-muted)_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
                 <NextImage
                   src={resolveActiveProjectAssetUrl(asset.path)}
                   alt=""

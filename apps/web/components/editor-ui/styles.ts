@@ -52,7 +52,7 @@ export const editorUi = {
   segmentedButtonCompact: "min-w-0 px-1.5",
   segmentedButtonFill: "flex-1",
   segmentedButtonLabel: "inline-flex items-center justify-center gap-1.5 text-xs leading-none",
-  segmentedButtonActive: "bg-[var(--editor-color-surface)] text-[color:var(--editor-color-text)] shadow-[var(--editor-shadow-control)]",
+  segmentedButtonActive: "bg-[var(--editor-color-surface-raised)] text-[color:var(--editor-color-text)] shadow-[var(--editor-shadow-control)]",
   segmentedButtonInactive: "text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]",
   toolButton: `inline-flex w-[50px] flex-col items-center gap-[3px] rounded-[var(--editor-radius-control)] py-1.5 text-[9.5px] leading-none ${motion} ${containedFocusRing}`,
   toolButtonInactive: "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]",

@@ -146,7 +146,7 @@ export function AppHomeShell({
               <button ref={importButtonRef} type="button" onClick={onOpenImport} disabled={!launcherActions.importEnabled} aria-label="Import" className={cx("group min-h-56 rounded-3xl border border-[var(--editor-color-accent-border-strong)] bg-gradient-to-br from-[var(--editor-color-accent)] to-[var(--editor-color-accent-gradient-end)] p-6 text-left text-[color:var(--editor-color-on-accent)] shadow-blue-950/15", firstRunActionMotion)}>
                 <span className="grid size-11 place-items-center rounded-2xl bg-[var(--editor-color-on-accent-subtle)]"><FolderInput aria-hidden="true" className="size-5" /></span>
                 <span className="mt-8 block text-xl font-semibold">Import</span>
-                <span className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-on-accent-muted)]">Choose a complete Folder, project ZIP, or eligible standalone JSON.</span>
+                <span className="mt-2 block text-sm leading-6 text-[color:var(--editor-color-on-accent)]">Choose a complete Folder, project ZIP, or eligible standalone JSON.</span>
                 <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold">Choose source <span aria-hidden="true">→</span></span>
               </button>
             </section>

@@ -70,7 +70,7 @@ export function SizesBar({ specs, locked = false }: { specs: StoreSpecs; locked?
                 <span
                   data-size-role={chip.role}
                   className={chip.role === "master"
-                    ? "rounded bg-[var(--editor-color-text-strong)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-on-accent)]"
+                    ? "rounded bg-[var(--editor-color-badge)] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-on-badge)]"
                     : "rounded border border-[var(--editor-color-border-strong)] px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-[color:var(--editor-color-text-muted)]"}
                 >
                   {chip.role === "master" ? "Master" : "Variant"}

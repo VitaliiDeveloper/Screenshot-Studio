@@ -39,6 +39,8 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["text-secondary", "surface"],
   ["text-secondary", "surface-subtle"],
   ["text-secondary", "surface-muted"],
+  ["text", "surface-raised"],
+  ["text-muted", "surface-raised"],
   ["accent-text", "surface"],
   ["accent-text", "accent-subtle"],
   ["accent-text-strong", "surface"],
@@ -52,6 +54,7 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["on-accent", "agent"],
   ["on-accent", "agent-hover"],
   ["on-inverse", "surface-inverse"],
+  ["on-badge", "badge"],
   ["danger-text", "surface"],
   ["danger-text", "danger-surface"],
   ["warning-text", "surface"],
@@ -67,8 +70,12 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
 const NON_TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["focus", "surface"],
   ["focus", "surface-subtle"],
+  ["focus", "surface-muted"],
+  ["focus", "accent-subtle"],
+  ["focus", "canvas"],
   ["danger-focus", "surface"],
   ["selection", "canvas"],
+  ["selection", "artboard"],
 ];
 
 /**
@@ -80,12 +87,30 @@ const HINT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["text-subtle", "surface-subtle"],
 ];
 
+const DARK_THEME = "@media (prefers-color-scheme: dark)";
+
+/** Dark mode inherits every light token it does not override, exactly as the cascade does. */
 async function themes(): Promise<Array<{ name: string; tokens: Map<string, string> }>> {
   const css = await readTokensCss();
-  return [{ name: "light", tokens: tokenBlock(css, ":root") }];
+  const light = tokenBlock(css, ":root");
+  const dark = tokenBlock(css, ":root", css.indexOf(DARK_THEME));
+  return [
+    { name: "light", tokens: light },
+    { name: "dark", tokens: new Map([...light, ...dark]) },
+  ];
 }
 
 describe("editor color token contrast", () => {
+  it("overrides only known tokens in the dark theme", async () => {
+    const css = await readTokensCss();
+    const light = tokenBlock(css, ":root");
+    const dark = tokenBlock(css, ":root", css.indexOf(DARK_THEME));
+
+    expect(css.indexOf(DARK_THEME)).toBeGreaterThan(0);
+    expect(dark.size).toBeGreaterThan(40);
+    expect([...dark.keys()].filter((name) => !light.has(name))).toEqual([]);
+  });
+
   it.each([
     ["text", TEXT_PAIRS, 4.5],
     ["non-text", NON_TEXT_PAIRS, 3],

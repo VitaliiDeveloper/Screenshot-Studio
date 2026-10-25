@@ -222,7 +222,7 @@ export function MenuSelect<T extends string>({
                   <span className={cx(
                     "inline-flex size-6 shrink-0 items-center justify-center rounded-md",
                     selected
-                      ? "bg-[var(--editor-color-surface)] text-[color:var(--editor-color-accent-text)] shadow-[var(--editor-shadow-control)] ring-1 ring-[var(--editor-color-accent-muted)]"
+                      ? "bg-[var(--editor-color-surface-raised)] text-[color:var(--editor-color-accent-text)] shadow-[var(--editor-shadow-control)] ring-1 ring-[var(--editor-color-accent-muted)]"
                       : "text-[color:var(--editor-color-text-subtle)]",
                   )}>
                     <OptionIcon size={14} strokeWidth={1.8} />

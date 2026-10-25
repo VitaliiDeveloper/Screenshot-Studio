@@ -9,7 +9,7 @@
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: var(--font-sans);

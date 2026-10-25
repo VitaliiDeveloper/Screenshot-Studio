@@ -81,7 +81,7 @@ describe("editor UI primitives", () => {
     expect(editorUi.segmentedButtonLabel).toContain("inline-flex");
     expect(editorUi.segmentedButtonLabel).toContain("items-center");
     expect(editorUi.segmentedButtonLabel).toContain("gap-1.5");
-    expect(editorUi.segmentedButtonActive).toContain("var(--editor-color-surface)");
+    expect(editorUi.segmentedButtonActive).toContain("var(--editor-color-surface-raised)");
     expect(editorUi.segmentedButtonActive).toContain("var(--editor-shadow-control)");
   });
 
