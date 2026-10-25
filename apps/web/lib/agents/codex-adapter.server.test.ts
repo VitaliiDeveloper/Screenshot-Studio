@@ -14,6 +14,7 @@ async function normalize(fixture: string, exit = { code: 0, stderr: "" }): Promi
 
 const REQUEST: AgentRunRequest = {
   message: "Add German",
+  mode: "edit",
   model: null,
   effort: null,
   context: { agentGuidePath: "/project/AGENTS.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },

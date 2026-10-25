@@ -15,6 +15,7 @@ import {
   changedScreenRows,
   createAgentEventParser,
   createAgentTurn,
+  criticFixDraft,
   defaultAgentId,
   hasOtherFiles,
   turnActivity,
@@ -106,6 +107,22 @@ describe("turn outcome (mockup 7c)", () => {
     expect(turnOutcome(play(failed, accepted([]), done("failed")))).toEqual({ kind: "error", message: "Sign in again." });
     expect(turnOutcome(play(accepted(["hero", "save-fast"]), done()))).toEqual({ kind: "changed", count: 2 });
     expect(turnOutcome(play(accepted([]), done()))).toEqual({ kind: "unchanged" });
+  });
+
+  it("treats a critic turn as a report to apply, and a critic that changed the project as an error", () => {
+    const critic = (...events: AgentEvent[]): AgentTurn =>
+      events.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Review", [], "critic"));
+    const report: AgentEvent = { type: "text", text: "Score 6/10\n[major] Slide 1: headline names a feature." };
+
+    const reviewed = critic({ type: "text", text: "Exporting the set." }, report, accepted([]), done());
+    expect(turnOutcome(reviewed)).toEqual({ kind: "critique" });
+    expect(criticFixDraft(reviewed)).toMatch(/^Apply these critic findings[^]*\n\nScore 6\/10\n\[major\] Slide 1/);
+    expect(criticFixDraft(reviewed)).not.toContain("Exporting the set.");
+
+    const rejected: AgentEvent = { type: "result", status: "rejected", reason: "read-only", changed: false, changedScreens: [], revision: "r1",
+      otherFiles: { files: [], count: 0 } };
+    expect(turnOutcome(critic(rejected, done("failed")))).toMatchObject({ kind: "error", message: expect.stringContaining("must not") });
+    expect(criticFixDraft(critic({ type: "text", text: "x".repeat(30_000) }, done())).length).toBeLessThan(20_000);
   });
 
   it("mentions other files when some changed or the folder could not be compared", () => {

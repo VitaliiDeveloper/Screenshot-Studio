@@ -15,10 +15,12 @@ import { attachmentThumbnail, ComposerAttachButton, ComposerAttachments, useComp
 import { cx, editorUi, StatusMessage } from "./editor-ui";
 import { PanelHeader } from "./LeftPanel";
 import {
+  AGENT_QUICK_ACTIONS,
   agentCanRun,
   agentNotice,
   agentStateLabel,
   changedScreenRows,
+  criticFixDraft,
   hasOtherFiles,
   policyLevelLabel,
   turnActivity,
@@ -257,11 +259,13 @@ function TurnOutcomeView({
   onRetry,
   onSwitchAgent,
   onAskToFix,
+  onApplyFindings,
 }: {
   turn: AgentTurn;
   onRetry: () => void;
   onSwitchAgent: () => void;
   onAskToFix: (reason: string) => void;
+  onApplyFindings: () => void;
 }) {
   const outcome = turnOutcome(turn);
   if (!outcome) return null;
@@ -313,6 +317,15 @@ function TurnOutcomeView({
       );
     case "changed":
       return <p role="status" className={hint}>Changed {outcome.count === 1 ? "1 screen" : `${outcome.count} screens`}.</p>;
+    case "critique":
+      return (
+        <div className="flex flex-col gap-2">
+          <p role="status" className={hint}>The critic changed nothing. Pick the findings to apply.</p>
+          <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onApplyFindings}>
+            Apply findings
+          </button>
+        </div>
+      );
     case "unchanged":
       return <p role="status" className={hint}>No changes to the {project}.</p>;
   }
@@ -330,6 +343,7 @@ function TurnView({
   onRetry: () => void;
   onSwitchAgent: () => void;
   onAskToFix: (reason: string) => void;
+  onApplyFindings: () => void;
 }) {
   return (
     <li className="flex flex-col gap-3">
@@ -534,8 +548,8 @@ export function AgentPanel({
   const notice = agentNotice(agents, selected);
   const running = phase === "running";
   const reviewing = chat.outcome !== null && !running;
-  const canSend = phase === "idle" && agentCanRun(selected) && draft.trim().length > 0
-    && attachments.ready;
+  const canCritique = phase === "idle" && agentCanRun(selected);
+  const canSend = canCritique && draft.trim().length > 0 && attachments.ready;
 
   useEffect(() => {
     if (open) composer.current?.focus();
@@ -625,9 +639,29 @@ export function AgentPanel({
           <div className="editor-scroll-area flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
             {notice ? <AgentNoticeView notice={notice} chat={chat} /> : null}
             {turns.length === 0 && !notice ? (
-              <p className={hint}>
-                Describe a change to this project. {selected?.name ?? "The agent"} edits it through the screenshots CLI, and you review the result before you keep it.
-              </p>
+              <>
+                <p className={hint}>
+                  Describe a change to this project. {selected?.name ?? "The agent"} edits it through the screenshots CLI, and you review the result before you keep it.
+                </p>
+                <div role="group" aria-label="Suggestions" className="flex flex-wrap gap-1.5">
+                  {AGENT_QUICK_ACTIONS.map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      className={cx(editorUi.buttonSecondary, "!min-h-7 !px-2 text-xs")}
+                      onClick={() => {
+                        setDraft(action.prompt);
+                        composer.current?.focus();
+                      }}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                  <button type="button" className={cx(editorUi.buttonSecondary, "!min-h-7 !px-2 text-xs")} disabled={!canCritique} onClick={() => void chat.critique()}>
+                    Critique my set
+                  </button>
+                </div>
+              </>
             ) : null}
             {turns.length > 0 ? (
               <ol aria-label="Messages" className="flex flex-col gap-4">
@@ -637,16 +671,31 @@ export function AgentPanel({
                     turn={turn}
                     live={running && index === turns.length - 1}
                     onStop={() => void chat.stop()}
-                    onRetry={() => void chat.send(turn.message, turn.attachments.map(({ file }) => file))}
+                    onRetry={() => void chat.send(turn.message, turn.attachments.map(({ file }) => file), turn.mode)}
                     onSwitchAgent={focusPicker}
                     onAskToFix={(reason) => {
                       setDraft(`The last run's changes failed schema validation and were rolled back:\n${reason}\nPlease try again and keep the project valid.`);
                       attachments.replace(turn.attachments.map(({ file }) => file));
                       composer.current?.focus();
                     }}
+                    onApplyFindings={() => {
+                      setDraft(criticFixDraft(turn));
+                      composer.current?.focus();
+                    }}
                   />
                 ))}
               </ol>
+            ) : null}
+            {chat.criticOffered && phase === "idle" ? (
+              <section aria-label="Critic review" className={cx(agentBox, "flex flex-col gap-2 p-2.5 text-xs")}>
+                <p className="text-[12.5px] leading-normal">
+                  Want a second opinion? The critic exports the set, reviews it against store best practices, and changes nothing.
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" className={agentButton} disabled={!canCritique} onClick={() => void chat.critique()}>Run critic</button>
+                  <button type="button" className={editorUi.buttonSecondary} onClick={chat.dismissCritic}>Not now</button>
+                </div>
+              </section>
             ) : null}
           </div>
           <form

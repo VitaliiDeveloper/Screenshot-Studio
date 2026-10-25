@@ -30,6 +30,14 @@ the CLI initialization path.
 
 For a ready-made look, follow the generated guide's "Recipe: choose a style".
 
+## Make it sell
+
+When the user wants marketing-grade screenshots, a livelier look, or a restyle from a reference
+image, read [`references/art-direction.md`](references/art-direction.md) before editing. It covers
+the slide story, copy rules, a pattern catalog built only from schema fields, and the export-and-look
+loop. When the set is done, offer the read-only critic in
+[`references/critic.md`](references/critic.md) and run it only if the user agrees.
+
 ## Boundaries
 
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the

@@ -421,6 +421,31 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(CHANGED_PROJECT);
   });
 
+  it("rolls back a critic run that changed the project and keeps the reviewed run's undo", async () => {
+    const projectFile = join(projectDir, "app-store-screenshots.json");
+    await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+    await collect(await start());
+    const outcome = await pendingAgentOutcome(projectDir);
+    expect(outcome).not.toBeNull();
+
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    const unchanged = await collect(await start({ mode: "critic" }));
+    expect(unchanged.at(-2)).toEqual(ACCEPTED);
+    expect(await pendingAgentOutcome(projectDir)).toEqual(outcome);
+
+    await writeFile(join(root, "critic.json"), JSON.stringify({ ...CHANGED_PROJECT, meta: { ...CHANGED_PROJECT.meta, name: "Critic" } }));
+    await fakeClaude(`/bin/cp '${root}/critic.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
+    const changed = await collect(await start({ mode: "critic" }));
+    expect(changed.at(-2)).toMatchObject({ type: "result", status: "rejected", changed: false, reason: expect.stringContaining("read-only") });
+    expect(changed.at(-1)).toMatchObject({ type: "done", status: "failed" });
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(CHANGED_PROJECT));
+    const kept = await pendingAgentOutcome(projectDir);
+    expect(kept).toEqual({ ...outcome, revision: (changed.at(-2) as { revision: string }).revision });
+
+    expect(await undoAgentOutcome(projectDir)).toEqual(kept);
+    expect(JSON.parse(await readFile(projectFile, "utf8"))).toEqual(parseProject(PROJECT));
+  });
+
   it("refuses editor writes during a run, and a new run supersedes a pending undo", async () => {
     await fakeClaude(`/bin/cp '${root}/changed.json' app-store-screenshots.json; /bin/cat '${SUCCESS_FIXTURE}'`);
     await collect(await start());

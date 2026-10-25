@@ -3,10 +3,12 @@ import { dirname } from "node:path";
 import { errorText } from "@screenshot-studio/core/storage";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 import {
+  AGENT_RUN_MODES,
   AgentRunError,
   cancelAgentRun,
   startAgentRun,
   type AgentRun,
+  type AgentRunMode,
   type AgentRunOptions,
 } from "@web/lib/agents/agent-session.server.js";
 import {
@@ -31,6 +33,7 @@ const BODY_LIMIT = MAX_AGENT_ATTACHMENTS * MAX_AGENT_ATTACHMENT_BYTES + 256 * 10
 interface SessionInput {
   agentId: unknown;
   message: unknown;
+  mode: unknown;
   model: unknown;
   effort: unknown;
   files: unknown[];
@@ -67,6 +70,7 @@ async function readInput(req: Request): Promise<SessionInput | null> {
     return form && {
       agentId: form.get("agentId"),
       message: form.get("message"),
+      mode: form.get("mode"),
       model: form.get("model"),
       effort: form.get("effort"),
       files: form.getAll("image"),
@@ -74,7 +78,7 @@ async function readInput(req: Request): Promise<SessionInput | null> {
   }
   const body: unknown = await req.json().catch(() => null);
   return isRecord(body)
-    ? { agentId: body.agentId, message: body.message, model: body.model, effort: body.effort, files: [] }
+    ? { agentId: body.agentId, message: body.message, mode: body.mode, model: body.model, effort: body.effort, files: [] }
     : null;
 }
 
@@ -139,6 +143,9 @@ export async function handleAgentSessionPost(
   if (typeof input.message !== "string" || !input.message.trim() || input.message.length > MESSAGE_LIMIT) {
     return jsonError(400, `message must be non-empty text of at most ${MESSAGE_LIMIT} characters`);
   }
+  if (input.mode != null && !AGENT_RUN_MODES.includes(input.mode as AgentRunMode)) {
+    return jsonError(400, `mode must be one of ${AGENT_RUN_MODES.join(", ")}`);
+  }
   if (input.model != null && typeof input.model !== "string") return jsonError(400, "model must be a string");
   if (input.effort != null && typeof input.effort !== "string") return jsonError(400, "effort must be a string");
   const { heartbeatMs = HEARTBEAT_MS, ...runOptions } = dependencies;
@@ -147,6 +154,7 @@ export async function handleAgentSessionPost(
       ...runOptions,
       agentId: input.agentId,
       message: input.message,
+      mode: (input.mode ?? "edit") as AgentRunMode,
       model: input.model ?? null,
       effort: input.effort ?? null,
       attachments,
