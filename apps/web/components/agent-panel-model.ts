@@ -3,7 +3,7 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Project } from "@screenshot-studio/core/model";
 import { attachmentProblem, SNIFF_BYTES } from "@web/lib/agents/agent-attachments";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
-import type { AgentEvent, AgentOtherFiles, AgentStep } from "@web/lib/agents/agent-session.server";
+import type { AgentEvent, AgentOtherFiles, AgentRunMode, AgentStep } from "@web/lib/agents/agent-session.server";
 import { compactScreenSizeLabel } from "@web/lib/panel-helpers";
 
 export type AgentResult = Extract<AgentEvent, { type: "result" }>;
@@ -21,6 +21,7 @@ export interface AgentTurn {
   id: number;
   agentName: string;
   message: string;
+  mode: AgentRunMode;
   attachments: AgentTurnAttachment[];
   text: string[];
   steps: AgentStep[];
@@ -40,9 +41,10 @@ export function createAgentTurn(
   agentName: string,
   message: string,
   attachments: AgentTurnAttachment[] = [],
+  mode: AgentRunMode = "edit",
 ): AgentTurn {
   return {
-    id, agentName, message, attachments, text: [], steps: [], command: null,
+    id, agentName, message, mode, attachments, text: [], steps: [], command: null,
     error: null, result: null, done: null, stopped: false, restored: false,
   };
 }
@@ -101,12 +103,41 @@ export function turnProgressLabel(turn: AgentTurn): string {
   return `Running · step ${current >= 0 ? current + 1 : Math.min(completed + 1, total)} of ${total}`;
 }
 
+/** The critic turn's message; its rules live in the skill's `references/critic.md`. */
+export const CRITIC_REQUEST = "Review this screenshot set as the critic and report what to fix.";
+
+/** Starting points for the composer. They prefill it and never send, so the user can edit them. */
+export const AGENT_QUICK_ACTIONS: readonly { label: string; prompt: string }[] = [
+  {
+    label: "Make it sell",
+    prompt: "Redesign this screenshot set so it sells in the store: an outcome-first story, short benefit headlines, and varied layouts from the art-direction guide. Keep my captures and app facts.",
+  },
+  {
+    label: "Write store copy",
+    prompt: "Rewrite the headlines and sublines as short, outcome-first store copy that uses the words people search for. Change only the text.",
+  },
+  {
+    label: "Match a reference",
+    prompt: "Restyle this set after the attached reference image: match its layout, device treatment, and colour, but keep my captures, copy, and fonts.",
+  },
+];
+
+// Leaves room under the session route's 20,000-character message limit for the request around it.
+const CRITIC_REPORT_LIMIT = 18_000;
+
+/** An edit request carrying the critic's report; each run starts fresh, so the report travels with it. */
+export function criticFixDraft(turn: AgentTurn): string {
+  const report = (turn.text.at(-1) ?? turn.done?.summary ?? "").slice(0, CRITIC_REPORT_LIMIT);
+  return `Apply these critic findings to the project, following the art-direction guide. Delete any finding you want to skip before sending.\n\n${report}`;
+}
+
 export type TurnOutcome =
   | { kind: "limit"; resets: string | null; unchanged: boolean }
   | { kind: "rejected"; reason: string }
   | { kind: "stopped"; restored: boolean }
   | { kind: "error"; message: string }
   | { kind: "changed"; count: number }
+  | { kind: "critique" }
   | { kind: "unchanged" };
 
 /** How a finished turn ended (mockup 7c); null while it still runs. */
@@ -114,9 +145,14 @@ export function turnOutcome(turn: AgentTurn): TurnOutcome | null {
   if (!turn.done) return null;
   const { error, result } = turn;
   if (error?.code === "usage-limit") return { kind: "limit", resets: error.resets, unchanged: result?.changed === false };
-  if (result?.status === "rejected") return { kind: "rejected", reason: result.reason ?? "The project failed schema validation." };
+  if (result?.status === "rejected") {
+    return turn.mode === "critic"
+      ? { kind: "error", message: "The critic changed the project, which it must not do. The project is back to its state before the review." }
+      : { kind: "rejected", reason: result.reason ?? "The project failed schema validation." };
+  }
   if (turn.done?.status === "cancelled") return { kind: "stopped", restored: turn.restored || result?.changed !== true };
   if (error) return { kind: "error", message: error.message };
+  if (turn.mode === "critic") return { kind: "critique" };
   if (result?.changed) return { kind: "changed", count: result.changedScreens.length };
   return { kind: "unchanged" };
 }

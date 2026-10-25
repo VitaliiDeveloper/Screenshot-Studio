@@ -413,6 +413,16 @@ snapshot; **Undo run** restores it as one write and is refused once the project 
 run. Undo run covers only `app-store-screenshots.json`, and ⌘Z history starts fresh after the
 reload. A review survives an editor reload while the server still holds the snapshot.
 
+An empty chat shows **Suggestions**: **Make it sell**, **Write store copy**, and **Match a
+reference** prefill the composer with an editable request and never send it; **Critique my set**
+starts a critic run. After **Keep changes**, the chat asks once whether to get a second opinion:
+**Run critic** starts a critic run and **Not now** dismisses the offer; sending anything else, Undo
+run, or New chat drops it. A critic run uses the selected agent under read-only rules: it exports the
+set, reviews the PNGs, and reports findings in its message. Its message ends with **Apply findings**,
+which prefills the composer with the report as an ordinary edit request, so the user deletes the
+findings to skip before sending. A critic that changed the project is rolled back and its message
+says so with **Retry**.
+
 Whenever a run changed files in the project folder outside `app-store-screenshots.json` (an agent's
 own edits, or the CLI's imported images, fonts, themes, and templates), the finished message and the
 Review list them under **Other files · N** with each path and `added`, `changed`, or `removed`

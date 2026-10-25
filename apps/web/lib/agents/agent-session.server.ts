@@ -21,6 +21,7 @@ import {
   spawnAgentProcess,
   type AgentDefinition,
 } from "./agents.server.js";
+import { skillReference } from "./agent-adapter.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
@@ -86,8 +87,13 @@ export interface AgentRunContext {
   codexAuthStore: CodexAuthStore | null;
 }
 
+/** `critic` reviews the exported set and must not change the project; a change it makes is rolled back. */
+export const AGENT_RUN_MODES = ["edit", "critic"] as const;
+export type AgentRunMode = (typeof AGENT_RUN_MODES)[number];
+
 export interface AgentRunRequest {
   message: string;
+  mode: AgentRunMode;
   model: string | null;
   effort: string | null;
   context: AgentRunContext;
@@ -118,6 +124,8 @@ export interface AgentRunOptions {
   agentId: string;
   projectDir: string;
   message: string;
+  /** `edit` when omitted. */
+  mode?: AgentRunMode;
   model?: string | null;
   effort?: string | null;
   /** Validated images for this request only; written to a temporary folder once the run is admitted. */
@@ -168,6 +176,7 @@ const STDERR_LIMIT = 64 * 1024;
 const FOLDER_SCAN_LIMIT = 5_000;
 const OTHER_FILES_LIMIT = 50;
 const AGENT_GUIDES = ["AGENTS.md", "CLAUDE.md"];
+const CRITIC_CHANGED_REASON = "The critic changed the project, but a critic run is read-only";
 const ACTIVE_RUNS_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-runs");
 const EDITOR_WRITES_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-editor-writes");
 const OUTCOMES_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-outcomes");
@@ -355,18 +364,24 @@ async function otherFileChanges(projectDir: string, before: FolderManifest | nul
 /**
  * The verdict on the project file after the agent exited: a document the strict schema rejects
  * (or a missing one) is rolled back to the pre-run snapshot; a valid one becomes the pending outcome
- * the chat can keep or undo. Either way the result lists the other files the run left changed.
+ * the chat can keep or undo. A critic run that changed the project is rolled back too, and it never
+ * replaces the pending outcome of the run it reviewed. Either way the result lists the other files
+ * the run left changed.
  */
 async function settleRun(
   projectDir: string,
   snapshot: ProjectSnapshot,
   folderBefore: FolderManifest | null,
   status: AgentDoneStatus,
+  mode: AgentRunMode,
 ): Promise<SettledRun> {
   const projectFile = join(projectDir, PROJECT_FILE_NAME);
   const otherFiles = await otherFileChanges(projectDir, folderBefore);
   const rejected = (reason: string, restored: ProjectSnapshot): SettledRun => {
-    pendingOutcomes().delete(projectDir);
+    const pending = pendingOutcomes().get(projectDir);
+    if (mode === "edit") pendingOutcomes().delete(projectDir);
+    // The restore rewrites the reviewed run's state, so Undo follows it to the rewritten revision.
+    else if (pending?.outcome.revision === snapshot.revision) pending.outcome = { ...pending.outcome, revision: restored.revision };
     return {
       result: {
         type: "result", status: "rejected", reason, changed: false, changedScreens: [], revision: restored.revision, otherFiles,
@@ -383,7 +398,11 @@ async function settleRun(
   // killed mid-write leaves its lock until it goes stale, so the wait outlasts the stale window.
   const verdict = await withProjectMutation(projectFile, async () => {
     try {
-      return { valid: true as const, current: await readProjectSnapshot(projectFile) };
+      const current = await readProjectSnapshot(projectFile);
+      if (mode === "critic" && current.revision !== snapshot.revision) {
+        return { valid: false as const, reason: CRITIC_CHANGED_REASON, restored: await writeProjectAtomic(projectFile, snapshot.project) };
+      }
+      return { valid: true as const, current };
     } catch (error) {
       return { valid: false as const, reason: errorText(error), restored: await writeProjectAtomic(projectFile, snapshot.project) };
     }
@@ -397,7 +416,7 @@ async function settleRun(
       snapshot: snapshot.project,
       outcome: { revision: current.revision, changedScreens, otherFiles, finishedAt: new Date().toISOString() },
     });
-  } else {
+  } else if (mode === "edit") {
     pendingOutcomes().delete(projectDir);
   }
   return {
@@ -406,11 +425,15 @@ async function settleRun(
   };
 }
 
+function bundledSkillPath(): string {
+  return join(dirname(resolveStoreSpecsPath()), "skills", "screenshot-studio", "SKILL.md");
+}
+
 function runContext(projectDir: string, codexAuthStore: CodexAuthStore | null): AgentRunContext {
   const agentGuidePath = join(projectDir, "AGENTS.md");
   const hasAgentGuide = existsSync(agentGuidePath);
   const appRoot = dirname(resolveStoreSpecsPath());
-  const skillPath = join(appRoot, "skills", "screenshot-studio", "SKILL.md");
+  const skillPath = bundledSkillPath();
   // Editor-created projects have no AGENTS.md. A checkout keeps the guide in the CLI source; the
   // packaged CLI copies it to dist/, beside the runtime/ folder that holds store-specs.json.
   const bundledGuidePath = hasAgentGuide ? null : [
@@ -462,6 +485,10 @@ async function runnableDefinition(options: AgentRunOptions): Promise<{ definitio
  */
 export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun> {
   const { definition, adapter } = await runnableDefinition(options);
+  const mode = options.mode ?? "edit";
+  if (mode === "critic" && !existsSync(skillReference(bundledSkillPath(), "critic.md"))) {
+    throw new AgentRunError(409, "critic-unavailable", "The critic rules are not installed with this app");
+  }
   const projectDir = await realpath(options.projectDir);
   const runs = activeRuns();
   if (runs.has(projectDir)) {
@@ -510,10 +537,11 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       if (folder.dir) await removeRunFolder(folder.dir);
       return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
     }
-    // A new run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
-    pendingOutcomes().delete(projectDir);
+    // A new edit run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
+    if (mode === "edit") pendingOutcomes().delete(projectDir);
     const request: AgentRunRequest = {
       message: options.message,
+      mode,
       model: options.model ?? null,
       effort: options.effort ?? null,
       context: runContext(projectDir, codexAuthStore),
@@ -523,7 +551,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       projectDir,
       env: agentEnv(options.env),
       timeoutMs: options.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
-      settle: (doneStatus) => settleRun(projectDir, snapshot, folderBefore, doneStatus),
+      settle: (doneStatus) => settleRun(projectDir, snapshot, folderBefore, doneStatus, mode),
       // The process tree is dead by now, so nothing still reads the images.
       release: () => {
         runs.delete(projectDir);

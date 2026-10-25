@@ -309,6 +309,9 @@ otherwise uses `preferredExportLayoutId`.
 That guide teaches literal layout, copy, localization, local asset processing, a list-pick-edit
 "choose a style" flow over built-in packs, and schema guardrails without adding provider state or an
 AI dependency. The optional repository skill only discovers or initializes such a project, then defers to its generated guide.
+Its `references/` hold the art-direction guide (slide story, copy rules, and a pattern catalog limited
+to existing schema fields, with an export-and-look loop) and the read-only critic rubric; both are
+instructions, never project state.
 
 The editor may run an official agent CLI that the user installed and signed in to with their own
 subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
@@ -401,6 +404,17 @@ commands (imported images, fonts, themes, templates, exports) are listed the sam
 rejected verdict, Undo run, nor Stop restores these files; the pending outcome keeps the list for the
 review. A run cancelled before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
 per change; snapshots live in server memory, so a restart drops a pending undo.
+
+A session request may set `mode: "critic"` (default `edit`; any other value is `400`). The critic
+gets the same agent, sandbox, and tool restrictions, but its instructions point at the skill's
+read-only `references/critic.md` instead of `references/art-direction.md`, and the run is refused
+with `409 critic-unavailable` when that file is missing. The server looks for the skill beside the
+store specs, so the packed CLI ships `SKILL.md` and both references under `runtime/skills/` (a
+custom `--store-specs` path leaves them out). Read-only is enforced by the verdict, not by
+the sandbox, because the critic must export to see the set: a critic run that changed or broke
+`app-store-screenshots.json` is restored from its snapshot as `result: rejected`. A critic run never
+drops or replaces the pending outcome of the run it reviews; after such a restore that outcome's
+revision follows the rewritten file, so Undo run still works. Its exports are listed in `otherFiles`.
 
 The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts
 `apps/web/node_modules/.bin` first, and its `screenshots` runs `packages/cli/bin/screenshots.mjs`. That
