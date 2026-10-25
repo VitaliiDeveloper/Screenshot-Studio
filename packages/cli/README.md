@@ -63,6 +63,16 @@ Project before an atomic write:
 - `element media <screen> <element> <path>` assigns an existing project-relative PNG, JPEG, or WebP
   file to a screenshot, image, or device-frame leaf. On a device frame this is the screenshot inside
   the frame; the frame preset and geometry stay unchanged.
+- `element get <screen> <element>` and `screen show <id>` print the full element or screen as JSON.
+- `element set <screen> <element> --json '<patch>'` applies the same per-type field patch as the
+  editor inspector, including nested group children. Unknown fields are rejected, `null` removes an
+  optional field such as `shadow` or `role`, text fonts must be registered, and `assetUrl` must name
+  an existing project image. Resizing a group scales its children like the editor does.
+- `element add <screen> --type <text|shape|screenshot|image|icon|device-frame> [--json '<props>']`
+  appends a core-default element on top of the stack, then applies the props as a patch.
+  Screenshot and image elements need an `assetUrl`.
+- `element rm <screen> <element>` removes a leaf or group; removing a group's last child removes the group.
+- `screen set <id> --background '<json>'` replaces one screen's solid, linear-gradient, or image background.
 
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
 The artifact carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Presence
