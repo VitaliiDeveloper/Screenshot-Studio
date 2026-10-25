@@ -79,7 +79,8 @@ Select a device frame to adjust its transform, screenshot content, and frame pre
 
 ![Screenshot Studio device frame inspector](docs/images/readme/device-frame-inspector.png)
 
-Select a screen to manage destinations, synchronized structure, exact output sizes, and background.
+Add exact store sizes from the sizes bar, then select a screen to manage its synchronized structure
+and background.
 
 ![Screenshot Studio screen and output variants](docs/images/readme/screen-variants.png)
 
