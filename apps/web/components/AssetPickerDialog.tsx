@@ -236,7 +236,7 @@ export function AssetPickerDialog({
     >
       <div className="mb-4 flex items-center gap-2">
         <label className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} strokeWidth={1.9} />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--editor-color-text-subtle)]" size={15} strokeWidth={1.9} />
           <input
             type="search"
             aria-label="Search project assets"
@@ -274,7 +274,7 @@ export function AssetPickerDialog({
       {error ? (
         <StatusMessage tone="error">{error}</StatusMessage>
       ) : assets === null ? (
-        <p role="status" className="grid flex-1 place-items-center text-center text-xs text-slate-500">Scanning project images…</p>
+        <p role="status" className="grid flex-1 place-items-center text-center text-xs text-[color:var(--editor-color-text-secondary)]">Scanning project images…</p>
       ) : visibleAssets.length === 0 ? (
         <EmptyResourceState
           icon={FolderOpen}
@@ -292,10 +292,10 @@ export function AssetPickerDialog({
               type="button"
               aria-label={`Use ${asset.path}`}
               disabled={uploading || isClosing}
-              className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+              className="group overflow-hidden rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] text-left shadow-sm transition hover:border-[var(--editor-color-accent-border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]"
               onClick={() => { void cacheAndInsert(asset.path); }}
             >
-              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,#f8fafc_25%,transparent_25%),linear-gradient(-45deg,#f8fafc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f8fafc_75%),linear-gradient(-45deg,transparent_75%,#f8fafc_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
+              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--editor-color-surface-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--editor-color-surface-muted)_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
                 <NextImage
                   src={resolveActiveProjectAssetUrl(asset.path)}
                   alt=""
@@ -306,13 +306,13 @@ export function AssetPickerDialog({
                   draggable={false}
                   className="size-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
                 />
-                <span className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-lg bg-white/90 text-slate-600 shadow-sm backdrop-blur">
+                <span className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-lg bg-[var(--editor-color-surface-translucent-strong)] text-[color:var(--editor-color-text-muted)] shadow-sm backdrop-blur">
                   {isFrame ? <Smartphone size={14} strokeWidth={1.8} /> : <ImageIcon size={14} strokeWidth={1.8} />}
                 </span>
               </span>
               <span className="block p-3">
-                <span className="block truncate text-xs font-semibold text-slate-800">{asset.name}</span>
-                <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">{asset.path}</span>
+                <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text)]">{asset.name}</span>
+                <span className="mt-1 block truncate font-mono text-[10px] text-[color:var(--editor-color-text-subtle)]">{asset.path}</span>
               </span>
             </button>
           ))}

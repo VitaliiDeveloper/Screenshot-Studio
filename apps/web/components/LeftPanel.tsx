@@ -83,8 +83,8 @@ function AddCatalogRow({ item, onAction }: { item: AddCatalogItem; onAction: (it
       aria-label={item.action === "insert-text" ? "+ Text" : item.action === "insert-shape" ? "+ Shape" : item.label}
       disabled={unavailable}
       className={cx(
-        "group flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70",
-        unavailable ? "cursor-not-allowed text-slate-400" : "text-slate-700 hover:bg-slate-100 hover:text-slate-950",
+        "group flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]",
+        unavailable ? "cursor-not-allowed text-[color:var(--editor-color-text-subtle)]" : "text-[color:var(--editor-color-text-default)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]",
       )}
       title={item.hint}
       onClick={() => onAction(item)}
@@ -92,9 +92,9 @@ function AddCatalogRow({ item, onAction }: { item: AddCatalogItem; onAction: (it
       <Icon size={18} strokeWidth={1.75} className="shrink-0" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium">{item.label}</span>
-        {item.hint ? <span className="block truncate text-[10px] text-slate-600">{item.hint}</span> : null}
+        {item.hint ? <span className="block truncate text-[10px] text-[color:var(--editor-color-text-muted)]">{item.hint}</span> : null}
       </span>
-      {item.shortcut ? <kbd className="text-[10px] font-medium text-slate-600">{item.shortcut}</kbd> : null}
+      {item.shortcut ? <kbd className="text-[10px] font-medium text-[color:var(--editor-color-text-muted)]">{item.shortcut}</kbd> : null}
     </button>
   );
 }
@@ -156,16 +156,16 @@ function AddPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-slate-200 p-3">
+      <div className="border-b border-[var(--editor-color-border)] p-3">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} strokeWidth={1.9} />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--editor-color-text-subtle)]" size={15} strokeWidth={1.9} />
           <input
             type="search"
             aria-label="Search add catalog"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search add…"
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-800 shadow-sm outline-none transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15"
+            className="h-10 w-full rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] pl-9 pr-3 text-xs text-[color:var(--editor-color-text)] shadow-sm outline-none transition-colors placeholder:text-[color:var(--editor-color-text-subtle)] hover:border-[var(--editor-color-border-strong)] focus:border-[var(--editor-color-focus-border)] focus:ring-2 focus:ring-[var(--editor-color-focus-subtle)]"
           />
         </label>
       </div>
@@ -174,14 +174,14 @@ function AddPanel({
           const rows = items.filter((item) => item.category === category);
           if (rows.length === 0) return null;
           return (
-            <section key={category} className="border-b border-slate-100 py-3 last:border-b-0">
+            <section key={category} className="border-b border-[var(--editor-color-border-subtle)] py-3 last:border-b-0">
               <h3 className={`mb-1 px-2.5 ${editorUi.sectionLabel}`}>{category}</h3>
               {rows.map((item) => <AddCatalogRow key={item.id} item={item} onAction={onAction} />)}
             </section>
           );
         })}
         {items.length === 0 ? (
-          <p className="px-3 py-8 text-center text-xs leading-5 text-slate-500">No elements match “{query}”.</p>
+          <p className="px-3 py-8 text-center text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">No elements match “{query}”.</p>
         ) : null}
       </div>
     </div>

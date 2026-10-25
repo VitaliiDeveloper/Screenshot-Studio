@@ -64,11 +64,11 @@ export function InspectorTabs({
             tabIndex={selected ? 0 : -1}
             title={empty ? "Select a layer to edit it" : undefined}
             className={cx(
-              "flex items-center justify-center gap-1.5 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500/70",
-              selected ? "text-slate-950"
+              "flex items-center justify-center gap-1.5 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]",
+              selected ? "text-[color:var(--editor-color-text-strong)]"
                 // Dimmed but still AA on white: the tab stays usable and only shows a hint.
-                : empty ? "text-slate-500 hover:text-slate-700"
-                  : "text-slate-600 hover:text-slate-900",
+                : empty ? "text-[color:var(--editor-color-text-secondary)] hover:text-[color:var(--editor-color-text-default)]"
+                  : "text-[color:var(--editor-color-text-muted)] hover:text-[color:var(--editor-color-text-strong)]",
             )}
             onClick={() => onSelect(value)}
           >
@@ -76,7 +76,7 @@ export function InspectorTabs({
               aria-hidden="true"
               size={14}
               strokeWidth={1.8}
-              className={selected ? "text-blue-600" : "text-slate-400"}
+              className={selected ? "text-[color:var(--editor-color-accent-text)]" : "text-[color:var(--editor-color-text-subtle)]"}
             />
             {label}
           </button>
@@ -85,7 +85,7 @@ export function InspectorTabs({
       {/* Equal halves let the indicator slide by its own width, with no measuring. */}
       <span
         aria-hidden="true"
-        className="absolute -bottom-px left-0 h-0.5 w-1/2 rounded-full bg-blue-600 transition-transform duration-200 ease-[var(--editor-motion-ease)]"
+        className="absolute -bottom-px left-0 h-0.5 w-1/2 rounded-full bg-[var(--editor-color-accent)] transition-transform duration-200 ease-[var(--editor-motion-ease)]"
         style={{ transform: `translateX(${index * 100}%)` }}
       />
     </div>

@@ -34,7 +34,7 @@ function DesignPackSample({ pack }: { pack: DesignPack }) {
     <div
       aria-hidden="true"
       data-testid={`design-pack-sample-${pack.id}`}
-      className="flex aspect-[9/16] w-24 shrink-0 flex-col gap-1.5 overflow-hidden rounded-xl border border-black/10 p-2.5 shadow-inner"
+      className="flex aspect-[9/16] w-24 shrink-0 flex-col gap-1.5 overflow-hidden rounded-xl border border-[var(--editor-color-swatch-outline)] p-2.5 shadow-inner"
       style={background}
     >
       <span className="h-1 w-6 rounded-full" style={{ backgroundColor: pack.palette.accent }} />
@@ -140,7 +140,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
       widthClass="max-w-2xl"
     >
       {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
-      {loading ? <p className="text-xs text-slate-500">Loading design packs…</p> : null}
+      {loading ? <p className="text-xs text-[color:var(--editor-color-text-secondary)]">Loading design packs…</p> : null}
       {!loading ? <h3 className={`mb-2 ${editorUi.sectionLabel}`}>Built-in packs</h3> : null}
       <div className="flex flex-col gap-3">
         {builtIns.map((pack) => {
@@ -151,14 +151,14 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
                 <DesignPackSample pack={pack} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Built-in</span>
+                    <h4 className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{pack.name}</h4>
+                    <span className="rounded-md bg-[var(--editor-color-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[color:var(--editor-color-text-secondary)]">Built-in</span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
-                  <p className="mt-3 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[color:var(--editor-color-text-secondary)]">{pack.description}</p>
+                  <p className="mt-3 text-xs text-[color:var(--editor-color-text-secondary)]">
                     Type: {pack.typography.heading.family} {pack.typography.heading.weight} · Heading {percent(pack.typography.heading.sizeRatio)} / body {percent(pack.typography.body.sizeRatio)} of the short side
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">Replaces every screen background in this layout.</p>
+                  <p className="mt-1 text-xs text-[color:var(--editor-color-text-secondary)]">Replaces every screen background in this layout.</p>
                 </div>
                 <button className={`${editorUi.buttonPrimary} w-full sm:w-auto`} disabled={applying !== null} onClick={() => apply(pack.id, "built-in")}>
                   {applying === operationId ? "Applying…" : "Apply pack"}
@@ -171,7 +171,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
 
       {!loading ? <h3 className={`mb-2 mt-6 ${editorUi.sectionLabel}`}>Screen packs</h3> : null}
       {!loading && compatiblePacks.length === 0 ? (
-        <p className="text-xs text-slate-500">No built-in screen packs for the active screen&apos;s output family yet.</p>
+        <p className="text-xs text-[color:var(--editor-color-text-secondary)]">No built-in screen packs for the active screen&apos;s output family yet.</p>
       ) : null}
       <div className="flex flex-col gap-3">
         {compatiblePacks.map((pack) => (
@@ -179,13 +179,13 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
-                  <h4 className="text-sm font-semibold text-slate-900">{pack.name}</h4>
+                  <h4 className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{pack.name}</h4>
                   {designPackNames.has(pack.style) ? (
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Style · {designPackNames.get(pack.style)}</span>
+                    <span className="rounded-md bg-[var(--editor-color-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[color:var(--editor-color-text-secondary)]">Style · {designPackNames.get(pack.style)}</span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-xs text-slate-500">{pack.description}</p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[color:var(--editor-color-text-secondary)]">{pack.description}</p>
+                <p className="mt-1 text-xs text-[color:var(--editor-color-text-secondary)]">
                   {pack.panorama && !connected
                     ? `Switch this layout to ${LAYOUT_MODE_LABELS.connected} to add these connected screens.`
                     : `Adds ${pack.screenCount} editable screens in locale ${activeScreen?.locale}.`}
@@ -214,17 +214,17 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
               <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900">{theme.name}</h3>
+                    <h3 className="text-sm font-semibold text-[color:var(--editor-color-text-strong)]">{theme.name}</h3>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {THEME_ROLES.map((role) => (
-                      <div key={role} className="text-[10px] font-medium text-slate-500">
-                        <span className="mb-1 block h-6 rounded-lg border border-black/10 shadow-inner" style={{ backgroundColor: theme.colors[role] }} />
+                      <div key={role} className="text-[10px] font-medium text-[color:var(--editor-color-text-secondary)]">
+                        <span className="mb-1 block h-6 rounded-lg border border-[var(--editor-color-swatch-outline)] shadow-inner" style={{ backgroundColor: theme.colors[role] }} />
                         {role}
                       </div>
                     ))}
                   </div>
-                  <p className="mt-3 text-xs text-slate-500">
+                  <p className="mt-3 text-xs text-[color:var(--editor-color-text-secondary)]">
                     {THEME_ROLES.flatMap((role) => {
                       const font = theme.fonts[role];
                       return font ? [`${role}: ${font.family} ${font.weight}`] : [];

@@ -26,7 +26,7 @@ export function CanvasPatternSelect({
       options={canvasPatternOptions}
       onChange={onPatternChange}
       className="min-w-28"
-      triggerClassName="!h-8 min-w-28 !border-transparent !shadow-none px-1.5 font-medium text-slate-600 hover:bg-slate-50"
+      triggerClassName="!h-8 min-w-28 !border-transparent !shadow-none px-1.5 font-medium text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-subtle)]"
       menuClassName="w-40"
       showSelectedIcon
     />

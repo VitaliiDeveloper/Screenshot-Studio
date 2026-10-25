@@ -44,7 +44,7 @@ function AgentDot({ ready }: { ready: boolean }) {
 
 const BADGE_TONES = {
   supported: "border-[var(--editor-color-border)] text-[color:var(--editor-color-text-muted)]",
-  "at-own-risk": "border-amber-500/60 bg-amber-500/10 text-[color:var(--editor-color-warning-text)]",
+  "at-own-risk": "border-[var(--editor-color-warning-border-strong)] bg-[var(--editor-color-warning-surface)] text-[color:var(--editor-color-warning-text)]",
   unavailable: "border-[var(--editor-color-border)] bg-[var(--editor-color-surface-muted)] text-[color:var(--editor-color-text-secondary)]",
 } as const;
 
@@ -89,7 +89,7 @@ function SetupLink({ agent }: { agent: AgentStatus }) {
       target="_blank"
       rel="noreferrer"
       aria-label={`Set up ${agent.name}`}
-      className="text-[11px] font-medium text-[color:var(--editor-color-accent)] hover:underline"
+      className="text-[11px] font-medium text-[color:var(--editor-color-accent-text)] hover:underline"
     >
       Setup
     </a>
@@ -103,7 +103,7 @@ function SourceLink({ agent }: { agent: AgentStatus }) {
         href={agent.policy.sourceUrl}
         target="_blank"
         rel="noreferrer"
-        className="font-medium text-[color:var(--editor-color-accent)] hover:underline"
+        className="font-medium text-[color:var(--editor-color-accent-text)] hover:underline"
       >
         Read the terms
       </a>
@@ -222,7 +222,7 @@ function AgentNoticeView({ notice, chat }: { notice: AgentNotice; chat: EditorAg
 
 function StepIcon({ status }: { status: AgentTurn["steps"][number]["status"] }) {
   if (status === "completed") return <Check aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-success)]" />;
-  if (status === "in_progress") return <CircleDot aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-agent)]" />;
+  if (status === "in_progress") return <CircleDot aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-agent-text)]" />;
   return <Circle aria-hidden="true" size={12} className="shrink-0 text-[color:var(--editor-color-text-faint)]" />;
 }
 
@@ -468,7 +468,7 @@ function AgentReview({
             Project passes schema validation
           </p>
           <p className={cx("flex items-center gap-2", issueTotal > 0 ? "text-[color:var(--editor-color-warning-text)]" : "text-[color:var(--editor-color-text-muted)]")}>
-            <span aria-hidden="true" className={cx(dot, issueTotal > 0 ? "bg-amber-500" : "bg-[var(--editor-color-success)]")} />
+            <span aria-hidden="true" className={cx(dot, issueTotal > 0 ? "bg-[var(--editor-color-warning)]" : "bg-[var(--editor-color-success)]")} />
             <span className="flex-1">
               {issueTotal === 0
                 ? "No issues"
