@@ -7,7 +7,7 @@ import {
   type ScreenSetMode,
   type Screen,
 } from "./schema.js";
-import { mirrorElement } from "./element-tree.js";
+import { mirrorElement, mirrorGradientAngle } from "./element-tree.js";
 import { cloneScreenWithFreshIds } from "./project-screen-ops.js";
 import { getLayout, layoutLocales, replaceLayout } from "./project-layout.js";
 import { fitElementsToArtboard } from "./project-artboard-ops.js";
@@ -287,8 +287,11 @@ export function setScreenDirection(screen: Screen, direction: LayoutDirection): 
   if (currentDirection === direction) return ScreenSchema.parse(screen);
 
   const elements = screen.elements.map((element) => mirrorElement(element, screen.artboard.width));
+  const background = screen.background.type === "linear-gradient"
+    ? { ...screen.background, angle: mirrorGradientAngle(screen.background.angle) }
+    : screen.background;
 
-  return ScreenSchema.parse({ ...screen, direction, elements });
+  return ScreenSchema.parse({ ...screen, direction, background, elements });
 }
 
 /** Change every screen in a locale together so the locale set keeps one direction. */
