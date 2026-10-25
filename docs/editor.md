@@ -207,7 +207,10 @@ It shows every size of the layout for the active locale, grouped by output famil
 (`App Store · iPhone`) in layout order with the master first, so in isolated layouts its chips read
 left to right in the order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
 out as the default), its pixels when the slot does not already name them, and its **Master** or
-**Variant** role; its tooltip lists the devices. A family's sizes stay listed when another compatible
+**Variant** role. Its tooltip spells out the App Store Connect group
+(`iPhone with Dynamic Island (medium display)`), the device range with its model count
+(`iPhone 14 Pro – 18 Pro · 8 models`), the full device list, and the pixels; a size the catalog lists
+no devices for shows only its pixels. A family's sizes stay listed when another compatible
 master screen is selected. A chip opens the active slot's screen when that size holds one, else the
 size's first screen, and the current size is marked without a redundant `Current` action.
 **Add size** lists each family's missing sizes under that family and the families the layout lacks
