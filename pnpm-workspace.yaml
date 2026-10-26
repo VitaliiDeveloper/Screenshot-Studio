@@ -12,3 +12,8 @@ overrides:
 allowBuilds:
   esbuild: true
   sharp: true
+# Dev-only: stop `next dev` from broadcasting the new-connection HMR sync to every client, which
+# full-reloads open editor tabs whenever an export's /render pages connect after a rebuild.
+# Re-check upstream and regenerate (`pnpm patch next@<version>`) when bumping Next.
+patchedDependencies:
+  next@16.2.11: patches/next@16.2.11.patch
