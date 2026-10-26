@@ -4,6 +4,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type HTMLAttributes,
@@ -14,10 +15,9 @@ import { clampZoom, type WorkspaceTool } from "@web/lib/editor/editor-workspace"
 import {
   clientToViewportPoint,
   nextAnchoredScroll,
+  nextWheelZoom,
   type ClientPoint,
 } from "./canvas-viewport-model";
-
-const WHEEL_ZOOM_SENSITIVITY = 0.002;
 
 export interface CanvasPanZoomInput {
   viewportRef: RefObject<HTMLDivElement | null>;
@@ -57,6 +57,8 @@ export function useCanvasPanZoom({
   } | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [panning, setPanning] = useState(false);
+  const pendingScrollRef = useRef<{ scrollLeft: number; scrollTop: number } | null>(null);
+  const wheelZoomRef = useRef<number | null>(null);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -72,9 +74,13 @@ export function useCanvasPanZoom({
     const anchor = clientPoint
       ? clientToViewportPoint(viewport.getBoundingClientRect(), clientPoint)
       : { x: leftInset + visibleWidth / 2, y: viewport.clientHeight / 2 };
-    const nextScroll = nextAnchoredScroll({
+    // Pinch fires several events per frame; chain from the target not yet applied to the DOM.
+    const base = pendingScrollRef.current ?? {
       scrollLeft: viewport.scrollLeft,
       scrollTop: viewport.scrollTop,
+    };
+    pendingScrollRef.current = nextAnchoredScroll({
+      ...base,
       anchor,
       previousZoom: previous,
       nextZoom: next,
@@ -82,11 +88,17 @@ export function useCanvasPanZoom({
 
     zoomRef.current = next;
     onZoomChange(next);
-    requestAnimationFrame(() => {
-      viewport.scrollLeft = nextScroll.scrollLeft;
-      viewport.scrollTop = nextScroll.scrollTop;
-    });
   }, [leftInset, onZoomChange, rightInset, viewportRef, zoomRef]);
+
+  // Apply after the resized content commits, or the browser clamps scroll to the old extent.
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const pending = pendingScrollRef.current;
+    pendingScrollRef.current = null;
+    if (!viewport || !pending) return;
+    viewport.scrollLeft = pending.scrollLeft;
+    viewport.scrollTop = pending.scrollTop;
+  }, [viewportRef, zoom]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -94,10 +106,12 @@ export function useCanvasPanZoom({
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      zoomAt(
-        zoomRef.current * Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY),
-        { x: event.clientX, y: event.clientY },
-      );
+      wheelZoomRef.current = nextWheelZoom({
+        zoom: zoomRef.current,
+        unrounded: wheelZoomRef.current,
+        deltaY: event.deltaY,
+      });
+      zoomAt(wheelZoomRef.current, { x: event.clientX, y: event.clientY });
     };
     viewport.addEventListener("wheel", onWheel, { passive: false });
     return () => viewport.removeEventListener("wheel", onWheel);
