@@ -16,6 +16,7 @@ import {
   type AgentResult,
   type AgentTurn,
 } from "@web/components/agent-panel-model";
+import { readAgentChat, readAgentChoice, writeAgentChat, writeAgentChoice } from "@web/components/agent-chat-memory";
 import { projectRequestHeaders } from "@web/lib/clients/save-project";
 import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
@@ -55,7 +56,11 @@ async function postOutcome(action: "keep" | "undo"): Promise<void> {
  * The Agent panel's state. It lives in the Workspace, above its loading screen, because the
  * session route cancels a run when its stream closes: a resource reload or a panel switch must not.
  */
-export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<boolean>) {
+export function useEditorAgentChat(
+  open: boolean,
+  reloadFromDisk: () => Promise<boolean>,
+  projectId: string | null = null,
+) {
   const [agents, setAgents] = useState<AgentStatus[] | null>(null);
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -63,6 +68,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [model, setModel] = useState<string | null>(null);
   const [effort, setEffort] = useState<string | null>(null);
   const [turns, setTurns] = useState<AgentTurn[]>([]);
+  // The project whose stored chat `turns` holds; nothing is written until it is restored.
+  const [chatProjectId, setChatProjectId] = useState<string | null>(null);
   const [phase, setPhase] = useState<AgentChatPhase>("idle");
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
@@ -97,7 +104,13 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       const list = body.agents as AgentStatus[];
       setAgents(list);
       setAgentsError(null);
-      setAgentId((current) => defaultAgentId(list, current));
+      // An explicit pick (Start with agent) wins over the one remembered from an earlier page.
+      const remembered = queued.current ? null : readAgentChoice();
+      setAgentId((current) => defaultAgentId(list, current ?? remembered?.agentId ?? null));
+      if (remembered) {
+        setModel((current) => current ?? remembered.model);
+        setEffort((current) => current ?? remembered.effort);
+      }
     } catch (error) {
       setAgentsError((error as Error).message);
     } finally {
@@ -122,6 +135,22 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     void refreshAgents();
     void loadOutcome();
   }, [loadOutcome, open, refreshAgents]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    // The Workspace remounts per project, so this runs once; a run queued by Start with agent may
+    // already be in `turns`. Negative ids keep restored turns clear of the ids new turns take.
+    const frame = requestAnimationFrame(() => {
+      const restored = readAgentChat(projectId).map((turn, index, all) => ({ ...turn, id: index - all.length }));
+      setTurns((current) => [...restored, ...current]);
+      setChatProjectId(projectId);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (chatProjectId) writeAgentChat(chatProjectId, turns);
+  }, [chatProjectId, turns]);
 
   // Leaving the editor closes the stream, which stops the run on the server.
   useEffect(() => {
@@ -325,7 +354,18 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setModel(null);
     setEffort(null);
     setConsentError(null);
+    writeAgentChoice({ agentId: id, model: null, effort: null });
   }, []);
+
+  const selectModel = useCallback((next: string) => {
+    setModel(next);
+    writeAgentChoice({ agentId: selected?.id ?? null, model: next, effort: selectedEffort });
+  }, [selected, selectedEffort]);
+
+  const selectEffort = useCallback((next: string) => {
+    setEffort(next);
+    writeAgentChoice({ agentId: selected?.id ?? null, model: selectedModel, effort: next });
+  }, [selected, selectedModel]);
 
   const newChat = useCallback(() => {
     if (phase !== "idle") return;
@@ -354,8 +394,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setConsent,
     refreshAgents,
     selectAgent,
-    selectModel: setModel,
-    selectEffort: setEffort,
+    selectModel,
+    selectEffort,
     send,
     critique,
     dismissCritic,
