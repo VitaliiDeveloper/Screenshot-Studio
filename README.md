@@ -223,6 +223,25 @@ keeps each original as a `<previous-size>` variant.
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+## Use an agent in the editor
+
+The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
+project run an official agent CLI that you installed and signed in to with your own subscription.
+
+<img src="docs/images/readme/agent-new-project.png" alt="Screenshot Studio New project dialog with the Start with agent starting point" width="640">
+
+Describe the app, attach app screenshots or a logo, and pick the agent, model, and effort. The agent
+creates the first screens on a blank project. Attached images are sent to the agent's provider with
+your request.
+
+![Screenshot Studio Agent panel after a run](docs/images/readme/agent-panel.png)
+
+After a run the panel shows the agent's result, the screens it changed with **Go to**, and the
+validation checks. **Undo run** restores the project file from the snapshot taken before the run;
+**Keep changes** accepts it.
+
+To drive a project from your own terminal instead, see the next section.
+
 ## Work with your own agent
 
 You can let any coding agent you already use (Claude Code, Codex, Antigravity, Cursor, Copilot, and
