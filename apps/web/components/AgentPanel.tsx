@@ -269,8 +269,8 @@ function TurnOutcomeView({
 }) {
   const outcome = turnOutcome(turn);
   if (!outcome) return null;
-  // A turn from before a reload lost its images, so its actions would resend an incomplete request.
-  const actions = !turn.earlier;
+  // Images do not survive a reload, so resending such a turn would drop them.
+  const actions = turn.droppedImages === 0;
   // Undo and the rollback restore only the project file; say so when other files changed too.
   const project = turn.result && hasOtherFiles(turn.result.otherFiles) ? "project file" : "project";
   switch (outcome.kind) {
@@ -327,11 +327,9 @@ function TurnOutcomeView({
       return (
         <div className="flex flex-col gap-2">
           <p role="status" className={hint}>The critic changed nothing. Pick the findings to apply.</p>
-          {actions ? (
-            <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onApplyFindings}>
-              Apply findings
-            </button>
-          ) : null}
+          <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onApplyFindings}>
+            Apply findings
+          </button>
         </div>
       );
     case "unchanged":

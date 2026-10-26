@@ -378,8 +378,8 @@ text, so the CLI does not remember earlier messages; the history is editor memor
 clears and is never written to the project. The browser tab keeps the latest 30 turns of each
 project's chat text in session storage, so a page reload brings them back under a **Restored after
 the page reloaded** divider; closing the tab drops them. Restored turns keep only a count of their
-images (`2 images not kept after reload`) and show no **Retry**, **Ask agent to fix**, or **Apply
-findings**, and a run the reload cut off reads as failed. A pending edit is saved before the run starts. While
+images (`2 images not kept after reload`); a turn that had images shows no **Retry** or **Ask agent
+to fix**, since those would resend it without them. A run the reload cut off reads as failed. A pending edit is saved before the run starts. While
 the run lasts, its message shows the agent's plan as steps (`Running · step 2 of 3`), whether it is
 `Thinking` or `Changing the project`, the last command it ran, and **Stop**, and a canvas banner
 says `{agent} is editing this project`. Editing pauses for the run: the canvas, Layers, and
