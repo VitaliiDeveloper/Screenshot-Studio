@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { Check, Circle, CircleDot } from "lucide-react";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
@@ -269,6 +269,8 @@ function TurnOutcomeView({
 }) {
   const outcome = turnOutcome(turn);
   if (!outcome) return null;
+  // A turn from before a reload lost its images, so its actions would resend an incomplete request.
+  const actions = !turn.earlier;
   // Undo and the rollback restore only the project file; say so when other files changed too.
   const project = turn.result && hasOtherFiles(turn.result.otherFiles) ? "project file" : "project";
   switch (outcome.kind) {
@@ -279,10 +281,12 @@ function TurnOutcomeView({
             Your {turn.agentName} subscription limit {outcome.resets ? `resets ${outcome.resets}` : "is reached"}.
             {outcome.unchanged ? ` Nothing in the ${project} was changed.` : ""}
           </StatusMessage>
-          <div className="flex gap-2">
-            <button type="button" className={editorUi.buttonSecondary} onClick={onSwitchAgent}>Switch agent</button>
-            <button type="button" className={editorUi.buttonSecondary} onClick={onRetry}>Retry</button>
-          </div>
+          {actions ? (
+            <div className="flex gap-2">
+              <button type="button" className={editorUi.buttonSecondary} onClick={onSwitchAgent}>Switch agent</button>
+              <button type="button" className={editorUi.buttonSecondary} onClick={onRetry}>Retry</button>
+            </div>
+          ) : null}
         </div>
       );
     case "rejected":
@@ -295,9 +299,11 @@ function TurnOutcomeView({
             <summary className="cursor-pointer select-none">Show details</summary>
             <p className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px]">{outcome.reason}</p>
           </details>
-          <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={() => onAskToFix(outcome.reason)}>
-            Ask agent to fix
-          </button>
+          {actions ? (
+            <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={() => onAskToFix(outcome.reason)}>
+              Ask agent to fix
+            </button>
+          ) : null}
         </div>
       );
     case "stopped":
@@ -312,7 +318,7 @@ function TurnOutcomeView({
       return (
         <div className="flex flex-col gap-2">
           <StatusMessage tone="error">{outcome.message}</StatusMessage>
-          <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onRetry}>Retry</button>
+          {actions ? <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onRetry}>Retry</button> : null}
         </div>
       );
     case "changed":
@@ -321,9 +327,11 @@ function TurnOutcomeView({
       return (
         <div className="flex flex-col gap-2">
           <p role="status" className={hint}>The critic changed nothing. Pick the findings to apply.</p>
-          <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onApplyFindings}>
-            Apply findings
-          </button>
+          {actions ? (
+            <button type="button" className={cx(editorUi.buttonSecondary, "self-start")} onClick={onApplyFindings}>
+              Apply findings
+            </button>
+          ) : null}
         </div>
       );
     case "unchanged":
@@ -359,6 +367,11 @@ function TurnView({
             </li>
           ))}
         </ul>
+      ) : null}
+      {turn.droppedImages > 0 ? (
+        <p className={cx(hint, "self-end")}>
+          {turn.droppedImages === 1 ? "1 image" : `${turn.droppedImages} images`} not kept after reload
+        </p>
       ) : null}
       <div className={cx("flex flex-col gap-2 p-2.5 text-xs", live ? agentBox : "")}>
         <span className="sr-only">{turn.agentName}: </span>
@@ -666,23 +679,29 @@ export function AgentPanel({
             {turns.length > 0 ? (
               <ol aria-label="Messages" className="flex flex-col gap-4">
                 {turns.map((turn, index) => (
-                  <TurnView
-                    key={turn.id}
-                    turn={turn}
-                    live={running && index === turns.length - 1}
-                    onStop={() => void chat.stop()}
-                    onRetry={() => void chat.send(turn.message, turn.attachments.map(({ file }) => file), turn.mode)}
-                    onSwitchAgent={focusPicker}
-                    onAskToFix={(reason) => {
-                      setDraft(`The last run's changes failed schema validation and were rolled back:\n${reason}\nPlease try again and keep the project valid.`);
-                      attachments.replace(turn.attachments.map(({ file }) => file));
-                      composer.current?.focus();
-                    }}
-                    onApplyFindings={() => {
-                      setDraft(criticFixDraft(turn));
-                      composer.current?.focus();
-                    }}
-                  />
+                  <Fragment key={turn.id}>
+                    <TurnView
+                      turn={turn}
+                      live={running && index === turns.length - 1}
+                      onStop={() => void chat.stop()}
+                      onRetry={() => void chat.send(turn.message, turn.attachments.map(({ file }) => file), turn.mode)}
+                      onSwitchAgent={focusPicker}
+                      onAskToFix={(reason) => {
+                        setDraft(`The last run's changes failed schema validation and were rolled back:\n${reason}\nPlease try again and keep the project valid.`);
+                        attachments.replace(turn.attachments.map(({ file }) => file));
+                        composer.current?.focus();
+                      }}
+                      onApplyFindings={() => {
+                        setDraft(criticFixDraft(turn));
+                        composer.current?.focus();
+                      }}
+                    />
+                    {turn.earlier && !turns[index + 1]?.earlier ? (
+                      <li role="separator" className={cx(hint, "border-t border-[var(--editor-color-border)] pt-2 text-center")}>
+                        Restored after the page reloaded
+                      </li>
+                    ) : null}
+                  </Fragment>
                 ))}
               </ol>
             ) : null}
