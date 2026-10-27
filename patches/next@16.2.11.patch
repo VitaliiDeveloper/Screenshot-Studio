@@ -1,0 +1,15 @@
+diff --git a/dist/server/dev/hot-middleware.js b/dist/server/dev/hot-middleware.js
+index ca34718ed9d9d95b3a78c5b91bbc63a4fdfe30c2..82d31faec4797bec02fefe1dfe702926512e0a55 100644
+--- a/dist/server/dev/hot-middleware.js
++++ b/dist/server/dev/hot-middleware.js
+@@ -155,7 +155,9 @@ class WebpackHotMiddleware {
+                 if (_devindicatorserverstate.devIndicatorServerState.disabledUntil < Date.now()) {
+                     _devindicatorserverstate.devIndicatorServerState.disabledUntil = 0;
+                 }
+-                this.publish({
++                // Only the new client needs this sync; broadcasting it makes clients that missed a
++                // rebuild see a new hash and full-reload as if the server had restarted.
++                this.publishToClient(client, {
+                     type: _hotreloadertypes.HMR_MESSAGE_SENT_TO_BROWSER.SYNC,
+                     hash: stats.hash,
+                     errors: [

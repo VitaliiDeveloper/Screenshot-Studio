@@ -355,7 +355,9 @@ It runs an official agent CLI that the user installed and signed in to with thei
 the model and effort on the next, from `/api/agents`; each agent lists its sign-in state and version.
 The model trigger names the exact model (**Sonnet 5.5** by default) and the effort trigger the level
 (**High effort** by default, from Low to Max); an agent without listed models shows
-`CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. When the selected agent cannot run, the panel says why and what
+`CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. The browser remembers the last agent, model,
+and effort the user picked for the next page load while the registry still offers them; **Start with
+agent** overrides them. When the selected agent cannot run, the panel says why and what
 to do: **No agent found** when no CLI is installed (each links to its official setup page; the
 editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
 own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
@@ -373,7 +375,11 @@ the message shows as a failed turn with **Retry** instead of being sent.
 
 The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
 text, so the CLI does not remember earlier messages; the history is editor memory that **New chat**
-clears and is never written to the project. A pending edit is saved before the run starts. While
+clears and is never written to the project. The browser tab keeps the latest 30 turns of each
+project's chat text in session storage, so a page reload brings them back under a **Restored after
+the page reloaded** divider; closing the tab drops them. Restored turns keep only a count of their
+images (`2 images not kept after reload`); a turn that had images shows no **Retry** or **Ask agent
+to fix**, since those would resend it without them. A run the reload cut off reads as failed. A pending edit is saved before the run starts. While
 the run lasts, its message shows the agent's plan as steps (`Running · step 2 of 3`), whether it is
 `Thinking` or `Changing the project`, the last command it ran, and **Stop**, and a canvas banner
 says `{agent} is editing this project`. Editing pauses for the run: the canvas, Layers, and

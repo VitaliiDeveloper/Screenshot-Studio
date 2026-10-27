@@ -116,7 +116,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
     if (next !== "structure") setSearchOpen(false);
   }, []);
   const projectNavigation = useEditorProjectNavigation(activeProjectId, workspaceNavigationState);
-  const agentChat = useEditorAgentChat(panel === "agent", reloadFromDisk);
+  const agentChat = useEditorAgentChat(panel === "agent", reloadFromDisk, activeProjectId);
   const agentLocked = agentChat.locked;
   const queueAgentStart = agentChat.queueStart;
   useEditorSaveGuards(saveStatus);
