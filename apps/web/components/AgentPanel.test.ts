@@ -144,6 +144,15 @@ describe("AgentPanel", () => {
     expect(limit).toContain("Switch agent");
     expect(limit).toContain("Retry");
 
+    const earlierLimit = { ...limited.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Add German")), earlier: true, droppedImages: 2 };
+    const restored = render(chat({ turns: [earlierLimit, createAgentTurn(2, "Claude Code", "Now French")] }));
+    expect(restored).toContain("Your Claude Code subscription limit resets 3pm (Europe/Kyiv).");
+    expect(restored).toContain("2 images not kept after reload");
+    expect(restored).toContain('role="separator"');
+    expect(restored).toContain("Restored after the page reloaded");
+    expect(restored).not.toContain("Switch agent");
+    expect(restored).not.toContain(">Retry<");
+
     const rejectedEvents: AgentEvent[] = [
       { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1", otherFiles: { files: [], count: 0 } },
       { type: "done", status: "failed", summary: null, durationMs: 10 },

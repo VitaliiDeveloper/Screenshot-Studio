@@ -34,6 +34,9 @@ export interface AgentTurn {
   stopped: boolean;
   /** Stop undid the run's changes, so the project is back at its pre-run snapshot. */
   restored: boolean;
+  /** Brought back from session storage after a page reload; its images were not kept. */
+  earlier: boolean;
+  droppedImages: number;
 }
 
 export function createAgentTurn(
@@ -45,7 +48,7 @@ export function createAgentTurn(
 ): AgentTurn {
   return {
     id, agentName, message, mode, attachments, text: [], steps: [], command: null,
-    error: null, result: null, done: null, stopped: false, restored: false,
+    error: null, result: null, done: null, stopped: false, restored: false, earlier: false, droppedImages: 0,
   };
 }
 

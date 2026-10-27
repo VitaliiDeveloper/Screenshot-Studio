@@ -166,6 +166,9 @@ overrides:
   next>postcss: 8.5.23
   next>sharp: 0.35.3
 
+patchedDependencies:
+  next@16.2.11: 0b58ac84357913baf05479b774bdbb3060be435883d36098107f85a4fe06e722
+
 importers:
 
   .:
@@ -259,7 +262,7 @@ importers:
         version: 1.26.0(react@19.2.8)
       next:
         specifier: ^16.2.11
-        version: 16.2.11(@babel/core@7.29.7)(@types/node@22.20.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 16.2.11(patch_hash=0b58ac84357913baf05479b774bdbb3060be435883d36098107f85a4fe06e722)(@babel/core@7.29.7)(@types/node@22.20.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       proper-lockfile:
         specifier: 4.1.2
         version: 4.1.2
@@ -3634,7 +3637,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  next@16.2.11(@babel/core@7.29.7)(@types/node@22.20.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  next@16.2.11(patch_hash=0b58ac84357913baf05479b774bdbb3060be435883d36098107f85a4fe06e722)(@babel/core@7.29.7)(@types/node@22.20.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.2.11
       '@swc/helpers': 0.5.15
