@@ -16,6 +16,7 @@ export const COMMAND_FLAG_SPECS = {
     value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile", "browser"],
     boolean: [],
   },
+  check: { value: ["project", "store-specs", "layout"], boolean: ["json", "strict", "render"] },
   screen: {
     value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from", "background"],
     boolean: ["cascade", "json"],

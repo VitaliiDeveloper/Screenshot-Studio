@@ -1,40 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromium, type Browser, type Locator } from "playwright";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
-import { createImageElement, createTextElement } from "@screenshot-studio/core/model";
+import { ISSUES_FIXTURE_IDS, writeIssuesFixture } from "./support/issues-fixture.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-
-// Three explicit lines of 100 px text at line height 1.2 need exactly 360 px. A 240 px box drops
-// the third line; Fit text must land on 66 (3 × 79.2 = 237.6) because 67 needs 241.2 px.
-function stackedText(id: string, y: number, height: number) {
-  return { ...createTextElement({ x: 100, y }), id, content: "A\nB\nC", size: 100, width: 1000, height };
-}
-
-function screen(id: string, name: string, locale: string, elements: unknown[] = []) {
-  return {
-    id,
-    name,
-    platform: "apple",
-    device: "iphone",
-    locale,
-    direction: "ltr",
-    artboard: { width: 1206, height: 2622 },
-    background: { type: "solid", color: "#ffffff" },
-    elements,
-  };
-}
-
-// The 6.9" size of the de Hero slot. The slot lives in a later locale so the first locale has no
-// 6.9" row for the missing-locale check to compare against.
-function variant(id: string, root: string, elements: unknown[]) {
-  return { ...screen(id, "Hero", "de", elements), artboard: { width: 1320, height: 2868 }, variantOf: root, storeTargetId: "6.9" };
-}
+const fixtureSummary =
+  `Issues: ${ISSUES_FIXTURE_IDS.blockers.length} blockers · ${ISSUES_FIXTURE_IDS.warnings.length} warnings`;
 
 let server: RunningServer;
 let browser: Browser;
@@ -43,25 +19,7 @@ let projectPath: string;
 
 beforeAll(async () => {
   directory = mkdtempSync(join(tmpdir(), "editor-issues-"));
-  projectPath = join(directory, "app-store-screenshots.json");
-  mkdirSync(join(directory, "assets"));
-  cpSync(resolve(repoRoot, "fixtures/sample/assets/demo-logistics-app.png"), join(directory, "assets", "replacement.png"));
-  writeFileSync(projectPath, JSON.stringify({
-    meta: { name: "Issues", schemaVersion: 1 },
-    fonts: [],
-    preferredExportLayoutId: "default",
-    layouts: [{
-      id: "default",
-      name: "Default",
-      mode: "isolated",
-      screens: [
-        screen("hero", "Hero", "en", [stackedText("clipped", 100, 240), stackedText("exact", 600, 360)]),
-        screen("details", "Details", "en", [{ ...createImageElement({ assetUrl: "assets/lost.png" }), id: "lost" }]),
-        screen("hero-de", "Hero", "de", [stackedText("de-title", 100, 240)]),
-        variant("hero-de-69", "hero-de", [stackedText("de-title-69", 100, 240)]),
-      ],
-    }],
-  }, null, 2));
+  projectPath = writeIssuesFixture(directory);
   process.env.PROJECT_PATH = projectPath;
   server = await startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") });
   browser = await chromium.launch();
@@ -107,7 +65,7 @@ describe("editor issues", () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
 
-    const issuesButton = page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" });
+    const issuesButton = page.getByRole("button", { name: fixtureSummary });
     await issuesButton.waitFor({ state: "visible" });
     await issuesButton.click();
     const dialog = page.getByRole("dialog", { name: "Issues" });
@@ -151,7 +109,7 @@ describe("editor issues", () => {
     await expect.poll(() => textSize("clipped")).toBe(100);
     await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
 
-    await page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" }).click();
+    await page.getByRole("button", { name: fixtureSummary }).click();
 
     await dialog.getByRole("button", { name: /^Fit text: .* · en$/ }).click();
     await expect.poll(() => textSize("clipped")).toBe(66);

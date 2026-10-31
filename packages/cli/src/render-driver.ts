@@ -9,6 +9,8 @@ import {
   SYSTEM_BROWSER_NAMES,
   type BrowserChoice,
 } from "./browser-setup.js";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
+import { runWithCleanup } from "./cli-runtime.js";
 
 /**
  * The render host's browser-side contract (mirrors apps/web `RenderStage`). These globals are
@@ -20,6 +22,7 @@ declare global {
     __stageReady?: boolean;
     __renderError?: string;
     __exportPng?: (pixelRatio: number) => string;
+    __collectIssues?: () => ProjectIssue[];
   }
 }
 
@@ -75,12 +78,12 @@ function errorsTogether(primary: unknown, cleanup: unknown, action: string): Agg
   );
 }
 
-export async function createRenderBrowserSession({
+async function launchRenderBrowser({
   headless = true,
   browser: choice = "chromium",
   log = console.log,
   launch = chromium.launch,
-}: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
+}: BrowserSessionOptions): Promise<Browser> {
   // Headless shell defaults to full hinting while headed Chrome on Linux follows fontconfig's
   // hintslight, which shifts text in fonts without hinting instructions; pin both to slight.
   const launchOptions = { headless, args: ["--font-render-hinting=slight"] };
@@ -107,6 +110,11 @@ export async function createRenderBrowserSession({
     }
   }
   if (!browser) throw firstFailure;
+  return browser;
+}
+
+export async function createRenderBrowserSession(options: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
+  const browser = await launchRenderBrowser(options);
   let context: BrowserContext;
   try {
     context = await browser.newContext();
@@ -221,4 +229,34 @@ export async function renderScreenToPng(
   }
   if (hasPrimaryError) throw primaryError;
   return result!;
+}
+
+export type LayoutIssuesOptions = Omit<RenderOptions, "screenId" | "pixelRatio" | "headless">;
+
+/**
+ * The core Issues engine for a whole layout, run inside the `/render` host once its fonts and images
+ * have loaded, so text overflow is measured with the export's own text layout.
+ */
+export async function collectRenderedLayoutIssues(
+  { baseUrl, projectPath, projectRevision, layoutId, timeoutMs = 30_000 }: LayoutIssuesOptions,
+  options: Pick<BrowserSessionOptions, "launch"> = {},
+): Promise<ProjectIssue[]> {
+  const search = new URLSearchParams({ project: resolve(projectPath), layout: layoutId });
+  if (projectRevision !== undefined) search.set("revision", projectRevision);
+  const browser = await launchRenderBrowser(options);
+  return runWithCleanup(async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/render?${search}`, { waitUntil: "load", timeout: timeoutMs });
+    const renderHostError = page.locator("[data-render-error]");
+    if (await renderHostError.count() > 0) {
+      const detail = await renderHostError.first().textContent();
+      throw new Error(`Check failed for layout "${layoutId}": ${detail ?? "render host failed"}`);
+    }
+    await page.waitForFunction(() => window.__stageReady === true || window.__renderError, null, {
+      timeout: timeoutMs,
+    });
+    const renderError = await page.evaluate(() => window.__renderError);
+    if (renderError) throw new Error(`Check failed for layout "${layoutId}": ${renderError}`);
+    return page.evaluate(() => window.__collectIssues!());
+  }, () => browser.close());
 }
