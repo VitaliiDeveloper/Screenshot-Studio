@@ -15,9 +15,11 @@ import { runInit } from "./init.js";
 import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { resolveProjectPath } from "./project-io.js";
+import { runPublishingCommand } from "./publishing-commands.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
+import { runUploadCommand } from "./upload-command.js";
 
 export function positionalArgs(argv: string[]): string[] {
   const args: string[] = [];
@@ -62,7 +64,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -122,6 +124,14 @@ export async function dispatchCommand(
     }
     case "copy":
       console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
+      break;
+    case "upload":
+      console.log(await runUploadCommand(flags, defaults.storeSpecsPath, {
+        prepareRender: () => ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined)),
+      }));
+      break;
+    case "publishing":
+      console.log(await runPublishingCommand(resolveProjectPath(flags), args, flags));
       break;
   }
 }

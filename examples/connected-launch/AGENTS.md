@@ -16,6 +16,8 @@ against the repository's current strict v1 schema. The root [`AGENTS.md`](../../
   useful inside each exported artboard even though this project uses connected mode.
 - Destination (`platform`), device family (`device`), exact export target, and visual device-frame
   preset are separate concepts. A frame element must not determine or imply the screen's output.
+- Store upload is a human-only action. Never run `screenshots upload` or handle store keys; the
+  command refuses to run inside an agent the editor started (`SCREENSHOT_STUDIO_AGENT` is set).
 
 ## Device-frame presets
 

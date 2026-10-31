@@ -239,8 +239,10 @@ Layout-aware mutations require `--layout <id-or-full-name>` when a project has m
 Bundle export writes locale roots at their device lead target and all explicit persisted variants at
 their own targets. A single-screen export resolves explicit `--size`, then its persisted `storeTargetId`,
 then its device lead target. `export --profile fastlane` writes the bundle in the folder layout
-`fastlane deliver` and `supply` upload from. `screen rm <id> --cascade` explicitly removes a primary
-screen together with paired variants. After a device lead change, `screen migrate-lead --platform
+`fastlane deliver` and `supply` upload from. `upload --store google` replaces the Google Play
+screenshots directly from a service-account key named by `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`; it is a
+human-only command. `screen rm <id> --cascade` explicitly removes a primary screen together with
+paired variants. After a device lead change, `screen migrate-lead --platform
 <platform> --device <device> --from <previous-size>` moves primary screens onto the current lead and
 keeps each original as a `<previous-size>` variant.
 
