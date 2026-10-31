@@ -88,7 +88,7 @@ describe("store credential store", () => {
       store.setGoogle(`{"private_key":"${secret}`),
       store.setApple({ ...testAppleCredentials(), privateKey: secret }),
     ]) {
-      const error = await attempt.catch((caught: unknown) => caught as Error);
+      const error = (await attempt.catch((caught: unknown) => caught)) as Error;
       expect(error.message).not.toContain("sentinel-secret");
     }
     expect((await store.status()).google.configured).toBe(false);
