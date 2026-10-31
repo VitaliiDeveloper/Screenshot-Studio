@@ -295,6 +295,14 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 3. Translate only text content in the cloned target set with `element list --locale <target>` and
    `element text --all-sizes`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
    the store audience; do not force a word-for-word translation into a box that no longer fits.
+   For a translator or translation service, `screenshots copy export --locale <target> --out copy.csv`
+   writes one row per base-locale text layer (`screen`, `element`, `source`, one column per target
+   locale; `.json` works too). Fill the target cells, then `screenshots copy import copy.csv`. Empty
+   cells stay untouched, rows whose `source` changed since export are skipped with a warning (`--force`
+   overrides), and an unknown row key writes nothing. Use `--layout` when the project has several
+   layouts and `--json` for machine-readable counts. Target cells map to the layer at the same
+   position on the screen at the same position of its size row; a locale with a different layer
+   structure is skipped, never guessed.
 4. Replace screenshots or other media only when a locale-specific asset exists (see the media
    recipe). Shared asset paths are intentional until then.
 5. Verify that every target glyph is covered by the registered file-backed font. If a different font

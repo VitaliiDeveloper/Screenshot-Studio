@@ -44,7 +44,8 @@ loop. When the set is done, offer the read-only critic in
   generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
   `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
   validate the project. `element get|set|add|rm` and `screen show|set` cover element geometry, style,
-  and screen backgrounds.
+  and screen backgrounds. `copy export|import` moves all texts per locale through a CSV or JSON file
+  for translators without editing project JSON.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.
 - Never overwrite an existing project file or project-local agent guide.
