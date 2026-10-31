@@ -223,7 +223,7 @@ text overflow. The JSON report is:
   "textMeasured": true,
   "strict": false,
   "ok": false,
-  "counts": { "blockers": 1, "warnings": 1 },
+  "counts": { "blockers": 1, "warnings": 0 },
   "issues": [
     { "id": "missing-image:hero:shot", "kind": "missing-image", "level": "blocker",
       "message": "Image missing from the project folder: assets/hero.png", "layoutId": "default",
@@ -233,10 +233,16 @@ text overflow. The JSON report is:
 ```
 
 `kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
-`unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, or
+`unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
 `android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
 `screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
 issue with the commands above, then run `check` again.
+
+Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
+on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
+that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
+error) also exits 1 but prints no JSON, only an error on stderr; treat stdout that does not parse
+as a tool error, not as a list of issues.
 
 ## Recipe: generate or refresh copy
 
