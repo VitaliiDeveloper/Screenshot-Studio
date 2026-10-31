@@ -190,6 +190,21 @@ before the commit abandons the edit; requests time out after 60 seconds and are 
 tests inject a loopback mock through the command's dependencies, never through the environment.
 `--dry-run` is offline and opens no edit.
 
+The editor uploads through the same command, not a second implementation. `POST /api/upload/plan`
+reads one project snapshot and builds the plan with the CLI plan module (the whole layout's Android
+screens; the export dialog's size and locale checks do not narrow it). Its `planHash` is the SHA-256
+of `{ store, projectId, revision, layoutId, identifier, plan }`, where `plan` is the projection the
+CLI's `--json` report prints, and the server keeps the latest hash per project. `POST /api/upload`
+takes `{ store, layout, planHash }` under the project mutation guard and `If-Match`: it consumes the
+issued hash (one confirmation allows one attempt), recomputes the plan, and answers `409` when the
+hash is missing, not the one issued (`plan-not-confirmed`), or no longer matches the project
+(`plan-stale`). It then calls `runUploadCommand` with `--service-account` set to the key store's file,
+a `startWebServer` stub that renders through the running Next host like `/api/export`, and an
+`exportBundle` wrapper that refuses a revision other than the reviewed one and reports rendering and
+then an indeterminate `uploading` phase through the export progress registry. The response is the
+CLI's JSON report plus its preflight warnings; CLI errors are already sanitized and are returned as
+`502`.
+
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
 `no-store` ticket exposes only `downloadUrl`, `filename`, `expiresAt`, preflight warnings, and the
@@ -420,7 +435,18 @@ without the user's consent (`403 consent-required`). Consent is app-level local 
 `POST /api/agents/consent` grants or revokes it for `at-own-risk` agents only, behind the project
 session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/agents` reports each
 agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
-is checked again after the readiness probe, right before launch. Antigravity `agy` is listed with its
+is checked again after the readiness probe, right before launch. Store upload keys are app-level too: one
+`0600` file per store in `<data root>/store-credentials/` (`0700`, with a `*` `.gitignore`, since the
+default data root `.screenshot-studio` sits under the launch directory): `google-play-service-account.json`
+is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId,
+privateKey }` for the Apple upload that lands separately. Saving is refused when that folder resolves
+inside the active project folder, and the project archive never includes it. `/api/store-credentials`
+(loopback Host, `X-Project-Id`) sets, clears, and reports `{ configured, updatedAt }` per store and never
+returns key material; only the upload route hands the file path to the CLI. The trust boundary is the
+user account: any process of the same user can read the data root and call the local API, so the plan
+hash stops an unconfirmed or stale upload from the editor, not a hostile local process. Agent routes
+have no path to the plan, upload, or key store, `/api/upload` is refused (`423`) while an
+editor-started agent runs, and the CLI's agent marker still refuses the command inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its

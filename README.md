@@ -255,6 +255,17 @@ render host. It exits 1 on any blocker, and `--strict` also fails on warnings, s
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+### Upload to a store from the editor
+
+The editor runs the same upload. Open **Stores** in the tool rail, set the Google Play package name
+and choose the service-account `.json` key. The key is saved in the editor's data folder
+(`<data root>/store-credentials/`, mode `0600`), never in the project, and the dialog only shows
+whether a key is configured. If you start the editor from inside your project folder, set
+`SCREENSHOT_STUDIO_DATA_ROOT` to a folder outside it; the editor refuses to save keys inside the
+project. After an export, **Upload to store** shows what will be uploaded and replaced per language
+and image slot; nothing changes in Google Play until you confirm, and a project edited after the
+review must be reviewed again. Agents started from the editor cannot upload.
+
 ## In CI
 
 The repository root is a composite GitHub Action. It runs `screenshots check --render`, so a pull
