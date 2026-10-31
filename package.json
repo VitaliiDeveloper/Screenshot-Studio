@@ -51,6 +51,8 @@
     "test:e2e:skill": "vitest run --config vitest.e2e.config.ts e2e/skill-installer.test.ts",
     "test:e2e:examples": "vitest run --config vitest.e2e.config.ts e2e/examples.test.ts",
     "test:e2e:release-surfaces": "pnpm test:e2e:browsers && pnpm test:e2e:package && pnpm test:e2e:skill && pnpm test:e2e:examples",
+    "golden:check": "vitest run --config vitest.e2e.config.ts e2e/golden-gallery.test.ts",
+    "golden:update": "GOLDEN_UPDATE=1 vitest run --config vitest.e2e.config.ts e2e/golden-gallery.test.ts",
     "typecheck": "pnpm -r run typecheck"
   },
   "devDependencies": {
