@@ -162,11 +162,13 @@ async function assertImageDecodes(bytes: Uint8Array, inspection: ImageInspection
 }
 
 /** Reject bytes that the upload path would refuse before a project element references them. */
-export async function assertProjectImageBytes(bytes: Uint8Array): Promise<void> {
-  await assertImageDecodes(bytes, inspectImage(bytes));
+export async function assertProjectImageBytes(bytes: Uint8Array): Promise<ImageInspection["extension"]> {
+  const inspection = inspectImage(bytes);
+  await assertImageDecodes(bytes, inspection);
+  return inspection.extension;
 }
 
-function safeStem(path: string): string {
+export function safeStem(path: string): string {
   const sourceStem = basename(path, extname(path));
   return sourceStem
     .normalize("NFKD")

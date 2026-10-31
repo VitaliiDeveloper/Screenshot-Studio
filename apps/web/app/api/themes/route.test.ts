@@ -9,6 +9,7 @@ import {
   projectSessionRegistry,
 } from "@web/lib/session/project-session.server.js";
 import { handleThemeGet, handleThemePost } from "./handler.js";
+import { handleTemplatePost } from "@web/app/api/templates/handler.js";
 import { GET, POST } from "./route.js";
 
 let dir: string;
@@ -73,6 +74,44 @@ describe("/api/themes", () => {
     const persisted = JSON.parse((await readFile(projectPath)).toString("utf8"));
     expect(JSON.stringify(persisted)).not.toContain("neutral-default");
     expect(await readdir(dir)).toEqual(beforeEntries);
+  });
+
+  it("lists project packs with their errors and applies both kinds through the shared services", async () => {
+    const clean = (await (await handleThemeGet(projectPath)).json()).builtIns.find((pack: { id: string }) => pack.id === "clean");
+    await mkdir(join(dir, "packs/house"), { recursive: true });
+    await writeFile(join(dir, "packs/house/design-pack.json"), JSON.stringify({ ...clean, id: "house", name: "House" }));
+    await mkdir(join(dir, "packs/hero/assets"), { recursive: true });
+    const png = await readFile(new URL("../../../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(join(dir, "packs/hero/assets/bg.png"), png);
+    await writeFile(join(dir, "packs/hero/screen-pack.json"), JSON.stringify({
+      id: "hero", name: "Hero", description: "One screen.", platform: "apple", device: "iphone", style: "hero",
+      screens: [{ id: "hero-one", name: "One", platform: "apple", device: "iphone", artboard: { width: 660, height: 1434 }, background: { type: "image", assetUrl: "assets/bg.png", fit: "cover" }, elements: [] }],
+    }));
+    await mkdir(join(dir, "packs/broken"));
+
+    const body = await (await handleThemeGet(projectPath)).json();
+    expect(body.projectDesignPacks).toEqual([expect.objectContaining({ id: "house", name: "House" })]);
+    expect(body.projectTemplatePacks).toEqual([{ id: "hero", name: "Hero", description: "One screen.", platform: "apple", device: "iphone", style: "hero", panorama: false, screenCount: 1 }]);
+    expect(body.packErrors).toEqual([{ file: "packs/broken", message: "expected exactly one of screen-pack.json or design-pack.json" }]);
+
+    const design = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
+      method: "POST", body: JSON.stringify({ id: "house", source: "project-pack" }),
+    }));
+    expect(design.status).toBe(200);
+    expect((await design.json()).layouts[0].screens[0].elements[0].fill).toBe(clean.palette.accent);
+
+    const screens = await handleTemplatePost(projectPath, new Request("http://localhost/api/templates", {
+      method: "POST", body: JSON.stringify({ id: "hero", source: "project-pack", locale: "en" }),
+    }));
+    expect(screens.status).toBe(200);
+    const added = (await screens.json()).project.layouts[0].screens[1];
+    expect(added.background.assetUrl).toMatch(/^assets\/packs\/hero\/[0-9a-f]{12}-bg\.png$/);
+    expect(await readFile(join(dir, added.background.assetUrl))).toEqual(png);
+
+    const broken = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
+      method: "POST", body: JSON.stringify({ id: "broken", source: "project-pack" }),
+    }));
+    expect(broken.status).toBe(400);
   });
 
   it("returns explicit errors for missing and invalid ids", async () => {

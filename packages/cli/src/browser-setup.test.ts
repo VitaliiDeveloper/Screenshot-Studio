@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,8 +9,13 @@ import {
   ensureRenderBrowsers,
   installHelp,
   listInstallLocations,
+  isMissingChannelError,
+  isMissingChromiumError,
+  launchOrder,
   parseInstallLocations,
+  resolveBrowserChoice,
   resolvePlaywrightInstall,
+  systemChannels,
   runSetupCommand,
   type BrowserSetupDependencies,
 } from "./browser-setup.js";
@@ -31,6 +37,7 @@ function deps(overrides: Partial<BrowserSetupDependencies> = {}): BrowserSetupDe
     interactive: true,
     playwrightVersion: "9.9.9",
     detect: () => ({ missing: true, cacheDir: "/cache/ms-playwright" }),
+    hasSystemBrowser: vi.fn(async () => false),
     install: vi.fn(async () => undefined),
     confirm: vi.fn(async () => true),
     log: vi.fn(),
@@ -158,5 +165,110 @@ describe("setup command", () => {
     await expect(dispatchCommand("theme", [], { storeSpecsPath: "/s.json", browserSetup: deps({ detect }) }))
       .rejects.not.toThrow("screenshots setup");
     expect(detect).not.toHaveBeenCalled();
+  });
+});
+
+describe("browser choice", () => {
+  it("defaults to the downloaded Chromium so system browsers stay opt-in", () => {
+    expect(resolveBrowserChoice(undefined, {})).toBe("chromium");
+    expect(resolveBrowserChoice("", { SCREENSHOTS_BROWSER: "" })).toBe("chromium");
+  });
+
+  it("lets the flag win over SCREENSHOTS_BROWSER", () => {
+    expect(resolveBrowserChoice(undefined, { SCREENSHOTS_BROWSER: "msedge" })).toBe("msedge");
+    expect(resolveBrowserChoice("chromium", { SCREENSHOTS_BROWSER: "msedge" })).toBe("chromium");
+  });
+
+  it("rejects unknown values from either source", () => {
+    expect(() => resolveBrowserChoice("firefox", {})).toThrow(/Unknown browser "firefox".*chromium, chrome, msedge, auto/);
+    expect(() => resolveBrowserChoice(undefined, { SCREENSHOTS_BROWSER: "webkit" })).toThrow(/Unknown browser "webkit"/);
+  });
+
+  it("orders system browsers chrome, msedge for auto and none for chromium", () => {
+    expect(systemChannels("auto")).toEqual(["chrome", "msedge"]);
+    expect(systemChannels("msedge")).toEqual(["msedge"]);
+    expect(systemChannels("chromium")).toEqual([]);
+  });
+
+  it("recognises Playwright's missing-channel error", () => {
+    expect(isMissingChannelError(new Error("browserType.launch: Chromium distribution 'chrome' is not found at /x"))).toBe(true);
+    expect(isMissingChannelError(new Error("Executable doesn't exist"))).toBe(false);
+    expect(isMissingChannelError("distribution 'chrome' is not found")).toBe(false);
+  });
+
+  it("recognises Playwright's missing-Chromium error", () => {
+    expect(isMissingChromiumError(new Error("browserType.launch: Executable doesn't exist at /cache/chromium"))).toBe(true);
+    expect(isMissingChromiumError(new Error("browser crashed"))).toBe(false);
+  });
+
+  it("orders launch attempts so only auto falls through, Chromium first", () => {
+    expect(launchOrder("auto")).toEqual([undefined, "chrome", "msedge"]);
+    expect(launchOrder("chromium")).toEqual([undefined]);
+    expect(launchOrder("chrome")).toEqual(["chrome"]);
+  });
+
+  it("still finds the error wording in the pinned Playwright", () => {
+    const bundle = readFileSync(
+      join(dirname(createRequire(import.meta.url).resolve("playwright-core/package.json")), "lib", "coreBundle.js"),
+      "utf8",
+    );
+    expect(bundle).toContain("distribution '${name}' is not found");
+    expect(bundle).toContain("Executable doesn't exist");
+  });
+
+  describe("ensureRenderBrowsers with a system browser", () => {
+    it("skips the Chromium check entirely for an explicit chrome or msedge", async () => {
+      const d = deps({ interactive: false });
+      await ensureRenderBrowsers("required", d, "chrome");
+      await ensureRenderBrowsers("required", d, "msedge");
+      expect(d.hasSystemBrowser).not.toHaveBeenCalled();
+    });
+
+    it("auto passes without a download when a system browser exists", async () => {
+      const d = deps({ interactive: false, hasSystemBrowser: vi.fn(async () => true) });
+      await ensureRenderBrowsers("required", d, "auto");
+      expect(d.install).not.toHaveBeenCalled();
+    });
+
+    it("auto without a system browser fails exactly like chromium", async () => {
+      const d = deps({ interactive: false });
+      const auto = await ensureRenderBrowsers("required", d, "auto").catch((e: Error) => e.message);
+      const plain = await ensureRenderBrowsers("required", d).catch((e: Error) => e.message);
+      expect(auto).toBe(plain);
+      expect(auto).toContain(installHelp("9.9.9"));
+    });
+
+    it("chromium never probes for system browsers", async () => {
+      const d = deps({ interactive: false });
+      await expect(ensureRenderBrowsers("required", d, "chromium")).rejects.toThrow("screenshots setup");
+      expect(d.hasSystemBrowser).not.toHaveBeenCalled();
+    });
+
+    it("dispatches --browser and SCREENSHOTS_BROWSER to the guard", async () => {
+      const guarded = () => deps({ interactive: false, detect: vi.fn(() => ({ missing: true })) });
+      const run = (argv: string[], d: BrowserSetupDependencies) =>
+        dispatchCommand("export", argv, { storeSpecsPath: "/s.json", browserSetup: d });
+
+      await expect(run(["--browser", "firefox"], guarded())).rejects.toThrow(/Unknown browser "firefox"/);
+
+      // chrome skips the guard, so neither detection runs and failure moves on to project resolution.
+      const flagged = guarded();
+      await expect(run(["--browser", "chrome"], flagged)).rejects.not.toThrow("screenshots setup");
+      expect(flagged.detect).not.toHaveBeenCalled();
+      expect(flagged.hasSystemBrowser).not.toHaveBeenCalled();
+
+      vi.stubEnv("SCREENSHOTS_BROWSER", "msedge");
+      try {
+        const fromEnv = guarded();
+        await expect(run([], fromEnv)).rejects.not.toThrow("screenshots setup");
+        expect(fromEnv.detect).not.toHaveBeenCalled();
+
+        const overridden = guarded();
+        await expect(run(["--browser", "chromium"], overridden)).rejects.toThrow("screenshots setup");
+        expect(overridden.detect).toHaveBeenCalledOnce();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
   });
 });

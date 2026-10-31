@@ -1,0 +1,109 @@
+name: Action smoke
+
+# Runs the root composite action the way a consumer would: this repository is checked out into a
+# subfolder and the project lives outside it. It runs on dispatch, on every pull request from `dev`
+# into `main`, and on pull requests into `dev` that change the action or this workflow.
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - "main"
+      - "dev"
+
+concurrency:
+  group: action-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - if: github.event_name == 'pull_request' && github.base_ref == 'dev'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          run=false
+          if [ "$EVENT" = workflow_dispatch ] || { [ "$BASE" = main ] && [ "$HEAD_REF" = dev ]; }; then
+            run=true
+          elif [ "$BASE" = dev ]; then
+            # The pull_request checkout is the merge commit; its first parent is the base branch tip.
+            changed="$(git diff --name-only HEAD^1 HEAD)"
+            if grep -qxE 'action\.yml|\.github/workflows/action-smoke\.yml|scripts/check-export-sizes\.mjs' <<< "$changed"; then
+              run=true
+            fi
+          fi
+          echo "run=$run" | tee -a "$GITHUB_OUTPUT"
+
+  export:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: studio
+      - run: cp -R studio/examples/connected-launch app
+      - id: action
+        uses: ./studio
+        with:
+          project: app
+          artifact-name: action-smoke-export-${{ github.run_attempt }}
+      - name: Report browser cache
+        env:
+          CACHE_HIT: ${{ steps.action.outputs.cache-hit }}
+        run: |
+          echo "Playwright Chromium cache hit: $CACHE_HIT" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Assert PNG sizes match the project
+        env:
+          OUT: ${{ steps.action.outputs.out }}
+        run: node studio/scripts/check-export-sizes.mjs "$OUT" app/app-store-screenshots.json studio/store-specs.json default
+
+  blocked:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: studio
+      - run: |
+          cp -R studio/examples/connected-launch app
+          rm app/assets/demo-logistics-app.png
+      - id: action
+        continue-on-error: true
+        uses: ./studio
+        with:
+          project: app
+          artifact-name: action-smoke-blocked-${{ github.run_attempt }}
+      - name: Report browser cache
+        env:
+          CACHE_HIT: ${{ steps.action.outputs.cache-hit }}
+        run: |
+          echo "Playwright Chromium cache hit: $CACHE_HIT" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Assert the check failed with the issue list and nothing was exported
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          CHECK_LOG: ${{ steps.action.outputs.check-log }}
+        shell: bash
+        run: |
+          test "$OUTCOME" = failure || { echo "::error::Expected the action to fail, got: $OUTCOME"; exit 1; }
+          log="${CHECK_LOG:-$RUNNER_TEMP/screenshot-studio-check.log}"
+          cat "$log"
+          grep -q 'blocker  missing-image  Image missing from the project folder: assets/demo-logistics-app.png' "$log" \
+            || { echo "::error::The check log does not list the missing image"; exit 1; }
+          if [ -n "$(find screenshots-export -name '*.png' 2>/dev/null)" ]; then
+            echo "::error::Export ran although the check failed"
+            exit 1
+          fi

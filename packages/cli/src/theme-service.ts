@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { dirname } from "node:path";
 import {
   applyDesignPack,
   applyTheme,
@@ -8,6 +9,7 @@ import {
   type Theme,
 } from "@screenshot-studio/core/themes";
 import type { Project } from "@screenshot-studio/core/model";
+import { loadProjectPack, ProjectPackError } from "@screenshot-studio/core/packs";
 import {
   resolveExistingProjectPath,
   type ProjectLockOptions,
@@ -124,4 +126,39 @@ export async function applyBuiltInDesignPackFile(
     }
   }, lockOptions, {}, preconditions);
   return { project: updated.project, revision: updated.revision, pack };
+}
+
+/** Apply `packs/<id>/design-pack.json` through the same bake as a built-in design pack. */
+export async function applyProjectDesignPackFile(
+  projectPath: string,
+  rawId: unknown,
+  lockOptions: ProjectLockOptions = {},
+  layoutReference?: string,
+  preconditions: ProjectUpdatePreconditions = {},
+): Promise<{
+  project: Project;
+  revision: string;
+  pack: DesignPack;
+}> {
+  const id = themeId(rawId);
+  const canonicalPath = await resolveExistingProjectPath(projectPath);
+  const updated = await updateProjectFile(canonicalPath, async (current) => {
+    let local;
+    try {
+      local = await loadProjectPack(dirname(canonicalPath), id);
+    } catch (error) {
+      if (!(error instanceof ProjectPackError)) throw error;
+      throw error.notFound
+        ? new ThemeNotFoundError(`Project design pack "${id}" not found`, { cause: error })
+        : new ThemeValidationError(error.message, { cause: error });
+    }
+    if (local.kind !== "design") throw new ThemeNotFoundError(`Project design pack "${id}" not found; ${local.manifest} is a screen pack`);
+    try {
+      const layout = resolveMutationLayout(current, layoutReference);
+      return { project: applyDesignPack(current, layout.id, local.pack), value: local.pack };
+    } catch (error) {
+      throw new ThemeApplyError((error as Error).message, { cause: error });
+    }
+  }, lockOptions, {}, preconditions);
+  return { project: updated.project, revision: updated.revision, pack: updated.value };
 }

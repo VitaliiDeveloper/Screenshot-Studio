@@ -17,6 +17,8 @@ describe("project archive policy", () => {
     "screenshots/apple/iphone/en/01.png",
     "themes/launch.json",
     "templates/hero.json",
+    "packs/house/screen-pack.json",
+    "packs/house/assets/bg.png",
   ])("includes supported project path %s", (path) => {
     expect(isSupportedProjectArchivePath(path)).toBe(true);
   });

@@ -2,6 +2,15 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { resolve } from "node:path";
 import { base64PngToBuffer } from "@screenshot-studio/core/export";
+import {
+  isMissingChannelError,
+  isMissingChromiumError,
+  launchOrder,
+  SYSTEM_BROWSER_NAMES,
+  type BrowserChoice,
+} from "./browser-setup.js";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
+import { runWithCleanup } from "./cli-runtime.js";
 
 /**
  * The render host's browser-side contract (mirrors apps/web `RenderStage`). These globals are
@@ -13,6 +22,7 @@ declare global {
     __stageReady?: boolean;
     __renderError?: string;
     __exportPng?: (pixelRatio: number) => string;
+    __collectIssues?: () => ProjectIssue[];
   }
 }
 
@@ -38,6 +48,7 @@ export interface RenderOptions {
   screenId: string;
   pixelRatio: number;
   headless?: boolean;
+  browser?: BrowserChoice;
   /** Fail if the stage is not ready within this window (font load, etc.). */
   timeoutMs?: number;
 }
@@ -49,6 +60,9 @@ export interface RenderBrowserSession {
 
 interface BrowserSessionOptions {
   headless?: boolean;
+  browser?: BrowserChoice;
+  /** Receives the one-line notice naming a system browser that rendered the session. */
+  log?: (message: string) => void;
   launch?: typeof chromium.launch;
 }
 
@@ -64,13 +78,43 @@ function errorsTogether(primary: unknown, cleanup: unknown, action: string): Agg
   );
 }
 
-export async function createRenderBrowserSession({
+async function launchRenderBrowser({
   headless = true,
+  browser: choice = "chromium",
+  log = console.log,
   launch = chromium.launch,
-}: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
+}: BrowserSessionOptions): Promise<Browser> {
   // Headless shell defaults to full hinting while headed Chrome on Linux follows fontconfig's
   // hintslight, which shifts text in fonts without hinting instructions; pin both to slight.
-  const browser: Browser = await launch.call(chromium, { headless, args: ["--font-render-hinting=slight"] });
+  const launchOptions = { headless, args: ["--font-render-hinting=slight"] };
+  let browser: Browser | undefined;
+  let firstFailure: unknown;
+  for (const channel of launchOrder(choice)) {
+    try {
+      browser = await launch.call(chromium, channel ? { ...launchOptions, channel } : launchOptions);
+      if (channel) log(`Rendering with ${SYSTEM_BROWSER_NAMES[channel]} (browser: ${choice}).`);
+      break;
+    } catch (error) {
+      const absent = channel ? isMissingChannelError(error) : isMissingChromiumError(error);
+      if (choice === "auto" && absent) {
+        firstFailure ??= error;
+        continue;
+      }
+      if (channel && absent) {
+        throw new Error(
+          `${SYSTEM_BROWSER_NAMES[channel]} is not installed. Install it, or use --browser chromium after \`screenshots setup\`.`,
+          { cause: error },
+        );
+      }
+      throw error;
+    }
+  }
+  if (!browser) throw firstFailure;
+  return browser;
+}
+
+export async function createRenderBrowserSession(options: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
+  const browser = await launchRenderBrowser(options);
   let context: BrowserContext;
   try {
     context = await browser.newContext();
@@ -165,7 +209,7 @@ export async function renderScreenToPng(
   dependencies: OneShotRenderDependencies = {},
 ): Promise<Buffer> {
   const createSession = dependencies.createSession ?? createRenderBrowserSession;
-  const session = await createSession({ headless: opts.headless ?? true });
+  const session = await createSession({ headless: opts.headless ?? true, browser: opts.browser });
   let result: Buffer | undefined;
   let primaryError: unknown;
   let hasPrimaryError = false;
@@ -185,4 +229,34 @@ export async function renderScreenToPng(
   }
   if (hasPrimaryError) throw primaryError;
   return result!;
+}
+
+export type LayoutIssuesOptions = Omit<RenderOptions, "screenId" | "pixelRatio" | "headless">;
+
+/**
+ * The core Issues engine for a whole layout, run inside the `/render` host once its fonts and images
+ * have loaded, so text overflow is measured with the export's own text layout.
+ */
+export async function collectRenderedLayoutIssues(
+  { baseUrl, projectPath, projectRevision, layoutId, timeoutMs = 30_000 }: LayoutIssuesOptions,
+  options: Pick<BrowserSessionOptions, "launch"> = {},
+): Promise<ProjectIssue[]> {
+  const search = new URLSearchParams({ project: resolve(projectPath), layout: layoutId });
+  if (projectRevision !== undefined) search.set("revision", projectRevision);
+  const browser = await launchRenderBrowser(options);
+  return runWithCleanup(async () => {
+    const page = await browser.newPage();
+    await page.goto(`${baseUrl}/render?${search}`, { waitUntil: "load", timeout: timeoutMs });
+    const renderHostError = page.locator("[data-render-error]");
+    if (await renderHostError.count() > 0) {
+      const detail = await renderHostError.first().textContent();
+      throw new Error(`Check failed for layout "${layoutId}": ${detail ?? "render host failed"}`);
+    }
+    await page.waitForFunction(() => window.__stageReady === true || window.__renderError, null, {
+      timeout: timeoutMs,
+    });
+    const renderError = await page.evaluate(() => window.__renderError);
+    if (renderError) throw new Error(`Check failed for layout "${layoutId}": ${renderError}`);
+    return page.evaluate(() => window.__collectIssues!());
+  }, () => browser.close());
 }

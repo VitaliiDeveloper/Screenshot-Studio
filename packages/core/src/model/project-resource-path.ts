@@ -28,6 +28,24 @@ export function isProjectRelativePath(value: string): boolean {
   return value.split("/").every(isPortablePathSegment);
 }
 
+const CREDENTIAL_BASENAME =
+  /(?:^|[-_.])(?:credentials?|secrets?|service-account|id_rsa|id_ed25519)(?:[-_.]|$)/iu;
+const PRIVATE_EXTENSION = /\.(?:key|pem|p12|pfx|jks|keystore|mobileprovision)$/iu;
+const TRANSIENT_BASENAME = /(?:^|\.)(?:lock|tmp|temp|stage)(?:\.|$)/iu;
+
+/** Hidden, credential-like, and key-like paths never leave or enter a project archive. */
+export function isSensitiveProjectArchivePath(relativePath: string): boolean {
+  const segments = relativePath.split("/");
+  if (segments.some((segment) => segment.startsWith("."))) return true;
+  const basename = segments.at(-1)!;
+  return CREDENTIAL_BASENAME.test(basename) || PRIVATE_EXTENSION.test(basename);
+}
+
+/** Lock, temp, and staging names that project archives skip as transient. */
+export function isTransientResourceBasename(basename: string): boolean {
+  return TRANSIENT_BASENAME.test(basename);
+}
+
 export const ProjectRelativePath = z.string().refine(
   isProjectRelativePath,
   "expected a portable project-relative path",

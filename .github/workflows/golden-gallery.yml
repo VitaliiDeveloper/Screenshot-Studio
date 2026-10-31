@@ -1,0 +1,38 @@
+name: Golden gallery
+
+on:
+  workflow_dispatch:
+  # golden-gallery-dev.yml calls this for pull requests into dev that touch the gallery.
+  workflow_call:
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  golden-gallery:
+    # Pixel references are an integration-boundary gate, like the full browser suite.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.base_ref == 'dev' || (github.base_ref == 'main' && github.head_ref == 'dev')))
+    runs-on: ubuntu-latest
+    # A full run takes about 4 minutes locally; the margin covers a slower runner, not a hang.
+    timeout-minutes: 30
+    concurrency:
+      group: golden-gallery-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ | sudo xargs -0 -r rm -f
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm golden:check
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: golden-gallery-renders-${{ github.sha }}
+          path: test-results/golden-gallery/
+          if-no-files-found: ignore
+          retention-days: 14

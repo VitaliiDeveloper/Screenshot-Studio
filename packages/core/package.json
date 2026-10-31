@@ -11,6 +11,7 @@
     "./fonts": "./src/fonts/index.ts",
     "./themes": "./src/themes/index.ts",
     "./templates": "./src/templates/index.ts",
+    "./packs": "./src/packs/index.ts",
     "./assets": "./src/assets/index.ts",
     "./storage": "./src/storage/index.ts",
     "./scaffold": "./src/scaffold/index.ts",

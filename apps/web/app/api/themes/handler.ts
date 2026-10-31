@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   applyBuiltInDesignPackFile,
+  applyProjectDesignPackFile,
   applyThemeFile,
   listThemes,
   ThemeApplyError,
@@ -9,6 +10,8 @@ import {
 } from "@screenshot-studio/cli/theme-service";
 import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
 import { listBuiltInTemplatePackMetadata } from "@screenshot-studio/core/templates";
+import { templatePackMetadata } from "@screenshot-studio/core/packs";
+import { loadProjectPackListing } from "@screenshot-studio/cli/template-service";
 import { errorResponseByClass, type ErrorStatusTable } from "@web/lib/session/project-request-fence.server.js";
 
 const ERROR_STATUSES: ErrorStatusTable = [
@@ -32,10 +35,14 @@ async function jsonBody(req: Request): Promise<Record<string, unknown>> {
 
 export async function handleThemeGet(projectPath: string): Promise<Response> {
   try {
+    const [themes, local] = await Promise.all([listThemes(projectPath), loadProjectPackListing(projectPath)]);
     return Response.json({
       builtIns: listBuiltInDesignPacks(),
       templatePacks: listBuiltInTemplatePackMetadata(),
-      themes: await listThemes(projectPath),
+      themes,
+      projectDesignPacks: local.packs.flatMap((entry) => entry.kind === "design" ? [entry.pack] : []),
+      projectTemplatePacks: local.packs.flatMap((entry) => entry.kind === "screen" ? [templatePackMetadata(entry.pack)] : []),
+      packErrors: local.errors,
     });
   } catch (error) {
     return errorResponseByClass(error, ERROR_STATUSES);
@@ -49,7 +56,9 @@ export async function handleThemePost(
 ): Promise<Response> {
   try {
     const body = await jsonBody(req);
-    const operation = body.source === "built-in" ? applyBuiltInDesignPackFile : applyThemeFile;
+    const operation = body.source === "built-in"
+      ? applyBuiltInDesignPackFile
+      : body.source === "project-pack" ? applyProjectDesignPackFile : applyThemeFile;
     const { project, revision } = await operation(
       projectPath, body.id, {}, typeof body.layoutId === "string" ? body.layoutId : undefined,
       { expectedRevision },

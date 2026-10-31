@@ -13,9 +13,10 @@ export interface ParsedCommandFlags {
 export const COMMAND_FLAG_SPECS = {
   init: { value: ["dir", "name"], boolean: [] },
   export: {
-    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile"],
+    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile", "browser"],
     boolean: [],
   },
+  check: { value: ["project", "store-specs", "layout"], boolean: ["json", "strict", "render"] },
   screen: {
     value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from", "background"],
     boolean: ["cascade", "json"],
@@ -23,13 +24,14 @@ export const COMMAND_FLAG_SPECS = {
   dev: { value: ["project", "store-specs", "port"], boolean: [] },
   import: { value: ["project", "store-specs", "layout"], boolean: ["refresh"] },
   font: { value: ["project", "weight", "google", "family"], boolean: [] },
-  theme: { value: ["project", "layout"], boolean: ["built-in"] },
+  theme: { value: ["project", "layout"], boolean: ["built-in", "pack"] },
   locale: { value: ["project", "from", "direction", "to", "layout"], boolean: [] },
   asset: { value: ["project", "threshold", "background", "tolerance"], boolean: [] },
   layout: { value: ["project", "name", "mode"], boolean: [] },
   setup: { value: [], boolean: [] },
-  template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in", "pack"] },
+  template: { value: ["project", "store-specs", "locale", "layout", "out"], boolean: ["built-in", "pack", "force", "json"] },
   element: { value: ["project", "layout", "screen", "locale", "json", "type"], boolean: ["all-sizes"] },
+  copy: { value: ["project", "layout", "locale", "out"], boolean: ["force", "json"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;
