@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cp, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { runUploadCommand } from "@screenshot-studio/cli/upload";
+import type { exportBundle as exportBundleType } from "@screenshot-studio/cli/export";
+import { runUploadCommand } from "@screenshot-studio/cli/upload";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
 import { ExportProgressRegistry } from "@web/lib/export-progress.server.js";
 import type { LocalProjectSession } from "@web/lib/session/project-session.server.js";
@@ -202,6 +203,51 @@ describe("upload", () => {
     const failed = await upload({ store: "google", planHash: second.planHash }, revision, { runUploadCommand: failing });
     expect(failed.status).toBe(502);
     expect(await failed.json()).toMatchObject({ error: expect.stringContaining("403") });
+  });
+
+  it("drives the real CLI upload through the editor's render and progress seams", async () => {
+    const calls: string[] = [];
+    const playFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input));
+      const method = init?.method ?? "GET";
+      calls.push(`${method} ${url.pathname}`);
+      const json = (body: unknown) => Response.json(body);
+      if (url.pathname === "/token") return json({ access_token: "token-sentinel" });
+      if (method === "POST" && url.pathname.endsWith("/edits")) return json({ id: "edit-1" });
+      if (url.pathname.endsWith("/edits/edit-1/listings")) return json({ listings: [{ language: "en-US" }, { language: "de-DE" }] });
+      if (method === "GET" && url.pathname.endsWith("/phoneScreenshots")) return json({ images: [{ id: "old" }] });
+      return json({});
+    }) as typeof fetch;
+    const exportBundle = vi.fn<typeof exportBundleType>(async ({ outDir, entries }) => {
+      for (const entry of entries) {
+        await mkdir(dirname(join(outDir, entry.relativePath)), { recursive: true });
+        await writeFile(join(outDir, entry.relativePath), "png");
+      }
+      return join(outDir, "bundle.zip");
+    });
+    const realUpload: typeof runUploadCommand = (flags, specs, dependencies) => runUploadCommand(flags, specs, {
+      ...dependencies,
+      fetch: playFetch,
+      endpoints: { apiRoot: "http://play.test", tokenUrl: "http://play.test/token" },
+      createRenderBrowserSession: (async () => ({ close: async () => undefined })) as never,
+    });
+    const { planHash, revision } = await reviewPlan();
+
+    const response = await upload({ store: "google", planHash, operationId }, revision, { runUploadCommand: realUpload, exportBundle });
+    const body = await response.text();
+    expect(response.status, body).toBe(201);
+    expect(JSON.parse(body).report).toMatchObject({
+      committed: true,
+      packageName: "com.example.screenshots",
+      untouchedLocales: ["de-DE"],
+      locales: [{ locale: "en-US", slots: [{ imageType: "phoneScreenshots", replace: [{ id: "old" }] }] }],
+    });
+    // The wrapper accepted the revision the stable export lease renders, so it matches the plan's.
+    expect(exportBundle).toHaveBeenCalledOnce();
+    expect(exportBundle.mock.calls[0]![0].baseUrl).toBe("http://localhost:3000");
+    expect(calls).toContain("POST /androidpublisher/v3/applications/com.example.screenshots/edits/edit-1:commit");
+    expect(body).not.toContain("token-sentinel");
+    expect(progressRegistry.get(operationId)?.phase).toBe("ready");
   });
 
   it("is a 412 when the If-Match revision is not the current one", async () => {
