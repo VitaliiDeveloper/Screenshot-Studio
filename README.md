@@ -260,13 +260,16 @@ The full command and export reference lives in
 ### Upload to a store from the editor
 
 The editor runs the same upload. Open **Stores** in the tool rail, set the Google Play package name
-and choose the service-account `.json` key. The key is saved in the editor's data folder
+and choose the service-account `.json` key, or set the Apple ID and the App Store Connect key id,
+issuer id, and `.p8` key. The key is saved in the editor's data folder
 (`<data root>/store-credentials/`, mode `0600`), never in the project, and the dialog only shows
 whether a key is configured. If you start the editor from inside your project folder, set
 `SCREENSHOT_STUDIO_DATA_ROOT` to a folder outside it; the editor refuses to save keys inside the
 project. After an export, **Upload to store** shows what will be uploaded and replaced per language
-and image slot; nothing changes in Google Play until you confirm, and a project edited after the
-review must be reviewed again. Agents started from the editor cannot upload.
+and image slot or display type; nothing changes in the store until you confirm, and a project edited
+after the review must be reviewed again. For App Store Connect the review also shows the editable
+version of each platform and asks you to pick one where there are several. Agents started from the
+editor cannot upload.
 
 ## In CI
 

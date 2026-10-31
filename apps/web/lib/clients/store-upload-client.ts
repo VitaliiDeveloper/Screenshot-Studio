@@ -62,18 +62,16 @@ async function uploadRequest(path: string, body: unknown, conditional: boolean):
   return parsed;
 }
 
-export async function requestUploadPlan(store: UploadStoreId, layout: string): Promise<UploadPlanResponse> {
-  return await uploadRequest("/api/upload/plan", { store, layout }, false) as unknown as UploadPlanResponse;
+export async function requestUploadPlan(store: UploadStoreId, layout: string, version?: string): Promise<UploadPlanResponse> {
+  return await uploadRequest("/api/upload/plan", { store, layout, version }, false) as unknown as UploadPlanResponse;
 }
 
-export async function startStoreUpload(
-  plan: Pick<UploadPlanResponse, "store" | "layoutId" | "planHash">,
-  operationId: string,
-): Promise<{ report: UploadReport; warnings: string[] }> {
+export async function startStoreUpload(plan: UploadPlanResponse, operationId: string): Promise<{ report: UploadReport; warnings: string[] }> {
   return await uploadRequest("/api/upload", {
     store: plan.store,
     layout: plan.layoutId,
     planHash: plan.planHash,
+    version: plan.store === "apple" ? plan.version ?? undefined : undefined,
     operationId,
   }, true) as unknown as { report: UploadReport; warnings: string[] };
 }
