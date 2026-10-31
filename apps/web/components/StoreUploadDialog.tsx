@@ -94,7 +94,7 @@ function AppStorePlanReview({ plan, onVersion }: {
           ))}
         </ul>
       )}
-      {options.length > 0 ? (
+      {options.length > 0 && !plan.blocked ? (
         <MenuSelect
           ariaLabel="App Store version"
           value={plan.version ?? ""}

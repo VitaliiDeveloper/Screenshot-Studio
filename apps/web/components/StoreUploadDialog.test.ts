@@ -135,6 +135,11 @@ describe("App Store upload plan review", () => {
       blocked: "IOS has no editable version; create one in App Store Connect first",
     };
     expect(render(React.createElement(UploadPlanReview, { plan: none, onVersion: () => undefined }))).toContain("create one in App Store Connect first");
+    const mixed = {
+      ...none,
+      versions: [...none.versions, { platform: "MAC_OS", editable: [{ versionString: "1.2", state: "READY_FOR_REVIEW" }, { versionString: "1.3", state: "READY_FOR_REVIEW" }], selected: null }],
+    };
+    expect(render(React.createElement(UploadPlanReview, { plan: mixed, onVersion: () => undefined }))).not.toContain('aria-label="App Store version"');
     expect(uploadBlocked(none)).toContain("no editable version");
     const unconfigured = { ...applePlan, credentialsConfigured: false, versions: null };
     expect(render(React.createElement(UploadPlanReview, { plan: unconfigured, onVersion: () => undefined }))).toContain("once its API key is in Stores");
