@@ -20,7 +20,11 @@ interface MockPlay {
   calls: string[];
   uploads: Array<{ uploadType: string | null; contentType: string | undefined; bytes: Buffer }>;
   assertions: string[];
-  fail: { method: string; path: string } | undefined;
+  fail: Array<{ method: string; path: string }>;
+  /** A request whose path ends with this never gets a response. */
+  stall: string | undefined;
+  listings: string[];
+  commitQueries: string[];
 }
 
 let roots: string[] = [];
@@ -41,7 +45,7 @@ beforeEach(async () => {
   const pair = generateKeyPairSync("rsa", { modulusLength: 2048 });
   publicKey = pair.publicKey;
   privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-  play = { origin: "", calls: [], uploads: [], assertions: [], fail: undefined };
+  play = { origin: "", calls: [], uploads: [], assertions: [], fail: [], stall: undefined, listings: ["en-US", "de-DE"], commitQueries: [] };
   server = createServer(async (request, response) => {
     const body = await readBody(request);
     const url = new URL(request.url!, "http://mock");
@@ -67,12 +71,13 @@ beforeEach(async () => {
     if (request.headers.authorization !== `Bearer ${ACCESS_TOKEN}`) return reply(401, { error: { message: "Unauthenticated" } });
     const call = `${request.method} ${path.replace(APP, "")}`;
     play.calls.push(call);
-    if (play.fail && play.fail.method === request.method && path.endsWith(play.fail.path)) {
+    if (play.stall && path.endsWith(play.stall)) return;
+    if (play.fail.some((fail) => fail.method === request.method && path.endsWith(fail.path))) {
       return reply(500, { error: { message: "Backend error" } });
     }
     if (request.method === "POST" && path === `${APP}/edits`) return reply(200, { id: "edit-1" });
     if (request.method === "GET" && path === `${APP}/edits/edit-1/listings`) {
-      return reply(200, { listings: [{ language: "en-US" }, { language: "de-DE" }] });
+      return reply(200, { listings: play.listings.map((language) => ({ language })) });
     }
     if (request.method === "GET" && path === `${APP}/edits/edit-1/listings/en-US/phoneScreenshots`) {
       return reply(200, { images: [{ id: "old-a", sha256: "x" }, { id: "old-b", sha256: "y" }] });
@@ -84,7 +89,10 @@ beforeEach(async () => {
       play.uploads.push({ uploadType: url.searchParams.get("uploadType"), contentType: request.headers["content-type"], bytes: body });
       return reply(200, { image: { id: `new-${play.uploads.length}` } });
     }
-    if (request.method === "POST" && path === `${APP}/edits/edit-1:commit`) return reply(200, { id: "edit-1" });
+    if (request.method === "POST" && path === `${APP}/edits/edit-1:commit`) {
+      play.commitQueries.push(url.search);
+      return reply(200, { id: "edit-1" });
+    }
     if (request.method === "DELETE" && path === `${APP}/edits/edit-1`) return reply(204);
     return reply(404, { error: { message: `No mock for ${request.method} ${path}` } });
   });
@@ -93,6 +101,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  server.closeAllConnections();
   await new Promise((done) => server.close(done));
   await Promise.all(roots.map((root) => rm(root, { recursive: true, force: true })));
   roots = [];
@@ -116,7 +125,7 @@ async function fixture(publishing: unknown = { google: { packageName: PACKAGE } 
   return { root, projectPath, accountPath, androidId: android.id as string };
 }
 
-function dependencies(env: NodeJS.ProcessEnv = {}): UploadCommandDependencies {
+function dependencies(env: NodeJS.ProcessEnv = {}) {
   const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>(async ({ outDir, entries }) => {
     for (const [index, entry] of entries.entries()) {
       await mkdir(dirname(join(outDir, entry.relativePath)), { recursive: true });
@@ -131,7 +140,8 @@ function dependencies(env: NodeJS.ProcessEnv = {}): UploadCommandDependencies {
     startWebServer: vi.fn(async () => ({ url: "http://localhost:4000", exited: new Promise<Error>(() => undefined), stop: vi.fn(async () => undefined) })) as never,
     createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
     exportBundle,
-  };
+    warn: vi.fn<(message: string) => void>(),
+  } satisfies UploadCommandDependencies;
 }
 
 function expectNoSecrets(text: string) {
@@ -172,7 +182,7 @@ describe("runUploadCommand --store google", () => {
 
   it("abandons the edit when an upload fails mid-plan and reports that nothing changed", async () => {
     const { projectPath, accountPath } = await fixture();
-    play.fail = { method: "POST", path: "/listings/en-US/phoneScreenshots" };
+    play.fail = [{ method: "POST", path: "/listings/en-US/phoneScreenshots" }];
 
     const error = await runUploadCommand(
       { project: projectPath, store: "google", "service-account": accountPath },
@@ -189,12 +199,12 @@ describe("runUploadCommand --store google", () => {
 
   it("abandons on a rejected commit, but calls a commit without a response unknown", async () => {
     const { projectPath, accountPath } = await fixture();
-    play.fail = { method: "POST", path: ":commit" };
+    play.fail = [{ method: "POST", path: ":commit" }];
     await expect(runUploadCommand({ project: projectPath, store: "google", "service-account": accountPath }, storeSpecsPath, dependencies()))
       .rejects.toThrow(/edits\.commit failed: 500 Backend error\nThe edit was abandoned; nothing changed on Google Play\./);
     expect(play.calls.at(-1)).toBe("DELETE /edits/edit-1");
 
-    play.fail = undefined;
+    play.fail = [];
     play.calls = [];
     const deps = dependencies();
     deps.fetch = (async (input: string | URL | Request, init?: RequestInit) => String(input).endsWith(":commit")
@@ -250,8 +260,62 @@ describe("runUploadCommand --store google", () => {
     const wrongAccount = join(root, "wrong.json");
     await writeFile(wrongAccount, JSON.stringify({ client_email: "x@example.com", private_key: otherKey }));
 
-    await expect(runUploadCommand({ project: projectPath, store: "google", "service-account": wrongAccount }, storeSpecsPath, dependencies()))
+    const deps = dependencies();
+    await expect(runUploadCommand({ project: projectPath, store: "google", "service-account": wrongAccount }, storeSpecsPath, deps))
       .rejects.toThrow(/^Google Play token exchange failed: 400 Invalid JWT Signature\.$/);
     expect(play.calls).toEqual(["token"]);
+    expect(deps.exportBundle).not.toHaveBeenCalled();
+  });
+
+  it("sends changesNotSentForReview on the commit only when asked", async () => {
+    const { projectPath, accountPath } = await fixture();
+    const flags = { project: projectPath, store: "google", "service-account": accountPath };
+    await runUploadCommand(flags, storeSpecsPath, dependencies());
+    await runUploadCommand({ ...flags, "changes-not-sent-for-review": "true" }, storeSpecsPath, dependencies());
+    expect(play.commitQueries).toEqual(["", "?changesNotSentForReview=true"]);
+  });
+
+  it("abandons before deleting anything when a planned locale has no store listing", async () => {
+    const { projectPath, accountPath } = await fixture();
+    play.listings = ["de-DE"];
+    await expect(runUploadCommand({ project: projectPath, store: "google", "service-account": accountPath }, storeSpecsPath, dependencies()))
+      .rejects.toThrow(/^Google Play has no store listing for en-US; add the language in Play Console first\nThe edit was abandoned/);
+    expect(play.calls).toEqual(["token", "POST /edits", "GET /edits/edit-1/listings", "DELETE /edits/edit-1"]);
+  });
+
+  it("times out a stalled request, abandons the edit and says nothing changed", async () => {
+    const { projectPath, accountPath } = await fixture();
+    play.stall = "/edits/edit-1/listings";
+    await expect(runUploadCommand(
+      { project: projectPath, store: "google", "service-account": accountPath },
+      storeSpecsPath,
+      { ...dependencies(), requestTimeoutMs: 1500 },
+    )).rejects.toThrow(/^Google Play edits\.listings\.list failed: network error \(timeout\)\nThe edit was abandoned; nothing changed/);
+    expect(play.calls.at(-1)).toBe("DELETE /edits/edit-1");
+  });
+
+  it("still reports Google Play unchanged when the edit cannot be deleted after a failure", async () => {
+    const { projectPath, accountPath } = await fixture();
+    play.fail = [{ method: "POST", path: "/listings/en-US/phoneScreenshots" }, { method: "DELETE", path: "/edits/edit-1" }];
+    await expect(runUploadCommand({ project: projectPath, store: "google", "service-account": accountPath }, storeSpecsPath, dependencies()))
+      .rejects.toThrow(/edits\.images\.upload failed: 500 Backend error\nNothing was committed, so Google Play is unchanged; the open edit could not be deleted \(Google Play edits\.delete failed: 500 Backend error\) and will expire\./);
+  });
+
+  it("checks artboards and reports preflight warnings on stderr during --dry-run", async () => {
+    const { projectPath } = await fixture();
+    const project = JSON.parse(await readFile(projectPath, "utf8"));
+    const android = project.layouts[0].screens.find((screen: { platform: string }) => screen.platform === "android");
+    project.layouts[0].screens.push({ ...structuredClone(android), id: "tablet", device: "tablet-7", artboard: { width: 1440, height: 2560 } });
+    await writeFile(projectPath, JSON.stringify(project));
+    const deps = dependencies();
+
+    const output = await runUploadCommand({ project: projectPath, store: "google", "dry-run": "true", json: "true" }, storeSpecsPath, deps);
+    expect(deps.warn).toHaveBeenCalledWith("Warning: Google Play · Android tablet locale en has 1 screen; four or more are recommended.");
+    expect(JSON.parse(output).dryRun).toBe(true);
+
+    project.layouts[0].screens.find((screen: { id: string }) => screen.id === "tablet").artboard = { width: 1000, height: 1000 };
+    await writeFile(projectPath, JSON.stringify(project));
+    await expect(runUploadCommand({ project: projectPath, store: "google", "dry-run": "true" }, storeSpecsPath, dependencies()))
+      .rejects.toThrow(/Screen ".*" \(tablet\) cannot scale to target "tablet-portrait"/);
   });
 });

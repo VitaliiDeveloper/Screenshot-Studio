@@ -2,7 +2,13 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { buildBundleEntries, parseStoreSpecs, type BundleEntry } from "@screenshot-studio/core/export";
+import {
+  buildBundleEntries,
+  bundlePreflightWarnings,
+  parseStoreSpecs,
+  validateBundleArtboards,
+  type BundleEntry,
+} from "@screenshot-studio/core/export";
 import { resolveLayoutReference } from "@screenshot-studio/core/model";
 import { runExportCommand, type ExportCommandDependencies } from "./export-command.js";
 import {
@@ -32,6 +38,9 @@ export interface UploadCommandDependencies extends ExportCommandDependencies {
   endpoints?: GooglePlayEndpoints;
   /** Runs once credentials are known to be usable, before rendering (the CLI checks for browsers here). */
   prepareRender?: () => Promise<void>;
+  /** Preflight warnings go here (stderr by default) so `--json` stdout stays one report. */
+  warn?: (message: string) => void;
+  requestTimeoutMs?: number;
 }
 
 export function refuseAgentUpload(env: NodeJS.ProcessEnv = process.env): void {
@@ -137,6 +146,9 @@ export async function runUploadCommand(
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   const draft = googlePlayUploadPlan(buildBundleEntries(project, layoutId, specs, { platform: "android" }));
   if (draft.entries.length === 0) throw new Error("No selected screen has a Google Play screenshot slot");
+  validateBundleArtboards(draft.entries, specs);
+  const warn = dependencies.warn ?? console.error;
+  for (const warning of bundlePreflightWarnings(draft.entries, specs)) warn(`Warning: ${warning.message}`);
   const json = flags.json === "true";
   if (flags["dry-run"] === "true") {
     return formatReport({ store: "google", packageName, layoutId, dryRun: true, committed: false, plan: draft }, json);
@@ -149,6 +161,9 @@ export async function runUploadCommand(
   const account = await readGooglePlayServiceAccount(resolve(accountPath));
   const fetchImpl = dependencies.fetch ?? fetch;
   const endpoints = dependencies.endpoints ?? GOOGLE_PLAY_ENDPOINTS;
+  const timeoutMs = dependencies.requestTimeoutMs;
+  // Exchanged before rendering so a revoked key fails fast; the token stays valid for an hour.
+  const token = await googlePlayAccessToken(account, { tokenUrl: endpoints.tokenUrl, fetch: fetchImpl, timeoutMs });
 
   await dependencies.prepareRender?.();
   const renderRoot = await mkdtemp(join(tmpdir(), "screenshots-upload-"));
@@ -168,12 +183,15 @@ export async function runUploadCommand(
       pngs.set(entry.relativePath, await readFile(join(renderRoot, entry.relativePath)));
     }
 
-    const token = await googlePlayAccessToken(account, { tokenUrl: endpoints.tokenUrl, fetch: fetchImpl });
-    const client = createGooglePlayClient({ apiRoot: endpoints.apiRoot, packageName, token, fetch: fetchImpl });
+    const client = createGooglePlayClient({ apiRoot: endpoints.apiRoot, packageName, token, fetch: fetchImpl, timeoutMs });
     const editId = await client.insertEdit();
     let plan: GooglePlayUploadPlan;
     try {
       const locales = await client.listListingLanguages(editId);
+      const unlisted = local.locales.filter(({ locale }) => !locales.includes(locale)).map(({ locale }) => locale);
+      if (unlisted.length > 0) {
+        throw new Error(`Google Play has no store listing for ${unlisted.join(", ")}; add the language in Play Console first`);
+      }
       const images = new Map<string, RemoteImage[]>();
       for (const locale of local.locales) {
         for (const { imageType } of locale.slots) {
@@ -193,7 +211,7 @@ export async function runUploadCommand(
       return await abandon(client, editId, error);
     }
     try {
-      await client.commitEdit(editId);
+      await client.commitEdit(editId, flags["changes-not-sent-for-review"] === "true");
     } catch (error) {
       if (error instanceof GooglePlayRequestError && !error.responded) {
         throw new Error(`${error.message}\nThe commit outcome is unknown; check Play Console before uploading again.`, { cause: error });

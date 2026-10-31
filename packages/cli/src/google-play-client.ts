@@ -15,6 +15,8 @@ export const GOOGLE_PLAY_ENDPOINTS: GooglePlayEndpoints = {
 };
 
 const ANDROID_PUBLISHER_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
+/** A stalled request must not hold an edit open forever; an abort is reported as no response. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 export interface GooglePlayServiceAccount {
   clientEmail: string;
@@ -63,21 +65,29 @@ async function failure(operation: string, response: Response): Promise<GooglePla
   try {
     const body = await response.json() as { error?: { message?: unknown } | string; error_description?: unknown };
     const message = typeof body.error === "object" ? body.error.message : body.error_description ?? body.error;
-    if (typeof message === "string") detail = ` ${message}`;
+    if (typeof message === "string") detail = ` ${message.slice(0, 500)}`;
   } catch {
     // A non-JSON error body adds nothing the status does not already say.
   }
   return new GooglePlayRequestError(`Google Play ${operation} failed: ${response.status}${detail}`, true);
 }
 
-async function send(fetchImpl: typeof fetch, operation: string, url: string, init: RequestInit): Promise<Response> {
+async function send(
+  fetchImpl: typeof fetch,
+  operation: string,
+  url: string,
+  init: RequestInit,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   try {
-    return await fetchImpl(url, init);
+    return await fetchImpl(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   } catch (error) {
     // Node's fetch cause carries the host; only the operation and the reason are reported.
-    const cause = (error as { cause?: { code?: unknown } }).cause?.code;
+    const reason = (error as Error).name === "TimeoutError"
+      ? "timeout"
+      : (error as { cause?: { code?: unknown } }).cause?.code;
     throw new GooglePlayRequestError(
-      `Google Play ${operation} failed: network error${typeof cause === "string" ? ` (${cause})` : ""}`,
+      `Google Play ${operation} failed: network error${typeof reason === "string" ? ` (${reason})` : ""}`,
       false,
     );
   }
@@ -86,7 +96,7 @@ async function send(fetchImpl: typeof fetch, operation: string, url: string, ini
 /** OAuth 2.0 service-account flow: an RS256-signed JWT exchanged for a one-hour access token. */
 export async function googlePlayAccessToken(
   account: GooglePlayServiceAccount,
-  options: { tokenUrl: string; fetch: typeof fetch; now?: () => number },
+  options: { tokenUrl: string; fetch: typeof fetch; now?: () => number; timeoutMs?: number },
 ): Promise<string> {
   const issuedAt = Math.floor((options.now ?? Date.now)() / 1000);
   const unsigned = [
@@ -104,7 +114,7 @@ export async function googlePlayAccessToken(
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
-  });
+  }, options.timeoutMs);
   if (!response.ok) throw await failure("token exchange", response);
   const { access_token: token } = await response.json() as { access_token?: unknown };
   if (typeof token !== "string" || token.length === 0) throw new Error("Google Play token exchange returned no access token");
@@ -119,6 +129,7 @@ export function createGooglePlayClient(options: {
   packageName: string;
   token: string;
   fetch: typeof fetch;
+  timeoutMs?: number;
 }) {
   const app = `androidpublisher/v3/applications/${encodeURIComponent(options.packageName)}`;
   const slot = (editId: string, language: string, imageType: GooglePlayImageType) =>
@@ -131,7 +142,7 @@ export function createGooglePlayClient(options: {
         ...(body ? { "content-type": "image/png" } : {}),
       },
       ...(body ? { body: new Uint8Array(body) } : {}),
-    });
+    }, options.timeoutMs);
     if (!response.ok) throw await failure(operation, response);
     const text = await response.text();
     return (text ? JSON.parse(text) : {}) as T;
@@ -159,8 +170,10 @@ export function createGooglePlayClient(options: {
     async uploadImage(editId: string, language: string, imageType: GooglePlayImageType, png: Buffer): Promise<void> {
       await call("edits.images.upload", "POST", `upload/${slot(editId, language, imageType)}?uploadType=media`, png);
     },
-    async commitEdit(editId: string): Promise<void> {
-      await call("edits.commit", "POST", `${app}/edits/${encodeURIComponent(editId)}:commit`);
+    /** `changesNotSentForReview` is required by apps whose changes Play will not send for review automatically. */
+    async commitEdit(editId: string, changesNotSentForReview = false): Promise<void> {
+      const query = changesNotSentForReview ? "?changesNotSentForReview=true" : "";
+      await call("edits.commit", "POST", `${app}/edits/${encodeURIComponent(editId)}:commit${query}`);
     },
     async deleteEdit(editId: string): Promise<void> {
       await call("edits.delete", "DELETE", `${app}/edits/${encodeURIComponent(editId)}`);
