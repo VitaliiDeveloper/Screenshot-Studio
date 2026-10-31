@@ -30,6 +30,8 @@ export interface UploadCommandDependencies extends ExportCommandDependencies {
   env?: NodeJS.ProcessEnv;
   fetch?: typeof fetch;
   endpoints?: GooglePlayEndpoints;
+  /** Runs once credentials are known to be usable, before rendering (the CLI checks for browsers here). */
+  prepareRender?: () => Promise<void>;
 }
 
 export function refuseAgentUpload(env: NodeJS.ProcessEnv = process.env): void {
@@ -148,6 +150,7 @@ export async function runUploadCommand(
   const fetchImpl = dependencies.fetch ?? fetch;
   const endpoints = dependencies.endpoints ?? GOOGLE_PLAY_ENDPOINTS;
 
+  await dependencies.prepareRender?.();
   const renderRoot = await mkdtemp(join(tmpdir(), "screenshots-upload-"));
   try {
     let rendered: BundleEntry[] = [];

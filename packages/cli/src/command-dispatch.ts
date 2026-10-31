@@ -19,7 +19,7 @@ import { runPublishingCommand } from "./publishing-commands.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
-import { refuseAgentUpload, runUploadCommand } from "./upload-command.js";
+import { runUploadCommand } from "./upload-command.js";
 
 export function positionalArgs(argv: string[]): string[] {
   const args: string[] = [];
@@ -126,10 +126,9 @@ export async function dispatchCommand(
       console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
       break;
     case "upload":
-      // Refuse before a browser download or any other side effect.
-      refuseAgentUpload();
-      if (flags["dry-run"] !== "true") await ensureRenderBrowsers("required", defaults.browserSetup);
-      console.log(await runUploadCommand(flags, defaults.storeSpecsPath));
+      console.log(await runUploadCommand(flags, defaults.storeSpecsPath, {
+        prepareRender: () => ensureRenderBrowsers("required", defaults.browserSetup),
+      }));
       break;
     case "publishing":
       console.log(await runPublishingCommand(resolveProjectPath(flags), args, flags));
