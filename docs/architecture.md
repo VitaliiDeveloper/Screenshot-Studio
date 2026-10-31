@@ -319,20 +319,29 @@ route. Screen pack asset URLs are `ProjectRelativePath`s, which rejects `..`, ab
 schemes, and they resolve against the pack folder. Every manifest and asset must be a regular file
 whose canonical path equals its lexical path, so a symbolic link anywhere below the project folder
 (the `packs/` folder, a pack folder, or an asset ancestor) is refused, and files open with no-follow
-flags and an identity check. Design packs carry no assets: their background is solid or gradient.
-Discovery (`listProjectPacks`) never throws for a broken pack. It returns the valid packs plus one
-`{ file, message }` per broken entry, and the picker and `template list`/`theme list` show both.
+flags and an identity check. A manifest is capped at 1 MB and an asset at the 25 MB upload cap,
+checked before reading. Asset names that project archives drop (hidden, credential-like, or
+temporary) are refused, so a pack survives an archive round trip. Design packs carry no assets: their
+background is solid or gradient. Discovery (`listProjectPacks`) never throws for a broken pack. It
+returns the valid packs plus one `{ file, message }` per broken entry, with errno failures reduced to
+their code so no absolute path reaches the browser, and the picker and `template list`/`theme list`
+show both. Listing reads only each asset's leading bytes to recognize PNG, JPEG, or WebP; applying
+reads the whole file and runs the same decode and pixel-limit checks as an uploaded image.
 
 Applying a screen pack runs inside the project mutation lease. Each referenced asset is published
-through the managed-resource path as `assets/packs/<id>/<sha256-12>-<basename>` (create-only, so a
+through the managed-resource path as `assets/packs/<id>/<sha256-12>-<stem>.<ext>`, with the stem
+sanitized and bounded like an upload's and the extension of the decoded format (create-only, so a
 re-apply converges and an edited pack gets a new file), the pack is rewritten to those paths, and
 the result goes through `createScreensFromTemplatePack`, the path built-in packs use. Files created
 by an update that rolls back are removed. The project document therefore references only ordinary
 project assets and stays portable without its `packs/` folder; `packs/` is still a supported
 project archive root. `template export-pack <layout-id> --out packs/<id>` snapshots one layout's
 root screens (one locale, one output family, left-to-right) with literal artboards and copies each
-referenced asset to the same relative path inside the pack folder. Its `--out` must be exactly
-`packs/<slug>` in the project folder, and it replaces an existing pack only with `--force`. Packs
+referenced asset to the same relative path inside the pack folder. A relative `--out` resolves
+against the project folder and must be exactly `packs/<slug>` there; a symbolic link is refused.
+Under the project mutation lease it refuses an existing folder unless `--force` is given, and then
+overwrites that screen pack's files one by one: files the new pack does not write stay in place,
+and nothing is deleted. Packs
 carry no font files, so text in a non-built-in font applies only where that font is registered.
 
 ## 6. Interfaces for people and tools

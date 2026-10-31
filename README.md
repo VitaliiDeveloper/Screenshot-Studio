@@ -360,12 +360,13 @@ Create a screen pack from a layout you already designed. It writes the manifest 
 image the screens use:
 
 ```bash
-pnpm screenshots template export-pack default --out ./my-app-screenshots/packs/house --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots template export-pack default --out packs/house --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
 It exports the layout's main screens for one locale (`--locale`, default the first screen's) and one
-output family. `--out` must be `packs/<name>` inside the project, and an existing pack is replaced
-only with `--force`.
+output family. `--out` is relative to the project folder and must be `packs/<name>`. An existing pack
+is overwritten only with `--force`, file by file: files the new export does not write are kept.
+Pack images must be PNG, JPEG, or WebP files of 25 MB or less, like uploaded images.
 
 Project packs appear next to the built-ins with a **Project** badge in the **Design packs** dialog,
 and as `project-pack` lines in `template list` (screen packs) and `theme list` (Design packs). A pack
