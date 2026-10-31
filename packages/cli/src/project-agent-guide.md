@@ -180,8 +180,10 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
 | Refresh re-captured screens | `import <dir> --refresh` |
+| Find problems before export | `check --render [--json] [--strict]` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
+| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
 | Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
 | Remove an element | `element rm <screen-id> <element-id>` |
@@ -209,6 +211,40 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 `--all-sizes` it targets leaf layers, so move a group by moving each child. Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
 
+## Check before export
+
+`screenshots check --render --json --project ./app-store-screenshots.json` lists the editor's Issues
+and export preflight for the layout `export` ships (or `--layout`) without writing anything. It exits
+1 on any blocker; `--strict` also fails on warnings. Without `--render` it is browser-free and skips
+text overflow. The JSON report is:
+
+```json
+{
+  "layoutId": "default",
+  "textMeasured": true,
+  "strict": false,
+  "ok": false,
+  "counts": { "blockers": 1, "warnings": 0 },
+  "issues": [
+    { "id": "missing-image:hero:shot", "kind": "missing-image", "level": "blocker",
+      "message": "Image missing from the project folder: assets/hero.png", "layoutId": "default",
+      "screenId": "hero", "size": "6.9", "locale": "en", "elementId": "shot" }
+  ]
+}
+```
+
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
+`unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
+`android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
+`screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
+issue with the commands above, then run `check` again.
+
+Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
+on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
+that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
+error) also exits 1 but prints no JSON, only an error on stderr; treat stdout that does not parse
+as a tool error, not as a list of issues.
+
 ## Recipe: generate or refresh copy
 
 1. Read the product brief, current captures, and every screen in the target locale. Write a short
@@ -232,6 +268,7 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
+   screenshots check --render --project ./app-store-screenshots.json
    screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale en --project ./app-store-screenshots.json
    ```
@@ -295,6 +332,23 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 3. Translate only text content in the cloned target set with `element list --locale <target>` and
    `element text --all-sizes`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
    the store audience; do not force a word-for-word translation into a box that no longer fits.
+   For a translator or translation service, `screenshots copy export --locale <target>[,<target>...] --out copy.csv`
+   writes one row per base-locale text layer (`screen`, `element`, `source`, one column per target
+   locale; `.json` works too). The base is the first locale in screen order. `--locale` takes a comma
+   list; a repeated `--locale` keeps only the last value. A relative `--out` resolves against the
+   current directory, an existing file needs `--force`, and the project document, its lock file and
+   `assets/` are refused. Fill the target cells, then `screenshots copy import copy.csv`. Every
+   non-empty cell overwrites the target text, so export only the locales being translated and do not
+   edit them in the editor meanwhile. Empty cells stay untouched, rows whose `source` changed since
+   export are skipped with a warning (`--force` overrides), locked layers and locked groups are
+   skipped, and an unknown row key writes nothing. Use `--layout` when the project has several
+   layouts and `--json` for machine-readable counts.
+
+   Target cells are paired by name and position: the target size row must have as many screens as the
+   base row, the paired screen must have the same name, and an exact-size variant follows its target
+   root through `variantOf`. If any of that differs (reordered, renamed, added or removed screens),
+   or the layer type sequence differs, the cell is skipped with a warning. The layer match compares
+   only the type sequence, so swapping two same-type layers in one locale is not detected.
 4. Replace screenshots or other media only when a locale-specific asset exists (see the media
    recipe). Shared asset paths are intentional until then.
 5. Verify that every target glyph is covered by the registered file-backed font. If a different font
@@ -476,6 +530,7 @@ screenshots asset remove-background assets/icons/product.png --background FFFFFF
 ## Completion checklist
 
 - The CLI can list the project without a validation error.
+- `screenshots check --render` exits 0: no blockers, and any warning is deliberate.
 - Copy and media changes are limited to the intended layout, locale, and screens.
 - Every text font identity is registered and contains the required glyphs.
 - Focus and Overview show no accidental overlap, clipping, or broken hierarchy.

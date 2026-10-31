@@ -20,17 +20,65 @@ cache) with the Playwright version this CLI depends on, and is safe to re-run. `
 same download on first use when run in a terminal; in CI or piped runs it exits with the install
 command instead. On Linux, Chromium may also need Playwright's system packages.
 
+To skip the download, pass `--browser chrome`, `--browser msedge`, or `--browser auto` (the
+downloaded Chromium if present, otherwise installed Chrome, then Edge) to `export`, or set
+`SCREENSHOTS_BROWSER`; the flag wins. System browsers are opt-in because exports are only
+reproducible against the pinned Chromium: they run full headless Chrome rather than Playwright's
+headless shell, so output can differ even at the same Chromium version, and Chrome and Edge
+auto-update, which can change text rendering between exports.
+
 Interactive runs check the npm registry at most once a day for a newer version and print a
 one-line notice. Disable it with `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is
 skipped when `CI` is set or output is not a terminal.
 
-`dev`, `screen`, and `export` accept `--store-specs <path>` to override the packaged
+`screenshots check [--layout <id>] [--render] [--strict] [--json]` validates a project without
+exporting: the editor's Issues (screen missing in a locale, image missing from the project folder,
+and with `--render` text overflow measured in the export render host) plus export preflight (fonts
+that are unregistered or missing on disk, unknown sizes, artboards that cannot scale, export paths
+that are not portable, Android tablet screen counts). It prints one line per issue and exits 1 on
+any blocker; `--strict` also fails on warnings. `--render` needs the same Chromium builds as
+`export` and fails the same way without them; while a font blocker remains it skips text
+measurement and reports `"textMeasured": false`. A failure that is not a report (missing project,
+unknown `--layout`, bad `--store-specs`, render-host error) also exits 1 but prints no `--json`
+report, only an error on stderr, so scripts should treat stdout that does not parse as a tool error.
+
+`dev`, `screen`, `check`, and `export` accept `--store-specs <path>` to override the packaged
 `store-specs.json`. Bundle export writes every locale root at its device lead target plus its
 explicit persisted variants. A single-screen export resolves an explicit `--size` first, then the
 screen’s persisted `storeTargetId`, then its device lead target.
 
 `screenshots export --profile web-share` packages the same rendered PNGs into a portable local-only
 static review/campaign directory and ZIP. Web Share is independent of the Web platform.
+
+### fastlane layout
+
+`screenshots export --profile fastlane` writes the same store-ready PNGs into the tree that
+[fastlane](https://docs.fastlane.tools) reads, under one `fastlane/` folder in `--out`:
+
+- App Store screens go to `fastlane/screenshots/<locale>/<NN>_<screen>_<device>-<size>.png`. `fastlane
+  deliver` reads every device class from one flat locale folder and picks the class by pixel size, so
+  the name carries the device and size to stay unique. Vision Pro names contain `vision`, which deliver
+  needs to tell 3840×2160 apart from Apple TV, so the `--out` path itself must not contain `vision`
+  when it holds Apple TV 4K screens: deliver checks the whole path. deliver merges a size's portrait
+  and landscape files into one set, and iPad 13 with 12.9 (a 2048×2732 iPad lands in the 13" set);
+  App Store Connect keeps at most 10 screenshots per set.
+- Google Play screens go to `fastlane/metadata/android/<locale>/images/<slot>/<NN>.png`, where the
+  slot is `phoneScreenshots`, `sevenInchScreenshots`, `tenInchScreenshots`, `tvScreenshots`, or
+  `wearScreenshots` by output family. The Feature Graphic becomes `images/featureGraphic.png`.
+- Project locales map to store codes: an exact store code (`en-US`, `uk`, `zh-Hans`) is kept, a bare
+  language with one store code (`de` → `de-DE`) or a common default (`en` → `en-US`, `es` → `es-ES`,
+  `fr` → `fr-FR`) is expanded, and anything else, such as `pt` or `zh`, stops the export before
+  rendering. App Store Connect and Google Play use different code lists (`ja` vs `ja-JP`).
+- Windows, Web, Chromebook, Automotive, and XR sizes have no fastlane upload slot; the export skips
+  them and prints one summary line.
+
+Then `fastlane deliver --skip_binary_upload --skip_metadata` and `fastlane supply
+--skip_upload_apk --skip_upload_aab --skip_upload_metadata --skip_upload_changelogs` upload the
+screenshots with your own store credentials. Run from the `--out` folder, they read
+`./fastlane/screenshots` and `./fastlane/metadata/android` by default; elsewhere, pass
+`--screenshots_path` / `--metadata_path`. fastlane uploads
+every image it finds there, so export into a clean folder, and add `--overwrite_screenshots` to
+deliver to replace the screenshots already in App Store Connect instead of appending to them.
 
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at

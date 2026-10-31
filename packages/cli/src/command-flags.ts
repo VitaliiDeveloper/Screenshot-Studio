@@ -13,9 +13,10 @@ export interface ParsedCommandFlags {
 export const COMMAND_FLAG_SPECS = {
   init: { value: ["dir", "name"], boolean: [] },
   export: {
-    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile"],
+    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile", "browser"],
     boolean: [],
   },
+  check: { value: ["project", "store-specs", "layout"], boolean: ["json", "strict", "render"] },
   screen: {
     value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from", "background"],
     boolean: ["cascade", "json"],
@@ -30,6 +31,7 @@ export const COMMAND_FLAG_SPECS = {
   setup: { value: [], boolean: [] },
   template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in", "pack"] },
   element: { value: ["project", "layout", "screen", "locale", "json", "type"], boolean: ["all-sizes"] },
+  copy: { value: ["project", "layout", "locale", "out"], boolean: ["force", "json"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;

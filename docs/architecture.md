@@ -146,7 +146,12 @@ compression may differ, but dimensions and visual output are verified by targete
 New render-affecting fields must extend the shared mapping and parity tests together.
 Validation that depends on rendered geometry, such as text overflow, measures the same
 `elementToNodeConfig` text config with Konva's own layout in the browser; it never estimates metrics
-on a separate path.
+on a separate path. `screenshots check --render` reads the core Issues engine from the `/render` host
+(`window.__collectIssues`, set with the stage's fonts and images), so the CLI reports the same issues
+as the editor; without `--render` it runs the same engine in Node and skips text measurement.
+
+Parity coverage runs against the pinned Playwright Chromium; `screenshots export --browser
+chrome|msedge|auto` can launch an installed system browser, which is outside that coverage.
 
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
@@ -154,7 +159,9 @@ requested artboard crop; it never stitches a separate image or slices a finished
 
 Export profiles are separate from platforms. The default store bundle and optional `web-share`
 profile consume PNGs produced by the shared browser renderer; Web Share only packages those outputs
-with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer.
+with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer. The
+CLI-only `fastlane` profile renames the same store-bundle PNGs into the `fastlane deliver`/`supply`
+tree and skips sizes fastlane cannot upload.
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`

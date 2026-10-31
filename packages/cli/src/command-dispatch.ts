@@ -3,8 +3,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runAssetCommand } from "./asset-commands.js";
-import { ensureRenderBrowsers, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
+import { ensureRenderBrowsers, resolveBrowserChoice, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
+import { runCheckCommand } from "./check-command.js";
 import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
+import { runCopyCommand } from "./copy-commands.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
 import { runElementCommand } from "./element-commands.js";
 import { runExportCommand } from "./export-command.js";
@@ -60,7 +62,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout|setup|template|element> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -69,9 +71,17 @@ export async function dispatchCommand(
       await runInitCommand(flags, defaults.storeSpecsPath);
       break;
     case "export":
-      await ensureRenderBrowsers("required", defaults.browserSetup);
+      await ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(flags.browser));
       await runExportCommand(flags, defaults.storeSpecsPath);
       break;
+    case "check": {
+      if (flags.render) await ensureRenderBrowsers("required", defaults.browserSetup);
+      const result = await runCheckCommand(flags, defaults.storeSpecsPath);
+      console.log(result.output);
+      // exitCode, not exit(): a large --json report piped to CI must flush before the process ends.
+      if (result.exitCode !== 0) process.exitCode = result.exitCode;
+      break;
+    }
     case "screen":
       await runScreenManagementCommand(args, flags, defaults.storeSpecsPath);
       break;
@@ -110,5 +120,8 @@ export async function dispatchCommand(
       if (output) console.log(output);
       break;
     }
+    case "copy":
+      console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
+      break;
   }
 }

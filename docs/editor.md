@@ -230,7 +230,7 @@ device list is the tooltip. The sizes bar, Export, Overview rows, the Screens he
 the artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
-(`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues
+(`@screenshot-studio/core/validation`), the single source the Export dialog and `screenshots check` share; issues
 are derived on demand and never persisted. Blockers come first, and every row names its screen and
 size and offers **Go to** and a fix:
 
