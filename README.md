@@ -268,7 +268,8 @@ whether a key is configured. If you start the editor from inside your project fo
 project. After an export, **Upload to store** shows what will be uploaded and replaced per language
 and image slot or display type; nothing changes in the store until you confirm, and a project edited
 after the review must be reviewed again. For App Store Connect the review also shows the editable
-version of each platform and asks you to pick one where there are several. Agents started from the editor cannot upload.
+version of each platform and asks you to pick one where there are several. Agents started from the
+editor cannot upload.
 
 ## In CI
 
