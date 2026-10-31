@@ -38,7 +38,9 @@
     "./capture-import-recovery": "./src/capture-import-recovery.ts",
     "./capture-import-transaction": "./src/capture-import-transaction.ts",
     "./render-driver": "./src/render-driver.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./store-upload-plan": "./src/store-upload-plan.ts",
+    "./upload": "./src/upload-command.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
