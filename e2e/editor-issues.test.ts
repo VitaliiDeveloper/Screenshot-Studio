@@ -6,9 +6,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
-import { writeIssuesFixture } from "./support/issues-fixture.js";
+import { ISSUES_FIXTURE_IDS, writeIssuesFixture } from "./support/issues-fixture.js";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const fixtureSummary =
+  `Issues: ${ISSUES_FIXTURE_IDS.blockers.length} blockers · ${ISSUES_FIXTURE_IDS.warnings.length} warnings`;
 
 let server: RunningServer;
 let browser: Browser;
@@ -63,7 +65,7 @@ describe("editor issues", () => {
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     await page.goto(`${server.url}/editor`, { waitUntil: "load" });
 
-    const issuesButton = page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" });
+    const issuesButton = page.getByRole("button", { name: fixtureSummary });
     await issuesButton.waitFor({ state: "visible" });
     await issuesButton.click();
     const dialog = page.getByRole("dialog", { name: "Issues" });
@@ -107,7 +109,7 @@ describe("editor issues", () => {
     await expect.poll(() => textSize("clipped")).toBe(100);
     await expect.poll(() => heroStage.getAttribute("data-text-overflow-count")).toBe("1");
 
-    await page.getByRole("button", { name: "Issues: 2 blockers · 3 warnings" }).click();
+    await page.getByRole("button", { name: fixtureSummary }).click();
 
     await dialog.getByRole("button", { name: /^Fit text: .* · en$/ }).click();
     await expect.poll(() => textSize("clipped")).toBe(66);

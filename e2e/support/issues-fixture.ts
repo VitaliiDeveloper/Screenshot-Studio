@@ -6,7 +6,7 @@ import { createImageElement, createTextElement } from "@screenshot-studio/core/m
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
-/** What the editor's Issues and `screenshots check --render` both report for this project. */
+/** `check --render` asserts these ids; the editor Issues test asserts the summary built from their counts. */
 export const ISSUES_FIXTURE_IDS = {
   blockers: ["missing-locale-screen:de:details", "missing-image:details:lost"],
   warnings: ["text-overflow:hero:clipped", "text-overflow:hero-de:de-title", "text-overflow:hero-de-69:de-title-69"],
