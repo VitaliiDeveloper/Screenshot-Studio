@@ -3,7 +3,7 @@ import { collectImageUrls } from "@screenshot-studio/core/assets";
 import { isProjectRelativePath, type Project } from "@screenshot-studio/core/model";
 
 const ROOT_FILES = new Set(["app-store-screenshots.json", "AGENTS.md", "CLAUDE.md"]);
-const RESOURCE_ROOTS = new Set(["assets", "screenshots", "themes", "templates"]);
+const RESOURCE_ROOTS = new Set(["assets", "screenshots", "themes", "templates", "packs"]);
 const CREDENTIAL_BASENAME =
   /(?:^|[-_.])(?:credentials?|secrets?|service-account|id_rsa|id_ed25519)(?:[-_.]|$)/iu;
 const PRIVATE_EXTENSION = /\.(?:key|pem|p12|pfx|jks|keystore|mobileprovision)$/iu;
