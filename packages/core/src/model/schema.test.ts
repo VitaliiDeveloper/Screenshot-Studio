@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_FONT_WEIGHT,
@@ -718,6 +719,14 @@ describe("publishing identifiers", () => {
     ["a non-numeric Apple app id", { apple: { appId: "com.example.app" } }],
   ])("rejects %s", (_case, publishing) => {
     expect(() => parseProject({ ...validProject(), publishing })).toThrow(ProjectValidationError);
+  });
+
+  it("parses the tracked publishing fixture with both stores", async () => {
+    const raw = await readFile(new URL("../../../../fixtures/publishing/app-store-screenshots.json", import.meta.url), "utf8");
+    expect(Project.parse(JSON.parse(raw)).publishing).toEqual({
+      apple: { appId: "1234567890" },
+      google: { packageName: "com.example.screenshots" },
+    });
   });
 
   it("sets, clears and drops the block through setPublishing", () => {
