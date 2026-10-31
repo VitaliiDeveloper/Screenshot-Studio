@@ -19,6 +19,7 @@
               "width": 1320,
               "height": 2868,
               "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPHONE_67" },
               "devices": ["iPhone 18 Pro Max", "iPhone Air", "iPhone 17 Pro Max", "iPhone 16 Pro Max", "iPhone 16 Plus", "iPhone 15 Pro Max", "iPhone 15 Plus", "iPhone 14 Pro Max"]
             },
             {
@@ -27,6 +28,7 @@
               "width": 2868,
               "height": 1320,
               "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPHONE_67" },
               "devices": ["iPhone 18 Pro Max", "iPhone Air", "iPhone 17 Pro Max", "iPhone 16 Pro Max", "iPhone 16 Plus", "iPhone 15 Pro Max", "iPhone 15 Plus", "iPhone 14 Pro Max"]
             },
             {
@@ -35,6 +37,7 @@
               "width": 1284,
               "height": 2778,
               "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPHONE_65" },
               "devices": ["iPhone 14 Plus", "iPhone 13 Pro Max", "iPhone 12 Pro Max", "iPhone 11 Pro Max", "iPhone 11", "iPhone XS Max", "iPhone XR"]
             },
             {
@@ -43,6 +46,7 @@
               "width": 2778,
               "height": 1284,
               "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPHONE_65" },
               "devices": ["iPhone 14 Plus", "iPhone 13 Pro Max", "iPhone 12 Pro Max", "iPhone 11 Pro Max", "iPhone 11", "iPhone XS Max", "iPhone XR"]
             },
             {
@@ -51,6 +55,7 @@
               "width": 1206,
               "height": 2622,
               "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPHONE_61" },
               "devices": ["iPhone 18 Pro", "iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro", "iPhone 15", "iPhone 14 Pro"]
             },
             {
@@ -59,6 +64,7 @@
               "width": 2622,
               "height": 1206,
               "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPHONE_61" },
               "devices": ["iPhone 18 Pro", "iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16", "iPhone 15 Pro", "iPhone 15", "iPhone 14 Pro"]
             },
             {
@@ -67,6 +73,7 @@
               "width": 1125,
               "height": 2436,
               "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPHONE_58" },
               "devices": ["iPhone 17e", "iPhone 16e", "iPhone 14", "iPhone 13 Pro", "iPhone 13", "iPhone 13 mini", "iPhone 12 Pro", "iPhone 12", "iPhone 12 mini", "iPhone 11 Pro", "iPhone XS", "iPhone X"]
             },
             {
@@ -75,6 +82,7 @@
               "width": 2436,
               "height": 1125,
               "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPHONE_58" },
               "devices": ["iPhone 17e", "iPhone 16e", "iPhone 14", "iPhone 13 Pro", "iPhone 13", "iPhone 13 mini", "iPhone 12 Pro", "iPhone 12", "iPhone 12 mini", "iPhone 11 Pro", "iPhone XS", "iPhone X"]
             },
             {
@@ -82,28 +90,32 @@
               "label": "iPhone Duo inner",
               "width": 2007,
               "height": 2853,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "unsupported": "The App Store Connect API has no display type for iPhone Duo screenshots" }
             },
             {
               "id": "duo-inner-landscape",
               "label": "iPhone Duo inner landscape",
               "width": 2853,
               "height": 2007,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "unsupported": "The App Store Connect API has no display type for iPhone Duo screenshots" }
             },
             {
               "id": "duo-outer",
               "label": "iPhone Duo outer",
               "width": 1398,
               "height": 2034,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "unsupported": "The App Store Connect API has no display type for iPhone Duo screenshots" }
             },
             {
               "id": "duo-outer-landscape",
               "label": "iPhone Duo outer landscape",
               "width": 2034,
               "height": 1398,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "unsupported": "The App Store Connect API has no display type for iPhone Duo screenshots" }
             }
           ]
         },
@@ -118,42 +130,48 @@
               "label": "13\" iPad (lead)",
               "width": 2064,
               "height": 2752,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPAD_PRO_3GEN_129" }
             },
             {
               "id": "13-landscape",
               "label": "13\" iPad landscape",
               "width": 2752,
               "height": 2064,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPAD_PRO_3GEN_129" }
             },
             {
               "id": "12.9",
               "label": "12.9\" iPad",
               "width": 2048,
               "height": 2732,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPAD_PRO_3GEN_129" }
             },
             {
               "id": "12.9-landscape",
               "label": "12.9\" iPad landscape",
               "width": 2732,
               "height": 2048,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPAD_PRO_3GEN_129" }
             },
             {
               "id": "11",
               "label": "11\" iPad",
               "width": 1668,
               "height": 2420,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_IPAD_PRO_3GEN_11" }
             },
             {
               "id": "11-landscape",
               "label": "11\" iPad landscape",
               "width": 2420,
               "height": 1668,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_IPAD_PRO_3GEN_11" }
             }
           ]
         },
@@ -168,28 +186,32 @@
               "label": "Mac 2880×1800 (lead)",
               "width": 2880,
               "height": 1800,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_DESKTOP" }
             },
             {
               "id": "2560x1600",
               "label": "Mac 2560×1600",
               "width": 2560,
               "height": 1600,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_DESKTOP" }
             },
             {
               "id": "1440x900",
               "label": "Mac 1440×900",
               "width": 1440,
               "height": 900,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_DESKTOP" }
             },
             {
               "id": "1280x800",
               "label": "Mac 1280×800",
               "width": 1280,
               "height": 800,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_DESKTOP" }
             }
           ]
         },
@@ -204,14 +226,16 @@
               "label": "Apple TV 4K (lead)",
               "width": 3840,
               "height": 2160,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_APPLE_TV" }
             },
             {
               "id": "hd",
               "label": "Apple TV HD",
               "width": 1920,
               "height": 1080,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_APPLE_TV" }
             }
           ]
         },
@@ -226,42 +250,48 @@
               "label": "Apple Watch Ultra 3 (lead)",
               "width": 422,
               "height": 514,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_WATCH_ULTRA" }
             },
             {
               "id": "ultra-2",
               "label": "Apple Watch Ultra 2",
               "width": 410,
               "height": 502,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_WATCH_ULTRA" }
             },
             {
               "id": "series-11",
               "label": "Apple Watch Series 11",
               "width": 416,
               "height": 496,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_WATCH_SERIES_10" }
             },
             {
               "id": "series-9",
               "label": "Apple Watch Series 9",
               "width": 396,
               "height": 484,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_WATCH_SERIES_7" }
             },
             {
               "id": "series-6",
               "label": "Apple Watch Series 6",
               "width": 368,
               "height": 448,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_WATCH_SERIES_4" }
             },
             {
               "id": "series-3",
               "label": "Apple Watch Series 3",
               "width": 312,
               "height": 390,
-              "orientation": "portrait"
+              "orientation": "portrait",
+              "appStoreConnect": { "displayType": "APP_WATCH_SERIES_3" }
             }
           ]
         },
@@ -276,7 +306,8 @@
               "label": "Apple Vision Pro (lead)",
               "width": 3840,
               "height": 2160,
-              "orientation": "landscape"
+              "orientation": "landscape",
+              "appStoreConnect": { "displayType": "APP_APPLE_VISION_PRO" }
             }
           ]
         }
