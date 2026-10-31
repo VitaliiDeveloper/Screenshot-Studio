@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { exportBundle, type ExportBundleProgress } from "@screenshot-studio/cli/export";
+import { createRenderBrowserSession } from "@screenshot-studio/cli/render-driver";
 import { runUploadCommand } from "@screenshot-studio/cli/upload";
 import { errorText, ProjectRevisionConflictError } from "@screenshot-studio/core/storage";
 import { jsonError } from "@web/lib/api-error-response.server.js";
@@ -151,6 +152,8 @@ export async function handleUploadPost(
         if (operationId) progressRegistry.update(operationId, "uploading", total, total);
         return zipPath;
       },
+      // Ignores SCREENSHOTS_BROWSER, so uploads render with the same pinned Chromium as /api/export.
+      createRenderBrowserSession: () => createRenderBrowserSession(),
       warn: (message) => { warnings.push(message); },
     });
     if (operationId) progressRegistry.finish(operationId, "ready");

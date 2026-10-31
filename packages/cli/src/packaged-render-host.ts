@@ -18,8 +18,7 @@ export interface PreparedRenderHost {
 type ResolvePackageManifest = (name: string, from: string) => string;
 type MaterializeSharpRuntime = (destination: string) => Promise<string[]>;
 
-// Plain path arithmetic and a non-literal resolve below keep webpack from treating them as bundle
-// dependencies when the editor's upload route imports the CLI.
+// Not `new URL("..", import.meta.url)`: webpack resolves that as a module when the editor bundles the CLI.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceWebDir = resolve(packageRoot, "../../apps/web");
 const packagedWebArchive = join(packageRoot, "runtime", "web.zip");
@@ -190,6 +189,7 @@ export async function prepareRenderHost(port: number): Promise<PreparedRenderHos
   }
   // Run Next directly: a pnpm wrapper can exit on SIGTERM without forwarding it, orphaning the dev
   // server (which holds Next's per-app dev lock) and the stderr pipe that stop() waits to drain.
+  // A literal would make webpack bundle Next's own CLI into the editor server.
   const nextBin = ["next", "dist", "bin", "next"].join("/");
   const nextCli = createRequire(join(sourceWebDir, "package.json")).resolve(nextBin);
   return {

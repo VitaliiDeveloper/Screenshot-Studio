@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { KeyRound, Store, Upload } from "lucide-react";
 import { Publishing, type Project } from "@screenshot-studio/core/model";
@@ -44,14 +44,15 @@ function KeyFilePicker({ label, accept, file, disabled, onChange }: {
   disabled: boolean;
   onChange: (file: File | null) => void;
 }) {
+  const input = useRef<HTMLInputElement>(null);
   return (
-    <label className="block">
-      <input aria-label={label} type="file" accept={accept} disabled={disabled} onChange={(event) => onChange(event.target.files?.[0] ?? null)} className="sr-only" />
-      <span className={cx(editorUi.buttonSecondary, "w-full justify-start overflow-hidden")}>
+    <>
+      <input ref={input} aria-label={label} type="file" accept={accept} tabIndex={-1} onChange={(event) => onChange(event.target.files?.[0] ?? null)} className="sr-only" />
+      <button type="button" className={cx(editorUi.buttonSecondary, "w-full justify-start overflow-hidden")} disabled={disabled} onClick={() => input.current?.click()}>
         <Upload size={14} strokeWidth={1.8} />
         <span className="truncate">{file?.name ?? `Choose ${accept} key file`}</span>
-      </span>
-    </label>
+      </button>
+    </>
   );
 }
 

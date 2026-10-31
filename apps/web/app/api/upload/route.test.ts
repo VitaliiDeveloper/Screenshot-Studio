@@ -160,6 +160,7 @@ describe("upload", () => {
     const logs = [vi.spyOn(console, "log"), vi.spyOn(console, "error"), vi.spyOn(console, "warn")];
     const exportBundle = vi.fn(async () => "/tmp/bundle.zip");
     const runUpload = fakeUpload(async (dependencies) => {
+      expect(dependencies.createRenderBrowserSession).toBeTypeOf("function");
       const server = await dependencies.startWebServer!();
       expect(server.url).toBe("http://localhost:3000");
       const { revision } = await readProjectSnapshot(session.projectPath);
