@@ -133,7 +133,7 @@ export async function runUploadCommand(
   const env = dependencies.env ?? process.env;
   refuseAgentUpload(env);
   if (flags.store !== "google") {
-    throw new Error(flags.store ? `Unsupported store "${flags.store}"; only --store google is available` : "upload requires --store google");
+    throw new Error(flags.store ? `Unsupported store "${flags.store}"; use --store google or --store apple` : "upload requires --store google or --store apple");
   }
   const projectPath = resolveProjectPath(flags);
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;

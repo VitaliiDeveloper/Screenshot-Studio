@@ -76,8 +76,8 @@ block is dropped so a project without identifiers keeps its bytes.
 Store credentials never enter the project document, git, logs, CI artifacts, or the environment of
 agents. The CLI reads them only from environment variables that name key files
 (`GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`; `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
-`APP_STORE_CONNECT_KEY_PATH` are reserved for App Store Connect) or from a `--service-account <path>`
-flag; key material itself is never a command-line argument. The repository GitHub Action does not
+`APP_STORE_CONNECT_KEY_PATH`) or from a `--service-account <path>` or `--key-path <path>` flag; key
+material itself is never a command-line argument. The repository GitHub Action does not
 upload.
 Text elements persist horizontal alignment and an optional vertical alignment; the shared renderer
 treats an omitted vertical value as `top` so existing strict documents keep their pixels unchanged.
@@ -189,6 +189,42 @@ the touched slots are listed, deleted, and refilled, and the edit is committed o
 before the commit abandons the edit; requests time out after 60 seconds and are never retried. Production endpoints are constants in code;
 tests inject a loopback mock through the command's dependencies, never through the environment.
 `--dry-run` is offline and opens no edit.
+
+`screenshots upload --store apple` uses the same plan module and render path. Which App Store Connect
+screenshot set a target fills is catalog data: every App Store target in `store-specs.json` carries
+`appStoreConnect: { displayType }` (an API `ScreenshotDisplayType` value, validated against the enum)
+or `appStoreConnect: { unsupported: "<reason>" }`, which the plan reports as skipped. Landscape
+targets share their portrait twin's display type; iPhone Duo targets are unsupported because the API
+has no display type for them. The data is optional so custom catalogs stay valid; an unmapped App
+Store target is skipped. The plan groups sets by App Store platform (Mac, Apple TV, and Vision Pro
+display types belong to their own platform's version, everything else to iOS), locale, and display
+type in export order, and enforces 10 screenshots and one size per set: where two sizes share a
+display type, the family lead's size (then a root screen's) is kept and the rest are skipped. The client signs an ES256
+JWT over the `.p8` key with `node:crypto` (15-minute lifetime, reissued a minute before expiry) and
+calls the v1 API with `fetch`. Version selection and localization lookup run before rendering. App
+Store Connect has no atomic commit, so execution is set by set: delete, then reserve, upload the
+parts (sent to Apple's presigned URLs with only the headers Apple returns, never the token), commit
+with the MD5 checksum, and poll `assetDeliveryState` with a bounded wait. The first failure stops
+the run and the report records each set as replaced, partial, failed, or untouched; the exit code is
+non-zero unless all are replaced. The API root is a constant overridable only through the command's
+dependencies.
+
+The editor uploads through the same command, not a second implementation. `POST /api/upload/plan`
+reads one project snapshot and builds the plan with the CLI plan module (the whole layout's Android
+screens; the export dialog's size and locale checks do not narrow it). Its `planHash` is the SHA-256
+of `{ store, projectId, revision, layoutId, identifier, plan }`, where `plan` is the projection the
+CLI's `--json` report prints, and the server keeps the last 8 issued hashes per project, so two
+tabs reviewing different layouts can each confirm. `POST /api/upload`
+takes `{ store, layout, planHash }` under the project mutation guard and `If-Match`: it consumes that
+issued hash (one confirmation allows one attempt), recomputes the plan, and answers `409` when the
+hash is missing, not the one issued (`plan-not-confirmed`), or no longer matches the project
+(`plan-stale`). It then calls `runUploadCommand` with `--service-account` set to the key store's file,
+a `startWebServer` stub that renders through the running Next host like `/api/export`, the same
+pinned Chromium session `/api/export` opens (not `SCREENSHOTS_BROWSER`), and an
+`exportBundle` wrapper that refuses a revision other than the reviewed one and reports rendering and
+then an indeterminate `uploading` phase through the export progress registry. The response is the
+CLI's JSON report plus its preflight warnings; CLI errors are already sanitized and are returned as
+`502`.
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
@@ -401,7 +437,8 @@ an allowlisted environment, so API keys and provider switches in the server envi
 CLI off the subscription. The same allowlist keeps store credential variables away from agents, and
 `agentEnv()` adds `SCREENSHOT_STUDIO_AGENT=1`; `screenshots upload` refuses to run when that variable
 is set, even with `--dry-run`. The marker is an accident guard, not a security boundary: an agent can
-unset it, and `--service-account <path>` accepts any key file the agent process can read. An external
+unset it, and `--service-account <path>` or `--key-path <path>` accepts any key file the agent process
+can read. An external
 agent the user starts in a terminal inherits the user's environment and carries no marker, so for
 external agents the protection is instruction-only: the project guide and skill describe `upload` as
 human-only. A future Claude Code release may default `-p` to `--bare`, which ignores the
@@ -420,7 +457,20 @@ without the user's consent (`403 consent-required`). Consent is app-level local 
 `POST /api/agents/consent` grants or revokes it for `at-own-risk` agents only, behind the project
 session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/agents` reports each
 agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
-is checked again after the readiness probe, right before launch. Antigravity `agy` is listed with its
+is checked again after the readiness probe, right before launch. Store upload keys are app-level too: one
+`0600` file per store in `<data root>/store-credentials/` (`0700`, with a `*` `.gitignore`, since the
+default data root `.screenshot-studio` sits under the launch directory): `google-play-service-account.json`
+is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId }`
+next to `app-store-connect.p8`, the key the Apple upload CLI reads by path. Saving is refused when that
+folder, with symlinks resolved, is inside the active project folder, or when the folder itself is a
+symlink; the project archive never includes it. `/api/store-credentials` (loopback Host,
+`X-Project-Id`, bodies over 64 KiB refused before reading) sets, clears, and reports
+`{ configured, updatedAt }` per store and never returns key material; setting and clearing wait for an
+editor-started agent run (`423`) like edits do; only the upload route hands the file path to the CLI. The trust boundary is the
+user account: any process of the same user can read the data root and call the local API, so the plan
+hash stops an unconfirmed or stale upload from the editor, not a hostile local process. Agent routes
+have no path to the plan, upload, or key store, `/api/upload` is refused (`423`) while an
+editor-started agent runs, and the CLI's agent marker still refuses the command inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its

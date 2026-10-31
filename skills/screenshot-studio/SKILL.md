@@ -53,8 +53,8 @@ loop. When the set is done, offer the read-only critic in
   `design-pack.json`) and list as `project-pack` lines in `template list` and `theme list`; apply
   them with `template add <id> --pack` or `theme set <id> --pack`, and save a finished layout as a
   reusable pack with `template export-pack <layout-id> --out packs/<name>`.
-- Never run `screenshots upload` or handle store keys: uploading to a store is a human-only action,
-  and the command refuses to run in an agent the editor started. Setting app identifiers with
+- Never run `screenshots upload` (Google Play or App Store Connect) or handle store keys: uploading to
+  a store is a human-only action, and the command refuses to run in an agent the editor started. Setting app identifiers with
   `screenshots publishing set` is fine.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.

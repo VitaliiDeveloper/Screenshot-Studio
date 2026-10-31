@@ -8,7 +8,7 @@ import {
   type BundleEntry,
 } from "@screenshot-studio/core/export";
 import { Project, type Screen } from "@screenshot-studio/core/model";
-import { googlePlayUploadPlan } from "./store-upload-plan.js";
+import { appStoreUploadPlan, googlePlayUploadPlan } from "./store-upload-plan.js";
 
 function entry(device: string, sizeId: string, locale: string, id: string, platform = "android"): BundleEntry {
   return {
@@ -76,5 +76,119 @@ describe("googlePlayUploadPlan", () => {
       entry("phone", "phone-portrait", "he", "a"),
       entry("phone", "phone-portrait", "iw-IL", "b"),
     ])).toThrow(/Locales "he" and "iw-IL" both map to Google Play locale "iw-IL"/);
+  });
+});
+
+describe("appStoreUploadPlan", () => {
+  it("plans examples/connected-launch: one iPhone set in en-US, every other target skipped with a reason", async () => {
+    const raw = await readFile(new URL("../../../examples/connected-launch/app-store-screenshots.json", import.meta.url), "utf8");
+    const project = Project.parse(JSON.parse(raw));
+    const plan = appStoreUploadPlan(buildBundleEntries(project, project.preferredExportLayoutId, DEFAULT_STORE_SPECS, {}), DEFAULT_STORE_SPECS);
+
+    expect(plan.platforms).toEqual(["IOS"]);
+    expect(plan.locales).toEqual([{
+      platform: "IOS",
+      locale: "en-US",
+      projectLocale: "en",
+      sets: [{
+        displayType: "APP_IPHONE_61",
+        upload: ["hero", "save-fast", "stay-organized"].map((screenId, index) => expect.objectContaining({
+          screenId,
+          sizeId: "6.3",
+          relativePath: `en-US/APP_IPHONE_61/0${index + 1}.png`,
+        })),
+        replace: null,
+      }],
+    }]);
+    expect(plan.entries.map(({ relativePath }) => relativePath))
+      .toEqual(["en-US/APP_IPHONE_61/01.png", "en-US/APP_IPHONE_61/02.png", "en-US/APP_IPHONE_61/03.png"]);
+    expect(plan.skipped.map(({ entry: { screen }, reason }) => [`${screen.platform}/${screen.device}`, reason]))
+      .toEqual([["android/phone", "Not an App Store target"], ["web/desktop", "Not an App Store target"]]);
+  });
+
+  it("groups by platform, locale and display type in export order, folding landscape twins into one set", () => {
+    const plan = appStoreUploadPlan([
+      entry("iphone", "6.9", "de", "a", "apple"),
+      entry("macos", "2880x1800", "de", "m", "apple"),
+      entry("iphone", "6.9-landscape", "de", "b", "apple"),
+      entry("iphone", "duo-inner", "de", "d", "apple"),
+      entry("watchos", "ultra-3", "de", "w", "apple"),
+      entry("tvos", "4k", "de", "t", "apple"),
+    ], DEFAULT_STORE_SPECS, { images: new Map([["IOS/de-DE/APP_IPHONE_67", [{ id: "old-1" }]]]) });
+
+    expect(plan.platforms).toEqual(["IOS", "MAC_OS", "TV_OS"]);
+    expect(plan.locales.map(({ platform, locale, sets }) => [platform, locale, sets.map(({ displayType, upload, replace }) =>
+      [displayType, upload.map(({ screenId }) => screenId), replace])])).toEqual([
+      ["IOS", "de-DE", [["APP_IPHONE_67", ["a", "b"], [{ id: "old-1" }]], ["APP_WATCH_ULTRA", ["w"], []]]],
+      ["MAC_OS", "de-DE", [["APP_DESKTOP", ["m"], []]]],
+      ["TV_OS", "de-DE", [["APP_APPLE_TV", ["t"], []]]],
+    ]);
+    expect(plan.skipped).toEqual([{
+      entry: expect.objectContaining({ screen: expect.objectContaining({ id: "d" }) }),
+      reason: "The App Store Connect API has no display type for iPhone Duo screenshots",
+    }]);
+  });
+
+  it("rejects every over-full set at once, before anything reaches the store", () => {
+    const phones = Array.from({ length: 11 }, (_, index) => entry("iphone", "6.5", "en", `p${index}`, "apple"));
+    const pads = Array.from({ length: 11 }, (_, index) => entry("ipad", "11", "ja", `i${index}`, "apple"));
+    expect(() => appStoreUploadPlan([...phones, ...pads], DEFAULT_STORE_SPECS)).toThrow(
+      /en-US APP_IPHONE_65 has 11 screenshots; App Store Connect accepts at most 10\nja APP_IPAD_PRO_3GEN_11 has 11 screenshots/,
+    );
+    expect(() => appStoreUploadPlan(phones.slice(0, 10), DEFAULT_STORE_SPECS)).not.toThrow();
+  });
+
+  it("keeps the lead size of a set two sizes share and skips the other with both sizes named", async () => {
+    const raw = await readFile(new URL("../../../examples/connected-launch/app-store-screenshots.json", import.meta.url), "utf8");
+    const project = JSON.parse(raw);
+    const hero = project.layouts[0].screens.find((screen: { id: string }) => screen.id === "hero");
+    project.layouts[0].screens.push(
+      { ...structuredClone(hero), id: "pad", device: "ipad", artboard: { width: 1032, height: 1376 } },
+      { ...structuredClone(hero), id: "pad-129", device: "ipad", storeTargetId: "12.9", artboard: { width: 1024, height: 1366 } },
+    );
+    const parsed = Project.parse(project);
+    const plan = appStoreUploadPlan(buildBundleEntries(parsed, parsed.preferredExportLayoutId, DEFAULT_STORE_SPECS, { platform: "apple" }), DEFAULT_STORE_SPECS);
+
+    expect(plan.locales[0]!.sets.map(({ displayType, upload }) => [displayType, upload.map(({ screenId, sizeId }) => `${screenId}@${sizeId}`)]))
+      .toEqual([
+        ["APP_IPHONE_61", ["hero@6.3", "save-fast@6.3", "stay-organized@6.3"]],
+        ["APP_IPAD_PRO_3GEN_129", ["pad@13"]],
+      ]);
+    expect(plan.skipped.map(({ entry: { screen }, reason }) => [screen.id, reason])).toEqual([[
+      "pad-129",
+      "12.9 (2048x2732) and 13 (2064x2752) both fill APP_IPAD_PRO_3GEN_129, which takes one size; 13 is uploaded",
+    ]]);
+    expect(plan.entries.map(({ screen }) => screen.id)).not.toContain("pad-129");
+  });
+
+  it("falls back to a root screen's size when the lead is absent, and stops when nothing decides", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    specs.platforms.apple.families.ipad.leadStoreSizeId = "11";
+    const variant = (sizeId: string, id: string) => {
+      const base = entry("ipad", sizeId, "en", id, "apple");
+      return { ...base, screen: { ...base.screen, storeTargetId: sizeId } as Screen };
+    };
+    const plan = appStoreUploadPlan([variant("13", "a"), entry("ipad", "12.9", "en", "root", "apple")], specs);
+    expect(plan.entries.map(({ screen }) => screen.id)).toEqual(["root"]);
+    expect(plan.skipped.map(({ entry: { screen } }) => screen.id)).toEqual(["a"]);
+
+    expect(() => appStoreUploadPlan([variant("13", "a"), variant("12.9", "b")], specs)).toThrow(
+      /^en-US APP_IPAD_PRO_3GEN_129 mixes 2064x2752 and 2048x2732 screenshots and none is the lead size; keep one size per display type$/,
+    );
+  });
+
+  it("skips an App Store target that a custom catalog leaves unmapped", () => {
+    const unmapped = entry("iphone", "6.9", "en", "a", "apple");
+    const { appStoreConnect: _omitted, ...target } = unmapped.target;
+    const plan = appStoreUploadPlan([{ ...unmapped, target }], DEFAULT_STORE_SPECS);
+    expect(plan.entries).toEqual([]);
+    expect(plan.skipped[0]!.reason).toBe("The store catalog gives this target no App Store Connect display type");
+  });
+
+  it("rejects ambiguous locales and locales App Store Connect has no code for", () => {
+    expect(() => appStoreUploadPlan([entry("iphone", "6.9", "pt", "a", "apple")], DEFAULT_STORE_SPECS))
+      .toThrow(/Locale "pt" matches several App Store Connect locales/);
+    expect(() => appStoreUploadPlan([entry("iphone", "6.9", "eo", "a", "apple")], DEFAULT_STORE_SPECS))
+      .toThrow(/^Locale "eo" has no App Store Connect locale code$/);
   });
 });

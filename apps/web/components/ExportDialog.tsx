@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { Archive, Download, Images, Square } from "lucide-react";
+import { Archive, Download, Images, Square, UploadCloud } from "lucide-react";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { DEFAULT_STORE_SPECS, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
@@ -36,6 +36,8 @@ import {
 } from "./export-dialog-model";
 import { ExportDialogSelection } from "./ExportDialogSelection";
 import { ExportProgressStatus } from "./ExportProgressStatus";
+import { StoresDialog } from "./StoresDialog";
+import { StoreUploadDialog } from "./StoreUploadDialog";
 
 type ProjectArchiveAvailability =
   | { status: "checking" }
@@ -126,6 +128,8 @@ export function ExportDialog({
     status: "checking",
   });
   const [archivePending, setArchivePending] = useState(false);
+  // Upload follows a finished export in place of this dialog; Stores opens from it to fix what is missing.
+  const [step, setStep] = useState<"export" | "upload" | "stores">("export");
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [archiveDownloadedFilename, setArchiveDownloadedFilename] = useState<string | null>(null);
 
@@ -302,6 +306,7 @@ export function ExportDialog({
     }
   };
   const closeDialog = () => {
+    setStep("export");
     setError(null);
     setFailures([]);
     setOutcome(null);
@@ -320,6 +325,11 @@ export function ExportDialog({
     onOpenIssues();
   });
   const rendering = progress?.phase === "preparing" || progress?.phase === "rendering";
+
+  if (step === "stores") return <StoresDialog onClose={() => setStep("upload")} />;
+  if (step === "upload") {
+    return <StoreUploadDialog layoutId={activeLayoutId} onClose={() => setStep("export")} onOpenStores={() => setStep("stores")} />;
+  }
 
   return (
     <DialogShell
@@ -407,6 +417,12 @@ export function ExportDialog({
                   {stopping ? "Stopping…" : "Stop"}
                 </button>
               </>
+            ) : null}
+            {outcome && !pending && profile === "store-bundle" && outcome.written > 0 ? (
+              <button className={editorUi.buttonSecondary} onClick={() => setStep("upload")}>
+                <UploadCloud aria-hidden="true" className="size-3.5" />
+                Upload to store
+              </button>
             ) : null}
             <button className={editorUi.buttonPrimary} onClick={runExport} disabled={!canExport}>
               <Download size={14} strokeWidth={2} />

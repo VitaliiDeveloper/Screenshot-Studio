@@ -44,7 +44,8 @@ project's JSON with `--project`.
 - Store upload is a human-only action. Never run `screenshots upload`, never ask for or handle store
   keys, and never set `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` or `APP_STORE_CONNECT_*` variables. When the
   user wants to publish, set the app identifiers with `screenshots publishing set` and tell them to
-  run `screenshots upload --store google --dry-run`, then without `--dry-run`, themselves. The
+  run `screenshots upload --store google --dry-run` or `screenshots upload --store apple --dry-run`,
+  then without `--dry-run`, themselves. The
   command refuses to run inside an agent the editor started (`SCREENSHOT_STUDIO_AGENT` is set).
 
 ## Enforced v1 shape
@@ -193,7 +194,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
 | Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
 | Store app identifiers for upload | `publishing set [--google-package <name>] [--apple-app-id <id>]`, `publishing show`, `publishing clear <google\|apple>` |
-| Upload to Google Play | Human-only: the user runs `upload --store google [--dry-run]`; agents never run it |
+| Upload to Google Play or App Store Connect | Human-only: the user runs `upload --store google\|apple [--dry-run]`; agents never run it |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
 | Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
 | Remove an element | `element rm <screen-id> <element-id>` |

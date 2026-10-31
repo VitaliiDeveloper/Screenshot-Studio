@@ -13,6 +13,7 @@ import {
   Palette,
   Play,
   Sparkles,
+  Store,
   Type,
 } from "lucide-react";
 import type { ResourceDialog, WorkspacePanel, WorkspaceTool } from "@web/lib/editor/editor-workspace";
@@ -83,6 +84,9 @@ export function ToolRail({
       </ToolButton>
       <ToolButton label="Locales" caption="Locales" aria-haspopup="dialog" disabled={editingLocked} onClick={onOpenLocales} className={lockedClassName}>
         <Languages size={16} strokeWidth={1.9} />
+      </ToolButton>
+      <ToolButton label="Stores" caption="Stores" aria-haspopup="dialog" disabled={editingLocked} onClick={() => onOpenDialog("stores")} className={lockedClassName}>
+        <Store size={16} strokeWidth={1.9} />
       </ToolButton>
       <ToolButton label="Agent panel" caption="Agent" active={panel === "agent"} onClick={() => onPanelToggle("agent")}>
         <Sparkles size={16} strokeWidth={1.9} />
