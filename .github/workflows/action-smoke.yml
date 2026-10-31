@@ -1,17 +1,14 @@
 name: Action smoke
 
 # Runs the root composite action the way a consumer would: this repository is checked out into a
-# subfolder and the project lives outside it. Pull requests run it only when the action changes.
+# subfolder and the project lives outside it. It runs on dispatch, on every pull request from `dev`
+# into `main`, and on pull requests into `dev` that change the action or this workflow.
 on:
   workflow_dispatch:
   pull_request:
     branches:
       - "main"
       - "dev"
-    paths:
-      - "action.yml"
-      - ".github/workflows/action-smoke.yml"
-      - "scripts/check-export-sizes.mjs"
 
 concurrency:
   group: action-smoke-${{ github.ref }}
@@ -21,7 +18,37 @@ permissions:
   contents: read
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - if: github.event_name == 'pull_request' && github.base_ref == 'dev'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          run=false
+          if [ "$EVENT" = workflow_dispatch ] || { [ "$BASE" = main ] && [ "$HEAD_REF" = dev ]; }; then
+            run=true
+          elif [ "$BASE" = dev ]; then
+            # The pull_request checkout is the merge commit; its first parent is the base branch tip.
+            changed="$(git diff --name-only HEAD^1 HEAD)"
+            if grep -qxE 'action\.yml|\.github/workflows/action-smoke\.yml|scripts/check-export-sizes\.mjs' <<< "$changed"; then
+              run=true
+            fi
+          fi
+          echo "run=$run" | tee -a "$GITHUB_OUTPUT"
+
   export:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -44,6 +71,8 @@ jobs:
         run: node studio/scripts/check-export-sizes.mjs "$OUT" app/app-store-screenshots.json studio/store-specs.json default
 
   blocked:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
