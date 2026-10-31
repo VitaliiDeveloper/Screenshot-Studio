@@ -1,0 +1,19 @@
+name: Golden gallery (dev)
+
+# A separate file because a paths filter on golden-gallery.yml's own pull_request trigger would also
+# narrow the unconditional dev-to-main run.
+on:
+  pull_request:
+    branches:
+      - "dev"
+    paths:
+      - "e2e/golden-gallery.test.ts"
+      - "e2e/golden/**"
+      - ".github/workflows/golden-gallery.yml"
+      - ".github/workflows/golden-gallery-dev.yml"
+      # Paths filters are per file, so any package.json change runs it, not only the golden scripts.
+      - "package.json"
+
+jobs:
+  golden-gallery:
+    uses: ./.github/workflows/golden-gallery.yml

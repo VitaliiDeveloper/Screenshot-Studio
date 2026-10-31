@@ -57,6 +57,9 @@ docs/archive/superpowers/
 
 # E2E scratch (parity harness temp renders)
 e2e/.tmp/
+# Golden gallery: only the Linux (CI) references are tracked; other platforms seed locally.
+e2e/golden/*/
+!e2e/golden/linux/
 fixtures/slice-2-screenshot/_missing.json
 
 # Certs / keys
