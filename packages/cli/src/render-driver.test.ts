@@ -58,6 +58,54 @@ describe("RenderBrowserSession", () => {
     ]);
   });
 
+  describe("browser choice", () => {
+    const browser = {
+      newContext: vi.fn(async () => ({ close: vi.fn(async () => undefined) })),
+      close: vi.fn(async () => undefined),
+    };
+    const missing = (channel: string) =>
+      new Error(`browserType.launch: Chromium distribution '${channel}' is not found at /x\nRun "npx playwright install ${channel}"`);
+    const launchedChannels = (launch: { mock: { calls: unknown[][] } }) =>
+      launch.mock.calls.map(([options]) => (options as { channel?: string }).channel);
+
+    it("auto tries chrome, then msedge, then the downloaded Chromium", async () => {
+      const launch = vi.fn(async (options?: { channel?: string }) => {
+        if (options?.channel) throw missing(options.channel);
+        return browser as never;
+      });
+      await (await createRenderBrowserSession({ browser: "auto", launch })).close();
+      expect(launchedChannels(launch)).toEqual(["chrome", "msedge", undefined]);
+    });
+
+    it("auto stops at the first installed system browser", async () => {
+      const launch = vi.fn(async (options?: { channel?: string }) => {
+        if (options?.channel === "chrome") throw missing("chrome");
+        return browser as never;
+      });
+      await (await createRenderBrowserSession({ browser: "auto", launch })).close();
+      expect(launchedChannels(launch)).toEqual(["chrome", "msedge"]);
+    });
+
+    it("auto surfaces launch failures that are not a missing browser", async () => {
+      const launch = vi.fn(async () => { throw new Error("browser crashed"); });
+      await expect(createRenderBrowserSession({ browser: "auto", launch })).rejects.toThrow("browser crashed");
+      expect(launch).toHaveBeenCalledOnce();
+    });
+
+    it("an explicit channel never falls back", async () => {
+      const launch = vi.fn(async (options?: { channel?: string }) => { throw missing(options!.channel!); });
+      await expect(createRenderBrowserSession({ browser: "msedge", launch })).rejects.toThrow("'msedge' is not found");
+      expect(launchedChannels(launch)).toEqual(["msedge"]);
+    });
+
+    it("chromium and the default never pass a channel", async () => {
+      const launch = vi.fn(async (_options?: unknown) => browser as never);
+      await (await createRenderBrowserSession({ browser: "chromium", launch })).close();
+      await (await createRenderBrowserSession({ launch })).close();
+      expect(launchedChannels(launch)).toEqual([undefined, undefined]);
+    });
+  });
+
   it("pins the render URL and fails fast on a server-rendered revision error", async () => {
     const errorNode: {
       count: ReturnType<typeof vi.fn>;

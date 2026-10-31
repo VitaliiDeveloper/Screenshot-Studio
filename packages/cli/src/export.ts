@@ -18,6 +18,7 @@ import {
   type ProjectFileIdentity,
   type ProjectLockOptions,
 } from "@screenshot-studio/core/storage";
+import type { BrowserChoice } from "./browser-setup.js";
 import { renderScreenToPng, type RenderBrowserSession } from "./render-driver.js";
 import { renderStoreReadyPng } from "./store-ready-png.js";
 import { writeBundleOutputs, type RenderedBundleEntry } from "./bundle-publisher.js";
@@ -130,6 +131,7 @@ export interface ExportScreenOptions {
   screenId: string;
   target: StoreSize;
   headless?: boolean;
+  browser?: BrowserChoice;
 }
 
 export interface ExportBundleRendering {
@@ -145,7 +147,7 @@ export type ExportBundleProgress =
 
 /** Render + flatten + verify one screen, returning a store-ready PNG buffer. */
 export async function exportScreenToPng(opts: ExportScreenOptions): Promise<Buffer> {
-  const { baseUrl, projectPath, projectRevision, layoutId, screenId, target, headless } = opts;
+  const { baseUrl, projectPath, projectRevision, layoutId, screenId, target, headless, browser } = opts;
   const snapshot = await loadProjectSnapshot(projectPath);
   if (snapshot.revision !== projectRevision) {
     throw new Error(
@@ -165,6 +167,7 @@ export async function exportScreenToPng(opts: ExportScreenOptions): Promise<Buff
       screenId,
       pixelRatio,
       headless,
+      browser,
     }),
   });
 }

@@ -2,6 +2,7 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import { resolve } from "node:path";
 import { base64PngToBuffer } from "@screenshot-studio/core/export";
+import { isMissingChannelError, systemChannels, type BrowserChoice } from "./browser-setup.js";
 
 /**
  * The render host's browser-side contract (mirrors apps/web `RenderStage`). These globals are
@@ -38,6 +39,7 @@ export interface RenderOptions {
   screenId: string;
   pixelRatio: number;
   headless?: boolean;
+  browser?: BrowserChoice;
   /** Fail if the stage is not ready within this window (font load, etc.). */
   timeoutMs?: number;
 }
@@ -49,6 +51,7 @@ export interface RenderBrowserSession {
 
 interface BrowserSessionOptions {
   headless?: boolean;
+  browser?: BrowserChoice;
   launch?: typeof chromium.launch;
 }
 
@@ -66,11 +69,23 @@ function errorsTogether(primary: unknown, cleanup: unknown, action: string): Agg
 
 export async function createRenderBrowserSession({
   headless = true,
+  browser: choice = "chromium",
   launch = chromium.launch,
 }: BrowserSessionOptions = {}): Promise<RenderBrowserSession> {
   // Headless shell defaults to full hinting while headed Chrome on Linux follows fontconfig's
   // hintslight, which shifts text in fonts without hinting instructions; pin both to slight.
-  const browser: Browser = await launch.call(chromium, { headless, args: ["--font-render-hinting=slight"] });
+  const launchOptions = { headless, args: ["--font-render-hinting=slight"] };
+  let browser: Browser | undefined;
+  for (const channel of systemChannels(choice)) {
+    try {
+      browser = await launch.call(chromium, { ...launchOptions, channel });
+      break;
+    } catch (error) {
+      // `auto` falls through to the next candidate; an explicit choice reports the absence.
+      if (choice !== "auto" || !isMissingChannelError(error)) throw error;
+    }
+  }
+  browser ??= await launch.call(chromium, launchOptions);
   let context: BrowserContext;
   try {
     context = await browser.newContext();
@@ -165,7 +180,7 @@ export async function renderScreenToPng(
   dependencies: OneShotRenderDependencies = {},
 ): Promise<Buffer> {
   const createSession = dependencies.createSession ?? createRenderBrowserSession;
-  const session = await createSession({ headless: opts.headless ?? true });
+  const session = await createSession({ headless: opts.headless ?? true, browser: opts.browser });
   let result: Buffer | undefined;
   let primaryError: unknown;
   let hasPrimaryError = false;

@@ -17,6 +17,37 @@ const BROWSERS = ["chromium", "chromium-headless-shell"] as const;
 const APPROX_DISK_USAGE = "about 550 MB";
 const SYSTEM_PACKAGES_URL = "https://playwright.dev/docs/browsers#install-system-dependencies";
 
+export const BROWSER_CHOICES = ["chromium", "chrome", "msedge", "auto"] as const;
+export type BrowserChoice = (typeof BROWSER_CHOICES)[number];
+export type SystemChannel = "chrome" | "msedge";
+
+/** `auto` is opt-in: system browsers are not parity-checked, so the default stays the pinned Chromium. */
+export const DEFAULT_BROWSER_CHOICE: BrowserChoice = "chromium";
+
+/** `--browser` wins over `SCREENSHOTS_BROWSER`; an empty value counts as unset. */
+export function resolveBrowserChoice(
+  flag: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): BrowserChoice {
+  const value = flag || env.SCREENSHOTS_BROWSER;
+  if (!value) return DEFAULT_BROWSER_CHOICE;
+  if (!(BROWSER_CHOICES as readonly string[]).includes(value)) {
+    throw new Error(`Unknown browser "${value}". Use one of: ${BROWSER_CHOICES.join(", ")}`);
+  }
+  return value as BrowserChoice;
+}
+
+/** System browsers to try, in order, before the downloaded Chromium. */
+export function systemChannels(choice: BrowserChoice): SystemChannel[] {
+  if (choice === "auto") return ["chrome", "msedge"];
+  return choice === "chromium" ? [] : [choice];
+}
+
+/** Playwright throws "Chromium distribution '<channel>' is not found at <path>" for an absent channel. */
+export function isMissingChannelError(error: unknown): boolean {
+  return error instanceof Error && /distribution '[^']+' is not found/.test(error.message);
+}
+
 export interface PlaywrightInstall {
   version: string;
   cliPath: string;
@@ -65,6 +96,8 @@ export interface BrowserSetupDependencies {
   interactive: boolean;
   playwrightVersion: string;
   detect: () => BrowserStatus;
+  /** True when a system browser for `auto` can be launched (or fails for a reason other than absence). */
+  hasSystemBrowser: () => Promise<boolean>;
   install: () => Promise<void>;
   confirm: (question: string) => Promise<boolean>;
   log: (message: string) => void;
@@ -92,6 +125,17 @@ function defaultDependencies(): BrowserSetupDependencies {
         missing: !existsSync(chromium.executablePath()) || locations.some((location) => !existsSync(location)),
         ...(locations[0] ? { cacheDir: dirname(locations[0]) } : {}),
       };
+    },
+    async hasSystemBrowser() {
+      for (const channel of systemChannels("auto")) {
+        try {
+          await (await chromium.launch({ channel })).close();
+          return true;
+        } catch (error) {
+          if (!isMissingChannelError(error)) return true;
+        }
+      }
+      return false;
     },
     install: () => new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [playwright.cliPath, "install", ...BROWSERS], { stdio: "inherit" });
@@ -126,9 +170,13 @@ function describeDownload(version: string, cacheDir: string | undefined): string
 export async function ensureRenderBrowsers(
   mode: "required" | "optional",
   deps: BrowserSetupDependencies = defaultDependencies(),
+  browser: BrowserChoice = DEFAULT_BROWSER_CHOICE,
 ): Promise<void> {
+  // An explicit system browser never needs the download; the launch reports it if it is absent.
+  if (browser === "chrome" || browser === "msedge") return;
   const status = deps.detect();
   if (!status.missing) return;
+  if (browser === "auto" && await deps.hasSystemBrowser()) return;
 
   const missingMessage = `Playwright's Chromium browsers are not installed. They download once per machine: ${describeDownload(deps.playwrightVersion, status.cacheDir)}`;
   const help = installHelp(deps.playwrightVersion);

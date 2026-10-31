@@ -8,8 +8,11 @@ import {
   ensureRenderBrowsers,
   installHelp,
   listInstallLocations,
+  isMissingChannelError,
   parseInstallLocations,
+  resolveBrowserChoice,
   resolvePlaywrightInstall,
+  systemChannels,
   runSetupCommand,
   type BrowserSetupDependencies,
 } from "./browser-setup.js";
@@ -31,6 +34,7 @@ function deps(overrides: Partial<BrowserSetupDependencies> = {}): BrowserSetupDe
     interactive: true,
     playwrightVersion: "9.9.9",
     detect: () => ({ missing: true, cacheDir: "/cache/ms-playwright" }),
+    hasSystemBrowser: vi.fn(async () => false),
     install: vi.fn(async () => undefined),
     confirm: vi.fn(async () => true),
     log: vi.fn(),
@@ -158,5 +162,80 @@ describe("setup command", () => {
     await expect(dispatchCommand("theme", [], { storeSpecsPath: "/s.json", browserSetup: deps({ detect }) }))
       .rejects.not.toThrow("screenshots setup");
     expect(detect).not.toHaveBeenCalled();
+  });
+});
+
+describe("browser choice", () => {
+  it("defaults to the downloaded Chromium so system browsers stay opt-in", () => {
+    expect(resolveBrowserChoice(undefined, {})).toBe("chromium");
+    expect(resolveBrowserChoice("", { SCREENSHOTS_BROWSER: "" })).toBe("chromium");
+  });
+
+  it("lets the flag win over SCREENSHOTS_BROWSER", () => {
+    expect(resolveBrowserChoice(undefined, { SCREENSHOTS_BROWSER: "msedge" })).toBe("msedge");
+    expect(resolveBrowserChoice("chromium", { SCREENSHOTS_BROWSER: "msedge" })).toBe("chromium");
+  });
+
+  it("rejects unknown values from either source", () => {
+    expect(() => resolveBrowserChoice("firefox", {})).toThrow(/Unknown browser "firefox".*chromium, chrome, msedge, auto/);
+    expect(() => resolveBrowserChoice(undefined, { SCREENSHOTS_BROWSER: "webkit" })).toThrow(/Unknown browser "webkit"/);
+  });
+
+  it("orders system browsers chrome, msedge for auto and none for chromium", () => {
+    expect(systemChannels("auto")).toEqual(["chrome", "msedge"]);
+    expect(systemChannels("msedge")).toEqual(["msedge"]);
+    expect(systemChannels("chromium")).toEqual([]);
+  });
+
+  it("recognises Playwright's missing-channel error", () => {
+    expect(isMissingChannelError(new Error("browserType.launch: Chromium distribution 'chrome' is not found at /x"))).toBe(true);
+    expect(isMissingChannelError(new Error("Executable doesn't exist"))).toBe(false);
+    expect(isMissingChannelError("distribution 'chrome' is not found")).toBe(false);
+  });
+
+  it("detects the real Playwright error for an absent channel without throwing", async () => {
+    const { chromium } = await import("playwright");
+    const error = await chromium.launch({ channel: "msedge", executablePath: undefined, timeout: 5_000 })
+      .then(async (browser) => { await browser.close(); return undefined; }, (e: unknown) => e);
+    // Machines that do have Edge simply launch; only an absent channel must classify as missing.
+    if (error !== undefined) expect(isMissingChannelError(error)).toBe(true);
+  });
+
+  describe("ensureRenderBrowsers with a system browser", () => {
+    it("skips the Chromium check entirely for an explicit chrome or msedge", async () => {
+      const d = deps({ interactive: false });
+      await ensureRenderBrowsers("required", d, "chrome");
+      await ensureRenderBrowsers("required", d, "msedge");
+      expect(d.hasSystemBrowser).not.toHaveBeenCalled();
+    });
+
+    it("auto passes without a download when a system browser exists", async () => {
+      const d = deps({ interactive: false, hasSystemBrowser: vi.fn(async () => true) });
+      await ensureRenderBrowsers("required", d, "auto");
+      expect(d.install).not.toHaveBeenCalled();
+    });
+
+    it("auto without a system browser fails exactly like chromium", async () => {
+      const d = deps({ interactive: false });
+      const auto = await ensureRenderBrowsers("required", d, "auto").catch((e: Error) => e.message);
+      const plain = await ensureRenderBrowsers("required", d).catch((e: Error) => e.message);
+      expect(auto).toBe(plain);
+      expect(auto).toContain(installHelp("9.9.9"));
+    });
+
+    it("chromium never probes for system browsers", async () => {
+      const d = deps({ interactive: false });
+      await expect(ensureRenderBrowsers("required", d, "chromium")).rejects.toThrow("screenshots setup");
+      expect(d.hasSystemBrowser).not.toHaveBeenCalled();
+    });
+
+    it("dispatches --browser and SCREENSHOTS_BROWSER to the guard", async () => {
+      const d = deps({ interactive: false });
+      await expect(dispatchCommand("export", ["--browser", "firefox"], { storeSpecsPath: "/s.json", browserSetup: d }))
+        .rejects.toThrow(/Unknown browser "firefox"/);
+      // chrome skips the guard, so the failure moves on to project resolution.
+      await expect(dispatchCommand("export", ["--browser", "chrome"], { storeSpecsPath: "/s.json", browserSetup: d }))
+        .rejects.not.toThrow("screenshots setup");
+    });
   });
 });

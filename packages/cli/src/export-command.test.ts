@@ -117,6 +117,30 @@ describe("runExportCommand stable single export", () => {
     expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported .* \(\d+x\d+\)$/));
   });
 
+  it("forwards the browser choice, with --browser winning over SCREENSHOTS_BROWSER", async () => {
+    const fixture = await projectFixture();
+    const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(
+      async () => Buffer.from("rendered png"),
+    );
+    const run = (flags: Record<string, string>) => runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+      out: join(fixture.root, "output"),
+      ...flags,
+    }, storeSpecsPath, commandDependencies(render).dependencies);
+
+    await run({});
+    vi.stubEnv("SCREENSHOTS_BROWSER", "msedge");
+    try {
+      await run({});
+      await run({ browser: "chromium" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    expect(render.mock.calls.map(([options]) => options.browser)).toEqual(["chromium", "msedge", "chromium"]);
+  });
+
   it("resolves an explicit layout name before selecting a same-id screen", async () => {
     const fixture = await projectFixture();
     const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(
