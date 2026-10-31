@@ -141,14 +141,19 @@ function safeStoreSizePathSegment(sizeId: string): string {
   return `size-${safeStoreSizePathToken(sizeId).replace(/\.$/, "~002e")}`;
 }
 
+/** Readable `[a-z0-9-]` filename token for a screen, falling back to its id. */
+export function screenNamePathToken(screen: Pick<Screen, "name" | "id">): string {
+  return (sanitizeSegment(screen.name) || sanitizeSegment(screen.id) || "screen")
+    .slice(0, MAX_SCREEN_NAME_PATH_TOKEN_LENGTH);
+}
+
 export function bundleRelativePath(
   screen: Screen,
   target: Pick<StoreSize, "id">,
   groupIndex: number,
 ): string {
   const prefix = String(groupIndex + 1).padStart(2, "0");
-  const safeName = (sanitizeSegment(screen.name) || sanitizeSegment(screen.id) || "screen")
-    .slice(0, MAX_SCREEN_NAME_PATH_TOKEN_LENGTH);
+  const safeName = screenNamePathToken(screen);
   const localeSegment = safeLocalePathSegment(screen.locale);
   const sizeSegment = safeStoreSizePathSegment(target.id);
   const targetToken = safeStoreSizePathToken(target.id);
