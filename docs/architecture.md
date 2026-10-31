@@ -148,6 +148,9 @@ Validation that depends on rendered geometry, such as text overflow, measures th
 `elementToNodeConfig` text config with Konva's own layout in the browser; it never estimates metrics
 on a separate path.
 
+Parity coverage runs against the pinned Playwright Chromium; `screenshots export --browser
+chrome|msedge|auto` can launch an installed system browser, which is outside that coverage.
+
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
 requested artboard crop; it never stitches a separate image or slices a finished PNG.

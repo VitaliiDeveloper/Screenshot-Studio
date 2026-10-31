@@ -117,6 +117,53 @@ describe("runExportCommand stable single export", () => {
     expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported .* \(\d+x\d+\)$/));
   });
 
+  it("forwards the browser choice, with --browser winning over SCREENSHOTS_BROWSER", async () => {
+    const fixture = await projectFixture();
+    const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(
+      async () => Buffer.from("rendered png"),
+    );
+    const run = (flags: Record<string, string>) => runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+      out: join(fixture.root, "output"),
+      ...flags,
+    }, storeSpecsPath, commandDependencies(render).dependencies);
+
+    vi.stubEnv("SCREENSHOTS_BROWSER", "");
+    try {
+      await run({});
+      vi.stubEnv("SCREENSHOTS_BROWSER", "msedge");
+      await run({});
+      await run({ browser: "chromium" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    expect(render.mock.calls.map(([options]) => options.browser)).toEqual(["chromium", "msedge", "chromium"]);
+  });
+
+  it("opens the bundle render session with the chosen browser", async () => {
+    const fixture = await projectFixture();
+    const runtime = commandDependencies(vi.fn());
+    const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
+    const createRenderBrowserSession = vi.fn(async (_options?: unknown) => session);
+
+    await runExportCommand({
+      project: fixture.path,
+      out: join(fixture.root, "output"),
+      layout: "feature",
+      platform: "android",
+      browser: "msedge",
+    }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle: vi.fn(async () => join(fixture.root, "output", "bundle.zip")),
+      createRenderBrowserSession,
+    });
+
+    expect(createRenderBrowserSession).toHaveBeenCalledWith({ browser: "msedge" });
+    expect(session.close).toHaveBeenCalledOnce();
+  });
+
   it("resolves an explicit layout name before selecting a same-id screen", async () => {
     const fixture = await projectFixture();
     const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(

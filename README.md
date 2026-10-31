@@ -360,6 +360,15 @@ cache) using the Playwright version the CLI depends on; it is safe to re-run. Wi
 runs, exits with the install command instead of downloading. On Linux, Chromium may also need
 Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
 
+To skip the download, `screenshots export` can use a Chrome or Edge you already have installed:
+`--browser chrome`, `--browser msedge`, or `--browser auto` (the downloaded Chromium if present,
+otherwise installed Chrome, then Edge). `SCREENSHOTS_BROWSER` takes the same values and `--browser`
+wins. The default, `chromium`, is the pinned Playwright build that `screenshots setup` installs.
+System browsers are opt-in because exports are only reproducible against that build: they run full
+headless Chrome rather than Playwright's headless shell, so output can differ from the default even
+at the same Chromium version, and Chrome and Edge update themselves, so an update can change text
+rendering between two exports of the same project.
+
 Interactive runs of the installed package (not a source checkout, which updates with `git pull`)
 also make one optional request per day to the public npm registry
 (`registry.npmjs.org/@screenshot-studio/cli/latest`) and print a one-line notice when a newer

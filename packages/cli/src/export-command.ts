@@ -22,6 +22,7 @@ import {
   SCREEN_DEVICES_BY_PLATFORM,
   type Screen,
 } from "@screenshot-studio/core/model";
+import { resolveBrowserChoice } from "./browser-setup.js";
 import { closeAll, failWhenServerExits, runWithCleanup } from "./cli-runtime.js";
 import {
   exportBundle,
@@ -127,6 +128,7 @@ export async function runExportCommand(
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
   const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
   const mode = resolveExportMode(flags);
+  const browser = resolveBrowserChoice(flags.browser);
   const profile = parseExportProfile(flags.profile);
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
   if (profile === "web-share" && mode.kind === "single") {
@@ -156,6 +158,7 @@ export async function runExportCommand(
           layoutId,
           screenId: mode.screenId,
           target,
+          browser,
         }));
         const publication = await context.publish(() => publishFile({
           root: outDir,
@@ -172,7 +175,7 @@ export async function runExportCommand(
   const server = await startServer(undefined, { storeSpecsPath });
   let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
   await runWithCleanup(async () => {
-    session = await createRenderSession();
+    session = await createRenderSession({ browser });
     await withStableProjectExport(projectPath, async (context) => {
       resolveLayoutReference(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
