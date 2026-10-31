@@ -32,6 +32,7 @@ export const COMMAND_FLAG_SPECS = {
   template: { value: ["project", "store-specs", "locale", "layout", "out"], boolean: ["built-in", "pack", "force", "json"] },
   element: { value: ["project", "layout", "screen", "locale", "json", "type"], boolean: ["all-sizes"] },
   copy: { value: ["project", "layout", "locale", "out"], boolean: ["force", "json"] },
+  upload: { value: ["project", "store-specs", "store", "layout", "service-account"], boolean: ["dry-run", "json"] },
   publishing: { value: ["project", "google-package", "apple-app-id"], boolean: ["json"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
