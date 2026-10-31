@@ -22,13 +22,9 @@ inputs:
     required: false
     default: screenshots-export
   artifact-name:
-    description: Name of the uploaded workflow artifact.
+    description: Name of the uploaded workflow artifact. Set it per entry when a matrix or one job runs the action more than once.
     required: false
-    default: screenshots
-  cli-version:
-    description: Reserved for installing the published npm package instead of building the CLI from this action's source. Not available until the package is published; leave empty.
-    required: false
-    default: ""
+    default: screenshots-${{ github.job }}
 
 outputs:
   out:
@@ -47,6 +43,7 @@ runs:
     - uses: actions/setup-node@v5
       with:
         node-version: "22"
+        package-manager-cache: false
 
     - id: resolve
       shell: bash
@@ -55,12 +52,10 @@ runs:
         INPUT_PROFILE: ${{ inputs.profile }}
         INPUT_FAIL_ON_WARNING: ${{ inputs.fail-on-warning }}
         INPUT_OUT: ${{ inputs.out }}
-        INPUT_CLI_VERSION: ${{ inputs.cli-version }}
         CLI_SOURCE: ${{ github.action_path }}
       run: |
         fail() { echo "::error::$1"; exit 1; }
         [ "$RUNNER_OS" = Linux ] || fail "Screenshot Studio's action supports Linux runners only."
-        [ -z "$INPUT_CLI_VERSION" ] || fail "cli-version is reserved for the npm package, which is not published yet. Leave it empty to build the CLI from this action's source."
         case "$INPUT_PROFILE" in default | fastlane) ;; *) fail "profile must be default or fastlane, got: $INPUT_PROFILE" ;; esac
         case "$INPUT_FAIL_ON_WARNING" in true | false) ;; *) fail "fail-on-warning must be true or false, got: $INPUT_FAIL_ON_WARNING" ;; esac
         project="$INPUT_PROJECT"
@@ -73,19 +68,23 @@ runs:
           echo "out=$(realpath -m "$INPUT_OUT")"
           echo "cli=$cli"
           echo "pnpm-version=$pnpm_version"
+          echo "pnpm-prefix=$RUNNER_TEMP/screenshot-studio-pnpm"
           echo "browsers-path=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
           echo "check-log=$RUNNER_TEMP/screenshot-studio-check.log"
         } >> "$GITHUB_OUTPUT"
 
-    # shortcut: builds the CLI from source on every run; replace with `npm i -g @screenshot-studio/cli@<cli-version>` once published.
+    # shortcut: builds the CLI from source on every run; replace with an npm install of the CLI once it is published.
+    # pnpm goes into a private prefix so the consumer's later steps keep their own pnpm.
     - id: build
       shell: bash
       working-directory: ${{ steps.resolve.outputs.cli }}
       env:
         PNPM_VERSION: ${{ steps.resolve.outputs.pnpm-version }}
+        PNPM_PREFIX: ${{ steps.resolve.outputs.pnpm-prefix }}
         NEXT_TELEMETRY_DISABLED: "1"
       run: |
-        npm install --global "pnpm@$PNPM_VERSION"
+        npm install --global --prefix "$PNPM_PREFIX" "pnpm@$PNPM_VERSION"
+        export PATH="$PNPM_PREFIX/bin:$PATH"
         pnpm install --frozen-lockfile
         pnpm build:cli-package
         echo "playwright-version=$(cd packages/cli && node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
@@ -96,8 +95,8 @@ runs:
         path: ${{ steps.resolve.outputs.browsers-path }}
         key: screenshot-studio-${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.build.outputs.playwright-version }}
 
-    - if: steps.browsers.outputs.cache-hit != 'true'
-      shell: bash
+    # Runs on a hit too: it skips builds already present and adds any the restored cache lacks.
+    - shell: bash
       env:
         CLI: ${{ steps.resolve.outputs.cli }}
       run: node "$CLI/packages/cli/package/dist/index.js" setup
@@ -112,16 +111,21 @@ runs:
     # Same system packages and fonts as the repository's E2E job (`playwright install --with-deps`).
     # Apt sources from packages.microsoft.com are set aside during the install and put back afterwards.
     - shell: bash
-      working-directory: ${{ steps.resolve.outputs.cli }}/packages/cli
       env:
+        CLI: ${{ steps.resolve.outputs.cli }}
         CACHE_HIT: ${{ steps.browsers.outputs.cache-hit == 'true' }}
       run: |
         echo "Playwright Chromium cache hit: $CACHE_HIT"
+        sudo=()
+        if [ "$(id -u)" != 0 ]; then
+          command -v sudo > /dev/null || { echo "::error::Installing Playwright's system packages needs root or sudo."; exit 1; }
+          sudo=(sudo)
+        fi
         parked="$RUNNER_TEMP/screenshot-studio-apt-sources"
         mkdir -p "$parked"
-        trap 'sudo find "$parked" -mindepth 1 -maxdepth 1 -exec mv -t /etc/apt/sources.list.d/ {} +' EXIT
-        { sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ || true; } | sudo xargs -0 -r mv -t "$parked"
-        pnpm exec playwright install-deps chromium
+        trap '"${sudo[@]}" find "$parked" -mindepth 1 -maxdepth 1 -exec mv -t /etc/apt/sources.list.d/ {} +' EXIT
+        { "${sudo[@]}" grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ || true; } | "${sudo[@]}" xargs -0 -r mv -t "$parked"
+        node "$CLI/packages/cli/node_modules/playwright/cli.js" install-deps chromium
 
     - shell: bash
       env:
@@ -135,7 +139,7 @@ runs:
         if [ -n "$LAYOUT" ]; then args+=(--layout "$LAYOUT"); fi
         if [ "$STRICT" = true ]; then args+=(--strict); fi
         if ! node "$CLI/packages/cli/package/dist/index.js" "${args[@]}" 2>&1 | tee "$CHECK_LOG"; then
-          echo "::error::screenshots check found issues that block export; the list is above."
+          echo "::error::screenshots check failed; see the output above."
           exit 1
         fi
 
