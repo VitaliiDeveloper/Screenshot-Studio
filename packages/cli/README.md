@@ -88,8 +88,8 @@ action: run it yourself in a terminal or CI job.
 
 1. Store the app's package name in the project (identifiers only, never keys):
    `screenshots publishing set --google-package com.example.app`. `publishing show` prints it and
-   `publishing clear google` removes it; `--apple-app-id <id>` is stored the same way for a later App
-   Store Connect upload.
+   `publishing clear google` removes it; `--apple-app-id <id>` is stored the same way for the App
+   Store Connect upload below.
 2. Point `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` (or `--service-account <path>`) at the JSON key of a
    service account that has release access to the app in Play Console. The key is read from that file
    only; it never goes into the project, a flag value, or the output.
@@ -123,6 +123,59 @@ Agents the editor starts carry `SCREENSHOT_STUDIO_AGENT=1` and none of the crede
 `upload` refuses to run when that variable is set, even with `--dry-run`. This guards against an
 accidental run, not a determined agent; agents you start yourself in a terminal carry no marker and
 are kept from uploading only by the project guide.
+
+### Upload to App Store Connect
+
+`screenshots upload --store apple [--layout <id>] [--version <string>] [--dry-run] [--json] [--key-path <path>]`
+replaces the project's App Store screenshots through the App Store Connect API, with no fastlane. It is
+human-only and refuses to run under `SCREENSHOT_STUDIO_AGENT`, even with `--dry-run`, like the Google
+command.
+
+1. Store the numeric Apple ID of the app: `screenshots publishing set --apple-app-id 1234567890`.
+2. Create an App Store Connect API key with the App Manager role and set `APP_STORE_CONNECT_KEY_ID`,
+   `APP_STORE_CONNECT_ISSUER_ID`, and `APP_STORE_CONNECT_KEY_PATH` (or pass `--key-path <path>`) to the
+   downloaded `.p8` file. The key is read from that file only; the command signs a short-lived ES256
+   token from it and never writes the key or the token to the project, a flag value, or the output.
+3. Run `screenshots upload --store apple --dry-run` to see the plan, then without `--dry-run`.
+
+Each App Store target in `store-specs.json` names its App Store Connect display type, so a screen
+uploads into the set of its target: iPhone 6.9 into `APP_IPHONE_67`, 6.5 into `APP_IPHONE_65`, 6.3
+into `APP_IPHONE_61`, 6.1 into `APP_IPHONE_58`, iPad 13 and 12.9 into `APP_IPAD_PRO_3GEN_129`, iPad 11
+into `APP_IPAD_PRO_3GEN_11`, Mac into `APP_DESKTOP`, Apple TV into `APP_APPLE_TV`, Vision Pro into
+`APP_APPLE_VISION_PRO`, and Apple Watch Ultra, Series 11, 9, 6, and 3 into `APP_WATCH_ULTRA`,
+`APP_WATCH_SERIES_10`, `_7`, `_4`, and `_3`. A landscape target uploads into the same set as its
+portrait twin. iPhone Duo targets have no display type in the API and are listed as skipped with the
+reason. Locales use the fastlane mapping above. A set with more than 10 screenshots, or with two
+different screenshot sizes, stops the command before anything is rendered or sent. `--dry-run` is
+offline: it needs no key, renders nothing, and contacts nothing, but checks artboards and prints
+preflight warnings like a real upload.
+
+iPhone, iPad, and Watch sets belong to the app's iOS version; Mac, Apple TV, and Vision Pro sets to
+its macOS, tvOS, and visionOS versions. For each platform the plan touches, the command lists the
+app's editable versions (Prepare for Submission, Developer Rejected, Rejected, Metadata Rejected,
+Waiting for Review, Invalid Binary). Without `--version` it uses the only editable version; with none
+or several it stops and lists them, and `--version <string>` picks one by its version string. Every
+planned locale must already have a localization on that version. These reads happen before
+rendering, so a bad key, an ambiguous version, or a missing localization stops the command with
+nothing changed.
+
+App Store Connect has no edit to commit, so the upload is not atomic. Sets are replaced one at a time
+in plan order: a missing set is created, its current screenshots are deleted, each new PNG is
+reserved, uploaded in the parts App Store Connect asks for, and committed with its MD5 checksum, and
+the command then waits (up to 5 minutes per screenshot) until App Store Connect reports each one
+processed. The first failure stops the run, and the report gives every set's state:
+
+- `replaced`: its old screenshots are gone and every new one finished processing.
+- `partial`: some change reached the set (or a request got no response) before it failed, so the set
+  may be empty or half filled; upload again or fix it in App Store Connect.
+- `failed`: the first change to the set was rejected, so the set is as it was.
+- `untouched`: the run stopped before reaching the set.
+
+The report goes to stdout (also with `--json`), and the command exits 1 unless every set is
+replaced. Requests time out after 60 seconds and nothing is retried; running the command again
+replaces each set from scratch. Errors before any change exit 1 with the error on stderr and no
+report. A custom `--store-specs` catalog without `appStoreConnect` on a target is still valid; that
+target is skipped with a reason.
 
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at

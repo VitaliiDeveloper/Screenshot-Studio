@@ -240,8 +240,10 @@ Bundle export writes locale roots at their device lead target and all explicit p
 their own targets. A single-screen export resolves explicit `--size`, then its persisted `storeTargetId`,
 then its device lead target. `export --profile fastlane` writes the bundle in the folder layout
 `fastlane deliver` and `supply` upload from. `upload --store google` replaces the Google Play
-screenshots directly from a service-account key named by `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`; it is a
-human-only command. `screen rm <id> --cascade` explicitly removes a primary screen together with
+screenshots directly from a service-account key named by `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`, and
+`upload --store apple` replaces the App Store Connect screenshot sets of the app's editable version
+from an API key named by `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
+`APP_STORE_CONNECT_KEY_PATH`; both are human-only commands. `screen rm <id> --cascade` explicitly removes a primary screen together with
 paired variants. After a device lead change, `screen migrate-lead --platform
 <platform> --device <device> --from <previous-size>` moves primary screens onto the current lead and
 keeps each original as a `<previous-size>` variant.
