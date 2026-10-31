@@ -3,6 +3,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import {
   bundlePreflightWarnings,
+  bundleRelativePath,
   findStoreTarget,
   leadStoreSizeId,
   parseStoreSpecs,
@@ -33,6 +34,7 @@ export type CheckIssueKind =
   | "missing-font-file"
   | "unknown-size"
   | "artboard-size"
+  | "export-path"
   | "android-tablet-screen-count";
 
 /** One `screenshots check` finding; `--json` emits these unchanged, with null for fields that do not apply. */
@@ -102,8 +104,13 @@ async function nodeImageMissing(project: Project, layoutId: string, root: string
 
 function fromEngine(issue: ProjectIssue, project: Project, specs: StoreSpecs): CheckIssue {
   const screens = getLayout(project, issue.layoutId).screens;
+  const findScreen = (id: string) => {
+    const found = screens.find((screen) => screen.id === id);
+    if (!found) throw new Error(`Issue ${issue.id} names screen "${id}", which is not in layout "${issue.layoutId}"`);
+    return found;
+  };
   if (issue.kind === "missing-locale-screen") {
-    const source = screens.find((screen) => screen.id === issue.sourceScreenId)!;
+    const source = findScreen(issue.sourceScreenId);
     return {
       id: issue.id,
       kind: issue.kind,
@@ -116,7 +123,7 @@ function fromEngine(issue: ProjectIssue, project: Project, specs: StoreSpecs): C
       elementId: null,
     };
   }
-  const screen = screens.find((candidate) => candidate.id === issue.screenId)!;
+  const screen = findScreen(issue.screenId);
   return {
     id: issue.id,
     kind: issue.kind,
@@ -132,23 +139,33 @@ function fromEngine(issue: ProjectIssue, project: Project, specs: StoreSpecs): C
   };
 }
 
-/** Export preflight from core, reported per screen instead of failing on the first one. */
+/**
+ * Export preflight from core. `buildBundleEntries` throws on the first bad screen, so the same core
+ * steps run per screen here to report every one; the group index only numbers file names.
+ */
 function exportPreflightIssues(project: Project, layoutId: string, specs: StoreSpecs): CheckIssue[] {
   const issues: CheckIssue[] = [];
   const entries: BundleEntry[] = [];
   for (const screen of getLayout(project, layoutId).screens) {
     const base = { layoutId, screenId: screen.id, locale: screen.locale, elementId: null };
     const size = screenSizeId(screen, specs);
-    let entry: BundleEntry;
+    let target: BundleEntry["target"];
     try {
-      entry = { screen, target: findStoreTarget(specs, screen.platform, screen.device, size), relativePath: "" };
+      target = findStoreTarget(specs, screen.platform, screen.device, size);
     } catch (error) {
       issues.push({ ...base, id: `unknown-size:${screen.id}`, kind: "unknown-size", level: "blocker", message: message(error), size });
       continue;
     }
+    let entry: BundleEntry;
+    try {
+      entry = { screen, target, relativePath: bundleRelativePath(screen, target, 0) };
+    } catch (error) {
+      issues.push({ ...base, id: `export-path:${screen.id}`, kind: "export-path", level: "blocker", message: message(error), size });
+      continue;
+    }
+    entries.push(entry);
     try {
       validateBundleArtboards([entry], specs);
-      entries.push(entry);
     } catch (error) {
       issues.push({ ...base, id: `artboard-size:${screen.id}`, kind: "artboard-size", level: "blocker", message: message(error), size });
     }

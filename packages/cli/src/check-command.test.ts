@@ -204,6 +204,47 @@ describe("screenshots check", () => {
 
     expect(result.output).toContain("Text overflow was not measured: fix the font blockers first.");
     expect(dependencies.collectRenderedLayoutIssues).not.toHaveBeenCalled();
+    const json = await runCheckCommand({ project, render: "true", json: "true" }, storeSpecsPath, dependencies);
+    expect(parse(json.output)).toMatchObject({ textMeasured: false, ok: false });
+  });
+
+  it("fails on the same per-screen inputs as export: unsafe paths, and counts unscalable tablets", async () => {
+    const tablet = (id: string, artboard = { width: 1440, height: 2560 }) =>
+      screen(id, id, "en", [], { platform: "android", device: "tablet-7", artboard });
+    const tablets = await projectWith([tablet("one"), tablet("odd", { width: 1000, height: 1000 })]);
+    const longLocale = await projectWith([screen("long", "Long", "x".repeat(200))]);
+
+    const report = parse((await runCheckCommand({ project: tablets, json: "true" }, storeSpecsPath, noBrowser())).output);
+    const unsafe = parse((await runCheckCommand({ project: longLocale, json: "true" }, storeSpecsPath, noBrowser())).output);
+
+    expect(report.issues.map((issue) => [issue.kind, issue.screenId])).toEqual([
+      ["artboard-size", "odd"],
+      ["android-tablet-screen-count", null],
+    ]);
+    expect(report.issues[1]!.message).toContain("has 2 screens");
+    expect(unsafe.issues.map((issue) => [issue.kind, issue.screenId])).toEqual([["export-path", "long"]]);
+  });
+
+  it("checks the layout named by --layout and rejects an unknown one", async () => {
+    const project = await projectWith([], {
+      layouts: [
+        { id: "default", name: "Default", mode: "isolated", screens: [screen("hero", "Hero", "en")] },
+        {
+          id: "campaign",
+          name: "Campaign",
+          mode: "isolated",
+          screens: [screen("promo", "Promo", "en", [{ ...createImageElement({ assetUrl: "assets/lost.png" }), id: "lost" }])],
+        },
+      ],
+    });
+
+    const fallback = parse((await runCheckCommand({ project, json: "true" }, storeSpecsPath, noBrowser())).output);
+    const campaign = parse((await runCheckCommand({ project, json: "true", layout: "campaign" }, storeSpecsPath, noBrowser())).output);
+
+    expect(fallback).toMatchObject({ layoutId: "default", ok: true });
+    expect(campaign).toMatchObject({ layoutId: "campaign", ok: false });
+    expect(campaign.issues.map((issue) => issue.id)).toEqual(["missing-image:promo:lost"]);
+    await expect(runCheckCommand({ project, layout: "nope" }, storeSpecsPath, noBrowser())).rejects.toThrow(/nope/);
   });
 });
 
