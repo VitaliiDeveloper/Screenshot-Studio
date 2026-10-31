@@ -253,6 +253,43 @@ render host. It exits 1 on any blocker, and `--strict` also fails on warnings, s
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+## In CI
+
+The repository root is a composite GitHub Action. It runs `screenshots check --render`, so a pull
+request fails with the readable issue list in the job log, and only when the check passes runs
+`screenshots export` and uploads the export folder as a workflow artifact. Copy
+[`examples/ci/screenshot-studio.yml`](examples/ci/screenshot-studio.yml):
+
+```yaml
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: VitaliiDeveloper/Screenshot-Studio@<commit-sha>
+        with:
+          project: screenshots/app-store-screenshots.json
+```
+
+Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `export` ships),
+`profile` (`default` or `fastlane`), `fail-on-warning` (`check --strict`), `out` (default
+`screenshots-export`) and `artifact-name` (default `screenshots`). Outputs: `out`, `check-log` and
+`cache-hit`.
+
+The CLI package is not published yet, so the action builds it from its own source at the ref you
+pin (`pnpm install --frozen-lockfile` and `pnpm build:cli-package`, a few minutes per run). That ref
+selects both the action and the CLI. To build from a checkout instead, for example a fork, check it
+out with `actions/checkout` (`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`,
+`path: .screenshot-studio`) and use `uses: ./.screenshot-studio`. The `cli-version` input is
+reserved for installing the published package; once it exists, the workflow above stays the same.
+
+The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
+the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
+Chromium is cached under a key that includes the Playwright version the CLI depends on, and
+`screenshots setup` runs only on a cache miss. On every run the action installs Playwright's system
+packages and fonts, as this repository's E2E job does. While it installs them, it moves apt sources
+from `packages.microsoft.com` aside and puts them back afterwards.
+
 ## Use an agent in the editor
 
 The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
