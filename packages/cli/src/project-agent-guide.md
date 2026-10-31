@@ -41,6 +41,11 @@ project's JSON with `--project`.
 - Do not add prompt history, translation-pair ids, nested groups, clipping/scale state, new element
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
+- Store upload is a human-only action. Never run `screenshots upload`, never ask for or handle store
+  keys, and never set `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` or `APP_STORE_CONNECT_*` variables. When the
+  user wants to publish, set the app identifiers with `screenshots publishing set` and tell them to
+  run `screenshots upload --store google --dry-run`, then without `--dry-run`, themselves. The
+  command refuses to run inside an agent the editor started (`SCREENSHOT_STUDIO_AGENT` is set).
 
 ## Enforced v1 shape
 
@@ -49,6 +54,7 @@ Project
 ├── meta: { name, appIcon?, schemaVersion: 1 }
 ├── fonts: FontAsset[]                    # file-backed project fonts
 ├── preferredExportLayoutId: string
+├── publishing?: { apple?: { appId }, google?: { packageName } }  # store app ids only, never keys
 └── layouts: DesignLayout[]
     ├── id, name, mode: isolated | connected
     ├── screenSetPolicies?: ScreenSetPolicy[] # per output family/locale; independent | synchronized
@@ -186,6 +192,8 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
 | Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
+| Store app identifiers for upload | `publishing set [--google-package <name>] [--apple-app-id <id>]`, `publishing show`, `publishing clear <google\|apple>` |
+| Upload to Google Play | Human-only: the user runs `upload --store google [--dry-run]`; agents never run it |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
 | Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
 | Remove an element | `element rm <screen-id> <element-id>` |

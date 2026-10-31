@@ -115,7 +115,10 @@ function start(overrides: Partial<Parameters<typeof startAgentRun>[0]> = {}): Pr
     projectDir,
     message: "--bare Add German",
     model: "claude-sonnet-5-5",
-    env: { NODE_ENV: "test", PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root },
+    env: {
+      NODE_ENV: "test", PATH: binDir, ANTHROPIC_API_KEY: "sk-ant-should-be-stripped", HOME: root,
+      GOOGLE_PLAY_SERVICE_ACCOUNT_PATH: "/keys/play.json",
+    },
     ...overrides,
   });
 }
@@ -169,6 +172,8 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(argv.join("\n")).toContain(join(await realpath(projectDir), "AGENTS.md"));
     const env = await readFile(join(root, "env"), "utf8");
     expect(env).not.toContain("ANTHROPIC_API_KEY");
+    expect(env).not.toContain("GOOGLE_PLAY_SERVICE_ACCOUNT_PATH");
+    expect(env).toContain("SCREENSHOT_STUDIO_AGENT=1\n");
     expect(env).toContain(`HOME=${root}`);
   });
 

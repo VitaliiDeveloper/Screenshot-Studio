@@ -400,6 +400,26 @@ export const DesignLayout = z
   .strict();
 export type DesignLayout = z.infer<typeof DesignLayout>;
 
+/**
+ * Store app identifiers `screenshots upload` targets. Identifiers only: credentials never enter the
+ * project document. The renderer never reads this block. `packageName` becomes a store API path segment.
+ */
+export const Publishing = z
+  .object({
+    apple: z.object({ appId: z.string().regex(/^[0-9]{1,20}$/, "Apple app id must be the numeric App Store Connect Apple ID") }).strict().optional(),
+    google: z
+      .object({
+        packageName: z
+          .string()
+          .max(255)
+          .regex(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/, "Google Play package name must look like com.example.app"),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type Publishing = z.infer<typeof Publishing>;
+
 const ProjectObject = z
   .object({
     meta: z
@@ -412,6 +432,7 @@ const ProjectObject = z
     fonts: z.array(FontAsset).default([]),
     preferredExportLayoutId: z.string().min(1),
     layouts: z.array(DesignLayout).min(1),
+    publishing: Publishing.optional(),
   })
   .strict();
 
