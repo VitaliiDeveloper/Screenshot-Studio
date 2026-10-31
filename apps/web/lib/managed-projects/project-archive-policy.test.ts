@@ -38,6 +38,9 @@ describe("project archive policy", () => {
     "staging/file.png",
     "catalog.json",
     "notes.txt",
+    // A data root launched from the project folder still never enters its archive.
+    ".screenshot-studio/store-credentials/google-play-service-account.json",
+    ".screenshot-studio/store-credentials/app-store-connect.json",
   ])("excludes unsafe or unsupported project path %s", (path) => {
     expect(isSupportedProjectArchivePath(path)).toBe(false);
   });
