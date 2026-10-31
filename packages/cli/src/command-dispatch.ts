@@ -6,6 +6,7 @@ import { runAssetCommand } from "./asset-commands.js";
 import { ensureRenderBrowsers, resolveBrowserChoice, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
 import { runCheckCommand } from "./check-command.js";
 import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
+import { runCopyCommand } from "./copy-commands.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
 import { runElementCommand } from "./element-commands.js";
 import { runExportCommand } from "./export-command.js";
@@ -61,7 +62,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -119,5 +120,8 @@ export async function dispatchCommand(
       if (output) console.log(output);
       break;
     }
+    case "copy":
+      console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
+      break;
   }
 }

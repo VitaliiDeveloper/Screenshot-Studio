@@ -212,7 +212,27 @@ pnpm screenshots element list --locale en --project ./my-app-screenshots/app-sto
 pnpm screenshots element text <screen-id> <element-id> "Track every run" --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element media <screen-id> <element-id> assets/captures/01.png --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x":76,"y":524}' --project ./my-app-screenshots/app-store-screenshots.json
+
+# Hand every headline to a translator as one flat file, then import the translated cells
+pnpm screenshots copy export --locale de,ar --out ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots copy import ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 ```
+
+`copy export` writes one row per text layer of the base locale (the first locale in screen order):
+`screen`, `element`, `source`, then one column per target locale. `--locale` takes a comma list
+(`de,ar`); a repeated `--locale` keeps only the last value. `.csv` (written with a byte-order mark
+for spreadsheets) or `.json` is picked by the file extension, a relative `--out` resolves against
+the current directory, and an existing file is replaced only with `--force`. The file cannot be the
+project document, its lock file, or anything under `assets/`.
+
+`copy import` changes only text content, so geometry and RTL direction stay as they are. Every
+non-empty cell overwrites the target text, so export only the locales being translated and do not
+edit them in the editor meanwhile. Empty cells are left alone. A row whose `source` no longer
+matches the project is skipped with a warning (`--force` writes it anyway), locked layers and
+layers in locked groups are skipped, and an unknown row key aborts without writing anything. Target
+cells are matched by name and position, never guessed: a locale is skipped when its screens were
+reordered, renamed, added or removed, or when its layer structure differs. Both commands accept
+`--layout` and `--json`.
 
 Layout-aware mutations require `--layout <id-or-full-name>` when a project has multiple layouts.
 `dev`, `screen`, `check`, and `export` accept `--store-specs <path>` for an explicit store specification.

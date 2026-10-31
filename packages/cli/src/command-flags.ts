@@ -31,6 +31,7 @@ export const COMMAND_FLAG_SPECS = {
   setup: { value: [], boolean: [] },
   template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in", "pack"] },
   element: { value: ["project", "layout", "screen", "locale", "json", "type"], boolean: ["all-sizes"] },
+  copy: { value: ["project", "layout", "locale", "out"], boolean: ["force", "json"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;
