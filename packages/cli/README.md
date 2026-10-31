@@ -145,16 +145,22 @@ into `APP_IPAD_PRO_3GEN_11`, Mac into `APP_DESKTOP`, Apple TV into `APP_APPLE_TV
 `APP_APPLE_VISION_PRO`, and Apple Watch Ultra, Series 11, 9, 6, and 3 into `APP_WATCH_ULTRA`,
 `APP_WATCH_SERIES_10`, `_7`, `_4`, and `_3`. A landscape target uploads into the same set as its
 portrait twin. iPhone Duo targets have no display type in the API and are listed as skipped with the
-reason. Locales use the fastlane mapping above. A set with more than 10 screenshots, or with two
-different screenshot sizes, stops the command before anything is rendered or sent. `--dry-run` is
+reason. Locales use the fastlane mapping above. A set takes one size, so when screens of two sizes
+fill the same display type (for example an iPad 13 root with a 12.9 variant, Watch Ultra 3 and Ultra
+2, or Apple TV 4K and HD), the family's lead size from `store-specs.json` is uploaded, or a root
+screen's size where the lead is not among them, and the other screens are listed as skipped with
+both sizes named; the command stops only when neither applies. A set with more than 10 screenshots
+stops the command before anything is rendered or sent. `--dry-run` is
 offline: it needs no key, renders nothing, and contacts nothing, but checks artboards and prints
 preflight warnings like a real upload.
 
 iPhone, iPad, and Watch sets belong to the app's iOS version; Mac, Apple TV, and Vision Pro sets to
 its macOS, tvOS, and visionOS versions. For each platform the plan touches, the command lists the
-app's editable versions (Prepare for Submission, Developer Rejected, Rejected, Metadata Rejected,
-Waiting for Review, Invalid Binary). Without `--version` it uses the only editable version; with none
-or several it stops and lists them, and `--version <string>` picks one by its version string. Every
+app's editable versions (Prepare for Submission, Ready for Review, Developer Rejected, Rejected,
+Metadata Rejected, Waiting for Review, Invalid Binary). A platform with one editable version uses it.
+On a platform with several, `--version <string>` picks one by its version string, so Mac and iOS
+version numbers may differ; without a match, or with no editable version, the command stops and
+lists them. Every
 planned locale must already have a localization on that version. These reads happen before
 rendering, so a bad key, an ambiguous version, or a missing localization stops the command with
 nothing changed.

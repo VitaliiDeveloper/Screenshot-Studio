@@ -198,7 +198,8 @@ targets share their portrait twin's display type; iPhone Duo targets are unsuppo
 has no display type for them. The data is optional so custom catalogs stay valid; an unmapped App
 Store target is skipped. The plan groups sets by App Store platform (Mac, Apple TV, and Vision Pro
 display types belong to their own platform's version, everything else to iOS), locale, and display
-type in export order, and enforces 10 screenshots and one size per set. The client signs an ES256
+type in export order, and enforces 10 screenshots and one size per set: where two sizes share a
+display type, the family lead's size (then a root screen's) is kept and the rest are skipped. The client signs an ES256
 JWT over the `.p8` key with `node:crypto` (15-minute lifetime, reissued a minute before expiry) and
 calls the v1 API with `fetch`. Version selection and localization lookup run before rendering. App
 Store Connect has no atomic commit, so execution is set by set: delete, then reserve, upload the
