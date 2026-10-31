@@ -68,13 +68,15 @@ async function appStoreVersions(
   if (!listEditableVersions) return { versions: null, version: null, blocked: null };
   const versions: AppStoreVersionChoice[] = [];
   for (const platform of platforms) {
-    const editable = (await listEditableVersions(appId, platform)).map(({ versionString, state }) => ({ versionString, state }));
+    // Sorted so a different listing order from App Store Connect does not change the plan hash.
+    const editable = (await listEditableVersions(appId, platform)).map(({ versionString, state }) => ({ versionString, state }))
+      .sort((a, b) => a.versionString.localeCompare(b.versionString) || a.state.localeCompare(b.state));
     const selected = editable.length === 1 ? editable[0]!.versionString : null;
     versions.push({ platform, editable, selected });
   }
   const empty = versions.filter(({ editable }) => editable.length === 0).map(({ platform }) => platform);
   if (empty.length > 0) {
-    return { versions, version: null, blocked: `${empty.join(" and ")} has no editable version; create one in App Store Connect first` };
+    return { versions, version: null, blocked: `${empty.join(" and ")} ${empty.length === 1 ? "has" : "have"} no editable version; create one in App Store Connect first` };
   }
   const options = appStoreVersionOptions(versions);
   const ambiguous = versions.filter(({ editable }) => editable.length > 1);
@@ -86,7 +88,7 @@ async function appStoreVersions(
     };
   }
   if (options.length === 0 || version === undefined) return { versions, version: null, blocked: null };
-  if (!options.includes(version)) throw new UnknownStoreVersionError(`${version} is not an editable version; pick one of ${options.join(", ")}`);
+  if (!options.includes(version)) throw new UnknownStoreVersionError(`That version is not an editable version; pick one of ${options.join(", ")}`);
   for (const choice of ambiguous) choice.selected = version;
   return { versions, version, blocked: null };
 }

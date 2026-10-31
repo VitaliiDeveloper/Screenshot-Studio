@@ -427,12 +427,21 @@ describe("App Store Connect upload", () => {
 
     const unknown = await applePlan({ version: "9.9" });
     expect(unknown.status).toBe(422);
-    expect(unknown.body).toMatchObject({ code: "unknown-version" });
+    expect(unknown.body).toMatchObject({ code: "unknown-version", error: expect.stringContaining("1.2, 1.3") });
+    expect(unknown.body.error).not.toContain("9.9");
 
     // The hash binds the choice: confirming the 1.3 plan with another version is a stale plan.
     const swapped = await appleUpload({ planHash: picked.body.planHash, version: "1.2" }, picked.body.revision, { runAppStoreUploadCommand: vi.fn() });
     expect(swapped.status).toBe(409);
     expect(await swapped.json()).toMatchObject({ code: "plan-stale" });
+  });
+
+  it("keeps the plan hash when App Store Connect lists the versions in another order", async () => {
+    asc.versions.push({ id: "ver-0", versionString: "1.1", appVersionState: "READY_FOR_REVIEW" });
+    const first = await applePlan({ version: "1.2" });
+    expect(first.body.versions![0]!.editable.map(({ versionString }) => versionString)).toEqual(["1.1", "1.2"]);
+    asc.versions.reverse();
+    expect((await applePlan({ version: "1.2" })).body.planHash).toBe(first.body.planHash);
   });
 
   it("passes the picked version, the key path and the ids to the command only", async () => {
@@ -471,6 +480,12 @@ describe("App Store Connect upload", () => {
     const response = await appleUpload({ planHash: body.planHash }, body.revision, { runAppStoreUploadCommand: vi.fn() });
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ code: "version-unavailable" });
+
+    const project = JSON.parse(await readFile(apple.projectPath, "utf8")) as { layouts: Array<{ screens: Array<{ id: string }> }> };
+    const hero = project.layouts[0]!.screens.find(({ id }) => id === "hero")!;
+    project.layouts[0]!.screens.push({ ...structuredClone(hero), id: "mac", name: "Mac", device: "macos", artboard: { width: 1440, height: 900 } } as never);
+    await writeFile(apple.projectPath, JSON.stringify(project));
+    expect((await applePlan()).body.blocked).toBe("IOS and MAC_OS have no editable version; create one in App Store Connect first");
   });
 
   it("plans offline without a key and refuses the upload", async () => {
