@@ -9,14 +9,92 @@ import {
 } from "@screenshot-studio/core/export";
 import { assertProjectFontsResolved, resolveLayoutReference } from "@screenshot-studio/core/model";
 import { readProjectSnapshot, resolveExistingProjectPath } from "@screenshot-studio/core/storage";
-import { googlePlayUploadPlan, type GooglePlayUploadPlan } from "@screenshot-studio/cli/store-upload-plan";
+import type { AppStoreVersion } from "@screenshot-studio/cli/app-store-connect-client";
+import {
+  appStoreUploadPlan,
+  googlePlayUploadPlan,
+  type AppStorePlatform,
+  type AppStoreUploadPlan,
+  type GooglePlayUploadPlan,
+} from "@screenshot-studio/cli/store-upload-plan";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
-import type { UploadPlanResponse, UploadPlanView, UploadStoreId } from "./store-upload.js";
+import {
+  appStoreVersionOptions,
+  type AppStorePlanView,
+  type AppStoreVersionChoice,
+  type UploadPlanResponse,
+  type UploadPlanView,
+  type UploadStoreId,
+} from "./store-upload.js";
 
 /** The project has no store identifier yet; the Stores dialog sets it. */
 export class MissingStoreIdentifierError extends Error {}
 
+/** The requested version is not one the plan offers; a trust-boundary refusal, not a stale plan. */
+export class UnknownStoreVersionError extends Error {}
+
+export interface AppStorePlanOptions {
+  /** Lists a platform's editable versions; absent without a configured key. */
+  listEditableVersions?: (appId: string, platform: AppStorePlatform) => Promise<AppStoreVersion[]>;
+  version?: string;
+}
+
 /** The same projection `screenshots upload --json` prints, so the review shows what the CLI reports. */
+function appStorePlanView(plan: AppStoreUploadPlan): AppStorePlanView {
+  return {
+    locales: plan.locales.map((locale) => ({
+      ...locale,
+      sets: locale.sets.map(({ displayType, upload, replace }) => ({
+        displayType,
+        upload: upload.map(({ screenId, screenName, sizeId }) => ({ screenId, screenName, sizeId })),
+        replace,
+      })),
+    })),
+    skipped: plan.skipped.map(({ entry: { screen, target }, reason }) => ({
+      screenId: screen.id, platform: screen.platform, device: screen.device, sizeId: target.id, reason,
+    })),
+  };
+}
+
+/**
+ * The CLI's version rule, read before the user confirms: a platform's only editable version is used,
+ * and the one `version` string decides where a platform has several.
+ */
+async function appStoreVersions(
+  appId: string,
+  platforms: readonly AppStorePlatform[],
+  { listEditableVersions, version }: AppStorePlanOptions,
+): Promise<Pick<Extract<UploadPlanResponse, { store: "apple" }>, "versions" | "version" | "blocked">> {
+  if (!listEditableVersions) return { versions: null, version: null, blocked: null };
+  const versions: AppStoreVersionChoice[] = [];
+  for (const platform of platforms) {
+    const editable = (await listEditableVersions(appId, platform)).map(({ versionString, state }) => ({ versionString, state }));
+    const selected = editable.length === 1 ? editable[0]!.versionString : null;
+    versions.push({ platform, editable, selected });
+  }
+  const empty = versions.filter(({ editable }) => editable.length === 0).map(({ platform }) => platform);
+  if (empty.length > 0) {
+    return { versions, version: null, blocked: `${empty.join(" and ")} has no editable version; create one in App Store Connect first` };
+  }
+  const options = appStoreVersionOptions(versions);
+  const ambiguous = versions.filter(({ editable }) => editable.length > 1);
+  if (ambiguous.length > 0 && options.length === 0) {
+    return {
+      versions,
+      version: null,
+      blocked: `${ambiguous.map(({ platform }) => platform).join(" and ")} have several editable versions with no version string in common; the upload takes one version string for all of them`,
+    };
+  }
+  if (options.length === 0 || version === undefined) return { versions, version: null, blocked: null };
+  if (!options.includes(version)) throw new UnknownStoreVersionError(`${version} is not an editable version; pick one of ${options.join(", ")}`);
+  for (const choice of ambiguous) choice.selected = version;
+  return { versions, version, blocked: null };
+}
+
+function planHash(fields: Record<string, unknown>): string {
+  return createHash("sha256").update(JSON.stringify(fields)).digest("hex");
+}
+
 function planView(plan: GooglePlayUploadPlan): UploadPlanView {
   return {
     locales: plan.locales.map((locale) => ({
@@ -36,7 +114,8 @@ function planView(plan: GooglePlayUploadPlan): UploadPlanView {
 
 /**
  * Builds the upload plan from one project snapshot with the CLI's plan module, so the plan, the
- * revision it was built from, and its hash always agree. The hash covers everything the user confirms.
+ * revision it was built from, and its hash always agree. The hash covers everything the user confirms,
+ * for Apple also the editable versions read from App Store Connect and the picked version.
  */
 export async function computeUploadPlan(
   projectPath: string,
@@ -44,29 +123,44 @@ export async function computeUploadPlan(
   store: UploadStoreId,
   layout: string | undefined,
   credentialsConfigured: boolean,
+  apple: AppStorePlanOptions = {},
 ): Promise<UploadPlanResponse> {
   const { project, revision } = await readProjectSnapshot(await resolveExistingProjectPath(projectPath));
-  const identifier = project.publishing?.google?.packageName;
-  if (!identifier) throw new MissingStoreIdentifierError("This project has no Google Play package name; set it in Stores");
+  const identifier = store === "google" ? project.publishing?.google?.packageName : project.publishing?.apple?.appId;
+  if (!identifier) {
+    throw new MissingStoreIdentifierError(store === "google"
+      ? "This project has no Google Play package name; set it in Stores"
+      : "This project has no App Store Connect Apple ID; set it in Stores");
+  }
   const layoutId = resolveLayoutReference(project, layout).id;
   assertProjectFontsResolved(project, layoutId);
   const specs = parseStoreSpecs(JSON.parse(await readFile(resolveStoreSpecsPath(), "utf8")));
-  const plan = googlePlayUploadPlan(buildBundleEntries(project, layoutId, specs, { platform: "android" }));
-  if (plan.entries.length === 0) throw new Error("No screen in this layout has a Google Play screenshot slot");
+  const base = { identifier, layoutId, revision, credentialsConfigured };
+  if (store === "google") {
+    const plan = googlePlayUploadPlan(buildBundleEntries(project, layoutId, specs, { platform: "android" }));
+    if (plan.entries.length === 0) throw new Error("No screen in this layout has a Google Play screenshot slot");
+    validateBundleArtboards(plan.entries, specs);
+    const view = planView(plan);
+    return {
+      ...base,
+      store,
+      plan: view,
+      warnings: bundlePreflightWarnings(plan.entries, specs).map(({ message }) => message),
+      planHash: planHash({ store, projectId, revision, layoutId, identifier, plan: view }),
+    };
+  }
+  const plan = appStoreUploadPlan(buildBundleEntries(project, layoutId, specs, { platform: "apple" }), specs);
+  if (plan.entries.length === 0) throw new Error("No screen in this layout has an App Store Connect screenshot set");
   validateBundleArtboards(plan.entries, specs);
-  const view = planView(plan);
-  const planHash = createHash("sha256")
-    .update(JSON.stringify({ store, projectId, revision, layoutId, identifier, plan: view }))
-    .digest("hex");
+  const view = appStorePlanView(plan);
+  const versions = await appStoreVersions(identifier, plan.platforms, apple);
   return {
+    ...base,
     store,
-    identifier,
-    layoutId,
-    revision,
     plan: view,
+    ...versions,
     warnings: bundlePreflightWarnings(plan.entries, specs).map(({ message }) => message),
-    credentialsConfigured,
-    planHash,
+    planHash: planHash({ store, projectId, revision, layoutId, identifier, plan: view, versions: versions.versions, version: versions.version }),
   };
 }
 

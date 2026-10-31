@@ -38,14 +38,14 @@ describe("StoresDialog", () => {
     }))).toContain("Key configured · updated");
   });
 
-  it("lists every known store with its identifier, a key picker, and the not-yet-available note for Apple", () => {
+  it("lists both stores alike, each with its identifier and a key picker", () => {
     const markup = renderToStaticMarkup(React.createElement(StoresDialog, { onClose: () => undefined }));
     expect(markup).toContain("Google Play");
     expect(markup).toContain("App Store Connect");
     expect(markup).toContain('value="com.example.app"');
     expect(markup).toContain('aria-label="Google Play service account key"');
     expect(markup).toContain('accept=".p8"');
-    expect(markup).toContain("Uploading to App Store Connect from the editor is not available yet");
+    expect(markup).not.toContain("not available yet");
     expect(markup).toContain("never saved in the project");
   });
 });
