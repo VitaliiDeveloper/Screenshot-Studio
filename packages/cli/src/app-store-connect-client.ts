@@ -18,6 +18,7 @@ const DEFAULT_PROCESSING_TIMEOUT_MS = 5 * 60_000;
 /** Version states whose screenshots App Store Connect lets a developer replace. */
 export const EDITABLE_VERSION_STATES = [
   "PREPARE_FOR_SUBMISSION",
+  "READY_FOR_REVIEW",
   "DEVELOPER_REJECTED",
   "REJECTED",
   "METADATA_REJECTED",
@@ -88,6 +89,19 @@ async function failure(operation: string, response: Response): Promise<AppStoreC
     // A non-JSON error body adds nothing the status does not already say.
   }
   return new AppStoreConnectRequestError(`App Store Connect ${operation} failed: ${response.status}${detail}`, true);
+}
+
+/** A body that cannot be read or parsed leaves the outcome unknown, like a request without a response. */
+async function readJson<T>(operation: string, response: Response): Promise<T> {
+  try {
+    const text = await response.text();
+    return (text ? JSON.parse(text) : {}) as T;
+  } catch (error) {
+    // A JSON.parse message quotes the body, so only the kind of failure is reported.
+    const name = (error as Error).name;
+    const reason = name === "TimeoutError" || name === "AbortError" ? "network error (timeout)" : "unreadable response";
+    throw new AppStoreConnectRequestError(`App Store Connect ${operation} failed: ${reason}`, false);
+  }
 }
 
 async function send(
@@ -161,8 +175,7 @@ export function createAppStoreConnectClient(options: {
       ...(body ? { body: JSON.stringify(body) } : {}),
     }, options.timeoutMs);
     if (!response.ok) throw await failure(operation, response);
-    const text = await response.text();
-    return (text ? JSON.parse(text) : {}) as T;
+    return readJson<T>(operation, response);
   };
   const list = async <T>(operation: string, path: string): Promise<Array<Resource<T>>> =>
     (await call<{ data?: Array<Resource<T>> }>(operation, "GET", path)).data ?? [];
@@ -232,7 +245,8 @@ export function createAppStoreConnectClient(options: {
           headers: Object.fromEntries((operation.requestHeaders ?? []).map(({ name, value }) => [name, value])),
           body: new Uint8Array(png.subarray(operation.offset, operation.offset + operation.length)),
         }, options.timeoutMs);
-        // The asset host answers in its own format, so only the status is reported.
+        // Drained so the socket is released; the asset host answers in its own format, so only the status is reported.
+        await response.arrayBuffer().catch(() => undefined);
         if (!response.ok) throw new AppStoreConnectRequestError(`App Store Connect screenshot upload failed: ${response.status}`, true);
       }
       await call("appScreenshots commit", "PATCH", `appScreenshots/${encodeURIComponent(data.id)}`, {

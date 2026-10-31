@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { AppStoreDisplayType, BundleEntry } from "@screenshot-studio/core/export";
+import {
+  findStoreTarget,
+  leadStoreSizeId,
+  type AppStoreDisplayType,
+  type BundleEntry,
+  type StoreSpecs,
+} from "@screenshot-studio/core/export";
 
 // fastlane 2.241: FastlaneCore::Languages::ALL_LANGUAGES (deliver language folders).
 const APP_STORE_LOCALES = [
@@ -295,19 +301,26 @@ export function appStoreSetKey(platform: AppStorePlatform, locale: string, displ
   return `${platform}/${locale}/${displayType}`;
 }
 
+/** Sorted width x height, so a rotated twin counts as the same size. */
+function appStoreSizeKey({ width, height }: { width: number; height: number }): string {
+  return [width, height].sort((a, b) => a - b).join("x");
+}
+
 /**
  * Plan an App Store Connect screenshot upload: each touched screenshot set is replaced as a whole, in
- * project order; the display type comes from the catalog target. Set limits and one size per set are
- * enforced here so a set App Store Connect would reject never reaches it.
+ * project order; the display type comes from the catalog target. A set takes one size: when entries
+ * of different sizes share a display type, the family lead's size wins (then a root screen's), and the
+ * others are skipped. Set limits are enforced here so a set App Store Connect would reject never
+ * reaches it.
  */
 export function appStoreUploadPlan(
   entries: readonly BundleEntry[],
+  specs: StoreSpecs,
   remote?: AppStoreRemoteState,
 ): AppStoreUploadPlan {
   const plan: AppStoreUploadPlan = { platforms: [], locales: [], entries: [], skipped: [] };
   const mapper = createStoreLocaleMapper();
-  const byLocale = new Map<string, AppStoreLocalePlan>();
-  const sizes = new Map<AppStoreSetPlan, Set<string>>();
+  const candidates: Array<{ entry: BundleEntry; platform: AppStorePlatform; locale: string; displayType: AppStoreDisplayType }> = [];
 
   for (const entry of entries) {
     const target = entry.screen.platform === "apple" ? entry.target.appStoreConnect : undefined;
@@ -318,10 +331,46 @@ export function appStoreUploadPlan(
       plan.skipped.push({ entry, reason });
       continue;
     }
-    const { displayType } = target;
-    const platform = appStorePlatform(displayType);
     const locale = mapper.map(entry, "App Store Connect");
-    if (!locale) continue;
+    if (locale) candidates.push({ entry, platform: appStorePlatform(target.displayType), locale, displayType: target.displayType });
+  }
+  mapper.assertMapped();
+
+  const bySet = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    const key = appStoreSetKey(candidate.platform, candidate.locale, candidate.displayType);
+    bySet.set(key, [...bySet.get(key) ?? [], candidate]);
+  }
+  const sizeSkips = new Map<BundleEntry, string>();
+  const unresolved: string[] = [];
+  for (const members of bySet.values()) {
+    const sizes = new Set(members.map(({ entry }) => appStoreSizeKey(entry.target)));
+    if (sizes.size < 2) continue;
+    // One display type never spans two families, so the first member names the family lead.
+    const { platform, device } = members[0]!.entry.screen;
+    const leadSize = appStoreSizeKey(findStoreTarget(specs, platform, device, leadStoreSizeId(specs, platform, device)));
+    const kept = members.find(({ entry }) => appStoreSizeKey(entry.target) === leadSize)
+      ?? members.find(({ entry }) => entry.screen.storeTargetId === undefined);
+    const { locale, displayType } = members[0]!;
+    if (!kept) {
+      unresolved.push(`${locale} ${displayType} mixes ${[...sizes].join(" and ")} screenshots and none is the lead size; keep one size per display type`);
+      continue;
+    }
+    const keptSize = appStoreSizeKey(kept.entry.target);
+    for (const { entry } of members) {
+      if (appStoreSizeKey(entry.target) === keptSize) continue;
+      sizeSkips.set(entry, `${entry.target.id} (${appStoreSizeKey(entry.target)}) and ${kept.entry.target.id} (${keptSize}) both fill ${displayType}, which takes one size; ${kept.entry.target.id} is uploaded`);
+    }
+  }
+  if (unresolved.length > 0) throw new Error(unresolved.join("\n"));
+
+  const byLocale = new Map<string, AppStoreLocalePlan>();
+  for (const { entry, platform, locale, displayType } of candidates) {
+    const sizeSkip = sizeSkips.get(entry);
+    if (sizeSkip) {
+      plan.skipped.push({ entry, reason: sizeSkip });
+      continue;
+    }
     if (!plan.platforms.includes(platform)) plan.platforms.push(platform);
     let localePlan = byLocale.get(`${platform}/${locale}`);
     if (!localePlan) {
@@ -334,10 +383,7 @@ export function appStoreUploadPlan(
       const replace = remote ? [...(remote.images.get(appStoreSetKey(platform, locale, displayType)) ?? [])] : null;
       set = { displayType, upload: [], replace };
       localePlan.sets.push(set);
-      sizes.set(set, new Set());
     }
-    // A rotated twin is the same size; App Store Connect takes both orientations in one set.
-    sizes.get(set)!.add([entry.target.width, entry.target.height].sort((a, b) => a - b).join("x"));
     const relativePath = `${locale}/${displayType}/${String(set.upload.length + 1).padStart(2, "0")}.png`;
     set.upload.push({
       screenId: entry.screen.id,
@@ -347,16 +393,11 @@ export function appStoreUploadPlan(
     });
     plan.entries.push({ ...entry, relativePath });
   }
-  mapper.assertMapped();
 
-  const invalid = plan.locales.flatMap(({ locale, sets }) => sets.flatMap((set) => [
-    ...set.upload.length > APP_STORE_SET_LIMIT
-      ? [`${locale} ${set.displayType} has ${set.upload.length} screenshots; App Store Connect accepts at most ${APP_STORE_SET_LIMIT}`]
-      : [],
-    ...sizes.get(set)!.size > 1
-      ? [`${locale} ${set.displayType} mixes ${[...sizes.get(set)!].join(" and ")} screenshots; use one size per display type`]
-      : [],
-  ]));
-  if (invalid.length > 0) throw new Error(invalid.join("\n"));
+  const overfull = plan.locales.flatMap(({ locale, sets }) => sets
+    .filter(({ upload }) => upload.length > APP_STORE_SET_LIMIT)
+    .map(({ displayType, upload }) =>
+      `${locale} ${displayType} has ${upload.length} screenshots; App Store Connect accepts at most ${APP_STORE_SET_LIMIT}`));
+  if (overfull.length > 0) throw new Error(overfull.join("\n"));
   return plan;
 }

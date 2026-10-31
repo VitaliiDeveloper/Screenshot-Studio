@@ -83,7 +83,7 @@ describe("appStoreUploadPlan", () => {
   it("plans examples/connected-launch: one iPhone set in en-US, every other target skipped with a reason", async () => {
     const raw = await readFile(new URL("../../../examples/connected-launch/app-store-screenshots.json", import.meta.url), "utf8");
     const project = Project.parse(JSON.parse(raw));
-    const plan = appStoreUploadPlan(buildBundleEntries(project, project.preferredExportLayoutId, DEFAULT_STORE_SPECS, {}));
+    const plan = appStoreUploadPlan(buildBundleEntries(project, project.preferredExportLayoutId, DEFAULT_STORE_SPECS, {}), DEFAULT_STORE_SPECS);
 
     expect(plan.platforms).toEqual(["IOS"]);
     expect(plan.locales).toEqual([{
@@ -114,7 +114,7 @@ describe("appStoreUploadPlan", () => {
       entry("iphone", "duo-inner", "de", "d", "apple"),
       entry("watchos", "ultra-3", "de", "w", "apple"),
       entry("tvos", "4k", "de", "t", "apple"),
-    ], { images: new Map([["IOS/de-DE/APP_IPHONE_67", [{ id: "old-1" }]]]) });
+    ], DEFAULT_STORE_SPECS, { images: new Map([["IOS/de-DE/APP_IPHONE_67", [{ id: "old-1" }]]]) });
 
     expect(plan.platforms).toEqual(["IOS", "MAC_OS", "TV_OS"]);
     expect(plan.locales.map(({ platform, locale, sets }) => [platform, locale, sets.map(({ displayType, upload, replace }) =>
@@ -129,28 +129,66 @@ describe("appStoreUploadPlan", () => {
     }]);
   });
 
-  it("rejects over-full and mixed-size sets at once, before anything reaches the store", () => {
+  it("rejects every over-full set at once, before anything reaches the store", () => {
     const phones = Array.from({ length: 11 }, (_, index) => entry("iphone", "6.5", "en", `p${index}`, "apple"));
-    expect(() => appStoreUploadPlan([
-      ...phones,
-      entry("ipad", "13", "ja", "i13", "apple"),
-      entry("ipad", "12.9-landscape", "ja", "i129", "apple"),
-    ])).toThrow(
-      /en-US APP_IPHONE_65 has 11 screenshots; App Store Connect accepts at most 10\nja APP_IPAD_PRO_3GEN_129 mixes 2064x2752 and 2048x2732 screenshots/,
+    const pads = Array.from({ length: 11 }, (_, index) => entry("ipad", "11", "ja", `i${index}`, "apple"));
+    expect(() => appStoreUploadPlan([...phones, ...pads], DEFAULT_STORE_SPECS)).toThrow(
+      /en-US APP_IPHONE_65 has 11 screenshots; App Store Connect accepts at most 10\nja APP_IPAD_PRO_3GEN_11 has 11 screenshots/,
     );
-    expect(() => appStoreUploadPlan(phones.slice(0, 10))).not.toThrow();
+    expect(() => appStoreUploadPlan(phones.slice(0, 10), DEFAULT_STORE_SPECS)).not.toThrow();
+  });
+
+  it("keeps the lead size of a set two sizes share and skips the other with both sizes named", async () => {
+    const raw = await readFile(new URL("../../../examples/connected-launch/app-store-screenshots.json", import.meta.url), "utf8");
+    const project = JSON.parse(raw);
+    const hero = project.layouts[0].screens.find((screen: { id: string }) => screen.id === "hero");
+    project.layouts[0].screens.push(
+      { ...structuredClone(hero), id: "pad", device: "ipad", artboard: { width: 1032, height: 1376 } },
+      { ...structuredClone(hero), id: "pad-129", device: "ipad", storeTargetId: "12.9", artboard: { width: 1024, height: 1366 } },
+    );
+    const parsed = Project.parse(project);
+    const plan = appStoreUploadPlan(buildBundleEntries(parsed, parsed.preferredExportLayoutId, DEFAULT_STORE_SPECS, { platform: "apple" }), DEFAULT_STORE_SPECS);
+
+    expect(plan.locales[0]!.sets.map(({ displayType, upload }) => [displayType, upload.map(({ screenId, sizeId }) => `${screenId}@${sizeId}`)]))
+      .toEqual([
+        ["APP_IPHONE_61", ["hero@6.3", "save-fast@6.3", "stay-organized@6.3"]],
+        ["APP_IPAD_PRO_3GEN_129", ["pad@13"]],
+      ]);
+    expect(plan.skipped.map(({ entry: { screen }, reason }) => [screen.id, reason])).toEqual([[
+      "pad-129",
+      "12.9 (2048x2732) and 13 (2064x2752) both fill APP_IPAD_PRO_3GEN_129, which takes one size; 13 is uploaded",
+    ]]);
+    expect(plan.entries.map(({ screen }) => screen.id)).not.toContain("pad-129");
+  });
+
+  it("falls back to a root screen's size when the lead is absent, and stops when nothing decides", () => {
+    const specs = structuredClone(DEFAULT_STORE_SPECS);
+    specs.platforms.apple.families.ipad.leadStoreSizeId = "11";
+    const variant = (sizeId: string, id: string) => {
+      const base = entry("ipad", sizeId, "en", id, "apple");
+      return { ...base, screen: { ...base.screen, storeTargetId: sizeId } as Screen };
+    };
+    const plan = appStoreUploadPlan([variant("13", "a"), entry("ipad", "12.9", "en", "root", "apple")], specs);
+    expect(plan.entries.map(({ screen }) => screen.id)).toEqual(["root"]);
+    expect(plan.skipped.map(({ entry: { screen } }) => screen.id)).toEqual(["a"]);
+
+    expect(() => appStoreUploadPlan([variant("13", "a"), variant("12.9", "b")], specs)).toThrow(
+      /^en-US APP_IPAD_PRO_3GEN_129 mixes 2064x2752 and 2048x2732 screenshots and none is the lead size; keep one size per display type$/,
+    );
   });
 
   it("skips an App Store target that a custom catalog leaves unmapped", () => {
     const unmapped = entry("iphone", "6.9", "en", "a", "apple");
     const { appStoreConnect: _omitted, ...target } = unmapped.target;
-    const plan = appStoreUploadPlan([{ ...unmapped, target }]);
+    const plan = appStoreUploadPlan([{ ...unmapped, target }], DEFAULT_STORE_SPECS);
     expect(plan.entries).toEqual([]);
     expect(plan.skipped[0]!.reason).toBe("The store catalog gives this target no App Store Connect display type");
   });
 
-  it("rejects locales App Store Connect has no code for", () => {
-    expect(() => appStoreUploadPlan([entry("iphone", "6.9", "pt", "a", "apple")]))
+  it("rejects ambiguous locales and locales App Store Connect has no code for", () => {
+    expect(() => appStoreUploadPlan([entry("iphone", "6.9", "pt", "a", "apple")], DEFAULT_STORE_SPECS))
       .toThrow(/Locale "pt" matches several App Store Connect locales/);
+    expect(() => appStoreUploadPlan([entry("iphone", "6.9", "eo", "a", "apple")], DEFAULT_STORE_SPECS))
+      .toThrow(/^Locale "eo" has no App Store Connect locale code$/);
   });
 });

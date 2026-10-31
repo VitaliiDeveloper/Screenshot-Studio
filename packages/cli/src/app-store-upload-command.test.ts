@@ -19,6 +19,8 @@ interface MockVersion {
   id: string;
   versionString: string;
   appVersionState: string;
+  /** IOS when omitted. */
+  platform?: string;
 }
 
 interface MockAppStoreConnect {
@@ -35,7 +37,13 @@ interface MockAppStoreConnect {
   checksums: Map<string, string>;
   /** Screenshots whose processing ends in FAILED. */
   failProcessing: Set<string>;
+  /** Screenshots whose processing never finishes. */
+  neverComplete: Set<string>;
   fail: Array<{ method: string; path: string }>;
+  /** An upload part (`<screenshot>/<part>`) that never gets a response. */
+  stallUpload: string | undefined;
+  /** A path whose 2xx response body is not JSON. */
+  garble: string | undefined;
 }
 
 let roots: string[] = [];
@@ -87,7 +95,10 @@ beforeEach(async () => {
     parts: [],
     checksums: new Map(),
     failProcessing: new Set(),
+    neverComplete: new Set(),
     fail: [],
+    stallUpload: undefined,
+    garble: undefined,
   };
   let created = 0;
   const reads = new Map<string, number>();
@@ -103,6 +114,7 @@ beforeEach(async () => {
     const upload = /^\/upload\/([^/]+)\/(\d+)$/.exec(path);
     if (upload) {
       asc.calls.push(`PUT upload ${upload[1]} part ${upload[2]}`);
+      if (asc.stallUpload === `${upload[1]}/${upload[2]}`) return;
       asc.parts.push({ screenshot: upload[1]!, authorization: request.headers.authorization, contentType: request.headers["content-type"], bytes: body });
       (uploads.get(upload[1]!) ?? uploads.set(upload[1]!, []).get(upload[1]!)!)[Number(upload[2])] = body;
       return reply(200);
@@ -115,18 +127,24 @@ beforeEach(async () => {
     if (asc.fail.some((fail) => fail.method === request.method && path.endsWith(fail.path))) {
       return reply(409, { errors: [{ status: "409", code: "STATE_ERROR", title: "The request cannot be fulfilled.", detail: "The screenshot set cannot be changed now." }] });
     }
+    if (asc.garble && path.endsWith(asc.garble)) {
+      response.writeHead(200, { "content-type": "text/html" });
+      return response.end("<html>garbled-body-fragment</html>");
+    }
     const json = body.length > 0 ? JSON.parse(body.toString()) : undefined;
     if (request.method === "GET" && path === `/v1/apps/${APP_ID}/appStoreVersions`) {
       asc.versionQueries.push(url.searchParams);
       const platform = url.searchParams.get("filter[platform]");
       const states = url.searchParams.get("filter[appVersionState]")!.split(",");
       return reply(200, { data: asc.versions
-        .filter(({ appVersionState }) => platform === "IOS" && states.includes(appVersionState))
-        .map(({ id, ...attributes }) => ({ type: "appStoreVersions", id, attributes: { ...attributes, platform } })) });
+        .filter((version) => (version.platform ?? "IOS") === platform && states.includes(version.appVersionState))
+        .map(({ id, versionString, appVersionState }) => ({ type: "appStoreVersions", id, attributes: { versionString, appVersionState, platform } })) });
     }
     const localizations = /^\/v1\/appStoreVersions\/([^/]+)\/appStoreVersionLocalizations$/.exec(path);
     if (request.method === "GET" && localizations) {
-      return reply(200, { data: asc.localizations.map(({ id, locale }) => ({ type: "appStoreVersionLocalizations", id, attributes: { locale } })) });
+      // ver-1 keeps the plain ids; any other version gets its own localizations.
+      const prefix = localizations[1] === "ver-1" ? "" : `${localizations[1]}-`;
+      return reply(200, { data: asc.localizations.map(({ id, locale }) => ({ type: "appStoreVersionLocalizations", id: `${prefix}${id}`, attributes: { locale } })) });
     }
     const sets = /^\/v1\/appStoreVersionLocalizations\/([^/]+)\/appScreenshotSets$/.exec(path);
     if (request.method === "GET" && sets) {
@@ -171,7 +189,7 @@ beforeEach(async () => {
     if (shot && request.method === "GET") {
       const count = (reads.get(shot[1]!) ?? 0) + 1;
       reads.set(shot[1]!, count);
-      const state = count === 1 ? { state: "UPLOAD_COMPLETE" } : asc.failProcessing.has(shot[1]!)
+      const state = count === 1 || asc.neverComplete.has(shot[1]!) ? { state: "UPLOAD_COMPLETE" } : asc.failProcessing.has(shot[1]!)
         ? { state: "FAILED", errors: [{ code: "IMAGE_INCORRECT_DIMENSIONS", description: "The dimensions of one or more screenshots are wrong." }] }
         : { state: "COMPLETE" };
       return reply(200, { data: { type: "appScreenshots", id: shot[1], attributes: { assetDeliveryState: state } } });
@@ -211,6 +229,14 @@ async function fixture(publishing: unknown = { apple: { appId: APP_ID } }) {
   return { root, projectPath, keyPath };
 }
 
+/** Appends screens built from the hero to the fixture project. */
+async function addScreens(projectPath: string, ...screens: Array<Record<string, unknown>>) {
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  const hero = project.layouts[0].screens.find((screen: { id: string }) => screen.id === "hero");
+  project.layouts[0].screens.push(...screens.map((screen) => ({ ...structuredClone(hero), ...screen })));
+  await writeFile(projectPath, JSON.stringify(project));
+}
+
 function dependencies(env: NodeJS.ProcessEnv = {}) {
   const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>(async ({ outDir, entries }) => {
     for (const [index, entry] of entries.entries()) {
@@ -239,6 +265,8 @@ function expectNoSecrets(text: string) {
   expect(text).not.toContain(ISSUER_ID);
 }
 
+const MAC_SCREEN = { id: "mac", name: "Mac", device: "macos", artboard: { width: 1440, height: 900 } };
+
 const mutations = () => asc.calls.filter((call) => !call.startsWith("GET"));
 
 describe("runAppStoreUploadCommand", () => {
@@ -251,7 +279,7 @@ describe("runAppStoreUploadCommand", () => {
     expect(exitCode).toBe(0);
     expect(asc.versionQueries.map((query) => [query.get("filter[platform]"), query.get("filter[appVersionState]")])).toEqual([[
       "IOS",
-      "PREPARE_FOR_SUBMISSION,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED,WAITING_FOR_REVIEW,INVALID_BINARY",
+      "PREPARE_FOR_SUBMISSION,READY_FOR_REVIEW,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED,WAITING_FOR_REVIEW,INVALID_BINARY",
     ]]);
     expect(asc.calls.slice(0, 7)).toEqual([
       `GET /apps/${APP_ID}/appStoreVersions`,
@@ -358,10 +386,7 @@ describe("runAppStoreUploadCommand", () => {
 
   it("selects a version per App Store platform and stops when the Mac app has none", async () => {
     const { projectPath, keyPath } = await fixture();
-    const project = JSON.parse(await readFile(projectPath, "utf8"));
-    const hero = project.layouts[0].screens.find((screen: { id: string }) => screen.id === "hero");
-    project.layouts[0].screens.push({ ...structuredClone(hero), id: "mac", device: "macos", artboard: { width: 1440, height: 900 } });
-    await writeFile(projectPath, JSON.stringify(project));
+    await addScreens(projectPath, MAC_SCREEN);
     const deps = dependencies();
 
     await expect(runAppStoreUploadCommand({ project: projectPath, store: "apple", "key-path": keyPath }, storeSpecsPath, deps))
@@ -369,6 +394,114 @@ describe("runAppStoreUploadCommand", () => {
     expect(asc.versionQueries.map((query) => query.get("filter[platform]"))).toEqual(["IOS", "MAC_OS"]);
     expect(deps.exportBundle).not.toHaveBeenCalled();
     expect(mutations()).toEqual([]);
+  });
+
+  it("picks each platform's only editable version, uses --version only where a platform has several, and replaces sets on both", async () => {
+    const { projectPath, keyPath } = await fixture();
+    await addScreens(projectPath, MAC_SCREEN);
+    asc.versions.push(
+      { id: "ver-2", versionString: "1.3", appVersionState: "READY_FOR_REVIEW" },
+      { id: "ver-mac", versionString: "5.0", appVersionState: "PREPARE_FOR_SUBMISSION", platform: "MAC_OS" },
+    );
+
+    const { output, exitCode } = await runAppStoreUploadCommand(
+      { project: projectPath, store: "apple", "key-path": keyPath, version: "1.3", json: "true" },
+      storeSpecsPath,
+      dependencies(),
+    );
+
+    expect(exitCode).toBe(0);
+    const report = JSON.parse(output);
+    expect(report.versions).toEqual([
+      { platform: "IOS", versionString: "1.3", state: "READY_FOR_REVIEW" },
+      { platform: "MAC_OS", versionString: "5.0", state: "PREPARE_FOR_SUBMISSION" },
+    ]);
+    expect(report.locales.map(({ platform, locale, sets }: { platform: string; locale: string; sets: Array<{ displayType: string; state: string }> }) =>
+      `${platform} ${locale} ${sets.map(({ displayType, state }) => `${displayType}=${state}`).join(",")}`)).toEqual([
+      "IOS en-US APP_IPHONE_61=replaced",
+      "IOS de-DE APP_IPHONE_61=replaced",
+      "MAC_OS en-US APP_DESKTOP=replaced",
+    ]);
+    expect(asc.calls).toContain("GET /appStoreVersions/ver-2/appStoreVersionLocalizations");
+    expect(asc.calls).toContain("GET /appStoreVersions/ver-mac/appStoreVersionLocalizations");
+    expect(asc.sets.filter(({ displayType }) => displayType === "APP_DESKTOP")).toEqual([
+      expect.objectContaining({ localization: "ver-mac-loc-en" }),
+    ]);
+  });
+
+  it("uploads the lead size of a shared display type and lists the other size as skipped", async () => {
+    const { projectPath, keyPath } = await fixture();
+    await addScreens(
+      projectPath,
+      { id: "pad", name: "Pad", device: "ipad", artboard: { width: 1032, height: 1376 } },
+      { id: "pad-129", name: "Pad 12.9", device: "ipad", storeTargetId: "12.9", artboard: { width: 1024, height: 1366 } },
+    );
+    const reason = "12.9 (2048x2732) and 13 (2064x2752) both fill APP_IPAD_PRO_3GEN_129, which takes one size; 13 is uploaded";
+
+    const dry = await runAppStoreUploadCommand({ project: projectPath, store: "apple", "dry-run": "true" }, storeSpecsPath, dependencies());
+    expect(dry.output).toContain("IOS en-US APP_IPAD_PRO_3GEN_129: upload pad (replaces every current screenshot)");
+    expect(dry.output).toContain(`Skipped 1, apple/ipad 12.9: ${reason}`);
+
+    const deps = dependencies();
+    const { output, exitCode } = await runAppStoreUploadCommand({ project: projectPath, store: "apple", "key-path": keyPath, json: "true" }, storeSpecsPath, deps);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(output).skipped).toEqual(expect.arrayContaining([
+      { screenId: "pad-129", platform: "apple", device: "ipad", sizeId: "12.9", reason },
+    ]));
+    expect(deps.exportBundle.mock.calls[0]![0].entries.map(({ screen }) => screen.id)).not.toContain("pad-129");
+    expect(asc.screenshots.get("set-en-ipad")).toHaveLength(1);
+  });
+
+  it("reports a set failed when its creation is rejected, and changes nothing else", async () => {
+    const { projectPath, keyPath } = await fixture();
+    asc.sets = [];
+    asc.fail = [{ method: "POST", path: "/appScreenshotSets" }];
+
+    const { output, exitCode } = await runAppStoreUploadCommand({ project: projectPath, store: "apple", "key-path": keyPath }, storeSpecsPath, dependencies());
+
+    expect(exitCode).toBe(1);
+    expect(output).toContain("IOS en-US APP_IPHONE_61: upload hero, save-fast, stay-organized (replaces 0 current): failed (App Store Connect appScreenshotSets create failed: 409 The screenshot set cannot be changed now.)");
+    expect(output).toContain("IOS de-DE APP_IPHONE_61: upload hero-de (replaces 0 current): untouched");
+    expect(mutations()).toEqual(["POST /appScreenshotSets"]);
+  });
+
+  it("reports a set partial when an upload part times out", async () => {
+    const { projectPath, keyPath } = await fixture();
+    asc.stallUpload = "shot-1/1";
+
+    const { output, exitCode } = await runAppStoreUploadCommand(
+      { project: projectPath, store: "apple", "key-path": keyPath },
+      storeSpecsPath,
+      { ...dependencies(), requestTimeoutMs: 500 },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(output).toContain("(replaces 2 current): partial (App Store Connect screenshot upload failed: network error (timeout))");
+    expect(asc.calls).not.toContain("PATCH /appScreenshots/shot-1");
+    expectNoSecrets(output);
+  });
+
+  it("reports a set partial when processing does not finish in time", async () => {
+    const { projectPath, keyPath } = await fixture();
+    asc.neverComplete.add("shot-1");
+
+    const { output, exitCode } = await runAppStoreUploadCommand(
+      { project: projectPath, store: "apple", "key-path": keyPath },
+      storeSpecsPath,
+      { ...dependencies(), processingTimeoutMs: 30 },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(output).toContain(": partial (App Store Connect did not finish processing a screenshot in time)");
+    expect(output).toMatch(/Replaced 0 of 2 screenshot sets$/);
+  });
+
+  it("reports an unreadable 2xx body without quoting it", async () => {
+    const { projectPath, keyPath } = await fixture();
+    asc.garble = "/appStoreVersions";
+    const error = await runAppStoreUploadCommand({ project: projectPath, store: "apple", "key-path": keyPath }, storeSpecsPath, dependencies())
+      .catch((caught: Error) => caught);
+    expect((error as Error).message).toBe("App Store Connect appStoreVersions list failed: unreadable response");
   });
 
   it("stops before rendering when a planned locale has no localization", async () => {

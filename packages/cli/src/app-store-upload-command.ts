@@ -106,16 +106,14 @@ function formatReport(report: AppStoreReport, json: boolean): string {
   return lines.join("\n");
 }
 
+/** The only editable version of a platform; `--version` picks one only where there are several. */
 function selectVersion(platform: AppStorePlatform, versions: AppStoreVersion[], wanted: string | undefined): AppStoreVersion | string {
-  const listed = versions.map(({ versionString, state }) => `${versionString} (${state})`).join(", ");
-  if (wanted !== undefined) {
-    return versions.find(({ versionString }) => versionString === wanted)
-      ?? `${platform} has no editable version ${wanted}${listed ? `; editable: ${listed}` : ""}`;
-  }
+  if (versions.length === 0) return `${platform} has no editable version; create one in App Store Connect first`;
   if (versions.length === 1) return versions[0]!;
-  return versions.length === 0
-    ? `${platform} has no editable version; create one in App Store Connect first`
-    : `${platform} has several editable versions: ${listed}; pass --version <string>`;
+  const listed = versions.map(({ versionString, state }) => `${versionString} (${state})`).join(", ");
+  if (wanted === undefined) return `${platform} has several editable versions: ${listed}; pass --version <string>`;
+  return versions.find(({ versionString }) => versionString === wanted)
+    ?? `${platform} has no editable version ${wanted}; editable: ${listed}`;
 }
 
 /**
@@ -139,7 +137,7 @@ export async function runAppStoreUploadCommand(
   }
   const layoutId = resolveLayoutReference(project, flags.layout).id;
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  const draft = appStoreUploadPlan(buildBundleEntries(project, layoutId, specs, { platform: "apple" }));
+  const draft = appStoreUploadPlan(buildBundleEntries(project, layoutId, specs, { platform: "apple" }), specs);
   if (draft.entries.length === 0) throw new Error("No selected screen has an App Store Connect screenshot set");
   validateBundleArtboards(draft.entries, specs);
   const warn = dependencies.warn ?? console.error;
@@ -200,10 +198,10 @@ export async function runAppStoreUploadCommand(
       log: () => undefined,
       layoutBundleEntries: (entries) => {
         rendered = entries;
-        return appStoreUploadPlan(entries).entries;
+        return appStoreUploadPlan(entries, specs).entries;
       },
     });
-    const local = appStoreUploadPlan(rendered);
+    const local = appStoreUploadPlan(rendered, specs);
     const pngs = new Map<string, Buffer>();
     for (const entry of local.entries) {
       pngs.set(entry.relativePath, await readFile(join(renderRoot, entry.relativePath)));
@@ -221,7 +219,7 @@ export async function runAppStoreUploadCommand(
         images.set(key, await client.listScreenshots(set.id));
       }
     }
-    const plan = appStoreUploadPlan(rendered, { images });
+    const plan = appStoreUploadPlan(rendered, specs, { images });
     const outcomes = new Map<AppStoreSetPlan, SetOutcome>();
     for (const { sets } of plan.locales) for (const set of sets) outcomes.set(set, { state: "untouched" });
 
