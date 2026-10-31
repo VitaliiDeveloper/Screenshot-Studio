@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { constants } from "node:fs";
-import { createHash } from "node:crypto";
 import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import type { z } from "zod";
 import {
   elementLeaves,
   getLayout,
+  isSensitiveProjectArchivePath,
+  isTransientResourceBasename,
   mapElementLeaves,
   type Element,
   type Project,
@@ -31,6 +32,9 @@ export const SCREEN_PACK_MANIFEST = "screen-pack.json";
 export const DESIGN_PACK_MANIFEST = "design-pack.json";
 
 const PACK_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const MAX_PACK_MANIFEST_BYTES = 1024 * 1024;
+/** Same cap as an uploaded project image. */
+export const MAX_PACK_ASSET_BYTES = 25 * 1024 * 1024;
 
 export type ProjectPack =
   | { kind: "screen"; pack: TemplatePack; manifest: string }
@@ -56,33 +60,70 @@ export class ProjectPackError extends Error {
 
 const isMissing = (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT";
 
+// Raw errno messages carry absolute paths, which must not reach the browser.
+function fsFailure(label: string, relativePath: string, error: unknown): never {
+  if (error instanceof ProjectPackError) throw error;
+  const code = (error as NodeJS.ErrnoException).code;
+  if (code === "ENOENT") throw new ProjectPackError(label, `missing file ${relativePath}`);
+  if (code) throw new ProjectPackError(label, `cannot read ${relativePath} (${code})`);
+  throw error;
+}
+
+export interface ContainedReadOptions {
+  /** A larger file is refused before it is read. */
+  maxBytes: number;
+  /** Read only this many leading bytes, enough to recognize a file type. */
+  length?: number;
+}
+
 /**
- * Read one regular file below `root` without following a link anywhere on its path: the canonical
- * path must equal the lexical one, and the opened file must be the inspected one.
+ * Read one regular file below the canonical `root` without following a link anywhere on its path:
+ * the canonical path must equal the lexical one, and the opened file must be the inspected one.
  */
-export async function readContainedFile(root: string, relativePath: string, label = relativePath): Promise<Buffer> {
-  const canonicalRoot = await realpath(root);
-  const path = join(canonicalRoot, relativePath);
-  let canonical: string;
+export async function readContainedFile(
+  root: string,
+  relativePath: string,
+  label: string,
+  { maxBytes, length }: ContainedReadOptions,
+): Promise<Buffer> {
   try {
-    canonical = await realpath(path);
-  } catch (error) {
-    if (isMissing(error)) throw new ProjectPackError(label, `missing file ${relativePath}`);
-    throw error;
-  }
-  if (canonical !== path) throw new ProjectPackError(label, `${relativePath} must not be or pass through a symbolic link`);
-  const named = await lstat(path, { bigint: true });
-  if (!named.isFile()) throw new ProjectPackError(label, `${relativePath} must be a regular file`);
-  const handle = await open(path, noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK));
-  try {
-    const opened = await handle.stat({ bigint: true });
-    if (!opened.isFile() || opened.dev !== named.dev || opened.ino !== named.ino) {
-      throw new ProjectPackError(label, `${relativePath} changed while it was read`);
+    const canonicalRoot = await realpath(root);
+    const path = join(canonicalRoot, relativePath);
+    if (await realpath(path) !== path) throw new ProjectPackError(label, `${relativePath} must not be or pass through a symbolic link`);
+    const named = await lstat(path, { bigint: true });
+    if (!named.isFile()) throw new ProjectPackError(label, `${relativePath} must be a regular file`);
+    const tooLarge = () => new ProjectPackError(label, `${relativePath} is larger than ${maxBytes / 1024 / 1024} MB`);
+    const handle = await open(path, noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK));
+    try {
+      const opened = await handle.stat({ bigint: true });
+      if (!opened.isFile() || opened.dev !== named.dev || opened.ino !== named.ino) {
+        throw new ProjectPackError(label, `${relativePath} changed while it was read`);
+      }
+      if (opened.size > BigInt(maxBytes)) throw tooLarge();
+      if (length !== undefined) {
+        const header = Buffer.alloc(length);
+        const { bytesRead } = await handle.read(header, 0, length, 0);
+        return header.subarray(0, bytesRead);
+      }
+      const bytes = await handle.readFile();
+      if (bytes.byteLength > maxBytes) throw tooLarge();
+      return bytes;
+    } finally {
+      await handle.close();
     }
-    return await handle.readFile();
-  } finally {
-    await handle.close();
+  } catch (error) {
+    fsFailure(label, relativePath, error);
   }
+}
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** Listing only recognizes the format; applying decodes the full image like an upload. */
+function isRasterImageHeader(header: Uint8Array): boolean {
+  const ascii = (start: number, end: number) => String.fromCharCode(...header.subarray(start, end));
+  return PNG_SIGNATURE.every((value, index) => header[index] === value)
+    || (header[0] === 0xff && header[1] === 0xd8)
+    || (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP");
 }
 
 function issues(error: z.ZodError): string {
@@ -124,15 +165,6 @@ export function withPackAssetUrls(pack: TemplatePack, replacements: ReadonlyMap<
   });
 }
 
-/**
- * Applied pack assets become ordinary project assets. The digest keeps a re-applied, edited pack
- * from colliding with bytes an earlier apply published.
- */
-export function projectPackAssetPath(packId: string, assetUrl: string, bytes: Uint8Array): string {
-  const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
-  return `assets/packs/${packId}/${digest}-${assetUrl.split("/").at(-1)}`;
-}
-
 export function templatePackMetadata(pack: TemplatePack): BuiltInTemplatePackMetadata {
   return {
     id: pack.id,
@@ -152,7 +184,7 @@ async function assertPacksDirectory(projectRoot: string): Promise<boolean> {
     stats = await lstat(join(projectRoot, PACKS_DIRECTORY));
   } catch (error) {
     if (isMissing(error)) return false;
-    throw error;
+    fsFailure(PACKS_DIRECTORY, PACKS_DIRECTORY, error);
   }
   if (stats.isSymbolicLink()) throw new ProjectPackError(PACKS_DIRECTORY, "must not be a symbolic link");
   if (!stats.isDirectory()) throw new ProjectPackError(PACKS_DIRECTORY, "must be a directory");
@@ -167,7 +199,7 @@ async function manifestOf(projectRoot: string, id: string): Promise<string> {
     stats = await lstat(join(projectRoot, folder));
   } catch (error) {
     if (isMissing(error)) throw new ProjectPackError(folder, "pack not found", true);
-    throw error;
+    fsFailure(folder, folder, error);
   }
   if (stats.isSymbolicLink()) throw new ProjectPackError(folder, "must not be a symbolic link");
   if (!stats.isDirectory()) throw new ProjectPackError(folder, "must be a directory");
@@ -177,7 +209,7 @@ async function manifestOf(projectRoot: string, id: string): Promise<string> {
       await lstat(join(projectRoot, folder, name));
       present.push(name);
     } catch (error) {
-      if (!isMissing(error)) throw error;
+      if (!isMissing(error)) fsFailure(folder, `${folder}/${name}`, error);
     }
   }
   if (present.length !== 1) {
@@ -191,7 +223,7 @@ async function readPack(projectRoot: string, id: string): Promise<ProjectPack> {
   const screen = manifest.endsWith(SCREEN_PACK_MANIFEST);
   let raw: unknown;
   try {
-    raw = JSON.parse((await readContainedFile(projectRoot, manifest)).toString("utf8"));
+    raw = JSON.parse((await readContainedFile(projectRoot, manifest, manifest, { maxBytes: MAX_PACK_MANIFEST_BYTES })).toString("utf8"));
   } catch (error) {
     if (error instanceof ProjectPackError) throw error;
     throw new ProjectPackError(manifest, `not valid JSON: ${(error as Error).message}`);
@@ -205,10 +237,14 @@ async function readPack(projectRoot: string, id: string): Promise<ProjectPack> {
     : listBuiltInDesignPacks().map((builtIn) => builtIn.id);
   if (builtInIds.includes(id)) throw new ProjectPackError(manifest, `id "${id}" is already a built-in pack`);
   if (!screen) return { kind: "design", pack: pack as DesignPack, manifest };
-  const folder = join(projectRoot, PACKS_DIRECTORY, id);
   for (const url of packAssetUrls(pack as TemplatePack)) {
     // Asset URLs are already portable relative paths (no `..`, absolute, or scheme) by schema.
-    await readContainedFile(folder, url, manifest);
+    const path = `${PACKS_DIRECTORY}/${id}/${url}`;
+    if (isSensitiveProjectArchivePath(path) || isTransientResourceBasename(url.split("/").at(-1)!)) {
+      throw new ProjectPackError(manifest, `${path} has a hidden, credential-like, or temporary name that project archives drop; rename it`);
+    }
+    const header = await readContainedFile(projectRoot, path, manifest, { maxBytes: MAX_PACK_ASSET_BYTES, length: 12 });
+    if (!isRasterImageHeader(header)) throw new ProjectPackError(manifest, `${path} must be a PNG, JPEG, or WebP image`);
   }
   return { kind: "screen", pack: pack as TemplatePack, manifest };
 }
@@ -224,16 +260,19 @@ export async function loadProjectPack(projectRoot: string, id: string): Promise<
 /** Read one asset of a loaded screen pack, fenced to the pack folder. */
 export function readProjectPackAsset(projectRoot: string, packId: string, assetUrl: string): Promise<Buffer> {
   const folder = `${PACKS_DIRECTORY}/${packId}`;
-  return readContainedFile(join(projectRoot, folder), assetUrl, `${folder}/${SCREEN_PACK_MANIFEST}`);
+  return readContainedFile(projectRoot, `${folder}/${assetUrl}`, `${folder}/${SCREEN_PACK_MANIFEST}`, { maxBytes: MAX_PACK_ASSET_BYTES });
 }
 
 /** List `packs/` without throwing: valid packs sorted by id, plus one issue per broken entry. */
 export async function listProjectPacks(projectRoot: string): Promise<ProjectPackListing> {
   const packs: ProjectPack[] = [];
   const errors: ProjectPackIssue[] = [];
-  const record = (file: string, error: unknown) => errors.push(error instanceof ProjectPackError
-    ? { file: error.file, message: error.message.slice(error.file.length + 2) }
-    : { file, message: (error as Error).message });
+  const record = (file: string, error: unknown) => {
+    const code = (error as NodeJS.ErrnoException).code;
+    errors.push(error instanceof ProjectPackError
+      ? { file: error.file, message: error.message.slice(error.file.length + 2) }
+      : { file, message: code ? `cannot read (${code})` : (error as Error).message });
+  };
   let entries;
   try {
     if (!await assertPacksDirectory(projectRoot)) return { packs, errors };

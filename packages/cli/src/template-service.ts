@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { createHash } from "node:crypto";
 import { lstat, realpath } from "node:fs/promises";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   createScreenFromTemplate,
   createScreensFromTemplatePack,
@@ -16,11 +17,11 @@ import {
 import {
   listProjectPacks,
   loadProjectPack,
+  MAX_PACK_ASSET_BYTES,
   packAssetUrls,
   DESIGN_PACK_MANIFEST,
   PACKS_DIRECTORY,
   ProjectPackError,
-  projectPackAssetPath,
   readContainedFile,
   readProjectPackAsset,
   SCREEN_PACK_MANIFEST,
@@ -37,6 +38,7 @@ import {
 } from "@screenshot-studio/core/storage";
 import { publishManagedResourceFile, removeManagedResourceFile } from "./managed-resource-file.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
+import { assertProjectImageBytes, ProjectImageValidationError, safeStem } from "./project-image-service.js";
 import {
   loadProjectFile,
   updateProjectFile,
@@ -198,6 +200,16 @@ function projectPackError(error: unknown, id: string): Error {
 }
 
 /**
+ * Applied pack assets become ordinary project assets, named like an upload: a sanitized stem and the
+ * extension of the decoded format. The digest keeps an edited pack from colliding with bytes an
+ * earlier apply published.
+ */
+export function projectPackAssetPath(packId: string, assetUrl: string, bytes: Uint8Array, extension: string): string {
+  const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
+  return `assets/packs/${packId}/${digest}-${safeStem(assetUrl).slice(0, 80)}${extension}`;
+}
+
+/**
  * Append every screen of `packs/<id>/screen-pack.json`. Under the same lease, each pack asset is
  * published as an ordinary project asset and the pack is rewritten to point at it, so the
  * document stays strict and portable; published files are removed if the update rolls back.
@@ -222,7 +234,14 @@ export async function createProjectTemplatePackScreens(
       const replacements = new Map<string, string>();
       for (const url of packAssetUrls(local.pack)) {
         const bytes = await readProjectPackAsset(root, id, url);
-        const relativePath = projectPackAssetPath(id, url, bytes);
+        let extension: string;
+        try {
+          extension = await assertProjectImageBytes(bytes);
+        } catch (error) {
+          if (!(error instanceof ProjectImageValidationError)) throw error;
+          throw new TemplateValidationError(`${local.manifest}: ${PACKS_DIRECTORY}/${id}/${url}: ${error.message}`, { cause: error });
+        }
+        const relativePath = projectPackAssetPath(id, url, bytes, extension);
         const publication = await publishManagedResourceFile({ root, relativePath, bytes });
         if (publication.created) transaction.onRollback(() => removeManagedResourceFile(root, relativePath, publication.ownership).then(() => {}));
         replacements.set(url, relativePath);
@@ -245,8 +264,9 @@ async function canonicalOutPath(path: string): Promise<string> {
 
 /**
  * Write one layout as `packs/<id>/screen-pack.json` plus a copy of every asset it references at the
- * same relative path. `out` must be exactly `packs/<id>` in the project folder, so the result is
- * discoverable; an existing folder is replaced file by file only with `force`.
+ * same relative path. A relative `out` resolves against the project folder and must be exactly
+ * `packs/<id>`, so the result is discoverable. With `force`, an existing screen pack's files are
+ * overwritten one by one; files the new pack does not write are left in place.
  */
 export async function exportLayoutPack(
   projectPath: string,
@@ -256,26 +276,28 @@ export async function exportLayoutPack(
 ): Promise<{ dir: string; pack: TemplatePack; assets: string[]; skipped: string[] }> {
   const canonicalPath = await resolveExistingProjectPath(projectPath);
   const root = dirname(canonicalPath);
-  const target = await canonicalOutPath(resolve(out));
-  const segments = relative(root, target).split(sep);
-  const id = segments[1] ?? "";
-  if (segments.length !== 2 || segments[0] !== PACKS_DIRECTORY || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
-    throw new TemplateValidationError(`--out must be ${PACKS_DIRECTORY}/<lowercase-slug> inside the project folder ${root}: ${out}`);
-  }
-  const dir = `${PACKS_DIRECTORY}/${id}`;
-  if (listBuiltInTemplatePackMetadata().some((pack) => pack.id === id)) {
-    throw new TemplateValidationError(`${dir}: "${id}" is already a built-in pack id; choose another name`);
-  }
-  if (await lstat(target).then(() => true, () => false)) {
-    if (!options.force) throw new TemplateValidationError(`${dir} already exists; pass --force to replace it`);
-    if (await lstat(join(target, DESIGN_PACK_MANIFEST)).then(() => true, () => false)) {
-      throw new TemplateValidationError(`${dir} holds a design pack; --force replaces only a screen pack`);
-    }
-  }
   const invalid = (error: unknown) => error instanceof ProjectPackError
     ? new TemplateValidationError(error.message, { cause: error })
     : error;
   return withProjectMutation(canonicalPath, async () => {
+    const outPath = isAbsolute(out) ? out : join(root, out);
+    const existing = await lstat(outPath).catch(() => undefined);
+    if (existing?.isSymbolicLink()) throw new TemplateValidationError(`--out must not be a symbolic link: ${out}`);
+    const segments = relative(root, await canonicalOutPath(outPath)).split(sep);
+    const id = segments[1] ?? "";
+    if (segments.length !== 2 || segments[0] !== PACKS_DIRECTORY || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+      throw new TemplateValidationError(`--out must be ${PACKS_DIRECTORY}/<lowercase-slug> inside the project folder ${root}: ${out}`);
+    }
+    const dir = `${PACKS_DIRECTORY}/${id}`;
+    if (listBuiltInTemplatePackMetadata().some((pack) => pack.id === id)) {
+      throw new TemplateValidationError(`${dir}: "${id}" is already a built-in pack id; choose another name`);
+    }
+    if (existing) {
+      if (!options.force) throw new TemplateValidationError(`${dir} already exists; pass --force to replace it`);
+      if (await lstat(join(outPath, DESIGN_PACK_MANIFEST)).then(() => true, () => false)) {
+        throw new TemplateValidationError(`${dir} holds a design pack; --force replaces only a screen pack`);
+      }
+    }
     const project = await loadProjectFile(canonicalPath);
     const layout = resolveMutationLayout(project, options.layout);
     let exported;
@@ -289,7 +311,7 @@ export async function exportLayoutPack(
     ];
     for (const asset of exported.assets) {
       try {
-        files.push([asset, await readContainedFile(root, asset)]);
+        files.push([asset, await readContainedFile(root, asset, asset, { maxBytes: MAX_PACK_ASSET_BYTES })]);
       } catch (error) {
         throw invalid(error);
       }

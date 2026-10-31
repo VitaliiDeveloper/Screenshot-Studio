@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { PNG } from "pngjs";
 import { parseProject, type Project } from "@screenshot-studio/core/model";
 import { findBuiltInDesignPack } from "@screenshot-studio/core/themes";
 import {
   listProjectPacks,
   loadProjectPack,
   packAssetUrls,
-  projectPackAssetPath,
+  readContainedFile,
   readProjectPackAsset,
   templatePackFromLayout,
   withPackAssetUrls,
 } from "./index.js";
 
+const png = PNG.sync.write(new PNG({ width: 1, height: 1 }));
 const roots: string[] = [];
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
@@ -40,7 +42,7 @@ async function writePack(root: string, id: string, manifest: string, body: unkno
   const folder = join(root, "packs", id);
   await mkdir(join(folder, "assets"), { recursive: true });
   await writeFile(join(folder, manifest), typeof body === "string" ? body : JSON.stringify(body));
-  for (const asset of assets) await writeFile(join(folder, asset), `bytes of ${asset}`);
+  for (const asset of assets) await writeFile(join(folder, asset), png);
 }
 
 describe("project pack discovery", () => {
@@ -100,10 +102,40 @@ describe("project pack discovery", () => {
     expect(Object.fromEntries(errors.map(({ file, message }) => [file, message]))).toEqual({
       "packs/absolute/screen-pack.json": expect.stringMatching(/screens\.0\.background\.assetUrl: expected a portable project-relative path/),
       "packs/dotdot/screen-pack.json": expect.stringMatching(/screens\.0\.background\.assetUrl: expected a portable project-relative path/),
-      "packs/linked/screen-pack.json": "assets/hero.png must not be or pass through a symbolic link",
-      "packs/linked-dir/screen-pack.json": "assets/hero.png must not be or pass through a symbolic link",
-      "packs/missing/screen-pack.json": "missing file assets/hero.png",
+      "packs/linked/screen-pack.json": "packs/linked/assets/hero.png must not be or pass through a symbolic link",
+      "packs/linked-dir/screen-pack.json": "packs/linked-dir/assets/hero.png must not be or pass through a symbolic link",
+      "packs/missing/screen-pack.json": "missing file packs/missing/assets/hero.png",
     });
+  });
+
+  it("refuses non-image assets and names that project archives would drop", async () => {
+    const root = await projectRoot();
+    await writePack(root, "vector", "screen-pack.json", screenPack("vector", "assets/hero.svg"), ["assets/logo.png"]);
+    await writeFile(join(root, "packs/vector/assets/hero.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
+    await writePack(root, "temp", "screen-pack.json", screenPack("temp", "assets/hero.tmp.png"), ["assets/hero.tmp.png", "assets/logo.png"]);
+    await writePack(root, "hidden", "screen-pack.json", screenPack("hidden", ".cache/hero.png"), ["assets/logo.png"]);
+
+    expect(Object.fromEntries((await listProjectPacks(root)).errors.map(({ file, message }) => [file, message]))).toEqual({
+      "packs/hidden/screen-pack.json": expect.stringMatching(/packs\/hidden\/\.cache\/hero\.png has a hidden, credential-like, or temporary name/),
+      "packs/temp/screen-pack.json": expect.stringMatching(/packs\/temp\/assets\/hero\.tmp\.png has a hidden, credential-like, or temporary name/),
+      "packs/vector/screen-pack.json": "packs/vector/assets/hero.svg must be a PNG, JPEG, or WebP image",
+    });
+  });
+
+  it("caps file size before reading and reports errno failures without absolute paths", async () => {
+    const root = await projectRoot();
+    await writeFile(join(root, "big.png"), Buffer.alloc(2048));
+    await expect(readContainedFile(root, "big.png", "big.png", { maxBytes: 1024 }))
+      .rejects.toThrow("big.png: big.png is larger than 0.0009765625 MB");
+    await writePack(root, "locked", "screen-pack.json", screenPack("locked"), ["assets/hero.png", "assets/logo.png"]);
+    await chmod(join(root, "packs/locked/screen-pack.json"), 0o000);
+    try {
+      const { errors } = await listProjectPacks(root);
+      expect(errors).toEqual([{ file: "packs/locked/screen-pack.json", message: "cannot read packs/locked/screen-pack.json (EACCES)" }]);
+      expect(JSON.stringify(errors)).not.toContain(root);
+    } finally {
+      await chmod(join(root, "packs/locked/screen-pack.json"), 0o644);
+    }
   });
 
   it("refuses a linked pack folder or packs directory", async () => {
@@ -125,7 +157,7 @@ describe("project pack discovery", () => {
     await writePack(root, "house", "screen-pack.json", screenPack("house"), ["assets/hero.png", "assets/logo.png"]);
     const loaded = await loadProjectPack(root, "house");
     expect(loaded.kind).toBe("screen");
-    expect((await readProjectPackAsset(root, "house", "assets/hero.png")).toString()).toBe("bytes of assets/hero.png");
+    expect(await readProjectPackAsset(root, "house", "assets/hero.png")).toEqual(png);
     await expect(loadProjectPack(root, "nope")).rejects.toMatchObject({ notFound: true, file: "packs/nope" });
     await expect(loadProjectPack(root, "../x")).rejects.toThrow(/lowercase slug/);
   });
@@ -137,9 +169,7 @@ describe("pack asset rewriting", () => {
     await writePack(root, "house", "screen-pack.json", screenPack("house"), ["assets/hero.png", "assets/logo.png"]);
     const { pack } = await loadProjectPack(root, "house") as { pack: Parameters<typeof packAssetUrls>[0] };
     expect(packAssetUrls(pack)).toEqual(["assets/hero.png", "assets/logo.png"]);
-    const target = projectPackAssetPath("house", "assets/hero.png", new TextEncoder().encode("a"));
-    expect(target).toMatch(/^assets\/packs\/house\/[0-9a-f]{12}-hero\.png$/);
-    expect(projectPackAssetPath("house", "assets/hero.png", new TextEncoder().encode("b"))).not.toBe(target);
+    const target = "assets/packs/house/0123456789ab-hero.png";
     const rewritten = withPackAssetUrls(pack, new Map([["assets/hero.png", target]]));
     expect(packAssetUrls(rewritten)).toEqual([target, "assets/logo.png"]);
   });

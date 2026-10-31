@@ -81,7 +81,8 @@ describe("/api/themes", () => {
     await mkdir(join(dir, "packs/house"), { recursive: true });
     await writeFile(join(dir, "packs/house/design-pack.json"), JSON.stringify({ ...clean, id: "house", name: "House" }));
     await mkdir(join(dir, "packs/hero/assets"), { recursive: true });
-    await writeFile(join(dir, "packs/hero/assets/bg.png"), "bg");
+    const png = await readFile(new URL("../../../../../fixtures/regressions/screenshot-parity/assets/shot.png", import.meta.url));
+    await writeFile(join(dir, "packs/hero/assets/bg.png"), png);
     await writeFile(join(dir, "packs/hero/screen-pack.json"), JSON.stringify({
       id: "hero", name: "Hero", description: "One screen.", platform: "apple", device: "iphone", style: "hero",
       screens: [{ id: "hero-one", name: "One", platform: "apple", device: "iphone", artboard: { width: 660, height: 1434 }, background: { type: "image", assetUrl: "assets/bg.png", fit: "cover" }, elements: [] }],
@@ -105,7 +106,7 @@ describe("/api/themes", () => {
     expect(screens.status).toBe(200);
     const added = (await screens.json()).project.layouts[0].screens[1];
     expect(added.background.assetUrl).toMatch(/^assets\/packs\/hero\/[0-9a-f]{12}-bg\.png$/);
-    expect(await readFile(join(dir, added.background.assetUrl), "utf8")).toBe("bg");
+    expect(await readFile(join(dir, added.background.assetUrl))).toEqual(png);
 
     const broken = await handleThemePost(projectPath, new Request("http://localhost/api/themes", {
       method: "POST", body: JSON.stringify({ id: "broken", source: "project-pack" }),

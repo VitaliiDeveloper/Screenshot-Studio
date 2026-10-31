@@ -429,8 +429,9 @@ After this the result is plain project JSON: add or remove layers freely.
 To reuse a finished layout in other projects, save it as a project pack with
 `screenshots template export-pack <layout-id> --out packs/<name>`. It writes
 `packs/<name>/screen-pack.json` and copies every image the screens use. It exports one locale's main
-screens of one output family, refuses right-to-left locales, and replaces an existing pack only with
-`--force`. Copy the folder into another project's `packs/` to use it there.
+screens of one output family and refuses right-to-left locales. `--out` is relative to the project
+folder. An existing pack is overwritten only with `--force`, file by file, and files the new export
+does not write are kept. Copy the folder into another project's `packs/` to use it there.
 
 ## Recipe: apply a theme or design pack
 
