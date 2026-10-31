@@ -72,6 +72,19 @@ async function failure(operation: string, response: Response): Promise<GooglePla
   return new GooglePlayRequestError(`Google Play ${operation} failed: ${response.status}${detail}`, true);
 }
 
+/** A body that cannot be read or parsed leaves the outcome unknown, like a request without a response. */
+async function readJson<T>(operation: string, response: Response): Promise<T> {
+  try {
+    const text = await response.text();
+    return (text ? JSON.parse(text) : {}) as T;
+  } catch (error) {
+    // A JSON.parse message quotes the body, so only the kind of failure is reported.
+    const name = (error as Error).name;
+    const reason = name === "TimeoutError" || name === "AbortError" ? "network error (timeout)" : "unreadable response";
+    throw new GooglePlayRequestError(`Google Play ${operation} failed: ${reason}`, false);
+  }
+}
+
 async function send(
   fetchImpl: typeof fetch,
   operation: string,
@@ -116,7 +129,7 @@ export async function googlePlayAccessToken(
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
   }, options.timeoutMs);
   if (!response.ok) throw await failure("token exchange", response);
-  const { access_token: token } = await response.json() as { access_token?: unknown };
+  const { access_token: token } = await readJson<{ access_token?: unknown }>("token exchange", response);
   if (typeof token !== "string" || token.length === 0) throw new Error("Google Play token exchange returned no access token");
   return token;
 }
@@ -144,8 +157,7 @@ export function createGooglePlayClient(options: {
       ...(body ? { body: new Uint8Array(body) } : {}),
     }, options.timeoutMs);
     if (!response.ok) throw await failure(operation, response);
-    const text = await response.text();
-    return (text ? JSON.parse(text) : {}) as T;
+    return readJson<T>(operation, response);
   };
 
   return {
