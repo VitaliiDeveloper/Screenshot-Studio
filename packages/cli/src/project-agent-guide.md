@@ -157,8 +157,9 @@ screenshots layout list --project ./app-store-screenshots.json      # id, name, 
 screenshots screen list --project ./app-store-screenshots.json      # order, screen id, family, locale, name
 screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
 screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
-# screen packs: built-in-pack, id, family, style (a Design pack id), screen count, name
-screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in = Design packs)
+# screen packs: built-in-pack or project-pack, id, family, style (a Design pack id), screen count, name
+# invalid-pack lines name a broken packs/ file and the reason
+screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in, project-pack = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
 screenshots screen show <screen-id> --json --project ./app-store-screenshots.json            # full screen JSON
@@ -174,8 +175,9 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Use an image from outside the project | `asset import <file>`, then `element media` with the printed path |
 | Same geometry on every exact size of a slot | `element set <screen-id> <element-id> --all-sizes --json '{"x":76,"rotation":-6}'` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
-| Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
-| Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
+| Add every screen of a built-in or project screen pack | `template add <pack-id> --pack --locale <locale>` |
+| Restyle with a theme or Design pack | `theme set <id> [--built-in\|--pack]` |
+| Save a layout as a reusable project pack | `template export-pack <layout-id> --out packs/<name> [--locale <locale>] [--force]` |
 | Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
@@ -394,8 +396,10 @@ Use this when the user wants a ready-made look. Built-in packs are read-only app
 applying one writes ordinary literals, and the pack id is not stored anywhere in the project.
 
 1. List what exists and offer only ids that appear. Design packs come from `theme list` (`built-in`
-   lines). Screen packs come from `template list` (`built-in-pack` lines); a screen pack's style is
-   the id of the Design pack its screens were baked from.
+   lines, and `project-pack` lines for the project's own `packs/<id>/design-pack.json`). Screen packs
+   come from `template list` (`built-in-pack` lines, and `project-pack` lines for
+   `packs/<id>/screen-pack.json`); a built-in screen pack's style is the id of the Design pack its
+   screens were baked from. Report `invalid-pack` lines to the user instead of editing pack files.
 
    ```bash
    screenshots theme list --project ./app-store-screenshots.json
@@ -404,11 +408,12 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
 
 2. Choose one path:
    - Restyle the screens you have with a Design pack:
-     `screenshots theme set <design-pack-id> --built-in`. It replaces the background of every
-     screen in the layout.
+     `screenshots theme set <design-pack-id> --built-in` (or `--pack` for a project pack). It
+     replaces the background of every screen in the layout.
    - Add finished screens from a screen pack:
      `screenshots template add <pack-id> --pack --locale <locale>`. It appends every pack screen to
-     the layout in one write and prints the new screen ids.
+     the layout in one write and prints the new screen ids. A project screen pack's images are
+     copied into `assets/packs/<pack-id>/` and the new screens point there.
      A fresh `screenshots init` project starts with a blank `hero` screen that stays first and would
      be exported, so remove it with `screenshots screen rm hero` when the pack screens replace it.
 3. Edit the copy. The screens carry placeholder text and an empty mockup, so list the leaves and
@@ -420,6 +425,12 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
    ```
 
 After this the result is plain project JSON: add or remove layers freely.
+
+To reuse a finished layout in other projects, save it as a project pack with
+`screenshots template export-pack <layout-id> --out packs/<name>`. It writes
+`packs/<name>/screen-pack.json` and copies every image the screens use. It exports one locale's main
+screens of one output family, refuses right-to-left locales, and replaces an existing pack only with
+`--force`. Copy the folder into another project's `packs/` to use it there.
 
 ## Recipe: apply a theme or design pack
 
