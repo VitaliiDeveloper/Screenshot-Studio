@@ -25,4 +25,4 @@ jobs:
           # profile: fastlane
           # fail-on-warning: true
           # out: screenshots-export
-          # artifact-name: screenshots
+          # artifact-name: screenshots-${{ github.job }}

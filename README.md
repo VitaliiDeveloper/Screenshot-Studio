@@ -273,22 +273,24 @@ jobs:
 
 Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `export` ships),
 `profile` (`default` or `fastlane`), `fail-on-warning` (`check --strict`), `out` (default
-`screenshots-export`) and `artifact-name` (default `screenshots`). Outputs: `out`, `check-log` and
-`cache-hit`.
+`screenshots-export`) and `artifact-name` (default `screenshots-<job id>`; artifact names must be
+unique in a run, so a matrix or a job that runs the action twice sets one per entry). Outputs:
+`out`, `check-log` and `cache-hit`.
 
 The CLI package is not published yet, so the action builds it from its own source at the ref you
 pin (`pnpm install --frozen-lockfile` and `pnpm build:cli-package`, a few minutes per run). That ref
 selects both the action and the CLI. To build from a checkout instead, for example a fork, check it
 out with `actions/checkout` (`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`,
-`path: .screenshot-studio`) and use `uses: ./.screenshot-studio`. The `cli-version` input is
-reserved for installing the published package; once it exists, the workflow above stays the same.
+`path: .screenshot-studio`) and use `uses: ./.screenshot-studio`. Once the package is published,
+an npm install will replace the build step.
 
 The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
 the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
-Chromium is cached under a key that includes the Playwright version the CLI depends on, and
-`screenshots setup` runs only on a cache miss. On every run the action installs Playwright's system
+Chromium is cached under a key that includes the Playwright version the CLI depends on; the
+download happens only on a cache miss. On every run the action installs Playwright's system
 packages and fonts, as this repository's E2E job does. While it installs them, it moves apt sources
-from `packages.microsoft.com` aside and puts them back afterwards.
+from `packages.microsoft.com` aside and puts them back afterwards. The action sets up Node 22, which
+stays active for the job's later steps; its pnpm stays private to the action.
 
 ## Use an agent in the editor
 
