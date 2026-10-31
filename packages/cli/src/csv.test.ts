@@ -14,7 +14,7 @@ describe("csv", () => {
   });
 
   it("reads LF and CR separators, a byte-order mark, and skips blank lines", () => {
-    expect(parseCsv("﻿a,b\n\nc,d\re,f")).toEqual([["a", "b"], ["c", "d"], ["e", "f"]]);
+    expect(parseCsv("\uFEFFa,b\n\nc,d\re,f")).toEqual([["a", "b"], ["c", "d"], ["e", "f"]]);
     expect(parseCsv("a,\"\"\n")).toEqual([["a", ""]]);
   });
 

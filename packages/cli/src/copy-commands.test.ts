@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -38,6 +38,10 @@ function screen(id: string, locale: string, copy: [string, string], rtl = false)
 
 type TestScreen = ReturnType<typeof screen>;
 
+function variantOf(root: TestScreen, id: string, locale: string, copy: [string, string]): TestScreen {
+  return { ...screen(id, locale, copy), name: root.name, variantOf: root.id, storeTargetId: "6.9" } as TestScreen;
+}
+
 async function fixture(extraScreens: TestScreen[] = []) {
   const dir = await mkdtemp(join(tmpdir(), "copy-command-"));
   roots.push(dir);
@@ -58,6 +62,13 @@ async function fixture(extraScreens: TestScreen[] = []) {
     }],
   }));
   return { dir, projectPath, copyPath: (name: string) => join(dir, name) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test-only raw JSON edits
+async function editProject(projectPath: string, edit: (project: any) => void) {
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  edit(project);
+  await writeFile(projectPath, JSON.stringify(project));
 }
 
 const read = (path: string) => readFile(path, "utf8");
@@ -193,7 +204,7 @@ describe("copy import", () => {
     records[1]![3] = "Laufe";
     await writeFile(copyPath("copy.csv"), formatCsv(records));
     await expect(runCopyCommand(projectPath, ["import", copyPath("copy.csv")], {})).resolves.toBe([
-      "Skipped hero/title [de]: no matching text layer in de (layer structure differs)",
+      "Skipped hero/title [de]: no matching text layer in de (screen or layer structure differs)",
       "Written 0, skipped 1, unchanged 6",
     ].join("\n"));
   });
@@ -216,6 +227,99 @@ describe("copy import", () => {
     await expect(runCopyCommand(projectPath, ["wat"], {})).rejects.toThrow(/Usage: screenshots copy/);
     await expect(runCopyCommand(projectPath, ["import"], {})).rejects.toThrow(/Usage: screenshots copy/);
     await expect(runCopyCommand(projectPath, ["import", "x.csv"], { out: "y.csv" })).rejects.toThrow(/apply only to copy export/);
+  });
+
+  it("skips a target locale whose screens were reordered after export", async () => {
+    const { projectPath, copyPath } = await fixture();
+    const records = await exportCsv(projectPath, copyPath("copy.csv"));
+    records[1]![3] = "Neu";
+    records[3]![3] = "Auch neu";
+    await writeFile(copyPath("copy.csv"), formatCsv(records));
+    await editProject(projectPath, (project) => project.layouts[0].screens.splice(2, 2, project.layouts[0].screens[3], project.layouts[0].screens[2]));
+    const before = await read(projectPath);
+    const output = await runCopyCommand(projectPath, ["import", copyPath("copy.csv")], {});
+    expect(output).toContain("Skipped hero/title [de]: no matching text layer in de");
+    expect(output).toContain("Skipped more/title [de]: no matching text layer in de");
+    expect(output.endsWith("Written 0, skipped 4, unchanged 4")).toBe(true);
+    expect(await read(projectPath)).toBe(before);
+  });
+
+  it("does not pair a target locale after a base screen was inserted", async () => {
+    const { projectPath, copyPath } = await fixture();
+    const records = await exportCsv(projectPath, copyPath("copy.csv"));
+    records[1]![3] = "Neu";
+    await writeFile(copyPath("copy.csv"), formatCsv(records));
+    await editProject(projectPath, (project) => project.layouts[0].screens.splice(1, 0, screen("mid", "en", ["Middle", "Mid badge"])));
+    const before = await read(projectPath);
+    const output = await runCopyCommand(projectPath, ["import", copyPath("copy.csv")], {});
+    expect(output).toContain("Skipped hero/title [de]");
+    expect(await read(projectPath)).toBe(before);
+    const after = await exportCsv(projectPath, copyPath("after.csv"));
+    expect(after.slice(1).map((record) => record.slice(3))).toEqual(Array(6).fill(["", ""]));
+  });
+
+  it("pairs exact-size variants through their root, not their row position", async () => {
+    const hero = screen("hero", "en", ["Track every run", "4.9 stars"]);
+    const more = screen("more", "en", ["Share it", "Top rated"]);
+    const { projectPath, copyPath } = await fixture([
+      variantOf(hero, "hero-69", "en", ["Track every run", "4.9 stars"]),
+      variantOf(more, "more-69", "en", ["Share it", "Top rated"]),
+      variantOf(more, "more-69-de", "de", ["Teile es 6.9", "Bestbewertet 6.9"]),
+      variantOf(hero, "hero-69-de", "de", ["Lauf 6.9", "Sterne 6.9"]),
+    ]);
+    await editProject(projectPath, (project) => {
+      const screens = project.layouts[0].screens;
+      screens.find((candidate: { id: string }) => candidate.id === "more-69-de").variantOf = "more-de";
+      screens.find((candidate: { id: string }) => candidate.id === "hero-69-de").variantOf = "hero-de";
+    });
+    const records = await exportCsv(projectPath, copyPath("copy.csv"), { locale: "de" });
+    const byKey = new Map(records.slice(1).map((record) => [`${record[0]}/${record[1]}`, record[3]]));
+    expect(byKey.get("hero-69/title")).toBe("Lauf 6.9");
+    expect(byKey.get("more-69/badge-label")).toBe("Bestbewertet 6.9");
+  });
+
+  it("skips locked layers and layers inside locked groups", async () => {
+    const { projectPath, copyPath } = await fixture();
+    const records = await exportCsv(projectPath, copyPath("copy.csv"), { locale: "de" });
+    records[1]![3] = "Neu 1";
+    records[3]![3] = "Neu 2";
+    records[4]![3] = "Neu 3";
+    await writeFile(copyPath("copy.csv"), formatCsv(records));
+    await editProject(projectPath, (project) => {
+      const screens = project.layouts[0].screens;
+      screens[2].elements[0].locked = true;
+      screens[3].elements[1].locked = true;
+    });
+    const output = await runCopyCommand(projectPath, ["import", copyPath("copy.csv")], {});
+    expect(output).toBe([
+      "Skipped hero/title [de]: layer is locked",
+      "Skipped more/badge-label [de]: group is locked",
+      "Written 1, skipped 2, unchanged 1",
+    ].join("\n"));
+  });
+
+  it("refuses --out over the project document, its assets, or an existing file", async () => {
+    const { dir, projectPath, copyPath } = await fixture();
+    await mkdir(join(dir, "assets"));
+    const before = await read(projectPath);
+    await expect(runCopyCommand(projectPath, ["export"], { out: projectPath, force: "true" })).rejects.toThrow(/must not target the project document/);
+    await expect(runCopyCommand(projectPath, ["export"], { out: join(dir, "assets", "copy.csv") })).rejects.toThrow(/project assets/);
+    await expect(runCopyCommand(projectPath, ["export"], { out: join(dir, "other", "assets-less.csv"), locale: "ar" })).resolves.toContain("Exported 4");
+    expect(await read(projectPath)).toBe(before);
+
+    await runCopyCommand(projectPath, ["export"], { out: copyPath("copy.csv") });
+    await expect(runCopyCommand(projectPath, ["export"], { out: copyPath("copy.csv") })).rejects.toThrow(/already exists; pass --force/);
+    await expect(runCopyCommand(projectPath, ["export"], { out: copyPath("copy.csv"), force: "true" })).resolves.toContain("Exported");
+  });
+
+  it("writes a byte-order mark, skips all-empty records, and rejects an empty column name", async () => {
+    const { projectPath, copyPath } = await fixture();
+    await runCopyCommand(projectPath, ["export"], { out: copyPath("copy.csv") });
+    expect((await read(copyPath("copy.csv"))).startsWith("\uFEFFscreen,element,source,de,ar")).toBe(true);
+    await writeFile(copyPath("blank.csv"), "screen,element,source,de\r\nhero,title,Track every run,\r\n,,,\r\n");
+    await expect(runCopyCommand(projectPath, ["import", copyPath("blank.csv")], {})).resolves.toBe("Written 0, skipped 0, unchanged 0");
+    await writeFile(copyPath("empty-head.csv"), "screen,element,source,\r\n");
+    await expect(runCopyCommand(projectPath, ["import", copyPath("empty-head.csv")], {})).rejects.toThrow(/empty column name/);
   });
 
   it("accepts its flags through the shared parser", () => {

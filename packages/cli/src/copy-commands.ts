@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
-import { basename, dirname, extname, resolve } from "node:path";
+import { lstat, readFile, realpath } from "node:fs/promises";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import {
   applyElementPatch,
   elementLeaves,
@@ -14,7 +14,7 @@ import {
   type Screen,
   type TextElement,
 } from "@screenshot-studio/core/model";
-import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { projectMutationLockPath, resolveExistingProjectPath, type ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { formatCsv, parseCsv } from "./csv.js";
 import { assertTextFontRegistered } from "./element-commands.js";
 import { resolveMutationLayout } from "./layout-commands.js";
@@ -47,7 +47,7 @@ export interface CopyImportReport {
 const FIXED_COLUMNS = ["screen", "element", "source"] as const;
 const USAGE = [
   "Usage: screenshots copy <command>",
-  "  export [--layout <id>] [--locale <code>[,<code>...]] --out <file.csv|file.json>",
+  "  export [--layout <id>] [--locale <code>[,<code>...]] --out <file.csv|file.json> [--force]",
   "  import <file.csv|file.json> [--layout <id>] [--force]",
 ].join("\n");
 
@@ -65,15 +65,33 @@ function sameSizeRow(left: Screen, right: Screen): boolean {
 }
 
 /**
- * Locales keep no link between their screens or layers (clones get fresh ids), so the counterpart
- * of a base text layer is the layer at the same position on the screen at the same position of its
- * size row. A target locale whose layer structure diverged has no counterpart and is never guessed.
+ * Locales keep no persisted link between their screens or layers (clones get fresh ids and keep
+ * names), so a counterpart is accepted only when it is unambiguous: the base and target size rows
+ * have the same length, the paired screen has the same name, and a variant follows its target
+ * root through `variantOf` instead of its row position. Anything else has no counterpart.
  */
+function pairedScreen(layout: DesignLayout, base: Screen, locale: string): Screen | undefined {
+  const row = (rowLocale: string) => layout.screens.filter((screen) => screen.locale === rowLocale && sameSizeRow(screen, base));
+  const baseRow = row(base.locale);
+  const targetRow = row(locale);
+  if (baseRow.length !== targetRow.length) return undefined;
+  let target: Screen | undefined;
+  if (base.storeTargetId === undefined) {
+    target = targetRow[baseRow.indexOf(base)];
+  } else {
+    const root = layout.screens.find((screen) => screen.id === base.variantOf);
+    const targetRoot = root && pairedScreen(layout, root, locale);
+    target = targetRoot && targetRow.find((screen) => screen.variantOf === targetRoot.id);
+  }
+  return target?.name === base.name ? target : undefined;
+}
+
 function counterpartText(layout: DesignLayout, base: Screen, elementId: string, locale: string) {
-  const index = layout.screens.filter((screen) => screen.locale === base.locale && sameSizeRow(screen, base)).indexOf(base);
-  const target = layout.screens.filter((screen) => screen.locale === locale && sameSizeRow(screen, base))[index];
-  const element = target && slotCounterpart(base, elementId, target);
-  return target && element?.type === "text" ? { screen: target, element } : undefined;
+  const screen = pairedScreen(layout, base, locale);
+  const element = screen && slotCounterpart(base, elementId, screen);
+  if (!screen || element?.type !== "text") return undefined;
+  const parent = findElementLocation(screen, element.id)?.parent;
+  return { screen, element, locked: element.locked ? "layer" : parent?.locked ? "group" : undefined };
 }
 
 function layoutLocalesSplit(layout: DesignLayout): { base: string; others: string[] } {
@@ -105,10 +123,10 @@ export function buildCopyTable(layout: DesignLayout, requested?: readonly string
 
 export function serializeCopyTable(table: CopyTable, format: "csv" | "json"): string {
   if (format === "json") return `${JSON.stringify(table, null, 2)}\n`;
-  return formatCsv([
+  return `\uFEFF${formatCsv([
     [...FIXED_COLUMNS, ...table.locales],
     ...table.rows.map((row) => [row.screen, row.element, row.source, ...table.locales.map((locale) => row.text[locale] ?? "")]),
-  ]);
+  ])}`;
 }
 
 function parseJsonTable(text: string): CopyTable {
@@ -142,10 +160,11 @@ function parseCsvTable(text: string): CopyTable {
     throw new Error(`Copy CSV header must start with ${FIXED_COLUMNS.join(",")}`);
   }
   const locales = header.slice(FIXED_COLUMNS.length);
+  if (header.some((column) => column === "")) throw new Error("Copy CSV header has an empty column name");
   if (new Set(locales).size !== locales.length) throw new Error("Copy CSV repeats a locale column");
   return {
     locales,
-    rows: records.map((record, index) => {
+    rows: records.filter((record) => record.some((cell) => cell !== "")).map((record, index) => {
       if (record.length !== header.length) {
         throw new Error(`Copy CSV row ${index + 2} has ${record.length} columns; expected ${header.length}`);
       }
@@ -218,7 +237,12 @@ export function applyCopyTable(
       }
       if (!target) {
         report.skipped += 1;
-        report.warnings.push(`Skipped ${label}: no matching text layer in ${locale} (layer structure differs)`);
+        report.warnings.push(`Skipped ${label}: no matching text layer in ${locale} (screen or layer structure differs)`);
+        continue;
+      }
+      if (target.locked) {
+        report.skipped += 1;
+        report.warnings.push(`Skipped ${label}: ${target.locked} is locked`);
         continue;
       }
       const nextScreen = nextLayout.screens.find((candidate) => candidate.id === target.screen.id)!;
@@ -229,6 +253,26 @@ export function applyCopyTable(
     }
   }
   return { project: report.written === 0 ? project : parseProject(next), report };
+}
+
+/** The exchange file must never replace the project document, its lock file, or project assets. */
+async function canonicalPath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    const parent = dirname(path);
+    return parent === path ? path : join(await canonicalPath(parent), basename(path));
+  }
+}
+
+/** The exchange file must never replace the project document, its lock file, or project assets. */
+async function assertOutsideProject(projectPath: string, out: string): Promise<void> {
+  const project = await resolveExistingProjectPath(projectPath);
+  const canonicalOut = await canonicalPath(out);
+  const assets = join(dirname(project), "assets") + sep;
+  if (canonicalOut === project || canonicalOut === projectMutationLockPath(project) || canonicalOut.startsWith(assets)) {
+    throw new Error(`--out must not target the project document, its lock file, or project assets: ${out}`);
+  }
 }
 
 function formatReport(report: CopyImportReport): string {
@@ -245,9 +289,12 @@ export async function runCopyCommand(
   const json = flags.json === "true";
   if (subcommand === "export" && file === undefined) {
     if (!flags.out) throw new Error("copy export requires --out <file.csv|file.json>");
-    if (flags.force !== undefined) throw new Error("--force applies only to copy import");
     const out = resolve(flags.out);
     const format = formatOf(out);
+    await assertOutsideProject(projectPath, out);
+    if (flags.force !== "true" && await lstat(out).then(() => true, () => false)) {
+      throw new Error(`${out} already exists; pass --force to replace it`);
+    }
     const layout = resolveMutationLayout(await loadProjectFile(projectPath), flags.layout);
     const requested = flags.locale?.split(",").map((locale) => locale.trim()).filter(Boolean);
     const table = buildCopyTable(layout, requested);

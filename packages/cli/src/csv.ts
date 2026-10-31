@@ -11,7 +11,7 @@ export function formatCsv(records: readonly (readonly string[])[]): string {
  * (spreadsheets add one on save). Blank lines are skipped.
  */
 export function parseCsv(text: string): string[][] {
-  const input = text.startsWith("﻿") ? text.slice(1) : text;
+  const input = text.startsWith("\uFEFF") ? text.slice(1) : text;
   const records: string[][] = [];
   let record: string[] = [];
   let value = "";
