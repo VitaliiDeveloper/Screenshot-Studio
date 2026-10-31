@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { BundleEntry } from "@screenshot-studio/core/export";
+import type { AppStoreDisplayType, BundleEntry } from "@screenshot-studio/core/export";
 
 // fastlane 2.241: FastlaneCore::Languages::ALL_LANGUAGES (deliver language folders).
 const APP_STORE_LOCALES = [
@@ -237,5 +237,126 @@ export function googlePlayUploadPlan(
   if (remote) {
     plan.untouchedLocales = remote.locales.filter((locale) => !byLocale.has(locale));
   }
+  return plan;
+}
+
+/** App Store Connect accepts at most ten screenshots per display type and localization. */
+const APP_STORE_SET_LIMIT = 10;
+
+export type AppStorePlatform = "IOS" | "MAC_OS" | "TV_OS" | "VISION_OS";
+
+/** iPhone, iPad and Apple Watch sets belong to the iOS version; these display types to their own platform's. */
+const APP_STORE_PLATFORMS: Partial<Record<AppStoreDisplayType, AppStorePlatform>> = {
+  APP_DESKTOP: "MAC_OS",
+  APP_APPLE_TV: "TV_OS",
+  APP_APPLE_VISION_PRO: "VISION_OS",
+};
+
+export function appStorePlatform(displayType: AppStoreDisplayType): AppStorePlatform {
+  return APP_STORE_PLATFORMS[displayType] ?? "IOS";
+}
+
+export interface AppStoreSetPlan {
+  displayType: AppStoreDisplayType;
+  /** Uploaded in this order after every current screenshot of the set is deleted. */
+  upload: PlannedImage[];
+  /** Current screenshots the upload replaces; null until the store has been read. */
+  replace: RemoteImage[] | null;
+}
+
+export interface AppStoreLocalePlan {
+  platform: AppStorePlatform;
+  locale: string;
+  projectLocale: string;
+  sets: AppStoreSetPlan[];
+}
+
+export interface AppStoreSkippedEntry {
+  entry: BundleEntry;
+  reason: string;
+}
+
+export interface AppStoreUploadPlan {
+  /** App Store versions the upload touches, one per platform, in first-use order. */
+  platforms: AppStorePlatform[];
+  locales: AppStoreLocalePlan[];
+  /** Entries to render, in upload order, at their plan paths. */
+  entries: BundleEntry[];
+  /** Entries App Store Connect has no screenshot set for; they are not rendered. */
+  skipped: AppStoreSkippedEntry[];
+}
+
+export interface AppStoreRemoteState {
+  /** Current screenshots of each touched set, keyed by `appStoreSetKey`; a missing key means no set yet. */
+  images: ReadonlyMap<string, readonly RemoteImage[]>;
+}
+
+export function appStoreSetKey(platform: AppStorePlatform, locale: string, displayType: AppStoreDisplayType): string {
+  return `${platform}/${locale}/${displayType}`;
+}
+
+/**
+ * Plan an App Store Connect screenshot upload: each touched screenshot set is replaced as a whole, in
+ * project order; the display type comes from the catalog target. Set limits and one size per set are
+ * enforced here so a set App Store Connect would reject never reaches it.
+ */
+export function appStoreUploadPlan(
+  entries: readonly BundleEntry[],
+  remote?: AppStoreRemoteState,
+): AppStoreUploadPlan {
+  const plan: AppStoreUploadPlan = { platforms: [], locales: [], entries: [], skipped: [] };
+  const mapper = createStoreLocaleMapper();
+  const byLocale = new Map<string, AppStoreLocalePlan>();
+  const sizes = new Map<AppStoreSetPlan, Set<string>>();
+
+  for (const entry of entries) {
+    const target = entry.screen.platform === "apple" ? entry.target.appStoreConnect : undefined;
+    if (!target || !("displayType" in target)) {
+      const reason = entry.screen.platform !== "apple"
+        ? "Not an App Store target"
+        : target?.unsupported ?? "The store catalog gives this target no App Store Connect display type";
+      plan.skipped.push({ entry, reason });
+      continue;
+    }
+    const { displayType } = target;
+    const platform = appStorePlatform(displayType);
+    const locale = mapper.map(entry, "App Store Connect");
+    if (!locale) continue;
+    if (!plan.platforms.includes(platform)) plan.platforms.push(platform);
+    let localePlan = byLocale.get(`${platform}/${locale}`);
+    if (!localePlan) {
+      localePlan = { platform, locale, projectLocale: entry.screen.locale, sets: [] };
+      byLocale.set(`${platform}/${locale}`, localePlan);
+      plan.locales.push(localePlan);
+    }
+    let set = localePlan.sets.find((candidate) => candidate.displayType === displayType);
+    if (!set) {
+      const replace = remote ? [...(remote.images.get(appStoreSetKey(platform, locale, displayType)) ?? [])] : null;
+      set = { displayType, upload: [], replace };
+      localePlan.sets.push(set);
+      sizes.set(set, new Set());
+    }
+    // A rotated twin is the same size; App Store Connect takes both orientations in one set.
+    sizes.get(set)!.add([entry.target.width, entry.target.height].sort((a, b) => a - b).join("x"));
+    const relativePath = `${locale}/${displayType}/${String(set.upload.length + 1).padStart(2, "0")}.png`;
+    set.upload.push({
+      screenId: entry.screen.id,
+      screenName: entry.screen.name,
+      sizeId: entry.target.id,
+      relativePath,
+    });
+    plan.entries.push({ ...entry, relativePath });
+  }
+  mapper.assertMapped();
+
+  const invalid = plan.locales.flatMap(({ locale, sets }) => sets.flatMap((set) => [
+    ...set.upload.length > APP_STORE_SET_LIMIT
+      ? [`${locale} ${set.displayType} has ${set.upload.length} screenshots; App Store Connect accepts at most ${APP_STORE_SET_LIMIT}`]
+      : [],
+    ...sizes.get(set)!.size > 1
+      ? [`${locale} ${set.displayType} mixes ${[...sizes.get(set)!].join(" and ")} screenshots; use one size per display type`]
+      : [],
+  ]));
+  if (invalid.length > 0) throw new Error(invalid.join("\n"));
   return plan;
 }
