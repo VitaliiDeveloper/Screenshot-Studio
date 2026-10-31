@@ -46,7 +46,7 @@ export class ExportProgressRegistry {
 
   update(
     operationId: string,
-    phase: Extract<ExportProgressPhase, "rendering" | "packaging" | "finalizing">,
+    phase: Extract<ExportProgressPhase, "rendering" | "packaging" | "finalizing" | "uploading">,
     completed: number,
     total: number,
   ): void {

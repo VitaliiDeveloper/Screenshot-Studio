@@ -105,6 +105,26 @@ file reports `Stopped: 0 of N files exported` and downloads nothing. While an ex
 Esc, the backdrop, and Close do not dismiss the dialog. The CLI keeps failing the whole export on the
 first file that cannot render.
 
+After a store-bundle export writes at least one file, **Upload to store** replaces the Export dialog
+with the upload review. It flushes pending saves, asks the server for the plan of the active layout,
+and shows per store language and image slot which screens are uploaded and that each touched slot is
+replaced as a whole, the slots and languages left as they are, the screens with no store slot, the
+slot limits, and preflight warnings. The plan covers every Android screen of the layout, not only the
+sizes and locales checked for export, and says so. **Upload N images** sends the plan's hash; while it
+runs the dialog shows rendering progress, then an indeterminate upload phase, and cannot be closed.
+The result lists what was uploaded and replaced per language and slot, or the store error. A refused
+or failed attempt needs **Review again**, because each confirmation allows one attempt. When the
+project has no store identifier or the store has no key, the review says what is missing and **Open
+Stores** opens the Stores dialog; closing it returns to the review. The store menu lists only stores
+the CLI can upload to (Google Play today).
+
+**Stores** in the tool rail edits the project's `publishing` identifiers (Google Play package name,
+Apple ID) with the schema's own validation, saved through the regular project save, and manages the
+upload key per store: its status (`Key configured · updated …` or `No key configured`), a file picker
+for the Google Play service-account `.json` or the App Store Connect key id, issuer id, and `.p8`, and
+**Remove key**. Stored key values are never shown or read back. App Store Connect is listed with a
+note that uploading to it from the editor is not available yet.
+
 The Layers panel presents one **Screens → Layers** tree for the current exact-size scope. The active screen
 expands to its layers, front-most first; layer reorder applies only to the active screen, and every
 layer row has a direct lock toggle. Layer rows are one line. A text layer is labelled by its text

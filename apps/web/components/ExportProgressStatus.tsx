@@ -12,6 +12,7 @@ function progressLabel(progress: ExportProgressSnapshot): string {
     case "rendering": return `Rendering ${progress.completed} of ${progress.total}`;
     case "packaging": return "Packaging";
     case "finalizing": return "Preparing download…";
+    case "uploading": return "Uploading to the store…";
     case "ready": return "Export ready";
     case "failed": return "Export failed";
   }
@@ -28,7 +29,8 @@ export function ExportProgressStatus({
   const renderProgressPercent = exportRenderProgressPercent(progress);
   const showPhaseActivity = progress.phase === "preparing"
     || progress.phase === "packaging"
-    || progress.phase === "finalizing";
+    || progress.phase === "finalizing"
+    || progress.phase === "uploading";
 
   return (
     <div className="rounded-lg bg-[var(--editor-color-surface-subtle)] px-3 py-2.5 ring-1 ring-[var(--editor-color-border)]" role="status" aria-live="polite">
