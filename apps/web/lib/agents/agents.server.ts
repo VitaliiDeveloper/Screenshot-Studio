@@ -156,7 +156,7 @@ export function agentEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.Proces
       return value !== undefined
         && (PASSTHROUGH_ENV.has(key) || PASSTHROUGH_PREFIXES.some((prefix) => key.startsWith(prefix)));
     })),
-    // `screenshots upload` refuses to run under this marker, so an agent cannot publish to a store.
+    // `screenshots upload` refuses to run under this marker, so an agent does not run it by accident.
     SCREENSHOT_STUDIO_AGENT: "1",
   } as NodeJS.ProcessEnv;
 }

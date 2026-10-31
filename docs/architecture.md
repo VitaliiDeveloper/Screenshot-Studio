@@ -184,8 +184,9 @@ the store locale and Android slot mapping the fastlane profile uses. The plan re
 Play slot as a whole in project screen order, leaves other slots and locales alone, and enforces the
 8-screenshot and single-Feature-Graphic limits before anything is rendered. The Google Play client
 uses `fetch` and `node:crypto` only: a service-account RS256 JWT is exchanged for an OAuth token, and
-one androidpublisher v3 edit is opened, its touched slots listed, deleted, and refilled, then committed
-once. Any failure before the commit abandons the edit. Production endpoints are constants in code;
+one androidpublisher v3 edit is opened, every planned locale is checked against the existing listings,
+the touched slots are listed, deleted, and refilled, and the edit is committed once. Any failure
+before the commit abandons the edit; requests time out after 60 seconds and are never retried. Production endpoints are constants in code;
 tests inject a loopback mock through the command's dependencies, never through the environment.
 `--dry-run` is offline and opens no edit.
 
@@ -399,9 +400,11 @@ never reads credential files and returns states, never account identity. Every a
 an allowlisted environment, so API keys and provider switches in the server environment cannot move a
 CLI off the subscription. The same allowlist keeps store credential variables away from agents, and
 `agentEnv()` adds `SCREENSHOT_STUDIO_AGENT=1`; `screenshots upload` refuses to run when that variable
-is set, even with `--dry-run`, so store publication stays a human action. External agents working in
-the project folder have no store credentials either, and the project guide and skill describe
-`upload` as human-only. A future Claude Code release may default `-p` to `--bare`, which ignores the
+is set, even with `--dry-run`. The marker is an accident guard, not a security boundary: an agent can
+unset it, and `--service-account <path>` accepts any key file the agent process can read. An external
+agent the user starts in a terminal inherits the user's environment and carries no marker, so for
+external agents the protection is instruction-only: the project guide and skill describe `upload` as
+human-only. A future Claude Code release may default `-p` to `--bare`, which ignores the
 subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
 environment carries none. `models` lists exact model IDs with display labels, the default first, so the

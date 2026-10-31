@@ -82,9 +82,9 @@ deliver to replace the screenshots already in App Store Connect instead of appen
 
 ### Upload to Google Play
 
-`screenshots upload --store google [--layout <id>] [--dry-run] [--json]` replaces the project's
-Google Play screenshots directly, with no fastlane or Ruby. It is a human-only action: run it
-yourself in a terminal or CI job.
+`screenshots upload --store google [--layout <id>] [--dry-run] [--json] [--changes-not-sent-for-review]`
+replaces the project's Google Play screenshots directly, with no fastlane or Ruby. It is a human-only
+action: run it yourself in a terminal or CI job.
 
 1. Store the app's package name in the project (identifiers only, never keys):
    `screenshots publishing set --google-package com.example.app`. `publishing show` prints it and
@@ -102,16 +102,27 @@ The plan uses the fastlane locale and slot mapping above. Each slot with project
 and every other store locale is left as it is. A slot with more than 8 screenshots (or more than one
 Feature Graphic) stops the command before anything is rendered or sent. `--dry-run` is offline: it
 needs no credentials, renders nothing, and opens no edit, so it says "replaces every current image"
-instead of a count.
+instead of a count. It still checks that every artboard scales to its store size and prints export
+preflight warnings (such as Android tablet screen counts) on stderr, as a real upload does.
 
-A real upload renders through the ordinary bundle export, opens one Play edit, lists the touched
-slots, deletes their images, uploads the new PNGs, and commits the edit once. Any failure before the
-commit abandons the edit, so Google Play is unchanged. If the commit request gets no response, the
-command says the outcome is unknown; check Play Console before running it again. Failures exit 1 with
-an error on stderr and no `--json` report, like `check`.
+A real upload exchanges the key for an access token first, so a revoked key fails before rendering.
+It then renders through the ordinary bundle export, opens one Play edit, checks that every planned
+locale already has a store listing, lists the touched slots, deletes their images, uploads the new
+PNGs, and commits the edit once. Any failure before the commit abandons the edit, so Google Play is
+unchanged. Each request times out after 60 seconds and nothing is retried; every step only changes
+the uncommitted edit, so running the command again after a failure starts cleanly. If the commit
+request gets no response, the command says the outcome is unknown; check Play Console before running
+it again. Failures exit 1 with an error on stderr and no `--json` report, like `check`.
+
+Add `--changes-not-sent-for-review` when Play rejects the commit because the app's changes cannot be
+sent for review automatically, which typically follows an earlier review rejection. The edit is then
+committed with `changesNotSentForReview=true`: Play adds it to the changes waiting in Play Console and
+reviews nothing until you send them for review there.
 
 Agents the editor starts carry `SCREENSHOT_STUDIO_AGENT=1` and none of the credential variables;
-`upload` refuses to run when that variable is set, even with `--dry-run`.
+`upload` refuses to run when that variable is set, even with `--dry-run`. This guards against an
+accidental run, not a determined agent; agents you start yourself in a terminal carry no marker and
+are kept from uploading only by the project guide.
 
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at
