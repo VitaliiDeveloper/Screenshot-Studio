@@ -217,6 +217,39 @@ describe("runExportCommand fastlane profile", () => {
     expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported 1 screenshots/));
   });
 
+  it("rejects an ambiguous locale before rendering", async () => {
+    const fixture = await projectFixture();
+    await writeFile(fixture.path, fixture.bytes.replace('"locale":"en"', '"locale":"pt"'), "utf8");
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>();
+
+    await expect(runExportCommand({ project: fixture.path, profile: "fastlane" }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle,
+      createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
+    })).rejects.toThrow(/Locale "pt" matches several App Store Connect locales/);
+    expect(exportBundle).not.toHaveBeenCalled();
+  });
+
+  it("fails when no selected screen has a fastlane upload slot", async () => {
+    const fixture = await projectFixture();
+    const project = JSON.parse(fixture.bytes);
+    Object.assign(project.layouts[0].screens[0], {
+      platform: "web", device: "mobile", artboard: { width: 390, height: 844 },
+    });
+    await writeFile(fixture.path, `${JSON.stringify(project)}\n`, "utf8");
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>();
+
+    await expect(runExportCommand({ project: fixture.path, profile: "fastlane" }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle,
+      createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
+    })).rejects.toThrow("No selected screen has a fastlane upload slot");
+    expect(exportBundle).not.toHaveBeenCalled();
+    expect(runtime.log).toHaveBeenCalledWith("Skipped 1 screenshot fastlane does not upload: web/mobile (1)");
+  });
+
   it("requires a bundle export", async () => {
     const fixture = await projectFixture();
     const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));

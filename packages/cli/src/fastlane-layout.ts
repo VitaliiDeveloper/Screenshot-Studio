@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { safeStoreSizePathToken, type BundleEntry } from "@screenshot-studio/core/export";
+import {
+  safeStoreSizePathToken,
+  screenNamePathToken,
+  type BundleEntry,
+} from "@screenshot-studio/core/export";
 
 // fastlane 2.241: FastlaneCore::Languages::ALL_LANGUAGES (deliver language folders).
 const APP_STORE_LOCALES = [
@@ -75,11 +79,6 @@ export interface FastlaneLayout {
   skipped: BundleEntry[];
 }
 
-function screenToken(entry: BundleEntry): string {
-  const sanitize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return (sanitize(entry.screen.name) || sanitize(entry.screen.id) || "screen").slice(0, 96);
-}
-
 /**
  * Rewrite bundle entries into the trees `fastlane deliver` and `supply` read. deliver keeps every
  * device class in one flat locale folder and tells them apart by pixel size, so App Store names carry
@@ -119,9 +118,9 @@ export function fastlaneBundleEntries(entries: readonly BundleEntry[]): Fastlane
       const locale = mapLocale(entry, "App Store Connect");
       if (!locale) continue;
       const deviceToken = `${screen.device}-${safeStoreSizePathToken(target.id)}`;
-      const name = screenToken(entry);
+      const name = screenNamePathToken(screen);
       // deliver files 3840x2160 under Vision Pro whenever the path contains "vision", else Apple TV.
-      if (screen.device === "tvos" && name.includes("vision")) {
+      if (screen.device === "tvos" && target.id === "4k" && name.includes("vision")) {
         throw new Error(
           `Apple TV screen "${screen.name}" (${screen.id}) would be read as Vision Pro by fastlane deliver; rename it without "vision"`,
         );

@@ -182,7 +182,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Refresh re-captured screens | `import <dir> --refresh` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
-| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`) |
+| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
 | Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
 | Remove an element | `element rm <screen-id> <element-id>` |

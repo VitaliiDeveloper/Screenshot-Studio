@@ -40,7 +40,10 @@ static review/campaign directory and ZIP. Web Share is independent of the Web pl
 - App Store screens go to `fastlane/screenshots/<locale>/<NN>_<screen>_<device>-<size>.png`. `fastlane
   deliver` reads every device class from one flat locale folder and picks the class by pixel size, so
   the name carries the device and size to stay unique. Vision Pro names contain `vision`, which deliver
-  needs to tell 3840×2160 apart from Apple TV, and a 2048×2732 iPad 12.9 lands in deliver's 13" set.
+  needs to tell 3840×2160 apart from Apple TV, so the `--out` path itself must not contain `vision`
+  when it holds Apple TV 4K screens: deliver checks the whole path. deliver merges a size's portrait
+  and landscape files into one set, and iPad 13 with 12.9 (a 2048×2732 iPad lands in the 13" set);
+  App Store Connect keeps at most 10 screenshots per set.
 - Google Play screens go to `fastlane/metadata/android/<locale>/images/<slot>/<NN>.png`, where the
   slot is `phoneScreenshots`, `sevenInchScreenshots`, `tenInchScreenshots`, `tvScreenshots`, or
   `wearScreenshots` by output family. The Feature Graphic becomes `images/featureGraphic.png`.
@@ -56,7 +59,8 @@ Then `fastlane deliver --skip_binary_upload --skip_metadata` and `fastlane suppl
 screenshots with your own store credentials. Run from the `--out` folder, they read
 `./fastlane/screenshots` and `./fastlane/metadata/android` by default; elsewhere, pass
 `--screenshots_path` / `--metadata_path`. fastlane uploads
-every image it finds there, so export into a clean folder.
+every image it finds there, so export into a clean folder, and add `--overwrite_screenshots` to
+deliver to replace the screenshots already in App Store Connect instead of appending to them.
 
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at
