@@ -166,7 +166,7 @@ function assertPatchKeys(type: Element["type"], patch: Record<string, unknown>):
   }
 }
 
-function assertTextFontRegistered(project: Project, element: Element): void {
+export function assertTextFontRegistered(project: Project, element: Element): void {
   if (element.type !== "text") return;
   const identity = { family: element.fontFamily, weight: element.weight };
   const key = fontIdentityKey(identity);

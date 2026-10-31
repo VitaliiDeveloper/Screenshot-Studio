@@ -157,8 +157,9 @@ screenshots layout list --project ./app-store-screenshots.json      # id, name, 
 screenshots screen list --project ./app-store-screenshots.json      # order, screen id, family, locale, name
 screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
 screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
-# screen packs: built-in-pack, id, family, style (a Design pack id), screen count, name
-screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in = Design packs)
+# screen packs: built-in-pack or project-pack, id, family, style (a Design pack id), screen count, name
+# invalid-pack lines name a broken packs/ file and the reason
+screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in, project-pack = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
 screenshots screen show <screen-id> --json --project ./app-store-screenshots.json            # full screen JSON
@@ -174,14 +175,17 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Use an image from outside the project | `asset import <file>`, then `element media` with the printed path |
 | Same geometry on every exact size of a slot | `element set <screen-id> <element-id> --all-sizes --json '{"x":76,"rotation":-6}'` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
-| Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
-| Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
+| Add every screen of a built-in or project screen pack | `template add <pack-id> --pack --locale <locale>` |
+| Restyle with a theme or Design pack | `theme set <id> [--built-in\|--pack]` |
+| Save a layout as a reusable project pack | `template export-pack <layout-id> --out packs/<name> [--locale <locale>] [--force]` |
 | Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
 | Refresh re-captured screens | `import <dir> --refresh` |
+| Find problems before export | `check --render [--json] [--strict]` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
+| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
 | Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
 | Remove an element | `element rm <screen-id> <element-id>` |
@@ -209,6 +213,40 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 `--all-sizes` it targets leaf layers, so move a group by moving each child. Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
 
+## Check before export
+
+`screenshots check --render --json --project ./app-store-screenshots.json` lists the editor's Issues
+and export preflight for the layout `export` ships (or `--layout`) without writing anything. It exits
+1 on any blocker; `--strict` also fails on warnings. Without `--render` it is browser-free and skips
+text overflow. The JSON report is:
+
+```json
+{
+  "layoutId": "default",
+  "textMeasured": true,
+  "strict": false,
+  "ok": false,
+  "counts": { "blockers": 1, "warnings": 0 },
+  "issues": [
+    { "id": "missing-image:hero:shot", "kind": "missing-image", "level": "blocker",
+      "message": "Image missing from the project folder: assets/hero.png", "layoutId": "default",
+      "screenId": "hero", "size": "6.9", "locale": "en", "elementId": "shot" }
+  ]
+}
+```
+
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
+`unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
+`android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
+`screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
+issue with the commands above, then run `check` again.
+
+Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
+on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
+that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
+error) also exits 1 but prints no JSON, only an error on stderr; treat stdout that does not parse
+as a tool error, not as a list of issues.
+
 ## Recipe: generate or refresh copy
 
 1. Read the product brief, current captures, and every screen in the target locale. Write a short
@@ -232,6 +270,7 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
+   screenshots check --render --project ./app-store-screenshots.json
    screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale en --project ./app-store-screenshots.json
    ```
@@ -295,6 +334,23 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 3. Translate only text content in the cloned target set with `element list --locale <target>` and
    `element text --all-sizes`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
    the store audience; do not force a word-for-word translation into a box that no longer fits.
+   For a translator or translation service, `screenshots copy export --locale <target>[,<target>...] --out copy.csv`
+   writes one row per base-locale text layer (`screen`, `element`, `source`, one column per target
+   locale; `.json` works too). The base is the first locale in screen order. `--locale` takes a comma
+   list; a repeated `--locale` keeps only the last value. A relative `--out` resolves against the
+   current directory, an existing file needs `--force`, and the project document, its lock file and
+   `assets/` are refused. Fill the target cells, then `screenshots copy import copy.csv`. Every
+   non-empty cell overwrites the target text, so export only the locales being translated and do not
+   edit them in the editor meanwhile. Empty cells stay untouched, rows whose `source` changed since
+   export are skipped with a warning (`--force` overrides), locked layers and locked groups are
+   skipped, and an unknown row key writes nothing. Use `--layout` when the project has several
+   layouts and `--json` for machine-readable counts.
+
+   Target cells are paired by name and position: the target size row must have as many screens as the
+   base row, the paired screen must have the same name, and an exact-size variant follows its target
+   root through `variantOf`. If any of that differs (reordered, renamed, added or removed screens),
+   or the layer type sequence differs, the cell is skipped with a warning. The layer match compares
+   only the type sequence, so swapping two same-type layers in one locale is not detected.
 4. Replace screenshots or other media only when a locale-specific asset exists (see the media
    recipe). Shared asset paths are intentional until then.
 5. Verify that every target glyph is covered by the registered file-backed font. If a different font
@@ -340,8 +396,10 @@ Use this when the user wants a ready-made look. Built-in packs are read-only app
 applying one writes ordinary literals, and the pack id is not stored anywhere in the project.
 
 1. List what exists and offer only ids that appear. Design packs come from `theme list` (`built-in`
-   lines). Screen packs come from `template list` (`built-in-pack` lines); a screen pack's style is
-   the id of the Design pack its screens were baked from.
+   lines, and `project-pack` lines for the project's own `packs/<id>/design-pack.json`). Screen packs
+   come from `template list` (`built-in-pack` lines, and `project-pack` lines for
+   `packs/<id>/screen-pack.json`); a built-in screen pack's style is the id of the Design pack its
+   screens were baked from. Report `invalid-pack` lines to the user instead of editing pack files.
 
    ```bash
    screenshots theme list --project ./app-store-screenshots.json
@@ -350,11 +408,12 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
 
 2. Choose one path:
    - Restyle the screens you have with a Design pack:
-     `screenshots theme set <design-pack-id> --built-in`. It replaces the background of every
-     screen in the layout.
+     `screenshots theme set <design-pack-id> --built-in` (or `--pack` for a project pack). It
+     replaces the background of every screen in the layout.
    - Add finished screens from a screen pack:
      `screenshots template add <pack-id> --pack --locale <locale>`. It appends every pack screen to
-     the layout in one write and prints the new screen ids.
+     the layout in one write and prints the new screen ids. A project screen pack's images are
+     copied into `assets/packs/<pack-id>/` and the new screens point there.
      A fresh `screenshots init` project starts with a blank `hero` screen that stays first and would
      be exported, so remove it with `screenshots screen rm hero` when the pack screens replace it.
 3. Edit the copy. The screens carry placeholder text and an empty mockup, so list the leaves and
@@ -366,6 +425,13 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
    ```
 
 After this the result is plain project JSON: add or remove layers freely.
+
+To reuse a finished layout in other projects, save it as a project pack with
+`screenshots template export-pack <layout-id> --out packs/<name>`. It writes
+`packs/<name>/screen-pack.json` and copies every image the screens use. It exports one locale's main
+screens of one output family and refuses right-to-left locales. `--out` is relative to the project
+folder. An existing pack is overwritten only with `--force`, file by file, and files the new export
+does not write are kept. Copy the folder into another project's `packs/` to use it there.
 
 ## Recipe: apply a theme or design pack
 
@@ -476,6 +542,7 @@ screenshots asset remove-background assets/icons/product.png --background FFFFFF
 ## Completion checklist
 
 - The CLI can list the project without a validation error.
+- `screenshots check --render` exits 0: no blockers, and any warning is deliberate.
 - Copy and media changes are limited to the intended layout, locale, and screens.
 - Every text font identity is registered and contains the required glyphs.
 - Focus and Overview show no accidental overlap, clipping, or broken hierarchy.

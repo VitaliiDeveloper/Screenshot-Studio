@@ -230,7 +230,7 @@ device list is the tooltip. The sizes bar, Export, Overview rows, the Screens he
 the artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
-(`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues
+(`@screenshot-studio/core/validation`), the single source the Export dialog and `screenshots check` share; issues
 are derived on demand and never persisted. Blockers come first, and every row names its screen and
 size and offers **Go to** and a fix:
 
@@ -591,6 +591,10 @@ an arbitrary local filesystem path.
 - The same dialog lists built-in **Screen packs** for the active screen's output family. **Add screens
   from pack** appends each pack screen as an ordinary editable screen in the active layout and
   locale, then selects the first one.
+- Packs from the project's `packs/` folder list after the built-ins with a **Project** badge, design
+  packs with the built-in Design packs and screen packs with the built-in Screen packs, and apply
+  through the same actions. A pack that fails validation does not hide the others: the dialog shows
+  one warning line per broken file with its project-relative path and reason.
 - An empty project presents **Create your first screen** with relevant family starters, capture
   import, and blank-screen paths instead of relying on an unexplained empty canvas.
 - **Add device mockup** creates a presentation frame with a visible empty drop target. **Place

@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Project } from "@screenshot-studio/core/model";
+import type { ProjectIssue } from "@screenshot-studio/core/validation";
 
 /**
  * Client stage: registers embedded fonts, preloads screenshot images, renders one screen via
@@ -20,6 +21,8 @@ declare global {
     __renderError?: string;
     /** Returns a PNG data URL of the current stage at the given pixelRatio. */
     __exportPng?: (pixelRatio: number) => string;
+    /** The core Issues engine for the layout, measured with the fonts and images this stage loaded. */
+    __collectIssues?: () => ProjectIssue[];
   }
 }
 
@@ -45,11 +48,13 @@ export function RenderStage({
       const container = containerRef.current;
       if (!container) return;
       try {
-        const [{ renderScreen }, { registerProjectFonts }, { loadProjectImages }] = await Promise.all([
-          import("@screenshot-studio/core/engine"),
-          import("@screenshot-studio/core/fonts"),
-          import("@screenshot-studio/core/assets"),
-        ]);
+        const [{ renderScreen, textOverflows }, { registerProjectFonts }, { loadProjectImages }, { collectLayoutIssues }] =
+          await Promise.all([
+            import("@screenshot-studio/core/engine"),
+            import("@screenshot-studio/core/fonts"),
+            import("@screenshot-studio/core/assets"),
+            import("@screenshot-studio/core/validation"),
+          ]);
 
         // Fonts AND images must resolve before the first paint: a screenshot must never
         // be captured half-loaded, just like the font must never fall back.
@@ -65,6 +70,11 @@ export function RenderStage({
 
         window.__exportPng = (pixelRatio: number) =>
           stage!.toDataURL({ pixelRatio, mimeType: "image/png" });
+        // Same checks as the editor's Issues; lazy so export renders never measure every layer.
+        window.__collectIssues = () => collectLayoutIssues(project, layoutId, {
+          imageMissing: (assetUrl) => !images.has(assetUrl),
+          textOverflows: (element, screen) => textOverflows(element, screen.direction),
+        });
         window.__stageReady = true;
       } catch (err) {
         const message = (err as Error).message;
@@ -78,6 +88,7 @@ export function RenderStage({
       stage?.destroy();
       delete window.__stageReady;
       delete window.__exportPng;
+      delete window.__collectIssues;
     };
   }, [project, layoutId, screenId, projectPath]);
 
