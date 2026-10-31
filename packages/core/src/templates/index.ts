@@ -233,7 +233,7 @@ export function findBuiltInTemplate(id: string, specs: StoreSpecs, font?: FontId
 
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase slug");
 
-/** Built-in-only multi-screen set. Never parsed from disk; each screen materializes as an ordinary Screen. */
+/** Multi-screen set, built in or read from a project `packs/<id>/screen-pack.json`; each screen materializes as an ordinary Screen. */
 export const TemplatePack = z.object({
   id: slug,
   name: z.string().min(1),

@@ -6,6 +6,7 @@ import {
   createTemplateScreen,
   createBuiltInTemplateScreen,
   createBuiltInTemplatePackScreens,
+  createProjectTemplatePackScreens,
   listBuiltInTemplates,
   listTemplates,
   TemplateCreateError,
@@ -59,8 +60,9 @@ export async function handleTemplatePost(
   try {
     const body = await jsonBody(req);
     const layoutId = typeof body.layoutId === "string" ? body.layoutId : undefined;
-    if (body.source === "built-in-pack") {
-      const { project, revision, screens } = await createBuiltInTemplatePackScreens(
+    if (body.source === "built-in-pack" || body.source === "project-pack") {
+      const create = body.source === "built-in-pack" ? createBuiltInTemplatePackScreens : createProjectTemplatePackScreens;
+      const { project, revision, screens } = await create(
         projectPath, body.id, body.locale, await loadStoreSpecs(), {}, layoutId, { expectedRevision },
       );
       return Response.json(

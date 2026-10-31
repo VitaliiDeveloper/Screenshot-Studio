@@ -41,7 +41,7 @@ maintaining a second file list.
 | Leaf group | What it protects | Run when |
 |---|---|---|
 | `test:e2e:parity:foundation` | base renderer, fonts, screenshots, frames, RTL, connected crops | shared renderer, schema, fonts, core media |
-| `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering, styled template packs (long text, RTL, previews) | one of those element contracts or a built-in pack changes |
+| `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering, styled template packs (long text, RTL, previews), project pack export/apply round trip | one of those element contracts, a built-in pack, or project packs change |
 | `test:e2e:export` | CLI/UI bundles, dimensions, alpha, safe paths, `screenshots check --render` issues | export, check, or render-host orchestration |
 | `test:e2e:editor:interaction` | canvas editing, panels, inspector, history, snapping | direct interaction behavior |
 | `test:e2e:editor:workspace` | launcher/import/archive round trip, isolated/connected workspace, locale scope, responsive state, status bar and keyboard shortcuts, Agent panel run and Undo run with a fake CLI | launcher, workspace, locale, or Agent panel ownership |
@@ -142,6 +142,50 @@ catalog lifecycle filtering, activation-route recording, and lock ordering stay 
 | Managed-only permanent deletion without Trash semantics | Launcher 7 | lifecycle/deletion tests plus `e2e/permanent-project-deletion.test.ts` |
 | Two-state Projects, direct Workspace handoff, durable recents, and closure terminology | Launcher 8 | project-library/client/component tests plus `e2e/launcher-closure.test.ts` |
 
+## Golden gallery
+
+`e2e/golden-gallery.test.ts` renders the first screen of every built-in screen pack through the real
+render host, at every store size listed for that pack's family in `store-specs.json` (non-lead sizes
+are the same size variants the editor's Sizes bar creates), once in `en` LTR and once in `ar` RTL.
+Every built-in design pack is covered through the screen packs baked from it. Each render runs at the
+`pixelRatio` that makes the long side 288 px and is compared with a reference under
+`e2e/golden/<platform>/<pack>/<size>-<direction>.png`, using the parity tests' pixelmatch threshold
+(`0.1`) and mismatch limit (under 0.1% of pixels). It is the pixel net for regressions that only show
+in rendered output, such as mirrored gradients, rotation, and shadow direction in RTL. The `ar` cases
+render the packs' English copy under RTL direction: they test mirroring, not Arabic shaping or fonts,
+which `e2e/template-pack-parity.test.ts` covers.
+
+| Command | Effect |
+|---|---|
+| `pnpm golden:check` | Compares every case and never writes references. Every render goes to `test-results/golden-gallery/actual/` in the reference layout; failures add expected and diff PNGs under `test-results/golden-gallery/diff/`. Differences, missing references, and stale reference files all fail. With no reference folder for the platform, it fails once, telling you to run `pnpm golden:update`. |
+| `pnpm golden:update` | Rewrites only references that are missing or differ beyond the threshold, removes stale ones, and prints each changed pack, size, and direction. |
+
+References are per platform (`process.platform`) because macOS and Linux rasterize text edges
+differently. Only `e2e/golden/linux/` is tracked: Ubuntu CI is the authority, and that set is valid
+for the x64 `ubuntu-latest` runner only. On macOS or Windows, run
+`pnpm golden:update` once to seed local references, which `.gitignore` keeps untracked, then use
+`pnpm golden:check` against them. Re-seed them after pulling a change that updates the Linux set.
+
+The `Golden gallery` workflow uploads `test-results/golden-gallery/` as the
+`golden-gallery-renders-<sha>` artifact whenever the check fails. Its `actual/` folder holds every
+render of that run, so it can replace the Linux set as is:
+
+```bash
+rm -rf e2e/golden/linux && cp -R <artifact>/actual e2e/golden/linux
+```
+
+Seed the Linux set this way from the first run on the integration pull request into `dev`, which
+fails because no Linux references exist yet.
+
+To accept an intended visual change, open the artifact's `diff/*.diff.png` and `*.expected.png` for
+every failing case. If every difference is intended, replace `e2e/golden/linux/` from `actual/` as
+above. Commit the references in the same pull request as the change that caused them. Never update
+references to make an unexplained difference go away. A Playwright or Chromium upgrade shifts pixels,
+so it needs a new Linux set.
+
+The gallery is not part of any `test:e2e*` aggregate. Run it when a built-in pack, design pack, the
+shared renderer, or size-variant reflow changes.
+
 ## Cost rules
 
 - Do not run browser E2E for pure fixture assertions, calculations, or schema/model branches with a
@@ -156,16 +200,23 @@ catalog lifecycle filtering, activation-route recording, and lock ordering stay 
   only when their surface changes.
 - Keep one scenario focused on one coherent user outcome. Combining steps is acceptable when they
   intentionally share expensive setup and later assertions depend on the earlier workflow.
+- The golden gallery runs on pull requests into `dev` only when its test, references, workflows, or
+  `package.json` change. A built-in pack or renderer change elsewhere reaches it only at `dev` to
+  `main`, so run `pnpm golden:check` locally (about 4 minutes) for such a change.
 - Record actual timing before deleting unique coverage for performance reasons. Slow and redundant
   are different problems.
 
 ## CI policy
 
 Feature pull requests into `dev` run only lint, typecheck, and unit tests (about two job-minutes per
-push). Browser E2E, coverage, and the release gates stay off them; use the cheapest exact local check
+push), plus the golden gallery when they change its own files. Browser E2E, coverage, and the release gates stay off them; use the cheapest exact local check
 for the changed behavior. The full integration gate runs for a pull request whose head is `dev` and
 base is `main`: lint, typecheck, unit tests, coverage, the path-scoped package matrix and
-release-candidate checks, plus the complete `pnpm test:e2e` browser suite. The workflows remain
+release-candidate checks, plus the complete `pnpm test:e2e` browser suite. The separate
+`Golden gallery` workflow runs `pnpm golden:check` on the same `dev` to `main` pull requests, on pull
+requests into `dev` that change the gallery test, its references, its workflows, or `package.json`
+(through `golden-gallery-dev.yml`), and on dispatch. It uploads `test-results/golden-gallery/` as an
+artifact when it fails. The workflows remain
 available through `workflow_dispatch` for an explicitly requested candidate head.
 
 The full browser command composes the leaf groups as separate Vitest processes, preserving complete
@@ -177,3 +228,9 @@ The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm ch
 builder, lockfile, or package manifests change. It can also be dispatched manually for an exact
 candidate head. These checks build and inspect the packed CLI archive but do not publish it:
 publication remains a separate, owner-authorized action under [`docs/releasing.md`](releasing.md).
+
+The `Action smoke` workflow runs the root GitHub Action as a consumer would: one job exports
+`examples/connected-launch` and checks every PNG size with `scripts/check-export-sizes.mjs`, and one
+job removes an asset and expects `screenshots check` to fail with no export. It runs on dispatch, on
+every pull request from `dev` into `main`, and on pull requests into `dev` that change `action.yml`,
+the workflow, or that script.

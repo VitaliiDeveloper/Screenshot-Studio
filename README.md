@@ -253,6 +253,45 @@ render host. It exits 1 on any blocker, and `--strict` also fails on warnings, s
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
 
+## In CI
+
+The repository root is a composite GitHub Action. It runs `screenshots check --render`, so a pull
+request fails with the readable issue list in the job log, and only when the check passes runs
+`screenshots export` and uploads the export folder as a workflow artifact. Copy
+[`examples/ci/screenshot-studio.yml`](examples/ci/screenshot-studio.yml):
+
+```yaml
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: VitaliiDeveloper/Screenshot-Studio@<commit-sha>
+        with:
+          project: screenshots/app-store-screenshots.json
+```
+
+Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `export` ships),
+`profile` (`default` or `fastlane`), `fail-on-warning` (`check --strict`), `out` (default
+`screenshots-export`) and `artifact-name` (default `screenshots-<job id>`; artifact names must be
+unique in a run, so a matrix or a job that runs the action twice sets one per entry). Outputs:
+`out`, `check-log` and `cache-hit`.
+
+The CLI package is not published yet, so the action builds it from its own source at the ref you
+pin (`pnpm install --frozen-lockfile` and `pnpm build:cli-package`, a few minutes per run). That ref
+selects both the action and the CLI. To build from a checkout instead, for example a fork, check it
+out with `actions/checkout` (`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`,
+`path: .screenshot-studio`) and use `uses: ./.screenshot-studio`. Once the package is published,
+an npm install will replace the build step.
+
+The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
+the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
+Chromium is cached under a key that includes the Playwright version the CLI depends on; the
+download happens only on a cache miss. On every run the action installs Playwright's system
+packages and fonts, as this repository's E2E job does. While it installs them, it moves apt sources
+from `packages.microsoft.com` aside and puts them back afterwards. The action sets up Node 22, which
+stays active for the job's later steps; its pnpm stays private to the action.
+
 ## Use an agent in the editor
 
 The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
@@ -347,6 +386,40 @@ pnpm screenshots template list --project ./my-app-screenshots/app-store-screensh
 pnpm screenshots template add neutral-iphone-basics --pack --locale en --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
 ```
+
+### Your own packs
+
+A project can carry its own packs in a `packs/` folder next to `app-store-screenshots.json`. Copy a
+pack folder into another project to reuse a house style there. Each pack is `packs/<id>/` with one
+manifest: `screen-pack.json` for a screen pack or `design-pack.json` for a Design pack, in the same
+shape as the built-in packs. Screen pack images live inside the pack folder and are referenced by
+paths relative to it. Paths that leave the folder, including through a symbolic link, are rejected.
+
+Create a screen pack from a layout you already designed. It writes the manifest and copies every
+image the screens use:
+
+```bash
+pnpm screenshots template export-pack default --out packs/house --project ./my-app-screenshots/app-store-screenshots.json
+```
+
+It exports the layout's main screens for one locale (`--locale`, default the first screen's) and one
+output family. `--out` is relative to the project folder and must be `packs/<name>`. An existing pack
+is overwritten only with `--force`, file by file: files the new export does not write are kept.
+Pack images must be PNG, JPEG, or WebP files of 25 MB or less, like uploaded images.
+
+Project packs appear next to the built-ins with a **Project** badge in the **Design packs** dialog,
+and as `project-pack` lines in `template list` (screen packs) and `theme list` (Design packs). A pack
+that fails validation is listed as an `invalid-pack` line, or a warning in the dialog, with the file
+and the reason. Apply one the same way as a built-in pack:
+
+```bash
+pnpm screenshots template add house --pack --locale en --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots theme set house-style --pack --project ./my-app-screenshots/app-store-screenshots.json
+```
+
+Applying a screen pack copies its images into `assets/packs/<id>/`, so the project keeps working
+without the `packs/` folder. Packs do not carry fonts: register any custom font a pack uses before
+you apply it.
 
 ## Project format and resources
 
