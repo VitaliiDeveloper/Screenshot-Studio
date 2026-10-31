@@ -103,8 +103,7 @@ export async function handleUploadPost(
   )) return jsonError(422, "Invalid upload operation id");
   const operationId = body.operationId as string | undefined;
 
-  const issued = plans.take(session.projectId);
-  if (typeof body.planHash !== "string" || issued !== body.planHash) {
+  if (typeof body.planHash !== "string" || !plans.take(session.projectId, body.planHash)) {
     return jsonError(409, "Review the upload plan and confirm it before uploading", "plan-not-confirmed");
   }
   const current = await plan(session, body, credentials);

@@ -71,20 +71,27 @@ export async function computeUploadPlan(
 }
 
 /**
- * The latest plan hash issued per project. An upload consumes it, so one confirmation allows one
- * upload attempt; a replayed or double-clicked confirm needs a fresh plan.
+ * Plan hashes issued per project, the last few so two tabs reviewing different layouts do not clobber
+ * each other. An upload consumes its hash, so one confirmation allows one upload attempt; a replayed or
+ * double-clicked confirm needs a fresh plan.
  */
 export class UploadPlanRegistry {
-  readonly #issued = new Map<string, string>();
+  static readonly ISSUED_PER_PROJECT = 8;
+  readonly #issued = new Map<string, string[]>();
 
   issue(projectId: string, planHash: string): void {
-    this.#issued.set(projectId, planHash);
+    const hashes = (this.#issued.get(projectId) ?? []).filter((issued) => issued !== planHash);
+    hashes.push(planHash);
+    this.#issued.set(projectId, hashes.slice(-UploadPlanRegistry.ISSUED_PER_PROJECT));
   }
 
-  take(projectId: string): string | undefined {
-    const planHash = this.#issued.get(projectId);
-    this.#issued.delete(projectId);
-    return planHash;
+  /** True once for an issued hash, then false. */
+  take(projectId: string, planHash: string): boolean {
+    const hashes = this.#issued.get(projectId) ?? [];
+    const index = hashes.indexOf(planHash);
+    if (index < 0) return false;
+    hashes.splice(index, 1);
+    return true;
   }
 }
 

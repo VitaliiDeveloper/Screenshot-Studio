@@ -112,17 +112,31 @@ describe("upload plan", () => {
 describe("upload", () => {
   it("refuses a request without the hash of a reviewed plan", async () => {
     const runUpload = fakeUpload();
-    const { revision, planHash } = await reviewPlan();
+    const { revision } = await reviewPlan();
     const missing = await upload({ store: "google" }, revision, { runUploadCommand: runUpload });
     expect(missing.status).toBe(409);
     expect(await missing.json()).toMatchObject({ code: "plan-not-confirmed" });
-
-    await reviewPlan();
     const forged = await upload({ store: "google", planHash: "0".repeat(64) }, revision, { runUploadCommand: runUpload });
     expect(forged.status).toBe(409);
-    // A refused attempt consumes the issued hash too.
-    expect((await upload({ store: "google", planHash }, revision, { runUploadCommand: runUpload })).status).toBe(409);
     expect(runUpload).not.toHaveBeenCalled();
+  });
+
+  it("keeps each tab's reviewed plan confirmable when two tabs review different layouts", async () => {
+    const project = JSON.parse(await readFile(session.projectPath, "utf8")) as { layouts: Array<{ id: string; name: string }> };
+    project.layouts.push({ ...structuredClone(project.layouts[0]!), id: "second", name: "Second" });
+    await writeFile(session.projectPath, JSON.stringify(project));
+    const review = async (layout: string) => (await handleUploadPlanPost(session, request({ store: "google", layout }), { credentials, plans }))
+      .json() as Promise<{ planHash: string; revision: string }>;
+    const first = await review("default");
+    const second = await review("second");
+    expect(second.planHash).not.toBe(first.planHash);
+
+    const runUpload = fakeUpload();
+    const confirmFirst = await upload({ store: "google", layout: "default", planHash: first.planHash }, first.revision, { runUploadCommand: runUpload });
+    expect(confirmFirst.status).toBe(201);
+    const confirmSecond = await upload({ store: "google", layout: "second", planHash: second.planHash }, second.revision, { runUploadCommand: runUpload });
+    expect(confirmSecond.status).toBe(201);
+    expect(runUpload.mock.calls.map(([flags]) => flags.layout)).toEqual(["default", "second"]);
   });
 
   it("refuses a stale hash once the project was edited after the plan", async () => {
