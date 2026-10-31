@@ -56,6 +56,10 @@ export interface UploadPlanView {
   skipped: UploadPlanSkipped[];
 }
 
+export function uploadImageCount(plan: Pick<UploadPlanView, "locales">): number {
+  return plan.locales.flatMap(({ slots }) => slots).reduce((sum, { upload }) => sum + upload.length, 0);
+}
+
 export interface UploadPlanResponse {
   store: UploadStoreId;
   identifier: string;

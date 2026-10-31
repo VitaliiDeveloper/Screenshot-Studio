@@ -10,7 +10,7 @@ import { projectRevisionConflictResponse } from "@web/lib/session/project-reques
 import type { LocalProjectSession } from "@web/lib/session/project-session.server.js";
 import { sharedStoreCredentialStore, type StoreCredentialStore } from "@web/lib/store-credentials.server.js";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
-import { isUploadStore, type UploadPlanResponse } from "@web/lib/store-upload.js";
+import { isUploadStore, uploadImageCount, type UploadPlanResponse } from "@web/lib/store-upload.js";
 import {
   computeUploadPlan,
   MissingStoreIdentifierError,
@@ -118,7 +118,7 @@ export async function handleUploadPost(
   const accountPath = await credentials.googleServiceAccountPath();
   if (!accountPath) return jsonError(409, "Google Play is not configured; add its service account key in Stores", "not-configured");
 
-  const total = current.plan.locales.flatMap(({ slots }) => slots).reduce((sum, { upload }) => sum + upload.length, 0);
+  const total = uploadImageCount(current.plan);
   if (operationId) {
     try {
       progressRegistry.begin(operationId, total);
