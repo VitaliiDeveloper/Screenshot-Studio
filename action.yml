@@ -1,0 +1,159 @@
+name: Screenshot Studio
+description: Check a Screenshot Studio project, export its store screenshots, and upload them as a workflow artifact.
+
+inputs:
+  project:
+    description: Path to app-store-screenshots.json or the folder that contains it, relative to the workspace.
+    required: true
+  layout:
+    description: Layout id or name to check and export. Empty uses the layout the CLI exports by default.
+    required: false
+    default: ""
+  profile:
+    description: Export folder layout, `default` or `fastlane` (fastlane deliver and supply folders).
+    required: false
+    default: default
+  fail-on-warning:
+    description: Also fail on check warnings, not only blockers (`screenshots check --strict`).
+    required: false
+    default: "false"
+  out:
+    description: Export folder, relative to the workspace.
+    required: false
+    default: screenshots-export
+  artifact-name:
+    description: Name of the uploaded workflow artifact.
+    required: false
+    default: screenshots
+  cli-version:
+    description: Reserved for installing the published npm package instead of building the CLI from this action's source. Not available until the package is published; leave empty.
+    required: false
+    default: ""
+
+outputs:
+  out:
+    description: Absolute path of the export folder.
+    value: ${{ steps.resolve.outputs.out }}
+  check-log:
+    description: File holding the `screenshots check` output, written even when the check fails.
+    value: ${{ steps.resolve.outputs.check-log }}
+  cache-hit:
+    description: "`true` when the Playwright Chromium came from the cache, `false` when it was downloaded."
+    value: ${{ steps.browsers.outputs.cache-hit == 'true' }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: "22"
+
+    - id: resolve
+      shell: bash
+      env:
+        INPUT_PROJECT: ${{ inputs.project }}
+        INPUT_PROFILE: ${{ inputs.profile }}
+        INPUT_FAIL_ON_WARNING: ${{ inputs.fail-on-warning }}
+        INPUT_OUT: ${{ inputs.out }}
+        INPUT_CLI_VERSION: ${{ inputs.cli-version }}
+        CLI_SOURCE: ${{ github.action_path }}
+      run: |
+        fail() { echo "::error::$1"; exit 1; }
+        [ "$RUNNER_OS" = Linux ] || fail "Screenshot Studio's action supports Linux runners only."
+        [ -z "$INPUT_CLI_VERSION" ] || fail "cli-version is reserved for the npm package, which is not published yet. Leave it empty to build the CLI from this action's source."
+        case "$INPUT_PROFILE" in default | fastlane) ;; *) fail "profile must be default or fastlane, got: $INPUT_PROFILE" ;; esac
+        case "$INPUT_FAIL_ON_WARNING" in true | false) ;; *) fail "fail-on-warning must be true or false, got: $INPUT_FAIL_ON_WARNING" ;; esac
+        project="$INPUT_PROJECT"
+        if [ -d "$project" ]; then project="$project/app-store-screenshots.json"; fi
+        [ -f "$project" ] || fail "Project file not found: $project"
+        cli="$(realpath "$CLI_SOURCE")"
+        pnpm_version="$(node -p 'require(process.argv[1]).packageManager.split("@")[1].split("+")[0]' "$cli/package.json")"
+        {
+          echo "project=$(realpath "$project")"
+          echo "out=$(realpath -m "$INPUT_OUT")"
+          echo "cli=$cli"
+          echo "pnpm-version=$pnpm_version"
+          echo "browsers-path=${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+          echo "check-log=$RUNNER_TEMP/screenshot-studio-check.log"
+        } >> "$GITHUB_OUTPUT"
+
+    # shortcut: builds the CLI from source on every run; replace with `npm i -g @screenshot-studio/cli@<cli-version>` once published.
+    - id: build
+      shell: bash
+      working-directory: ${{ steps.resolve.outputs.cli }}
+      env:
+        PNPM_VERSION: ${{ steps.resolve.outputs.pnpm-version }}
+        NEXT_TELEMETRY_DISABLED: "1"
+      run: |
+        npm install --global "pnpm@$PNPM_VERSION"
+        pnpm install --frozen-lockfile
+        pnpm build:cli-package
+        echo "playwright-version=$(cd packages/cli && node -p 'require("playwright/package.json").version')" >> "$GITHUB_OUTPUT"
+
+    - id: browsers
+      uses: actions/cache/restore@v5
+      with:
+        path: ${{ steps.resolve.outputs.browsers-path }}
+        key: screenshot-studio-${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.build.outputs.playwright-version }}
+
+    - if: steps.browsers.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        CLI: ${{ steps.resolve.outputs.cli }}
+      run: node "$CLI/packages/cli/package/dist/index.js" setup
+
+    # Saved before the check so a project that keeps failing still reuses the browser download.
+    - if: steps.browsers.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.resolve.outputs.browsers-path }}
+        key: ${{ steps.browsers.outputs.cache-primary-key }}
+
+    # Same system packages and fonts as the repository's E2E job (`playwright install --with-deps`).
+    # Apt sources from packages.microsoft.com are set aside during the install and put back afterwards.
+    - shell: bash
+      working-directory: ${{ steps.resolve.outputs.cli }}/packages/cli
+      env:
+        CACHE_HIT: ${{ steps.browsers.outputs.cache-hit == 'true' }}
+      run: |
+        echo "Playwright Chromium cache hit: $CACHE_HIT"
+        parked="$RUNNER_TEMP/screenshot-studio-apt-sources"
+        mkdir -p "$parked"
+        trap 'sudo find "$parked" -mindepth 1 -maxdepth 1 -exec mv -t /etc/apt/sources.list.d/ {} +' EXIT
+        { sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ || true; } | sudo xargs -0 -r mv -t "$parked"
+        pnpm exec playwright install-deps chromium
+
+    - shell: bash
+      env:
+        CLI: ${{ steps.resolve.outputs.cli }}
+        PROJECT: ${{ steps.resolve.outputs.project }}
+        LAYOUT: ${{ inputs.layout }}
+        STRICT: ${{ inputs.fail-on-warning }}
+        CHECK_LOG: ${{ steps.resolve.outputs.check-log }}
+      run: |
+        args=(check --render --project "$PROJECT")
+        if [ -n "$LAYOUT" ]; then args+=(--layout "$LAYOUT"); fi
+        if [ "$STRICT" = true ]; then args+=(--strict); fi
+        if ! node "$CLI/packages/cli/package/dist/index.js" "${args[@]}" 2>&1 | tee "$CHECK_LOG"; then
+          echo "::error::screenshots check found issues that block export; the list is above."
+          exit 1
+        fi
+
+    - shell: bash
+      env:
+        CLI: ${{ steps.resolve.outputs.cli }}
+        PROJECT: ${{ steps.resolve.outputs.project }}
+        LAYOUT: ${{ inputs.layout }}
+        PROFILE: ${{ inputs.profile }}
+        OUT: ${{ steps.resolve.outputs.out }}
+      run: |
+        args=(export --project "$PROJECT" --out "$OUT")
+        if [ -n "$LAYOUT" ]; then args+=(--layout "$LAYOUT"); fi
+        if [ "$PROFILE" = fastlane ]; then args+=(--profile fastlane); fi
+        node "$CLI/packages/cli/package/dist/index.js" "${args[@]}"
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.resolve.outputs.out }}
+        if-no-files-found: error
