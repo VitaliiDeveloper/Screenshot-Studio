@@ -32,8 +32,11 @@ export async function handleStoreCredentialsPost(
   projectDirectory: string,
   { credentials = sharedStoreCredentialStore() }: StoreCredentialRouteDependencies = {},
 ): Promise<Response> {
+  const tooLarge = () => jsonError(413, "The key is larger than any store key");
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return tooLarge();
+  // A chunked body declares no length, so it is checked again once read.
   const text = await req.text().catch(() => "");
-  if (text.length > MAX_BODY_BYTES) return jsonError(413, "The key is larger than any store key");
+  if (text.length > MAX_BODY_BYTES) return tooLarge();
   let body: unknown;
   try {
     body = JSON.parse(text);

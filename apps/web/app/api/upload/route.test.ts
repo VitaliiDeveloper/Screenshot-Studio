@@ -7,12 +7,15 @@ import { fileURLToPath } from "node:url";
 import type { exportBundle as exportBundleType } from "@screenshot-studio/cli/export";
 import { runUploadCommand } from "@screenshot-studio/cli/upload";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { holdAgentRun } from "@web/lib/agents/agent-run-test-support.js";
 import { ExportProgressRegistry } from "@web/lib/export-progress.server.js";
+import { PROJECT_SESSION_COOKIE, projectSessionRegistry } from "@web/lib/session/project-session.server.js";
 import type { LocalProjectSession } from "@web/lib/session/project-session.server.js";
 import { createStoreCredentialStore, type StoreCredentialStore } from "@web/lib/store-credentials.server.js";
 import { testGoogleServiceAccount } from "@web/lib/store-credentials-test-support.js";
 import { UploadPlanRegistry } from "@web/lib/store-upload.server.js";
 import { handleUploadPlanPost, handleUploadPost, type UploadRouteDependencies } from "./handler.js";
+import { POST } from "./route.js";
 
 const fixture = fileURLToPath(new URL("../../../../../fixtures/publishing", import.meta.url));
 const operationId = `export_${"a".repeat(32)}`;
@@ -272,7 +275,30 @@ describe("upload", () => {
 });
 
 describe("agent isolation", () => {
-  it("gives agent routes and agent runtime no import of the upload or key-store modules", async () => {
+  it("refuses an upload while an editor-started agent runs on the project", async () => {
+    const opened = await projectSessionRegistry.openLocal(session.projectPath);
+    const { revision } = await readProjectSnapshot(session.projectPath);
+    const release = await holdAgentRun(join(root, "project"));
+    try {
+      const response = await POST(new Request("http://localhost:3000/api/upload", {
+        method: "POST",
+        headers: {
+          host: "localhost:3000",
+          "content-type": "application/json",
+          cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(opened.descriptor.sessionId)}`,
+          "x-project-id": opened.projectId,
+          "if-match": `"${revision}"`,
+        },
+        body: JSON.stringify({ store: "google", planHash: "0".repeat(64) }),
+      }));
+      expect(response.status).toBe(423);
+      expect(await response.json()).toMatchObject({ code: "agent-running" });
+    } finally {
+      release();
+    }
+  });
+
+  it("source-import tripwire: agent routes and agent runtime import no upload or key-store module", async () => {
     const roots = [
       fileURLToPath(new URL("../agents", import.meta.url)),
       fileURLToPath(new URL("../../../lib/agents", import.meta.url)),

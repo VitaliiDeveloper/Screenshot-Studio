@@ -4,10 +4,12 @@ import { access, cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { holdAgentRun } from "@web/lib/agents/agent-run-test-support.js";
+import { PROJECT_SESSION_COOKIE, projectSessionRegistry } from "@web/lib/session/project-session.server.js";
 import { createStoreCredentialStore, type StoreCredentialStore } from "@web/lib/store-credentials.server.js";
 import { testAppleCredentials, testGoogleServiceAccount } from "@web/lib/store-credentials-test-support.js";
 import { handleStoreCredentialsDelete, handleStoreCredentialsGet, handleStoreCredentialsPost } from "./handler.js";
-import { POST } from "./route.js";
+import { DELETE, POST } from "./route.js";
 
 const originalDataRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
 const originalProjectPath = process.env.PROJECT_PATH;
@@ -84,8 +86,13 @@ describe("store credentials route", () => {
       await handleStoreCredentialsPost(post(`{"store":"google","serviceAccount":"${secret}`), projectDirectory(), { credentials }),
       await handleStoreCredentialsPost(post({ store: "nope" }), projectDirectory(), { credentials }),
       await handleStoreCredentialsPost(post({ store: "google", serviceAccount: "x".repeat(70_000) }), projectDirectory(), { credentials }),
+      await handleStoreCredentialsPost(new Request("http://localhost:3000/api/store-credentials", {
+        method: "POST",
+        headers: { "content-length": "70000" },
+        body: "{}",
+      }), projectDirectory(), { credentials }),
     ];
-    expect(responses.map(({ status }) => status)).toEqual([422, 422, 400, 400, 413]);
+    expect(responses.map(({ status }) => status)).toEqual([422, 422, 400, 400, 413, 413]);
     for (const response of responses) expect(await response.text()).not.toContain("sentinel-secret");
     expect(await credentials.status()).toMatchObject({ google: { configured: false }, apple: { configured: false } });
   });
@@ -117,6 +124,32 @@ describe("store credentials route", () => {
       body,
     }));
     expect(rebound.status).toBe(403);
+    expect(await access(join(root, "data", "store-credentials")).then(() => true, () => false)).toBe(false);
+  });
+
+  it("refuses key changes while an editor-started agent runs on the project", async () => {
+    await cp(fileURLToPath(new URL("../../../../../fixtures/sample", import.meta.url)), projectDirectory(), { recursive: true });
+    const session = await projectSessionRegistry.openLocal(join(projectDirectory(), "app-store-screenshots.json"));
+    const headers = {
+      host: "localhost:3000",
+      "content-type": "application/json",
+      cookie: `${PROJECT_SESSION_COOKIE}=${encodeURIComponent(session.descriptor.sessionId)}`,
+      "x-project-id": session.projectId,
+    };
+    const release = await holdAgentRun(projectDirectory());
+    try {
+      const saved = await POST(new Request("http://localhost:3000/api/store-credentials", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ store: "google", serviceAccount: testGoogleServiceAccount() }),
+      }));
+      expect(saved.status).toBe(423);
+      expect(await saved.json()).toMatchObject({ code: "agent-running" });
+      const cleared = await DELETE(new Request("http://localhost:3000/api/store-credentials?store=google", { method: "DELETE", headers }));
+      expect(cleared.status).toBe(423);
+    } finally {
+      release();
+    }
     expect(await access(join(root, "data", "store-credentials")).then(() => true, () => false)).toBe(false);
   });
 });
