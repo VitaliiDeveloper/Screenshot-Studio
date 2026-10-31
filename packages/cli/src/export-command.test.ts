@@ -181,3 +181,46 @@ describe("runExportCommand stable single export", () => {
     expect(runtime.stop).toHaveBeenCalledOnce();
   });
 });
+
+describe("runExportCommand fastlane profile", () => {
+  it("renders only fastlane upload slots at fastlane paths and reports skipped families", async () => {
+    const fixture = await projectFixture();
+    const project = JSON.parse(fixture.bytes);
+    project.layouts[0].screens[0].artboard = { width: 1206, height: 2622 };
+    project.layouts[0].screens.push({
+      ...project.layouts[0].screens[0],
+      id: "web",
+      name: "Web",
+      platform: "web",
+      device: "mobile",
+      artboard: { width: 390, height: 844 },
+    });
+    await writeFile(fixture.path, `${JSON.stringify(project)}\n`, "utf8");
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>(
+      async () => join(fixture.root, "export", "app-store-screenshots-bundle.zip"),
+    );
+    const close = vi.fn(async () => undefined);
+
+    await runExportCommand({ project: fixture.path, profile: "fastlane" }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle,
+      createRenderBrowserSession: vi.fn(async () => ({ close })) as never,
+    });
+
+    const call = exportBundle.mock.calls[0]![0];
+    expect(call.profile).toBe("store-bundle");
+    expect(call.entries.map(({ relativePath }) => relativePath)).toEqual([
+      "fastlane/screenshots/en-US/01_hero_iphone-6.3.png",
+    ]);
+    expect(runtime.log).toHaveBeenCalledWith("Skipped 1 screenshot fastlane does not upload: web/mobile (1)");
+    expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported 1 screenshots/));
+  });
+
+  it("requires a bundle export", async () => {
+    const fixture = await projectFixture();
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    await expect(runExportCommand({ project: fixture.path, profile: "fastlane", screen: "hero" }, storeSpecsPath, runtime.dependencies))
+      .rejects.toThrow("--profile fastlane requires a bundle export, not --screen");
+  });
+});

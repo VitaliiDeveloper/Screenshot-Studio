@@ -215,7 +215,8 @@ Layout-aware mutations require `--layout <id-or-full-name>` when a project has m
 `dev`, `screen`, and `export` accept `--store-specs <path>` for an explicit store specification.
 Bundle export writes locale roots at their device lead target and all explicit persisted variants at
 their own targets. A single-screen export resolves explicit `--size`, then its persisted `storeTargetId`,
-then its device lead target. `screen rm <id> --cascade` explicitly removes a primary
+then its device lead target. `export --profile fastlane` writes the bundle in the folder layout
+`fastlane deliver` and `supply` upload from. `screen rm <id> --cascade` explicitly removes a primary
 screen together with paired variants. After a device lead change, `screen migrate-lead --platform
 <platform> --device <device> --from <previous-size>` moves primary screens onto the current lead and
 keeps each original as a `<previous-size>` variant.

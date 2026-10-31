@@ -29,6 +29,7 @@ import {
   resolveTarget,
   withStableProjectExport,
 } from "./export.js";
+import { fastlaneBundleEntries, fastlaneSkippedSummary } from "./fastlane-layout.js";
 import { loadProjectFile, resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
@@ -127,10 +128,12 @@ export async function runExportCommand(
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
   const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
   const mode = resolveExportMode(flags);
-  const profile = parseExportProfile(flags.profile);
+  // fastlane only re-lays out the store bundle, so it stays a CLI profile outside the core list.
+  const fastlane = flags.profile === "fastlane";
+  const profile = parseExportProfile(fastlane ? undefined : flags.profile);
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  if (profile === "web-share" && mode.kind === "single") {
-    throw new Error("--profile web-share requires a bundle export, not --screen");
+  if ((fastlane || profile === "web-share") && mode.kind === "single") {
+    throw new Error(`--profile ${flags.profile} requires a bundle export, not --screen`);
   }
   const layoutId = resolveLayoutReference(await loadProjectFile(projectPath), flags.layout).id;
 
@@ -176,7 +179,14 @@ export async function runExportCommand(
     await withStableProjectExport(projectPath, async (context) => {
       resolveLayoutReference(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
-      const entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
+      let entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
+      if (fastlane) {
+        const layout = fastlaneBundleEntries(entries);
+        const skippedSummary = fastlaneSkippedSummary(layout.skipped);
+        if (skippedSummary) log(skippedSummary);
+        if (layout.entries.length === 0) throw new Error("No selected screen has a fastlane upload slot");
+        entries = layout.entries;
+      }
       validateBundleArtboards(entries, specs);
       for (const warning of bundlePreflightWarnings(entries, specs)) log(`Warning: ${warning.message}`);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");

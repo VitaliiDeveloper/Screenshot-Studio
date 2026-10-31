@@ -154,7 +154,9 @@ requested artboard crop; it never stitches a separate image or slices a finished
 
 Export profiles are separate from platforms. The default store bundle and optional `web-share`
 profile consume PNGs produced by the shared browser renderer; Web Share only packages those outputs
-with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer.
+with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer. The
+CLI-only `fastlane` profile renames the same store-bundle PNGs into the `fastlane deliver`/`supply`
+tree and skips sizes fastlane cannot upload.
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`

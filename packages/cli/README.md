@@ -32,6 +32,32 @@ screen’s persisted `storeTargetId`, then its device lead target.
 `screenshots export --profile web-share` packages the same rendered PNGs into a portable local-only
 static review/campaign directory and ZIP. Web Share is independent of the Web platform.
 
+### fastlane layout
+
+`screenshots export --profile fastlane` writes the same store-ready PNGs into the tree that
+[fastlane](https://docs.fastlane.tools) reads, under one `fastlane/` folder in `--out`:
+
+- App Store screens go to `fastlane/screenshots/<locale>/<NN>_<screen>_<device>-<size>.png`. `fastlane
+  deliver` reads every device class from one flat locale folder and picks the class by pixel size, so
+  the name carries the device and size to stay unique. Vision Pro names contain `vision`, which deliver
+  needs to tell 3840×2160 apart from Apple TV, and a 2048×2732 iPad 12.9 lands in deliver's 13" set.
+- Google Play screens go to `fastlane/metadata/android/<locale>/images/<slot>/<NN>.png`, where the
+  slot is `phoneScreenshots`, `sevenInchScreenshots`, `tenInchScreenshots`, `tvScreenshots`, or
+  `wearScreenshots` by output family. The Feature Graphic becomes `images/featureGraphic.png`.
+- Project locales map to store codes: an exact store code (`en-US`, `uk`, `zh-Hans`) is kept, a bare
+  language with one store code (`de` → `de-DE`) or a common default (`en` → `en-US`, `es` → `es-ES`,
+  `fr` → `fr-FR`) is expanded, and anything else, such as `pt` or `zh`, stops the export before
+  rendering. App Store Connect and Google Play use different code lists (`ja` vs `ja-JP`).
+- Windows, Web, Chromebook, Automotive, and XR sizes have no fastlane upload slot; the export skips
+  them and prints one summary line.
+
+Then `fastlane deliver --skip_binary_upload --skip_metadata` and `fastlane supply
+--skip_upload_apk --skip_upload_aab --skip_upload_metadata --skip_upload_changelogs` upload the
+screenshots with your own store credentials. Run from the `--out` folder, they read
+`./fastlane/screenshots` and `./fastlane/metadata/android` by default; elsewhere, pass
+`--screenshots_path` / `--metadata_path`. fastlane uploads
+every image it finds there, so export into a clean folder.
+
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at
 a former lead onto the current lead, keeping each original as a `<previous-size>` variant; it refuses
