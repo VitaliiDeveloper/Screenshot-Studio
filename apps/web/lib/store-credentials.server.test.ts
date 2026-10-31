@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -43,9 +43,14 @@ describe("store credential store", () => {
     expect(await readFile(path!, "utf8")).toBe(google);
     expect((await stat(path!)).mode & 0o777).toBe(0o600);
     expect((await stat(join(root, "store-credentials", "app-store-connect.json"))).mode & 0o777).toBe(0o600);
+    const keyPath = join(root, "store-credentials", "app-store-connect.p8");
+    expect((await stat(keyPath)).mode & 0o777).toBe(0o600);
+    expect(await readFile(keyPath, "utf8")).toBe(apple.privateKey);
+    expect(JSON.parse(await readFile(join(root, "store-credentials", "app-store-connect.json"), "utf8")))
+      .toEqual({ keyId: apple.keyId, issuerId: apple.issuerId });
     expect((await stat(join(root, "store-credentials"))).mode & 0o777).toBe(0o700);
     expect(await readFile(join(root, "store-credentials", ".gitignore"), "utf8")).toBe("*\n");
-    expect(await store.appleCredentials()).toEqual(apple);
+    expect(await store.appleCredentials()).toEqual({ keyId: apple.keyId, issuerId: apple.issuerId, keyPath });
 
     const status = await store.status();
     expect(status.google.configured).toBe(true);
@@ -59,6 +64,9 @@ describe("store credential store", () => {
     await store.setApple(testAppleCredentials());
     await store.clear("google");
     await store.clear("google");
+    await store.clear("apple");
+    expect(await readdir(join(root, "store-credentials"))).toEqual([".gitignore"]);
+    await store.setApple(testAppleCredentials());
     const status = await store.status();
     expect(status.google).toEqual({ configured: false, updatedAt: null });
     expect(status.apple.configured).toBe(true);
@@ -94,9 +102,31 @@ describe("store credential store", () => {
     expect((await store.status()).google.configured).toBe(false);
   });
 
-  it("refuses a data folder inside the active project folder", () => {
-    const store = createStoreCredentialStore(join(root, "project", ".screenshot-studio"));
-    expect(() => assertCredentialsOutsideProject(store, join(root, "project"))).toThrow(StoreCredentialError);
-    expect(() => assertCredentialsOutsideProject(store, join(root, "other"))).not.toThrow();
+  it("refuses a data folder inside the active project folder", async () => {
+    const project = join(root, "project");
+    const inside = createStoreCredentialStore(join(project, ".screenshot-studio"));
+    await expect(assertCredentialsOutsideProject(inside, project)).rejects.toThrow(StoreCredentialError);
+    await expect(assertCredentialsOutsideProject(inside, join(root, "other"))).resolves.toBeUndefined();
+    // A folder whose name starts with ".." is still inside the project.
+    const dotted = createStoreCredentialStore(join(project, "..x"));
+    await expect(assertCredentialsOutsideProject(dotted, project)).rejects.toThrow(StoreCredentialError);
+    const sibling = createStoreCredentialStore(join(root, "project-data"));
+    await expect(assertCredentialsOutsideProject(sibling, project)).resolves.toBeUndefined();
+  });
+
+  it("sees through a symlinked data root and refuses a symlinked key folder", async () => {
+    const project = join(root, "project");
+    await mkdir(project);
+    await symlink(project, join(root, "link"));
+    const linked = createStoreCredentialStore(join(root, "link"));
+    await expect(assertCredentialsOutsideProject(linked, join(root, "elsewhere"))).resolves.toBeUndefined();
+    await expect(assertCredentialsOutsideProject(linked, project)).rejects.toThrow(StoreCredentialError);
+
+    await mkdir(join(root, "data"));
+    await mkdir(join(root, "target"));
+    await symlink(join(root, "target"), join(root, "data", "store-credentials"));
+    const planted = createStoreCredentialStore(join(root, "data"));
+    await expect(planted.setGoogle(testGoogleServiceAccount())).rejects.toThrow("symbolic link");
+    expect(await readdir(join(root, "target"))).toEqual([]);
   });
 });

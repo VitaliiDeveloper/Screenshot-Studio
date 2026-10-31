@@ -42,7 +42,7 @@ export async function handleStoreCredentialsPost(
   }
   if (!isRecord(body)) return jsonError(400, "request body must be a JSON object with a store and its key");
   try {
-    assertCredentialsOutsideProject(credentials, projectDirectory);
+    await assertCredentialsOutsideProject(credentials, projectDirectory);
     if (body.store === "google" && typeof body.serviceAccount === "string") {
       await credentials.setGoogle(body.serviceAccount);
     } else if (body.store === "apple") {

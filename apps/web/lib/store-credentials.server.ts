@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createPrivateKey } from "node:crypto";
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { lstat, mkdir, open, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isRecord } from "@web/lib/json-guards.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { writePrivateJsonDocument } from "@web/lib/private-json-document.server.js";
@@ -14,11 +14,18 @@ export interface AppleStoreCredentials {
   privateKey: string;
 }
 
+/** What the Apple upload CLI reads: the ids and the path of the `.p8` key. */
+export interface AppleUploadCredentials {
+  keyId: string;
+  issuerId: string;
+  keyPath: string;
+}
+
 /**
- * Store keys for uploads, one `0600` file per store in `<data root>/store-credentials/` (`0700`, with a
- * `*` .gitignore because the default data root sits under the launch directory). Only `status` answers
- * the browser; the file path and the Apple fields are for server-side upload execution only. A missing,
- * unreadable, or malformed file means "not configured".
+ * Store keys for uploads, as `0600` files in `<data root>/store-credentials/` (`0700`, with a `*`
+ * .gitignore because the default data root sits under the launch directory). Only `status` answers
+ * the browser; key paths and ids are for server-side upload execution only. A missing, unreadable, or
+ * malformed file means "not configured".
  */
 export interface StoreCredentialStore {
   readonly directory: string;
@@ -29,17 +36,16 @@ export interface StoreCredentialStore {
   clear(store: CredentialStoreId): Promise<void>;
   /** The key file `screenshots upload --service-account` reads, when one is configured. */
   googleServiceAccountPath(): Promise<string | undefined>;
-  /** Seam for the Apple upload once its CLI lands. */
-  appleCredentials(): Promise<AppleStoreCredentials | undefined>;
+  /** Seam for the Apple upload once its CLI lands; its CLI takes the key as a path. */
+  appleCredentials(): Promise<AppleUploadCredentials | undefined>;
 }
 
 /** Messages are fixed text: a parser message would quote the input, which holds the private key. */
 export class StoreCredentialError extends Error {}
 
-const FILES: Record<CredentialStoreId, string> = {
-  google: "google-play-service-account.json",
-  apple: "app-store-connect.json",
-};
+const GOOGLE_FILE = "google-play-service-account.json";
+const APPLE_IDS_FILE = "app-store-connect.json";
+const APPLE_KEY_FILE = "app-store-connect.p8";
 
 function isPrivateKey(pem: string): boolean {
   try {
@@ -81,10 +87,21 @@ export function validateAppleCredentials(value: unknown): AppleStoreCredentials 
   return { keyId, issuerId, privateKey };
 }
 
+/** Resolves symlinks in the longest existing prefix, so a not-yet-created folder still compares by its real parent. */
+async function realPathOf(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    const parent = dirname(path);
+    return parent === path ? path : join(await realPathOf(parent), basename(path));
+  }
+}
+
 /** Keys never go inside a project folder, where they could be archived or committed with it. */
-export function assertCredentialsOutsideProject(store: StoreCredentialStore, projectDirectory: string): void {
-  const path = relative(resolve(projectDirectory), store.directory);
-  if (path === "" || (!path.startsWith("..") && !isAbsolute(path))) {
+export async function assertCredentialsOutsideProject(store: StoreCredentialStore, projectDirectory: string): Promise<void> {
+  const path = relative(await realPathOf(resolve(projectDirectory)), await realPathOf(store.directory));
+  const outside = path === ".." || path.startsWith(`..${sep}`) || isAbsolute(path);
+  if (!outside) {
     throw new StoreCredentialError(
       "The editor data folder is inside this project, so store keys would be saved with it; start the editor with SCREENSHOT_STUDIO_DATA_ROOT set to a folder outside the project",
     );
@@ -93,7 +110,7 @@ export function assertCredentialsOutsideProject(store: StoreCredentialStore, pro
 
 export function createStoreCredentialStore(root: string = resolveManagedProjectStorageConfig().root): StoreCredentialStore {
   const directory = join(resolve(root), "store-credentials");
-  const pathOf = (store: CredentialStoreId) => join(directory, FILES[store]);
+  const pathOf = (file: string) => join(directory, file);
   let queue: Promise<unknown> = Promise.resolve();
 
   const serialized = (operation: () => Promise<void>): Promise<void> => {
@@ -101,36 +118,47 @@ export function createStoreCredentialStore(root: string = resolveManagedProjectS
     queue = run.catch(() => undefined);
     return run;
   };
-  const write = (store: CredentialStoreId, contents: string) => serialized(async () => {
+  const write = (files: Array<[file: string, contents: string]>) => serialized(async () => {
     await mkdir(directory, { recursive: true, mode: 0o700 });
+    // A planted symlink would send keys wherever it points, past the inside-project check.
+    if ((await lstat(directory)).isSymbolicLink()) {
+      throw new StoreCredentialError("The store key folder is a symbolic link; remove it and try again");
+    }
     await writeFile(join(directory, ".gitignore"), "*\n", { flag: "wx" }).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "EEXIST") throw error;
     });
-    await writePrivateJsonDocument({
-      root: directory,
-      targetPath: pathOf(store),
-      stagePrefix: `.${store}-credentials`,
-      label: "Store credentials",
-      contents,
-      openFile: open,
-      rename,
-    });
+    for (const [file, contents] of files) {
+      await writePrivateJsonDocument({
+        root: directory,
+        targetPath: pathOf(file),
+        stagePrefix: `.${file}`,
+        label: "Store credentials",
+        contents,
+        openFile: open,
+        rename,
+      });
+    }
   });
-  const readValid = async <T>(store: CredentialStoreId, parse: (contents: string) => T): Promise<T | undefined> => {
+  const readValid = async <T>(parse: () => Promise<T>): Promise<T | undefined> => {
     try {
-      return parse(await readFile(pathOf(store), "utf8"));
+      return await parse();
     } catch {
       return undefined;
     }
   };
-  const readApple = () => readValid("apple", (contents) => validateAppleCredentials(JSON.parse(contents)));
-  const googleConfigured = async () => (await readValid("google", (contents) => {
-    validateGoogleServiceAccount(contents);
+  const read = (file: string) => readFile(pathOf(file), "utf8");
+  const readApple = () => readValid(async () => {
+    const ids: unknown = JSON.parse(await read(APPLE_IDS_FILE));
+    const valid = validateAppleCredentials({ ...(isRecord(ids) ? ids : {}), privateKey: await read(APPLE_KEY_FILE) });
+    return { keyId: valid.keyId, issuerId: valid.issuerId, keyPath: pathOf(APPLE_KEY_FILE) };
+  });
+  const googleConfigured = async () => (await readValid(async () => {
+    validateGoogleServiceAccount(await read(GOOGLE_FILE));
     return true;
   })) === true;
-  const statusOf = async (store: CredentialStoreId, configured: boolean): Promise<StoreCredentialStatus> => {
+  const statusOf = async (file: string, configured: boolean): Promise<StoreCredentialStatus> => {
     if (!configured) return { configured: false, updatedAt: null };
-    const { mtime } = await stat(pathOf(store));
+    const { mtime } = await stat(pathOf(file));
     return { configured: true, updatedAt: mtime.toISOString() };
   };
 
@@ -138,21 +166,26 @@ export function createStoreCredentialStore(root: string = resolveManagedProjectS
     directory,
     async status() {
       return {
-        google: await statusOf("google", await googleConfigured()),
-        apple: await statusOf("apple", (await readApple()) !== undefined),
+        google: await statusOf(GOOGLE_FILE, await googleConfigured()),
+        apple: await statusOf(APPLE_IDS_FILE, (await readApple()) !== undefined),
       };
     },
     async setGoogle(json) {
       validateGoogleServiceAccount(json);
-      return write("google", json);
+      return write([[GOOGLE_FILE, json]]);
     },
     async setApple(credentials) {
-      const valid = validateAppleCredentials(credentials);
-      return write("apple", `${JSON.stringify(valid)}\n`);
+      const { keyId, issuerId, privateKey } = validateAppleCredentials(credentials);
+      // The key first: ids without a readable key still read as "not configured".
+      return write([[APPLE_KEY_FILE, privateKey], [APPLE_IDS_FILE, `${JSON.stringify({ keyId, issuerId })}\n`]]);
     },
-    clear: (store) => serialized(() => rm(pathOf(store), { force: true })),
+    clear: (store) => serialized(async () => {
+      for (const file of store === "google" ? [GOOGLE_FILE] : [APPLE_IDS_FILE, APPLE_KEY_FILE]) {
+        await rm(pathOf(file), { force: true });
+      }
+    }),
     async googleServiceAccountPath() {
-      return (await googleConfigured()) ? pathOf("google") : undefined;
+      return (await googleConfigured()) ? pathOf(GOOGLE_FILE) : undefined;
     },
     appleCredentials: readApple,
   };
