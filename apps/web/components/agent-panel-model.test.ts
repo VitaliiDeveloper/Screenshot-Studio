@@ -145,6 +145,7 @@ describe("agent notices and picker", () => {
 
   it("labels each agent's state and prefers a ready agent", () => {
     expect(agentStateLabel(agentStatus())).toBe("Signed in · subscription · v2.1.296");
+    expect(agentStateLabel(agentStatus({ authMode: null, version: "2.1.4" }))).toBe("Installed · v2.1.4");
     expect(agentStateLabel(agentStatus({ state: "unsupported-version" }))).toBe("Needs v2.1.268 or later");
     expect(agentStateLabel(gemini)).toBe("Unavailable");
     expect(defaultAgentId([codex, agentStatus(), gemini], null)).toBe("claude-code");
