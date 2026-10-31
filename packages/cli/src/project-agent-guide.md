@@ -180,6 +180,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
 | Refresh re-captured screens | `import <dir> --refresh` |
+| Find problems before export | `check --render [--json] [--strict]` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
@@ -209,6 +210,34 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 `--all-sizes` it targets leaf layers, so move a group by moving each child. Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
 
+## Check before export
+
+`screenshots check --render --json --project ./app-store-screenshots.json` lists the editor's Issues
+and export preflight for the layout `export` ships (or `--layout`) without writing anything. It exits
+1 on any blocker; `--strict` also fails on warnings. Without `--render` it is browser-free and skips
+text overflow. The JSON report is:
+
+```json
+{
+  "layoutId": "default",
+  "textMeasured": true,
+  "strict": false,
+  "ok": false,
+  "counts": { "blockers": 1, "warnings": 1 },
+  "issues": [
+    { "id": "missing-image:hero:shot", "kind": "missing-image", "level": "blocker",
+      "message": "Image missing from the project folder: assets/hero.png", "layoutId": "default",
+      "screenId": "hero", "size": "6.9", "locale": "en", "elementId": "shot" }
+  ]
+}
+```
+
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
+`unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, or
+`android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
+`screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
+issue with the commands above, then run `check` again.
+
 ## Recipe: generate or refresh copy
 
 1. Read the product brief, current captures, and every screen in the target locale. Write a short
@@ -232,6 +261,7 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
+   screenshots check --render --project ./app-store-screenshots.json
    screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale en --project ./app-store-screenshots.json
    ```
@@ -476,6 +506,7 @@ screenshots asset remove-background assets/icons/product.png --background FFFFFF
 ## Completion checklist
 
 - The CLI can list the project without a validation error.
+- `screenshots check --render` exits 0: no blockers, and any warning is deliberate.
 - Copy and media changes are limited to the intended layout, locale, and screens.
 - Every text font identity is registered and contains the required glyphs.
 - Focus and Overview show no accidental overlap, clipping, or broken hierarchy.

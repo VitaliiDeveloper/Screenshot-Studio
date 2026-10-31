@@ -190,6 +190,9 @@ pnpm screenshots init --dir ./my-app-screenshots
 # Open its visual editor
 pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 
+# Check the preferred layout for Issues without exporting; exits 1 on any blocker
+pnpm screenshots check --render --project ./my-app-screenshots/app-store-screenshots.json
+
 # Export the preferred layout
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json
 
@@ -212,13 +215,19 @@ pnpm screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x"
 ```
 
 Layout-aware mutations require `--layout <id-or-full-name>` when a project has multiple layouts.
-`dev`, `screen`, and `export` accept `--store-specs <path>` for an explicit store specification.
+`dev`, `screen`, `check`, and `export` accept `--store-specs <path>` for an explicit store specification.
 Bundle export writes locale roots at their device lead target and all explicit persisted variants at
 their own targets. A single-screen export resolves explicit `--size`, then its persisted `storeTargetId`,
 then its device lead target. `screen rm <id> --cascade` explicitly removes a primary
 screen together with paired variants. After a device lead change, `screen migrate-lead --platform
 <platform> --device <device> --from <previous-size>` moves primary screens onto the current lead and
 keeps each original as a `<previous-size>` variant.
+
+`check` reports the editor's Issues plus export preflight (unregistered or missing fonts, unknown
+sizes, artboards that cannot scale) for the layout `export` would ship, or `--layout`. Without
+`--render` it needs no browser and skips text overflow; `--render` measures text in the export's
+render host. It exits 1 on any blocker, and `--strict` also fails on warnings, so CI can gate on it;
+`--json` prints a stable report for scripts and agents.
 
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).

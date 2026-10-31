@@ -24,7 +24,14 @@ Interactive runs check the npm registry at most once a day for a newer version a
 one-line notice. Disable it with `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is
 skipped when `CI` is set or output is not a terminal.
 
-`dev`, `screen`, and `export` accept `--store-specs <path>` to override the packaged
+`screenshots check [--layout <id>] [--render] [--strict] [--json]` validates a project without
+exporting: the editor's Issues (screen missing in a locale, image missing from the project folder,
+and with `--render` text overflow measured in the export render host) plus export preflight (fonts
+that are unregistered or missing on disk, unknown sizes, artboards that cannot scale, Android tablet
+screen counts). It prints one line per issue and exits 1 on any blocker; `--strict` also fails on
+warnings. `--render` needs the same Chromium builds as `export` and fails the same way without them.
+
+`dev`, `screen`, `check`, and `export` accept `--store-specs <path>` to override the packaged
 `store-specs.json`. Bundle export writes every locale root at its device lead target plus its
 explicit persisted variants. A single-screen export resolves an explicit `--size` first, then the
 screen’s persisted `storeTargetId`, then its device lead target.

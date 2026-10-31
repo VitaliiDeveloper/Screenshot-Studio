@@ -43,7 +43,8 @@ loop. When the set is done, offer the read-only critic in
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the
   generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
   `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
-  validate the project. `element get|set|add|rm` and `screen show|set` cover element geometry, style,
+  validate the project. Run `screenshots check --render --json` before export: it exits 1 on any
+  blocker and lists each issue with its screen, size, locale, and element. `element get|set|add|rm` and `screen show|set` cover element geometry, style,
   and screen backgrounds.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.
