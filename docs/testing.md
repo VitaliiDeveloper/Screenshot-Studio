@@ -228,3 +228,9 @@ The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm ch
 builder, lockfile, or package manifests change. It can also be dispatched manually for an exact
 candidate head. These checks build and inspect the packed CLI archive but do not publish it:
 publication remains a separate, owner-authorized action under [`docs/releasing.md`](releasing.md).
+
+The `Action smoke` workflow runs the root GitHub Action as a consumer would: one job exports
+`examples/connected-launch` and checks every PNG size with `scripts/check-export-sizes.mjs`, and one
+job removes an asset and expects `screenshots check` to fail with no export. It runs on dispatch, on
+every pull request from `dev` into `main`, and on pull requests into `dev` that change `action.yml`,
+the workflow, or that script.
