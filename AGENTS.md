@@ -13,6 +13,11 @@ Before any task, read and apply the repository-wide workflow rules in
 - Store dimensions come from `store-specs.json`, not duplicated constants.
 - Schema widening requires explicit task authorization and coordinated schema, architecture,
   renderer, fixture, and parity updates. Do not invent project fields from prose or future ideas.
+- Store credentials never enter the project document, git, logs, CI artifacts, or an agent's
+  environment. `screenshots upload` is a human-only action: it refuses to run when
+  `SCREENSHOT_STUDIO_AGENT` is set (the editor sets it for every agent it starts), even with
+  `--dry-run`. Agents never run it, never ask for store keys, and never set credential variables;
+  they may set app identifiers with `screenshots publishing set`.
 - Publication is separate from implementation. Follow `docs/releasing.md`; builds and green checks do
   not authorize tags, registry publication, GitHub releases, or announcements.
 

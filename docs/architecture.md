@@ -56,7 +56,8 @@ platform/device pair is presented as an **output family** (for example, Google P
 These catalog values are runtime configuration and are not persisted project fields.
 
 The enforced schema is the authority for exact members and bounds. At a high level, a Project owns
-metadata, file-backed fonts, a preferred export layout, and ordered layouts. A layout owns ordered
+metadata, file-backed fonts, a preferred export layout, ordered layouts, and optional publishing
+identifiers. A layout owns ordered
 screens; each screen owns its artboard, background, locale/direction, optional explicit store-target
 variant identity, and ordered elements. Array order is meaningful for layout, screen, and z-order.
 
@@ -64,6 +65,20 @@ Layouts are independent authoring alternatives with an explicit `isolated` or `c
 Elements stay owned by one screen even when connected rendering lets decoration cross a crop boundary.
 Only strict v1 element types and literals are valid. Workspace selections, viewport state, open panels,
 history, source locators, recents, credentials, and server lifecycle metadata never enter Project JSON.
+
+The optional `publishing` block holds store app identifiers and nothing else:
+`publishing: { apple?: { appId }, google?: { packageName } }`. `appId` is the numeric App Store
+Connect Apple ID; `packageName` is a dotted Android application id, validated by the schema because it
+becomes a store API path segment. The renderer and export never read it, so it cannot change pixels.
+`screenshots publishing set|clear` edits it through the ordinary validated project write, and an empty
+block is dropped so a project without identifiers keeps its bytes.
+
+Store credentials never enter the project document, git, logs, CI artifacts, or the environment of
+agents. The CLI reads them only from environment variables that name key files
+(`GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`; `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
+`APP_STORE_CONNECT_KEY_PATH` are reserved for App Store Connect) or from a `--service-account <path>`
+flag; key material itself is never a command-line argument. The repository GitHub Action does not
+upload.
 Text elements persist horizontal alignment and an optional vertical alignment; the shared renderer
 treats an omitted vertical value as `top` so existing strict documents keep their pixels unchanged.
 Screenshot and decorative-image elements may persist a bounded Gaussian blur radius. Device-frame
@@ -162,6 +177,17 @@ profile consume PNGs produced by the shared browser renderer; Web Share only pac
 with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer. The
 CLI-only `fastlane` profile renames the same store-bundle PNGs into the `fastlane deliver`/`supply`
 tree and skips sizes fastlane cannot upload.
+
+`screenshots upload --store google` renders through the same bundle export into a temporary folder,
+laid out by the shared store upload plan (`packages/cli/src/store-upload-plan.ts`), which also owns
+the store locale and Android slot mapping the fastlane profile uses. The plan replaces each touched
+Play slot as a whole in project screen order, leaves other slots and locales alone, and enforces the
+8-screenshot and single-Feature-Graphic limits before anything is rendered. The Google Play client
+uses `fetch` and `node:crypto` only: a service-account RS256 JWT is exchanged for an OAuth token, and
+one androidpublisher v3 edit is opened, its touched slots listed, deleted, and refilled, then committed
+once. Any failure before the commit abandons the edit. Production endpoints are constants in code;
+tests inject a loopback mock through the command's dependencies, never through the environment.
+`--dry-run` is offline and opens no edit.
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
@@ -371,7 +397,11 @@ the CLI's own `--version`, `--help`, and auth-status commands under a timeout th
 tree, shares one probe round between reads for a few seconds, and answers loopback Hosts only. It
 never reads credential files and returns states, never account identity. Every agent process receives
 an allowlisted environment, so API keys and provider switches in the server environment cannot move a
-CLI off the subscription. A future Claude Code release may default `-p` to `--bare`, which ignores the
+CLI off the subscription. The same allowlist keeps store credential variables away from agents, and
+`agentEnv()` adds `SCREENSHOT_STUDIO_AGENT=1`; `screenshots upload` refuses to run when that variable
+is set, even with `--dry-run`, so store publication stays a human action. External agents working in
+the project folder have no store credentials either, and the project guide and skill describe
+`upload` as human-only. A future Claude Code release may default `-p` to `--bare`, which ignores the
 subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
 environment carries none. `models` lists exact model IDs with display labels, the default first, so the

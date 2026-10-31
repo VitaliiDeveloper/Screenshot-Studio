@@ -80,6 +80,39 @@ screenshots with your own store credentials. Run from the `--out` folder, they r
 every image it finds there, so export into a clean folder, and add `--overwrite_screenshots` to
 deliver to replace the screenshots already in App Store Connect instead of appending to them.
 
+### Upload to Google Play
+
+`screenshots upload --store google [--layout <id>] [--dry-run] [--json]` replaces the project's
+Google Play screenshots directly, with no fastlane or Ruby. It is a human-only action: run it
+yourself in a terminal or CI job.
+
+1. Store the app's package name in the project (identifiers only, never keys):
+   `screenshots publishing set --google-package com.example.app`. `publishing show` prints it and
+   `publishing clear google` removes it; `--apple-app-id <id>` is stored the same way for a later App
+   Store Connect upload.
+2. Point `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` (or `--service-account <path>`) at the JSON key of a
+   service account that has release access to the app in Play Console. The key is read from that file
+   only; it never goes into the project, a flag value, or the output.
+3. Run `screenshots upload --store google --dry-run` to see the plan, then without `--dry-run` to
+   upload.
+
+The plan uses the fastlane locale and slot mapping above. Each slot with project screens
+(`phoneScreenshots`, `sevenInchScreenshots`, `tenInchScreenshots`, `tvScreenshots`,
+`wearScreenshots`, `featureGraphic`) is replaced as a whole, in project screen order; every other slot
+and every other store locale is left as it is. A slot with more than 8 screenshots (or more than one
+Feature Graphic) stops the command before anything is rendered or sent. `--dry-run` is offline: it
+needs no credentials, renders nothing, and opens no edit, so it says "replaces every current image"
+instead of a count.
+
+A real upload renders through the ordinary bundle export, opens one Play edit, lists the touched
+slots, deletes their images, uploads the new PNGs, and commits the edit once. Any failure before the
+commit abandons the edit, so Google Play is unchanged. If the commit request gets no response, the
+command says the outcome is unknown; check Play Console before running it again. Failures exit 1 with
+an error on stderr and no `--json` report, like `check`.
+
+Agents the editor starts carry `SCREENSHOT_STUDIO_AGENT=1` and none of the credential variables;
+`upload` refuses to run when that variable is set, even with `--dry-run`.
+
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at
 a former lead onto the current lead, keeping each original as a `<previous-size>` variant; it refuses
