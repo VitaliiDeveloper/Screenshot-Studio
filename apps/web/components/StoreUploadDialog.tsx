@@ -247,6 +247,11 @@ export function missingStoreSetup(plan: UploadPlanResponse | null, error: Upload
   return null;
 }
 
+/** The version a review resends; one the server refused would fail the same way again. */
+export function versionToReview(error: UploadError | null, version: string | undefined): string | undefined {
+  return error?.code === "unknown-version" ? undefined : version;
+}
+
 /** What else keeps the confirm disabled: an App Store version that is missing or not picked yet. */
 export function uploadBlocked(plan: UploadPlanResponse): string | null {
   if (plan.store === "google" || plan.versions === null) return null;
@@ -356,7 +361,7 @@ export function StoreUploadDialog({ layoutId, onClose, onOpenStores }: {
         <div className="flex justify-end gap-2 border-t border-[var(--editor-color-border-subtle)] pt-4">
           <button className={editorUi.buttonSecondary} onClick={onClose} disabled={uploading}>Close</button>
           {!plan && !loading && !uploading && !result ? (
-            <button className={editorUi.buttonSecondary} onClick={() => review(store, version)}>Review again</button>
+            <button className={editorUi.buttonSecondary} onClick={() => review(store, versionToReview(error, version))}>Review again</button>
           ) : null}
           {plan ? (
             <button className={editorUi.buttonPrimary} onClick={() => void confirm()} disabled={uploading || missing !== null || blocked !== null}>

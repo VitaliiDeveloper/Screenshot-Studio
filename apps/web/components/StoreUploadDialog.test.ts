@@ -3,7 +3,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { AppStoreUploadReport, UploadPlanResponse, UploadReport } from "@web/lib/store-upload";
-import { missingStoreSetup, uploadBlocked, UploadPlanReview, UploadReportView } from "./StoreUploadDialog.js";
+import { missingStoreSetup, uploadBlocked, UploadPlanReview, UploadReportView, versionToReview } from "./StoreUploadDialog.js";
 
 Object.assign(globalThis, { React });
 
@@ -126,6 +126,12 @@ describe("App Store upload plan review", () => {
     expect(uploadBlocked(several)).toBe("Pick the App Store version to upload to.");
     const picked = { ...several, version: "1.3", versions: [{ ...several.versions[0]!, selected: "1.3" }] };
     expect(uploadBlocked(picked)).toBeNull();
+  });
+
+  it("reviews again without a version the server refused, and keeps a valid one", () => {
+    expect(versionToReview({ message: "1.3 is not an editable version", code: "unknown-version" }, "1.3")).toBeUndefined();
+    expect(versionToReview({ message: "changed", code: "plan-stale" }, "1.3")).toBe("1.3");
+    expect(versionToReview(null, "1.3")).toBe("1.3");
   });
 
   it("explains a platform without an editable version and a missing key", () => {
